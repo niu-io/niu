@@ -50,11 +50,35 @@ WITH inventory AS (
  AND ($5::uuid IS NULL OR session_id=$5)
 ), all_outputs AS (
  SELECT i.*,r.kind,r.created_at AS output_created_at,
+ capture_projection.capture,capture_projection.content_type,
  CASE WHEN r.expires_at<=clock_timestamp() THEN 'expired'
  WHEN r.deleted_at IS NOT NULL THEN 'deleted'
  WHEN i.state<>'succeeded' OR r.ciphertext IS NULL THEN 'unavailable'
  ELSE 'available' END AS availability
  FROM inventory i JOIN media_result_references r ON r.attempt_id=i.id
+ LEFT JOIN LATERAL (
+  -- A retained copy is independent of the original Provider reference. Prefer
+  -- the canonical active/stored request, otherwise the newest failed attempt.
+  -- Neither capture state nor a library rename changes output paging identity.
+  SELECT jsonb_build_object(
+   'id',capture.id,'task_id',capture.task_id,'kind',capture.kind,
+   'status',capture.state,'asset_id',capture.asset_id,
+   'availability',CASE WHEN capture.state<>'stored' THEN 'not_stored'
+     WHEN library.deleted_at IS NOT NULL THEN 'deleted' ELSE 'retained' END,
+   'failure_code',capture.failure_category,
+   'created_at',capture.created_at,'updated_at',capture.updated_at
+  ) AS capture,
+  library.content_type
+  FROM generations_artifact_captures capture
+  LEFT JOIN workspace_asset_library library
+   ON library.organization_id=capture.organization_id
+    AND library.project_id=capture.project_id AND library.id=capture.asset_id
+  WHERE capture.organization_id=$1 AND capture.project_id=$2
+   AND capture.task_id=i.id AND capture.kind=r.kind
+  ORDER BY CASE WHEN capture.state IN ('stored','preparing') THEN 0 ELSE 1 END,
+   capture.created_at DESC,capture.id DESC
+  LIMIT 1
+ ) capture_projection ON true
 )
 , outputs AS (
  SELECT * FROM all_outputs WHERE ($4::text IS NULL OR state=$4)

@@ -29,6 +29,12 @@ Dashboard and gateway static checks were executed at the checkpoint. Fixture out
 - Priority 4 genuine existing FastRouter Seedance recovery is verified in an isolated copy: saved-channel query HTTP 200/succeeded, fresh video HTTP 200, independent full decode, unchanged generation-submission and financial records. Changing the live model mapping through the management API did not change saved context or reroute the original query. OpenRouter evidence remains separate.
 - Priority 3 frontend consumption and Priority 5 multi-browser acceptance remain open. Durable capture/promotion is implemented as an explicit bounded copy into the existing encrypted workspace library; current-input cached/fresh saving and source dedup have been exercised. Current-input restart, actor identity, Read/Write isolation, independent encrypted-byte verification, deletion and non-resurrection checks are complete for this increment. Quota/interrupted-lease boundary qualification and frontend acceptance remain separate. A result URL alone is not retained storage.
 
+## Inventory capture projection increment
+
+Task artifact summaries and artifact list/detail now include the safe nullable `capture` DTO. The original saved-reference availability remains separate from the retained library copy; validated captured MIME type is known, otherwise null. Pagination continues to use immutable source-output creation identity. Actual retained and deleted copies were checked through HTTP and the built SDK, including list/detail traversal and independent native database comparison. These reads made no upstream status queries or generation/financial changes.
+
+Remaining backend work includes quota/interrupted-lease qualification and durable typed material-reference drafts plus session-turn-to-intent binding. Existing video intents retain text-only requests; task association does not yet recover a pending reference-bearing submission from its session. Extend those existing stores and their retention/idempotency rules rather than adding another task subsystem. Frontend and human-verification acceptance remain separate.
+
 ## Frontend integration for the delivered SDK
 
 - Video passes both its selected workspace key and exact model to `admin.dashboardMedia(scope, keyId).capabilities(model, { signal })`. An empty native-module result does not authorize fallback to another model/account. Hide native tools when the selected model has no supported module.

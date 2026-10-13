@@ -3,8 +3,8 @@ use crate::{Store, StoreError, TenantScope};
 use serde_json::{Value, json};
 use uuid::Uuid;
 const CTE: &str = include_str!("generations_inventory.sql");
-const TASK: &str = "jsonb_build_object('id',i.id,'kind','video','model',i.model,'model_display_name',i.model_display_name,'model_display_name_source',i.model_display_name_source,'execution_context',i.execution_context,'created_at',i.created_at,'updated_at',i.updated_at,'state',i.state,'source',i.source,'session_id',i.session_id,'turn_id',i.turn_id,'artifacts',coalesce((SELECT jsonb_agg(jsonb_build_object('kind',kind,'availability',availability) ORDER BY kind) FROM outputs WHERE id=i.id),'[]'::jsonb))";
-const OUTPUT: &str = "jsonb_build_object('task_id',i.id,'kind',i.kind,'name',CASE i.kind WHEN 'video' THEN 'Generated video' ELSE 'Last frame' END,'created_at',i.output_created_at,'content_type',NULL,'availability',i.availability,'session_id',i.session_id,'turn_id',i.turn_id,'workspace_id',$2)";
+const TASK: &str = "jsonb_build_object('id',i.id,'kind','video','model',i.model,'model_display_name',i.model_display_name,'model_display_name_source',i.model_display_name_source,'execution_context',i.execution_context,'created_at',i.created_at,'updated_at',i.updated_at,'state',i.state,'source',i.source,'session_id',i.session_id,'turn_id',i.turn_id,'artifacts',coalesce((SELECT jsonb_agg(jsonb_build_object('kind',kind,'availability',availability,'capture',capture) ORDER BY kind) FROM outputs WHERE id=i.id),'[]'::jsonb))";
+const OUTPUT: &str = "jsonb_build_object('task_id',i.id,'kind',i.kind,'name',CASE i.kind WHEN 'video' THEN 'Generated video' ELSE 'Last frame' END,'created_at',i.output_created_at,'content_type',i.content_type,'availability',i.availability,'capture',i.capture,'session_id',i.session_id,'turn_id',i.turn_id,'workspace_id',$2)";
 pub struct GenerationsInventoryQuery<'a> {
     pub state: Option<&'a str>,
     pub session_id: Option<Uuid>,

@@ -18904,11 +18904,22 @@ Content type: `application/json`.
                     "expired",
                     "unavailable"
                   ]
+                },
+                "capture": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/GenerationArtifactCapture"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
                 "kind",
-                "availability"
+                "availability",
+                "capture"
               ]
             }
           },
@@ -19195,7 +19206,11 @@ Content type: `application/json`.
             "format": "date-time"
           },
           "content_type": {
-            "type": "null"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Inspected captured-library content type when known; otherwise null."
           },
           "availability": {
             "enum": [
@@ -19222,6 +19237,16 @@ Content type: `application/json`.
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "capture": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GenerationArtifactCapture"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -19233,7 +19258,8 @@ Content type: `application/json`.
           "availability",
           "session_id",
           "turn_id",
-          "workspace_id"
+          "workspace_id",
+          "capture"
         ]
       }
     },
@@ -19414,11 +19440,22 @@ Content type: `application/json`.
                   "expired",
                   "unavailable"
                 ]
+              },
+              "capture": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/GenerationArtifactCapture"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
               "kind",
-              "availability"
+              "availability",
+              "capture"
             ]
           }
         },
@@ -19647,7 +19684,11 @@ Content type: `application/json`.
           "format": "date-time"
         },
         "content_type": {
-          "type": "null"
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Inspected captured-library content type when known; otherwise null."
         },
         "availability": {
           "enum": [
@@ -19674,6 +19715,16 @@ Content type: `application/json`.
         "workspace_id": {
           "type": "string",
           "format": "uuid"
+        },
+        "capture": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/GenerationArtifactCapture"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -19685,7 +19736,8 @@ Content type: `application/json`.
         "availability",
         "session_id",
         "turn_id",
-        "workspace_id"
+        "workspace_id",
+        "capture"
       ]
     }
   },
@@ -29686,6 +29738,82 @@ Local `#/components/schemas/…` references resolve to these definitions.
           }
         }
       }
+    }
+  }
+}
+```
+
+### GenerationArtifactCapture
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "task_id",
+    "kind",
+    "status",
+    "asset_id",
+    "availability",
+    "failure_code",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "task_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "kind": {
+      "enum": [
+        "video",
+        "last_frame"
+      ]
+    },
+    "status": {
+      "enum": [
+        "preparing",
+        "stored",
+        "failed"
+      ]
+    },
+    "asset_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "availability": {
+      "enum": [
+        "retained",
+        "deleted",
+        "not_stored"
+      ]
+    },
+    "failure_code": {
+      "enum": [
+        null,
+        "delivery_failed",
+        "authorization_changed",
+        "invalid_media",
+        "capacity_exceeded",
+        "storage_unavailable",
+        "encryption_unavailable"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
     }
   }
 }

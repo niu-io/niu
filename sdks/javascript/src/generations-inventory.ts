@@ -1,4 +1,5 @@
 import type { RequestOptions } from './index.js';
+import type { GenerationArtifactCapture } from './generation-artifact-capture.js';
 /** Saved state, not inference authority or an automatic polling contract. */
 export type GenerationTaskState = 'queued' | 'running' | 'succeeded' | 'failed' | 'unknown' | 'submission_unknown' | 'reconciliation_required';
 export type GenerationArtifactAvailability = 'available' | 'expired' | 'deleted' | 'unavailable';
@@ -30,12 +31,14 @@ export type GenerationTask = {
   execution_context: GenerationExecutionContext;
   created_at: string; updated_at: string; state: GenerationTaskState;
   source: 'api' | 'generations' | 'unknown'; session_id: string | null; turn_id: string | null;
-  artifacts: Array<{ kind: GenerationArtifactKind; availability: GenerationArtifactAvailability }>;
+  artifacts: Array<{ kind: GenerationArtifactKind; availability: GenerationArtifactAvailability; capture: GenerationArtifactCapture | null }>;
 };
-/** Content type remains null until bytes are independently inspected by delivery. */
+/** Provider reference availability and the retained library copy remain independent.
+ * Content type is known only from the captured, validated library metadata. */
 export type GenerationArtifact = {
   task_id: string; kind: GenerationArtifactKind; name: string; created_at: string;
-  content_type: null; availability: GenerationArtifactAvailability;
+  content_type: string | null; availability: GenerationArtifactAvailability;
+  capture: GenerationArtifactCapture | null;
   session_id: string | null; turn_id: string | null; workspace_id: string;
 };
 export type GenerationInventoryPage<T> = {
