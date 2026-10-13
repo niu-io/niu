@@ -197,6 +197,8 @@ images, optional inspected/library references and their constraints retain their
 separate model/authorization contracts. The local enabled text-only preset does
 not enable reference generation merely because asset management is available.
 
+The dashboard Materials page restores saved operations under the explicitly selected workspace, API key and model context. **Check saved status** reads the retained operation only; it does not retry a mutation or establish material readiness. Prepared and unknown outcomes remain unconfirmed and block new material/group writes. A failed history read retains existing records with an explicit error. A missing record never proves that the request was not sent; transport uncertainty before a durable record exists cannot currently be recovered after leaving the page.
+
 ## Verification-session handoff
 
 This is an upstream human-verification session, not local face recognition.

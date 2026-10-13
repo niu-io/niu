@@ -51,12 +51,14 @@ Create/associate recover independently: after a Video submission response is los
 
 The dashboard can restore retained Video input and saved task state after its original inference key is revoked or expires. Historical reads still require current workspace Read permission and the original actor-owned intent. Returned key references are context, not authorization to generate, estimate or query a Supplier. An unavailable key leads to API-key management rather than Supplier configuration.
 
-The dashboard loads saved previews through workspace Tasks/Artifacts independently of active inference keys. Billing/transport panels still require current original-key access. Complete shared-output controls remain dashboard integration work; the SDK contracts below expose their supported operations independently.
+The dashboard loads saved previews and persisted billing/transport diagnostics through workspace-scoped task APIs independently of active inference keys. Generation and fresh Supplier checks still require current inference authority. Complete shared-output controls remain dashboard integration work; the SDK contracts below expose their supported operations independently.
 
 
 ## Unsubmitted Video composition
 
 Use **Save request** in the Video composer to retain supported input in a private Video session without estimating or submitting generation. It saves an immutable intent and binds it to one original turn. The saved request appears in history; reopening it restores the original session binding from the backend. Only the matching unfinished draft is cleared after successful saving. A later explicit submission still requires a current eligible key and estimate.
+
+For models that advertise workspace-image support, **Attach image** saves the file to workspace materials. Uploading alone does not add processing consent: explicitly allow processing and choose any required image role before the reference enters the request. **Use saved image** selects an existing image with the same consent and role requirements. Preview and saved draft reload use the retained workspace bytes. Removing a reference detaches it from the unfinished request; it does not delete shared materials or edit an already saved request. Saving a request does not estimate or generate a video. Models without workspace-image support retain their separate direct-input contract.
 
 The intent response includes nullable `session_binding` with the original session and turn references. An omitted field on an older Gateway means unknown context, not permission to create a replacement binding. These references are routing metadata, not display labels.
 
