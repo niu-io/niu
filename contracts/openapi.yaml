@@ -6,6 +6,20 @@ info:
 servers:
   - url: /
 paths:
+  /v1/media/asset-operations/prepare:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1prepare'
+  /v1/media/asset-operations/{id}/dispatch:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}~1dispatch'
+  /v1/media/asset-operations/{id}/cancel:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}~1cancel'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/prepare:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1prepare'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/dispatch:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1{id}~1dispatch'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/cancel:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1{id}~1cancel'
+  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1{id}~1cancel'
   /v1/media/asset-operations:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations'
   /v1/media/asset-operations/by-idempotency/{id}:

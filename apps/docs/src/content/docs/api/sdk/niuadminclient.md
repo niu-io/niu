@@ -420,6 +420,20 @@ submitVideoIntent(scope: TenantScope, intentId: string, expectedRevision: number
 deleteVideoIntent(scope: TenantScope, intentId: string, expectedRevision: number, options?: RequestOptions): Promise<VideoIntentDeletion>;
 ```
 
+### cancelPreparedMediaOperation
+
+```typescript
+/** Cancel a prepared native-material operation with current workspace Write access.
+ * Independent of inference-key expiry or revocation; never dispatches or cancels
+ * an operation whose upstream outcome is unknown.
+ */
+cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: string, options?: RequestOptions): Promise<{
+    data: {
+        status: 'not_sent';
+    };
+}>;
+```
+
 ### dashboardMedia
 
 ```typescript
@@ -506,6 +520,11 @@ dashboardMedia(scope: TenantScope, keyId: string): {
         }>;
     };
     operations: {
+        prepare: (input: import("./media-assets.js").MediaAssetOperationInput, options: import("./media-assets.js").MediaAssetPreparationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
+        dispatch: (id: string, input: import("./media-assets.js").MediaAssetOperationInput, options: import("./media-assets.js").MediaAssetPreparationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
+        cancel: (id: string, model: string, options?: RequestOptions) => Promise<{
+            data: import("./media-assets.js").MediaAssetOperation;
+        }>;
         list: (input: {
             model: string;
             after?: string;

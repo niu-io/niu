@@ -1136,6 +1136,15 @@ export class NiuAdminClient {
     return this.request(this.videoIntentPath(scope, intentId), { expected_revision: expectedRevision }, options, 'DELETE');
   }
 
+  /** Cancel a prepared native-material operation with current workspace Write access.
+   * Independent of inference-key expiry or revocation; never dispatches or cancels
+   * an operation whose upstream outcome is unknown.
+   */
+  cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: string, options?: RequestOptions): Promise<{ data: { status: 'not_sent' } }> {
+    if (!model.trim()) throw new TypeError('A model is required');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
+  }
+
   /** Session-authenticated media with an explicit current key/account context. */
   dashboardMedia(scope: TenantScope, keyId: string) {
     const media = createDashboardMediaClient(
@@ -2616,7 +2625,8 @@ export class NiuAdminClient {
     if (options.idempotencyKey !== undefined) {
       const mediaCollection = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/(?:asset-groups|assets|verification-sessions)$/.test(path);
       const mediaMember = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/(?:asset-groups|assets)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\?.*)?$/.test(path);
-      const mediaMutation = (requestMethod === 'POST' && mediaCollection) || ((requestMethod === 'PATCH' || requestMethod === 'DELETE') && mediaMember);
+      const mediaPreparation = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/asset-operations\/(?:prepare|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dispatch)$/.test(path);
+      const mediaMutation = (requestMethod === 'POST' && (mediaCollection || mediaPreparation)) || ((requestMethod === 'PATCH' || requestMethod === 'DELETE') && mediaMember);
       const legacyCreation = requestMethod === 'POST' && (path === '/organizations' || path === '/workspaces' || /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/video\/jobs$/.test(path));
       const validKey = typeof options.idempotencyKey === 'string' && (mediaMutation
         ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(options.idempotencyKey) && options.idempotencyKey !== '00000000-0000-0000-0000-000000000000'

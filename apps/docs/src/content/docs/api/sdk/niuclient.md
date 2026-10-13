@@ -156,6 +156,11 @@ media: {
         }>;
     };
     operations: {
+        prepare: (input: import("./media-assets.js").MediaAssetOperationInput, options: import("./media-assets.js").MediaAssetPreparationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
+        dispatch: (id: string, input: import("./media-assets.js").MediaAssetOperationInput, options: import("./media-assets.js").MediaAssetPreparationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
+        cancel: (id: string, model: string, options?: RequestOptions) => Promise<{
+            data: import("./media-assets.js").MediaAssetOperation;
+        }>;
         list: (input: {
             model: string;
             after?: string;

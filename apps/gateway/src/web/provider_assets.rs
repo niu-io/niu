@@ -55,7 +55,7 @@ pub(super) struct DeleteQuery {
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum AssetKind {
+pub(super) enum AssetKind {
     Image,
     Audio,
     Video,
@@ -4537,4 +4537,1276 @@ fn operation_read_headers() -> HeaderMap {
         axum::http::HeaderValue::from_static("no-store"),
     );
     headers
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+pub(super) enum OperationInput {
+    CreateGroup {
+        model: String,
+        name: String,
+        description: Option<String>,
+    },
+    UpdateGroup {
+        model: String,
+        group_id: Uuid,
+        name: Option<String>,
+        description: Option<String>,
+        expected_revision: Option<String>,
+    },
+    DeleteGroup {
+        model: String,
+        group_id: Uuid,
+        expected_revision: Option<String>,
+    },
+    CreateAsset {
+        model: String,
+        group_id: Uuid,
+        url: String,
+        name: Option<String>,
+        kind: AssetKind,
+    },
+    RenameAsset {
+        model: String,
+        asset_id: Uuid,
+        name: String,
+        expected_revision: Option<String>,
+    },
+    DeleteAsset {
+        model: String,
+        asset_id: Uuid,
+        expected_revision: Option<String>,
+    },
+}
+impl OperationInput {
+    fn mutation(
+        self,
+    ) -> Result<(String, WorkspaceProviderAssetMutation, FastRouterAction), ApiError> {
+        use WorkspaceProviderAssetMutation as M;
+        Ok(match self {
+            Self::CreateGroup {
+                model,
+                name,
+                description,
+            } => (
+                model,
+                M::CreateGroup { name, description },
+                FastRouterAction::CreateAssetGroup,
+            ),
+            Self::UpdateGroup {
+                model,
+                group_id,
+                name,
+                description,
+                expected_revision,
+            } => (
+                model,
+                M::UpdateGroup {
+                    group_id,
+                    name,
+                    description,
+                    expected_revision: revision(expected_revision)?,
+                },
+                FastRouterAction::UpdateAssetGroup,
+            ),
+            Self::DeleteGroup {
+                model,
+                group_id,
+                expected_revision,
+            } => (
+                model,
+                M::DeleteGroup {
+                    group_id,
+                    expected_revision: revision(expected_revision)?,
+                },
+                FastRouterAction::DeleteAssetGroup,
+            ),
+            Self::CreateAsset {
+                model,
+                group_id,
+                url,
+                name,
+                kind,
+            } => (
+                model,
+                M::CreateAsset {
+                    group_id,
+                    url,
+                    name,
+                    kind: match kind {
+                        AssetKind::Image => FastRouterAssetKind::Image,
+                        AssetKind::Video => FastRouterAssetKind::Video,
+                        AssetKind::Audio => FastRouterAssetKind::Audio,
+                    },
+                },
+                FastRouterAction::CreateAsset,
+            ),
+            Self::RenameAsset {
+                model,
+                asset_id,
+                name,
+                expected_revision,
+            } => (
+                model,
+                M::RenameAsset {
+                    asset_id,
+                    name,
+                    expected_revision: revision(expected_revision)?,
+                },
+                FastRouterAction::UpdateAsset,
+            ),
+            Self::DeleteAsset {
+                model,
+                asset_id,
+                expected_revision,
+            } => (
+                model,
+                M::DeleteAsset {
+                    asset_id,
+                    expected_revision: revision(expected_revision)?,
+                },
+                FastRouterAction::DeleteAsset,
+            ),
+        })
+    }
+}
+fn required_idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
+    if !headers.contains_key("idempotency-key") {
+        return Err(ApiError::invalid_request("Idempotency-Key is required"));
+    }
+    idempotency(headers)
+}
+
+/// ```openapi
+/// {
+///   "path": "/v1/media/asset-operations/prepare",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "prepareProviderAssetOperation",
+///     "summary": "Prepare a native material operation without dispatch",
+///     "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original canonical nonnil request UUID."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "group",
+///                 "asset"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 },
+///                 "group": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAssetGroup"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 },
+///                 "asset": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAsset"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input or missing idempotency UUID"
+///       },
+///       "401": {
+///         "description": "Missing expired or revoked key/session"
+///       },
+///       "403": {
+///         "description": "Workspace Write or key policy refused"
+///       },
+///       "404": {
+///         "description": "Owned preparation or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed canonical input, stale revision, route or operation state conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds16KiB"
+///       },
+///       "501": {
+///         "description": "Channel unsupported"
+///       },
+///       "503": {
+///         "description": "Storage or configuration unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/MediaAssetOperationInput"
+///           }
+///         }
+///       }
+///     }
+///   },
+///   "schemas": {
+///     "MediaAssetOperationInput": {
+///       "oneOf": [
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "action",
+///             "model",
+///             "name"
+///           ],
+///           "properties": {
+///             "action": {
+///               "type": "string",
+///               "const": "create_group"
+///             },
+///             "model": {
+///               "type": "string"
+///             },
+///             "name": {
+///               "type": "string"
+///             },
+///             "description": {
+///               "type": "string"
+///             }
+///           }
+///         },
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "action",
+///             "model",
+///             "group_id"
+///           ],
+///           "properties": {
+///             "action": {
+///               "type": "string",
+///               "const": "update_group"
+///             },
+///             "model": {
+///               "type": "string"
+///             },
+///             "group_id": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "name": {
+///               "type": "string"
+///             },
+///             "description": {
+///               "type": "string"
+///             },
+///             "expected_revision": {
+///               "type": "string",
+///               "pattern": "^[1-9][0-9]*$"
+///             }
+///           }
+///         },
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "action",
+///             "model",
+///             "group_id"
+///           ],
+///           "properties": {
+///             "action": {
+///               "type": "string",
+///               "const": "delete_group"
+///             },
+///             "model": {
+///               "type": "string"
+///             },
+///             "group_id": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "expected_revision": {
+///               "type": "string",
+///               "pattern": "^[1-9][0-9]*$"
+///             }
+///           }
+///         },
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "action",
+///             "model",
+///             "group_id",
+///             "url",
+///             "kind"
+///           ],
+///           "properties": {
+///             "action": {
+///               "type": "string",
+///               "const": "create_asset"
+///             },
+///             "model": {
+///               "type": "string"
+///             },
+///             "group_id": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "url": {
+///               "type": "string",
+///               "format": "uri",
+///               "writeOnly": true
+///             },
+///             "name": {
+///               "type": "string"
+///             },
+///             "kind": {
+///               "type": "string",
+///               "enum": [
+///                 "image",
+///                 "video",
+///                 "audio"
+///               ]
+///             }
+///           }
+///         },
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "action",
+///             "model",
+///             "asset_id",
+///             "name"
+///           ],
+///           "properties": {
+///             "action": {
+///               "type": "string",
+///               "const": "rename_asset"
+///             },
+///             "model": {
+///               "type": "string"
+///             },
+///             "asset_id": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "name": {
+///               "type": "string"
+///             },
+///             "expected_revision": {
+///               "type": "string",
+///               "pattern": "^[1-9][0-9]*$"
+///             }
+///           }
+///         },
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "action",
+///             "model",
+///             "asset_id"
+///           ],
+///           "properties": {
+///             "action": {
+///               "type": "string",
+///               "const": "delete_asset"
+///             },
+///             "model": {
+///               "type": "string"
+///             },
+///             "asset_id": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "expected_revision": {
+///               "type": "string",
+///               "pattern": "^[1-9][0-9]*$"
+///             }
+///           }
+///         }
+///       ]
+///     }
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/prepare",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "prepareDashboardProviderAssetOperation",
+///     "summary": "Prepare a native material operation without dispatch",
+///     "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original canonical nonnil request UUID."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "group",
+///                 "asset"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 },
+///                 "group": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAssetGroup"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 },
+///                 "asset": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAsset"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input or missing idempotency UUID"
+///       },
+///       "401": {
+///         "description": "Missing expired or revoked key/session"
+///       },
+///       "403": {
+///         "description": "Workspace Write or key policy refused"
+///       },
+///       "404": {
+///         "description": "Owned preparation or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed canonical input, stale revision, route or operation state conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds16KiB"
+///       },
+///       "501": {
+///         "description": "Channel unsupported"
+///       },
+///       "503": {
+///         "description": "Storage or configuration unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/MediaAssetOperationInput"
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub(super) async fn prepare_operation(
+    State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
+    headers: HeaderMap,
+    input: Result<Json<OperationInput>, JsonRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    let identity = required_idempotency(&headers)?;
+    let (model, mutation, _) = body(input)?.mutation()?;
+    let route = admit(&state, &principal, &model).await?;
+    let prepared = state
+        .store
+        .prepare_workspace_provider_asset_operation(&principal, &route, mutation, identity)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((
+        operation_read_headers(),
+        Json(
+            json!({"data":prepared.operation(),"group":prepared.group(),"asset":prepared.asset()}),
+        ),
+    ))
+}
+
+/// ```openapi
+/// {
+///   "path": "/v1/media/asset-operations/{id}/dispatch",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dispatchProviderAssetOperation",
+///     "summary": "Explicitly dispatch an existing native material preparation",
+///     "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original canonical nonnil request UUID."
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "group",
+///                 "asset"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 },
+///                 "group": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAssetGroup"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 },
+///                 "asset": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAsset"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input or missing idempotency UUID"
+///       },
+///       "401": {
+///         "description": "Missing expired or revoked key/session"
+///       },
+///       "403": {
+///         "description": "Workspace Write or key policy refused"
+///       },
+///       "404": {
+///         "description": "Owned preparation or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed canonical input, stale revision, route or operation state conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds16KiB"
+///       },
+///       "501": {
+///         "description": "Channel unsupported"
+///       },
+///       "503": {
+///         "description": "Storage or configuration unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/MediaAssetOperationInput"
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/dispatch",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dispatchDashboardProviderAssetOperation",
+///     "summary": "Explicitly dispatch an existing native material preparation",
+///     "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original canonical nonnil request UUID."
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "group",
+///                 "asset"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 },
+///                 "group": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAssetGroup"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 },
+///                 "asset": {
+///                   "anyOf": [
+///                     {
+///                       "$ref": "#/components/schemas/MediaAsset"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input or missing idempotency UUID"
+///       },
+///       "401": {
+///         "description": "Missing expired or revoked key/session"
+///       },
+///       "403": {
+///         "description": "Workspace Write or key policy refused"
+///       },
+///       "404": {
+///         "description": "Owned preparation or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed canonical input, stale revision, route or operation state conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds16KiB"
+///       },
+///       "501": {
+///         "description": "Channel unsupported"
+///       },
+///       "503": {
+///         "description": "Storage or configuration unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/MediaAssetOperationInput"
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub(super) async fn dispatch_operation(
+    State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
+    headers: HeaderMap,
+    MediaId(id): MediaId,
+    input: Result<Json<OperationInput>, JsonRejection>,
+) -> Result<(StatusCode, HeaderMap, Json<Value>), ApiError> {
+    let identity = required_idempotency(&headers)?;
+    let (model, mutation, action) = body(input)?.mutation()?;
+    // Existing identity is mandatory: dispatch must never create an absent preparation.
+    admit(&state, &principal, &model).await?;
+    let existing = state
+        .store
+        .workspace_provider_asset_operation_by_idempotency(&principal, identity)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    if existing.id != id || existing.model != model {
+        return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
+    }
+    let (status, result) = mutate(&state, &headers, principal, &model, mutation, action).await?;
+    Ok((status, operation_read_headers(), result))
+}
+
+/// ```openapi
+/// {
+///   "path": "/v1/media/asset-operations/{id}/cancel",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "cancelPreparedProviderAssetOperation",
+///     "summary": "Cancel an unclaimed native material preparation",
+///     "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input or missing idempotency UUID"
+///       },
+///       "401": {
+///         "description": "Missing expired or revoked key/session"
+///       },
+///       "403": {
+///         "description": "Workspace Write or key policy refused"
+///       },
+///       "404": {
+///         "description": "Owned preparation or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed canonical input, stale revision, route or operation state conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds16KiB"
+///       },
+///       "501": {
+///         "description": "Channel unsupported"
+///       },
+///       "503": {
+///         "description": "Storage or configuration unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/cancel",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "cancelPreparedDashboardProviderAssetOperation",
+///     "summary": "Cancel an unclaimed native material preparation",
+///     "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input or missing idempotency UUID"
+///       },
+///       "401": {
+///         "description": "Missing expired or revoked key/session"
+///       },
+///       "403": {
+///         "description": "Workspace Write or key policy refused"
+///       },
+///       "404": {
+///         "description": "Owned preparation or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed canonical input, stale revision, route or operation state conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds16KiB"
+///       },
+///       "501": {
+///         "description": "Channel unsupported"
+///       },
+///       "503": {
+///         "description": "Storage or configuration unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn cancel_operation(
+    State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
+    input: Result<Query<ModelQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    let model = query(input)?.model;
+    let route = admit(&state, &principal, &model).await?;
+    state
+        .store
+        .cancel_workspace_provider_asset_operation(&principal, id, &route)
+        .await
+        .map_err(ApiError::from_store)?;
+    let operation = state
+        .store
+        .workspace_provider_asset_operation(&principal, id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok((operation_read_headers(), Json(json!({"data":operation}))))
+}
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "cancelPreparedWorkspaceProviderAssetOperation",
+///     "summary": "Abandon an unclaimed native operation after key expiry",
+///     "description": "Current member workspace Write permission required, independent of inference-key expiry or revocation. Native operation history is workspace-shared. Exact workspace, Niu operation and immutable group model binding are checked under group-first locks. Only prepared becomes not_sent; unknown is never resolved, resent or canceled. No Provider client, calls, route reenabling or inference authority restoration. Repeated not_sent cancellation is unchanged. Original key and private account binding remain immutable.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Preparation abandoned before claim",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "status"
+///                   ],
+///                   "properties": {
+///                     "status": {
+///                       "type": "string",
+///                       "const": "not_sent"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid path or query"
+///       },
+///       "401": {
+///         "description": "Invalid member session"
+///       },
+///       "403": {
+///         "description": "Current workspace Write denied"
+///       },
+///       "409": {
+///         "description": "Unknown, acknowledged, foreign or mismatched model preparation"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn cancel_historical_operation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path((organization, project, id)): axum::extract::Path<(Uuid, Uuid, Uuid)>,
+    input: Result<Query<ModelQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: project,
+    };
+    let auth = state
+        .authorize_admin_headers(&headers, niu_storage::AdminPermission::Write)
+        .await?;
+    if !auth.permits_project(scope) {
+        return Err(ApiError::forbidden());
+    }
+    let model = query(input)?.model;
+    state
+        .store
+        .cancel_workspace_provider_asset_preparation(scope, id, &model)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((
+        operation_read_headers(),
+        Json(json!({"data":{"status":"not_sent"}})),
+    ))
 }

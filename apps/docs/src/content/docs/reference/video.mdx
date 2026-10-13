@@ -173,7 +173,33 @@ acknowledgement; recover its saved operation without resending it.
 | `GET`, `POST /v1/media/assets` | `media.assets.list()`, `media.assets.create()` |
 | `GET`, `PATCH`, `DELETE /v1/media/assets/{id}` | `media.assets.retrieve()`, `.update()`, `.delete()` |
 | `POST /v1/media/assets/{id}/refresh` | `media.assets.refresh()` |
+| `GET /v1/media/asset-operations` | `media.operations.list()` |
 | `GET /v1/media/asset-operations/{id}` | `media.operations.retrieve()` |
+| `GET /v1/media/asset-operations/by-idempotency/{id}` | `media.operations.retrieveByIdempotency()` |
+| `POST /v1/media/asset-operations/prepare` | `media.operations.prepare()` |
+| `POST /v1/media/asset-operations/{id}/dispatch` | `media.operations.dispatch()` |
+| `POST /v1/media/asset-operations/{id}/cancel` | `media.operations.cancel()` |
+
+### Separate preparation from dispatch
+
+`media.operations.prepare(input, { idempotencyKey })` saves the canonical
+operation without sending a Provider request. Retain the exact typed input and
+UUID. Dispatch requires a confirmed prepared record, its operation reference,
+the same original input and the same idempotency key. Reading a recovered
+prepared record never authorizes automatic dispatch. Original material URLs are
+not retained in operation history, so an unloaded client cannot invent a resume
+payload.
+
+Only an unclaimed preparation can be canceled. Unknown or acknowledged outcomes
+remain read-only. `admin.cancelPreparedMediaOperation(scope, operationId, model)`
+uses current workspace Write permission and can abandon a saved preparation
+after its original inference key expires or is revoked. It does not restore
+inference authority or send a Provider request. Current-key cancellation also
+remains available through `media.operations.cancel()`.
+
+Preparation and cancellation have current-input API and independent persistence
+qualification. Dispatch success, response-loss recovery in the browser and fresh
+historical reads after key expiry require separate qualification.
 
 ### Use an asset as a generation reference
 

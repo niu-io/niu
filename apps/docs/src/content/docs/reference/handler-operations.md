@@ -26632,6 +26632,833 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Prepare a native material operation without dispatch
+
+`POST /v1/media/asset-operations/prepare`
+
+Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.
+
+Implementation: `implemented`. Operation: `prepareProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`Idempotency-Key` (header, required)
+
+Original canonical nonnil request UUID.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetOperationInput"
+}
+```
+
+### Responses
+
+HTTP 200: Saved operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "group",
+    "asset"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAssetGroup"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "asset": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAsset"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input or missing idempotency UUID
+
+HTTP 401: Missing expired or revoked key/session
+
+HTTP 403: Workspace Write or key policy refused
+
+HTTP 404: Owned preparation or model unavailable
+
+HTTP 409: Changed canonical input, stale revision, route or operation state conflict
+
+HTTP 413: Request exceeds16KiB
+
+HTTP 501: Channel unsupported
+
+HTTP 503: Storage or configuration unavailable
+
+## Prepare a native material operation without dispatch
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/prepare`
+
+Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.
+
+Implementation: `implemented`. Operation: `prepareDashboardProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`Idempotency-Key` (header, required)
+
+Original canonical nonnil request UUID.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetOperationInput"
+}
+```
+
+### Responses
+
+HTTP 200: Saved operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "group",
+    "asset"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAssetGroup"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "asset": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAsset"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input or missing idempotency UUID
+
+HTTP 401: Missing expired or revoked key/session
+
+HTTP 403: Workspace Write or key policy refused
+
+HTTP 404: Owned preparation or model unavailable
+
+HTTP 409: Changed canonical input, stale revision, route or operation state conflict
+
+HTTP 413: Request exceeds16KiB
+
+HTTP 501: Channel unsupported
+
+HTTP 503: Storage or configuration unavailable
+
+## Explicitly dispatch an existing native material preparation
+
+`POST /v1/media/asset-operations/{id}/dispatch`
+
+Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.
+
+Implementation: `implemented`. Operation: `dispatchProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`Idempotency-Key` (header, required)
+
+Original canonical nonnil request UUID.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetOperationInput"
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "group",
+    "asset"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAssetGroup"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "asset": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAsset"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input or missing idempotency UUID
+
+HTTP 401: Missing expired or revoked key/session
+
+HTTP 403: Workspace Write or key policy refused
+
+HTTP 404: Owned preparation or model unavailable
+
+HTTP 409: Changed canonical input, stale revision, route or operation state conflict
+
+HTTP 413: Request exceeds16KiB
+
+HTTP 501: Channel unsupported
+
+HTTP 503: Storage or configuration unavailable
+
+## Explicitly dispatch an existing native material preparation
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/dispatch`
+
+Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.
+
+Implementation: `implemented`. Operation: `dispatchDashboardProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`Idempotency-Key` (header, required)
+
+Original canonical nonnil request UUID.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetOperationInput"
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "group",
+    "asset"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAssetGroup"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "asset": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaAsset"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input or missing idempotency UUID
+
+HTTP 401: Missing expired or revoked key/session
+
+HTTP 403: Workspace Write or key policy refused
+
+HTTP 404: Owned preparation or model unavailable
+
+HTTP 409: Changed canonical input, stale revision, route or operation state conflict
+
+HTTP 413: Request exceeds16KiB
+
+HTTP 501: Channel unsupported
+
+HTTP 503: Storage or configuration unavailable
+
+## Cancel an unclaimed native material preparation
+
+`POST /v1/media/asset-operations/{id}/cancel`
+
+Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.
+
+Implementation: `implemented`. Operation: `cancelPreparedProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Saved operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input or missing idempotency UUID
+
+HTTP 401: Missing expired or revoked key/session
+
+HTTP 403: Workspace Write or key policy refused
+
+HTTP 404: Owned preparation or model unavailable
+
+HTTP 409: Changed canonical input, stale revision, route or operation state conflict
+
+HTTP 413: Request exceeds16KiB
+
+HTTP 501: Channel unsupported
+
+HTTP 503: Storage or configuration unavailable
+
+## Cancel an unclaimed native material preparation
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/cancel`
+
+Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.
+
+Implementation: `implemented`. Operation: `cancelPreparedDashboardProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Saved operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input or missing idempotency UUID
+
+HTTP 401: Missing expired or revoked key/session
+
+HTTP 403: Workspace Write or key policy refused
+
+HTTP 404: Owned preparation or model unavailable
+
+HTTP 409: Changed canonical input, stale revision, route or operation state conflict
+
+HTTP 413: Request exceeds16KiB
+
+HTTP 501: Channel unsupported
+
+HTTP 503: Storage or configuration unavailable
+
+## Abandon an unclaimed native operation after key expiry
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel`
+
+Current member workspace Write permission required, independent of inference-key expiry or revocation. Native operation history is workspace-shared. Exact workspace, Niu operation and immutable group model binding are checked under group-first locks. Only prepared becomes not_sent; unknown is never resolved, resent or canceled. No Provider client, calls, route reenabling or inference authority restoration. Repeated not_sent cancellation is unchanged. Original key and private account binding remain immutable.
+
+Implementation: `implemented`. Operation: `cancelPreparedWorkspaceProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Preparation abandoned before claim
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "not_sent"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid path or query
+
+HTTP 401: Invalid member session
+
+HTTP 403: Current workspace Write denied
+
+HTTP 409: Unknown, acknowledged, foreign or mismatched model preparation
+
+HTTP 503: Storage unavailable
+
 ## Discover authorized model-specific native Provider tools
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities`
@@ -31957,6 +32784,193 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "format": "int64"
     }
   }
+}
+```
+
+### MediaAssetOperationInput
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "model",
+        "name"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "create_group"
+        },
+        "model": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "model",
+        "group_id"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "update_group"
+        },
+        "model": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "model",
+        "group_id"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "delete_group"
+        },
+        "model": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "model",
+        "group_id",
+        "url",
+        "kind"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "create_asset"
+        },
+        "model": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "writeOnly": true
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video",
+            "audio"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "model",
+        "asset_id",
+        "name"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "rename_asset"
+        },
+        "model": {
+          "type": "string"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "model",
+        "asset_id"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "const": "delete_asset"
+        },
+        "model": {
+          "type": "string"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  ]
 }
 ```
 

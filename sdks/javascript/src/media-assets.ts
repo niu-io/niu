@@ -41,6 +41,15 @@ export type MediaAssetMutationOptions = RequestOptions & {
   /** Canonical UUID. Replays recover the saved operation and never resubmit it. */
   idempotencyKey?: string;
 };
+/** Full original typed request is required for dispatch; source URLs are not persisted. */
+export type MediaAssetOperationInput =
+  | { action: 'create_group'; model: string; name: string; description?: string }
+  | { action: 'update_group'; model: string; group_id: string; name?: string; description?: string; expected_revision?: string }
+  | { action: 'delete_group'; model: string; group_id: string; expected_revision?: string }
+  | { action: 'create_asset'; model: string; group_id: string; url: string; name?: string; kind: 'image' | 'video' | 'audio' }
+  | { action: 'rename_asset'; model: string; asset_id: string; name: string; expected_revision?: string }
+  | { action: 'delete_asset'; model: string; asset_id: string; expected_revision?: string };
+export type MediaAssetPreparationOptions = MediaAssetMutationOptions & { idempotencyKey: string };
 export type MediaAssetPage<T> = { data: T[]; next_cursor: string | null };
 type PageQuery = { model: string; after?: string; limit?: number };
 export type MediaAssetSender = <T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body: unknown, options?: MediaAssetMutationOptions) => Promise<T>;
@@ -88,6 +97,12 @@ export function createMediaAssetsClient(send: MediaAssetSender) {
       refresh: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAsset }>(`/media/assets/${reference(id)}/refresh${query({ model })}`, 'POST', undefined, options),
     },
     operations: {
+      /** Metadata-only durable preparation. Never calls the Provider. */
+      prepare: (input: MediaAssetOperationInput, options: MediaAssetPreparationOptions) => send<MediaAssetMutation>('/media/asset-operations/prepare', 'POST', input, options),
+      /** Explicit one-shot dispatch of an existing preparation, using its original full request and UUID. */
+      dispatch: (id: string, input: MediaAssetOperationInput, options: MediaAssetPreparationOptions) => send<MediaAssetMutation>(`/media/asset-operations/${reference(id)}/dispatch`, 'POST', input, options),
+      /** Cancel an unclaimed preparation only. Unknown operations cannot be canceled or resent. */
+      cancel: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/asset-operations/${reference(id)}/cancel${query({ model })}`, 'POST', undefined, options),
       /** Read persisted operations newest first. Never retries a mutation. */
       list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetOperation>>(`/media/asset-operations${query(input)}`, 'GET', undefined, options),
       /** A 404 does not establish that the original request was never sent. */

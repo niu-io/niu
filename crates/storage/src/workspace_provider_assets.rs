@@ -938,6 +938,70 @@ impl Store {
             body,
         })
     }
+    /// Cancel only an unclaimed, original-key operation; never infer an unknown outcome.
+    pub async fn cancel_workspace_provider_asset_operation(
+        &self,
+        p: &Principal,
+        id: Uuid,
+        route: &WorkspaceProviderAssetRoute,
+    ) -> Result<(), StoreError> {
+        self.cancel_provider_asset_preparation(p.scope(), id, &route.model_alias, Some((p, route)))
+            .await
+    }
+    /// Workspace-authorized historical cancellation cannot restore inference authority.
+    pub async fn cancel_workspace_provider_asset_preparation(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+        model: &str,
+    ) -> Result<(), StoreError> {
+        self.cancel_provider_asset_preparation(scope, id, model, None)
+            .await
+    }
+    async fn cancel_provider_asset_preparation(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+        model: &str,
+        current: Option<(&Principal, &WorkspaceProviderAssetRoute)>,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        if let Some((principal, route)) = current {
+            Self::provider_asset_route_check_using(&mut tx, principal, route).await?;
+        }
+        let op = Self::provider_operation_using(&mut tx, scope, id)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        let group = Self::provider_group_using(&mut tx, scope, op.group_id, true)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        if group.model != model {
+            return Err(StoreError::Conflict);
+        }
+        if let Some((_, route)) = current {
+            provider_group_binding(&group, route)?;
+        }
+        let (status, key): (String, Uuid) = sqlx::query_as("SELECT status,key_id FROM workspace_provider_asset_operations WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
+        if current.is_some_and(|(principal, _)| key != principal.key_id())
+            || !matches!(status.as_str(), "prepared" | "not_sent")
+        {
+            return Err(StoreError::Conflict);
+        }
+        if status == "prepared" {
+            if op.action == "create_asset" {
+                sqlx::query("UPDATE workspace_provider_assets SET status='failed',revision=revision+1,updated_at=now() WHERE id=$1 AND status='pending' AND provider_ref IS NULL")
+                    .bind(op.asset_id).execute(&mut *tx).await?;
+            } else if op.action == "create_group" {
+                sqlx::query("UPDATE workspace_provider_asset_groups SET status='failed',revision=revision+1,updated_at=now() WHERE id=$1 AND status='pending' AND provider_ref IS NULL")
+                    .bind(op.group_id).execute(&mut *tx).await?;
+            }
+            sqlx::query("UPDATE workspace_provider_asset_operations SET status='not_sent',updated_at=now() WHERE id=$1 AND status='prepared'")
+                .bind(id).execute(&mut *tx).await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
     pub async fn claim_workspace_provider_asset_operation(
         &self,
         p: &Principal,
