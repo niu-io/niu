@@ -29,20 +29,20 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P13 | Global Gateway Activity | `/activity/:section?` and `/workspaces/:workspace/usage` | Global/workspace scope, coverage, drilldowns; excludes external Agent Observability | In review: current global/workspace coverage, pagination, drilldown and narrow workspace menu verified; remaining status/role branches pending |
 | P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | In review: actual workspace list/filter/sort and Video destinations at desktop/narrow; full access/pricing boundaries pending |
 | P15 | Model detail | `/models/*` | Capabilities, qualified access, setup and request examples | In review: actual Video guidance corrected; explicit different-model restoration checked; inference admission pending |
-| P16 | Generations Chat | `/generations` | Model/key selection, messages, branches, cancellation, attachments, persistence | Not checked |
+| P16 | Generations Chat | `/generations` | Model/key selection, messages, branches, cancellation, attachments, persistence | In review: known Video models excluded from Chat, historical failure preserved and dispatch controls checked; actual text submission/branch workflows pending |
 | P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | In review: native tools, durable draft restore/conflicts and historical preview verified; references/submission/shared-output actions pending |
-| P18 | Writing entry points | `/generations` | Existing writing templates and supported Chat flow; no new editor | Not checked |
+| P18 | Writing entry points | `/generations` | Existing writing templates and supported Chat flow; no new editor | In review: actual Writing template prefill/focus checked at desktop and narrow widths; text generation not exercised |
 | P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: revoked/expired-key input restoration, actor isolation and cached preview verified; full timeline pending |
-| P20 | Native video materials | `/workspaces/:workspace/video/volcengine/:section?` | Exact account context, groups/materials, validation, uncertainty, observations | Fix needed: Video exact context corrected; standalone selection/recovery pending |
+| P20 | Native video materials | `/workspaces/:workspace/video/volcengine/:section?` | Exact account context, groups/materials, validation, uncertainty, observations | In review: explicit named key/model selection, original context reads, unsupported selection and reload qualified; durable operation recovery pending |
 | P21 | Native verification tools | `/workspaces/:workspace/video/volcengine/:section?` | Capability-gated explicit workflow; no fabricated H5 completion | In review: capability-gated entry and saved read observed; verification creation not exercised |
 | P22 | Shared task/output integration | `/generations` | Existing task/artifact inventory and durable save; UI integration gap candidate | Not checked |
 | P23 | Admin Supplier list | `/admin/suppliers` | Onboarding, multiple credentials, adapter choice, discoverability | In review: adapter controls verified; onboarding writes pending |
-| P24 | Admin Supplier details | `/admin/suppliers/:supplier/:section` | Overview, API keys & routes, Models & pricing, Usage, Settlements, Portal access, Settings | In review: saved credential editing verified; remaining tabs pending |
+| P24 | Admin Supplier details | `/admin/suppliers/:supplier/:section` | Overview, API keys & routes, Models & pricing, Usage, Settlements, Portal access, Settings | In review: all seven sections and invalid RPM/cancel inspected; narrow active-tab visibility defect and writes pending |
 | P25 | Admin customer pricing | `/admin/pricing` | Published customer categories, history, edit/conflict validation | In review: reasoning publication/readback verified; remaining pricing workflows pending |
 | P26 | Admin payments | `/admin/payments` | Complete supported inventory, configuration and unavailable states | Verified scope: complete supported inventory and existing configuration entry; merchant activation not exercised |
 | P27 | Admin audit logs | `/admin/audit-logs` | Filters, pagination, readable actors/actions, platform authorization | In review: new installation Branding actor and unchanged historical unknown actors independently verified; operator/pagination boundaries pending |
 | P28 | Admin branding | `/admin/branding` | Preview, validation, save, conflict recovery and shared shell consistency | In review: actual save, stale conflict freeze/reload, normalized logo pixels and original configuration restoration verified; remaining fields/roles pending |
-| P29 | Supplier member portal | `/suppliers/:supplier/:section?` | Own offers/models/consumption/settlements and permissions | Not checked |
+| P29 | Supplier member portal | `/suppliers/:supplier/:section?` | Own offers/models/consumption/settlements and permissions | In review: ordinary workspace Owner without Supplier membership denied; positive Supplier-member workflows unverified |
 | P30 | Global Settings | `/settings/:section?` | Account, Appearance, Billing, Payments, About; underlying-page return | In review: profile save and all five sections inspected; password expansion, appearance menu and empty funding/payment states checked; writes/conflicts pending |
 | P31 | Help and documentation | `/help/* and /docs/*` | Actual destinations, navigation, truthful API/SDK capabilities | In review: current guide, REST/SDK navigation, OpenAPI download and desktop/narrow 404 recovery verified; full link inventory pending |
 | P32 | Public model catalog | `Public catalog model routes` | Anonymous routes and dashboard handoff; separate marketing ownership | Not checked |
@@ -57,7 +57,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | Candidate | Priority | Page families | Concrete suspected gap | State |
 | --- | --- | --- | --- | --- |
 | C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | Historical input/status and cached preview qualified; billing/timing still require original active key |
-| C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone gap remains |
+| C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone explicit context selection qualified; broader account/error branches pending |
 | C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | Inline/network-failure scope fixed; durable recovery remains open |
 | C04 | P1 | P17, P22 | Existing task/artifact/durable capture SDK is not consumed by product pages | In review |
 | C05 | P1 | P17 | Image/reference submission bypasses retained intent association | In review |
@@ -173,3 +173,17 @@ New authenticated installation branding writes explicitly record the installatio
 ### Compatibility destinations and documentation recovery
 
 Actual legacy billing and usage redirects now preserve query parameters and fragments. Browser checks confirmed the requested Rates tab and model filter at desktop and narrow widths, plus usable unknown-workspace and unknown-route recovery. Documentation retains HTTP 404 for missing pages while offering a documentation-home link; the embedded Help link returns to Help and the direct documentation link returns to the docs root. Current REST/SDK navigation and an independently inspected OpenAPI download were checked. These scopes do not establish that every documentation link or every legacy alias has been exercised.
+
+### Explicit standalone native context
+
+The standalone Video page previously selected the first compatible key/model and read its groups while showing only Seedance. It now discovers authorized contexts without reading material or verification inventories until the user explicitly chooses a named key and exact model. It displays the server context label and retains selection in the URL. Discovery failures remain explicit incomplete discovery; ambiguous contexts cannot be silently selected.
+
+Current-input browser resource observations found no group, asset or verification inventory reads before selection. Actual selection loaded the existing original material; refresh retained the key/model. A forced unsupported Mini selection showed an error, no material rows and no enabled creation action. Desktop and 390px open menus were inspected against the actual OpenRouter model-selection reference, the existing Niu page and the existing Stitch project's scoped selector design. Dialog entry disabled context selection without submitting a mutation. Pending-operation freezing is implemented, but a fresh uncertain-operation context-switch run remains unverified. No native mutation or generation was sent for this qualification.
+
+### Chat modality and Writing draft entry
+
+An actual Writing template click exposed an automatic submission using saved Video model selections. Both requests were rejected by the dedicated-Video-API boundary; independent saved results had no attempt identity. That rejection does not establish complete billing acceptance.
+
+Chat now excludes explicitly Video/non-text catalog models and checks current selected-model eligibility, catalog/key readiness and write authority again before submission. Existing failed history remains readable while incompatible selections cannot be sent. Missing legacy modality metadata remains a compatibility limitation, not proof of Chat protocol support. Manual-key protocol qualification remains open.
+
+Writing templates now fill and focus the existing composer without sending. The actual Support reply template was checked at desktop and 390px, with no response panel created. Independent before/after database counts and content digests matched for submitted Chat sessions, requests, dispatch, usage and financial records. Composer draft autosave was permitted separately. No explicit Send action or additional generation was exercised. Supplier administration read checks also covered all seven sections; the narrow selected Settings tab can be offscreen, which remains a functional navigation defect to fix.

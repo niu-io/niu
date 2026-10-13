@@ -9,6 +9,12 @@ export default function PlaygroundRoute() {
   const [search] = useSearchParams();
   const { workspace, models, modelsLoading, modelsError, refreshModels, token } = context;
   const ranked = useModelPopularity(models, token, workspace?.organization_id, workspace?.id);
+  // Missing modality metadata remains a legacy compatibility route, not proof
+  // of Chat support. Explicit video and non-text outputs never enter Chat.
+  const chatModels = ranked.models.filter(model => {
+    const outputs = model.catalog?.output_modalities;
+    return !outputs?.length || (outputs.includes('text') && !outputs.includes('video'));
+  });
   const initialScope = workspace ? {
     organizationId: workspace.organization_id,
     workspaceId: workspace.id,
@@ -21,7 +27,7 @@ export default function PlaygroundRoute() {
     {videoSession ? <VideoView key={`${token}:${workspace?.id ?? ''}`} context={context} /> : <PlaygroundView
       key={`${token}:${workspace?.id ?? ''}`}
       token={token}
-      models={ranked.models.map(model => model.id)}
+      models={chatModels.map(model => model.id)}
       modelsLoading={modelsLoading}
       modelsError={modelsError}
       onRetryModels={refreshModels}

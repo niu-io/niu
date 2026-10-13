@@ -369,7 +369,6 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const [promptCategory, setPromptCategory] = useState<(typeof promptCategories)[number]['id']>('all');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [prompt, setPrompt] = useState('');
-  const pendingExample = useRef<string | null>(null);
   const attachmentInput = useRef<HTMLInputElement>(null);
   const attachmentGeneration = useRef(0);
   useEffect(() => () => {attachmentGeneration.current += 1;}, [token, organization, workspaceId, session?.operator?.id]);
@@ -610,16 +609,19 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const sessionKeys = chatKeys.filter(key => key.organizationId === organization && key.projectId === workspaceId);
   const [workspaceKeys, setWorkspaceKeys] = useState<Array<{id: string; name: string; allowed_models?: string[]; revoked: boolean; expired: boolean}>>([]);
   const [keyLoadError, setKeyLoadError] = useState('');
+  const [workspaceKeysReady, setWorkspaceKeysReady] = useState(false);
   useEffect(() => {
     setWorkspaceKeys([]);
+    setWorkspaceKeysReady(false);
   }, [token, organization, workspaceId]);
   useEffect(() => {
     if (!token || !organization || !workspaceId) return;
     const controller = new AbortController();
     setKeyLoadError('');
+    setWorkspaceKeysReady(false);
     fetch(`/admin/v1/organizations/${organization}/projects/${workspaceId}/keys`, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error('Could not load API keys. Reopen this menu to retry.'); return response.json(); })
-      .then(value => { if (!controller.signal.aborted) setWorkspaceKeys(value.data.filter((key: {revoked: boolean; expired: boolean}) => !key.revoked && !key.expired)); })
+      .then(value => { if (!controller.signal.aborted) { setWorkspaceKeys(value.data.filter((key: {revoked: boolean; expired: boolean}) => !key.revoked && !key.expired)); setWorkspaceKeysReady(true); } })
       .catch(error => { if (!controller.signal.aborted) setKeyLoadError(error.message); });
     return () => controller.abort();
   }, [apiSettingsOpen, token, organization, workspaceId]);
@@ -742,16 +744,18 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     return new Map(entries.map(entry => [entry.attempt_id, entry]));
   }
 
-  async function compare(event?: FormEvent<HTMLFormElement>, example?: string) {
+  async function compare(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (running || settingsSaving || historyLoading || !draft.ready || draft.error) return;
+    if (running || settingsSaving || historyLoading || !draft.ready || draft.error
+      || modelsLoading || modelsError || !workspaceKeysReady || keyLoadError
+      || (selectedKey && !managedKey) || !session?.permissions.write
+      || !selectedModels.every(model => usableModels.includes(model))) return;
     if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0) { setChatSettingsOpen(true); return; }
-    const submittedPrompt = example ?? prompt;
+    const submittedPrompt = prompt;
     setNotice('');
     setError('');
     if (!organization || !workspaceId || !submittedPrompt.trim() || selectedModels.length < minComparisonModels || selectedModels.length > maxComparisonModels) return;
     if (!apiKey) {
-      if (example) pendingExample.current = example;
       setApiSettingsOpen(true);
       return;
     }
@@ -760,7 +764,6 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       return;
     }
 
-    pendingExample.current = null;
     const prior = history.find(item => item.id === activeComparisonId);
     const previousTurns = prior ? prior.turns ?? [{ prompt: prior.prompt, results: prior.results, attachments: prior.attachments }] : [];
     if (previousTurns.length >= 100) { setError('This chat has reached 100 turns. Start a new chat to continue.'); return; }
@@ -874,7 +877,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     }
   }
 
-  const canSubmit = Boolean(organization && workspaceId && draft.ready && !draft.error && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading);
+  const canSubmit = Boolean(organization && workspaceId && draft.ready && !draft.error && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && workspaceKeysReady && !keyLoadError && apiKey && (!selectedKey || managedKey) && session?.permissions.write && selectedModels.every(model => usableModels.includes(model)));
   const activeComparison = history.find(item => item.id === activeComparisonId);
   const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? (manualKey ? 'Workspace key added' : 'Choose API key');
   const visiblePromptExamples = promptExamples.filter(item => promptCategory === 'all' || item.category === promptCategory);
@@ -908,7 +911,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
                       </TabsList>
                     </Tabs>
                     <div className="playground-starters" aria-label="Example prompts">
-                      {visiblePromptExamples.map(item => <Button key={item.id} type="button" className="playground-starter" disabled={running || settingsSaving || !draft.ready || (modelsLoading || modelAliases.length === 0)} onClick={() => {setPrompt(item.text); void compare(undefined, item.text); }}><strong>{item.title}</strong><span>{item.summary}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
+                      {visiblePromptExamples.map(item => <Button key={item.id} type="button" className="playground-starter" disabled={running || settingsSaving || !draft.ready || Boolean(modelsError) || (modelsLoading || modelAliases.length === 0)} onClick={() => {setPrompt(item.text); setError(''); setNotice(''); requestAnimationFrame(() => composerRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus()); }}><strong>{item.title}</strong><span>{item.summary}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
                     </div>
                   </div>
                 </div>
@@ -1084,7 +1087,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     </DialogContent>
     </Dialog>
 
-    <Dialog open={apiSettingsOpen} onOpenChange={open => { setApiSettingsOpen(open); if (!open) pendingExample.current = null; }}>
+    <Dialog open={apiSettingsOpen} onOpenChange={setApiSettingsOpen}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>API key</DialogTitle><DialogDescription>Select an API key for this generation. Its workspace supplies billing and limits.</DialogDescription></DialogHeader>
         <div className="space-y-4">
@@ -1098,7 +1101,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
           {!selectedKey && !managedKey && <div className="space-y-2"><Label htmlFor="playground-existing-key">Key secret</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving || !draft.ready} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder="Paste your API key" /><p className="text-sm text-muted-foreground">Paste a workspace API key to use it in this chat.</p></div>}
           {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="text-sm text-destructive">This key does not allow any available models.</p>}
         </div>
-        <div className="flex justify-between gap-3"><Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>Manage keys<ArrowUpRight size={15} /></Link></Button><Button disabled={!apiKey} onClick={() => { setApiSettingsOpen(false); if (pendingExample.current && apiKey) void compare(undefined, pendingExample.current); }}>Done</Button></div>
+        <div className="flex justify-between gap-3"><Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>Manage keys<ArrowUpRight size={15} /></Link></Button><Button disabled={!apiKey} onClick={() => setApiSettingsOpen(false)}>Done</Button></div>
     </DialogContent>
     </Dialog>
   </div>;
