@@ -72,7 +72,7 @@ All observations below use the real local service and saved data. Narrow checks 
 - Complete live output-policy enforcement, ordinary-role isolation, credential rotation/session expiry/revocation, full admin writes and remaining error/mobile states in the table. Live input blocking and API key revocation are qualified below.
 - The previously reported generic Guardrail permission error is resolved in the backend contract: preparation refusals use `guardrail_denied`; post-dispatch output withholding uses `guardrail_output_withheld` and warns that generation charges may apply. See [Guardrail preparation errors](../reference/guardrail-preparation-errors.md). Local browser qualification of both new responses remains open; ordinary authorization failures still use their independent permission diagnosis. Do not infer Guardrails from HTTP 403 alone.
 - OpenRouter's actual desktop Models page and open sort menu were inspected through native Chrome on 2026-10-10. The reference uses a filter sidebar, a visible first-row model filter and sort controls, and model entries with descriptions, authors, context and prices. Its marketing, rankings and unsupported capabilities are not Niu requirements. Concurrent browser control interrupted the local-page comparison; desktop/narrow comparison and Stitch correction remain open. The earlier generated mobile screen has navigation/filter deviations and has not been applied.
-- Supen direct coordination is unavailable because authentication fails. Use shared main and contract documents; preserve private credentials and the remote backend workstream.
+- Use SSH for authorized remote inspection and configuration transfers. Coordinate code through shared main and contract documents; preserve private credentials and the remote backend workstream.
 
 
 ## Cached-input frontend increment
@@ -1535,3 +1535,10 @@ scope, and confirmed unchanged original financial records. The verification
 script's initial saved-page array alias was corrected before repeating the run
 and accepting its independently checked artifacts. These observations establish
 this directory workflow, not sustained capacity or complete frontend acceptance.
+
+## Personal Video configuration compatibility — 2026-10-13
+
+- Fixed four dashboard TypeScript errors caused by nullable `VideoModel.output`. Personal models without an output estimator retain their declared control validation; no resolution/aspect-ratio pairing is invented when specifications are absent.
+- Dashboard TypeScript checking passed. Five scoped Video regression files passed 44 checks, including request validation and opening/selecting declared ratio options with a null output estimator.
+- The actual personal Video model loaded under the existing demo key after configuration synchronization. Its declared duration, aspect ratio, resolution, seed and watermark controls rendered; the ratio menu was inspected at desktop width and the resolution menu at 390px. No new generation or paid estimate was submitted.
+- This proves configuration compatibility only. Discoverable configuration entry points, complete asynchronous inventory, task status/artifact navigation and lifecycle failures remain open frontend acceptance work.

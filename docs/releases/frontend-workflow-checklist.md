@@ -44,14 +44,14 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 | Fresh Video payloads | [Creation capture](../reference/video-request-payloads.md) is implemented. Old jobs are not backfilled. A new local single-submission authorization is pending; the previous single paid test was consumed. Do not resubmit automatically. |
 | Provider model attribution | [Attribution](../reference/video-model-attribution.md) represents an explicitly returned model. OpenRouter may omit it; Unknown is correct for the exercised saved job. Do not substitute the configured alias. |
 | Guardrail errors | [Preparation errors](../reference/guardrail-preparation-errors.md) distinguish `guardrail_denied`, `guardrail_output_withheld` and ordinary permission failures. The backend contract is available; current browser evidence remains required. |
-| Cross-machine coordination | Shared main and contract documents are working. Direct Supen coordination is unavailable due to authentication; do not expand permissions or disclose credentials to work around it. |
+| Cross-machine coordination | Use SSH for authorized remote inspection and configuration transfers, with shared main and contract documents for code coordination. Keep credentials private. |
 
 ## Next work in dependency order
 
-1. Complete the actual independent Supplier credential/model-subset lifecycle and configuration-error recovery.
+1. Complete the actual independent Supplier credential/model-subset lifecycle and configuration-error recovery. Make model configuration directly discoverable, including declared Video settings.
 2. Qualify populated customer pricing and customer-only Rates/statement display using authorized real test data; keep commercial qualification and procurement separate.
 3. Complete ordinary-role/key/session boundary workflows and stable workspace route handling using the available backend contract.
-4. Qualify current Guardrail input/output diagnosis, then the remaining Chat/Video failure, restoration and retention paths. Fresh paid Video submission waits for its specific authorization.
+4. Qualify current Guardrail input/output diagnosis, then the remaining Chat/Video failure, restoration and retention paths. Generations must expose authorized asynchronous job history, saved input, status and final artifacts with Logs round-trips; verify coverage of API-created jobs against the inventory contract. Fresh paid Video submission waits for its specific authorization.
 5. Complete top-up/configuration and financial-history recovery through supported APIs. External account activation does not block unrelated frontend implementation.
 6. Compare changed screens with their actual references, complete the desktop/narrow interaction matrix and audit every row before claiming completion.
 

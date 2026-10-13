@@ -8,6 +8,10 @@ This repository contains only Niu's public project. Internal research, enterpris
 
 The implementation reuses individual source modules, not a complete upstream repository or its history. Keep each imported module small, traceable, independently licensed, and explicit about behavior that remains unimplemented.
 
+## Remote development
+
+Use SSH for authorized remote inspection and configuration transfers. Do not use Supen to inspect remote sessions or coordinate development unless the user explicitly requests it. Keep transferred credentials outside the public repository.
+
 ## Dashboard choice controls
 
 Never use a native HTML `<select>` / `<option>` control, the shadcn Select component, or a hand-built Select/Dropdown abstraction anywhere in the product UI. This is a hard design rule, not a preference. Compose the installed shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and the appropriate menu item primitives directly at each call site for choice menus, including single-choice form fields, workspace/model selectors, and filters. Preserve the shadcn menu item's built-in icon gutter and spacing; do not override its internal layout with local CSS. Verify each changed menu in the browser, including open state and alignment, before reporting completion.

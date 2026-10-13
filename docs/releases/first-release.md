@@ -168,6 +168,12 @@ deployment qualification and do not override this internal-readiness boundary.
 
 Video generation is required for the first release. Work follows the dependency sequence below; deliver the relevant customer controls and diagnostics with each backend increment, rather than postponing all UI work until phase 4.
 
+Frontend entry points must follow the shared product hierarchy:
+
+- **Admin → Suppliers → Supplier → model** exposes a clearly named configuration entry. Video models show their declared channel, supported inputs and controls, enabled state and configuration validation; customer model details expose supported usage only, without credentials or purchase rates.
+- **Generations** is the shared customer history and detail surface. Video is a task category. Authorized asynchronous jobs must be discoverable, including API-created jobs where the backend inventory supports them; opening a task restores its saved input, observed status and available preview/download. Do not infer progress percentages or recreate a job when checking status.
+- **Logs** links asynchronous requests to their task details; task details link back to diagnosis. Preserve account/workspace authorization, unresolved outcomes and expired/unavailable artifacts. Unsupported inventory contracts remain explicit dependencies, not fabricated history.
+
 | Priority | Work package | Required coverage | Ready to proceed when |
 | --- | --- | --- | --- |
 | 1 | Supplier capability and pricing administration | V01, V04; M01–M04 | Independent credentials, protocol-aware model capabilities, meters and separate purchase/selling rates can be configured, reviewed and qualified. |
