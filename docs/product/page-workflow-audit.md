@@ -18,9 +18,9 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P02 | Installation administration | `/installation` | Platform sign-in and role boundaries | In review: actual installation sign-in and member/platform navigation observed; full boundaries pending |
 | P03 | Workspace directory | `/workspaces` | Create, switch, rename, delete, empty/error states | In review: actual create/rename/reload/delete and independent database checks verified; narrow/error states pending |
 | P04 | Workspace overview | `/workspaces/:workspace` | Real summary and action destinations | In review: actual new empty workspace and action destinations inspected; request details pending |
-| P05 | API key list | `/workspaces/:workspace/keys` | Filter, grants, expiry, status, navigation | Not checked |
-| P06 | API key creation | `/workspaces/:workspace/keys/new` | Validation, permissions, one-time secret, persistence | Not checked |
-| P07 | API key detail | `/workspaces/:workspace/keys/:key` | Limits, rotation, revocation, history, conflict recovery | Not checked |
+| P05 | API key list | `/workspaces/:workspace/keys` | Filter, grants, expiry, status, navigation | In review: actual list/detail navigation and nullable expiry inspected; filters/full grants pending |
+| P06 | API key creation | `/workspaces/:workspace/keys/new` | Validation, permissions, one-time secret, persistence | In review: actual nonexpiring creation/null API expiry and independent database persistence; protocol example fix pending |
+| P07 | API key detail | `/workspaces/:workspace/keys/:key` | Limits, rotation, revocation, history, conflict recovery | In review: actual detail/expiry and own verification-key revocation/reload; limits/rotation/conflicts pending |
 | P08 | Workspace members | `/workspaces/:workspace/users` | Invite/manage roles and scope enforcement | Not checked |
 | P09 | Organization management | `/workspaces/:workspace/organization` | Company/workspace ownership and supported actions | Not checked |
 | P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | In review: rename/reload and guarded empty-workspace deletion verified; limits/boundaries pending |
@@ -48,7 +48,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P32 | Public model catalog | `Public catalog model routes` | Anonymous routes and dashboard handoff; separate marketing ownership | Not checked |
 | P33 | Compatibility and not-found routes | `Legacy redirects and unknown URLs` | Destination/query preservation and useful recovery | Not checked |
 | P34 | Deferred legacy surfaces | `/benchmarks` and legacy redirects | Check product boundary and entry points; do not revive excluded orchestration | Not checked |
-| P35 | Workspace Billing | `/workspaces/:workspace/billing` | Customer charges, rates, statement details/pagination, workspace spending limits and confidential-data boundaries | Not checked |
+| P35 | Workspace Billing | `/workspaces/:workspace/billing` | Customer charges, rates, statement details/pagination, workspace spending limits and confidential-data boundaries | In review: actual empty Spending/Rates tabs; category/context-tier and statement workflows pending |
 
 ## Prioritized source candidates
 
@@ -114,7 +114,7 @@ The current docs artifact was built and served by the isolated Gateway at the re
 
 ### Historical cached Video preview
 
-The original successful paid Mini task was opened with its expired original API key. An explicit cached preview loaded through the workspace Tasks/Artifacts SDK at desktop and 390px width. Browser-decoded duration was 5.088 seconds; the downloaded 792,757 bytes matched the independently retained original file by SHA-256. This produced no new generation. Retained library-copy preview, fresh-result actions and key-independent billing/timing remain unverified.
+The original successful paid Mini task was opened with its expired original API key. An explicit cached preview loaded through the workspace Tasks/Artifacts SDK at desktop and 390px width. Browser-decoded duration was 5.088 seconds; the downloaded 792,757 bytes matched the independently retained original file by SHA-256. This produced no new generation. An explicit cached capture then saved this existing video in the encrypted workspace library. Returning to the historical task displayed Load saved copy; its desktop/narrow browser preview matched the same independently retained original hash and bytes. Fresh-result actions and key-independent billing/timing remain unverified.
 
 ### Mutable Video composition
 
@@ -125,3 +125,11 @@ Actual browser edits saved the prompt and watermark. Refresh and a second tab re
 ### Native operation inventory API
 
 Bounded saved-operation listing and exact idempotency lookup now exist in both workspace-key and customer API paths. An actual configured model returned saved operations, nonoverlapping continuation pages and no-store responses. Independent SQL supplied the original idempotency reference; lookup returned the same safe operation representation. These reads made no upstream mutations. Dashboard recovery integration and remaining denied/invalid-query branches remain pending.
+
+### Nonexpiring API keys
+
+Actual existing keys returned null expiry through the API but displayed a 1970 date. The list/detail now show Never and the existing expiration menu offers Never. Desktop and 390px menu/detail checks were completed. An actual zero-use key created through the UI returned null expiry; independent PostgreSQL confirmed the existing infinite timestamp representation. Its own revocation and reload preserved Never and the revoked state. No inference was sent with this verification key. Creation/rotation response uncertainty, role-specific limits and full key workflows remain open.
+
+### Video-key onboarding
+
+A newly issued key's first-request example selected Mini but incorrectly sent it to Chat completions. The page now preserves catalog modality metadata, directs Video keys to the Video composer and requests the current model schema rather than inventing a runnable payload. Unqualified protocols show no example. An actual second zero-use key showed the correct explanation and Video destination. The destination initially restored the draft's old key; the composer now honors the explicitly selected URL key while retaining text and controls. Actual reload and the narrow key menu confirmed the new selection and retained prompt. Both new verification keys were revoked without sending inference.

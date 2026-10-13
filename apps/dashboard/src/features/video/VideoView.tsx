@@ -130,9 +130,10 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const draft=useVideoDraft({client:intentClient,scope:workspace?{organizationId:workspace.organization_id,projectId:workspace.id}:null,
     identity:composerIdentity,contextIdentity:JSON.stringify([composerIdentity,keyId,modelId]),enabled:Boolean(token&&workspace&&mutableComposer),canWrite,edited:composerEdited,paused:loading||Boolean(busy)||restoringIntent,value:composerValue,
     restore:saved=>{
-      restoredComposer.current=saved?{identity:composerIdentity,keyId:saved.keyId,model:saved.model}:null;
+      const selectedKey=search.get('key')??saved?.keyId??'';
+      restoredComposer.current=saved?{identity:composerIdentity,keyId:selectedKey||null,model:saved.model}:null;
       setComposerEdited(false);setPrompt(saved?.prompt??'');setDraftSessionId(saved?.sessionId??null);setDraftReferences(saved?.references??[]);setImages([]);
-      setKeyId(saved?.keyId??'');setModelId(saved?.model??'');
+      setKeyId(selectedKey);setModelId(saved?.model??'');
       setControls(Object.fromEntries(Object.entries(saved?.controls??{}).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
     }});
   const composerReady=!mutableComposer||draft.ready;
@@ -174,7 +175,14 @@ export default function VideoView({context}:{context:DashboardContext}) {
     void keyRequest<{data:ProjectKey[]}>(token,scopePath,'GET',undefined,controller.signal).then(payload=>{
       if(controller.signal.aborted)return;
       const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);setAllKeys(payload.data);setKeysScope(keyScopeIdentity);
-      setKeyId(current=>restoredComposer.current?.identity===composerIdentity&&restoredComposer.current.keyId ? restoredComposer.current.keyId : (search.get('job')||search.get('intent')) ? search.get('key')??current : active.some(key=>key.id === current) ? current : active.find(key=>key.id === search.get('key'))?.id ?? active[0]?.id ?? '');
+      setKeyId(current=>{
+        const requested=search.get('key');
+        if(requested)return requested;
+        const restored=restoredComposer.current;
+        if(restored?.identity===composerIdentity&&restored.keyId)return restored.keyId;
+        if(search.get('job')||search.get('intent'))return current;
+        return active.some(key=>key.id===current)?current:active[0]?.id??'';
+      });
     }).catch(error=>{if(!controller.signal.aborted)setKeysError(message(error));}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
     // URL key restoration applies only when loading this workspace.
@@ -182,7 +190,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   },[token,scopePath,keysRevision,composerReady,composerIdentity]);
 
   const requestedKey=search.get('key');
-  useEffect(()=>{if(requestedKey && (selected||intentId||(!restoredComposer.current&&composerReady&&keys.some(key=>key.id===requestedKey))))setKeyId(requestedKey);},[requestedKey,keys,selected,intentId,composerReady]);
+  useEffect(()=>{if(requestedKey && (selected||intentId||(composerReady&&keys.some(key=>key.id===requestedKey))))setKeyId(requestedKey);},[requestedKey,keys,selected,intentId,composerReady]);
   useEffect(()=>{
     const controller=new AbortController(); const changedScope=loadedBase.current !== base;
     if(changedScope)setModels([]);

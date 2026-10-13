@@ -3,7 +3,7 @@ export type ProjectKey = {
   revision?: number;
   name: string;
   allowed_models: string[];
-  expires_at_ms: number;
+  expires_at_ms: number | null;
   last_used_at_ms?: number | null;
   revoked: boolean;
   expired: boolean;

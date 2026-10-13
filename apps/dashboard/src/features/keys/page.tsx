@@ -10,7 +10,7 @@ export default function KeysRoute() {
     {({ token, session }) => <KeysView
       key={`${token}:${workspace?.id ?? ''}`}
       token={token}
-      models={ranked.models.map(model => model.id)}
+      models={ranked.models}
       initialScope={workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null}
       canWrite={session?.permissions.write === true}
     />}

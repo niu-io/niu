@@ -3,7 +3,7 @@ import { IconPencil as Pencil } from '@tabler/icons-react';
 import { IconSearch as Search } from '@tabler/icons-react';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconArrowUpRight as ArrowUpRight } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
@@ -23,30 +23,21 @@ import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PageHeader from '@/components/PageHeader';
-import { useDashboardContext } from '@/app/dashboard-context';
+import { useDashboardContext, type Model } from '@/app/dashboard-context';
 import { keyRequest, keyStatus, keyLastUsed, projectKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
 
 type KeyDialog = { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
-const expiryOptions = [{ label: '7 days', seconds: 7 * 86400 }, { label: '30 days', seconds: 30 * 86400 }, { label: '90 days', seconds: 90 * 86400 }, { label: '1 year', seconds: 365 * 86400 }];
+const expiryOptions = [{ label: '7 days', seconds: 7 * 86400 }, { label: '30 days', seconds: 30 * 86400 }, { label: '90 days', seconds: 90 * 86400 }, { label: '1 year', seconds: 365 * 86400 }, { label: 'Never', seconds: null }];
 
 function baseUrl() {
   const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
   return `${window.location.origin}${base}/v1`;
 }
 
-function requestExample(url: string, model: string) {
-  const body = JSON.stringify({ model, messages: [{ role: 'user', content: 'Reply with a short greeting.' }] });
-  return [
-    `curl "${url}/chat/completions"`,
-    '  -H "Authorization: Bearer $NIU_API_KEY"',
-    '  -H "Content-Type: application/json"',
-    `  -d '${body.replaceAll("'", "'\\''")}'`,
-  ].join(` ${String.fromCharCode(92)}\n`);
-}
 
 export default function KeysView({ token, models, canWrite, initialScope }: {
   token: string;
-  models: string[];
+  models: Model[];
   canWrite: boolean;
   initialScope: { organizationId: string; projectId: string } | null;
 }) {
@@ -64,7 +55,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const [dialog, setDialog] = useState<KeyDialog>(null);
   const [name, setName] = useState('');
   const [copyError, setCopyError] = useState('');
-  const [ttl, setTtl] = useState(expiryOptions[1].seconds);
+  const [ttl, setTtl] = useState<number|null>(expiryOptions[1].seconds);
   const [issued, setIssued] = useState<IssuedProjectKey | null>(null);
   const [secretModel, setSecretModel] = useState('');
   const [copied, setCopied] = useState('');
@@ -73,8 +64,10 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const collectionPath = initialScope ? projectKeyPath(initialScope.organizationId, initialScope.projectId) : '';
   const canIssue = canWrite && Boolean(workspace);
   const showActions = canWrite && keys.some(key => !key.revoked && !key.expired);
-  const exampleModel = secretModel || models[0] || '';
-  const command = useMemo(() => exampleModel ? requestExample(baseUrl(), exampleModel) : '', [exampleModel]);
+  const exampleModel = secretModel || models[0]?.id || '';
+  const exampleMetadata=models.find(model=>model.id===exampleModel);
+  // Catalog text output is descriptive, not a Chat protocol capability.
+  const videoExample=exampleMetadata?.catalog?.output_modalities?.includes('video')===true;
 
   const dialogReturnFocus = useRef<HTMLButtonElement | null>(null);
   const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -143,7 +136,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
       }, pending.signal);
       if (pending.signal.aborted) return;
       setIssued(result);
-      setSecretModel(models[0] ?? '');
+      setSecretModel(models[0]?.id ?? '');
       if (initialScope) rememberChatKey({ ...result, name: name.trim(), allowedModels: ['*'], ...initialScope });
       setDialog({ kind: 'secret' });
       await reload();
@@ -161,7 +154,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
       const result = await keyRequest<IssuedProjectKey>(token, `${collectionPath}/${encodeURIComponent(key.id)}/rotate`, 'POST', undefined, pending.signal);
       if (pending.signal.aborted) return;
       setIssued(result);
-      setSecretModel(key.allowed_models.includes('*') ? models[0] ?? '' : key.allowed_models[0] ?? models[0] ?? '');
+      setSecretModel(key.allowed_models.includes('*') ? models[0]?.id ?? '' : key.allowed_models[0] ?? models[0]?.id ?? '');
       if (initialScope) rememberChatKey({ ...result, name: key.name, allowedModels: key.allowed_models, ...initialScope });
       setDialog({ kind: 'secret', key });
       await reload();
@@ -212,7 +205,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
       {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>Key</TableHead><TableHead className="key-table-metadata">Model access</TableHead><TableHead className="key-table-metadata">Expires</TableHead><TableHead className="key-table-metadata">Last used</TableHead><TableHead>Status</TableHead>{showActions && <TableHead>Actions</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
         <TableCell><Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.id)}`} aria-label={`View key ${key.name}`}><KeyRound size={15} />{key.name}</Link></TableCell>
         <TableCell className="key-table-metadata"><span className="key-model-summary" title={key.allowed_models.includes('*') ? 'Every configured model route' : key.allowed_models.join(', ')}>{key.allowed_models.includes('*') ? 'All configured models' : key.allowed_models.join(', ')}</span></TableCell>
-        <TableCell className="key-table-metadata">{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
+        <TableCell className="key-table-metadata">{key.expires_at_ms === null ? 'Never' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
         <TableCell className="key-table-metadata">{keyLastUsed(key)}</TableCell>
         <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'}>{keyStatus(key)}</Badge></TableCell>
         {showActions && <TableCell>{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={`Actions for ${key.name}`} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.id)}`}><Pencil />Edit</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />Rotate</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />Revoke</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell>}
@@ -239,8 +232,8 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start" sideOffset={5} collisionPadding={10}>
-              <DropdownMenuRadioGroup value={String(ttl)} onValueChange={value => setTtl(Number(value))}>
-                {expiryOptions.map(option => <DropdownMenuRadioItem key={option.seconds} value={String(option.seconds)}>{option.label}</DropdownMenuRadioItem>)}
+              <DropdownMenuRadioGroup value={ttl === null ? 'never' : String(ttl)} onValueChange={value => setTtl(value === 'never' ? null : Number(value))}>
+                {expiryOptions.map(option => <DropdownMenuRadioItem key={option.seconds === null ? 'never' : option.seconds} value={option.seconds === null ? 'never' : String(option.seconds)}>{option.label}</DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -252,11 +245,9 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
         <div className="key-once-notice"><Check size={17} /><span>Copy this secret before closing. Niu cannot reveal it again.</span></div>
         <div className="key-copy-row"><Label htmlFor="issued-api-key">API key</Label><div><Input id="issued-api-key" value={issued.token} readOnly type="text" /><Button type="button" variant="outline" onClick={() => void copy('key', issued.token)}><Clipboard size={15} />{copied === 'key' ? 'Copied' : 'Copy key'}</Button></div></div>
         <div className="key-copy-row"><Label htmlFor="issued-base-url">Base URL</Label><div><Input id="issued-base-url" value={baseUrl()} readOnly /><Button type="button" variant="outline" onClick={() => void copy('url', baseUrl())}><Clipboard size={15} />{copied === 'url' ? 'Copied' : 'Copy URL'}</Button></div></div>
-        {exampleModel
-          ? <div className="key-example"><div><strong>First request</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copy('example', command)}><Clipboard size={14} />{copied === 'example' ? 'Copied' : 'Copy example'}</Button></div><pre><code>{command}</code></pre></div>
-          : <div className="key-example key-example-prerequisite" role="status"><div><strong>Request example unavailable</strong></div><p>{canManagePlatform ? 'Connect a supplier and add a model route to get a runnable request example for this key.' : 'Ask a platform administrator to add a model route to the catalog.'}</p>{canManagePlatform && <Button asChild variant="outline"><Link to="/admin/suppliers">Connect supplier</Link></Button>}</div>}
+        <div className="key-example key-example-prerequisite" role="status"><div><strong>Request example unavailable</strong></div><p>{videoExample ? 'Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.' : exampleModel ? 'A runnable request example cannot be confirmed from this model’s catalog metadata. Open Generations to choose a supported workflow.' : canManagePlatform ? 'Connect a Supplier and add a supported model route to use this key.' : 'Ask a platform administrator to add a model route to the catalog.'}</p>{!exampleModel&&canManagePlatform && <Button asChild variant="outline"><Link to="/admin/suppliers">Connect supplier</Link></Button>}</div>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <footer className="niu-modal-actions"><Button asChild><Link to={`/generations?${new URLSearchParams({new: '1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.id})}`} onClick={() => setDialog(null)}>Use in Chat<ArrowUpRight size={14} /></Link></Button><Button variant="outline" onClick={() => setDialog(null)}>Done</Button></footer>
+        <footer className="niu-modal-actions"><Button asChild><Link to={`/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.id})}`} onClick={() => setDialog(null)}>{videoExample?'Use in Video':'Open Generations'}<ArrowUpRight size={14} /></Link></Button><Button variant="outline" onClick={() => setDialog(null)}>Done</Button></footer>
       </div>}
       {dialog?.kind === 'rotate' && <div className="niu-modal-form"><p className="key-confirm-copy">The replacement secret is shown once.</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button><Button disabled={busy} onClick={() => void rotate(dialog.key)}>{busy ? 'Rotating…' : 'Rotate key'}</Button></footer></div>}
       {dialog?.kind === 'revoke' && <div className="niu-modal-form"><p className="key-confirm-copy">This cannot be undone.</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>Keep key</Button><Button variant="destructive" disabled={busy} onClick={() => void revoke(dialog.key)}>{busy ? 'Revoking…' : 'Revoke key'}</Button></footer></div>}
