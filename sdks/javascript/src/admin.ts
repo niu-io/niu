@@ -1,3 +1,4 @@
+export type { GenerationsVideoIntentReference } from './generations-sessions.js';
 import { createGenerationsSessionsClient } from './generations-sessions.js';
 import { createGenerationsInventoryClient, type GenerationInventoryQuery, type GenerationArtifactKind } from './generations-inventory.js';
 export type { VideoGenerationsSessionSummary, VideoGenerationsSession, VideoGenerationsSessionPage, ChatGenerationsInstruction, ChatGenerationsTaskReference, ChatGenerationsBranch, ChatGenerationsTurn, ChatGenerationsSessionSummary, ChatGenerationsSession, ChatGenerationsSessionPage, GenerationsInstruction, GenerationsTaskReference, GenerationsTurn, GenerationsSessionSummary, GenerationsSession, GenerationsSessionPage, GenerationsSessionPageOptions } from './generations-sessions.js';
@@ -148,9 +149,12 @@ export type ModelRoutePool = { alias: string; organization_id: string | null; en
 export type ModelRoutePoolInput = Omit<ModelRoutePool, 'revision'> & { expected_revision: number };
 export type ModelRoutePoolRevision = ModelRoutePool & { recorded_at: string };
 
-/** Saved intents support text only; controls must match the discovered model schema. */
+/** Retained drafts keep typed Niu material references; explicit submission rechecks
+ * current binding and inspection. URL, inline and short-lived ingestion drafts
+ * remain unsupported. Controls must match the discovered model schema. */
 export type VideoIntentRequest = Omit<VideoCreateRequest, 'content' | 'model'> & {
-  model: string; content: Array<{ type: 'text'; text: string }>;
+  model: string;
+  content: Array<Extract<VideoCreateRequest['content'][number], { type: 'text' | 'provider_asset' | 'workspace_asset' }>>;
 };
 export type VideoIntentIndexEntry = {
   id: string; revision: number; expires_at_ms: string;

@@ -152,6 +152,14 @@ impl Store {
         let Some((current, archived)) = current else {
             return Err(StoreError::Conflict);
         };
+        let bound:Option<Uuid>=sqlx::query_scalar("SELECT intent_id FROM generations_turn_intents WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4 AND turn_id=$5").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_optional(&mut *tx).await?;
+        if let Some(intent) = bound {
+            sqlx::query("SELECT id FROM video_submission_intents WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4 FOR UPDATE").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_one(&mut *tx).await?;
+            let actual:Option<Uuid>=sqlx::query_scalar("SELECT sk.attempt_id FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner=$3 AND vi.id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_optional(&mut *tx).await?;
+            if actual != Some(task) {
+                return Err(StoreError::Conflict);
+            }
+        }
         // Serialize a newly private association with artifact capture's final
         // visibility check and byte commit on the same source attempt.
         let locked: Option<Uuid> = sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
@@ -159,6 +167,10 @@ impl Store {
             .fetch_optional(&mut *tx).await?;
         if locked.is_none() {
             return Err(StoreError::Unauthorized);
+        }
+        let bound_elsewhere:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM generations_turn_intents binding JOIN video_submission_intents vi ON vi.organization_id=binding.organization_id AND vi.project_id=binding.project_id AND vi.owner=binding.owner AND vi.id=binding.intent_id JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=$1 AND (binding.organization_id<>$2 OR binding.project_id<>$3 OR binding.owner<>$4 OR binding.session_id<>$5 OR binding.turn_id<>$6))").bind(task).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_one(&mut *tx).await?;
+        if bound_elsewhere {
+            return Err(StoreError::Conflict);
         }
         let existing: Option<(Uuid, Uuid, String, Uuid, Uuid)> = sqlx::query_as(
             "SELECT organization_id,project_id,owner,session_id,turn_id FROM generations_turn_tasks WHERE task_id=$1",
@@ -190,6 +202,63 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let inserted=sqlx::query("INSERT INTO generations_turn_tasks(organization_id,project_id,owner,session_id,turn_id,task_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).bind(task).execute(&mut *tx).await?.rows_affected();
+        if inserted != 1 {
+            return Err(StoreError::Conflict);
+        }
+        sqlx::query("UPDATE generations_sessions SET revision=revision+1,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).execute(&mut *tx).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+    /// Bind canonical restoration identity without initiating inference.
+    pub async fn bind_generations_intent(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        session: Uuid,
+        turn: Uuid,
+        revision: i64,
+        intent: Uuid,
+    ) -> Result<(), StoreError> {
+        if revision < 1 || intent.is_nil() {
+            return Err(StoreError::InvalidGenerationsInput);
+        }
+        let mut tx = self.begin_bounded_recording().await?;
+        let current:Option<(i64,bool)>=sqlx::query_as("SELECT revision,archived FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4 FOR UPDATE").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).fetch_optional(&mut *tx).await?;
+        let Some((current, archived)) = current else {
+            return Err(StoreError::Conflict);
+        };
+        let retained:Option<bool>=sqlx::query_scalar("SELECT instruction IS NOT NULL AND content_deleted_at IS NULL AND content_expires_at>clock_timestamp() FROM generations_turns WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4 AND id=$5 FOR UPDATE").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_optional(&mut *tx).await?;
+        let Some(retained) = retained else {
+            return Err(StoreError::Conflict);
+        };
+        let existing:Option<Uuid>=sqlx::query_scalar("SELECT intent_id FROM generations_turn_intents WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4 AND turn_id=$5").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_optional(&mut *tx).await?;
+        if let Some(existing) = existing {
+            if existing != intent {
+                return Err(StoreError::Conflict);
+            }
+            tx.commit().await?;
+            return Ok(());
+        }
+        if archived || current != revision || !retained {
+            return Err(StoreError::Conflict);
+        }
+        let allowed:Option<bool>=sqlx::query_scalar("SELECT request IS NOT NULL AND deleted_at IS NULL AND expires_at>clock_timestamp() FROM video_submission_intents WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4 FOR UPDATE").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_optional(&mut *tx).await?;
+        if allowed != Some(true) {
+            return Err(StoreError::Unauthorized);
+        }
+        let actual:Option<Uuid>=sqlx::query_scalar("SELECT sk.attempt_id FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner=$3 AND vi.id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_optional(&mut *tx).await?;
+        let attached:Option<Uuid>=sqlx::query_scalar("SELECT task_id FROM generations_turn_tasks WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4 AND turn_id=$5").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_optional(&mut *tx).await?;
+        if attached.is_some() && actual != attached {
+            return Err(StoreError::Conflict);
+        }
+        if let Some(attempt) = actual {
+            sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE").bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut *tx).await?;
+            let elsewhere:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE task_id=$1 AND (organization_id<>$2 OR project_id<>$3 OR owner<>$4 OR session_id<>$5 OR turn_id<>$6))").bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_one(&mut *tx).await?;
+            if elsewhere {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let inserted=sqlx::query("INSERT INTO generations_turn_intents(organization_id,project_id,owner,session_id,turn_id,intent_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).bind(intent).execute(&mut *tx).await?.rows_affected();
         if inserted != 1 {
             return Err(StoreError::Conflict);
         }

@@ -78,6 +78,12 @@ pub(in crate::web) struct Attach {
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(in crate::web) struct BindIntent {
+    expected_revision: String,
+    intent_id: Uuid,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(in crate::web) struct Revision {
     expected_revision: String,
 }
@@ -362,6 +368,16 @@ fn revision(v: &str) -> Result<i64, ApiError> {
 ///               "type": "null"
 ///             }
 ///           ]
+///         },
+///         "intent": {
+///           "oneOf": [
+///             {
+///               "$ref": "#/components/schemas/GenerationsVideoIntentReference"
+///             },
+///             {
+///               "type": "null"
+///             }
+///           ]
 ///         }
 ///       },
 ///       "required": [
@@ -372,7 +388,8 @@ fn revision(v: &str) -> Result<i64, ApiError> {
 ///         "instruction",
 ///         "content_expires_at",
 ///         "task_id",
-///         "task"
+///         "task",
+///         "intent"
 ///       ]
 ///     },
 ///     "GenerationsVideoSessionSummary": {
@@ -815,6 +832,53 @@ fn revision(v: &str) -> Result<i64, ApiError> {
 ///         "owner",
 ///         "turns"
 ///       ]
+///     },
+///     "GenerationsVideoIntentReference": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "id",
+///         "revision",
+///         "model",
+///         "content_state",
+///         "submission_state",
+///         "task_id"
+///       ],
+///       "properties": {
+///         "id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "revision": {
+///           "type": "string",
+///           "pattern": "^[1-9][0-9]*$"
+///         },
+///         "model": {
+///           "type": "string"
+///         },
+///         "content_state": {
+///           "enum": [
+///             "retained",
+///             "deleted",
+///             "expired"
+///           ]
+///         },
+///         "submission_state": {
+///           "enum": [
+///             "saved",
+///             "not_dispatched",
+///             "dispatched"
+///           ]
+///         },
+///         "task_id": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "format": "uuid"
+///         }
+///       },
+///       "description": "Canonical retained model/controls/material draft is restored through the existing getVideoIntent contract; this safe reference contains no raw request. The turn instruction is the separately saved user instruction/review note, not asserted to be the historical submitted prompt."
 ///     }
 ///   }
 /// }
@@ -1672,6 +1736,143 @@ pub(in crate::web) async fn delete_instruction(
     let own = owner(&s, &headers, sc, AdminPermission::Write).await?;
     s.store
         .delete_generations_instruction(sc, &own, id, turn, revision(&input.expected_revision)?)
+        .await
+        .map_err(ApiError::from_store)?;
+    loaded(&s, sc, &own, id).await
+}
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "generationsSessionBindIntent",
+///     "summary": "Bind a saved Video intent to a private turn",
+///     "description": "Current workspace Write and actor-owned video session/turn/intent required. This only binds saved restoration identity and never dispatches, refreshes or automatically submits inference. One turn and one intent form an immutable association within the same owner/workspace. A fresh association requires expected session revision, an unarchived session and retained turn/intent content. Identical binding retries are side-effect-free even after revision advances, archive, deletion or expiry; changed binding conflicts. If the turn already references a task, it must equal the actual attempt from the original intent submission identity. Session reads resolve any saved original attempt directly from that identity after a lost submission/association response without another inference call. Pending/not-dispatched/unknown outcomes are never assumed free or safe to resend. Safe intent projection includes id, revision, model, content state and submission state, not raw request, key secret or private upstream references. Turn content deletion/expiry clears the bound retained intent copy under turn-to-intent locking while preserving submission tombstones, task evidence, billing and diagnostics. Intent and turn keep their original 30-day retention deadlines; neither is extended. Legacy Video intent APIs remain compatible and explicit submission continues through their submit endpoint. The bound intent is canonical for the actual restored Video draft/request, including model, controls and material inputs. The separately saved turn instruction may be a review note and is not represented as proof of the dispatched prompt; reads never substitute it for missing retained intent content.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "session",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "turn",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Attach an existing authorized video task",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/GenerationsVideoSession"
+///                 }
+///               },
+///               "required": [
+///                 "data"
+///               ]
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid request or cursor"
+///       },
+///       "401": {
+///         "description": "Invalid administrator session or unauthorized historical task"
+///       },
+///       "403": {
+///         "description": "Current workspace permission denied"
+///       },
+///       "404": {
+///         "description": "Actor-owned session is absent"
+///       },
+///       "409": {
+///         "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "properties": {
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]*$"
+///               },
+///               "intent_id": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             },
+///             "required": [
+///               "expected_revision",
+///               "intent_id"
+///             ]
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub(in crate::web) async fn bind_intent(
+    State(s): State<AppState>,
+    headers: HeaderMap,
+    Path((o, p, id, turn)): Path<(Uuid, Uuid, Uuid, Uuid)>,
+    Json(input): Json<BindIntent>,
+) -> Result<Json<Value>, ApiError> {
+    let sc = scope(o, p);
+    let own = owner(&s, &headers, sc, AdminPermission::Write).await?;
+    s.store
+        .bind_generations_intent(
+            sc,
+            &own,
+            id,
+            turn,
+            revision(&input.expected_revision)?,
+            input.intent_id,
+        )
         .await
         .map_err(ApiError::from_store)?;
     loaded(&s, sc, &own, id).await

@@ -13,6 +13,7 @@ mod retry;
 pub(super) mod video;
 pub(super) mod video_images;
 pub(super) mod video_ingested_images;
+mod video_intent_drafts;
 pub(super) mod video_intents;
 pub(super) mod video_provider_assets;
 pub(super) mod video_workspace_assets;

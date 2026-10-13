@@ -672,20 +672,20 @@ pub(super) struct VideoAdmission {
     provider_assets: Option<super::video_provider_assets::ResolvedProviderAssets>,
 }
 
-/// Direct-channel submission with separate personal and prepaid admission.
-/// Media inspection remains required before reference inputs become available.
-/// Shared authorization, capability and tariff checks for estimates and creates.
-pub(super) async fn validate_admission(
+/// Current configuration only. No reference resolution, byte reads or upstream work.
+pub(super) async fn draft_route(
     state: &AppState,
     principal: &niu_storage::Principal,
-    body: &Value,
     model: &str,
-) -> Result<VideoAdmission, ApiError> {
-    let provider_prepared = super::video_provider_assets::prepare(body)?;
-    let workspace = super::video_workspace_assets::prepare(provider_prepared.original_body())?;
-    let prepared = super::video_ingested_images::prepare(workspace.admission_body())?;
-    let body = prepared.admission_body();
-    let placeholders = prepared.trusted_placeholders();
+) -> Result<
+    (
+        niu_storage::VendorRoute,
+        bool,
+        Option<i64>,
+        niu_media::VideoSchema,
+    ),
+    ApiError,
+> {
     let scope = principal.scope();
     let published = crate::vendors::publication::snapshot(state).await?;
     let route_generation = published.as_ref().map(|published| published.generation);
@@ -799,6 +799,113 @@ pub(super) async fn validate_admission(
             .ok_or_else(ApiError::unsupported)?,
     )
     .map_err(|_| ApiError::unsupported())?;
+    Ok((route, owner_funded, route_generation, schema))
+}
+
+pub(super) struct DraftReferenceFacts {
+    pub(super) reference_video: bool,
+    pub(super) images: bool,
+    pub(super) provider_references: bool,
+}
+
+/// Retail and policy checks shared by intent saving and live admission.
+/// Saving does not reserve funds, inspect media or assert reference readiness.
+pub(super) async fn draft_terms(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    route: &niu_storage::VendorRoute,
+    owner_funded: bool,
+    schema: &niu_media::VideoSchema,
+    request: &niu_media::ValidatedVideoRequest,
+    facts: DraftReferenceFacts,
+) -> Result<Option<niu_storage::SelectedCustomerMediaRate>, ApiError> {
+    let model = route.model.alias.as_str();
+    let DraftReferenceFacts {
+        reference_video,
+        images,
+        provider_references,
+    } = facts;
+    let scope = principal.scope();
+    let selling = if owner_funded {
+        None
+    } else {
+        let resolution = request
+            .effective_controls()
+            .get("resolution")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                ApiError::invalid_request(
+                    "A configured effective video resolution is required for billing",
+                )
+            })?;
+        let dimensions = niu_storage::MediaBillingDimensions {
+            model: model.into(),
+            channel: schema.channel.clone(),
+            resolution: resolution.into(),
+            reference_video,
+        };
+        let at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()
+            .and_then(|v| i64::try_from(v.as_secs()).ok())
+            .ok_or_else(ApiError::unavailable)?;
+        let selected = state
+            .store
+            .select_customer_media_rate(scope.organization_id, &dimensions, at)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(|| {
+                ApiError::unsupported_message("No effective customer video tariff is configured")
+            })?;
+        if selected.vendor_id != route.vendor.id
+            || selected.vendor_revision != route.vendor.revision
+            || selected.model_revision != route.model.revision
+            || selected.schema_revision != request.schema_revision()
+            || selected.liability.meter != "video_tokens"
+        {
+            return Err(ApiError::unavailable());
+        }
+        Some(selected)
+    };
+    let snapshot = state
+        .store
+        .guardrail_snapshot(scope, principal.key_id())
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::forbidden)?;
+    if provider_references && super::video_images::inspection_required(&snapshot)? {
+        return Err(ApiError::unsupported_message(
+            "Required image inspection cannot inspect remote Provider assets",
+        ));
+    }
+    if !policy_permits_video_with_images(&snapshot, model, &route.vendor.adapter, images)
+        || images
+            && super::video_images::inspection_required(&snapshot)?
+            && !super::video_images::permitted(state, &snapshot, principal)
+    {
+        return Err(ApiError::forbidden());
+    }
+    Ok(selling)
+}
+
+/// Direct-channel submission with separate personal and prepaid admission.
+/// Media inspection remains required before reference inputs become available.
+/// Shared authorization, capability and tariff checks for estimates and creates.
+pub(super) async fn validate_admission(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    body: &Value,
+    model: &str,
+) -> Result<VideoAdmission, ApiError> {
+    let provider_prepared = super::video_provider_assets::prepare(body)?;
+    let workspace = super::video_workspace_assets::prepare(provider_prepared.original_body())?;
+    let workspace_admission = workspace.admission_body(state, principal).await?;
+    let prepared = super::video_ingested_images::prepare(&workspace_admission)?;
+    let body = prepared.admission_body();
+    let placeholders = prepared.trusted_placeholders();
+    let (route, owner_funded, route_generation, schema) =
+        draft_route(state, principal, model).await?;
+    let scope = principal.scope();
     let openrouter = schema.channel == niu_media::openrouter::REVISION;
     if workspace.has_references() && schema.channel != "ark-direct-v1" {
         return Err(ApiError::unsupported_message(
@@ -915,71 +1022,26 @@ pub(super) async fn validate_admission(
             "This video channel does not support the requested reference form",
         ));
     }
-    let selling = if owner_funded {
-        None
-    } else {
-        let resolution = request
-            .effective_controls()
-            .get("resolution")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                ApiError::invalid_request(
-                    "A configured effective video resolution is required for billing",
-                )
-            })?;
-        let dimensions = niu_storage::MediaBillingDimensions {
-            model: model.into(),
-            channel: schema.channel.clone(),
-            resolution: resolution.into(),
-            reference_video: provider_assets
-                .as_ref()
-                .is_some_and(|assets| assets.has_video())
-                || provider_prepared.original_body()["content"]
-                    .as_array()
-                    .is_some_and(|items| items.iter().any(|item| item["type"] == "video_url")),
-        };
-        let at = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .ok()
-            .and_then(|v| i64::try_from(v.as_secs()).ok())
-            .ok_or_else(ApiError::unavailable)?;
-        let selected = state
-            .store
-            .select_customer_media_rate(scope.organization_id, &dimensions, at)
-            .await
-            .map_err(ApiError::from_store)?
-            .ok_or_else(|| {
-                ApiError::unsupported_message("No effective customer video tariff is configured")
-            })?;
-        if selected.vendor_id != route.vendor.id
-            || selected.vendor_revision != route.vendor.revision
-            || selected.model_revision != route.model.revision
-            || selected.schema_revision != request.schema_revision()
-            || selected.liability.meter != "video_tokens"
-        {
-            return Err(ApiError::unavailable());
-        }
-        Some(selected)
-    };
-    let snapshot = state
-        .store
-        .guardrail_snapshot(scope, principal.key_id())
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::forbidden)?;
-    if provider_assets.is_some() && super::video_images::inspection_required(&snapshot)? {
-        return Err(ApiError::unsupported_message(
-            "Required image inspection cannot inspect remote Provider assets",
-        ));
-    }
-    let images = has_images(body);
-    if !policy_permits_video_with_images(&snapshot, model, &route.vendor.adapter, images)
-        || images
-            && super::video_images::inspection_required(&snapshot)?
-            && !super::video_images::permitted(state, &snapshot, principal)
-    {
-        return Err(ApiError::forbidden());
-    }
+    let reference_video = provider_assets
+        .as_ref()
+        .is_some_and(|assets| assets.has_video())
+        || provider_prepared.original_body()["content"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item["type"] == "video_url"));
+    let selling = draft_terms(
+        state,
+        principal,
+        &route,
+        owner_funded,
+        &schema,
+        &request,
+        DraftReferenceFacts {
+            reference_video,
+            images: has_images(body),
+            provider_references: provider_assets.is_some(),
+        },
+    )
+    .await?;
     Ok(VideoAdmission {
         route,
         request,

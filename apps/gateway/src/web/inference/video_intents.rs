@@ -121,8 +121,8 @@ pub(in crate::web) struct SaveInput {
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveVideoSubmissionIntent",
-///     "summary": "Save an immutable text-video submission intent",
-///     "description": "Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires workspace write permission and an active selected key with model access and allowed source. A fresh client-generated intent UUID binds the exact request, original key and funding mode. Identical retries return the same record; changed input or key under that UUID conflicts. No attempt, upstream call or reservation is created. The internal idempotency identity is server-generated and is never exposed; use the submit operation rather than legacy job creation.",
+///     "summary": "Save an immutable video submission intent with typed Niu references",
+///     "description": "Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires workspace write permission and an active selected key with model access and allowed source. A fresh client-generated intent UUID binds the exact request, original key and funding mode. Identical retries return the same record; changed input or key under that UUID conflicts. No attempt, upstream call or reservation is created. The internal idempotency identity is server-generated and is never exposed; use the submit operation rather than legacy job creation. Saving reference drafts reads only scoped material metadata and schema constraints. It never resolves private Provider URIs, reads upload bytes, queries upstream, reserves funds, inspects media or grants Active readiness. Original Niu references and explicit consent remain in the canonical request digest; all runtime bindings are revalidated at submit.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -162,7 +162,7 @@ pub(in crate::web) struct SaveInput {
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Save an immutable text-video submission intent",
+///         "description": "Save an immutable video submission intent with typed Niu references",
 ///         "headers": {
 ///           "Cache-Control": {
 ///             "schema": {
@@ -207,14 +207,14 @@ pub(in crate::web) struct SaveInput {
 ///         "description": "Required storage or route configuration is unavailable."
 ///       },
 ///       "501": {
-///         "description": "Unsupported video capability or non-text intent."
+///         "description": "Unsupported video capability or saved-reference form."
 ///       },
 ///       "413": {
 ///         "description": "Request envelope exceeds 64 KiB."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.",
+///     "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -248,7 +248,7 @@ pub(in crate::web) struct SaveInput {
 ///         "content"
 ///       ],
 ///       "additionalProperties": true,
-///       "description": "Validated text-only request with configured defaults materialized at save time, at most 60 KiB encoded JSON. Model-specific controls must satisfy the current configured video schema; image/media references and callbacks are unsupported. Saving validates availability and funding mode but does not reserve funds.",
+///       "description": "Validated original Niu request with configured defaults materialized at save time, at most 60 KiB JSON. Supports text, Provider-owned image/audio/video IDs, or workspace-owned image IDs with explicit consent. Provider/local reference families cannot be mixed. Only scoped metadata is read at save; no bytes, upload, Provider query, processing readiness or dispatch. No private Provider URI or schema placeholder is persisted. URL, inline data, ingested_image and callbacks are unsupported. Current model schema, policy and funding mode apply; actual live binding, Active readiness and inspection are rechecked only at explicit submit.",
 ///       "properties": {
 ///         "model": {
 ///           "type": "string"
@@ -257,21 +257,99 @@ pub(in crate::web) struct SaveInput {
 ///           "type": "array",
 ///           "minItems": 1,
 ///           "items": {
-///             "type": "object",
-///             "additionalProperties": false,
-///             "required": [
-///               "type",
-///               "text"
-///             ],
-///             "properties": {
-///               "type": {
-///                 "const": "text"
+///             "oneOf": [
+///               {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "type",
+///                   "text"
+///                 ],
+///                 "properties": {
+///                   "type": {
+///                     "const": "text"
+///                   },
+///                   "text": {
+///                     "type": "string"
+///                   }
+///                 }
 ///               },
-///               "text": {
-///                 "type": "string"
+///               {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "type",
+///                   "provider_asset"
+///                 ],
+///                 "properties": {
+///                   "type": {
+///                     "const": "provider_asset"
+///                   },
+///                   "provider_asset": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "id"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "format": "uuid",
+///                         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+///                         "description": "Canonical nonnil Niu reference."
+///                       }
+///                     }
+///                   },
+///                   "role": {
+///                     "type": "string",
+///                     "minLength": 1,
+///                     "maxLength": 256,
+///                     "description": "Explicit configured role; null, whitespace padding and control characters are invalid."
+///                   }
+///                 }
+///               },
+///               {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "type",
+///                   "workspace_asset"
+///                 ],
+///                 "properties": {
+///                   "type": {
+///                     "const": "workspace_asset"
+///                   },
+///                   "workspace_asset": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "asset_id",
+///                       "consent_to_process"
+///                     ],
+///                     "properties": {
+///                       "asset_id": {
+///                         "type": "string",
+///                         "format": "uuid",
+///                         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+///                         "description": "Canonical nonnil Niu reference."
+///                       },
+///                       "consent_to_process": {
+///                         "type": "boolean",
+///                         "const": true
+///                       }
+///                     }
+///                   },
+///                   "role": {
+///                     "type": "string",
+///                     "minLength": 1,
+///                     "maxLength": 256,
+///                     "description": "Explicit configured role; null, whitespace padding and control characters are invalid."
+///                   }
+///                 }
 ///               }
-///             }
-///           }
+///             ]
+///           },
+///           "maxItems": 32
 ///         }
 ///       }
 ///     },
@@ -294,6 +372,7 @@ pub(in crate::web) struct SaveInput {
 ///           "minimum": 1
 ///         },
 ///         "expires_at_ms": {
+///           "description": "Immutable original intent deadline. A bound turn may expire or delete content earlier; content_state determines availability.",
 ///           "type": "string",
 ///           "pattern": "^[0-9]+$"
 ///         },
@@ -333,6 +412,7 @@ pub(in crate::web) struct SaveInput {
 ///           "minimum": 1
 ///         },
 ///         "expires_at_ms": {
+///           "description": "Immutable original intent deadline. A bound turn may expire or delete content earlier; content_state determines availability.",
 ///           "type": "string",
 ///           "pattern": "^[0-9]+$"
 ///         },
@@ -425,30 +505,10 @@ pub(in crate::web) async fn save(
     if !principal.allows_model(model) {
         return Err(ApiError::not_found());
     }
-    if input
-        .request
-        .get("content")
-        .and_then(Value::as_array)
-        .is_none_or(|items| {
-            items.is_empty()
-                || items
-                    .iter()
-                    .any(|item| item.get("type").and_then(Value::as_str) != Some("text"))
-        })
-    {
-        return Err(ApiError::unsupported_message(
-            "Saved video intents support text input only",
-        ));
-    }
-    let video::VideoAdmission {
-        request: validated,
+    let super::video_intent_drafts::SavedDraft {
+        mut canonical,
         owner_funded,
-        ..
-    } = video::validate_admission(&state, &principal, &input.request, model).await?;
-    // Materialize defaults now so later schema defaults cannot silently change
-    // the restored document. Keep the customer alias, not the upstream model.
-    let mut canonical = validated.body().clone();
-    canonical["model"] = Value::String(model.to_owned());
+    } = super::video_intent_drafts::validate(&state, &principal, &input.request, model).await?;
     canonical.sort_all_objects();
     let document = serde_json::to_vec(&canonical)
         .map_err(|_| ApiError::invalid_request("Invalid video request"))?;
@@ -572,7 +632,7 @@ pub(in crate::web) async fn save(
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open."
+///     "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate."
 ///   }
 /// }
 /// ```
@@ -712,7 +772,7 @@ pub(in crate::web) struct Page {
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open."
+///     "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate."
 ///   }
 /// }
 /// ```
@@ -864,7 +924,7 @@ pub(in crate::web) struct Revision {
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.",
+///     "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -1016,7 +1076,7 @@ pub(in crate::web) async fn delete(
 ///         "description": "Required storage or route configuration is unavailable."
 ///       },
 ///       "501": {
-///         "description": "Unsupported video capability or non-text intent."
+///         "description": "Unsupported video capability or saved-reference form."
 ///       },
 ///       "402": {
 ///         "description": "Insufficient funds or spending allowance before dispatch."
@@ -1026,7 +1086,7 @@ pub(in crate::web) async fn delete(
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.",
+///     "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {

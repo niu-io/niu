@@ -1,3 +1,4 @@
+export type { GenerationsVideoIntentReference } from './generations-sessions.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 import type { ContextPriceTier } from './admin.js';
 import { waitForVideoJob, type VideoWaitOptions } from './video-wait.js';

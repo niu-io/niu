@@ -37,7 +37,11 @@ Actual workspace byte quota was reached through authentic-video library uploads.
 
 A real capture was interrupted after its durable preparing claim, while completion waited on the existing workspace quota lock. Restart restored preparing without partial asset/content/audit writes; retry during the active lease returned 409. After the actual lease elapsed, explicit same-claim retry retained matching bytes with a successful full decode and exactly one material/content/creation event. No generation or financial records changed.
 
-Remaining backend work includes durable typed material-reference drafts plus session-turn-to-intent binding. Existing video intents retain text-only requests; task association does not yet recover a pending reference-bearing submission from its session. Extend those existing stores and their retention/idempotency rules rather than adding another task subsystem. Frontend and human-verification acceptance remain separate.
+Typed Niu material-reference drafts and immutable session-turn-to-intent binding are now implemented in the existing stores. Saving is metadata-only; original references, roles, consent and materialized controls are retained under the existing request policy. Session reads expose a safe intent reference and resolve any actual original submission attempt before explicit task attachment. Turn deletion clears bound request content; bound expiry is reflected immediately in intent reads/history. No route automatically submits or manufactures execution evidence.
+
+Current-input genuine workspace-image draft saving/restoration/replay, session binding/replay, unrelated existing-task rejection, Read/Write/actor/workspace isolation, deletion and Gateway restart were exercised through HTTP and the built SDK. Independent native database verification matched canonical request digests and original references, found one immutable binding, and confirmed no submission or generation/financial changes. The private schema stand-in bug discovered by the actual image input was fixed without weakening image validation.
+
+Provider-reference drafts and actual attempted-submission projection are implemented but nonempty Provider material and lost-attachment recovery qualification remain separate; no new generation or synthetic submitted record was created for this increment. URL/inline/short-lived ingestion drafts remain outside this retained-intent contract. Frontend and human-verification acceptance remain separate.
 
 ## Frontend integration for the delivered SDK
 
@@ -63,7 +67,7 @@ Remaining backend work includes durable typed material-reference drafts plus ses
 - Tests proving that changing the composer/model configuration cannot reroute an old task query.
 - SDK contract tests for cached versus fresh output delivery, expiry, authorization and failure responses.
 - FastRouter existing-task recovery has current-input evidence above. Preserve the separate **OpenRouter Grok** failure diagnosis; it must not be counted as FastRouter evidence.
-- Material mutation uncertainty/recovery tests using fixtures; actual human verification requires the user. No fabricated completion.
+- Material mutation uncertainty/recovery requires actual current-input evidence and independent saved artifacts; fixture outcomes have no acceptance signal. Actual human verification requires the user. No fabricated completion.
 - Browser checks for capability-specific tools, saved history, preview/download, reload and a second browser. Re-run broader tests: an earlier full dashboard run had layout/activity failures outside the targeted passing set.
 
 ## Code and API entry points

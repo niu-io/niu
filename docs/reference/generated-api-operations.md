@@ -20637,6 +20637,122 @@ HTTP 404: Actor-owned session is absent
 
 HTTP 409: Stale revision, changed idempotent identity, archive or task association conflict
 
+## Bind a saved Video intent to a private turn
+
+`PUT /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent`
+
+Current workspace Write and actor-owned video session/turn/intent required. This only binds saved restoration identity and never dispatches, refreshes or automatically submits inference. One turn and one intent form an immutable association within the same owner/workspace. A fresh association requires expected session revision, an unarchived session and retained turn/intent content. Identical binding retries are side-effect-free even after revision advances, archive, deletion or expiry; changed binding conflicts. If the turn already references a task, it must equal the actual attempt from the original intent submission identity. Session reads resolve any saved original attempt directly from that identity after a lost submission/association response without another inference call. Pending/not-dispatched/unknown outcomes are never assumed free or safe to resend. Safe intent projection includes id, revision, model, content state and submission state, not raw request, key secret or private upstream references. Turn content deletion/expiry clears the bound retained intent copy under turn-to-intent locking while preserving submission tombstones, task evidence, billing and diagnostics. Intent and turn keep their original 30-day retention deadlines; neither is extended. Legacy Video intent APIs remain compatible and explicit submission continues through their submit endpoint. The bound intent is canonical for the actual restored Video draft/request, including model, controls and material inputs. The separately saved turn instruction may be a review note and is not represented as proof of the dispatched prompt; reads never substitute it for missing retained intent content.
+
+Implementation: `implemented`. Operation: `generationsSessionBindIntent`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`session` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`turn` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "intent_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "expected_revision",
+    "intent_id"
+  ]
+}
+```
+
+### Responses
+
+HTTP 200: Attach an existing authorized video task
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/GenerationsVideoSession"
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid request or cursor
+
+HTTP 401: Invalid administrator session or unauthorized historical task
+
+HTTP 403: Current workspace permission denied
+
+HTTP 404: Actor-owned session is absent
+
+HTTP 409: Stale revision, changed idempotent identity, archive or task association conflict
+
 ## Explicitly refresh the original Video task
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh`
@@ -22443,17 +22559,17 @@ HTTP 501: Unsupported video channel, notification contract, mixed inline/ingeste
 
 HTTP 503: Qualified offer, original route or storage unavailable.
 
-## Save an immutable text-video submission intent
+## Save an immutable video submission intent with typed Niu references
 
 `PUT /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
 
-Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires workspace write permission and an active selected key with model access and allowed source. A fresh client-generated intent UUID binds the exact request, original key and funding mode. Identical retries return the same record; changed input or key under that UUID conflicts. No attempt, upstream call or reservation is created. The internal idempotency identity is server-generated and is never exposed; use the submit operation rather than legacy job creation.
+Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires workspace write permission and an active selected key with model access and allowed source. A fresh client-generated intent UUID binds the exact request, original key and funding mode. Identical retries return the same record; changed input or key under that UUID conflicts. No attempt, upstream call or reservation is created. The internal idempotency identity is server-generated and is never exposed; use the submit operation rather than legacy job creation. Saving reference drafts reads only scoped material metadata and schema constraints. It never resolves private Provider URIs, reads upload bytes, queries upstream, reserves funds, inspects media or grants Active readiness. Original Niu references and explicit consent remain in the canonical request digest; all runtime bindings are revalidated at submit.
 
 Implementation: `implemented`. Operation: `saveVideoSubmissionIntent`.
 
 ### Supported scope
 
-Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.
 
 ### Authentication
 
@@ -22527,7 +22643,7 @@ Content type: `application/json`.
 
 ### Responses
 
-HTTP 200: Save an immutable text-video submission intent
+HTTP 200: Save an immutable video submission intent with typed Niu references
 
 Response header: `Cache-Control`.
 
@@ -22567,7 +22683,7 @@ HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict
 
 HTTP 503: Required storage or route configuration is unavailable.
 
-HTTP 501: Unsupported video capability or non-text intent.
+HTTP 501: Unsupported video capability or saved-reference form.
 
 HTTP 413: Request envelope exceeds 64 KiB.
 
@@ -22581,7 +22697,7 @@ Implementation: `implemented`. Operation: `getVideoSubmissionIntent`.
 
 ### Supported scope
 
-Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.
 
 ### Authentication
 
@@ -22679,7 +22795,7 @@ Implementation: `implemented`. Operation: `listVideoSubmissionIntents`.
 
 ### Supported scope
 
-Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.
 
 ### Authentication
 
@@ -22804,7 +22920,7 @@ Implementation: `implemented`. Operation: `deleteVideoSubmissionIntent`.
 
 ### Supported scope
 
-Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.
 
 ### Authentication
 
@@ -22942,7 +23058,7 @@ Implementation: `implemented`. Operation: `submitVideoSubmissionIntent`.
 
 ### Supported scope
 
-Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.
 
 ### Authentication
 
@@ -23069,7 +23185,7 @@ HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict
 
 HTTP 503: Required storage or route configuration is unavailable.
 
-HTTP 501: Unsupported video capability or non-text intent.
+HTTP 501: Unsupported video capability or saved-reference form.
 
 HTTP 402: Insufficient funds or spending allowance before dispatch.
 
@@ -30199,6 +30315,58 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### GenerationsVideoIntentReference
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "revision",
+    "model",
+    "content_state",
+    "submission_state",
+    "task_id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "model": {
+      "type": "string"
+    },
+    "content_state": {
+      "enum": [
+        "retained",
+        "deleted",
+        "expired"
+      ]
+    },
+    "submission_state": {
+      "enum": [
+        "saved",
+        "not_dispatched",
+        "dispatched"
+      ]
+    },
+    "task_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  },
+  "description": "Canonical retained model/controls/material draft is restored through the existing getVideoIntent contract; this safe reference contains no raw request. The turn instruction is the separately saved user instruction/review note, not asserted to be the historical submitted prompt."
+}
+```
+
 ### GenerationsVideoSession
 
 ```json
@@ -30451,6 +30619,16 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "type": "null"
         }
       ]
+    },
+    "intent": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/GenerationsVideoIntentReference"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -30461,7 +30639,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "instruction",
     "content_expires_at",
     "task_id",
-    "task"
+    "task",
+    "intent"
   ]
 }
 ```
@@ -33006,6 +33185,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "minimum": 1
     },
     "expires_at_ms": {
+      "description": "Immutable original intent deadline. A bound turn may expire or delete content earlier; content_state determines availability.",
       "type": "string",
       "pattern": "^[0-9]+$"
     },
@@ -33031,7 +33211,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "content"
   ],
   "additionalProperties": true,
-  "description": "Validated text-only request with configured defaults materialized at save time, at most 60 KiB encoded JSON. Model-specific controls must satisfy the current configured video schema; image/media references and callbacks are unsupported. Saving validates availability and funding mode but does not reserve funds.",
+  "description": "Validated original Niu request with configured defaults materialized at save time, at most 60 KiB JSON. Supports text, Provider-owned image/audio/video IDs, or workspace-owned image IDs with explicit consent. Provider/local reference families cannot be mixed. Only scoped metadata is read at save; no bytes, upload, Provider query, processing readiness or dispatch. No private Provider URI or schema placeholder is persisted. URL, inline data, ingested_image and callbacks are unsupported. Current model schema, policy and funding mode apply; actual live binding, Active readiness and inspection are rechecked only at explicit submit.",
   "properties": {
     "model": {
       "type": "string"
@@ -33040,21 +33220,99 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "type",
-          "text"
-        ],
-        "properties": {
-          "type": {
-            "const": "text"
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "text"
+            ],
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
           },
-          "text": {
-            "type": "string"
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "provider_asset"
+            ],
+            "properties": {
+              "type": {
+                "const": "provider_asset"
+              },
+              "provider_asset": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Canonical nonnil Niu reference."
+                  }
+                }
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "description": "Explicit configured role; null, whitespace padding and control characters are invalid."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "workspace_asset"
+            ],
+            "properties": {
+              "type": {
+                "const": "workspace_asset"
+              },
+              "workspace_asset": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset_id",
+                  "consent_to_process"
+                ],
+                "properties": {
+                  "asset_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Canonical nonnil Niu reference."
+                  },
+                  "consent_to_process": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                }
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "description": "Explicit configured role; null, whitespace padding and control characters are invalid."
+              }
+            }
           }
-        }
-      }
+        ]
+      },
+      "maxItems": 32
     }
   }
 }
@@ -33801,6 +34059,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "minimum": 1
     },
     "expires_at_ms": {
+      "description": "Immutable original intent deadline. A bound turn may expire or delete content earlier; content_state determines availability.",
       "type": "string",
       "pattern": "^[0-9]+$"
     },

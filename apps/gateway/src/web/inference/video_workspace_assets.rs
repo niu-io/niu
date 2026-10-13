@@ -20,6 +20,25 @@ struct PreparedReference {
     asset_id: Uuid,
     role: Option<String>,
 }
+/// Private one-pixel schema stand-in, never uploaded, persisted or dispatched.
+/// Use the retained material MIME; an unrelated allowed MIME cannot authorize it.
+pub(super) fn schema_placeholder(content_type: &str) -> Result<&'static str, ApiError> {
+    match content_type {
+        "image/png" => Ok(
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC",
+        ),
+        "image/jpeg" => Ok(
+            "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AN//Z",
+        ),
+        "image/webp" => {
+            Ok("data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA4AAAAvAAAAAAcQEf0PRET/Aw==")
+        }
+        _ => Err(ApiError::unsupported_message(
+            "Workspace image materials require PNG, JPEG or WebP",
+        )),
+    }
+}
+
 /// Holds the original request independently from preliminary schema input.
 pub(super) struct PreparedWorkspaceAssets {
     original: Value,
@@ -27,8 +46,29 @@ pub(super) struct PreparedWorkspaceAssets {
     references: Vec<PreparedReference>,
 }
 impl PreparedWorkspaceAssets {
-    pub(super) fn admission_body(&self) -> &Value {
-        &self.admission
+    /// Scoped metadata only; this never reads material bytes or grants readiness.
+    pub(super) async fn admission_body(
+        &self,
+        state: &AppState,
+        principal: &Principal,
+    ) -> Result<Value, ApiError> {
+        let mut body = self.admission.clone();
+        for reference in &self.references {
+            let asset = state
+                .store
+                .workspace_asset(principal.scope(), reference.asset_id)
+                .await
+                .map_err(ApiError::from_store)?
+                .ok_or_else(ApiError::not_found)?;
+            if asset.media_kind != AssetLibraryKind::Image {
+                return Err(ApiError::unsupported_message(
+                    "Only saved image materials are supported for video input",
+                ));
+            }
+            body["content"][reference.position]["image_url"]["url"] =
+                json!(schema_placeholder(&asset.content_type)?);
+        }
+        Ok(body)
     }
     pub(super) fn has_references(&self) -> bool {
         !self.references.is_empty()
@@ -88,7 +128,7 @@ pub(super) fn prepare(body: &Value) -> Result<PreparedWorkspaceAssets, ApiError>
             return Err(invalid());
         }
         let mut replacement =
-            json!({"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}});
+            json!({"type":"image_url","image_url":{"url":schema_placeholder("image/png")?}});
         if let Some(role) = &role {
             replacement["role"] = json!(role);
         }
