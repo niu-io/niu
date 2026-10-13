@@ -23,8 +23,10 @@ rail areas. Tasks finds executions across sessions; Artifacts finds outputs.
 Neither is an agent orchestration service.
 
 This work must use existing generated videos for integration acceptance. Do not
-call generation, replay creation, create reference assets or start verification
-sessions to obtain new test data. Read saved status and available result bytes.
+call generation or replay creation to obtain new test data. Read saved status
+and available result bytes. Do not create reference assets or verification
+sessions solely for acceptance; the human-verification entry is a separately
+explicit user action, not an automatic step in viewing a video.
 If an old result has expired, report that fact rather than regenerate it. Use
 fixtures for creation/concurrency failure tests, not paid upstream operations.
 
@@ -39,6 +41,9 @@ fixtures for creation/concurrency failure tests, not paid upstream operations.
 | Video submission intents | Actor-owned saved text input, optimistic revision and no-resend restoration | A single intent is not a multi-turn session. It expires; references are not a general saved conversation format. |
 | Chat sessions and drafts | Actor-scoped durable multi-turn Chat and optimistic revisions | Current payload is a text-comparison contract, not a typed asynchronous timeline. |
 | Supplier model mappings and Video schemas | Model-declared channels, inputs and controls | Frontend discoverability work; no replacement backend capability editor is required. |
+| Workspace material library | Durable encrypted original files, metadata, scoped member CRUD, SDK and quota enforcement | No Collections, person entity, Artifact-to-Asset promotion or general audio/video reference dispatch. |
+| Provider asset groups, assets and operations | Account/model-bound resources, acknowledged creation, processing/Active state and recovery | Not a generic material library; no unified material-to-Provider binding projection. |
+| Provider verification sessions | Create/list/read, explicit private H5 link, guarded result query and genuine person-group binding | No person-library association or dashboard entry; actual human completion remains unverified. |
 
 See [Video API and SDK](../../apps/docs/src/content/docs/reference/video.mdx),
 `sdks/javascript/src/admin.ts`, `sdks/javascript/src/index.ts`,
@@ -132,6 +137,107 @@ and diagnostics. Session archival/deletion must not silently delete task evidenc
 or financial records. Document retention for instructions, outputs and task
 history separately; this extension does not imply permanent media storage.
 
+### P3: reusable Assets and Provider capability integration
+
+Assets is a general reusable material library, not a Video-only resource. Reuse
+the existing workspace material API and encrypted-content domain. A global Assets
+entry can aggregate authorized workspace materials without changing their ownership.
+Artifacts remains generated output history inside Generations. An explicit
+**Add to Assets** action promotes an available output into durable reusable
+material and retains its source task/output association; it never submits a task
+or registers the material with a Provider automatically.
+
+| Product concept | Meaning and placement |
+| --- | --- |
+| Asset | Original image/video/audio, preview, name, provenance and retained content; general Assets library. |
+| Collection | Optional user organization of Assets; not a one-to-one Provider group. Existing library APIs do not implement Collections. |
+| Person | A named subject associated with multiple user-selected materials; optional product association, not a claim of verified identity or automated face matching. |
+| Provider registration | A separate binding from a material to an acknowledged Provider asset and its actual processing status; Asset details and contextual generation requirements. |
+| Provider asset group | Channel-specific operational resource, including generated/person group kinds; Provider bindings, not the user's folder hierarchy. |
+| Human-verification record | H5 session and confirmed person-group binding for a specific Provider account/channel; Person details and contextual generation entry. |
+
+Keep a Niu material identity independent of opaque Provider identifiers. A material
+may have several registrations; registration does not replace its original file.
+Bind each registration and person-verification record to the authorized workspace,
+selected Provider adapter, upstream account/credential configuration, channel and
+applicable model/schema identity. Display meaningful Supplier/Provider names and
+channel restrictions: Provider identity need not be hidden. Credentials, private
+tokens, raw asset URIs and internal references remain private adapter details.
+
+The existing implementation pins exact credential/model bindings and records the
+original key for immutable history/encryption. Current key grants and routing are
+revalidated. Do not equate a Niu inference key with the upstream account, and do
+not assume all credentials for one Supplier identify the same account. Same-account
+key replacement or cross-model reuse requires documented proof and a supported
+rebinding contract; never bypass current binding checks or rewrite immutable rows.
+
+Artifact byte retention needs a separate bounded capture/promotion contract. Current
+Video result references and availability do not guarantee durable copied bytes.
+Capture must use authorized result retrieval, bounded format/size/quota checks,
+durable status and deduplicated source identity. A failed capture cannot be labelled
+available or trigger regeneration. Keep supplier URL expiry separate from retained
+bytes; deletion and storage policy must be explicit. Existing material limits still
+apply until deliberately extended. Do not make public Provider-upload URLs from
+authenticated library downloads by assumption.
+
+### P4: minimum human-verification entry and recovery
+
+Primary entry: **Assets → Person details → Provider binding → Human verification**.
+Secondary entry: a contextual action beside selected person/reference inputs in
+Generations when the chosen model/channel actually requires it. Restore the
+original draft after returning; switching a model preserves materials and outputs
+but recomputes compatibility and binding requirements. No extra rail item or
+Admin-only biometric workflow is required.
+
+The minimum implementation reuses `client.media.verification` and existing
+workspace Provider groups. Do not wait for a complete Collections feature, but do
+not fabricate a Person details destination: add the necessary named association
+contract or temporarily expose the capability on an existing selected Provider
+group/reference detail with an explicit scope label. Model discovery must expose
+whether verification/Provider assets are available and which reference kinds,
+roles and controls apply; ordinary text generation must not acquire a face gate.
+
+1. The authorized user explicitly starts a session for the selected account/model
+   context. Persist its idempotency identity and optional subject label; creation
+   is not verification and an uncertain creation must not automatically repeat.
+2. Retrieve the private H5 link deliberately, then open it for the person to
+   complete on the Provider's site. Niu does not collect biometric video or
+   substitute a local detector. Never place the link/token in ordinary metadata,
+   Logs, telemetry, shared session exports or browser storage. Use no-referrer
+   navigation and respect known expiry.
+3. Return navigation or window closure changes no verification state. The user
+   explicitly checks the saved session. Existing refresh can resolve/create a
+   person group upstream, so preserve its durable query claim and uncertainty
+   protections; do not implement unconditional polling or treat it as a GET.
+4. Only a genuine decoded verified result binds the returned Niu person-group
+   reference to the product subject/context. Multiple materials may reference the
+   same confirmed person binding where the channel supports it. A label alone
+   does not prove that files depict that person.
+5. Each material registration retains its independent processing/Active state.
+   Verified person, ready group and Active material are distinct conditions.
+   No one status promotes another or guarantees generation permission.
+
+Render the existing verification states (`prepared`, `unknown`, `not_sent`,
+`waiting_user`, `processing`, `verified`, `failed`, `expired`) without fake
+completion. Expired or uncertain sessions retain their historical association;
+starting another is a separate explicit action. Reuse stored server session data
+across restart and browser loss, and preserve authorization when changing keys.
+
+Deliver a session-authenticated dashboard bridge or documented authorized SDK
+access for the minimum entry. Do not require users to paste upstream secrets or
+retrieve/store inference-key secrets just to open this feature. Add any required
+Person/material/session associations, capability discovery and safe named context
+DTOs through additive contracts, with no blanket permission to migrate bindings.
+
+See [material library](workspace-material-library.md),
+[FastRouter integration](fastrouter-video-integration.md),
+[Provider group acceptance](provider-asset-group-acceptance.md),
+[Provider asset acceptance](provider-video-asset-acceptance.md),
+[verification creation](provider-verification-session-create-acceptance.md) and
+[verification expiry/rotation](provider-verification-encryption-rotation-acceptance.md).
+These establish scoped building blocks, not successful human verification or a
+complete reusable-person generation journey.
+
 ## API and SDK delivery
 
 Choose additive route names consistent with current scoped dashboard APIs;
@@ -165,6 +271,14 @@ submit another generation. Customer fields contain customer charges only.
    compatibility notes and any remaining limitations. Provide local read-only
    verification instructions through private configuration, without embedding
    test credentials, customer records or machine paths in this public document.
+8. Asset promotion stores available original output bytes/provenance once, survives
+   restart, enforces quotas and handles expiry/failure without new generation.
+   Provider registration remains separate from material ownership and Collections.
+9. Fixture human-verification flows cover waiting, processing, verified person-group
+   association, expiry and unknown query recovery, with independent asset Active
+   checks and account/channel isolation. Existing genuine expired-session reads
+   verify honest expiry; actual human completion remains a separate user-performed
+   qualification and must never be manufactured or inferred from redirects.
 
 ## Frontend work that does not require these extensions
 
