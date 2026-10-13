@@ -10,6 +10,7 @@ import { VendorRequestError, request } from '@/features/vendors/api';
 
 type Profile = { name: string; description: string; website_url: string; logo_url: string; revision: number };
 const empty = { name: '', description: '', website_url: '', logo_url: '' };
+const conflictMessage = 'These details changed since you opened this page. Reload the saved details before saving again.';
 export default function SupplierSettings() {
   const { supplierId } = useParams();
   const { token } = useDashboardContext();
@@ -19,16 +20,23 @@ export default function SupplierSettings() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [conflict, setConflict] = useState(false);
   const [saved, setSaved] = useState(false);
   const [reload, setReload] = useState(0);
   const [brokenLogo, setBrokenLogo] = useState(false);
   const pending = useRef<AbortController | null>(null);
   const path = `/admin/v1/providers/${encodeURIComponent(supplierId ?? '')}`;
+  const loadedContext = useRef('');
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setBusy(false); setProfile(null); setError(''); setSaved(false);
+    const context = `${token}\0${path}`;
+    if (loadedContext.current !== context) {
+      loadedContext.current = context;
+      setProfile(null); setDraft(empty); setConflict(false);
+    }
+    setLoading(true); setBusy(false); setError(''); setSaved(false);
     void request<{ data: Profile }>(token, path, 'GET', undefined, controller.signal).then(({ data }) => {
-      if (!controller.signal.aborted) { setProfile(data); setDraft({ name: data.name, description: data.description, website_url: data.website_url, logo_url: data.logo_url }); }
+      if (!controller.signal.aborted) { setProfile(data); setDraft({ name: data.name, description: data.description, website_url: data.website_url, logo_url: data.logo_url }); setConflict(false); }
     }).catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => { controller.abort(); pending.current?.abort(); };
@@ -37,7 +45,7 @@ export default function SupplierSettings() {
   const dirty = profile && Object.keys(empty).some(key => draft[key as keyof typeof empty].trim() !== profile[key as keyof typeof empty]);
   function change(key: keyof typeof empty, value: string) { setDraft(current => ({ ...current, [key]: value })); setSaved(false); }
   async function save(event: FormEvent) {
-    event.preventDefault(); if (!profile || busy || !dirty) return;
+    event.preventDefault(); if (!profile || loading || busy || !dirty || conflict || loadedContext.current !== `${token}\0${path}`) return;
     const controller = new AbortController(); pending.current = controller; setBusy(true); setError(''); setSaved(false);
     try {
       const { data } = await request<{ data: Profile }>(token, path, 'PATCH', { ...draft, expected_revision: profile.revision }, controller.signal);
@@ -45,7 +53,11 @@ export default function SupplierSettings() {
         setProfile(data); setDraft({ name: data.name, description: data.description, website_url: data.website_url, logo_url: data.logo_url }); setSaved(true);
         window.dispatchEvent(new Event('niu:supplier-profile-updated'));
       }
-    } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof VendorRequestError && reason.status === 409 ? 'These details changed since you opened this page. Reload the saved details before saving again.' : reason instanceof Error ? reason.message : 'Could not save supplier details.'); }
+    } catch (reason) { if (!controller.signal.aborted) {
+      const stale = reason instanceof VendorRequestError && reason.status === 409;
+      if (stale) setConflict(true);
+      setError(stale ? conflictMessage : reason instanceof Error ? reason.message : 'Could not save supplier details.');
+    } }
     finally { if (!controller.signal.aborted) setBusy(false); }
   }
   return <section className="supplier-settings space-y-8 py-6">
@@ -59,8 +71,8 @@ export default function SupplierSettings() {
           <div className="space-y-2"><Label htmlFor="supplier-description">Description</Label><Textarea id="supplier-description" rows={4} maxLength={2000} value={draft.description} onChange={event => change('description', event.target.value)} placeholder="A short description of the supplier and its services." /></div>
           <div className="space-y-2"><Label htmlFor="supplier-website">Website URL</Label><Input id="supplier-website" type="url" maxLength={2048} value={draft.website_url} onChange={event => change('website_url', event.target.value)} placeholder="https://example.com" /></div>
         </fieldset>
-        {error && <div className="space-y-2"><p role="alert" className="text-destructive">{error}</p><Button type="button" variant="outline" onClick={() => setReload(value => value + 1)}>Reload saved details</Button><p className="text-sm text-muted-foreground">Reloading replaces your unsaved changes.</p></div>}
-        <div className="flex flex-wrap items-center gap-4">{dirty && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setDraft({ name: profile.name, description: profile.description, website_url: profile.website_url, logo_url: profile.logo_url }); setError(''); setSaved(false); nameInput.current?.focus(); }}>Cancel</Button>}<Button disabled={busy || !dirty || !draft.name.trim()}>{busy ? 'Saving…' : 'Save changes'}</Button>{saved && <p role="status" className="text-sm text-muted-foreground">Supplier details saved.</p>}</div>
+        {(error || conflict) && <div className="space-y-2"><p role="alert" className="text-destructive">{conflict ? conflictMessage : error}</p>{conflict && error && error !== conflictMessage && <p role="alert" className="text-destructive">{error}</p>}<Button type="button" variant="outline" onClick={() => setReload(value => value + 1)}>Reload saved details</Button><p className="text-sm text-muted-foreground">Reloading replaces your unsaved changes.</p></div>}
+        <div className="flex flex-wrap items-center gap-4">{dirty && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setDraft({ name: profile.name, description: profile.description, website_url: profile.website_url, logo_url: profile.logo_url }); if (!conflict) setError(''); setSaved(false); nameInput.current?.focus(); }}>Cancel</Button>}<Button disabled={busy || conflict || !dirty || !draft.name.trim()}>{busy ? 'Saving…' : 'Save changes'}</Button>{saved && <p role="status" className="text-sm text-muted-foreground">Supplier details saved.</p>}</div>
       </form>}
   </section>;
 }
