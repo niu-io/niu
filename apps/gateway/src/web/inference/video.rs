@@ -2121,7 +2121,9 @@ pub(crate) async fn refresh_for_principal(
     principal: &niu_storage::Principal,
     id: Uuid,
 ) -> Result<Value, ApiError> {
-    refresh_with_results(state, principal, id).await.map(|(saved, _)| saved)
+    refresh_with_results(state, principal, id)
+        .await
+        .map(|(saved, _)| saved)
 }
 
 /// An explicit query can return new delivery references even when the old cache expired.

@@ -1,6 +1,6 @@
 //! Workspace-owned Provider assets. No global upstream listing, inference,
 //! processing qualification, mutation replay or public Provider identity.
-use super::media_authorization::{MediaPrincipal, MediaId};
+use super::media_authorization::{MediaId, MediaPrincipal};
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
@@ -797,6 +797,133 @@ async fn mutate(
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dashboardcreate_groupProviderAsset",
+///     "summary": "Create a Provider asset group",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation."
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation accepted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetMutation"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model",
+///               "name"
+///             ],
+///             "properties": {
+///               "model": {
+///                 "type": "string"
+///               },
+///               "name": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 64
+///               },
+///               "description": {
+///                 "type": "string",
+///                 "maxLength": 300
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(super) async fn create_group(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -834,6 +961,145 @@ pub(super) async fn create_group(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation."
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation accepted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetMutation"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model"
+///             ],
+///             "properties": {
+///               "model": {
+///                 "type": "string"
+///               },
+///               "name": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 64
+///               },
+///               "description": {
+///                 "type": "string",
+///                 "maxLength": 300
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]*$"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}",
+///   "method": "patch",
+///   "operation": {
+///     "operationId": "dashboardupdate_groupProviderAsset",
+///     "summary": "Update Provider group metadata",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "id",
 ///         "in": "path",
@@ -1049,6 +1315,130 @@ pub(super) async fn update_group(
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}",
+///   "method": "delete",
+///   "operation": {
+///     "operationId": "dashboarddelete_groupProviderAsset",
+///     "summary": "Delete a Provider asset group",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness. Group deletion is destructive and includes its Provider assets.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation."
+///       },
+///       {
+///         "name": "expected_revision",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[1-9][0-9]*$"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation accepted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetMutation"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(super) async fn delete_group(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -1087,6 +1477,148 @@ pub(super) async fn delete_group(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation."
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation accepted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetMutation"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model",
+///               "group_id",
+///               "url",
+///               "kind"
+///             ],
+///             "properties": {
+///               "model": {
+///                 "type": "string"
+///               },
+///               "group_id": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               },
+///               "url": {
+///                 "type": "string",
+///                 "maxLength": 8192,
+///                 "format": "uri"
+///               },
+///               "name": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 64
+///               },
+///               "kind": {
+///                 "type": "string",
+///                 "enum": [
+///                   "image",
+///                   "audio",
+///                   "video"
+///                 ]
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dashboardcreate_assetProviderAsset",
+///     "summary": "Create a Provider asset from a URL",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "Idempotency-Key",
 ///         "in": "header",
@@ -1321,6 +1853,142 @@ pub(super) async fn create_asset(
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}",
+///   "method": "patch",
+///   "operation": {
+///     "operationId": "dashboardrename_assetProviderAsset",
+///     "summary": "Rename a Provider asset",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation."
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation accepted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetMutation"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model",
+///               "name"
+///             ],
+///             "properties": {
+///               "model": {
+///                 "type": "string"
+///               },
+///               "name": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 64
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]*$"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(super) async fn rename_asset(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -1360,6 +2028,130 @@ pub(super) async fn rename_asset(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation."
+///       },
+///       {
+///         "name": "expected_revision",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[1-9][0-9]*$"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved operation accepted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetMutation"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}",
+///   "method": "delete",
+///   "operation": {
+///     "operationId": "dashboarddelete_assetProviderAsset",
+///     "summary": "Delete a Provider asset",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "id",
 ///         "in": "path",
@@ -1566,6 +2358,122 @@ fn page_limit(value: Option<u32>) -> Result<i64, ApiError> {
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardlist_groupsProviderAsset",
+///     "summary": "List saved workspace Provider groups",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetGroupPage"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(super) async fn list_groups(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -1609,6 +2517,131 @@ pub(super) async fn list_groups(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       },
+///       {
+///         "name": "group_id",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/MediaAssetPage"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardlist_assetsProviderAsset",
+///     "summary": "List saved workspace Provider assets",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "model",
 ///         "in": "query",
@@ -1798,6 +2831,119 @@ pub(super) async fn list_assets(
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardget_groupProviderAsset",
+///     "summary": "Read a saved Provider group",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetGroup"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(super) async fn get_group(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -1838,6 +2984,119 @@ pub(super) async fn get_group(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAsset"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardget_assetProviderAsset",
+///     "summary": "Read a saved Provider asset",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "id",
 ///         "in": "path",
@@ -2016,6 +3275,119 @@ pub(super) async fn get_asset(
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardget_operationProviderAsset",
+///     "summary": "Read a saved Provider mutation operation",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(super) async fn get_operation(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -2056,6 +3428,119 @@ pub(super) async fn get_operation(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetGroup"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}/refresh",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dashboardrefresh_groupProviderAsset",
+///     "summary": "Refresh one owned Provider group",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "id",
 ///         "in": "path",
@@ -2195,6 +3680,119 @@ pub(super) async fn refresh_group(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAsset"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed or unsupported request fields"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}/refresh",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dashboardrefresh_assetProviderAsset",
+///     "summary": "Refresh one owned Provider asset",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "id",
 ///         "in": "path",

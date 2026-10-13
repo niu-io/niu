@@ -252,6 +252,103 @@ async fn list(
 ///                             "availability"
 ///                           ]
 ///                         }
+///                       },
+///                       "execution_context": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "submitted_model",
+///                           "dispatched_model",
+///                           "provider",
+///                           "channel",
+///                           "dispatched_at",
+///                           "source",
+///                           "parameters_source",
+///                           "references_state",
+///                           "parameters"
+///                         ],
+///                         "properties": {
+///                           "submitted_model": {
+///                             "type": "string"
+///                           },
+///                           "dispatched_model": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ]
+///                           },
+///                           "provider": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "description": "Adapter recorded at dispatch; not a Supplier account name."
+///                           },
+///                           "channel": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ]
+///                           },
+///                           "dispatched_at": {
+///                             "type": "string",
+///                             "format": "date-time"
+///                           },
+///                           "source": {
+///                             "const": "saved_execution"
+///                           },
+///                           "parameters_source": {
+///                             "enum": [
+///                               "saved_validated_snapshot",
+///                               "unknown"
+///                             ]
+///                           },
+///                           "references_state": {
+///                             "const": "not_in_execution_snapshot"
+///                           },
+///                           "parameters": {
+///                             "type": [
+///                               "object",
+///                               "null"
+///                             ],
+///                             "additionalProperties": false,
+///                             "properties": {
+///                               "duration": {
+///                                 "type": "number"
+///                               },
+///                               "seed": {
+///                                 "type": "number"
+///                               },
+///                               "frames_per_second": {
+///                                 "type": "number"
+///                               },
+///                               "watermark": {
+///                                 "type": "boolean"
+///                               },
+///                               "camera_fixed": {
+///                                 "type": "boolean"
+///                               },
+///                               "return_last_frame": {
+///                                 "type": "boolean"
+///                               },
+///                               "resolution": {
+///                                 "type": "string"
+///                               },
+///                               "ratio": {
+///                                 "type": "string"
+///                               },
+///                               "omni_reference_task_type": {
+///                                 "type": "string"
+///                               }
+///                             }
+///                           }
+///                         }
+///                       },
+///                       "model_display_name_source": {
+///                         "enum": [
+///                           "current_catalog",
+///                           "unknown"
+///                         ]
 ///                       }
 ///                     },
 ///                     "required": [
@@ -265,7 +362,9 @@ async fn list(
 ///                       "source",
 ///                       "session_id",
 ///                       "turn_id",
-///                       "artifacts"
+///                       "artifacts",
+///                       "execution_context",
+///                       "model_display_name_source"
 ///                     ]
 ///                   }
 ///                 },
@@ -682,6 +781,103 @@ pub(in crate::web) async fn artifacts(
 ///                           "availability"
 ///                         ]
 ///                       }
+///                     },
+///                     "execution_context": {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "submitted_model",
+///                         "dispatched_model",
+///                         "provider",
+///                         "channel",
+///                         "dispatched_at",
+///                         "source",
+///                         "parameters_source",
+///                         "references_state",
+///                         "parameters"
+///                       ],
+///                       "properties": {
+///                         "submitted_model": {
+///                           "type": "string"
+///                         },
+///                         "dispatched_model": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ]
+///                         },
+///                         "provider": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "description": "Adapter recorded at dispatch; not a Supplier account name."
+///                         },
+///                         "channel": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ]
+///                         },
+///                         "dispatched_at": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         },
+///                         "source": {
+///                           "const": "saved_execution"
+///                         },
+///                         "parameters_source": {
+///                           "enum": [
+///                             "saved_validated_snapshot",
+///                             "unknown"
+///                           ]
+///                         },
+///                         "references_state": {
+///                           "const": "not_in_execution_snapshot"
+///                         },
+///                         "parameters": {
+///                           "type": [
+///                             "object",
+///                             "null"
+///                           ],
+///                           "additionalProperties": false,
+///                           "properties": {
+///                             "duration": {
+///                               "type": "number"
+///                             },
+///                             "seed": {
+///                               "type": "number"
+///                             },
+///                             "frames_per_second": {
+///                               "type": "number"
+///                             },
+///                             "watermark": {
+///                               "type": "boolean"
+///                             },
+///                             "camera_fixed": {
+///                               "type": "boolean"
+///                             },
+///                             "return_last_frame": {
+///                               "type": "boolean"
+///                             },
+///                             "resolution": {
+///                               "type": "string"
+///                             },
+///                             "ratio": {
+///                               "type": "string"
+///                             },
+///                             "omni_reference_task_type": {
+///                               "type": "string"
+///                             }
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "model_display_name_source": {
+///                       "enum": [
+///                         "current_catalog",
+///                         "unknown"
+///                       ]
 ///                     }
 ///                   },
 ///                   "required": [
@@ -695,7 +891,9 @@ pub(in crate::web) async fn artifacts(
 ///                     "source",
 ///                     "session_id",
 ///                     "turn_id",
-///                     "artifacts"
+///                     "artifacts",
+///                     "execution_context",
+///                     "model_display_name_source"
 ///                   ]
 ///                 }
 ///               },

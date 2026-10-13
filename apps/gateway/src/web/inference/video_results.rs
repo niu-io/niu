@@ -114,12 +114,16 @@ async fn retrieve_authorized(
     let kind = kind(result_kind)?;
     authorize_delivery(state, scope, principal, owner, id).await?;
     let is_fresh = fresh.is_some();
-    let encrypted = if let Some(value) = fresh { value } else { state
-        .store
-        .media_result_reference(scope, id, kind)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)? };
+    let encrypted = if let Some(value) = fresh {
+        value
+    } else {
+        state
+            .store
+            .media_result_reference(scope, id, kind)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?
+    };
     let cipher = state
         .vendor_cipher
         .as_ref()
@@ -185,13 +189,14 @@ async fn retrieve_authorized(
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
     authorize_delivery(state, scope, principal, owner, id).await?;
-    if !is_fresh && state
-        .store
-        .media_result_reference(scope, id, kind)
-        .await
-        .map_err(ApiError::from_store)?
-        .as_deref()
-        != Some(encrypted.as_slice())
+    if !is_fresh
+        && state
+            .store
+            .media_result_reference(scope, id, kind)
+            .await
+            .map_err(ApiError::from_store)?
+            .as_deref()
+            != Some(encrypted.as_slice())
     {
         return Err(ApiError::not_found());
     }
@@ -298,12 +303,27 @@ pub(in crate::web) async fn availability(
 /// Deliberate retrieval from the original task, not a generation or automatic retry.
 /// Expired/deleted cached references remain untouched; this is a new bounded delivery.
 pub(super) async fn retrieve_fresh_as(
-    state: &AppState, principal: &Principal, id: Uuid, result_kind: &str,
+    state: &AppState,
+    principal: &Principal,
+    id: Uuid,
+    result_kind: &str,
 ) -> Result<Response, ApiError> {
     let requested = kind(result_kind)?;
     authorize(state, principal, id).await?;
     let (_, results) = super::video::refresh_with_results(state, principal, id).await?;
-    let encrypted = results.into_iter().find(|(k, _)| *k == requested)
-        .map(|(_, value)| value).ok_or_else(ApiError::not_found)?;
-    retrieve_authorized(state, principal.scope(), Some(principal), None, id, result_kind, Some(encrypted)).await
+    let encrypted = results
+        .into_iter()
+        .find(|(k, _)| *k == requested)
+        .map(|(_, value)| value)
+        .ok_or_else(ApiError::not_found)?;
+    retrieve_authorized(
+        state,
+        principal.scope(),
+        Some(principal),
+        None,
+        id,
+        result_kind,
+        Some(encrypted),
+    )
+    .await
 }

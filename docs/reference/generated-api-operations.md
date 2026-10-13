@@ -17326,6 +17326,132 @@ HTTP 409: Cursor absent from this job scope.
 
 HTTP 503: Storage read unavailable; never empty successful history.
 
+## Retrieve fresh output from the original Video task
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}/refresh`
+
+Explicit key-scoped compatibility action. Current selected-key authority and actor privacy required. Uses immutable original Provider/account/model/channel route, never composer selection. Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries the original task once, then performs bounded authorized binary retrieval. Does not rewrite expired/deleted cached references. A fresh URL does not prove durable media availability; missing result404, supplier gone/unavailable502 and timeout504 remain explicit.
+
+Implementation: `implemented`. Operation: `retrieveFreshDashboardVideoResult`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`job` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`kind` (path, required)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "video",
+    "last_frame"
+  ]
+}
+```
+
+### Responses
+
+HTTP 200: Bounded media bytes
+
+Content type: `video/mp4`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+Content type: `video/webm`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+Content type: `image/png`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+Content type: `image/jpeg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+HTTP 400: Invalid kind or request
+
+HTTP 401: Sign-in required
+
+HTTP 403: Workspace Write or original-key permission denied
+
+HTTP 404: Task missing, actor-private, or original key no longer available
+
+HTTP 409: Original Provider binding changed or query already claimed
+
+HTTP 502: Upstream query or result delivery failed
+
+HTTP 503: Storage or bounded delivery unavailable
+
+HTTP 504: Upstream query or delivery timed out
+
 ## Create OpenAI-compatible text embeddings
 
 `POST /v1/embeddings`
@@ -18399,6 +18525,103 @@ Content type: `application/json`.
                 "availability"
               ]
             }
+          },
+          "execution_context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "submitted_model",
+              "dispatched_model",
+              "provider",
+              "channel",
+              "dispatched_at",
+              "source",
+              "parameters_source",
+              "references_state",
+              "parameters"
+            ],
+            "properties": {
+              "submitted_model": {
+                "type": "string"
+              },
+              "dispatched_model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "provider": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Adapter recorded at dispatch; not a Supplier account name."
+              },
+              "channel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dispatched_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "source": {
+                "const": "saved_execution"
+              },
+              "parameters_source": {
+                "enum": [
+                  "saved_validated_snapshot",
+                  "unknown"
+                ]
+              },
+              "references_state": {
+                "const": "not_in_execution_snapshot"
+              },
+              "parameters": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "duration": {
+                    "type": "number"
+                  },
+                  "seed": {
+                    "type": "number"
+                  },
+                  "frames_per_second": {
+                    "type": "number"
+                  },
+                  "watermark": {
+                    "type": "boolean"
+                  },
+                  "camera_fixed": {
+                    "type": "boolean"
+                  },
+                  "return_last_frame": {
+                    "type": "boolean"
+                  },
+                  "resolution": {
+                    "type": "string"
+                  },
+                  "ratio": {
+                    "type": "string"
+                  },
+                  "omni_reference_task_type": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "model_display_name_source": {
+            "enum": [
+              "current_catalog",
+              "unknown"
+            ]
           }
         },
         "required": [
@@ -18412,7 +18635,9 @@ Content type: `application/json`.
           "source",
           "session_id",
           "turn_id",
-          "artifacts"
+          "artifacts",
+          "execution_context",
+          "model_display_name_source"
         ]
       }
     },
@@ -18810,6 +19035,103 @@ Content type: `application/json`.
               "availability"
             ]
           }
+        },
+        "execution_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "submitted_model",
+            "dispatched_model",
+            "provider",
+            "channel",
+            "dispatched_at",
+            "source",
+            "parameters_source",
+            "references_state",
+            "parameters"
+          ],
+          "properties": {
+            "submitted_model": {
+              "type": "string"
+            },
+            "dispatched_model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "provider": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Adapter recorded at dispatch; not a Supplier account name."
+            },
+            "channel": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "dispatched_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "source": {
+              "const": "saved_execution"
+            },
+            "parameters_source": {
+              "enum": [
+                "saved_validated_snapshot",
+                "unknown"
+              ]
+            },
+            "references_state": {
+              "const": "not_in_execution_snapshot"
+            },
+            "parameters": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "duration": {
+                  "type": "number"
+                },
+                "seed": {
+                  "type": "number"
+                },
+                "frames_per_second": {
+                  "type": "number"
+                },
+                "watermark": {
+                  "type": "boolean"
+                },
+                "camera_fixed": {
+                  "type": "boolean"
+                },
+                "return_last_frame": {
+                  "type": "boolean"
+                },
+                "resolution": {
+                  "type": "string"
+                },
+                "ratio": {
+                  "type": "string"
+                },
+                "omni_reference_task_type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "model_display_name_source": {
+          "enum": [
+            "current_catalog",
+            "unknown"
+          ]
         }
       },
       "required": [
@@ -18823,7 +19145,9 @@ Content type: `application/json`.
         "source",
         "session_id",
         "turn_id",
-        "artifacts"
+        "artifacts",
+        "execution_context",
+        "model_display_name_source"
       ]
     }
   },
@@ -19879,6 +20203,231 @@ HTTP 403: Current workspace permission denied
 HTTP 404: Actor-owned session is absent
 
 HTTP 409: Stale revision, changed idempotent identity, archive or task association conflict
+
+## Explicitly refresh the original Video task
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh`
+
+Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries saved task status through the existing guarded recovery/settlement path; query receipts can be appended, but no task is created.
+
+Implementation: `implemented`. Operation: `refreshGenerationsTask`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`task` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved Video state after explicit query
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "object",
+    "model",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "object": {
+      "const": "video.job"
+    },
+    "model": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submission_unknown",
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "unknown",
+        "reconciliation_required"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid kind or request
+
+HTTP 401: Sign-in required
+
+HTTP 403: Workspace Write or original-key permission denied
+
+HTTP 404: Task missing, actor-private, or original key no longer available
+
+HTTP 409: Original Provider binding changed or query already claimed
+
+HTTP 502: Upstream query or result delivery failed
+
+HTTP 503: Storage or bounded delivery unavailable
+
+HTTP 504: Upstream query or delivery timed out
+
+## Retrieve fresh output from the original Video task
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh`
+
+Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries the original task once, then performs bounded authorized binary retrieval. Does not rewrite expired/deleted cached references. A fresh URL does not prove durable media availability; missing result404, supplier gone/unavailable502 and timeout504 remain explicit.
+
+Implementation: `implemented`. Operation: `retrieveFreshGenerationsTaskResult`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`task` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`kind` (path, required)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "video",
+    "last_frame"
+  ]
+}
+```
+
+### Responses
+
+HTTP 200: Bounded media bytes
+
+Content type: `video/mp4`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+Content type: `video/webm`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+Content type: `image/png`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+Content type: `image/jpeg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary"
+}
+```
+
+HTTP 400: Invalid kind or request
+
+HTTP 401: Sign-in required
+
+HTTP 403: Workspace Write or original-key permission denied
+
+HTTP 404: Task missing, actor-private, or original key no longer available
+
+HTTP 409: Original Provider binding changed or query already claimed
+
+HTTP 502: Upstream query or result delivery failed
+
+HTTP 503: Storage or bounded delivery unavailable
+
+HTTP 504: Upstream query or delivery timed out
 
 ## Create a native text Message, optionally streamed
 
@@ -22262,6 +22811,127 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Create a Provider asset group
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.
+
+Implementation: `implemented`. Operation: `dashboardcreate_groupProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "name"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 300
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetMutation"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
 ## Update Provider group metadata
 
 `PATCH /v1/media/asset-groups/{id}`
@@ -22283,6 +22953,139 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetMutation"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Update Provider group metadata
+
+`PATCH /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.
+
+Implementation: `implemented`. Operation: `dashboardupdate_groupProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `id` (path, required)
 
@@ -22457,6 +23260,122 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Delete a Provider asset group
+
+`DELETE /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness. Group deletion is destructive and includes its Provider assets.
+
+Implementation: `implemented`. Operation: `dashboarddelete_groupProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`expected_revision` (query, optional)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetMutation"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
 ## Create a Provider asset from a URL
 
 `POST /v1/media/assets`
@@ -22478,6 +23397,142 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "group_id",
+    "url",
+    "kind"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "group_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "url": {
+      "type": "string",
+      "maxLength": 8192,
+      "format": "uri"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "image",
+        "audio",
+        "video"
+      ]
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetMutation"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Create a Provider asset from a URL
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.
+
+Implementation: `implemented`. Operation: `dashboardcreate_assetProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `Idempotency-Key` (header, optional)
 
@@ -22669,6 +23724,136 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Rename a Provider asset
+
+`PATCH /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.
+
+Implementation: `implemented`. Operation: `dashboardrename_assetProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "name"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetMutation"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
 ## Delete a Provider asset
 
 `DELETE /v1/media/assets/{id}`
@@ -22690,6 +23875,122 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID. Same key and unchanged input returns the saved operation without replaying its mutation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`expected_revision` (query, optional)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 202: Saved operation accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetMutation"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Delete a Provider asset
+
+`DELETE /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.
+
+Implementation: `implemented`. Operation: `dashboarddelete_assetProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `id` (path, required)
 
@@ -22838,6 +24139,113 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## List saved workspace Provider groups
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.
+
+Implementation: `implemented`. Operation: `dashboardlist_groupsProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetGroupPage"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
 ## List saved workspace Provider assets
 
 `GET /v1/media/assets`
@@ -22859,6 +24267,122 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+`group_id` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaAssetPage"
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## List saved workspace Provider assets
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.
+
+Implementation: `implemented`. Operation: `dashboardlist_assetsProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `model` (query, required)
 
@@ -23004,6 +24528,110 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Read a saved Provider group
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.
+
+Implementation: `implemented`. Operation: `dashboardget_groupProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetGroup"
+    }
+  }
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
 ## Read a saved Provider asset
 
 `GET /v1/media/assets/{id}`
@@ -23025,6 +24653,110 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAsset"
+    }
+  }
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Read a saved Provider asset
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.
+
+Implementation: `implemented`. Operation: `dashboardget_assetProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `id` (path, required)
 
@@ -23158,6 +24890,110 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Read a saved Provider mutation operation
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.
+
+Implementation: `implemented`. Operation: `dashboardget_operationProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    }
+  }
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
 ## Refresh one owned Provider group
 
 `POST /v1/media/asset-groups/{id}/refresh`
@@ -23179,6 +25015,110 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetGroup"
+    }
+  }
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Refresh one owned Provider group
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}/refresh`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.
+
+Implementation: `implemented`. Operation: `dashboardrefresh_groupProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `id` (path, required)
 
@@ -23312,6 +25252,206 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Refresh one owned Provider asset
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}/refresh`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.
+
+Implementation: `implemented`. Operation: `dashboardrefresh_assetProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAsset"
+    }
+  }
+}
+```
+
+HTTP 400: Malformed or unsupported request fields
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Discover authorized model-specific native Provider tools
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities`
+
+Requires a workspace member/operator session with Read access to the selected workspace key. Reuses current video discovery and native module admission: current key/model grants, composed workspace/key model and Provider policy, eligible exact route, ownership, selectable credential and current configuration identity. Optional model is an exact alias, never a Provider inference hint. With no model, returns all eligible admitted contexts without picking the first. With an authorized video model that has no supported native module (including OpenRouter), returns complete:true and modules:[]. Unknown or unauthorized model returns 404. Admission, storage or configuration failures are errors, never successful empty discovery. No upstream request, inventory probe, material mutation, verification creation or generation is issued. Volcengine requires explicitly configured fastrouter-actions-v1 management plus a validated matching ark-direct-v1 video schema and valid management endpoint. Materials support is independent of generation reference support; reference_inputs describes configured schema only, and use still requires acknowledged Active materials, exact account/model/channel binding, current policy and dispatch authorization. Mutation endpoints additionally require Write permission. Human verification support is not a verification outcome. Contains no credentials, API base, upstream model, Provider resource references or internal account identifiers. Successful responses carry Cache-Control:no-store.
+
+Implementation: `implemented`. Operation: `discoverDashboardNativeProviderCapabilities`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, optional)
+
+Optional exact authorized video model alias.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}
+```
+
+### Responses
+
+HTTP 200: Complete authorized native-module contexts; an empty modules array means no eligible native tools for the selection.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/NativeProviderCapabilities"
+}
+```
+
+HTTP 400: Invalid path or model query, or an unknown query field.
+
+HTTP 401: Authentication or selected workspace key is invalid or revoked.
+
+HTTP 403: Workspace membership, Read permission or current policy denies access.
+
+HTTP 404: Selected model or eligible route is absent or unauthorized.
+
+HTTP 409: Selected route configuration changed during admission.
+
+HTTP 501: Configured native management transport is unsupported.
+
+HTTP 503: Storage, selectable credential, Supplier qualification or native configuration unavailable.
+
 ## Create upstream human verification session
 
 `POST /v1/media/verification-sessions`
@@ -23333,6 +25473,133 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID; unchanged replay reads saved session without repeating creation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "subject_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "return_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 8192
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Saved session accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaVerificationSession"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
+## Create upstream human verification session
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Forwards only caller-supplied optional subject_name and return_url to the upstream H5 service. Exactly one creation follows a durable claim. All after-send failures remain unknown without automatic retry. A created session is not human completion or a local liveness approval. Token and H5 URL are encrypted and absent from ordinary metadata and logs.
+
+Implementation: `implemented`. Operation: `dashboardcreateMediaVerificationSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `Idempotency-Key` (header, optional)
 
@@ -23509,6 +25776,130 @@ HTTP 501: Selected channel does not configure verification management
 
 HTTP 503: Credential, encrypted content or bounded storage unavailable
 
+## List saved verification sessions
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local owned metadata only; no global upstream discovery, H5 URL, token or raw response.
+
+Implementation: `implemented`. Operation: `dashboardlistMediaVerificationSessions`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Owned verification metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/MediaVerificationSession"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
 ## Read saved verification session
 
 `GET /v1/media/verification-sessions/{id}`
@@ -23530,6 +25921,108 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned verification metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaVerificationSession"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
+## Read saved verification session
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local saved status only, with known expiry reflected; no token, H5 URL or upstream request.
+
+Implementation: `implemented`. Operation: `dashboardgetMediaVerificationSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `id` (path, required)
 
@@ -23686,6 +26179,135 @@ HTTP 501: Selected channel does not configure verification management
 
 HTTP 503: Credential, encrypted content or bounded storage unavailable
 
+## Get authenticated upstream verification link
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/link`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Explicit authenticated disclosure of the genuine external H5 URL to the current authorized workspace. Known expiry is checked before disclosure; absent upstream expiry is not replaced with invented entitlement. Only waiting/processing sessions expose a link. No raw BytedToken field, anonymous NIU link or local biometric processing. Cache-Control no-store and Referrer-Policy no-referrer.
+
+Implementation: `implemented`. Operation: `dashboardgetMediaVerificationLink`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Authorized upstream H5 handoff
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Response header: `Referrer-Policy`.
+
+```json
+{
+  "type": "string",
+  "const": "no-referrer"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "verification_url",
+    "expires_at"
+  ],
+  "properties": {
+    "verification_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
 ## Refresh upstream verification session
 
 `POST /v1/media/verification-sessions/{id}/refresh`
@@ -23707,6 +26329,108 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned verification metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaVerificationSession"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
+## Refresh upstream verification session
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/refresh`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Empty body only. One explicit bounded query for an active genuine saved token. Upstream resolution can create a group, so a durable query claim prevents concurrent or uncertain replay. In-flight or after-send uncertain queries are exposed as unknown. Genuine waiting/processing results permit a later explicit query. Other states return unchanged without an upstream call. Only actual decoded verified GroupId binds a person group; no fake completion or local detector.
+
+Implementation: `implemented`. Operation: `dashboardrefreshMediaVerificationSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 `id` (path, required)
 
@@ -28352,6 +31076,183 @@ Local `#/components/schemas/…` references resolve to these definitions.
           }
         }
       }
+    }
+  }
+}
+```
+
+### NativeProviderCapabilities
+
+```json
+{
+  "type": "object",
+  "required": [
+    "complete",
+    "selected_model",
+    "modules"
+  ],
+  "properties": {
+    "complete": {
+      "type": "boolean",
+      "const": true
+    },
+    "selected_model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/NativeProviderModule"
+      }
+    }
+  }
+}
+```
+
+### NativeProviderMaterials
+
+```json
+{
+  "type": "object",
+  "required": [
+    "groups",
+    "assets",
+    "reference_requires_active",
+    "reference_requires_same_context",
+    "reference_requires_dispatch_authorization",
+    "kinds"
+  ],
+  "properties": {
+    "groups": {
+      "type": "boolean",
+      "const": true
+    },
+    "assets": {
+      "type": "boolean",
+      "const": true
+    },
+    "reference_requires_active": {
+      "type": "boolean",
+      "const": true
+    },
+    "reference_requires_same_context": {
+      "type": "boolean",
+      "const": true
+    },
+    "reference_requires_dispatch_authorization": {
+      "type": "boolean",
+      "const": true
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "image",
+          "audio",
+          "video"
+        ]
+      }
+    }
+  }
+}
+```
+
+### NativeProviderModule
+
+```json
+{
+  "type": "object",
+  "required": [
+    "module",
+    "model_alias",
+    "display_name",
+    "adapter",
+    "video_channel",
+    "management_channel",
+    "context_label",
+    "materials",
+    "human_verification",
+    "reference_inputs"
+  ],
+  "properties": {
+    "module": {
+      "type": "string",
+      "const": "volcengine"
+    },
+    "model_alias": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "adapter": {
+      "type": "string"
+    },
+    "video_channel": {
+      "type": "string",
+      "const": "ark-direct-v1"
+    },
+    "management_channel": {
+      "type": "string",
+      "const": "fastrouter-actions-v1"
+    },
+    "context_label": {
+      "type": "string",
+      "description": "Meaningful current model/adapter/channel label. Contains no account identifiers."
+    },
+    "materials": {
+      "$ref": "#/components/schemas/NativeProviderMaterials"
+    },
+    "human_verification": {
+      "type": "boolean",
+      "description": "Supports explicit private H5 verification operations, not proof of human completion or permission to mutate."
+    },
+    "reference_inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/NativeProviderReferenceInput"
+      }
+    }
+  }
+}
+```
+
+### NativeProviderReferenceInput
+
+```json
+{
+  "type": "object",
+  "required": [
+    "kind",
+    "roles",
+    "maximum_items"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "image",
+        "audio",
+        "video"
+      ]
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "maximum_items": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32
     }
   }
 }

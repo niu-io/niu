@@ -119,3 +119,41 @@ Persist the references before writes. Keep session credentials private; do not e
 Actual current-input verification used a private copy of existing data and already generated jobs. Two existing tasks were associated to successive video turns; same-input replay, conflicting edits, concurrent revision writes, actor/workspace isolation, deletion, archive, SDK recovery and server restart were exercised. Task/job/query/submission/financial records and existing Chat rows were independently compared before and after. Historical inventory included existing revoked and expired keys. No generation, asset creation or verification session was started.
 
 All available historical result references in that run had naturally expired and returned 404. Positive playback/download of an unexpired output, two-browser frontend rendering, and positive execution-linked legacy Chat branch recovery are **not verified by this increment**. A current retained Chat instruction was saved through the old guarded API before serving the bridge, then independently restored after upgrade/restart with its old payload unchanged. The existing Video engine's earlier positive generation evidence is separate. See [generated handler schemas](/docs/reference/handler-operations/) for the implemented response contracts.
+
+## Saved execution context and explicit recovery
+
+Tasks list/detail include `execution_context` from immutable attempt, recovery-route and protocol records: `submitted_model`, `dispatched_model`, `provider` (the saved adapter), `channel`, `dispatched_at` and `source: "saved_execution"`. Missing historical fields stay null. `parameters` contains only supported scalar controls from the saved validated output snapshot; it excludes callbacks, financial estimates and private references. `references_state: "not_in_execution_snapshot"` means these records do not retain the original reference input. The existing actor-private intent remains the retained input authority. `model_display_name_source` distinguishes a current catalog label from unknown; it is not a historical display-name snapshot.
+
+The SDK separates saved-state reads, cached artifact delivery and explicit upstream operations:
+
+```ts
+const generations = admin.generations(scope);
+const saved = await generations.tasks.retrieve(task);
+const cachedBytes = await generations.artifacts.content(task, 'video');
+// Deliberate user actions, never background inference or automatic retry:
+const refreshed = await generations.tasks.refresh(task);
+const freshBytes = await generations.tasks.refreshResult(task, 'video');
+```
+
+`POST /generations/tasks/{task}/refresh` performs one guarded query. `POST /generations/tasks/{task}/results/{kind}/refresh` queries the original task and retrieves its current output. Neither accepts a replacement key, model or Provider. The server derives the original inference key and saved route. Both require current workspace Write permission, actor visibility and the original key's current authority. Revoked/expired original keys and changed bindings refuse actions; saved history remains readable under its separate policy. The existing key-scoped bridge remains compatible, including `admin.refreshDashboardVideoResult`.
+
+A fresh result is a separate bounded delivery. It does not rewrite expired/deleted cached references or establish durable copied bytes. Upstream missing/gone, invalid media, unsafe destination, timeout and unavailable configuration remain diagnostic failures. No failed query or delivery submits another generation.
+
+## Native Seedance management tools
+
+Use `admin.dashboardMedia(scope, keyId)` for typed groups, materials and human-verification operations under the dashboard session. Credentials remain on the server. Mutation idempotency identities are canonical nonnil UUIDs and must be retained for uncertain outcomes.
+
+```ts
+const media = admin.dashboardMedia(scope, keyId);
+const capabilities = await media.capabilities(selectedModel);
+// Choose an explicit returned context; do not probe groups or pick the first model.
+const context = capabilities.modules.find(m => m.model_alias === selectedModel);
+if (context?.module === 'volcengine') {
+  const groups = await media.groups.list({model: context.model_alias});
+  const verification = await media.verification.list({model: context.model_alias});
+}
+```
+
+`GET /keys/{key}/media/capabilities?model={alias}` returns authorized native contexts, safe labels, distinct video/management channels, material support and configured reference limits. Without `model`, it returns all admitted contexts rather than silently choosing one account. Discovery makes no upstream call. An authorized OpenRouter video model returns `complete: true` with no native modules. Unknown/unauthorized models and storage/configuration failures remain errors.
+
+Volcengine tools require explicitly configured `fastrouter-actions-v1` management and a matching validated `ark-direct-v1` video schema. Capability support does not prove material Active status, verified identity or generation permission. Those conditions remain independent. Every operation rechecks workspace membership, current grants and the exact account/model/channel binding. The dashboard media bridge uses `/keys/{key}/media/*`; its SDK preserves the existing media domain types and uncertainty behavior.

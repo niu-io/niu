@@ -2838,6 +2838,36 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}'
   /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1content'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results~1{kind}~1refresh'
+  /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1refresh'
+  /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1results~1{kind}~1refresh'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-groups'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-groups~1{id}'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1assets'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1assets~1{id}'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1{id}'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-groups~1{id}~1refresh'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1assets~1{id}~1refresh'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1capabilities'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions~1{id}'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/link:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions~1{id}~1link'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions~1{id}~1refresh'
 components:
   schemas:
     MediaVerificationSession:

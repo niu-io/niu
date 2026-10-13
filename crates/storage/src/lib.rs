@@ -195,6 +195,7 @@ pub use niu_metered_cost::Dimensions as MediaBillingDimensions;
 pub use supplier_media::SupplierMediaRateCard;
 pub use supplier_media_offers::SupplierMediaOfferInput;
 mod generations_inventory;
+mod generations_task_actions;
 mod media_jobs;
 pub use generations_inventory::GenerationsInventoryQuery;
 mod generations_chat_sessions;

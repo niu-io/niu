@@ -1,6 +1,6 @@
 //! Thin scoped wrappers around upstream H5 verification. No local liveness,
 //! consent registry, invented approval or anonymous verification capabilities.
-use super::media_authorization::{MediaPrincipal, MediaId};
+use super::media_authorization::{MediaId, MediaPrincipal};
 use super::provider_assets::{admit, client, idempotency, limits};
 use crate::{error::ApiError, state::AppState};
 use axum::{
@@ -310,6 +310,138 @@ fn failure(error: FastRouterActionError) -> (Option<u16>, Option<String>, bool) 
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dashboardcreateMediaVerificationSession",
+///     "summary": "Create upstream human verification session",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Forwards only caller-supplied optional subject_name and return_url to the upstream H5 service. Exactly one creation follows a durable claim. All after-send failures remain unknown without automatic retry. A created session is not human completion or a local liveness approval. Token and H5 URL are encrypted and absent from ordinary metadata and logs.",
+///     "x-niu-implementation": "implemented",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Canonical nonnil UUID; unchanged replay reads saved session without repeating creation."
+///       }
+///     ],
+///     "responses": {
+///       "202": {
+///         "description": "Saved session accepted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaVerificationSession"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid fields or query"
+///       },
+///       "401": {
+///         "description": "Missing, revoked or expired API key"
+///       },
+///       "403": {
+///         "description": "Workspace/key policy refusal"
+///       },
+///       "404": {
+///         "description": "Owned session or model not found"
+///       },
+///       "409": {
+///         "description": "Changed input, stale route, expiry, unavailable token or capacity conflict"
+///       },
+///       "413": {
+///         "description": "Body exceeds bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not configure verification management"
+///       },
+///       "503": {
+///         "description": "Credential, encrypted content or bounded storage unavailable"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model"
+///             ],
+///             "properties": {
+///               "model": {
+///                 "type": "string"
+///               },
+///               "subject_name": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 32
+///               },
+///               "return_url": {
+///                 "type": "string",
+///                 "format": "uri",
+///                 "maxLength": 8192
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(super) async fn create(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -537,6 +669,138 @@ pub(super) async fn create(
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardlistMediaVerificationSessions",
+///     "summary": "List saved verification sessions",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local owned metadata only; no global upstream discovery, H5 URL, token or raw response.",
+///     "x-niu-implementation": "implemented",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned verification metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_cursor"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/MediaVerificationSession"
+///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid fields or query"
+///       },
+///       "401": {
+///         "description": "Missing, revoked or expired API key"
+///       },
+///       "403": {
+///         "description": "Workspace/key policy refusal"
+///       },
+///       "404": {
+///         "description": "Owned session or model not found"
+///       },
+///       "409": {
+///         "description": "Changed input, stale route, expiry, unavailable token or capacity conflict"
+///       },
+///       "413": {
+///         "description": "Body exceeds bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not configure verification management"
+///       },
+///       "503": {
+///         "description": "Credential, encrypted content or bounded storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(super) async fn list(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -576,6 +840,116 @@ pub(super) async fn list(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned verification metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaVerificationSession"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid fields or query"
+///       },
+///       "401": {
+///         "description": "Missing, revoked or expired API key"
+///       },
+///       "403": {
+///         "description": "Workspace/key policy refusal"
+///       },
+///       "404": {
+///         "description": "Owned session or model not found"
+///       },
+///       "409": {
+///         "description": "Changed input, stale route, expiry, unavailable token or capacity conflict"
+///       },
+///       "413": {
+///         "description": "Body exceeds bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not configure verification management"
+///       },
+///       "503": {
+///         "description": "Credential, encrypted content or bounded storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardgetMediaVerificationSession",
+///     "summary": "Read saved verification session",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local saved status only, with known expiry reflected; no token, H5 URL or upstream request.",
+///     "x-niu-implementation": "implemented",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "id",
 ///         "in": "path",
@@ -759,6 +1133,139 @@ pub(super) async fn get(
 ///   }
 /// }
 /// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/link",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardgetMediaVerificationLink",
+///     "summary": "Get authenticated upstream verification link",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Explicit authenticated disclosure of the genuine external H5 URL to the current authorized workspace. Known expiry is checked before disclosure; absent upstream expiry is not replaced with invented entitlement. Only waiting/processing sessions expose a link. No raw BytedToken field, anonymous NIU link or local biometric processing. Cache-Control no-store and Referrer-Policy no-referrer.",
+///     "x-niu-implementation": "implemented",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Authorized upstream H5 handoff",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "verification_url",
+///                 "expires_at"
+///               ],
+///               "properties": {
+///                 "verification_url": {
+///                   "type": "string",
+///                   "format": "uri"
+///                 },
+///                 "expires_at": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "date-time"
+///                 }
+///               }
+///             }
+///           }
+///         },
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           },
+///           "Referrer-Policy": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-referrer"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid fields or query"
+///       },
+///       "401": {
+///         "description": "Missing, revoked or expired API key"
+///       },
+///       "403": {
+///         "description": "Workspace/key policy refusal"
+///       },
+///       "404": {
+///         "description": "Owned session or model not found"
+///       },
+///       "409": {
+///         "description": "Changed input, stale route, expiry, unavailable token or capacity conflict"
+///       },
+///       "413": {
+///         "description": "Body exceeds bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not configure verification management"
+///       },
+///       "503": {
+///         "description": "Credential, encrypted content or bounded storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(super) async fn link(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
@@ -795,6 +1302,116 @@ pub(super) async fn link(
 ///       }
 ///     ],
 ///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned verification metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaVerificationSession"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid fields or query"
+///       },
+///       "401": {
+///         "description": "Missing, revoked or expired API key"
+///       },
+///       "403": {
+///         "description": "Workspace/key policy refusal"
+///       },
+///       "404": {
+///         "description": "Owned session or model not found"
+///       },
+///       "409": {
+///         "description": "Changed input, stale route, expiry, unavailable token or capacity conflict"
+///       },
+///       "413": {
+///         "description": "Body exceeds bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not configure verification management"
+///       },
+///       "503": {
+///         "description": "Credential, encrypted content or bounded storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/refresh",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "dashboardrefreshMediaVerificationSession",
+///     "summary": "Refresh upstream verification session",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Empty body only. One explicit bounded query for an active genuine saved token. Upstream resolution can create a group, so a durable query claim prevents concurrent or uncertain replay. In-flight or after-send uncertain queries are exposed as unknown. Genuine waiting/processing results permit a later explicit query. Other states return unchanged without an upstream call. Only actual decoded verified GroupId binds a person group; no fake completion or local detector.",
+///     "x-niu-implementation": "implemented",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
 ///       {
 ///         "name": "id",
 ///         "in": "path",

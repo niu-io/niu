@@ -475,13 +475,149 @@ pub(in crate::web) async fn observations(
 }
 
 /// Explicitly query an existing task and deliver its current output; never generate.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}/refresh",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "retrieveFreshDashboardVideoResult",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Retrieve fresh output from the original Video task",
+///     "description": "Explicit key-scoped compatibility action. Current selected-key authority and actor privacy required. Uses immutable original Provider/account/model/channel route, never composer selection. Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries the original task once, then performs bounded authorized binary retrieval. Does not rewrite expired/deleted cached references. A fresh URL does not prove durable media availability; missing result404, supplier gone/unavailable502 and timeout504 remain explicit.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "job",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "kind",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video",
+///             "last_frame"
+///           ]
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Bounded media bytes",
+///         "content": {
+///           "video/mp4": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           },
+///           "video/webm": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           },
+///           "image/png": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           },
+///           "image/jpeg": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid kind or request"
+///       },
+///       "401": {
+///         "description": "Sign-in required"
+///       },
+///       "403": {
+///         "description": "Workspace Write or original-key permission denied"
+///       },
+///       "404": {
+///         "description": "Task missing, actor-private, or original key no longer available"
+///       },
+///       "409": {
+///         "description": "Original Provider binding changed or query already claimed"
+///       },
+///       "502": {
+///         "description": "Upstream query or result delivery failed"
+///       },
+///       "503": {
+///         "description": "Storage or bounded delivery unavailable"
+///       },
+///       "504": {
+///         "description": "Upstream query or delivery timed out"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(in crate::web) async fn fresh_result(
     State(state): State<AppState>,
     Path((organization, workspace, key, job, kind)): Path<(Uuid, Uuid, Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<axum::response::Response, ApiError> {
-    let principal = job_principal(&state, &headers, (organization, workspace, key), AdminPermission::Write, job).await?;
+    let principal = job_principal(
+        &state,
+        &headers,
+        (organization, workspace, key),
+        AdminPermission::Write,
+        job,
+    )
+    .await?;
     let response = super::video_results::retrieve_fresh_as(&state, &principal, job, &kind).await?;
-    job_principal(&state, &headers, (organization, workspace, key), AdminPermission::Write, job).await?;
+    job_principal(
+        &state,
+        &headers,
+        (organization, workspace, key),
+        AdminPermission::Write,
+        job,
+    )
+    .await?;
     Ok(response)
 }

@@ -1,10 +1,16 @@
 import { createGenerationsSessionsClient } from './generations-sessions.js';
 import { createGenerationsInventoryClient, type GenerationInventoryQuery, type GenerationArtifactKind } from './generations-inventory.js';
 export type { VideoGenerationsSessionSummary, VideoGenerationsSession, VideoGenerationsSessionPage, ChatGenerationsInstruction, ChatGenerationsTaskReference, ChatGenerationsBranch, ChatGenerationsTurn, ChatGenerationsSessionSummary, ChatGenerationsSession, ChatGenerationsSessionPage, GenerationsInstruction, GenerationsTaskReference, GenerationsTurn, GenerationsSessionSummary, GenerationsSession, GenerationsSessionPage, GenerationsSessionPageOptions } from './generations-sessions.js';
-export type { GenerationTaskState, GenerationArtifactAvailability, GenerationArtifactKind, GenerationTask, GenerationArtifact, GenerationInventoryPage, GenerationInventoryQuery } from './generations-inventory.js';
+export type { GenerationTaskState, GenerationArtifactAvailability, GenerationArtifactKind, GenerationTask, GenerationExecutionContext, GenerationArtifact, GenerationInventoryPage, GenerationInventoryQuery } from './generations-inventory.js';
 import { platformAuditQuery, type PlatformAuditQuery, type PlatformAuditPage } from './platform-audit.js';
 export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, PlatformAuditPage, PlatformAuditQuery } from './platform-audit.js';
 import { assetBinaryRequest, type WorkspaceAsset, type WorkspaceAssetPage, type WorkspaceAssetPageOptions } from './workspace-assets.js';
+import { nativeCapabilityQuery, type NativeProviderCapabilities } from './provider-capabilities.js';
+export type { NativeProviderCapabilities, NativeProviderModule } from './provider-capabilities.js';
+import { createDashboardMediaClient } from './dashboard-media.js';
+import { createGenerationTaskActionsClient } from './generation-task-actions.js';
+export type { DashboardMediaClient, DashboardMediaSender } from './dashboard-media.js';
+export type { GenerationTaskActionsClient, GenerationTaskActionSender, GenerationTaskActionBinarySender } from './generation-task-actions.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 /** Last committed worker page, not settlement or backlog status. */
 export interface FinancialRecoveryDiagnostics {
@@ -1009,8 +1015,13 @@ export class NiuAdminClient {
     return this.request('/platform/audit-events' + platformAuditQuery(query), undefined, options);
   }
 
-  /** Actor-private timelines and saved histories; no method initiates inference. */
+  /** Actor-private saved timelines; explicit task actions query existing work only. */
   generations(scope: TenantScope) {
+    const actions = createGenerationTaskActionsClient(
+      <T>(path: string, method: 'POST', body: undefined, options?: RequestOptions) => this.request<T>(path, body, options, method),
+      (path, method, body, options) => this.raw(path, body, options ?? {}, method, 'video/mp4,video/webm,image/png,image/jpeg'),
+      scope.organizationId, scope.projectId,
+    );
     const inventory = createGenerationsInventoryClient(
       <T>(path: string, method: 'GET', body: undefined, options?: RequestOptions) => this.request<T>(path, body, options, method),
       (path, options) => assetBinaryRequest(this.requestFetch, this.base, this.token, path, options ?? {}),
@@ -1021,6 +1032,7 @@ export class NiuAdminClient {
         scope.organizationId, scope.projectId,
       ),
       tasks: {
+        ...actions,
         list: (query?: GenerationInventoryQuery, options?: RequestOptions) => inventory.tasks.list(scope.organizationId, scope.projectId, query, options),
         retrieve: (task: string, options?: RequestOptions) => inventory.tasks.retrieve(scope.organizationId, scope.projectId, task, options),
       },
@@ -1081,6 +1093,16 @@ export class NiuAdminClient {
     return this.request(this.videoIntentPath(scope, intentId), { expected_revision: expectedRevision }, options, 'DELETE');
   }
 
+  /** Session-authenticated media with an explicit current key/account context. */
+  dashboardMedia(scope: TenantScope, keyId: string) {
+    const media = createDashboardMediaClient(
+      <T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body: unknown, options?: import('./media-assets.js').MediaAssetMutationOptions) => this.request<T>(path, body, options, method),
+      scope.organizationId, scope.projectId, keyId,
+    );
+    return {...media, capabilities: (model?: string, options?: RequestOptions): Promise<NativeProviderCapabilities> =>
+      this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/media/capabilities${nativeCapabilityQuery(model)}`, undefined, options)};
+  }
+
   private dashboardVideoPath(scope: TenantScope, keyId: string): string {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/video`;
   }
@@ -1135,6 +1157,12 @@ export class NiuAdminClient {
   getDashboardVideoResult(scope: TenantScope, keyId: string, jobId: string, kind: 'video' | 'last_frame', options: RequestOptions = {}): Promise<Response> {
     if (!['video','last_frame'].includes(kind)) throw new TypeError('A video result kind is required');
     return this.raw(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results/${kind}`,undefined,options,undefined,'video/mp4,video/webm,image/png,image/jpeg');
+  }
+
+  /** Query the original task and deliver its current output once; never generates. */
+  refreshDashboardVideoResult(scope: TenantScope, keyId: string, jobId: string, kind: 'video' | 'last_frame', options: RequestOptions = {}): Promise<Response> {
+    if (kind !== 'video' && kind !== 'last_frame') throw new TypeError('A video result kind is required');
+    return this.raw(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results/${kind}/refresh`,undefined,options,'POST','video/mp4,video/webm,image/png,image/jpeg');
   }
 
   deleteDashboardVideoResults(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<{ deleted: true }> {
@@ -2531,8 +2559,15 @@ export class NiuAdminClient {
     const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
     const headers: Record<string, string> = { authorization: `Bearer ${this.token}`, accept, ...(body === undefined ? {} : { 'content-type': 'application/json' }) };
     if (options.idempotencyKey !== undefined) {
-      if ((path !== '/organizations' && path !== '/workspaces' && !/^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/video\/jobs$/.test(path)) || requestMethod !== 'POST' || typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
-        throw new TypeError('idempotencyKey requires company, workspace or video creation and 1 to 128 visible ASCII characters');
+      const mediaCollection = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/(?:asset-groups|assets|verification-sessions)$/.test(path);
+      const mediaMember = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/(?:asset-groups|assets)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\?.*)?$/.test(path);
+      const mediaMutation = (requestMethod === 'POST' && mediaCollection) || ((requestMethod === 'PATCH' || requestMethod === 'DELETE') && mediaMember);
+      const legacyCreation = requestMethod === 'POST' && (path === '/organizations' || path === '/workspaces' || /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/video\/jobs$/.test(path));
+      const validKey = typeof options.idempotencyKey === 'string' && (mediaMutation
+        ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(options.idempotencyKey) && options.idempotencyKey !== '00000000-0000-0000-0000-000000000000'
+        : /^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey));
+      if ((!legacyCreation && !mediaMutation) || !validKey) {
+        throw new TypeError('idempotencyKey requires supported creation or media mutation; media keys must be canonical nonnil UUIDs');
       }
       headers['idempotency-key'] = options.idempotencyKey;
     }

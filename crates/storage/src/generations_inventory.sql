@@ -2,6 +2,20 @@ WITH inventory AS (
  SELECT a.id,a.created_at,
  greatest(a.created_at,coalesce((SELECT max(created_at) FROM media_job_observations WHERE attempt_id=a.id),a.created_at)) AS updated_at,
  a.resource_id AS model,nullif(m.capabilities->'catalog'->>'name','') AS model_display_name,
+ CASE WHEN nullif(m.capabilities->'catalog'->>'name','') IS NULL THEN 'unknown' ELSE 'current_catalog' END AS model_display_name_source,
+ -- Dispatch context comes only from immutable saved records. Current Supplier
+ -- names, endpoints, account identifiers and credentials are intentionally absent.
+ jsonb_build_object(
+  'submitted_model',a.resource_id,
+  'dispatched_model',nullif(r.upstream_model,''),
+  'provider',nullif(r.adapter,''),
+  'channel',protocol.channel,
+  'dispatched_at',a.dispatched_at,
+  'source','saved_execution',
+  'parameters',saved_parameters.controls,
+  'parameters_source',CASE WHEN saved_parameters.controls IS NULL THEN 'unknown' ELSE 'saved_validated_snapshot' END,
+  'references_state','not_in_execution_snapshot'
+ ) AS execution_context,
  t.session_id,t.turn_id,
  CASE WHEN t.task_id IS NULL AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) AND sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id) THEN 'unknown' ELSE 'generations' END AS source,
  CASE WHEN j.attempt_id IS NULL THEN 'submission_unknown'
@@ -12,6 +26,19 @@ WITH inventory AS (
  WHEN 'running'=ANY(o.statuses) THEN 'running' ELSE 'queued' END AS state
  FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id
  LEFT JOIN media_jobs j ON j.attempt_id=a.id
+ LEFT JOIN media_recovery_protocols protocol ON protocol.attempt_id=a.id
+ LEFT JOIN media_output_snapshots output_snapshot ON output_snapshot.attempt_id=a.id
+ LEFT JOIN LATERAL (
+  -- Only proven validated scalar controls are exposed. No full request, callback,
+  -- financial estimate, procurement data or Provider reference is serialized.
+  SELECT jsonb_object_agg(control.key,control.value) AS controls
+  FROM jsonb_each(CASE WHEN jsonb_typeof(output_snapshot.document->'effective_controls')='object'
+    THEN output_snapshot.document->'effective_controls' ELSE '{}'::jsonb END) control
+  WHERE (control.key IN ('duration','seed','frames_per_second') AND jsonb_typeof(control.value)='number')
+   OR (control.key IN ('watermark','camera_fixed','return_last_frame') AND jsonb_typeof(control.value)='boolean')
+   OR (control.key IN ('resolution','ratio','omni_reference_task_type')
+       AND jsonb_typeof(control.value)='string' AND control.value#>>'{}' ~ '^[A-Za-z0-9_:-]{1,64}$')
+ ) saved_parameters ON true
  LEFT JOIN vendor_models m ON m.alias=a.resource_id
  LEFT JOIN generations_turn_tasks t ON t.task_id=a.id
  LEFT JOIN LATERAL (SELECT ARRAY(SELECT status FROM media_job_observations WHERE attempt_id=a.id) AS statuses) o ON true

@@ -3,8 +3,31 @@ import type { RequestOptions } from './index.js';
 export type GenerationTaskState = 'queued' | 'running' | 'succeeded' | 'failed' | 'unknown' | 'submission_unknown' | 'reconciliation_required';
 export type GenerationArtifactAvailability = 'available' | 'expired' | 'deleted' | 'unavailable';
 export type GenerationArtifactKind = 'video' | 'last_frame';
+/** Original dispatch facts, never inferred from current Supplier configuration.
+ * Provider identifies the saved adapter, not a mutable Supplier/account name.
+ * Parameters contain only retained validated scalar controls; references and
+ * prompts remain in actor-private retained session/intent content, when present.
+ */
+export type GenerationExecutionContext = {
+  submitted_model: string;
+  dispatched_model: string | null;
+  provider: string | null;
+  channel: string | null;
+  dispatched_at: string;
+  source: 'saved_execution';
+  parameters: {
+    duration?: number; seed?: number; frames_per_second?: number;
+    watermark?: boolean; camera_fixed?: boolean; return_last_frame?: boolean;
+    resolution?: string; ratio?: string; omni_reference_task_type?: string;
+  } | null;
+  parameters_source: 'saved_validated_snapshot' | 'unknown';
+  references_state: 'not_in_execution_snapshot';
+};
 export type GenerationTask = {
   id: string; kind: 'video'; model: string; model_display_name: string | null;
+  /** Existing display metadata may reflect today's catalog, never historical dispatch. */
+  model_display_name_source: 'current_catalog' | 'unknown';
+  execution_context: GenerationExecutionContext;
   created_at: string; updated_at: string; state: GenerationTaskState;
   source: 'api' | 'generations' | 'unknown'; session_id: string | null; turn_id: string | null;
   artifacts: Array<{ kind: GenerationArtifactKind; availability: GenerationArtifactAvailability }>;
