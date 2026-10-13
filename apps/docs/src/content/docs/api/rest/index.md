@@ -70,7 +70,8 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 
 - [`POST /admin/v1/auth/browser/login` — Sign in with a secure HttpOnly member cookie](/docs/api/rest/createbrowsermembersession/)
 - [`POST /admin/v1/auth/browser/logout` — Revoke and clear the current browser member session](/docs/api/rest/revokebrowsermembersession/)
-- [`GET /admin/v1/auth/config` — Discover password sign-in availability](/docs/api/rest/getmemberauthenticationconfiguration/)
+- [`POST /admin/v1/auth/browser/token` — Use an existing user access token in the browser](/docs/api/rest/exchangeoperatortokenforbrowsersession/)
+- [`GET /admin/v1/auth/config` — Discover member sign-in availability](/docs/api/rest/getmemberauthenticationconfiguration/)
 - [`POST /admin/v1/auth/login` — Exchange member credentials for a scoped eight-hour session](/docs/api/rest/createpasswordsession/)
 - [`POST /admin/v1/auth/logout` — Sign out the member session supplied in Authorization](/docs/api/rest/revokecurrentmembersession/)
 - [`PUT /admin/v1/auth/password` — Change the signed-in member's password with current-password proof](/docs/api/rest/changeownmemberpassword/)

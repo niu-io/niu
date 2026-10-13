@@ -1,6 +1,7 @@
 //! Administrator endpoints. The configured token bootstraps installation ownership;
 //! durable operator sessions carry role-based access after setup.
 pub mod asset_requests;
+pub mod browser_tokens;
 pub mod chat_sessions;
 pub mod guardrails;
 pub(crate) mod key_concurrency;

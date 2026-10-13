@@ -274,18 +274,11 @@ export default function AppLayout() {
       }
       const sessionValue = await sessionResponse.json() as { data: AdminSession };
       if (revision !== connectionRevision.current || controller.signal.aborted) return;
-      const response = await fetch('/admin/v1/models', {
-        headers: { authorization: `Bearer ${credential}` },
-        signal: controller.signal,
-      });
-      if (revision !== connectionRevision.current || controller.signal.aborted) return;
-      if (!response.ok) {
-        if (revision === connectionRevision.current) setError('Could not sign in. Try again.');
-        return;
-      }
-      const value = await response.json() as { data: Model[] };
-      if (revision !== connectionRevision.current || controller.signal.aborted) return;
-      setModels(value.data);
+      // A verified member session remains usable when model discovery fails.
+      // The existing scoped catalog effect owns loading and diagnostic errors.
+      setModels([]);
+      setModelsError('');
+      setModelsLoading(true);
       setSession(sessionValue.data);
       setToken(credential);
       try { sessionStorage.removeItem('niu.signed-out'); } catch { /* Storage is optional. */ }

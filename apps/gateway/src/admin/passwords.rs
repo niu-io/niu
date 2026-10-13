@@ -109,7 +109,7 @@ impl Runtime {
             MEMBER_COOKIE
         }
     }
-    fn cookie_header(&self, token: &str, max_age: u32) -> HeaderValue {
+    pub(super) fn cookie_header(&self, token: &str, max_age: u32) -> HeaderValue {
         let secure = if self.local_development {
             ""
         } else {
@@ -268,7 +268,7 @@ fn worker_error(error: PasswordWorkError) -> ApiError {
     }
 }
 
-fn runtime(state: &AppState) -> Result<&Runtime, ApiError> {
+pub(super) fn runtime(state: &AppState) -> Result<&Runtime, ApiError> {
     state.password_auth.as_deref().ok_or_else(|| {
         ApiError::unsupported_message("Production password sign-in is not configured")
     })
@@ -396,8 +396,8 @@ pub async fn logout(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getMemberAuthenticationConfiguration",
-///     "summary": "Discover password sign-in availability",
-///     "description": "Public capability discovery only. password_login reflects whether the Gateway has a configured password-authentication runtime. It does not disclose identities, credentials or upstream merchant status, and is not proof of deployed HTTPS/browser acceptance. Response carries Cache-Control: no-store.",
+///     "summary": "Discover member sign-in availability",
+///     "description": "Public capability discovery only. password_login and browser_token_login advertise the configured password and existing user-token browser sign-in transports. A missing browser_token_login field on an older Gateway does not establish support. This response does not disclose identities, credentials or upstream merchant status, and is not proof of deployed HTTPS/browser acceptance. Response carries Cache-Control: no-store.",
 ///     "security": [],
 ///     "x-niu-implementation": "implemented",
 ///     "responses": {
@@ -416,10 +416,14 @@ pub async fn logout(
 ///             "schema": {
 ///               "type": "object",
 ///               "required": [
-///                 "password_login"
+///                 "password_login",
+///                 "browser_token_login"
 ///               ],
 ///               "properties": {
 ///                 "password_login": {
+///                   "type": "boolean"
+///                 },
+///                 "browser_token_login": {
 ///                   "type": "boolean"
 ///                 }
 ///               }
@@ -432,7 +436,9 @@ pub async fn logout(
 /// }
 /// ```
 pub async fn configuration(State(state): State<AppState>) -> Json<Value> {
-    Json(json!({"password_login":state.password_auth.is_some()}))
+    Json(
+        json!({"password_login":state.password_auth.is_some(),"browser_token_login":state.password_auth.is_some()}),
+    )
 }
 
 #[derive(Deserialize)]

@@ -130,6 +130,7 @@ impl TryFrom<OperatorRow> for OperatorView {
 
 #[derive(FromRow)]
 struct PrincipalRow {
+    expires_at_unix: i64,
     session_id: Uuid,
     id: Uuid,
     platform_admin: bool,
@@ -188,12 +189,22 @@ impl Store {
         &self,
         token: &str,
     ) -> Result<OperatorPrincipal, StoreError> {
+        self.authenticate_operator_with_expiry(token)
+            .await
+            .map(|(principal, _)| principal)
+    }
+
+    /// Reads one existing durable session; never issues or extends credentials.
+    pub async fn authenticate_operator_with_expiry(
+        &self,
+        token: &str,
+    ) -> Result<(OperatorPrincipal, i64), StoreError> {
         if token.len() < 32 {
             return Err(StoreError::Unauthorized);
         }
         let digest = token_hash(token);
         let principal: Option<PrincipalRow> = sqlx::query_as(
-            "SELECT s.id AS session_id, o.id, o.platform_admin, o.role, o.organization_id, o.project_id \
+            "SELECT s.expires_at_unix, s.id AS session_id, o.id, o.platform_admin, o.role, o.organization_id, o.project_id \
              FROM admin_sessions s JOIN admin_operators o ON o.id=s.operator_id \
              WHERE s.token_hash=$1 AND s.expires_at_unix > extract(epoch FROM now())::bigint \
                AND s.revoked_at IS NULL AND o.revoked_at IS NULL",
@@ -202,16 +213,19 @@ impl Store {
         .fetch_optional(&self.pool)
         .await?;
         let principal = principal.ok_or(StoreError::Unauthorized)?;
-        Ok(OperatorPrincipal {
-            session_id: principal.session_id,
-            id: principal.id,
-            platform_admin: principal.platform_admin,
-            role: OperatorRole::parse(&principal.role)?,
-            scope: OperatorScope {
-                organization_id: principal.organization_id,
-                project_id: principal.project_id,
+        Ok((
+            OperatorPrincipal {
+                session_id: principal.session_id,
+                id: principal.id,
+                platform_admin: principal.platform_admin,
+                role: OperatorRole::parse(&principal.role)?,
+                scope: OperatorScope {
+                    organization_id: principal.organization_id,
+                    project_id: principal.project_id,
+                },
             },
-        })
+            principal.expires_at_unix,
+        ))
     }
 
     pub async fn operator(&self, id: Uuid) -> Result<Option<OperatorView>, StoreError> {

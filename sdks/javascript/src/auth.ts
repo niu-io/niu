@@ -27,8 +27,8 @@ export class NiuAuthClient {
   }
 
   /** Public capability discovery, independent of sign-in success. */
-  getMemberAuthenticationConfiguration(options: RequestOptions = {}): Promise<{ password_login: boolean }> {
-    return this.#request('/auth/config', { method: 'GET', headers: { accept: 'application/json' } }, options) as Promise<{ password_login: boolean }>;
+  getMemberAuthenticationConfiguration(options: RequestOptions = {}): Promise<{ password_login: boolean; browser_token_login?: boolean }> {
+    return this.#request('/auth/config', { method: 'GET', headers: { accept: 'application/json' } }, options) as Promise<{ password_login: boolean; browser_token_login?: boolean }>;
   }
 
   signIn(input: { email: string; password: string }, options: RequestOptions = {}): Promise<MemberSignIn> {

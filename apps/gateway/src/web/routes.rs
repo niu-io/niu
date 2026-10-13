@@ -172,6 +172,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/auth/password", axum::routing::put(crate::admin::passwords::change_password).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/auth/config", get(crate::admin::passwords::configuration).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/auth/browser/login", axum::routing::post(crate::admin::passwords::browser_login).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/admin/v1/auth/browser/token", axum::routing::post(crate::admin::browser_tokens::exchange).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/auth/browser/logout", axum::routing::post(crate::admin::passwords::browser_logout).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/auth/logout", axum::routing::post(crate::admin::passwords::logout).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/auth/login", axum::routing::post(crate::admin::passwords::login).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))

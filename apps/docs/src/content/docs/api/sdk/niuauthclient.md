@@ -28,6 +28,7 @@ constructor(options?: NiuAuthOptions);
 /** Public capability discovery, independent of sign-in success. */
 getMemberAuthenticationConfiguration(options?: RequestOptions): Promise<{
     password_login: boolean;
+    browser_token_login?: boolean;
 }>;
 ```
 

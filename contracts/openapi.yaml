@@ -132,6 +132,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1auth~1config'
   /admin/v1/auth/browser/login:
     $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1browser~1login'
+  /admin/v1/auth/browser/token:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1auth~1browser~1token'
   /admin/v1/auth/browser/logout:
     $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1browser~1logout'
   /admin/v1/auth/logout:

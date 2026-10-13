@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,11 @@ export default function LoginRoute() {
     ?? safeLoginReturn(new URLSearchParams(location.search).get('returnTo'))
     ?? '/workspaces/default/';
   const [memberLogin, setMemberLogin] = useState(false);
+  const [tokenLogin, setTokenLogin] = useState(false);
+  const [mode, setMode] = useState<'password'|'token'>('password');
+  const [accessToken, setAccessToken] = useState('');
+  const request = useRef<AbortController|null>(null);
+  const inFlight = useRef(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
@@ -28,11 +33,16 @@ export default function LoginRoute() {
   useEffect(() => {
     const controller = new AbortController();
     void fetch('/admin/v1/auth/config', { signal: controller.signal, cache: 'no-store' })
-      .then(async response => response.ok && (await response.json()).password_login === true)
-      .then(enabled => {
-        if (controller.signal.aborted) return;
-        setMemberLogin(enabled);
-        setConfigurationFailed(!enabled);
+      .then(async response => {
+        if(!response.ok)throw new Error('Sign-in configuration unavailable');
+        const value=await response.json();
+        if(controller.signal.aborted)return;
+        const passwordEnabled=value.password_login===true;
+        const tokenEnabled=value.browser_token_login===true;
+        setMemberLogin(passwordEnabled);
+        setTokenLogin(tokenEnabled);
+        setConfigurationFailed(!passwordEnabled&&!tokenEnabled);
+        if(!passwordEnabled&&tokenEnabled)setMode('token');
       })
       .catch(() => { if (!controller.signal.aborted) setConfigurationFailed(true); })
       .finally(() => { if (!controller.signal.aborted) setChecking(false); });
@@ -43,33 +53,41 @@ export default function LoginRoute() {
     if (context.token) navigate(returnTo, { replace: true });
   }, [context.token, navigate, returnTo]);
 
+  useEffect(()=>()=>request.current?.abort(),[]);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!memberLogin || checking || configurationFailed) return;
-    setLocalError('');
-    setSubmitting(true);
+    if(inFlight.current || checking || configurationFailed || !(mode==='token'?tokenLogin:memberLogin))return;
+    const controller=new AbortController();request.current=controller;inFlight.current=true;
+    setLocalError('');setSubmitting(true);
     try {
-      const response = await fetch('/admin/v1/auth/browser/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: username, password }),
-        cache: 'no-store',
+      const response=await fetch(mode==='token'?'/admin/v1/auth/browser/token':'/admin/v1/auth/browser/login',{
+        method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify(mode==='token'?{token:accessToken.trim()}:{email:username,password}),
+        cache:'no-store',signal:controller.signal,
       });
-      if (!response.ok) {
-        setLocalError(response.status === 401
-          ? 'That email or password did not match.'
-          : response.status === 429 ? 'Too many sign-in attempts. Try again in a minute.' : 'Sign-in failed. Try again.');
-        setSubmitting(false);
+      if(controller.signal.aborted)return;
+      if(!response.ok){
+        setLocalError(response.status===401
+          ? mode==='token'?'That access token is invalid, expired or revoked.':'That email or password did not match.'
+          : response.status===429?'Too many sign-in attempts. Try again in a minute.':'Sign-in failed. Try again.');
         return;
       }
+      // The original durable session is held only in the HttpOnly cookie.
+      // Browser state stores the disposable sentinel, never the supplied token.
+      setAccessToken('');setPassword('');
       await context.connectWithToken('niu-browser-member-session');
-      setPassword('');
-    } catch {
-      setLocalError('Could not reach the sign-in service. Try again.');
-    } finally {
-      setSubmitting(false);
+    }catch{
+      if(!controller.signal.aborted)setLocalError('Could not reach the sign-in service. Try again.');
+    }finally{
+      if(request.current===controller){inFlight.current=false;if(!controller.signal.aborted)setSubmitting(false);}
     }
   };
+
+  function changeMode(next:'password'|'token'){
+    if(inFlight.current)return;
+    setLocalError('');setAccessToken('');setPassword('');setMode(next);
+  }
 
   return <main className="dashboard-login">
     <section className="dashboard-login-card" aria-label="Sign in">
@@ -80,11 +98,20 @@ export default function LoginRoute() {
       </Link>
       <form className="dashboard-login-form" onSubmit={submit}>
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && <p role="status">Password changed. Sign in again.</p>}
+          {mode==='token'?<>
+            <Label htmlFor="local-access-token">User access token</Label>
+            <Input key="access-token" id="local-access-token" type="password" autoComplete="off" autoFocus spellCheck={false}
+              value={accessToken} onChange={event=>setAccessToken(event.target.value)}
+              disabled={submitting||checking} required maxLength={256}/>
+            <p className="text-sm text-muted-foreground">Use the temporary access token your workspace owner shared with you.</p>
+          </>:<>
           <Label htmlFor="local-username">Email</Label>
           <Input
+            key="email"
             id="local-username"
             type="email"
             autoComplete="username"
+            disabled={submitting||checking}
             autoFocus
             onChange={event => setUsername(event.target.value)}
             value={username}
@@ -94,11 +121,13 @@ export default function LoginRoute() {
           <Input
             id="local-password"
             autoComplete="current-password"
+            disabled={submitting||checking}
             onChange={event => setPassword(event.target.value)}
             type="password"
             value={password}
             required
           />
+          </>}
           {(localError || context.error) && <p className="dashboard-login-error" role="alert">{localError || context.error}</p>}
         {configurationFailed && <>
           <p className="dashboard-login-error" role="alert">Sign-in is temporarily unavailable.</p>
@@ -109,7 +138,9 @@ export default function LoginRoute() {
             setConfigurationAttempt(value => value + 1);
           }}>Try again</Button>
         </>}
-        <Button type="submit" disabled={submitting || checking || configurationFailed || !memberLogin}>{submitting ? 'Signing in…' : checking ? 'Loading…' : 'Sign in'}</Button>
+        <Button type="submit" disabled={submitting || checking || configurationFailed || !(mode==='token'?tokenLogin:memberLogin)}>{submitting ? 'Signing in…' : checking ? 'Loading…' : 'Sign in'}</Button>
+        {mode==='password'&&tokenLogin&&<Button type="button" variant="outline" disabled={submitting||checking} onClick={()=>changeMode('token')}>Use an access token</Button>}
+        {mode==='token'&&memberLogin&&<Button type="button" variant="ghost" disabled={submitting||checking} onClick={()=>changeMode('password')}>Use email and password</Button>}
       </form>
     </section>
   </main>;
