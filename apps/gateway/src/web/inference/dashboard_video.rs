@@ -473,3 +473,15 @@ pub(in crate::web) async fn observations(
         .ok_or_else(ApiError::not_found)?;
     Ok(([("cache-control".into(), "no-store".into())], Json(result)))
 }
+
+/// Explicitly query an existing task and deliver its current output; never generate.
+pub(in crate::web) async fn fresh_result(
+    State(state): State<AppState>,
+    Path((organization, workspace, key, job, kind)): Path<(Uuid, Uuid, Uuid, Uuid, String)>,
+    headers: HeaderMap,
+) -> Result<axum::response::Response, ApiError> {
+    let principal = job_principal(&state, &headers, (organization, workspace, key), AdminPermission::Write, job).await?;
+    let response = super::video_results::retrieve_fresh_as(&state, &principal, job, &kind).await?;
+    job_principal(&state, &headers, (organization, workspace, key), AdminPermission::Write, job).await?;
+    Ok(response)
+}

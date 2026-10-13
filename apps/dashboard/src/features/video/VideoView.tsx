@@ -1,10 +1,9 @@
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
-import SessionHistory from '@/features/generations/SessionHistory';
+import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
 import { useBranding } from '@/app/branding';
-import logo from "../../../../../branding/assets/niu-mark.png";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router';
-import { IconChevronDown as ChevronDown, IconLayoutSidebarLeftExpand as PanelLeft, IconLayoutSidebarLeftCollapse as PanelLeftClose, IconPlus as Plus, IconRefresh as RefreshCw } from '@tabler/icons-react';
+import { IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw } from '@tabler/icons-react';
 import type { VideoEstimate, VideoJobBilling, VideoJobHistory, VideoJobState, VideoModelList, VideoTransportTimings } from '../../../../../sdks/javascript/src/index';
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
 import { VideoIntent } from './intent';
@@ -16,10 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { Sidebar, SidebarHeader, SidebarContent, useSidebar } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 import type { DashboardContext } from '@/app/dashboard-context';
 import { workspaceDisplayName, workspacePathSegment } from '@/app/workspace-route';
 import { keyRequest, projectKeyPath, type ProjectKey } from '@/features/keys/api';
@@ -49,7 +48,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
   const [search,setSearch]=useSearchParams();
-  const {toggleSidebar,isMobile,setOpenMobile,open,openMobile}=useSidebar();
+  const {isMobile,setOpenMobile}=useSidebar();
   const [keys,setKeys]=useState<ProjectKey[]>([]);
   const [keysScope,setKeysScope]=useState('');
   const [keysError,setKeysError]=useState('');
@@ -79,7 +78,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const [restoringIntent,setRestoringIntent]=useState(false);
   const [intentError,setIntentError]=useState('');
   const loadedIntent=useRef<VideoIntent|null>(null);
-  const [pane,setPane]=useState(search.get('job') ? 'result':'input');
+  const restoredDraftIdentity=useRef('');
+  const [submittedPrompt,setSubmittedPrompt]=useState('');
   const lock=useRef(false);
   const historyTriggerRef=useRef<HTMLButtonElement>(null);
   const loadedBase=useRef('');
@@ -101,6 +101,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     return()=>request.abort();
   },[intentClient,workspace?.organization_id,workspace?.id,selected,intentId,busy==='create',revision]);
   const scopePath=workspace ? projectKeyPath(workspace.organization_id,workspace.id) : '';
+  useEffect(()=>{setSubmittedPrompt('');setPrompt('');},[token,scopePath]);
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const base=keyId && keysScope===keyScopeIdentity && keys.some(key=>key.id===keyId) ? `${scopePath}/${encodeURIComponent(keyId)}/video` : '';
   const responseScope = useRef({ identity: '', generation: 0 });
@@ -115,7 +116,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const canWrite=Boolean(session?.permissions.write);
   const canManageSuppliers=session?.kind === 'installation' || Boolean(session?.permissions.platform_admin);
   const workspacePath=workspace ? `/workspaces/${workspacePathSegment(workspace,workspaces)}` : '/workspaces/default';
-  const form=useMemo(()=>{if(intentId)return {body:intentDocument?.request ?? null,error:''};try{return {body:model ? videoRequest(model,prompt,controls,images):null,error:''};}catch(error){return {body:null,error:message(error)};}},[model,prompt,controls,images,intentId,intentDocument]);
+  const form=useMemo(()=>{if(intentId && !intentDocument?.job)return {body:intentDocument?.request ?? null,error:''};try{return {body:model ? videoRequest(model,prompt,controls,images):null,error:''};}catch(error){return {body:null,error:message(error)};}},[model,prompt,controls,images,intentId,intentDocument]);
   useEffect(()=>{setImages([]);},[base,modelId]);
 
   const quoteMatches = Boolean(quote && quotedBody === JSON.stringify(form.body));
@@ -160,24 +161,29 @@ export default function VideoView({context}:{context:DashboardContext}) {
   useEffect(()=>{
     const controller=new AbortController();
     loadedIntent.current=null;setIntentDocument(null);setIntentError('');setRestoringIntent(false);
-    if(!retainedIntent || busy === 'create')return;
+    if(!retainedIntent){restoredDraftIdentity.current='';return;}
+    if(busy === 'create')return;
     setRestoringIntent(true);setUncertain(true);
     const restoring=new VideoIntent(intentClient!,{organizationId:workspace!.organization_id,projectId:workspace!.id},intentId);
     void restoring.restore({signal:controller.signal}).then(document=>{
       if(controller.signal.aborted)return;
       loadedIntent.current=restoring;
       setIntentDocument(document);
-      setPrompt('');setControls({});setImages([]);setModelId(document.model);
-      if(document.request){
-        setPrompt(document.request.content.map(item=>item.text).join('\n'));
-        setModelId(document.model);
-        const restored:ControlValues={};
-        for(const [name,value] of Object.entries(document.request))if(name!=='model' && name!=='content' && (typeof value==='boolean' || typeof value==='string' || typeof value==='number'))restored[name]=typeof value==='boolean' ? value:String(value);
-        setControls(restored);setImages([]);
+      const draftIdentity=JSON.stringify([token,scopePath,document.id]);
+      if(document.request)setSubmittedPrompt(document.request.content.map(item=>item.text).join('\n'));
+      if(restoredDraftIdentity.current!==draftIdentity || !document.job){
+        restoredDraftIdentity.current=draftIdentity;
+        setPrompt('');setControls({});setImages([]);setModelId(document.model);
+        if(document.request){
+          setPrompt(document.job ? '' : document.request.content.map(item=>item.text).join('\n'));
+          const restored:ControlValues={};
+          for(const [name,value] of Object.entries(document.request))if(name!=='model' && name!=='content' && (typeof value==='boolean' || typeof value==='string' || typeof value==='number'))restored[name]=typeof value==='boolean' ? value:String(value);
+          setControls(restored);
+        }
       }
       if(document.key_id && document.key_id!==keyId)setKeyId(document.key_id);
       setUncertain(document.content_state!=='retained' || (document.submission_state!=='saved' && !document.job));
-      if(document.job){setPane('result');setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',document.job!.id);next.set('key',document.key_id);return next;},{replace:true});}
+      if(document.job){setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',document.job!.id);next.set('key',document.key_id);return next;},{replace:true});}
     }).catch(error=>{if(!controller.signal.aborted)setIntentError(message(error));}).finally(()=>{if(!controller.signal.aborted)setRestoringIntent(false);});
     return()=>controller.abort();
   },[retainedIntent,revision,busy === 'create']);
@@ -204,9 +210,25 @@ export default function VideoView({context}:{context:DashboardContext}) {
     return()=>controller.abort();
   },[token,base,selected,revision]);
 
-  function openJob(id:string) {setPane('result');const next=new URLSearchParams(search);next.set('job',id);next.set('key',keyId);setSearch(next);if(isMobile)setOpenMobile(false);}
+  // Only reconcile an existing job. Polling never creates or retries a submission.
+  useEffect(()=>{
+    if(!base || !selected || !job || !['queued','running'].includes(job.status))return;
+    const controller=new AbortController();let pending=false;
+    const timer=window.setInterval(async()=>{
+      if(pending || lock.current)return;pending=true;
+      try {
+        if(canWrite)await request(token,`${base}/jobs/${encodeURIComponent(selected)}/refresh`,{},controller.signal);
+        const status=await request<VideoJobState>(token,`${base}/jobs/${encodeURIComponent(selected)}`,undefined,controller.signal);
+        if(!controller.signal.aborted){setJob(status);setDetailError('');}
+      }catch(error){if(!controller.signal.aborted)setDetailError(message(error));}
+      finally{pending=false;}
+    },5000);
+    return()=>{window.clearInterval(timer);controller.abort();};
+  },[token,base,selected,job?.status,canWrite]);
 
-  function chooseKey(id:string) {setPane('input');setKeyId(id);const next=new URLSearchParams(search);next.set('key',id);next.delete('job');next.delete('intent');setSearch(next);setPrompt('');setQuote(null);setUncertain(false);}
+  function openJob(id:string) {const next=new URLSearchParams(search);next.set('job',id);next.set('key',keyId);setSearch(next);if(isMobile)setOpenMobile(false);}
+
+  function chooseKey(id:string) {setKeyId(id);const next=new URLSearchParams(search);next.set('key',id);next.delete('job');next.delete('intent');next.set('new','video');setSearch(next);setPrompt('');setQuote(null);setUncertain(false);}
   async function estimate() {
     if(!form.body || !base || lock.current || readingImages)return;
     const controller=new AbortController();estimateController.current?.abort();estimateController.current=controller;
@@ -216,30 +238,30 @@ export default function VideoView({context}:{context:DashboardContext}) {
     finally{if(estimateController.current === controller)setBusy('');}
   }
   async function generate() {
-    if(!form.body || !quoteMatches || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent || Boolean(intentDocument?.job))return;
+    if(!form.body || !quoteMatches || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent)return;
     const generation=currentGeneration();
     let ownedIntentId='';
     const currentOperation=()=>generation===currentGeneration() && (!ownedIntentId || routeIntent.current===ownedIntentId);
-    lock.current=true;setBusy('create');setError('');
+    lock.current=true;setBusy('create');setSubmittedPrompt(prompt);setError('');
     try {
       let result:VideoJobState;
       if(form.body.content.every(item=>item.type==='text') && intentClient && workspace){
-        const intent=retainedIntent ? loadedIntent.current : new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},crypto.randomUUID());
+        const intent=retainedIntent && !intentDocument?.job ? loadedIntent.current : new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},crypto.randomUUID());
         if(!intent)throw new Error('Restore the saved video request before submitting.');
         ownedIntentId=intent.id;routeIntent.current=intent.id;
-        const next=new URLSearchParams(search);next.set('intent',intent.id);next.set('mode','video');next.set('workspace',workspace.id);next.set('key',keyId);setSearch(next,{replace:true});
-        if(!retainedIntent)await intent.save(keyId,form.body as VideoIntentRequest);
+        const next=new URLSearchParams(search);next.set('intent',intent.id);next.delete('new');next.set('workspace',workspace.id);next.set('key',keyId);setSearch(next,{replace:true});
+        if(!retainedIntent || intentDocument?.job)await intent.save(keyId,form.body as VideoIntentRequest);
         if(!currentOperation())return;
         result=await intent.submit();
         if(!currentOperation())return;
-        next.set('job',result.id);setPane('result');setSearch(next,{replace:true});
+        next.set('job',result.id);setSearch(next,{replace:true});
       }else{
         result=await request<VideoJobState>(token,`${base}/jobs`,form.body);
         if(generation !== currentGeneration())return;
         openJob(result.id);
       }
       if(!currentOperation())return;
-      setQuote(null);setRevision(value=>value+1);
+      setSubmittedPrompt(prompt);setPrompt('');setImages([]);setQuote(null);setRevision(value=>value+1);
     } catch(error) {
       if(!currentOperation())return;
       setError(message(error));
@@ -264,71 +286,71 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const epoch=timings?.data[0]?.started_unix_ms ?? 0;
   const total=Math.max(1,...(timings?.data.map(span=>span.started_unix_ms-epoch+span.elapsed_ms) ?? []));
   return <div className="video-shell">
-    <Sidebar id="video-history" className="niu-workspace-sidebar" mobileClassName="niu-workspace-sidebar-mobile" mobileStyle={{left:'var(--rail)',top:0,bottom:0,height:'100dvh',width:'min(var(--context), calc(100vw - var(--rail)))'}} mobileContentProps={{onCloseAutoFocus:event=>{if(historyTriggerRef.current?.isConnected){event.preventDefault();historyTriggerRef.current.focus();}},onInteractOutside:event=>{const target=event.detail.originalEvent.target;if(target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault();}}} aria-label="Video history">
-      <SidebarHeader className="sidebar-heading">
-        <h2 className="sidebar-heading-row">Generations</h2>
-      </SidebarHeader>
-      <SidebarContent className="video-history">
-        <div className="video-history-controls">
-
-        <Button asChild variant="outline" disabled={Boolean(busy)}><Link to={`/generations?new=1${workspace ? `&workspace=${encodeURIComponent(workspace.id)}`:''}`}><Plus size={16}/>New generation</Link></Button>
-        </div>
-        {historyError && <p role="alert">{historyError}</p>}
-        <SessionHistory context={context} currentKeys={keys} videoKeyId={keyId} videos={jobs.map(item=>({...item,keyId}))} activeVideo={selected} activeIntent={intentId} onIntentDeleted={id=>{if(id===intentId)setRevision(value=>value+1);}} disabled={Boolean(busy)}/>
-        {nextBefore && <Button variant="ghost" onClick={()=>void more()} disabled={Boolean(busy)}>Load more</Button>}
-      </SidebarContent>
-    </Sidebar>
+    <GenerationSessionBindings trigger={historyTriggerRef} title={intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'} actions={<DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-key-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{keys.find(key=>key.id === keyId)?.name ?? (loading ? 'Loading keys…':'No active API key')}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(chosen.workspace.id)}&key=${encodeURIComponent(id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>} notice={historyError && <p role="alert">{historyError}</p>} history={{context: (context), currentKeys: (keys), videoKeyId: (keyId), videos: (jobs.map(item=>({...item,keyId}))), activeVideo: (selected), activeIntent: (intentId), onIntentDeleted: (id=>{if(id===intentId)setRevision(value=>value+1);}), disabled: (Boolean(busy))}} extra={nextBefore && <Button variant="ghost" onClick={()=>void more()} disabled={Boolean(busy)}>Load more</Button>} />
     <section className="video-main" aria-label="Video generation">
-      <header className="video-toolbar"><Button ref={historyTriggerRef} variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Toggle video history" aria-controls="video-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <PanelLeftClose size={18}/> : <PanelLeft size={18}/>}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a><h1>{intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'}</h1></header>
+
       <div className="video-content">
         {(keysError || intentError || error) && <div role="alert" className="video-error">{keysError || intentError || error}<Button variant="ghost" onClick={()=>keysError ? setKeysRevision(value=>value+1) : setRevision(value=>value+1)} disabled={Boolean(busy) || loading}>Reload</Button></div>}
         {!workspace ? <p>Add an API key to generate videos.</p> : <>
-        <Tabs value={pane} onValueChange={setPane} className="video-panes"><TabsList className="video-pane-tabs" aria-label="Video panels"><TabsTrigger value="input">Input</TabsTrigger><TabsTrigger value="result" disabled={!model && !selected}>Result</TabsTrigger></TabsList><div className="video-input-result" data-empty={!model && !selected ? 'true':undefined}>
-          <TabsContent value="input" forceMount className="video-input" aria-label="Video input">
-            <div className="flex items-center justify-between gap-3"><h2>Video generation</h2>{!selected&&<Button asChild variant="ghost" size="sm" disabled={Boolean(busy)}><Link to={`/generations?new=1${workspace ? `&workspace=${encodeURIComponent(workspace.id)}`:''}`}>Change task</Link></Button>}</div>
-            <Label>API key</Label>
-            <DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || Boolean(intentId)}>{keys.find(key=>key.id === keyId)?.name ?? (loading ? 'Loading keys…':'No active API key')}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?mode=video&new=1&workspace=${encodeURIComponent(chosen.workspace.id)}&key=${encodeURIComponent(id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-            {!loading && !keys.length && <Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button>}
-            {loading ? <p role="status" className="video-muted">Loading video models…</p> : keys.length > 0 && !model && !error && !keysError ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle role="heading" aria-level={3}>No video model available</EmptyTitle><EmptyDescription>This API key has no supported video route.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/suppliers':`/models?workspace=${encodeURIComponent(workspace.id)}`}>{canManageSuppliers ? 'Manage Suppliers':'View models'}</Link></Button></EmptyContent></Empty> : model && <>
-              <Label>Model</Label>
-              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="video-choice" aria-label="Video model" disabled={Boolean(busy) || Boolean(intentId)}>{model.id}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{setModelId(id);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-              <Label htmlFor="video-prompt">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={5} value={prompt} onChange={event=>setPrompt(event.target.value)} disabled={busy === 'create' || Boolean(intentId)}/>
-              <Button type="button" variant="ghost" onClick={()=>setProviderToolsOpen(true)}>Video settings</Button>
-              <Dialog open={providerToolsOpen} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Video settings</DialogTitle><DialogDescription>Your generation draft stays open. Close this panel to return.</DialogDescription></DialogHeader><VolcengineView workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={model.id}/></DialogContent></Dialog>
-              <ImageReferences model={model} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || Boolean(intentId)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>
-              <Collapsible><CollapsibleTrigger asChild><Button variant="ghost" className="video-choice">Additional settings<ChevronDown size={14}/></Button></CollapsibleTrigger><CollapsibleContent className="video-controls">
-                {Object.entries(model.controls).map(([name,rule])=><div key={name} className="video-field"><Label htmlFor={`video-${name}`}>{controlLabels[name] ?? name}</Label>
-                  {rule.kind === 'choice' ? <DropdownMenu><DropdownMenuTrigger asChild><Button id={`video-${name}`} variant="outline" className="video-choice" disabled={busy === 'create' || Boolean(intentId)}>{String(controls[name] ?? 'Choose…')}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value=>setControls(current=>{const next={...current,[name]:value};if(name === 'resolution' && model.output && !model.output.specifications.some(spec=>spec.resolution === value && spec.ratio === current.ratio)){const spec=model.output.specifications.find(spec=>spec.resolution === value);if(spec)next.ratio=spec.ratio;}return next;})}>{rule.values.filter(value=>name !== 'ratio' || !model.output || model.output.specifications.some(spec=>spec.resolution === controls.resolution && spec.ratio === value)).map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-                  : rule.kind === 'integer' ? <><Input id={`video-${name}`} type="number" min={rule.minimum} max={rule.maximum} step={1} value={String(controls[name] ?? '')} onChange={event=>setControls(current=>({...current,[name]:event.target.value}))} disabled={busy === 'create' || Boolean(intentId)}/><small className="video-muted">{rule.minimum}–{rule.maximum}</small></>
-                  : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>setControls(current=>({...current,[name]:checked === true}))} disabled={busy === 'create' || Boolean(intentId)}/>}</div>)}
-              <Button variant="ghost" onClick={()=>setControls(initialControls(model))} disabled={busy === 'create' || Boolean(intentId)}>Reset settings</Button>
-              </CollapsibleContent></Collapsible>
-              {prompt && form.error && <p role="alert" className="video-error">{form.error}</p>}
-              {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged by your Supplier account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
-              {uncertain && <p role="alert">Submission may have reached the Supplier. Reload to restore the original submission before continuing.</p>}
-              <div className="video-actions"><Button variant="outline" onClick={()=>void estimate()} disabled={!form.body || Boolean(busy) || uncertain || readingImages || restoringIntent}>{busy === 'estimate' ? 'Estimating…':'Estimate'}</Button><Button onClick={()=>void generate()} disabled={!quoteMatches || !canWrite || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || Boolean(intentDocument?.job)}>{busy === 'create' ? 'Submitting…':'Generate video'}</Button></div>
-              {!canWrite && <small className="video-muted">Read access can estimate; generation needs write access.</small>}
-            </>}
-          </TabsContent>
-          {(model || selected) && <TabsContent value="result" forceMount className="video-result" aria-label="Video result">
-            <div className="video-result-heading"><h2>{job?.model ?? 'Result'}</h2>{job && <Badge variant="secondary">{statusLabel[job.status]}</Badge>}</div>
+        <div className="video-conversation" aria-label="Video conversation">
+          {!selected && !intentId ? <Empty className="video-welcome"><EmptyHeader><EmptyTitle>Create a video</EmptyTitle><EmptyDescription>Describe the scene you want to bring to life.</EmptyDescription></EmptyHeader></Empty> : <div className="video-turn">
+            {submittedPrompt && <div className="video-user-message"><p>{submittedPrompt}</p></div>}
+            <article className="video-response" aria-label="Video result">
+              <div className="video-result-heading"><span className="video-response-model">{job?.model ?? intentDocument?.model ?? 'Video'}</span>{job && <Badge variant="secondary">{statusLabel[job.status]}</Badge>}</div>
             {detailError && <p role="alert" className="video-error">{detailError}</p>}
             {selected && !job && detailError && <Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button>}
             {!selected ? <p className="video-muted">Submit a video or select a saved job.</p> : !base && !loading ? <p className="video-muted">Choose an active API key to load this saved video.</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
               {(job.status === 'submission_unknown' || job.status === 'reconciliation_required') && <p>The outcome is unresolved. Do not resubmit this generation.</p>}
-              <Tabs defaultValue="status"><TabsList><TabsTrigger value="status">Status</TabsTrigger><TabsTrigger value="billing">Billing</TabsTrigger></TabsList>
-                <TabsContent value="status" className="video-details">
                   {job.status === 'succeeded' && <VideoResult key={`${base}/${selected}`} token={token} path={`${base}/jobs/${encodeURIComponent(selected)}/results`} canWrite={canWrite}/>} 
+              {job.status !== 'succeeded' && <p role="status" className="video-muted">{job.status === 'queued' ? 'Your video is queued.' : job.status === 'running' ? 'Generating your video…' : job.status === 'failed' ? 'Video generation failed. Open generation details for the recorded status.' : 'Waiting for a confirmed generation status.'}</p>}
+              <Collapsible className="video-generation-details"><CollapsibleTrigger asChild><Button variant="ghost" size="sm">Generation details<ChevronDown size={14}/></Button></CollapsibleTrigger><CollapsibleContent className="video-details">
                   <div className="video-actions"><Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Supplier'}</Button></div>
                   {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle}/>}
                   {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission and status requests; Supplier queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission':'Status query'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
-                </TabsContent>
-                <TabsContent value="billing" className="video-details">{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}</TabsContent>
-              </Tabs>
-              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
+                  <h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
+              </CollapsibleContent></Collapsible>
+
             </>}
-          </TabsContent>}
-        </div></Tabs></>}
+
+            </article>
+          </div>}
+        </div>
+        <form className="video-composer" onSubmit={event=>{event.preventDefault();void (quoteMatches ? generate() : estimate());}}>
+          <div className="video-composer-surface">
+            {loading ? <p role="status" className="video-muted">Loading video models…</p> : keys.length > 0 && !model && !error && !keysError ? <Empty className="min-h-40"><EmptyHeader><EmptyTitle>No video model available</EmptyTitle><EmptyDescription>This API key has no supported video route.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/suppliers':`/models?workspace=${encodeURIComponent(workspace.id)}`}>{canManageSuppliers ? 'Manage Suppliers':'View models'}</Link></Button></EmptyContent></Empty> : null}
+            {model && <>
+              <ImageReferences model={model} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>
+
+              <Label htmlFor="video-prompt" className="sr-only">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={2} value={prompt} onChange={event=>setPrompt(event.target.value)} disabled={busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!busy && !uncertain && form.body)void (quoteMatches ? generate() : estimate());}}}/>
+              {prompt && form.error && <p role="alert" className="video-error">{form.error}</p>}
+              {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Supplier account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
+
+              {uncertain && <p role="alert">Submission may have reached the Supplier. Reload to restore the original submission before continuing.</p>}
+            </>}
+            <div className="video-composer-toolbar"><div className="video-composer-options">
+
+
+              {model && <>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label="Video model" disabled={Boolean(busy) || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{model.id}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{setModelId(id);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+
+                <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Additional settings"><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" className="video-settings-popover"><h2>Video settings</h2><div className="video-controls">
+                {Object.entries(model.controls).map(([name,rule])=><div key={name} className="video-field"><Label htmlFor={`video-${name}`}>{controlLabels[name] ?? name}</Label>
+                  {rule.kind === 'choice' ? <DropdownMenu><DropdownMenuTrigger asChild><Button id={`video-${name}`} variant="outline" className="video-choice" disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>{String(controls[name] ?? 'Choose…')}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value=>setControls(current=>{const next={...current,[name]:value};if(name === 'resolution' && model.output && !model.output.specifications.some(spec=>spec.resolution === value && spec.ratio === current.ratio)){const spec=model.output.specifications.find(spec=>spec.resolution === value);if(spec)next.ratio=spec.ratio;}return next;})}>{rule.values.filter(value=>name !== 'ratio' || !model.output || model.output.specifications.some(spec=>spec.resolution === controls.resolution && spec.ratio === value)).map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+                  : rule.kind === 'integer' ? <><Input id={`video-${name}`} type="number" min={rule.minimum} max={rule.maximum} step={1} value={String(controls[name] ?? '')} onChange={event=>setControls(current=>({...current,[name]:event.target.value}))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/><small className="video-muted">{rule.minimum}–{rule.maximum}</small></>
+                  : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>setControls(current=>({...current,[name]:checked === true}))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/>}</div>)}
+              <Button type="button" variant="ghost" onClick={()=>setControls(initialControls(model))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>Reset settings</Button>
+
+                </div><Button type="button" variant="ghost" onClick={()=>setProviderToolsOpen(true)}>Supplier tools</Button></PopoverContent></Popover>
+              </>}
+            </div>
+            {model && <Button type="submit" size="icon" aria-label={quoteMatches ? 'Generate video':'Estimate'} title={quoteMatches ? 'Generate video':'Estimate generation cost'} disabled={!form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || (quoteMatches && !canWrite)}><ArrowUp size={20}/></Button>}
+            </div>
+            {!loading && !keys.length && <Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button>}
+            {!canWrite && <small className="video-muted">Read access can estimate; generation needs write access.</small>}
+          </div>
+        </form>
+        <Dialog open={providerToolsOpen} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Supplier tools</DialogTitle><DialogDescription>Tools available for the selected video model.</DialogDescription></DialogHeader><VolcengineView workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={modelId}/></DialogContent></Dialog>
+        </>}
       </div>
     </section>
   </div>;

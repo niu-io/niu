@@ -70,6 +70,7 @@ pub(super) async fn retrieve_as(
         None,
         id,
         result_kind,
+        None,
     )
     .await
 }
@@ -81,7 +82,7 @@ pub(super) async fn retrieve_history(
     id: Uuid,
     result_kind: &str,
 ) -> Result<Response, ApiError> {
-    retrieve_authorized(state, scope, None, Some(owner), id, result_kind).await
+    retrieve_authorized(state, scope, None, Some(owner), id, result_kind, None).await
 }
 async fn authorize_delivery(
     state: &AppState,
@@ -108,15 +109,17 @@ async fn retrieve_authorized(
     owner: Option<&str>,
     id: Uuid,
     result_kind: &str,
+    fresh: Option<Vec<u8>>,
 ) -> Result<Response, ApiError> {
     let kind = kind(result_kind)?;
     authorize_delivery(state, scope, principal, owner, id).await?;
-    let encrypted = state
+    let is_fresh = fresh.is_some();
+    let encrypted = if let Some(value) = fresh { value } else { state
         .store
         .media_result_reference(scope, id, kind)
         .await
         .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
+        .ok_or_else(ApiError::not_found)? };
     let cipher = state
         .vendor_cipher
         .as_ref()
@@ -182,7 +185,7 @@ async fn retrieve_authorized(
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
     authorize_delivery(state, scope, principal, owner, id).await?;
-    if state
+    if !is_fresh && state
         .store
         .media_result_reference(scope, id, kind)
         .await
@@ -290,4 +293,17 @@ pub(in crate::web) async fn availability(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let principal = state.authorize_api_headers(&headers).await?;
     availability_as(&state, &principal, id).await
+}
+
+/// Deliberate retrieval from the original task, not a generation or automatic retry.
+/// Expired/deleted cached references remain untouched; this is a new bounded delivery.
+pub(super) async fn retrieve_fresh_as(
+    state: &AppState, principal: &Principal, id: Uuid, result_kind: &str,
+) -> Result<Response, ApiError> {
+    let requested = kind(result_kind)?;
+    authorize(state, principal, id).await?;
+    let (_, results) = super::video::refresh_with_results(state, principal, id).await?;
+    let encrypted = results.into_iter().find(|(k, _)| *k == requested)
+        .map(|(_, value)| value).ok_or_else(ApiError::not_found)?;
+    retrieve_authorized(state, principal.scope(), Some(principal), None, id, result_kind, Some(encrypted)).await
 }

@@ -4,7 +4,11 @@ import { webcrypto } from 'node:crypto';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes, useParams, useLocation } from 'react-router';
-import PlaygroundView from '../../../../src/features/playground/components/PlaygroundView';
+import SessionView from '../../../../src/features/playground/components/PlaygroundView';
+
+import GenerationsLayout from '@/features/generations/GenerationsLayout';
+import type { ComponentProps } from 'react';
+function PlaygroundView(props: ComponentProps<typeof SessionView>) { return <GenerationsLayout><SessionView {...props} /></GenerationsLayout>; }
 
 vi.mock('../../../../src/app/dashboard-context', () => ({ useDashboardContext: () => ({
   chatKeys: [],

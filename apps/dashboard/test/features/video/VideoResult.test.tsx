@@ -15,7 +15,7 @@ it('loads only on demand, revokes previews and confirms one scoped deletion',asy
 it('reader cannot delete and a missing result never creates a fake preview or retries',async()=>{
  const fetch=vi.fn(async(path:string)=>path.endsWith('/results') ? Response.json({video:'available',last_frame:'missing'}):Response.json({error:{message:'private upstream details'}},{status:404}));vi.stubGlobal('fetch',fetch);
  render(<VideoResult token="member" path="/scoped/results" canWrite={false}/>);expect(screen.queryByRole('button',{name:'Delete saved results'})).toBeNull();
- await userEvent.setup().click(await screen.findByRole('button',{name:'Load preview'}));await screen.findByText('This result is missing, expired or deleted.');expect(screen.queryByRole('link',{name:'Download'})).toBeNull();expect(document.body.textContent).not.toContain('private upstream');expect(fetch).toHaveBeenCalledTimes(2);
+ await userEvent.setup().click(await screen.findByRole('button',{name:'Load preview'}));await screen.findByText('No downloadable result was returned.');expect(screen.queryByRole('link',{name:'Download'})).toBeNull();expect(document.body.textContent).not.toContain('private upstream');expect(fetch).toHaveBeenCalledTimes(2);
 });
 it('scope changes abort outstanding reads and revoke any cached result',async()=>{
  vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:scope-preview');const revoke=vi.spyOn(URL,'revokeObjectURL');vi.stubGlobal('fetch',vi.fn(async(path:string)=>path.endsWith('/results') ? Response.json({video:'available',last_frame:'missing'}):new Response(new Uint8Array([1]),{headers:{'content-type':'video/mp4'}})));
@@ -30,7 +30,7 @@ it('rejects HTML and oversized declared bodies before buffering',async()=>{
 it('unavailable saved results survive a fresh mount and missing optional frames are hidden',async()=>{
  const fetch=vi.fn(async()=>Response.json({video:'unavailable',last_frame:'missing'}));vi.stubGlobal('fetch',fetch);
  render(<VideoResult token="member" path="/scoped/results" canWrite/>);
- await screen.findByText('Saved results are no longer available.');expect(screen.queryByRole('button',{name:'Load preview'})).toBeNull();expect(screen.queryByRole('button',{name:'Last frame'})).toBeNull();expect(fetch).toHaveBeenCalledTimes(1);
+ await screen.findByText('The saved download link is unavailable. You can request a current link from the original task.');expect(screen.queryByRole('button',{name:'Load preview'})).toBeNull();expect(screen.queryByRole('button',{name:'Last frame'})).toBeNull();expect(fetch).toHaveBeenCalledTimes(1);
 });
 
 it('shows safe retrieval diagnostics without marking an upstream failure as local deletion',async()=>{
@@ -70,4 +70,16 @@ it('does not erase the current preview when an old job deletion finishes after a
  expect(screen.queryByText(/Saved results deleted/)).toBeNull();
  expect(revoke).not.toHaveBeenCalledWith('blob:current-job');
  expect(fetch.mock.calls.filter(call=>call[1]?.method==='DELETE')).toHaveLength(1);
+});
+
+it('fetches an existing result afresh only after an explicit click and never submits a generation',async()=>{
+ vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:renewed-video');
+ const fetch=vi.fn(async(path:string)=>path.endsWith('/results')?Response.json({video:'unavailable',last_frame:'missing'}):new Response(new Uint8Array([1]),{headers:{'content-type':'video/mp4'}}));vi.stubGlobal('fetch',fetch);
+ render(<VideoResult token="member" path="/saved/jobs/existing/results" canWrite/>);
+ await screen.findByText(/The saved download link is unavailable/);expect(fetch).toHaveBeenCalledTimes(1);
+ await userEvent.setup().click(screen.getByRole('button',{name:'Fetch video again'}));
+ await screen.findByRole('link',{name:'Download'});
+ expect(fetch).toHaveBeenCalledTimes(2);
+ expect(fetch.mock.calls[1][0]).toBe('/saved/jobs/existing/results/video/refresh');
+ expect(vi.mocked(globalThis.fetch).mock.calls[1][1]?.method).toBe('POST');
 });

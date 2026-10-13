@@ -1,11 +1,12 @@
+import { createPortal } from 'react-dom';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { IconMessageChatbot, IconVideo, IconSearch, IconDots, IconTrash } from '@tabler/icons-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuAction, useSidebar } from '@/components/ui/sidebar';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, CommandSeparator } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import type { DashboardContext } from '@/app/dashboard-context';
 import { keyRequest, projectKeyPath, type ProjectKey } from '@/features/keys/api';
@@ -15,11 +16,12 @@ import { videoIntentHistory, type VideoIntentHistoryRow } from '@/features/video
 
 type Chat = {id:string;title?:string;prompt:string;createdAt:number};
 type Video = VideoJobHistory['data'][number] & {keyId:string;workspaceId?:string};
-export default function SessionHistory({context,chats, activeChat, onChat, chatActions, videos, videoKeyId, currentKeys, activeVideo, activeIntent, onIntentDeleted, pending=false, failed=false, disabled=false}: {
-  context:DashboardContext; chats?:Chat[]; activeChat?:string|null; onChat?:(id:string)=>void; chatActions?:(id:string)=>ReactNode;
+export default function SessionHistory({context,chats, activeChat, onChat, chatActions, videos, videoKeyId, currentKeys, activeVideo, activeIntent, onIntentDeleted, pending=false, failed=false, disabled=false, searchTarget, listTarget}: {
+  searchTarget?: HTMLElement | null; listTarget?: HTMLElement | null; context:DashboardContext; chats?:Chat[]; activeChat?:string|null; onChat?:(id:string)=>void; chatActions?:(id:string)=>ReactNode;
   currentKeys?:Array<{id:string;revoked:boolean;expired:boolean}>;videoKeyId?:string;videos?:Video[]; activeVideo?:string;activeIntent?:string;onIntentDeleted?:(id:string)=>void; disabled?:boolean;pending?:boolean;failed?:boolean;
 }) {
   const {token,workspace}=context;
+  const navigate=useNavigate();
   const {isMobile,setOpenMobile}=useSidebar();
   const identity=useRef('');
   const generation=useRef(0);
@@ -38,13 +40,18 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const searchButton=useRef<HTMLButtonElement|null>(null);
   const client=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/admin/v1',window.location.origin).href}):null,[token]);
   const [query,setQuery]=useState('');
+  const [searchOpen,setSearchOpen]=useState(false);
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(false);
   const [revision,setRevision]=useState(0);
   const [cursors,setCursors]=useState<Array<{keyId:string;before:string;scope:string;workspaceId:string}>>([]);
+  const loadedScope=useRef('');
   const scope=workspace ? `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}` : '';
   useEffect(()=>{
-    const controller=new AbortController();setSavedChats([]);setSavedVideos([]);setSavedIntents([]);setIntentCursors([]);setCursors([]);setError('');setLoading(false);setDeleting(null);setDeleteError('');
+    const controller=new AbortController();
+    const nextScope=JSON.stringify([token,scope]);
+    if(loadedScope.current!==nextScope){loadedScope.current=nextScope;setSavedChats([]);setSavedVideos([]);setSavedIntents([]);}
+    setIntentCursors([]);setCursors([]);setError('');setLoading(false);setDeleting(null);setDeleteError('');
     if(!scope || !token)return;
     setLoading(true);
     let failedRead=false;
@@ -71,12 +78,12 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
             if(page.incomplete)failedRead=true;
             if(page.has_more&&page.next_before)nextIntents.push({scope:tenant,before:page.next_before});
           }catch{if(!controller.signal.aborted)failedRead=true;}
-          if(chats===undefined || item.id!==workspace?.id){
+          {
             const page=await read<{data:Chat[]}>(`${currentScope}/chat-sessions`);
             if(page)chatRows.push(...page.data.map(chat=>({...chat,workspaceId:item.id})));
           }
           const keys=currentKeys!==undefined && item.id===workspace?.id ? {data:currentKeys} : await read<{data:ProjectKey[]}>(projectKeyPath(item.organization_id,item.id));
-          for(const key of (keys?.data??[]).filter(key=>!key.revoked&&!key.expired&&!(item.id===workspace?.id&&key.id===videoKeyId))){
+          for(const key of (keys?.data??[]).filter(key=>!key.revoked&&!key.expired)){
             if(controller.signal.aborted)return;
             const page=await read<VideoJobHistory>(`${currentScope}/keys/${key.id}/video/jobs?limit=25`);
             if(!page)continue;
@@ -90,18 +97,18 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       if(!controller.signal.aborted && (failedRead||outcomes.some(item=>item.status==='rejected')))setError('Some sessions could not be loaded.');
     })().finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>{controller.abort();pagination.current?.abort();pagination.current=null;generation.current+=1;};
-  },[token,scope,chats===undefined,revision,JSON.stringify(context.workspaces?.map(item=>item.id)),JSON.stringify(currentKeys),videoKeyId]);
+  },[token,scope,revision,JSON.stringify(context.workspaces?.map(item=>item.id)),JSON.stringify(currentKeys)]);
   const entries=useMemo(()=>{
     const merged=new Map(savedVideos.map(item=>[item.id,item]));
     for(const item of videos??[])merged.set(item.id,{...item,workspaceId:workspace?.id});
     const intentsByJob=new Map(savedIntents.filter(item=>item.jobId).map(item=>[item.jobId,item]));
-    const intentHref=(item:VideoIntentHistoryRow)=>`/generations?mode=video&workspace=${encodeURIComponent(item.scope.projectId)}&intent=${encodeURIComponent(item.id)}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}`;
+    const intentHref=(item:VideoIntentHistoryRow)=>`/generations?workspace=${encodeURIComponent(item.scope.projectId)}&intent=${encodeURIComponent(item.id)}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}`;
     return [
-      ...[...savedChats,...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}&session=${encodeURIComponent(item.id)}`})),
-      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?mode=video&workspace=${encodeURIComponent(item.workspaceId??'')}&key=${encodeURIComponent(item.keyId)}&job=${encodeURIComponent(item.id)}`};}),
+      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}&session=${encodeURIComponent(item.id)}`})),
+      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}&key=${encodeURIComponent(item.keyId)}&job=${encodeURIComponent(item.id)}`};}),
       ...savedIntents.filter(item=>!item.jobId || !merged.has(item.jobId)).map(item=>({id:item.id,type:'video' as const,intent:item,workspaceId:item.scope.projectId,title:item.title,created:Number(item.expires_at_ms),href:intentHref(item)})),
     ].filter(item=>item.title.toLowerCase().includes(query.trim().toLowerCase())).sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
-  },[chats,savedChats,savedVideos,savedIntents,videos,workspace?.id,query]);
+  },[chats,savedChats,savedVideos,savedIntents,videos,workspace?.id,query,pending]);
   async function more(){
     if(loading||(!cursors.length&&!intentCursors.length)||pagination.current)return;setLoading(true);setError('');
     const request=new AbortController();pagination.current=request;
@@ -137,17 +144,40 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     }catch(error){if(currentGeneration===generation.current)setDeleteError(error instanceof Error ? error.message:'The saved input could not be deleted.');}
     finally{setDeleteBusy(false);}
   }
-  return <>
-    <Popover><PopoverTrigger asChild><Button ref={searchButton} type="button" variant="ghost" size="icon" aria-label="Search sessions" title="Search sessions" className={query ? "text-primary bg-accent" : undefined}><IconSearch size={17}/></Button></PopoverTrigger><PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus aria-label="Search sessions" placeholder="Search sessions" value={query} onChange={event=>setQuery(event.target.value)}/>{query && <Button variant="ghost" size="sm" onClick={()=>setQuery('')}>Reset search</Button>}</PopoverContent></Popover>
+  function openSession(item: typeof entries[number]) {
+    setSearchOpen(false);
+    if(item.type==='chat' && item.workspaceId===workspace?.id && onChat)onChat(item.id);
+    else navigate(item.href);
+    if(isMobile)setOpenMobile(false);
+  }
+  const search = <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+    <PopoverTrigger asChild><Button ref={searchButton} type="button" variant="ghost" size="icon" aria-label="Search sessions" title="Search sessions" className={query ? "text-primary bg-accent" : undefined}><IconSearch size={17}/></Button></PopoverTrigger>
+    <PopoverContent onEscapeKeyDown={event=>{event.preventDefault();event.stopPropagation();setSearchOpen(false);}} align="end" className="w-80 max-w-[calc(100vw-2rem)] p-0">
+      <Command label="Search sessions" shouldFilter={false}>
+        <CommandInput autoFocus aria-label="Search sessions" placeholder="Search sessions…" value={query} onValueChange={setQuery}/>
+        <CommandList>
+          <CommandEmpty>{loading || pending ? 'Loading sessions…' : query ? 'No matching sessions' : 'No sessions yet'}</CommandEmpty>
+          <CommandGroup heading="Sessions">{entries.map(item=><CommandItem key={`${item.type}:${item.workspaceId}:${item.id}`} value={`${item.type}:${item.workspaceId}:${item.id}`} disabled={disabled} onSelect={()=>openSession(item)}>{item.type==='chat' ? <IconMessageChatbot/> : <IconVideo/>}<span className="truncate">{item.title}</span></CommandItem>)}</CommandGroup>
+          {query && <><CommandSeparator/><CommandGroup><CommandItem value="reset-session-search" onSelect={()=>setQuery('')}>Reset search</CommandItem></CommandGroup></>}
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Popover>;
+
+  const content = <>
     {error&&<div className="px-3"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" size="sm" onClick={()=>setRevision(value=>value+1)}>Retry sessions</Button></div>}
     <SidebarMenu aria-label="Generation sessions">{entries.map(item=><SidebarMenuItem key={`${item.type}:${item.id}`}>
-      {item.type==='chat'&&item.workspaceId===workspace?.id&&onChat ? <SidebarMenuButton disabled={disabled} isActive={activeChat===item.id} onClick={()=>onChat(item.id)} title={item.title}><IconMessageChatbot/><span>{item.title}</span></SidebarMenuButton> : <SidebarMenuButton asChild isActive={item.type==='video'&&(activeVideo===item.id || Boolean(item.intent&&activeIntent===item.intent.id))} disabled={disabled}><Link to={item.href} onClick={()=>{if(isMobile)setOpenMobile(false);}}><>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span>{item.title}</span></></Link></SidebarMenuButton>}
+      <SidebarMenuButton asChild isActive={item.type==='chat' ? activeChat===item.id : activeVideo===item.id || Boolean(item.intent&&activeIntent===item.intent.id)} disabled={disabled} title={item.title}><Link to={item.href} onClick={event=>{if(disabled){event.preventDefault();return;}if(item.type==='chat'&&item.workspaceId===workspace?.id&&onChat){event.preventDefault();onChat(item.id);}if(isMobile)setOpenMobile(false);}}>{item.type==='chat'?<IconMessageChatbot/>:<IconVideo/>}<span>{item.title}</span></Link></SidebarMenuButton>
       {item.type==='chat'&&item.workspaceId===workspace?.id&&chatActions&&chatActions(item.id)}
       {item.type==='video'&&item.intent&&item.workspaceId===workspace?.id&&context.session?.permissions.write&&<DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element=>{if(element)actionButtons.current.set(item.intent!.id,element);else actionButtons.current.delete(item.intent!.id);}} showOnHover disabled={disabled||deleteBusy} aria-label={`Actions for ${item.title}`}><IconDots/></SidebarMenuAction></DropdownMenuTrigger><DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={()=>{deleteOpener.current=actionButtons.current.get(item.intent!.id)??null;setDeleting(item.intent!);setDeleteError('');}}><IconTrash/>Delete saved input</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}
     </SidebarMenuItem>)}</SidebarMenu>
     {!entries.length&&!loading&&!pending&&!error&&!failed&&<p className="px-3 py-4 text-sm text-muted-foreground">{query?'No matching sessions':'No sessions yet'}</p>}
-    {(loading||pending)&&<p role="status" className="px-3 text-sm text-muted-foreground">Loading sessions…</p>}
+    {(loading||pending)&&!entries.length&&<p role="status" className="px-3 text-sm text-muted-foreground">Loading sessions…</p>}
     {(cursors.length>0||intentCursors.length>0)&&<Button variant="ghost" disabled={loading||disabled} onClick={()=>void more()}>Load more sessions</Button>}
     <Dialog open={Boolean(deleting)} onOpenChange={open=>{if(!open&&!deleteBusy)setDeleting(null);}}><DialogContent showCloseButton={!deleteBusy} onCloseAutoFocus={event=>{const target=deleteOpener.current?.isConnected ? deleteOpener.current:searchButton.current;if(target?.isConnected){event.preventDefault();target.focus();}}}><DialogHeader><DialogTitle>Delete saved video input</DialogTitle><DialogDescription>This permanently removes the saved prompt and settings. It does not cancel the generation, delete its result, or refund charges.</DialogDescription></DialogHeader><p className="break-words text-sm">{deleting?.title}</p>{deleteError&&<p role="alert" className="text-sm text-destructive">{deleteError}</p>}<DialogFooter><Button variant="outline" onClick={()=>setDeleting(null)} disabled={deleteBusy}>Cancel</Button><Button variant="destructive" onClick={()=>void eraseInput()} disabled={deleteBusy}>{deleteBusy?'Deleting…':'Delete input'}</Button></DialogFooter></DialogContent></Dialog>
+  </>;
+  return <>
+    {searchTarget ? createPortal(search, searchTarget) : searchTarget === undefined ? search : null}
+    {listTarget ? createPortal(content, listTarget) : listTarget === undefined ? content : null}
   </>;
 }

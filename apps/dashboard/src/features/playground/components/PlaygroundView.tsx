@@ -1,12 +1,10 @@
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
-import SessionHistory from '@/features/generations/SessionHistory';
+import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import logo from "../../../../../../branding/assets/niu-mark.png";
-import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarMenuAction, useSidebar } from '@/components/ui/sidebar';
+import { SidebarMenuAction, useSidebar } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { IconX as X } from "@tabler/icons-react";
@@ -30,7 +28,6 @@ import { IconClock as Clock3 } from "@tabler/icons-react";
 import { IconFlask as FlaskConical } from "@tabler/icons-react";
 import { IconHash as Hash } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
-import { IconMessagePlus as MessageSquarePlus } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconAdjustmentsHorizontal as Settings2 } from "@tabler/icons-react";
 import { IconSquare as Square } from "@tabler/icons-react";
@@ -324,7 +321,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   onRetryModels?: () => Promise<void>;
   initialScope: Scope | null;
 }) {
-  const { isMobile, setOpenMobile, openMobile, open, toggleSidebar } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const comparisonController = useRef<AbortController | null>(null);
   const customizedModels = useRef(false);
@@ -457,6 +454,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     }
   }
   useEffect(() => { setArchiveOpen(false); setArchivedChats([]); setArchiveError(''); setArchiveBusy(false); }, [historyIdentity]);
+  useEffect(() => { if(new URLSearchParams(location.search).get('archived') === '1') setArchiveOpen(true); }, [location.search]);
   useEffect(() => {
     if (!archiveOpen) return;
     const controller = new AbortController();
@@ -883,36 +881,17 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
 
   return <div className="playground-view">
     <div className="playground-chat-layout">
-      <Sidebar className="niu-workspace-sidebar playground-history" mobileClassName="niu-workspace-sidebar-mobile" mobileContentProps={{ onCloseAutoFocus: event => { if (historyToggleRef.current?.isConnected) { event.preventDefault(); historyToggleRef.current.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }} mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }} id="chat-history" aria-label="Recent comparisons">
-        <SidebarHeader className="sidebar-heading">
-          <h2 className="sidebar-heading-row">Generations</h2>
-        </SidebarHeader>
-        <SidebarContent className="playground-history-list" aria-label="Saved chats">
-          <div className="playground-history-controls">
-
-          <Button type="button" variant="outline" className="playground-new-chat" onClick={()=>{startNewComparison();navigate(`/generations?new=1${workspaceId ? `&workspace=${encodeURIComponent(workspaceId)}`:''}`);if(isMobile)setOpenMobile(false);}} disabled={running || settingsSaving || !draft.ready}><MessageSquarePlus size={16} />New generation</Button>
-          </div>
-          {historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>Retry chat history</Button></div>}
-          <SessionHistory context={dashboard} currentKeys={workspaceKeys} pending={historyLoading || !draft.ready} failed={Boolean(historyError)} chats={history} activeChat={activeComparisonId} disabled={running || settingsSaving || !draft.ready}
-            onChat={id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);navigate(`/generations?workspace=${encodeURIComponent(workspaceId)}&session=${encodeURIComponent(id)}`);if(isMobile)setOpenMobile(false);}}}
-            chatActions={id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
-              <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving || !draft.ready} aria-label={`Actions for ${sessionTitle(item)}`}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />Rename</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? 'Exporting…' : 'Export'}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />Archive</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />Delete</DropdownMenuItem></DropdownMenuContent>
-              </DropdownMenu>);}} />
-        </SidebarContent>
-        <SidebarFooter><Button variant="ghost" className="justify-start" onClick={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); if (isMobile) setOpenMobile(false); }}><Archive size={15} />Archived chats</Button></SidebarFooter>
-      </Sidebar>
-
-      <section className="playground-chat-main" aria-label="Model comparison chat">
-        <header className="playground-chat-toolbar"><div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" ref={historyToggleRef} onClick={toggleSidebar} aria-label="Toggle chat history" aria-controls="chat-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a></div>
-          <h1 className="playground-chat-title">{activeComparison ? sessionTitle(activeComparison) : 'New generation'}</h1>
-
-          <div className="playground-toolbar-actions">
+      <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : 'New generation'} actions={<div className="playground-toolbar-actions">
             <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={'API key: ' + selectedKeyLabel}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
-          </div>
-        </header>
+          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>Retry chat history</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);navigate(`/generations?workspace=${encodeURIComponent(workspaceId)}&session=${encodeURIComponent(id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
+              <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving || !draft.ready} aria-label={`Actions for ${sessionTitle(item)}`}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />Rename</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? 'Exporting…' : 'Export'}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />Archive</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />Delete</DropdownMenuItem></DropdownMenuContent>
+              </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); }} />
+
+      <section className="playground-chat-main" aria-label="Model comparison chat">
+
 
         <div ref={transcriptRef} className="playground-transcript" aria-live="polite">
           {error && !results && <p role="alert" className="playground-chat-error">{error}</p>}
@@ -923,7 +902,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
                 ? <div className="playground-first-run">
                   <div className="playground-first-run-heading"><h2>What would you like to create?</h2><p>Write, build, compare models or generate a video.</p>{modelsLoading ? <p role="status">Loading model catalog…</p> : !modelsError && modelAliases.length===0 ? <p>No text models are available. Ask a platform administrator to add a model route to the catalog.</p> : null}</div>
                   <div className="playground-starter-picker" aria-label="Example tasks">
-                    <Tabs value={promptCategory} onValueChange={value => {if(value==='video'){navigate(`/generations?mode=video&new=1${workspaceId ? `&workspace=${encodeURIComponent(workspaceId)}`:''}`);return;}setPromptCategory(value as typeof promptCategory);}} className="playground-starter-tabs">
+                    <Tabs value={promptCategory} onValueChange={value => {if(value==='video'){navigate(`/generations?new=video${workspaceId ? `&workspace=${encodeURIComponent(workspaceId)}`:''}`);return;}setPromptCategory(value as typeof promptCategory);}} className="playground-starter-tabs">
                       <TabsList aria-label="Task category" className="playground-starter-categories">
                         {promptCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-starter-category">{category.label}</TabsTrigger>)}
                       </TabsList>

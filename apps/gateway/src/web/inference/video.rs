@@ -2121,6 +2121,15 @@ pub(crate) async fn refresh_for_principal(
     principal: &niu_storage::Principal,
     id: Uuid,
 ) -> Result<Value, ApiError> {
+    refresh_with_results(state, principal, id).await.map(|(saved, _)| saved)
+}
+
+/// An explicit query can return new delivery references even when the old cache expired.
+pub(super) async fn refresh_with_results(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    id: Uuid,
+) -> Result<(Value, Vec<(niu_storage::MediaResultKind, Vec<u8>)>), ApiError> {
     let scope = principal.scope();
     state
         .store
@@ -2273,7 +2282,7 @@ pub(crate) async fn refresh_for_principal(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    Ok(saved)
+    Ok((saved, results))
 }
 
 pub(super) struct TransportClock {

@@ -305,7 +305,7 @@ describe('dashboard route layout', () => {
     expect(await screen.findByRole('heading', { name: 'Billing', exact: true })).toBeTruthy();
     expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Billing', exact: true }).getAttribute('href')).toBe('/workspaces/default/billing');
     expect((await within(screen.getByLabelText('Breadcrumb')).findByRole('link', {name: 'Default', exact: true})).getAttribute('href')).toBe('/workspaces/default');
-    expect(screen.queryByRole('heading', { name: 'Page not found' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
   });
 
   it('recognizes the Benchmarks route and links to integrated documentation', async () => {
@@ -313,7 +313,7 @@ describe('dashboard route layout', () => {
     renderAt('/workspaces/default/benchmarks');
     expect(await screen.findByRole('heading', { name: 'Benchmarks', exact: true })).toBeTruthy();
     expect(document.title).toBe('Benchmarks · NIU.IO');
-    expect(screen.queryByRole('heading', { name: 'Page not found' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
     expect((await screen.findByRole('link', { name: 'Review the matching and evidence requirements.' })).getAttribute('href')).toBe('/help/concepts/benchmarking/');
   });
 
@@ -366,7 +366,7 @@ describe('dashboard route layout', () => {
   it('shows a branded recovery page for an unknown dashboard URL', async () => {
     renderAt('/not-a-dashboard-route');
 
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Not Found' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Open workspace' })).toBeTruthy();
     expect(screen.queryByText('Unexpected Application Error!')).toBeNull();
   });
@@ -538,7 +538,7 @@ describe('dashboard route layout', () => {
   it.each(['/agent-observability', '/subscription-value', '/workspaces/default/codex-report', '/workspaces/default/tasks'])('does not expose retired agent route %s', async path => {
     mockHealth();
     const router = renderAt(path);
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: path.startsWith('/workspaces/') ? 'Page not found' : 'Not Found' })).toBeTruthy();
     expect(router.state.location.pathname).toBe(path);
   });
 
@@ -857,8 +857,8 @@ describe('dashboard route layout', () => {
 
   it('names the global not-found page and offers workspace recovery', async () => {
     renderAt('/not-a-dashboard-route');
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
-    expect(document.title).toBe('Page not found · NIU.IO');
+    expect(await screen.findByRole('heading', { name: 'Not Found' })).toBeTruthy();
+    expect(document.title).toBe('Not Found · NIU.IO');
     expect(screen.getByRole('link', { name: 'Open workspace' }).getAttribute('href')).toBe('/workspaces/default/');
   });
 

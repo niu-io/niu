@@ -7,9 +7,10 @@ Status: implementation contract with an additive backend increment delivered. Ex
 **The implementation is not complete.** The latest local increment adds dashboard
 media access and explicit result re-fetching. Task execution-context projection,
 SDK normalization and correct model-specific tool discovery are still pending.
-The code described below includes uncommitted working-tree changes; a pull of the
-current base commit alone does not include them. Transfer/review those changes
-before continuing, preserving unrelated concurrent frontend work.
+The local implementation is included in the implementation handoff commit following
+the documentation-only commit `45a129eb`. Pull the latest `main` to obtain both code
+and this document. This is a continuation checkpoint, not release acceptance;
+remaining work below is still outstanding.
 
 ### Next work, in order
 
@@ -62,10 +63,14 @@ before continuing, preserving unrelated concurrent frontend work.
 | --- | --- | --- |
 | Dashboard media routes | `apps/gateway/src/web/media_authorization.rs`, `provider_assets.rs`, `provider_verification.rs`, `routes.rs`; session-authorized selected-key access to existing native handlers | Build/check passed earlier in this increment; actual group/session reads returned 200 and empty inventories; invalid authentication was denied. Full role/cross-workspace regression coverage remains pending. |
 | Materials and verification UI | `apps/dashboard/src/features/provider-modules/volcengine/useMaterials.ts`, `VolcengineView.tsx`, `page.tsx`; group menu/dialog, URL registration, explicit verification actions | Desktop menu/dialog and empty reads inspected. No upstream group/material/session creation or completed face verification was performed. Narrow-screen and mutation-recovery acceptance remain pending. |
-| Explicit fresh result delivery | `apps/gateway/src/web/inference/{dashboard_video,video,video_results}.rs`, `web/routes.rs`; frontend `VideoResult.tsx` and `result.ts` | Earlier endpoint build passed; nine targeted `VideoResult` tests passed. Existing OpenRouter task query succeeded, download returned 410. Latest error mapping needs final build/runtime verification; positive FastRouter delivery remains unverified. |
+| Explicit fresh result delivery | `apps/gateway/src/web/inference/{dashboard_video,video,video_results}.rs`, `web/routes.rs`; frontend `VideoResult.tsx` and `result.ts` | Earlier endpoint build passed; nine targeted `VideoResult` tests passed. Existing OpenRouter task query succeeded, download returned 410. Latest error mapping passes gateway cargo check; final runtime verification and positive FastRouter delivery remain unverified. |
 | SDK and task metadata | Existing `sdks/javascript/src/admin.ts`, `generations-inventory.ts`, storage `generations_inventory.sql` | The new execution-context projection and typed refresh/media additions have **not** been implemented. Do not treat the requested design as delivered code. |
 
-The broader dashboard test run had failures in concurrent layout/activity work;
+Checkpoint validation: dashboard TypeScript check, gateway `cargo check`, and
+58 targeted tests across seven Video, Generations and route-fallback test files
+passed. This does not replace browser acceptance or upstream recovery verification.
+
+The earlier broader dashboard test run had failures in concurrent layout/activity work;
 it is not a passing release acceptance. Re-run relevant checks after integrating
 all changes. No paid generation is authorized for this handoff.
 

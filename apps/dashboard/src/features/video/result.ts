@@ -1,5 +1,6 @@
 export class ResultReadError extends Error {constructor(message:string,readonly status?:number){super(message);}}
 const resultFailures: Record<string,{status:number;message:string}> = {
+  media_result_gone:{status:502,message:'The Supplier download endpoint reports that this video is no longer available.'},
   media_result_unavailable:{status:502,message:'The Supplier cannot serve this saved result right now. Its link may have expired.'},
   media_result_destination_rejected:{status:502,message:'The result cannot be reached safely. Ask your administrator to check gateway DNS and HTTPS access.'},
   media_result_too_large:{status:502,message:'The saved result exceeds the download limit.'},
@@ -25,10 +26,10 @@ async function failureMessage(response:Response,signal:AbortSignal):Promise<stri
     return entry?.status === response.status ? entry.message:fallback;
   } catch {signal.throwIfAborted();return fallback;} finally {await reader.cancel().catch(()=>{});reader.releaseLock();}
 }
-export async function fetchVideoResult(token:string,path:string,kind:'video'|'last_frame',signal:AbortSignal):Promise<Blob> {
-  const response=await fetch(`${path}/${kind}`,{headers:{authorization:`Bearer ${token}`,accept:kind === 'video' ? 'video/mp4,video/webm':'image/png,image/jpeg'},signal,redirect:'error'});
+export async function fetchVideoResult(token:string,path:string,kind:'video'|'last_frame',signal:AbortSignal,fresh=false):Promise<Blob> {
+  const response=await fetch(`${path}/${kind}${fresh?'/refresh':''}`,{method:fresh?'POST':'GET',headers:{authorization:`Bearer ${token}`,accept:kind === 'video' ? 'video/mp4,video/webm':'image/png,image/jpeg'},signal,redirect:'error'});
   if(!response.ok) {
-    if(response.status === 404){await response.body?.cancel();throw new ResultReadError('This result is missing, expired or deleted.',404);}
+    if(response.status === 404){await response.body?.cancel();throw new ResultReadError('No downloadable result was returned.',404);}
     if(response.status === 401 || response.status === 403){await response.body?.cancel();throw new ResultReadError('You no longer have access to this result.',response.status);}
     throw new ResultReadError(await failureMessage(response,signal),response.status);
   }

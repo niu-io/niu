@@ -1,12 +1,13 @@
 //! Thin scoped wrappers around upstream H5 verification. No local liveness,
 //! consent registry, invented approval or anonymous verification capabilities.
+use super::media_authorization::{MediaPrincipal, MediaId};
 use super::provider_assets::{admit, client, idempotency, limits};
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
     body::Bytes,
     extract::{
-        Path, Query, State,
+        Query, State,
         rejection::{JsonRejection, QueryRejection},
     },
     http::{
@@ -311,6 +312,7 @@ fn failure(error: FastRouterActionError) -> (Option<u16>, Option<String>, bool) 
 /// ```
 pub(super) async fn create(
     State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
     headers: HeaderMap,
     input: Result<Json<Create>, JsonRejection>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
@@ -321,7 +323,6 @@ pub(super) async fn create(
             ApiError::invalid_request("Invalid verification request")
         }
     })?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let client = client(&state, &route)?;
     let request = FastRouterVerificationCreate {
@@ -538,11 +539,10 @@ pub(super) async fn create(
 /// ```
 pub(super) async fn list(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    MediaPrincipal(principal): MediaPrincipal,
     input: Result<Query<Page>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     admit(&state, &principal, &input.model).await?;
     let data = state
         .store
@@ -643,12 +643,11 @@ pub(super) async fn list(
 /// ```
 pub(super) async fn get(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<Model>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     Ok(Json(
         json!({"data":saved(&state,&principal,id,&route).await?}),
@@ -762,12 +761,11 @@ pub(super) async fn get(
 /// ```
 pub(super) async fn link(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<Model>, QueryRejection>,
 ) -> Result<(HeaderMap, Json<Value>), ApiError> {
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let current = saved(&state, &principal, id, &route).await?;
     let private = secrets(&state, &principal, id, &route).await?;
@@ -864,8 +862,8 @@ pub(super) async fn link(
 /// ```
 pub(super) async fn refresh(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<Model>, QueryRejection>,
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
@@ -875,7 +873,6 @@ pub(super) async fn refresh(
         ));
     }
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let current = saved(&state, &principal, id, &route).await?;
     if !matches!(current.status.as_str(), "waiting_user" | "processing") {

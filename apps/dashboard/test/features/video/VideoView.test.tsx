@@ -4,10 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { expect,it,vi } from 'vitest';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import VideoView from '@/features/video/VideoView';
+import SessionView from '@/features/video/VideoView';
 import type { DashboardContext } from '@/app/dashboard-context';
 import type { VideoModel } from '../../../../../sdks/javascript/src/index';
 import { initialControls,videoRequest } from '@/features/video/request';
+import GenerationsLayout from '@/features/generations/GenerationsLayout';
+import type { ComponentProps } from 'react';
+function VideoView(props: ComponentProps<typeof SessionView>) { return <GenerationsLayout><SessionView {...props} /></GenerationsLayout>; }
+
 const workspace={id:'11111111-1111-4111-8111-111111111111',organization_id:'22222222-2222-4222-8222-222222222222',name:'Review workspace',organization_name:'Review'};
 const key='33333333-3333-4333-8333-333333333333';
 const job='44444444-4444-4444-8444-444444444444';
@@ -28,7 +32,11 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
     if(path.endsWith('/models'))return Response.json({object:'list',data:[catalogModel]});
     if(path.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});
     if(path.endsWith('/estimate'))return Response.json(quote);
-    if(path.endsWith('/submit'))return create();
+    if(path.endsWith('/submit')){
+      const response=await create();
+      if(response.ok){const submitted=await response.clone().json();const savedPath=path.slice(0,-'/submit'.length);const saved=intents.get(savedPath);if(saved)intents.set(savedPath,{...saved as object,submission_state:'dispatched',job:submitted});}
+      return response;
+    }
     if(path.includes('/video-intents/')){
       if(init?.method==='PUT'){
         const body=JSON.parse(String(init.body));
@@ -52,8 +60,9 @@ it('restores original saved input after job-only navigation without submitting a
  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>path.includes('/video-intents?')?Response.json({data:[saved],has_more:false,next_before:null}):path.endsWith('/video-intents/'+intent)?Response.json({data:saved}):fallback(path,init)));
  mount(true,`/generations?mode=video&job=${job}&key=${key}`);
  await screen.findByRole('heading',{name:'Video · Original saved orange ball'});
- expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Original saved orange ball');
- expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).disabled).toBe(true);
+ expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
+ expect(screen.getByText('Original saved orange ball')).toBeTruthy();
+ expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).disabled).toBe(false);
  expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/estimate'))).toBe(false);
 });
 it('keeps job-only lookup failure visible and restores the input after explicit reload',async()=>{
@@ -76,15 +85,16 @@ it('requires a current estimate, invalidates it when input changes and submits o
   await user.click(screen.getByRole('button',{name:'Additional settings'}));
   await user.clear(screen.getByLabelText('Duration (seconds)'));await user.type(screen.getByLabelText('Duration (seconds)'),'7');
   await user.click(screen.getByRole('button',{name:'Additional settings'}));
-  expect(screen.getByRole('button',{name:'Generate video'}).hasAttribute('disabled')).toBe(true);
+  expect(screen.queryByRole('button',{name:'Generate video'})).toBeNull();
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
   await screen.findByText('Estimated CNY 1.00');
   await user.type(screen.getByLabelText('Prompt'),' sunrise');
-  expect(screen.getByRole('button',{name:'Generate video'}).hasAttribute('disabled')).toBe(true);
+  expect(screen.queryByRole('button',{name:'Generate video'})).toBeNull();
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
   await screen.findByText('Estimated CNY 1.00');
   await user.dblClick(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText('Queued');
+  await user.click(screen.getByRole('button',{name:'Generation details'}));
   await user.click(screen.getByRole('button',{name:'Reload status'}));
   await waitFor(()=>expect(calls.filter(call=>call.path.endsWith('/models')).length).toBeGreaterThan(1));
   await user.click(screen.getByRole('button',{name:'Additional settings'}));
@@ -145,9 +155,10 @@ it('restores immutable input and the original job from an intent URL without dis
   mount(true,`/generations?mode=video&intent=${intent}`);
   await screen.findByText('Queued');
   expect(screen.getByRole('heading',{level:1,name:'Video · Saved landscape'})).toBeTruthy();
-  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Saved landscape');
-  expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(true);
-  expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(true);
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
+ expect(screen.getByText('Saved landscape')).toBeTruthy();
+  expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(false);
+  expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(false);
   expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toBe(false);
   expect(calls.some(call=>call.body!==null)).toBe(false);
   expect(document.body.textContent).not.toContain(intent);
@@ -225,13 +236,14 @@ it('requires a reference role before estimation and invalidates the estimate whe
   expect(calls.find(call=>call.path.endsWith('/estimate'))?.body).toMatchObject({content:[{type:'text',text:'A mountain'},{type:'image_url',role:'first_frame'}]});
   await user.click(screen.getByRole('button',{name:'Remove frame.png'}));
   expect(screen.queryByText('Estimated CNY 1.00')).toBeNull();
-  expect(screen.getByRole('button',{name:'Generate video'}).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button',{name:'Estimate',exact:true}).hasAttribute('disabled')).toBe(true);
 });
 
 it('restores the result pane when opening a saved job URL',async()=>{
  mockFetch();mount(true,`/chat?mode=video&job=${job}`);
  await screen.findByText('Queued');
- expect(screen.getByRole('tab',{name:'Result',exact:true}).getAttribute('aria-selected')).toBe('true');
+ expect(screen.getByRole('article',{name:'Video result'})).toBeTruthy();
+ expect(screen.queryByRole('tab',{name:'Result',exact:true})).toBeNull();
 });
 
 it('recovers a failed saved-job read without submitting another generation',async()=>{
@@ -281,6 +293,8 @@ it('does not leave a saved job loading forever when no active API key remains',a
 it('connects saved lifecycle observations to the result waterfall without new generation',async()=>{
  const calls=mockFetch(undefined,{source:'gateway_observation',submitted_unix_ms:1000,observations:[{status:'running',observed_unix_ms:3000},{status:'succeeded',observed_unix_ms:9000}],conflicting_terminal:false});
  mount(true,`/chat?mode=video&job=${job}`);
+ await screen.findByText('Queued');
+ await userEvent.click(screen.getByRole('button',{name:'Generation details'}));
  await screen.findByLabelText('Running observed: 6.0 s');
  expect(screen.getByText('Observed completion: 8.0 s')).toBeDefined();
  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(0);
@@ -336,7 +350,7 @@ it.each(['accepted','uncertain'])('ignores a late %s submission after leaving an
   expect(screen.queryByText(/Submission may have reached/)).toBeNull();
   expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
   expect(calls.some(call=>call.path.includes(`/jobs/${job}`))).toBe(false);
-  expect(screen.getByRole('tab',{name:'Input',exact:true}).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByLabelText('Video conversation')).toBeTruthy();
 });
 
 it('keeps paginated history from an old workspace out of the current workspace',async()=>{
@@ -444,12 +458,47 @@ it('restores the original job when reopening the same intent without dispatch',a
   render(<MemoryRouter initialEntries={[`/generations?mode=video&intent=${intent}`]}><SidebarProvider><Reopen/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
   await screen.findByText('Queued');
   expect(screen.getByRole('heading',{level:1,name:'Video · Saved landscape'})).toBeTruthy();
-  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Saved landscape');
-  expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(true);
-  expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(true);
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
+ expect(screen.getByText('Saved landscape')).toBeTruthy();
+  expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(false);
+  expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(false);
   expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toBe(false);
   expect(calls.some(call=>call.body!==null)).toBe(false);
   await userEvent.click(screen.getByRole('button',{name:'Reopen same intent'}));
   await screen.findByText('Queued');
   expect(calls.some(call=>call.body!==null)).toBe(false);
+});
+
+it('keeps saved prompt in the conversation and submits a fresh draft with a new intent',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  const intent='77777777-7777-4777-8777-777777777777';
+  vi.stubGlobal('fetch',vi.fn(async(input,init)=>{
+    if(String(input).endsWith(`/video-intents/${intent}`))return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',key_id:key,model:model.id,request:{model:model.id,content:[{type:'text',text:'Original video scene'}],duration:5,resolution:'720p',ratio:'16:9'},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'succeeded'}}});
+    return delegate(input,init);
+  }));
+  mount(true,`/generations?mode=video&intent=${intent}`);const user=userEvent.setup();
+  await screen.findByText('Original video scene');
+  await screen.findByLabelText('Prompt');
+  await waitFor(()=>expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).disabled).toBe(false));
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
+  expect(screen.queryByRole('tab',{name:'Input'})).toBeNull();
+  await user.type(screen.getByLabelText('Prompt'),'A fresh sunrise scene');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
+  await screen.findByText('Estimated CNY 1.00');
+  expect(calls.find(call=>call.path.endsWith('/estimate'))?.body).toMatchObject({content:[{type:'text',text:'A fresh sunrise scene'}]});
+  await user.click(screen.getByRole('button',{name:'Generate video'}));
+  await screen.findByText('Queued');
+  expect(calls.filter(call=>call.path.endsWith('/submit'))).toHaveLength(1);
+  expect(calls.find(call=>call.path.endsWith('/submit'))!.path).not.toContain(intent);
+  await waitFor(()=>expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe(''));
+  expect(screen.getByText('A fresh sunrise scene')).toBeTruthy();
+});
+
+it('places video API key in the header consistently with Chat',async()=>{
+  mockFetch();mount();
+  const keyPicker=await screen.findByRole('button',{name:'Video API key'});
+  expect(keyPicker.closest('header')).toBeTruthy();
+  expect(keyPicker.closest('form')).toBeNull();
+  await userEvent.click(keyPicker);
+  expect(await screen.findByRole('menuitemradio',{name:'Review key'})).toBeTruthy();
 });

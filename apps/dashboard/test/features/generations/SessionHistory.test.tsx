@@ -1,4 +1,4 @@
-import {afterEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {act,render,screen,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router';
@@ -23,20 +23,20 @@ it('merges saved chat and video sessions across accessible workspaces and preser
  const open=vi.fn();
  render(<MemoryRouter><SidebarProvider><SessionHistory context={context} chats={[{id:'chat-a',title:'Current conversation',prompt:'A',createdAt:100}]} onChat={open}/></SidebarProvider></MemoryRouter>);
  const video=await screen.findByRole('link',{name:'Video · Video model'});
- expect(screen.queryByRole('textbox',{name:'Search sessions'})).toBeNull();
+ expect(screen.queryByRole('combobox',{name:'Search sessions'})).toBeNull();
  await userEvent.click(screen.getByRole('button',{name:'Search sessions'}));
- await userEvent.type(screen.getByRole('textbox',{name:'Search sessions'}),'Current conversation');
+ await userEvent.type(screen.getByRole('combobox',{name:'Search sessions'}),'Current conversation');
  expect(screen.queryByRole('link',{name:'Video · Video model'})).toBeNull();
  await userEvent.keyboard('{Escape}');
- expect(screen.queryByRole('textbox',{name:'Search sessions'})).toBeNull();
+ expect(screen.queryByRole('combobox',{name:'Search sessions'})).toBeNull();
  await userEvent.click(screen.getByRole('button',{name:'Search sessions'}));
- expect((screen.getByRole('textbox',{name:'Search sessions'}) as HTMLInputElement).value).toBe('Current conversation');
- await userEvent.click(screen.getByRole('button',{name:'Reset search'}));
+ expect((screen.getByRole('combobox',{name:'Search sessions'}) as HTMLInputElement).value).toBe('Current conversation');
+ await userEvent.click(screen.getByRole('option',{name:'Reset search'}));
  await userEvent.keyboard('{Escape}');
  expect(video.getAttribute('href')).toContain('key=key-a');
  expect(video.getAttribute('href')).toContain(`workspace=${a.id}`);
  expect(screen.getByRole('link',{name:'Other workspace conversation'}).getAttribute('href')).toContain(`workspace=${b.id}`);
- await userEvent.click(screen.getByRole('button',{name:'Current conversation'}));expect(open).toHaveBeenCalledWith('chat-a');
+ await userEvent.click(screen.getByRole('link',{name:'Current conversation'}));expect(open).toHaveBeenCalledWith('chat-a');
  await userEvent.click(screen.getByRole('button',{name:'Load more sessions'}));
  await screen.findByRole('link',{name:'Video · Older model'});
  expect(calls.some(path=>path.includes('key-a/video/jobs?limit=25&before=cursor'))).toBe(true);
@@ -150,3 +150,5 @@ it('keeps an erasable row after revoked-key denial and keeps failed deletion in 
  expect(await screen.findByRole('link',{name:/Saved video request/})).toBeTruthy();
  expect(document.body.textContent).not.toContain(intent);
 });
+
+beforeEach(() => { Element.prototype.scrollIntoView = vi.fn(); });

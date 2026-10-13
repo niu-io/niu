@@ -1,6 +1,5 @@
 import { useSearchParams } from 'react-router';
 import VideoView from '../video/VideoView';
-import ConnectGate from '@/app/ConnectGate';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { useModelPopularity } from '@/app/useModelPopularity';
 import PlaygroundView from './components/PlaygroundView';
@@ -17,10 +16,9 @@ export default function PlaygroundRoute() {
     workspaceName: workspace.name,
   } : null;
 
-  if (search.get('mode') === 'video') return <ConnectGate>{context => <VideoView key={`${context.token}:${workspace?.id ?? ''}`} context={context} />}</ConnectGate>;
-
-  return <ConnectGate>
-    {({ token }) => <PlaygroundView
+  const videoSession = Boolean(search.get('intent') || search.get('job') || search.get('new') === 'video');
+  return <>
+    {videoSession ? <VideoView key={`${token}:${workspace?.id ?? ''}`} context={context} /> : <PlaygroundView
       key={`${token}:${workspace?.id ?? ''}`}
       token={token}
       models={ranked.models.map(model => model.id)}
@@ -29,5 +27,5 @@ export default function PlaygroundRoute() {
       onRetryModels={refreshModels}
       initialScope={initialScope}
     />}
-  </ConnectGate>;
+  </>;
 }

@@ -19,10 +19,10 @@ export default function VideoResult({token,path,canWrite}:{token:string;path:str
     return()=>request.abort();
   },[token,path,metadataRevision]);
   function clear() {if(objectURL.current)URL.revokeObjectURL(objectURL.current);objectURL.current='';setPreview(null);}
-  async function load(kind:'video'|'last_frame') {
+  async function load(kind:'video'|'last_frame',fresh=false) {
     if(busy || deleted)return;
     const request=new AbortController();controller.current=request;setBusy(true);setError('');
-    try {const blob=await fetchVideoResult(token,path,kind,request.signal);if(request.signal.aborted)return;clear();const url=URL.createObjectURL(blob);objectURL.current=url;setPreview({url,type:blob.type,kind});}
+    try {const blob=await fetchVideoResult(token,path,kind,request.signal,fresh);if(request.signal.aborted)return;clear();const url=URL.createObjectURL(blob);objectURL.current=url;setPreview({url,type:blob.type,kind});}
     catch(error){if(!request.signal.aborted){if(error instanceof ResultReadError && error.status === 404){setAvailability(current=>current ? {...current,[kind]:'unavailable'}:current);}setError(kind === 'last_frame' && error instanceof ResultReadError && error.status === 404 ? 'No saved last frame is available.':error instanceof ResultReadError ? error.message:'The result could not be loaded.');}}
     finally{if(controller.current === request)setBusy(false);}
   }
@@ -37,12 +37,11 @@ export default function VideoResult({token,path,canWrite}:{token:string;path:str
     {preview && (preview.kind === 'video' ? <video className="video-preview" controls playsInline src={preview.url} aria-label="Generated video" onError={()=>setError('This browser could not play the video. You can download the file.')}/> : <img className="video-preview" src={preview.url} alt="Generated last frame" onError={()=>setError('This browser could not display the last frame.')}/>)}
     {error && <p role={error === 'No saved last frame is available.' ? 'status':'alert'} className={error === 'No saved last frame is available.' ? 'video-muted':'video-error'}>{error}</p>}
     {deleted ? <p className="video-muted">Saved results deleted. Status and billing are preserved.</p> : <>
-      {!availability ? <p role="status" className="video-muted">{error ? 'Result availability is unavailable.':'Loading result availability…'}</p> : availability.video !== 'available' && availability.last_frame !== 'available' ? <p className="video-muted">{availability.video === 'missing' ? 'No saved video is available.':'Saved results are no longer available.'}</p> : null}
-      <div className="video-actions">{availability?.video === 'available' && <Button variant="outline" disabled={busy} onClick={()=>void load('video')}>{busy ? 'Loading…':preview?.kind === 'video' ? 'Reload preview':'Load preview'}</Button>}{availability?.last_frame === 'available' && <Button variant="ghost" disabled={busy} onClick={()=>void load('last_frame')}>Last frame</Button>}
+      {!availability ? <p role="status" className="video-muted">{error ? 'Result availability is unavailable.':'Loading result availability…'}</p> : availability.video !== 'available' && availability.last_frame !== 'available' ? <p className="video-muted">{error?null:availability.video === 'missing' ? 'No saved video is available.':'The saved download link is unavailable. You can request a current link from the original task.'}</p> : null}
+      <div className="video-actions">{canWrite && <Button variant="outline" disabled={busy} onClick={()=>void load('video',true)}>{busy?'Fetching…':'Fetch video again'}</Button>}{availability?.video === 'available' && <Button variant="outline" disabled={busy} onClick={()=>void load('video')}>{busy ? 'Loading…':preview?.kind === 'video' ? 'Reload preview':'Load preview'}</Button>}{availability?.last_frame === 'available' && <Button variant="ghost" disabled={busy} onClick={()=>void load('last_frame')}>Last frame</Button>}
         {preview && <Button asChild variant="outline"><a href={preview.url} download={`${preview.kind === 'video' ? 'video':'last-frame'}.${extension}`}>Download</a></Button>}
       </div>
       {!availability && error && <Button variant="outline" disabled={busy} onClick={()=>{setError('');setMetadataRevision(value=>value+1);}}>Reload results</Button>}
-      <small className="video-muted">Saved for 24 hours after capture. Supplier links may expire sooner.</small>
       {canWrite && <Dialog open={confirm} onOpenChange={open=>{setConfirm(open);setError('');}}><DialogTrigger asChild><Button variant="ghost" disabled={busy}>Delete saved results</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Delete saved results?</DialogTitle><DialogDescription>Removes saved video and last-frame references permanently. Status and billing stay available. Copies already downloaded are unaffected.</DialogDescription></DialogHeader>{error && <p role="alert" className="video-error">{error}</p>}<DialogFooter><DialogClose asChild><Button variant="outline" disabled={busy}>Cancel</Button></DialogClose><Button variant="destructive" onClick={()=>void remove()} disabled={busy}>{busy ? 'Deleting…':'Delete results'}</Button></DialogFooter></DialogContent></Dialog>}
     </>}
   </div>;

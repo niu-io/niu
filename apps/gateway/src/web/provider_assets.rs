@@ -1,11 +1,12 @@
 //! Workspace-owned Provider assets. No global upstream listing, inference,
 //! processing qualification, mutation replay or public Provider identity.
+use super::media_authorization::{MediaPrincipal, MediaId};
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
     body::Bytes,
     extract::{
-        Path, Query, State,
+        Query, State,
         rejection::{JsonRejection, QueryRejection},
     },
     http::{HeaderMap, StatusCode},
@@ -320,11 +321,11 @@ pub(super) fn limits(state: &AppState) -> FastRouterActionLimits {
 async fn mutate(
     state: &AppState,
     headers: &HeaderMap,
+    principal: Principal,
     model: &str,
     mutation: WorkspaceProviderAssetMutation,
     action: FastRouterAction,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let principal = state.authorize_api_headers(headers).await?;
     let route = admit(state, &principal, model).await?;
     let client = client(state, &route)?;
     let prepared = state
@@ -798,6 +799,7 @@ async fn mutate(
 /// ```
 pub(super) async fn create_group(
     State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
     headers: HeaderMap,
     input: Result<Json<CreateGroup>, JsonRejection>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
@@ -805,6 +807,7 @@ pub(super) async fn create_group(
     mutate(
         &state,
         &headers,
+        principal,
         &input.model,
         WorkspaceProviderAssetMutation::CreateGroup {
             name: input.name,
@@ -928,14 +931,16 @@ pub(super) async fn create_group(
 /// ```
 pub(super) async fn update_group(
     State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
     headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaId(id): MediaId,
     input: Result<Json<UpdateGroup>, JsonRejection>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let input = body(input)?;
     mutate(
         &state,
         &headers,
+        principal,
         &input.model,
         WorkspaceProviderAssetMutation::UpdateGroup {
             group_id: id,
@@ -1046,14 +1051,16 @@ pub(super) async fn update_group(
 /// ```
 pub(super) async fn delete_group(
     State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
     headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaId(id): MediaId,
     input: Result<Query<DeleteQuery>, QueryRejection>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let input = query(input)?;
     mutate(
         &state,
         &headers,
+        principal,
         &input.model,
         WorkspaceProviderAssetMutation::DeleteGroup {
             group_id: id,
@@ -1180,6 +1187,7 @@ pub(super) async fn delete_group(
 /// ```
 pub(super) async fn create_asset(
     State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
     headers: HeaderMap,
     input: Result<Json<CreateAsset>, JsonRejection>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
@@ -1192,6 +1200,7 @@ pub(super) async fn create_asset(
     mutate(
         &state,
         &headers,
+        principal,
         &input.model,
         WorkspaceProviderAssetMutation::CreateAsset {
             group_id: input.group_id,
@@ -1314,14 +1323,16 @@ pub(super) async fn create_asset(
 /// ```
 pub(super) async fn rename_asset(
     State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
     headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaId(id): MediaId,
     input: Result<Json<RenameAsset>, JsonRejection>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let input = body(input)?;
     mutate(
         &state,
         &headers,
+        principal,
         &input.model,
         WorkspaceProviderAssetMutation::RenameAsset {
             asset_id: id,
@@ -1431,14 +1442,16 @@ pub(super) async fn rename_asset(
 /// ```
 pub(super) async fn delete_asset(
     State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
     headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaId(id): MediaId,
     input: Result<Query<DeleteQuery>, QueryRejection>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let input = query(input)?;
     mutate(
         &state,
         &headers,
+        principal,
         &input.model,
         WorkspaceProviderAssetMutation::DeleteAsset {
             asset_id: id,
@@ -1555,7 +1568,7 @@ fn page_limit(value: Option<u32>) -> Result<i64, ApiError> {
 /// ```
 pub(super) async fn list_groups(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    MediaPrincipal(principal): MediaPrincipal,
     input: Result<Query<ListQuery>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let input = query(input)?;
@@ -1564,7 +1577,6 @@ pub(super) async fn list_groups(
             "group_id is only an asset filter",
         ));
     }
-    let principal = state.authorize_api_headers(&headers).await?;
     admit(&state, &principal, &input.model).await?;
     let data = state
         .store
@@ -1680,11 +1692,10 @@ pub(super) async fn list_groups(
 /// ```
 pub(super) async fn list_assets(
     State(state): State<AppState>,
-    headers: HeaderMap,
+    MediaPrincipal(principal): MediaPrincipal,
     input: Result<Query<ListQuery>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     admit(&state, &principal, &input.model).await?;
     let data = state
         .store
@@ -1789,12 +1800,11 @@ pub(super) async fn list_assets(
 /// ```
 pub(super) async fn get_group(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<ModelQuery>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let data = state
         .store
@@ -1899,12 +1909,11 @@ pub(super) async fn get_group(
 /// ```
 pub(super) async fn get_asset(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<ModelQuery>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let data = state
         .store
@@ -2009,12 +2018,11 @@ pub(super) async fn get_asset(
 /// ```
 pub(super) async fn get_operation(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<ModelQuery>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let data = state
         .store
@@ -2119,8 +2127,8 @@ pub(super) async fn get_operation(
 /// ```
 pub(super) async fn refresh_group(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<ModelQuery>, QueryRejection>,
     payload: Bytes,
 ) -> Result<Json<Value>, ApiError> {
@@ -2130,7 +2138,6 @@ pub(super) async fn refresh_group(
         ));
     }
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let saved = state
         .store
@@ -2259,8 +2266,8 @@ pub(super) async fn refresh_group(
 /// ```
 pub(super) async fn refresh_asset(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(id): Path<Uuid>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
     input: Result<Query<ModelQuery>, QueryRejection>,
     payload: Bytes,
 ) -> Result<Json<Value>, ApiError> {
@@ -2270,7 +2277,6 @@ pub(super) async fn refresh_asset(
         ));
     }
     let input = query(input)?;
-    let principal = state.authorize_api_headers(&headers).await?;
     let route = admit(&state, &principal, &input.model).await?;
     let saved = state
         .store

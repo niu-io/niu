@@ -1,0 +1,48 @@
+.generations-layout { display:grid; grid-template-columns:auto minmax(0,1fr); width:100%; min-height:0; flex:1; overflow:hidden; }
+.generations-session { display:flex; min-width:0; min-height:0; overflow:hidden; }
+.generations-session .playground-chat-layout, .generations-session .video-shell { grid-template-columns:minmax(0,1fr); }
+.niu-workspace-sidebar .generations-history-heading, .niu-workspace-sidebar-mobile .generations-history-heading { display:flex; flex-direction:row; align-items:center; justify-content:space-between; }
+.generations-history-heading h2 { margin:0; }
+@media(max-width:959px) { .generations-layout { grid-template-columns:minmax(0,1fr); } }
+
+/* Both session types use the established chat text hierarchy. */
+.generations-layout { --generation-body-size:15px; --generation-body-leading:1.55; }
+.generations-layout .playground-chat-title,
+.generations-layout .video-toolbar h1 { font-size:16px; font-weight:600; }
+.generations-layout .playground-user-prompt p,
+.generations-layout .playground-response,
+.generations-layout .playground-composer textarea,
+.generations-layout .video-user-message p,
+.generations-layout .video-response,
+.generations-layout .video-composer textarea { font-size:var(--generation-body-size); line-height:var(--generation-body-leading); }
+.generations-layout .playground-result-card-heading h3,
+.generations-layout .video-response-model { font-size:15px; font-weight:600; }
+.generations-layout .video-model-choice,
+.generations-layout .video-key-choice,
+.generations-layout .video-muted,
+.generations-layout .video-error { font-size:14px; line-height:1.55; }
+.generations-layout .video-result-heading [data-slot="badge"] { font-size:12px; }
+
+/* Native button resets must not change typography by session type. */
+.generations-history [data-slot="sidebar-menu-button"],
+.generations-history [data-slot="sidebar-footer"] [data-slot="button"] {
+  font-family:inherit; font-size:14px; font-weight:400; line-height:20px;
+}
+
+.generations-session { flex-direction:column; }
+.generations-session-content { display:flex; min-width:0; min-height:0; flex:1; overflow:hidden; }
+.generations-toolbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; flex-shrink:0; min-height:var(--dashboard-header-height); padding:10px 16px; border-bottom:1px solid var(--border); }
+.generations-toolbar h1 { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
+.generations-toolbar-actions { min-width:0; }
+.generations-toolbar .playground-toolbar-actions { display:flex; }
+.generations-session .playground-chat-main { grid-template-rows:minmax(0,1fr); }
+.generations-session .playground-transcript, .generations-session .playground-composer { grid-area:1 / 1; }
+.generations-layout { --generation-reading-width:880px; }
+.generations-layout .playground-comparison-thread, .generations-layout .playground-composer-surface { width:100%; max-width:var(--generation-reading-width); margin-inline:auto; }
+@media(max-width:640px) { .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice { width:36px; height:36px; padding:0; } .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span { display:none; } }
+
+.generations-toolbar [data-slot="button"] { font-size:14px; font-weight:500; line-height:20px; }
+.generations-layout .playground-transcript { padding-inline:clamp(14px,3vw,36px); }
+
+.generations-history .generations-new-generation[data-variant="outline"]:not(:focus-visible) { border-color:var(--border); background:var(--background); }
+.generations-history .generations-new-generation[data-variant="outline"]:hover { background:var(--accent); }

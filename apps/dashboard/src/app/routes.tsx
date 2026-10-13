@@ -97,7 +97,7 @@ export const appRoutes: RouteObject[] = [{
         { path: 'settings/:section?', lazy: async () => ({ Component: (await import('@/features/account/settings-page')).default }) },
         { path: 'activity/:section?', lazy: async () => ({ Component: (await import('@/features/activity/global-page')).default }) },
         { path: 'chat', element: <GenerationsRedirect /> },
-        { path: 'generations', lazy: async () => ({ Component: (await import('@/features/playground/page')).default }) },
+        { path: 'generations', lazy: async () => ({ Component: (await import('@/features/generations/layout')).default }), children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/playground/page')).default }) }] },
         { path: 'workspaces', lazy: async () => ({ Component: (await import('@/features/workspace/page')).default }) },
         { path: 'workspaces/:workspace', children: [
           { index: true, lazy: async () => ({ Component: (await import('@/features/overview/page')).default }) },

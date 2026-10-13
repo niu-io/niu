@@ -1,3 +1,4 @@
+mod media_authorization;
 mod image_ingestions;
 mod image_readiness;
 mod image_source_uploads;
