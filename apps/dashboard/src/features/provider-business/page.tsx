@@ -484,6 +484,26 @@ function ProviderBusiness({
                               {money(offer.completion_rate, offer.currency)}
                             </strong>
                           </span>
+                          <span>
+                            Reasoning output{" "}
+                            <strong>{money(offer.reasoning_completion_rate ?? offer.completion_rate, offer.currency)}</strong>
+                            {offer.reasoning_completion_rate == null && <small> (Output rate)</small>}
+                          </span>
+                          <span>
+                            Cache write{" "}
+                            <strong>{money(offer.cache_write_prompt_rate ?? offer.prompt_rate, offer.currency)}</strong>
+                            {offer.cache_write_prompt_rate == null && <small> (Input rate)</small>}
+                          </span>
+                          {(offer.context_tiers ?? []).map(tier => (
+                            <div className="provider-offer-rates" key={tier.minimum_input_tokens}>
+                              <span>Context tier: at least {tier.minimum_input_tokens} input tokens</span>
+                              <span>Input <strong>{money(tier.prompt_rate, offer.currency)}</strong></span>
+                              <span>Cache read <strong>{money(tier.cached_prompt_rate ?? tier.prompt_rate, offer.currency)}</strong>{tier.cached_prompt_rate == null && <small> (Tier input rate)</small>}</span>
+                              <span>Output <strong>{money(tier.completion_rate, offer.currency)}</strong></span>
+                              <span>Reasoning output <strong>{money(tier.reasoning_completion_rate ?? tier.completion_rate, offer.currency)}</strong>{tier.reasoning_completion_rate == null && <small> (Tier output rate)</small>}</span>
+                              <span>Cache write <strong>{money(tier.cache_write_prompt_rate ?? tier.prompt_rate, offer.currency)}</strong>{tier.cache_write_prompt_rate == null && <small> (Tier input rate)</small>}</span>
+                            </div>
+                          ))}
                         </div>}
                         {role === "manager" && (
                           <Button
@@ -504,7 +524,7 @@ function ProviderBusiness({
                   </div>
                 )}
                 <p className="provider-panel-note">
-                  Price changes require a new agreed rate revision from provider
+                  Price changes require a new agreed rate revision from Supplier
                   management. Pausing prevents new admissions; requests already
                   dispatched can still complete and earn revenue.
                 </p>
