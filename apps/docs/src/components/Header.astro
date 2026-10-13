@@ -1,0 +1,13 @@
+---
+import brandMark from '../../../../branding/assets/niu-mark.png';
+import Search from '@astrojs/starlight/components/Search.astro';
+import ThemeSelect from './ThemeSelect.astro';
+import { documentationSection } from '../navigation';
+const section = documentationSection(Astro.url.pathname);
+const links = [ ['Docs', '/docs/'], ['API', '/docs/reference/api/'], ['Compare', '/docs/compare/'] ];
+---
+<div class="docs-header">
+  <a class="docs-brand" href="/models/" aria-label="Niu model catalog"><img src={brandMark.src} alt="" width="28" height="28" /><span>Niu</span></a>
+  <nav aria-label="Documentation navigation">{links.map(([label, href]) => <a href={href} aria-current={section === label ? 'page' : undefined}>{label}</a>)}</nav>
+  <div class="docs-header-tools"><Search /><ThemeSelect /></div>
+</div>

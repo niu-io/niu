@@ -629,7 +629,7 @@ Erasure does not prove an uncertain mutation was not applied or release its hold
 Platform administrators can call `admin.getBranding()` and
 `admin.saveBranding(current.data.revision, settings)`. Saves require the current
 revision; a conflict requires reading the latest configuration before editing
-again. Empty `light` and `dark` palettes inherit NIU.IO defaults. These methods
+again. Empty `light` and `dark` palettes inherit Niu defaults. These methods
 configure display name, default appearance, bounded color tokens and optional
 `logo_data_url` / `favicon_data_url` static PNGs. Images are validated and
 re-encoded before persistence; null resets an asset. The Admin Branding & theme

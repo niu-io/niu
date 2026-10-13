@@ -4,13 +4,15 @@ const currentPath = Astro.url.pathname;
 
 <header class="site-header">
   <div class="container nav-row">
-    <a class="wordmark" href="/" aria-label="niu.io home">
+    <a class="wordmark" href="/" aria-label="Niu home">
       <img src="/catalog-assets/brand/niu-mark.png" alt="" width="32" height="32" />
-      <span>niu<span class="wordmark-suffix">.io</span></span>
+      <span>Niu</span>
     </a>
     <nav id="navigation" aria-label="Main navigation">
       <a href="/models/" aria-current={currentPath.startsWith("/models/") ? "page" : undefined}>Models</a>
       <a href="/docs/">Docs</a>
+      <a href="/docs/reference/api/">API</a>
+      <a href="/docs/compare/">Compare</a>
       <a href="/workspaces/default/">Workspace</a>
       <a class="nav-github" href="https://github.com/niu-io/niu">
         GitHub <span aria-hidden="true">↗</span>

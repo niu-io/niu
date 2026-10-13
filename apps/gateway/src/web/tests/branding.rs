@@ -130,7 +130,7 @@ async fn branding_api_is_public_safe_platform_only_and_revision_checked(pool: Pg
         StatusCode::BAD_REQUEST
     );
     let malformed = json!({"expected_revision":"1","settings":{
-        "display_name":"NIU.IO","default_appearance":"system","light":{},"dark":{},
+        "display_name":"Niu","default_appearance":"system","light":{},"dark":{},
         "logo_data_url":"data:image/png;base64,AAAA"
     }});
     assert_eq!(
@@ -157,7 +157,7 @@ async fn branding_api_is_public_safe_platform_only_and_revision_checked(pool: Pg
     );
     assert_eq!(
         call(&app, "GET", public, None, None).await.1["data"]["settings"]["display_name"],
-        "NIU.IO"
+        "Niu"
     );
     let reset_assets = call(&app, "GET", public, None, None).await.1;
     assert!(reset_assets["data"]["settings"]["logo_data_url"].is_null());

@@ -24,7 +24,7 @@ pub struct BrandingSettings {
 impl Default for BrandingSettings {
     fn default() -> Self {
         Self {
-            display_name: "NIU.IO".into(),
+            display_name: "Niu".into(),
             logo_data_url: None,
             favicon_data_url: None,
             default_appearance: ColorMode::System,
@@ -90,7 +90,7 @@ impl Store {
         }
     }
     /// Save/reset deployment defaults with atomic audit and optimistic concurrency.
-    /// Empty palettes inherit the shared NIU.IO tokens; no CSS text is accepted.
+    /// Empty palettes inherit the shared Niu tokens; no CSS text is accepted.
     pub async fn save_branding_configuration(
         &self,
         expected_revision: i64,
@@ -178,6 +178,6 @@ mod tests {
             settings.display_name = name;
             assert!(settings.validate().is_err());
         }
-        assert!(serde_json::from_value::<BrandingSettings>(serde_json::json!({"display_name":"NIU.IO","default_appearance":"system","light":{},"dark":{},"css":"body{}"})).is_err());
+        assert!(serde_json::from_value::<BrandingSettings>(serde_json::json!({"display_name":"Niu","default_appearance":"system","light":{},"dark":{},"css":"body{}"})).is_err());
     }
 }

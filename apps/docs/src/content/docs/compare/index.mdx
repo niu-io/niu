@@ -1,0 +1,44 @@
+---
+title: Compare AI gateways
+description: Compare Niu, New API, and OpenRouter by deployment, model access, operations, and documented scope.
+prev: false
+---
+
+Three ways to connect applications to model APIs. Niu and New API are gateways you can operate yourself. OpenRouter provides hosted model access. The right choice depends on the models you need and who should operate the service.
+
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
+
+<Table className="comparison-table">
+  <TableCaption>Product documentation reviewed October 13, 2026. This is a scope comparison, not a benchmark.</TableCaption>
+  <TableHeader><TableRow><TableHead>Capability</TableHead><TableHead>Niu</TableHead><TableHead>New API</TableHead><TableHead>OpenRouter</TableHead></TableRow></TableHeader>
+  <TableBody>
+    <TableRow><TableCell data-label="Feature">Deployment</TableCell><TableCell data-label="Niu">Self-hosted public gateway with PostgreSQL</TableCell><TableCell data-label="New API">Self-hosted gateway and web console</TableCell><TableCell data-label="OpenRouter">Hosted API service</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Model access</TableCell><TableCell data-label="Niu">Configured Supplier credentials and model mappings</TableCell><TableCell data-label="New API">Configured upstream channels and models</TableCell><TableCell data-label="OpenRouter">Hosted model catalog and Provider selection</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Application integration</TableCell><TableCell data-label="Niu">OpenAI-compatible routes; native protocols have explicit scope</TableCell><TableCell data-label="New API">OpenAI, Claude, and Gemini-compatible formats</TableCell><TableCell data-label="OpenRouter">Unified API and client SDKs</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Access and usage</TableCell><TableCell data-label="Niu">Workspace keys, request logs, usage and customer billing contracts</TableCell><TableCell data-label="New API">Token management, usage and cost accounting</TableCell><TableCell data-label="OpenRouter">API keys, activity and hosted account usage</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Operating responsibility</TableCell><TableCell data-label="Niu">You manage deployment, storage, Suppliers, and customer tariffs</TableCell><TableCell data-label="New API">You manage the instance and upstream channels</TableCell><TableCell data-label="OpenRouter">OpenRouter operates the gateway; you configure account and routing preferences</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Scope to check</TableCell><TableCell data-label="Niu">Active development; read each route's qualification limits</TableCell><TableCell data-label="New API">Check the chosen version, channel, and integration</TableCell><TableCell data-label="OpenRouter">Check model availability and each Provider's parameters and policies</TableCell></TableRow>
+  </TableBody>
+</Table>
+
+## Explore the comparisons
+
+### [Niu vs New API](/docs/compare/new-api/)
+
+Compare two self-hosted gateways: upstream configuration, workspace access, request evidence, and the integrations you need.
+
+### [Niu vs OpenRouter](/docs/compare/openrouter/)
+
+Compare running your gateway with using hosted model access. They can also work together: Niu can connect to OpenRouter as an upstream Provider.
+
+## Which approach fits?
+
+Choose **OpenRouter** if you want hosted catalog access without operating a gateway. Evaluate **New API** if its documented upstream integrations and instance-management workflows match your requirements. Evaluate **Niu** if you want to operate its workspace, Supplier, and request-accounting workflows and its current supported scope meets your needs.
+
+No gateway makes every model cheaper or interchangeable. Compare the actual model, endpoint, supported inputs, customer price, and observed behavior for your workload.
+
+## Sources
+
+- [Niu API reference](/docs/reference/api/) and [deployment](/docs/deployment/single-container/).
+- [New API project and capabilities](https://github.com/QuantumNous/new-api) and [official documentation](https://docs.newapi.pro/en).
+- [OpenRouter Quickstart](https://openrouter.ai/docs/quickstart) and [Provider routing](https://openrouter.ai/docs/guides/routing/provider-selection).

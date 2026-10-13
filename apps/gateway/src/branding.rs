@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 ///   "operation": {
 ///     "operationId": "getPublicBranding",
 ///     "summary": "Read public branding and theme defaults",
-///     "description": "Public safe projection only; no authentication required. Returns display name, normalized logo/favicon PNG data URLs, default appearance and light/dark token maps; excludes actors, credentials and commercial settings. When no saved configuration exists, returns revision string 0 and NIU.IO defaults. Theme fields are part of settings; there is no separate theme endpoint.",
+///     "description": "Public safe projection only; no authentication required. Returns display name, normalized logo/favicon PNG data URLs, default appearance and light/dark token maps; excludes actors, credentials and commercial settings. When no saved configuration exists, returns revision string 0 and Niu defaults. Theme fields are part of settings; there is no separate theme endpoint.",
 ///     "security": [],
 ///     "x-niu-implementation": "implemented",
 ///     "responses": {
@@ -149,7 +149,7 @@ pub(crate) async fn public(State(state): State<AppState>) -> Result<Json<Value>,
 ///   "operation": {
 ///     "operationId": "getBranding",
 ///     "summary": "Read platform branding and theme configuration",
-///     "description": "Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. When no saved configuration exists, returns revision string 0 and NIU.IO defaults. Theme fields are part of settings; there is no separate theme endpoint.",
+///     "description": "Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. When no saved configuration exists, returns revision string 0 and Niu defaults. Theme fields are part of settings; there is no separate theme endpoint.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -206,7 +206,7 @@ pub(crate) struct Write {
 ///   "operation": {
 ///     "operationId": "saveBranding",
 ///     "summary": "Save platform branding and theme configuration",
-///     "description": "Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. Canonical nonnegative decimal expected_revision string controls atomic snapshot and audit save. Valid display name is nonempty, already trimmed and at most 80 Unicode characters without controls. Palette maps only accept eight supported tokens with six-digit hex colors and readable contrast; empty maps inherit NIU.IO defaults. No arbitrary CSS or executable branding is accepted. Optional null/omitted images reset to defaults. PNG images are decoded and re-encoded before persistence. Route JSON body limit is 450000 bytes. Successful save returns the exact committed snapshot and incremented string revision.",
+///     "description": "Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. Canonical nonnegative decimal expected_revision string controls atomic snapshot and audit save. Valid display name is nonempty, already trimmed and at most 80 Unicode characters without controls. Palette maps only accept eight supported tokens with six-digit hex colors and readable contrast; empty maps inherit Niu defaults. No arbitrary CSS or executable branding is accepted. Optional null/omitted images reset to defaults. PNG images are decoded and re-encoded before persistence. Route JSON body limit is 450000 bytes. Successful save returns the exact committed snapshot and incremented string revision.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []

@@ -312,7 +312,7 @@ describe('dashboard route layout', () => {
     mockHealth();
     renderAt('/workspaces/default/benchmarks');
     expect(await screen.findByRole('heading', { name: 'Benchmarks', exact: true })).toBeTruthy();
-    expect(document.title).toBe('Benchmarks · NIU.IO');
+    expect(document.title).toBe('Benchmarks · Niu');
     expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
     expect((await screen.findByRole('link', { name: 'Review the matching and evidence requirements.' })).getAttribute('href')).toBe('/help/concepts/benchmarking/');
   });
@@ -321,7 +321,7 @@ describe('dashboard route layout', () => {
     mockHealth();
     renderAt('/workspaces/production/guardrails/history');
     await screen.findByRole('heading', {name: 'History', exact: true});
-    expect(document.title).toBe('History · NIU.IO');
+    expect(document.title).toBe('History · Niu');
     const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
     await userEvent.click(breadcrumb.getByRole('button', {name: 'Show parent pages'}));
     expect(screen.getByRole('menuitem', {name: 'Guardrails', exact: true})).toBeTruthy();
@@ -858,7 +858,7 @@ describe('dashboard route layout', () => {
   it('names the global not-found page and offers workspace recovery', async () => {
     renderAt('/not-a-dashboard-route');
     expect(await screen.findByRole('heading', { name: 'Not Found' })).toBeTruthy();
-    expect(document.title).toBe('Not Found · NIU.IO');
+    expect(document.title).toBe('Not Found · Niu');
     expect(screen.getByRole('link', { name: 'Open workspace' }).getAttribute('href')).toBe('/workspaces/default/');
   });
 

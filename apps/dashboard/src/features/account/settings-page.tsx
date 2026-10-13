@@ -37,7 +37,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
     {section === 'about' && <section aria-label="About Niu" className="space-y-8">
       <header className="flex items-center gap-4">
         <img src={logo} alt="" className="size-16 shrink-0"/>
-        <div className="min-w-0"><h2 className="text-xl font-semibold">NIU.IO</h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `Version ${import.meta.env.VITE_NIU_VERSION}` : 'Development build'}</p></div>
+        <div className="min-w-0"><h2 className="text-xl font-semibold">Niu</h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `Version ${import.meta.env.VITE_NIU_VERSION}` : 'Development build'}</p></div>
       </header>
       <dl className="space-y-3 text-sm">
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">Release date</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE || 'Not released'}</dd></div>

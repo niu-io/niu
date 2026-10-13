@@ -62,7 +62,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
   const params = useParams();
   const selectedId = params['*'] || null;
   const catalogPath = '/models';
-  const catalogSearch = `?workspace=${encodeURIComponent(workspacePath.split('/').pop() ?? 'default')}`;
+  const catalogSearch = workspace ? `?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : '';
   const chatSearch = new URLSearchParams({ new: '1' });
   if (workspace) chatSearch.set('workspace', workspace.id);
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);

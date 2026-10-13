@@ -11364,7 +11364,7 @@ HTTP 403: Platform administration required
 
 `GET /v1/branding`
 
-Public safe projection only; no authentication required. Returns display name, normalized logo/favicon PNG data URLs, default appearance and light/dark token maps; excludes actors, credentials and commercial settings. When no saved configuration exists, returns revision string 0 and NIU.IO defaults. Theme fields are part of settings; there is no separate theme endpoint.
+Public safe projection only; no authentication required. Returns display name, normalized logo/favicon PNG data URLs, default appearance and light/dark token maps; excludes actors, credentials and commercial settings. When no saved configuration exists, returns revision string 0 and Niu defaults. Theme fields are part of settings; there is no separate theme endpoint.
 
 Implementation: `implemented`. Operation: `getPublicBranding`.
 
@@ -11390,7 +11390,7 @@ HTTP 503: Durable storage unavailable.
 
 `GET /admin/v1/platform/branding`
 
-Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. When no saved configuration exists, returns revision string 0 and NIU.IO defaults. Theme fields are part of settings; there is no separate theme endpoint.
+Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. When no saved configuration exists, returns revision string 0 and Niu defaults. Theme fields are part of settings; there is no separate theme endpoint.
 
 Implementation: `implemented`. Operation: `getBranding`.
 
@@ -11428,7 +11428,7 @@ HTTP 403: Platform administration required.
 
 `PUT /admin/v1/platform/branding`
 
-Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. Canonical nonnegative decimal expected_revision string controls atomic snapshot and audit save. Valid display name is nonempty, already trimmed and at most 80 Unicode characters without controls. Palette maps only accept eight supported tokens with six-digit hex colors and readable contrast; empty maps inherit NIU.IO defaults. No arbitrary CSS or executable branding is accepted. Optional null/omitted images reset to defaults. PNG images are decoded and re-encoded before persistence. Route JSON body limit is 450000 bytes. Successful save returns the exact committed snapshot and incremented string revision.
+Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. Canonical nonnegative decimal expected_revision string controls atomic snapshot and audit save. Valid display name is nonempty, already trimmed and at most 80 Unicode characters without controls. Palette maps only accept eight supported tokens with six-digit hex colors and readable contrast; empty maps inherit Niu defaults. No arbitrary CSS or executable branding is accepted. Optional null/omitted images reset to defaults. PNG images are decoded and re-encoded before persistence. Route JSON body limit is 450000 bytes. Successful save returns the exact committed snapshot and incremented string revision.
 
 Implementation: `implemented`. Operation: `saveBranding`.
 

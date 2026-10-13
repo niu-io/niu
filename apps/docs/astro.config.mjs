@@ -11,7 +11,7 @@ export default defineConfig({
   integrations: [
     react(),
     starlight({
-      title: 'niu.io',
+      title: 'Niu',
       description: 'Build and operate the Niu AI gateway.',
       logo: {
         src: '../../branding/assets/niu-mark.png',
@@ -26,28 +26,42 @@ export default defineConfig({
         },
       ],
       customCss: ['./src/styles.css'],
-      components: { ThemeSelect: './src/components/ThemeSelect.astro', ThemeProvider: './src/components/ThemeProvider.astro', PageFrame: './src/components/PageFrame.astro', SiteTitle: './src/components/SiteTitle.astro' },
+      components: { Header: './src/components/Header.astro', Sidebar: './src/components/Sidebar.astro', ThemeSelect: './src/components/ThemeSelect.astro', ThemeProvider: './src/components/ThemeProvider.astro', PageFrame: './src/components/PageFrame.astro', SiteTitle: './src/components/SiteTitle.astro' },
       sidebar: [
-        { label: 'Getting started', items: ['index', 'getting-started'] },
-        { label: 'Models & routing', items: ['configuration/models'] },
-        { label: 'Video generation', items: ['reference/video', 'reference/generations'] },
-        { label: 'Guardrails', items: ['configuration/guardrails'] },
-        { label: 'Workspace logs', items: [
+        { label: 'Start here', items: [
+          { label: 'Overview', slug: 'index' },
+          { label: 'Quickstart', slug: 'getting-started' },
+        ] },
+        { label: 'Use Niu', items: [
+          { label: 'Models & routing', slug: 'configuration/models' },
+          { label: 'Generations', slug: 'reference/generations' },
+          { label: 'Video generation', slug: 'reference/video' },
           { label: 'Request logs', slug: 'concepts/execution-observation' },
+          'configuration/guardrails',
         ] },
-        { label: 'Administration', items: [
-          { label: 'Audit logs', slug: 'reference/platform-audit' },
+        { label: 'Operate Niu', items: [
           { label: 'Deployment', slug: 'deployment/single-container' },
+          { label: 'Security & access', slug: 'security/overview' },
+          { label: 'Audit logs', slug: 'reference/platform-audit' },
           { label: 'Local development', slug: 'guides/local-development' },
-          { label: 'Security', slug: 'security/overview' },
-          { label: 'Load testing', slug: 'guides/gateway-load-testing' },
         ] },
-        { label: 'Concepts', items: ['concepts/request-lifecycle', 'concepts/performance-and-cost'] },
-        { label: 'Reference', items: [
-          'reference/api',
-          'reference/handler-operations',
+        { label: 'API & SDK', items: [
+          { label: 'API overview', slug: 'reference/api' },
+          { label: 'Operations & schemas', slug: 'reference/handler-operations' },
+          { label: 'Business API integration', slug: 'reference/backend-business' },
+          { label: 'Text load reference', slug: 'reference/backend-text-load' },
+          'reference/workspace-materials',
+        ] },
+        { label: 'Advanced', collapsed: true, items: [
+          'concepts/request-lifecycle', 'concepts/performance-and-cost',
+          { label: 'Load testing', slug: 'guides/gateway-load-testing' },
           { label: 'Legacy quota records', slug: 'concepts/subscription-observation' },
           { label: 'Offline evaluator', slug: 'concepts/benchmarking' },
+        ] },
+        { label: 'Compare', items: [
+          { label: 'Overview', slug: 'compare' },
+          { label: 'Niu vs New API', slug: 'compare/new-api' },
+          { label: 'Niu vs OpenRouter', slug: 'compare/openrouter' },
         ] },
       ],
     }),

@@ -1059,7 +1059,7 @@ export class NiuAdminClient {
     return this.request('/platform/branding', undefined, options);
   }
 
-  /** Revision-checked save. Empty palettes inherit NIU.IO theme defaults. */
+  /** Revision-checked save. Empty palettes inherit Niu theme defaults. */
   saveBranding(expectedRevision: string, settings: BrandingSettings, options?: RequestOptions): Promise<BrandingConfiguration> {
     if (!/^(0|[1-9][0-9]*)$/.test(expectedRevision) || BigInt(expectedRevision) > 9223372036854775807n) throw new TypeError('A canonical branding revision is required');
     return this.request('/platform/branding', { expected_revision: expectedRevision, settings: {

@@ -27,7 +27,7 @@ class BrandingPersistenceAssertions(unittest.TestCase):
         self.assertEqual(request.call_count, 2)
 
     def test_reset_requires_public_readback_and_revision_advance(self):
-        defaults = {'display_name': 'NIU.IO', 'light': {}, 'dark': {}}
+        defaults = {'display_name': 'Niu', 'light': {}, 'dark': {}}
         saved = {'configuration': {'revision': '4'}, 'defaults': defaults}
         reset = {'data': {'revision': '5', 'settings': defaults}}
         for invalid in [{'data': {'revision': '4', 'settings': defaults}},

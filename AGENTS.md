@@ -1,6 +1,6 @@
 # Niu public repository
 
-Write product documentation in English. Keep the niu.io brand assets and theme tokens. English product UI uses NIU.IO without the Chinese name. Use 牛元 as the Chinese brand name in Chinese-language content (NIU.IO 牛元 when paired with the English brand); 牛刀 is the retired name.
+Write product documentation in English. Keep the Niu brand assets and theme tokens. The product name is Niu in English UI and documentation, never niu.io or NIU.IO. Keep niu.io only as the domain in URLs and technical configuration. Use 牛元 as the Chinese brand name in Chinese-language content (Niu 牛元 when paired with the English brand); 牛刀 is the retired name.
 
 Keep marketing source in the separate `niu-io/website` repository. Niu owns the public catalog, dashboard, docs and APIs; the hosted distribution composes their pinned artifacts under the single `niu.io` domain. Do not introduce a separate application subdomain or make community builds depend on website or private source. Follow `docs/architecture/repository-ownership.md` for route and asset ownership.
 
@@ -36,7 +36,7 @@ For every UI change, run the product and inspect the rendered result in a browse
 
 ## Reference-led UI design
 
-Use Stitch for frontend visual design and iteration. Reuse the existing NIU.IO Stitch project and design system; give Stitch the actual mature-product reference, supported workflow, current screen and Niu constraints before requesting a design. Implement and browser-verify the resulting design with the installed shadcn primitives and existing brand tokens. Do not substitute an independently invented layout or treat generated mock data and unsupported capabilities as product requirements. If Stitch is unavailable, report the blocker before making visual design changes; functional fixes may continue within the established layout.
+Use Stitch for frontend visual design and iteration. Reuse the existing Niu Stitch project and design system; give Stitch the actual mature-product reference, supported workflow, current screen and Niu constraints before requesting a design. Implement and browser-verify the resulting design with the installed shadcn primitives and existing brand tokens. Do not substitute an independently invented layout or treat generated mock data and unsupported capabilities as product requirements. If Stitch is unavailable, report the blocker before making visual design changes; functional fixes may continue within the established layout.
 
 This is mandatory for every UI task: do not invent a new UX pattern or visual layout. Borrow an existing, proven pattern from a mature product. For features comparable to OpenRouter, use OpenRouter as the default reference unless the user names another product. Inspect the actual relevant page and interaction states before editing; do not work from memory or call a loosely inspired redesign a faithful implementation.
 

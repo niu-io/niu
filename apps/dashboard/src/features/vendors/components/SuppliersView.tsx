@@ -19,7 +19,7 @@ import ModelMappings from './ModelMappings';
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
 
-export default function SuppliersView({ token, session, refreshWorkspace, catalogPath = '/models?workspace=default' }: {
+export default function SuppliersView({ token, session, refreshWorkspace, catalogPath = '/models' }: {
   catalogPath?: string;
   token: string;
   session: AdminSession;

@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: NIU.IO model route pools
+  title: Niu model route pools
   version: 0.1.0
 paths:
   /admin/v1/model-route-pools:

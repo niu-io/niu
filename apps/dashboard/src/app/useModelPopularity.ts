@@ -20,8 +20,7 @@ function fallbackRank(model: Model, index: number) {
 
 export function useModelPopularity(models: Model[], token: string, organizationId?: string, projectId?: string) {
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const signature = models.map(model => model.id).join('\u0000');
-  const baseModels = useMemo(() => [...models].sort((a, b) => fallbackRank(a, models.indexOf(a)) - fallbackRank(b, models.indexOf(b))), [signature]);
+  const baseModels = useMemo(() => [...models].sort((a, b) => fallbackRank(a, models.indexOf(a)) - fallbackRank(b, models.indexOf(b))), [models]);
 
   useEffect(() => {
     setCounts({});

@@ -317,7 +317,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
         </div>
         <form className="video-composer" onSubmit={event=>{event.preventDefault();void (quoteMatches ? generate() : estimate());}}>
           <div className="video-composer-surface">
-            {loading ? <p role="status" className="video-muted">Loading video models…</p> : keys.length > 0 && !model && !error && !keysError ? <Empty className="min-h-40"><EmptyHeader><EmptyTitle>No video model available</EmptyTitle><EmptyDescription>This API key has no supported video route.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/suppliers':`/models?workspace=${encodeURIComponent(workspace.id)}`}>{canManageSuppliers ? 'Manage Suppliers':'View models'}</Link></Button></EmptyContent></Empty> : null}
+            {loading ? <p role="status" className="video-muted">Loading video models…</p> : keys.length > 0 && !model && !error && !keysError ? <Empty className="min-h-40"><EmptyHeader><EmptyTitle>No video model available</EmptyTitle><EmptyDescription>This API key has no supported video route.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/suppliers':'/models'}>{canManageSuppliers ? 'Manage Suppliers':'View models'}</Link></Button></EmptyContent></Empty> : null}
             {model && <>
               <ImageReferences model={model} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>
 

@@ -19,7 +19,7 @@ afterEach(()=>{setDeploymentPalette({},{});document.documentElement.style.remove
 describe('deployment branding',()=>{
   it('rejects executable assets and CSS values at the display boundary',()=>{
     const value=configuration();
-    expect(parseBranding(value).settings.display_name).toBe('NIU.IO');
+    expect(parseBranding(value).settings.display_name).toBe('Niu');
     expect(()=>parseBranding({data:{...value.data,settings:{...value.data.settings,logo_data_url:'https://example.org/x'}}})).toThrow();
     expect(()=>parseBranding({data:{...value.data,settings:{...value.data.settings,light:{primary:'url(x)'}}}})).toThrow();
     expect(()=>parseBranding({data:{...value.data,settings:{...value.data.settings,dark:{position:'#ffffff'}}}})).toThrow();
@@ -44,12 +44,12 @@ describe('deployment branding',()=>{
     }));
     const router=createMemoryRouter([{element:<Outlet context={{token:'member'}}/>,children:[{path:'/admin/branding',element:<BrandingPage/>}]}],{initialEntries:['/admin/branding']});
     render(<RouterProvider router={router}/>);
-    const user=userEvent.setup();await screen.findByDisplayValue('NIU.IO');
+    const user=userEvent.setup();await screen.findByDisplayValue('Niu');
     await user.clear(screen.getByLabelText('Display name'));await user.type(screen.getByLabelText('Display name'),'Example');
     await user.click(screen.getByRole('button',{name:'Save changes'}));
     await screen.findByRole('alert');expect(screen.getByDisplayValue('Example')).toBeTruthy();
     revision='1';await user.click(screen.getByRole('button',{name:'Reload saved settings'}));
-    await screen.findByDisplayValue('NIU.IO');fail=false;
+    await screen.findByDisplayValue('Niu');fail=false;
     await user.clear(screen.getByLabelText('Display name'));await user.type(screen.getByLabelText('Display name'),'Updated');
     await user.click(screen.getByRole('tab',{name:'Theme',exact:true}));
     await user.click(screen.getByRole('button',{name:'Default appearance',exact:true}));await user.click(screen.getByRole('menuitemradio',{name:'Dark',exact:true}));

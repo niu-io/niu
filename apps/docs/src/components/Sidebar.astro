@@ -1,0 +1,11 @@
+---
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+import MobileMenuFooter from './MobileMenuFooter.astro';
+import { documentationSection } from '../navigation';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+const section = documentationSection(Astro.url.pathname);
+const scope = section === 'API' ? 'API & SDK' : section;
+const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => scope === 'Docs' ? !['API & SDK', 'Compare'].includes(entry.label) : entry.label === scope);
+---
+<SidebarPersister><SidebarSublist sublist={sidebar} /></SidebarPersister>
+<div class="md:sl-hidden"><MobileMenuFooter /></div>

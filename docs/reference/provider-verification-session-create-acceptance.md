@@ -6,7 +6,7 @@ The retained Gateway was `fd91291cf3e8c66dece9df159ad7f64b649c8d9a`, binary SHA-
 
 ## Actual creation and scope
 
-Exactly one upstream `CreateVisualValidateSession` request was made through `client.media.verification.create`. Its optional subject name was the literal purpose label `NIU.IO API integration check`, mapped to the documented `ArtistName` field. This label was not a person's name, identity assertion or qualification. No return URL was supplied.
+Exactly one upstream `CreateVisualValidateSession` request was made through `client.media.verification.create`. Its optional subject name was the literal purpose label `Niu API integration check`, mapped to the documented `ArtistName` field. This label was not a person's name, identity assertion or qualification. No return URL was supplied.
 
 The Provider returned a genuine token and H5 link. Niu encrypted those values and returned ordinary session metadata with status `waiting_user`, a reported expiry and no person-group reference. Neither a token nor a link was fabricated or inserted directly into the database.
 

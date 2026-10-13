@@ -36,7 +36,7 @@ it('appends results instead of replacing pages and opens deep-linked details', a
 it('renders provider metadata and preserves the developer/model detail path', () => {
   const enriched = [{ ...models[0], customer_pricing: {currency:'USD',unit:'nanounits_per_million_tokens' as const,prompt_rate:'0',completion_rate:'2000000000'}, catalog: { name: 'Example model', description: 'Provider description', context_length: 128000 } }];
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={enriched} /></SidebarProvider>} /></Routes></MemoryRouter>);
-  expect(screen.getByRole('link', { name: 'Example model' }).getAttribute('href')).toBe('/models/openai/model-0?workspace=default');
+  expect(screen.getByRole('link', { name: 'Example model' }).getAttribute('href')).toBe('/models/openai/model-0');
   expect(screen.getByText('Provider description')).toBeTruthy();
   expect(screen.getByText('128K context')).toBeTruthy();
   expect(screen.getByText('USD 0.00/M input tokens')).toBeTruthy();

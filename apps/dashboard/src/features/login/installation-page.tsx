@@ -16,7 +16,7 @@ export default function InstallationRoute() {
   return <main className="dashboard-login">
     <section className="dashboard-login-card" aria-label="Installation administration">
       <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label="Niu home">
-        <img src={logo} alt="" /><span>niu.io</span><span className="dashboard-login-product">Dashboard</span>
+        <img src={logo} alt="" /><span>Niu</span><span className="dashboard-login-product">Dashboard</span>
       </Link>
       <h1>Installation administration</h1>
       <p className="dashboard-login-intro">Use the administrator credential configured for this installation.</p>

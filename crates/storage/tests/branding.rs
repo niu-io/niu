@@ -9,7 +9,7 @@ async fn branding_is_durable_revisioned_resettable_and_atomically_audited(pool: 
     let store = Store::from_pool(pool.clone());
     let (revision, defaults) = store.branding_configuration().await.unwrap();
     assert_eq!(revision, 0);
-    assert_eq!(defaults.display_name, "NIU.IO");
+    assert_eq!(defaults.display_name, "Niu");
     let mut settings = defaults.clone();
     let mut png = Cursor::new(Vec::new());
     image::DynamicImage::new_rgba8(32, 32)
@@ -51,7 +51,7 @@ async fn branding_is_durable_revisioned_resettable_and_atomically_audited(pool: 
     );
     assert_eq!(
         store.branding_configuration().await.unwrap().1.display_name,
-        "NIU.IO"
+        "Niu"
     );
     let reset = store.branding_configuration().await.unwrap().1;
     assert!(reset.logo_data_url.is_none() && reset.favicon_data_url.is_none());

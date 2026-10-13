@@ -4,7 +4,7 @@ import { NiuAdminClient } from '../dist/index.js';
 
 test('branding uses platform scope, explicit fields and exact revision without retrying writes', async () => {
   const calls = []; const controller = new AbortController();
-  const settings = { display_name: 'NIU.IO', default_appearance: 'system', light: {}, dark: {} };
+  const settings = { display_name: 'Niu', default_appearance: 'system', light: {}, dark: {} };
   const result = { data: { revision: '1', settings } };
   const client = new NiuAdminClient({ adminToken: 'test', fetch: async (url, init) => {
     calls.push({ url, init }); return Response.json(result);
@@ -27,7 +27,7 @@ test('branding uses platform scope, explicit fields and exact revision without r
 test('branding forwards both asset changes and explicit reset without extra fields', async () => {
   let body;
   const client = new NiuAdminClient({adminToken:'test', fetch:async (_url, init) => {body = JSON.parse(init.body); return Response.json({data:{}});}});
-  const settings = {display_name:'NIU.IO',default_appearance:'system',light:{},dark:{},logo_data_url:'data:image/png;base64,AAAA',favicon_data_url:null};
+  const settings = {display_name:'Niu',default_appearance:'system',light:{},dark:{},logo_data_url:'data:image/png;base64,AAAA',favicon_data_url:null};
   await client.saveBranding('2', {...settings, internal:'omit'});
   assert.deepEqual(body, {expected_revision:'2',settings});
 });

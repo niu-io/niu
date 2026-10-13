@@ -11,7 +11,7 @@ export type BrandingSettings = {
   light: Partial<Record<BrandingToken,string>>; dark: Partial<Record<BrandingToken,string>>;
 };
 export type BrandingConfiguration = {revision:string;settings:BrandingSettings};
-export const defaultBranding: BrandingSettings = {display_name:'NIU.IO',default_appearance:'system',logo_data_url:null,favicon_data_url:null,light:{},dark:{}};
+export const defaultBranding: BrandingSettings = {display_name:'Niu',default_appearance:'system',logo_data_url:null,favicon_data_url:null,light:{},dark:{}};
 const BrandingContext = createContext({settings:defaultBranding,logo:defaultLogo,update:(_value:BrandingConfiguration)=>{}});
 export function useBranding() { return useContext(BrandingContext); }
 

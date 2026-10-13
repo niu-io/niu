@@ -53,7 +53,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={workspacePath}><FolderKey />Workspace</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/generations"><IconSparkles />Generations</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine />Activity</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={`/models?workspace=${encodeURIComponent(workspacePath.split('/').pop() ?? 'default')}`}><Boxes />Models</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/models"><Boxes />Models</Link></DropdownMenuItem>
             </>}
             {((platformAdmin && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/suppliers' : session?.provider_memberships?.length ? `/suppliers/${session.provider_memberships[0].id}` : '/suppliers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? "Admin" : "Suppliers"}</Link></DropdownMenuItem>}
             <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />Documentation</Link></DropdownMenuItem>

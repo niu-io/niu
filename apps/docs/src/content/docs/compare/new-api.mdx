@@ -1,0 +1,49 @@
+---
+title: Niu vs New API
+description: Compare Niu and New API by model access, operating responsibility, and supported workflows.
+prev:
+  link: /docs/compare/
+  label: Compare overview
+---
+
+Both products let you operate a gateway between your applications and upstream model services. New API offers a broad upstream integration surface and instance-management console. Niu organizes configured supply, application access, and request evidence around Suppliers and workspaces.
+
+Product documentation reviewed October 13, 2026. This comparison describes documented scope; it does not establish performance, prices, or full feature parity.
+
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
+
+<Table className="comparison-table">
+  <TableCaption>Niu and New API, row by row</TableCaption>
+  <TableHeader><TableRow><TableHead>Feature</TableHead><TableHead>Niu</TableHead><TableHead>New API</TableHead></TableRow></TableHeader>
+  <TableBody>
+    <TableRow><TableCell data-label="Feature">What you operate</TableCell><TableCell data-label="Niu">Public gateway, dashboard, catalog, and docs; external PostgreSQL</TableCell><TableCell data-label="New API">Gateway and web console; deployment options documented by New API</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Upstream setup</TableCell><TableCell data-label="Niu">Supplier credentials with explicit adapter and model mappings</TableCell><TableCell data-label="New API">Channels connecting upstream model services</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Client protocols</TableCell><TableCell data-label="Niu">OpenAI-compatible APIs and explicitly scoped native protocols</TableCell><TableCell data-label="New API">OpenAI, Claude, and Gemini-compatible formats</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Application access</TableCell><TableCell data-label="Niu">Workspace API keys and scoped management contracts</TableCell><TableCell data-label="New API">Token management and instance access controls</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Request evidence</TableCell><TableCell data-label="Niu">Saved request logs, reported usage, and customer-charge state</TableCell><TableCell data-label="New API">Usage analytics and cost accounting</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Current scope</TableCell><TableCell data-label="Niu">Active development; first feature-complete release not qualified</TableCell><TableCell data-label="New API">Verify support against the version and channel you deploy</TableCell></TableRow>
+  </TableBody>
+</Table>
+
+## 01 / Where New API is ahead
+
+New API documents a broad selection of upstream integrations and protocol conversions. If a particular service, client, or deployment workflow is essential, start with its documented support and verify it on the version you intend to run. Niu does not claim parity with that integration surface.
+
+## 02 / Where Niu is useful
+
+Niu makes Suppliers and customer workspaces separate scopes. Its public contracts distinguish customer charges from upstream costs, preserve unknown usage and unsettled charge states, and connect request investigation to saved gateway evidence. Read the supported contracts before relying on a workflow.
+
+See [model configuration](/docs/configuration/models/), [request logs](/docs/concepts/execution-observation/), and the [API contracts](/docs/reference/api/) for supported behavior.
+
+## 03 / Which one to pick
+
+Choose New API when its upstream integrations and instance-management workflows meet your needs. Evaluate Niu when its workspace access, Supplier configuration, and request-accounting model fits your application. Both require you to operate storage, configure authorized upstream access, and verify the routes you expose.
+
+Niu’s first feature-complete release has not yet been qualified. Confirm the model, protocol, authorization, and billing behavior required by your workload before choosing a deployment.
+
+## Sources and next steps
+
+- [New API project and capabilities](https://github.com/QuantumNous/new-api), [official documentation](https://docs.newapi.pro/en).
+- [Niu deployment](/docs/deployment/single-container/) and [API reference](/docs/reference/api/).
+- [All gateway comparisons](/docs/compare/).
+- [Make your first Niu request](/docs/getting-started/).
