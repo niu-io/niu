@@ -39,6 +39,8 @@ export type DashboardContext = {
   appearance?: {ready:boolean; saving:boolean; error:string; reload:()=>void};
   token: string;
   session: AdminSession | null;
+  /** Publish a validated saved profile to the current authenticated session. */
+  updateProfile?: (profile: MemberProfile) => void;
   organizations: Organization[];
   organization: Organization | null;
   selectOrganization: (organization: Organization) => void;

@@ -63,7 +63,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C05 | P1 | P17 | Image/reference submission bypasses retained intent association | Metadata preparation and negative submission guards qualified; durable-image idempotency implemented; successful dispatch and dashboard attachment integration remain open |
 | C06 | P1 | P23, P24 | Supplier adapter controls omit backend-supported Anthropic/Gemini/Ark | Fixed; verified scope below |
 | C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | Fixed; inventory scope verified |
-| C08 | P2 | P30 | Profile save does not update shared account-menu session state | In review |
+| C08 | P2 | P30 | Profile save does not update shared account-menu session state | Fixed; immediate saved-name synchronization and independent restoration qualified |
 | C09 | P2 | P11 | A stale revision conflict does not lock repeated saves until reload | Fixed; actual conflict/reload/publication scope verified |
 | C10 | P2 | P13 | Known token totals omit reported-usage coverage | In review |
 | C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
@@ -213,3 +213,9 @@ Workspace-image retained submission now preserves canonical idempotency and exac
 The actual Mini browser opened persisted lifecycle, all seven transport records and the owner-funded customer-charge explanation at desktop and 390px without restoring the expired key. The current ordinary workspace Owner received 404 for both this installation-owned private task and its diagnostics. Generated REST documentation rendered in embedded Help at 390px. These reads did not submit or refresh upstream work.
 
 After the committed Gateway was rebuilt and restarted, the genuine Mini diagnostics returned 200 and exactly matched the independently retained pre-restart response. The served public OpenAPI document matched the checked-in generated artifact, exposed the diagnostic operation with billing/timing fields, and contained no unresolved local references. Compilation and contract checks are separate static checks; the actual reads and saved-record comparison define this qualification.
+
+### Immediate saved account-profile synchronization
+
+A genuine member saved a new display name and immediately reopened the account menu; the menu retained the previous name until session revalidation. Successful profile saves now publish the validated server profile to the current authenticated session as well as the form. The callback checks connection identity and preserves newer profile revisions. No navigation or visual layout changed.
+
+Actual desktop and 390px saves immediately displayed the saved name in the existing account menu. Independent PostgreSQL confirmed the member name, preserved email/avatar and advanced immutable revision. The exact original name, email and avatar were restored through the normal UI and independently checked. This qualifies same-session display-name synchronization; avatar saves, concurrent sign-in changes and profile conflict handling remain separate scopes.

@@ -31,7 +31,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
   const canViewBilling = context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role));
   return <div className={`settings-page w-full min-w-0 space-y-8${section === 'payments' ? ' settings-payments-page' : ''}`}>
     {personal ? <div hidden={section !== 'account'}>
-      <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => setProfileState({identity,value})}/>
+      <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
       <PasswordSettings key={'password-' + identity} token={context.token} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
     </div> : null}
     {section === 'about' && <section aria-label="About Niu" className="space-y-8">

@@ -665,10 +665,19 @@ export default function AppLayout() {
     return () => observer.disconnect();
   }, [location.pathname, gatewayStatus]);
 
+  const profileConnectionRevision = connectionRevision.current;
   const context = useMemo<DashboardContext>(() => ({
     appearance,
     token,
     session,
+    updateProfile: profile => {
+      // A completed write belongs to this connection, never a later sign-in.
+      if (connectionRevision.current !== profileConnectionRevision) return;
+      setSession(current => current?.kind === 'operator'
+        && current.operator?.id === session?.operator?.id
+        && (!current.profile || profile.revision >= current.profile.revision)
+        ? {...current, profile} : current);
+    },
     organizations,
     organization: organizations.find(item => item.id === (routeWorkspace?.organization_id ?? selectedOrganizationId)) ?? organizations[0] ?? null,
     selectOrganization,
@@ -697,7 +706,7 @@ export default function AppLayout() {
     modelsError,
     refreshModels,
     refreshWorkspace,
-  }), [appearance, token, session, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
+  }), [appearance, token, session, profileConnectionRevision, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
   const activePath = location.pathname.startsWith('/workspaces/')
     ? location.pathname.split('/').filter(Boolean).slice(2).join('/') || '.'
     : location.pathname.replace(/^\/+|\/+$/g, '');
