@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { request, writeMayHaveCommitted } from "@/features/vendors/api";
+import { request, writeMayHaveCommitted, VendorRequestError } from "@/features/vendors/api";
 import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
@@ -108,6 +108,10 @@ function Administration({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState("");
   const operationScope = useRef(0);
+  const [offerLoad, setOfferLoad] = useState<{ token: string; supplier: string; scope: number; offers: SupplierOffer[]; ready: boolean; loading: boolean; conflict: boolean } | null>(null);
+  const offerRequest = useRef<AbortController | null>(null);
+  const offerReadSequence = useRef(0);
+  useEffect(() => () => { offerRequest.current?.abort(); offerReadSequence.current += 1; }, [selected, token]);
   const previousSupplier = useRef("");
   useLayoutEffect(() => {
     operationScope.current += 1;
@@ -122,7 +126,7 @@ function Administration({ token }: { token: string }) {
     setData(null);
     setMembers([]);
     return () => { operationScope.current += 1; };
-  }, [selected]);
+  }, [selected, token]);
   const dialogOpener = useRef<HTMLElement | null>(null);
   const offerActionButtons = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => { if (search.get('create') === 'supplier') setDialog('create'); else if (search.get('properties') === 'supplier') setDialog('properties'); }, [search]);
@@ -260,6 +264,35 @@ function Administration({ token }: { token: string }) {
       });
     return () => controller.abort();
   }, [token, selected, revision]);
+  async function loadOfferDetails(targetId: string, targetAlias = "", replaceDraft = true) {
+    offerRequest.current?.abort();
+    const controller = new AbortController(); offerRequest.current = controller;
+    const sequence = ++offerReadSequence.current, scope = operationScope.current;
+    setOfferLoad(previous => ({ token, supplier: selected, scope, offers: previous?.offers ?? [], ready: false, loading: true, conflict: previous?.conflict ?? false }));
+    setError("");
+    try {
+      const result = await request<{ data: AdminData }>(token, `/admin/v1/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
+      if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
+      const offer = result.data.offers.find(item => targetId ? item.id === targetId : item.model_alias === targetAlias);
+      if ((targetId || targetAlias) && (!offer || offer.rate_kind === "media")) throw new Error("The current text rates could not be found. Reload before saving.");
+      const decimal = (value: string) => {
+        const amount = BigInt(value), fraction = (amount % 1_000_000_000n).toString().padStart(9, "0").replace(/0+$/, "");
+        return (amount / 1_000_000_000n).toString() + (fraction ? "." + fraction : "");
+      };
+      setData(result.data);
+      if (replaceDraft) {
+        setAlias(offer?.model_alias ?? ""); setCurrency(offer?.currency ?? "USD");
+        setInputRate(offer?.prompt_rate != null ? decimal(offer.prompt_rate) : "");
+        setCachedInputRate(offer?.cached_prompt_rate != null ? decimal(offer.cached_prompt_rate) : "");
+        setOutputRate(offer?.completion_rate != null ? decimal(offer.completion_rate) : "");
+      }
+      setOfferLoad({ token, supplier: selected, scope, offers: result.data.offers, ready: true, loading: false, conflict: false });
+    } catch (reason) {
+      if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
+      setError(reason instanceof Error ? reason.message : "Could not reload agreed rates.");
+      setOfferLoad(previous => previous ? { ...previous, ready: false, loading: false } : previous);
+    }
+  }
   function open(kind: string, selectedOfferId = "") {
     dialogOpener.current = offerActionButtons.current.get(selectedOfferId)
       ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -269,18 +302,11 @@ function Administration({ token }: { token: string }) {
     if (kind === "membership") { setOperator(""); setRole("viewer"); setActive("true"); }
     setOfferId(selectedOfferId);
     if (kind === "offer") {
-      const offer = textOffers.find(item => item.id === selectedOfferId);
-      const decimal = (value: string) => {
-        const amount = BigInt(value);
-        const fraction = (amount % 1_000_000_000n).toString().padStart(9, "0").replace(/0+$/, "");
-        return (amount / 1_000_000_000n).toString() + (fraction ? "." + fraction : "");
-      };
-      setAlias(offer?.model_alias ?? "");
-      setCurrency(offer?.currency ?? "USD");
-      setInputRate(offer ? decimal(offer.prompt_rate) : "");
-      setCachedInputRate(offer?.cached_prompt_rate != null ? decimal(offer.cached_prompt_rate) : "");
-      setOutputRate(offer ? decimal(offer.completion_rate) : "");
+      setOfferLoad(null);
+      if (!selectedOfferId) { setAlias(""); setCurrency("USD"); setInputRate(""); setCachedInputRate(""); setOutputRate(""); }
+      void loadOfferDetails(selectedOfferId);
     }
+
     setValidUntil(defaultReviewExpiry());
     setSupplyRightsHash("");
     setSupplyCapabilityHash("");
@@ -339,7 +365,7 @@ function Administration({ token }: { token: string }) {
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || (dialog === "offer" && (!offerLoad?.ready || offerLoad.loading || offerLoad.conflict || offerLoad.token !== token || offerLoad.supplier !== selected || offerLoad.scope !== operationScope.current))) return;
     const scope = operationScope.current;
     setBusy(true);
     setError("");
@@ -357,7 +383,7 @@ function Administration({ token }: { token: string }) {
           { role, active: active === "true" },
         );
       if (dialog === "offer") {
-        const currentOffer = data?.offers.find((offer) => offer.model_alias === alias);
+        const currentOffer = offerLoad?.offers.find((offer) => offer.model_alias === alias);
         await request(token, `/admin/v1/providers/${selected}/offers`, "POST", {
           model_alias: alias,
           currency,
@@ -435,8 +461,9 @@ function Administration({ token }: { token: string }) {
       setRevision((value) => value + 1);
     } catch (reason) {
       if (scope !== operationScope.current) return;
+      if (dialog === "offer" && reason instanceof VendorRequestError && reason.status === 409) setOfferLoad(previous => previous ? { ...previous, conflict: true } : previous);
       setError(
-        reason instanceof Error ? reason.message : "Change could not be saved.",
+        dialog === "offer" && reason instanceof VendorRequestError && reason.status === 409 ? "These agreed rates changed. Reload the saved rates before saving again." : reason instanceof Error ? reason.message : "Change could not be saved.",
       );
     } finally {
       if (scope === operationScope.current) setBusy(false);
@@ -632,7 +659,7 @@ function Administration({ token }: { token: string }) {
       )}
       {mediaPublishing && <MediaOfferPublisher key={selected} token={token} supplier={selected} initialModel={mediaOfferModel} onClose={() => setMediaPublishing(false)} onSaved={() => { setMediaPublishing(false); setRevision(value => value + 1); setNotice("Media offer saved. Review is required before activation."); }} />}
       <Dialog open={Boolean(dialog)} onOpenChange={(value) => {
-          if (!value && !busy) { setDialog(""); setSearch(current => { current.delete("create"); current.delete("properties"); return current; }, { replace: true }); }
+          if (!value && !busy) { offerRequest.current?.abort(); offerReadSequence.current += 1; setDialog(""); setSearch(current => { current.delete("create"); current.delete("properties"); return current; }, { replace: true }); }
         }}>
       <DialogContent className="niu-modal vendor-dialog" showCloseButton={false} onCloseAutoFocus={event => {
         const opener = dialogOpener.current;
@@ -661,6 +688,10 @@ function Administration({ token }: { token: string }) {
             {error}
           </p>
         )}
+        {dialog === "offer" && <>
+          {offerLoad?.loading && <p role="status" className="text-sm text-muted-foreground">Loading current agreed rates…</p>}
+          {(offerLoad?.conflict || !offerLoad?.ready) && !offerLoad?.loading && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void loadOfferDetails(offerId, offerLoad?.conflict ? alias : "", Boolean(offerId) || Boolean(offerLoad?.conflict))}>Reload saved rates</Button><p className="text-sm text-muted-foreground">{offerId || offerLoad?.conflict ? "Reloading replaces your unsaved changes." : "Reloading preserves your unsaved values."}</p></div>}
+        </>}
         {dialog === "create" ? <SupplierEditor token={token} vendor={null} disabled={busy} onCreate={createSupplier} onSave={async () => {}} /> : dialog === "properties" ? <SupplierPropertiesFields supplierId={selected} supplierName={selectedBusiness?.name ?? ""} token={token} /> : (<form
           onSubmit={(event) => void submit(event)}
           className="provider-admin-form"
@@ -707,6 +738,7 @@ function Administration({ token }: { token: string }) {
                 <Label htmlFor="supplier-offer-alias">Existing upstream model alias</Label>
                 <Input
                   id="supplier-offer-alias"
+                  disabled={busy || offerLoad?.loading}
                   required
                   maxLength={200}
                   value={alias}
@@ -718,6 +750,7 @@ function Administration({ token }: { token: string }) {
                 <Label htmlFor="supplier-offer-currency">Currency</Label>
                 <Input
                   id="supplier-offer-currency"
+                  disabled={busy || offerLoad?.loading}
                   required
                   pattern="[A-Z]{3}"
                   maxLength={3}
@@ -731,6 +764,7 @@ function Administration({ token }: { token: string }) {
                 <Label htmlFor="supplier-input-rate">Input payout per million tokens</Label>
                 <Input
                   id="supplier-input-rate"
+                  disabled={busy || offerLoad?.loading}
                   required
                   inputMode="decimal"
                   value={inputRate}
@@ -741,6 +775,7 @@ function Administration({ token }: { token: string }) {
                 <Label htmlFor="supplier-cached-input-rate">Cache read payout per million tokens</Label>
                 <Input
                   id="supplier-cached-input-rate"
+                  disabled={busy || offerLoad?.loading}
                   inputMode="decimal"
                   aria-describedby="supplier-cached-input-help"
                   value={cachedInputRate}
@@ -752,6 +787,7 @@ function Administration({ token }: { token: string }) {
                 <Label htmlFor="supplier-output-rate">Output payout per million tokens</Label>
                 <Input
                   id="supplier-output-rate"
+                  disabled={busy || offerLoad?.loading}
                   required
                   inputMode="decimal"
                   value={outputRate}
@@ -890,6 +926,7 @@ function Administration({ token }: { token: string }) {
             variant={dialog.includes("revocation") ? "destructive" : "default"}
             disabled={
               busy ||
+              (dialog === "offer" && (!offerLoad?.ready || offerLoad.loading || offerLoad.conflict || offerLoad.token !== token || offerLoad.supplier !== selected || offerLoad.scope !== operationScope.current)) ||
               (dialog === "membership" && (accountsLoading || !operator)) ||
               (dialog === "settlement" &&
                 (attempts.length === 0 ||
