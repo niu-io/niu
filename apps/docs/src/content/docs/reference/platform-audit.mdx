@@ -1,0 +1,52 @@
+---
+title: Platform audit logs
+description: Read durable account, access, Supplier and configuration operation history from Admin and the JavaScript SDK.
+---
+
+Open **Admin → Audit logs** to inspect saved operation metadata. This is platform administration history, separate from customer request logs and Agent Observability. Only installation administrators and currently authorized platform administrators can read the API; workspace ownership alone does not grant access.
+
+## Recorded operations
+
+| Category | Included journals |
+| --- | --- |
+| Authentication | Password login success, session issuance and revocation, password changes |
+| Access | Account creation/revocation and database administrator platform grants/revocations |
+| Configuration | Supplier API configurations and model bindings, branding/theme saves, payment gateway saves |
+| Supplier | Supplier profile, qualification, offer and settlement operations recorded by the Supplier journal |
+
+The view combines six existing journals rather than copying their state. Successful password login commits its session and `password_login_succeeded` event together. Administrator-issued sessions remain `session_created`; issuance alone does not prove interactive login. Failed login attempts, read requests, rejected configuration saves and uncommitted drafts are not recorded by this version. Do not use an absent event to infer that an action did not occur.
+
+Historical journals have different actor coverage. The API returns an explicit unknown actor when no identity was saved; the page displays **Not recorded**. Older API-configuration events retain the recorded installation role, marked **(recorded)**, without asserting a particular human identity. Actor and target names are resolved from their current saved names rather than immutable name snapshots. The migration protects the API-configuration journal against future updates/deletions; it does not establish completeness of older records.
+
+## Read API and SDK
+
+`GET /admin/v1/platform/audit-events` returns `{ data, next_cursor }`. Each event contains `source`, `category`, `action`, `actor_kind`, `actor_label`, `target_label`, nullable decimal-string `revision`, UTC `created_at`, and an internal source-qualified `id`. Use that ID for reconciliation, never as a product display label.
+
+| Query | Contract |
+| --- | --- |
+| `limit` | Integer 1–100; default 50 |
+| `category` | Optional `authentication`, `configuration`, `access` or `supplier` |
+| `cursor` | Opaque `next_cursor` from the previous page; retain the same category |
+
+Events are ordered newest first by `(created_at, source, source event ID)`; IDs are compared as canonical text. A cursor must identify a saved event in the chosen category. Invalid categories, missing/invalid cursors and invalid limits return 400. Missing or invalid authentication returns 401; insufficient platform authority returns 403. Database failures return an error, not an empty page. A null cursor ends traversal. Responses use `Cache-Control: no-store`.
+
+```ts
+import { NiuAdminClient } from '@niu-io/sdk';
+
+const admin = new NiuAdminClient({
+  baseURL: process.env.NIU_ADMIN_BASE_URL,
+  adminToken: process.env.NIU_ADMIN_TOKEN!,
+});
+const first = await admin.listPlatformAuditEvents({
+  category: 'configuration', limit: 50,
+});
+if (first.next_cursor) {
+  const next = await admin.listPlatformAuditEvents({
+    category: 'configuration', limit: 50, cursor: first.next_cursor,
+  });
+}
+```
+
+Use the repository SDK build and its exported `NiuAdminClient` entrypoint. Tokens belong in private server configuration, never frontend build variables or committed examples.
+
+The response allowlist excludes configuration values, credentials, password hashes, request contents and procurement amounts. Audit reads cannot change settings or delete events. See [implemented operation schemas](/docs/reference/handler-operations/) and [the generated OpenAPI JSON](/docs/openapi/handler-operations.json).

@@ -293,7 +293,7 @@ impl Store {
         insert_operator_audit_event(
             &mut tx,
             OperatorAuditActor::Operator(verified.operator_id),
-            "session_created",
+            "password_login_succeeded",
             verified.operator_id,
             Some(issued.session.id),
             OperatorScope {

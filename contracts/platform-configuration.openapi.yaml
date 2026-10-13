@@ -16,3 +16,6 @@ paths:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1payments~1epay/get'
     put:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1payments~1epay/put'
+  /admin/v1/platform/audit-events:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1audit-events/get'

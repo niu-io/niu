@@ -101,6 +101,8 @@ mod member_profiles;
 pub use member_preferences::ColorMode;
 mod observations;
 mod operator_audit;
+mod platform_audit;
+pub use platform_audit::{PlatformAuditEvent, PlatformAuditPage};
 mod operators;
 pub use member_profiles::MemberProfile;
 mod password_logins;
@@ -418,6 +420,8 @@ pub enum StoreError {
     InvalidOperator,
     #[error("invalid operator audit cursor or page size")]
     InvalidOperatorAuditQuery,
+    #[error("invalid platform audit category, cursor, or page size")]
+    InvalidPlatformAuditQuery,
     #[error("invalid video history cursor or page size")]
     InvalidMediaQuery,
     #[error("invalid vendor or model configuration")]

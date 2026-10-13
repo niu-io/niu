@@ -10,6 +10,7 @@ pub mod key_spending;
 pub(crate) mod key_token_rate;
 pub mod media_detectors;
 mod operator_audit;
+pub mod platform_audit;
 pub mod passwords;
 pub mod preferences;
 pub mod profile;

@@ -104,6 +104,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}'
   /admin/v1/platform/financial-recovery:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1financial-recovery'
+  /admin/v1/platform/audit-events:
+    $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1audit-events'
   /admin/v1/platform/configuration:
     $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1configuration'
   /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}:

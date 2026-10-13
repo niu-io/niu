@@ -1,3 +1,5 @@
+import { platformAuditQuery, type PlatformAuditQuery, type PlatformAuditPage } from './platform-audit.js';
+export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, PlatformAuditPage, PlatformAuditQuery } from './platform-audit.js';
 import { assetBinaryRequest, type WorkspaceAsset, type WorkspaceAssetPage, type WorkspaceAssetPageOptions } from './workspace-assets.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 /** Last committed worker page, not settlement or backlog status. */
@@ -996,6 +998,11 @@ export class NiuAdminClient {
   /** Revision checked; no implicit retry or merchant activation claim. */
   savePlatformEPayConfiguration(input: EPayConfigurationInput, options?: RequestOptions): Promise<{ data: EPayConfiguration }> {
     return this.request('/platform/payments/epay', input, options, 'PUT');
+  }
+
+  /** Platform-only durable operation metadata. Reads never modify configuration. */
+  listPlatformAuditEvents(query: PlatformAuditQuery = {}, options?: RequestOptions): Promise<PlatformAuditPage> {
+    return this.request('/platform/audit-events' + platformAuditQuery(query), undefined, options);
   }
 
   getBranding(options?: RequestOptions): Promise<BrandingConfiguration> {

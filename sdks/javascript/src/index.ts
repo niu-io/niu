@@ -758,3 +758,5 @@ export type { GuardrailDetectorDescription, GuardrailDetectorPreviewInput, Guard
 export type { EPayConfiguration, EPayConfigurationInput } from './admin.js';
 
 export type { WorkspaceAsset, WorkspaceAssetKind, WorkspaceAssetPage, WorkspaceAssetPageOptions } from './workspace-assets.js';
+
+export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, PlatformAuditPage, PlatformAuditQuery } from './platform-audit.js';

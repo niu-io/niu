@@ -36,6 +36,7 @@ export default defineConfig({
           { label: 'Request logs', slug: 'concepts/execution-observation' },
         ] },
         { label: 'Administration', items: [
+          { label: 'Audit logs', slug: 'reference/platform-audit' },
           { label: 'Deployment', slug: 'deployment/single-container' },
           { label: 'Local development', slug: 'guides/local-development' },
           { label: 'Security', slug: 'security/overview' },

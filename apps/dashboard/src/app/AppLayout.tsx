@@ -1,4 +1,4 @@
-import { IconPalette } from '@tabler/icons-react';
+import { IconPalette, IconHistory } from '@tabler/icons-react';
 import { IconKey as KeyRound, IconUsers as Users } from '@tabler/icons-react';
 import RouterPending from './RouterPending';
 import { IconListDetails } from '@tabler/icons-react';
@@ -127,6 +127,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     { to: '/admin/pricing', label: 'Customer pricing', end: false },
     { to: '/admin/payments', label: 'Payment gateways', end: false },
     { to: '/admin/branding', label: 'Branding & theme', end: false },
+    { to: '/admin/audit-logs', label: 'Audit logs', end: false },
   ];
   return <>
     <SidebarHeader className="sidebar-heading">
@@ -153,7 +154,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     </SidebarHeader>
     <SidebarContent className="workspace-sidebar-content">
       <nav aria-label={supplier ? "Supplier navigation" : "Admin navigation"}><SidebarMenu className="workspace-nav-menu">
-        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys & routes' ? KeyRound : item.label === 'Portal access' ? Users : item.label === 'Suppliers' ? RailSuppliers : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding & theme' ? IconPalette : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models & pricing' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
+        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys & routes' ? KeyRound : item.label === 'Portal access' ? Users : item.label === 'Suppliers' ? RailSuppliers : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding & theme' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models & pricing' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
           <SidebarMenuButton asChild isActive={location.pathname === item.to || (!supplier && location.pathname.startsWith(item.to + "/"))} className="nav-item provider-zone-item">
             <NavLink to={item.to} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{item.label}</span></NavLink>
           </SidebarMenuButton>
@@ -695,7 +696,7 @@ export default function AppLayout() {
     : helpArea
       ? 'Documentation'
     : supplierArea
-      ? ({ oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Suppliers' : supplierManagement ? 'Overview' : 'Suppliers'))
+      ? ({ oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Suppliers' : supplierManagement ? 'Overview' : 'Suppliers'))
       : activePath === 'keys/new'
         ? 'New API key'
         : activePath.startsWith('keys/')

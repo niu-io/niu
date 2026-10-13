@@ -209,6 +209,10 @@ pub(crate) fn router(state: AppState) -> Router {
             axum::routing::post(crate::admin::rotate_key),
         )
         .route(
+            "/admin/v1/platform/audit-events",
+            get(crate::admin::platform_audit::events),
+        )
+        .route(
             "/admin/v1/operators",
             get(crate::admin::operators).post(crate::admin::create_operator),
         )
