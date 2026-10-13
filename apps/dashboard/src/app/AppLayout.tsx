@@ -217,6 +217,7 @@ export default function AppLayout() {
   const supplierArea = adminArea || location.pathname === '/suppliers' || location.pathname.startsWith('/suppliers/');
   const supplierManagement = supplierArea && location.pathname !== '/suppliers';
   const adminSupplierId = adminArea && location.pathname.startsWith('/admin/suppliers/') ? location.pathname.split('/')[3] : '';
+  const supplierTabsRef = useRef<HTMLDivElement>(null);
   const [adminSupplierName, setAdminSupplierName] = useState('');
   const [supplierProfileRevision, setSupplierProfileRevision] = useState(0);
   useEffect(() => { const refresh = () => setSupplierProfileRevision(value => value + 1); window.addEventListener('niu:supplier-profile-updated', refresh); return () => window.removeEventListener('niu:supplier-profile-updated', refresh); }, []);
@@ -654,6 +655,16 @@ export default function AppLayout() {
     : healthChecked
       ? 'offline'
       : 'checking';
+  useLayoutEffect(() => {
+    const strip = supplierTabsRef.current;
+    if (!strip) return;
+    const revealActiveTab = () => strip.querySelector<HTMLElement>('[role="tab"][data-state="active"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    revealActiveTab();
+    const observer = new ResizeObserver(revealActiveTab);
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [location.pathname, gatewayStatus]);
+
   const context = useMemo<DashboardContext>(() => ({
     appearance,
     token,
@@ -823,7 +834,7 @@ export default function AppLayout() {
         {gatewayOutage}{signOutFailure}
         {(helpArea || gateway.everConnected) && <div className="gateway-route-content" hidden={!helpArea && gatewayStatus !== 'online'}>
           {adminSupplierId && <Tabs value={location.pathname.split('/')[4] || 'overview'} onValueChange={section => navigate(`/admin/suppliers/${encodeURIComponent(adminSupplierId)}${section === 'overview' ? '' : '/' + section}`)} className="mb-6 min-w-0">
-            <div className="max-w-full overflow-x-auto"><TabsList variant="line" aria-label="Supplier sections">
+            <div ref={supplierTabsRef} className="max-w-full overflow-x-auto"><TabsList variant="line" aria-label="Supplier sections">
               {[['overview', 'Overview'], ['configuration', 'API keys & routes'], ['models', 'Models & pricing'], ['consumption', 'Usage'], ['settlements', 'Settlements'], ['members', 'Portal access'], ['settings', 'Settings']].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
             </TabsList></div>
           </Tabs>}
