@@ -557,6 +557,28 @@ pub fn decode_asset_update_acknowledgement(
     Ok(())
 }
 
+/// Decode only the observed DeleteAsset receipt for the exact owned resource.
+/// Acknowledgement permits the local tombstone; it is not independent proof
+/// of upstream absence. Other nonempty shapes remain uncertain.
+pub fn decode_asset_delete_acknowledgement(
+    response: &FastRouterActionResponse,
+    request: &Value,
+) -> Result<(), FastRouterDomainError> {
+    let value = result(response, FastRouterAction::DeleteAsset)?;
+    if !value
+        .as_object()
+        .is_some_and(|object| object.len() == 1 && object.contains_key("Id"))
+    {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    let requested_id = reference(request, "Id")?;
+    let observed_id = reference(value, "Id")?;
+    if observed_id.private_ref() != requested_id.private_ref() {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    Ok(())
+}
+
 pub fn decode_created_reference(
     response: &FastRouterActionResponse,
 ) -> Result<FastRouterProviderReference, FastRouterDomainError> {

@@ -15,8 +15,8 @@ use niu_media::fastrouter_actions::{
     FastRouterAction, FastRouterActionClient, FastRouterActionError, FastRouterActionLimits,
 };
 use niu_media::fastrouter_domain::{
-    FastRouterAssetKind, decode_asset_update_acknowledgement, decode_created_reference,
-    decode_group_update_acknowledgement,
+    FastRouterAssetKind, decode_asset_delete_acknowledgement, decode_asset_update_acknowledgement,
+    decode_created_reference, decode_group_update_acknowledgement,
 };
 use niu_storage::{
     Principal, WorkspaceProviderAssetMutation, WorkspaceProviderAssetOutcome,
@@ -385,6 +385,9 @@ async fn mutate(
                             .is_ok()
                     || action == FastRouterAction::UpdateAsset
                         && decode_asset_update_acknowledgement(&response, prepared.request_body())
+                            .is_ok()
+                    || action == FastRouterAction::DeleteAsset
+                        && decode_asset_delete_acknowledgement(&response, prepared.request_body())
                             .is_ok()
                 {
                     WorkspaceProviderAssetOutcome::Acknowledged {
