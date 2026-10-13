@@ -126,8 +126,7 @@ impl Store {
         settings: &BrandingSettings,
         actor: Option<crate::OperatorAuditActor>,
     ) -> Result<(i64, BrandingSettings), StoreError> {
-        let (actor_kind, actor_id) =
-            actor.map_or(("unknown", None), |value| value.kind_and_id());
+        let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
         settings.validate()?;
         static SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
             std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(2)));

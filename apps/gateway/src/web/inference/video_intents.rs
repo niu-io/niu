@@ -82,16 +82,30 @@ async fn restored(
     // A key ID is saved context, never a historical read or action grant.
     // Preserve rotation lineage when available; only its explicit absence falls
     // back to the original key. Storage failures must not become successful reads.
-    let key_id = match state.store.video_intent_key(scope,intent.key_id,&intent.model).await {
+    let key_id = match state
+        .store
+        .video_intent_key(scope, intent.key_id, &intent.model)
+        .await
+    {
         Ok(key) => key,
         Err(niu_storage::StoreError::Unauthorized) => intent.key_id,
         Err(error) => return Err(ApiError::from_store(error)),
     };
-    let saved=state.store.video_intent_submission_snapshot(scope,owner,intent.id)
-        .await.map_err(ApiError::from_store)?;
+    let saved = state
+        .store
+        .video_intent_submission_snapshot(scope, owner, intent.id)
+        .await
+        .map_err(ApiError::from_store)?;
     let (submission_state, job) = match saved {
-        Some((dispatched,job)) => (if dispatched {"dispatched"} else {"not_dispatched"},Some(job)),
-        None => ("saved",None),
+        Some((dispatched, job)) => (
+            if dispatched {
+                "dispatched"
+            } else {
+                "not_dispatched"
+            },
+            Some(job),
+        ),
+        None => ("saved", None),
     };
     Ok(
         json!({"data":{"id":intent.id,"revision":intent.revision,"original_key_id":intent.key_id,"key_id":key_id,"model":intent.model,"funding_mode":if intent.owner_funded {"owner_funded"} else {"customer"},"request":intent.request,"session_binding":intent.session_binding,"content_state":if intent.expired {"expired"} else if intent.deleted {"deleted"} else {"retained"},"expires_at_ms":intent.expires_at_ms,"submission_state":submission_state,"job":job}}),
@@ -548,7 +562,13 @@ pub(in crate::web) async fn save(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(
-        restored(&state, scope, &owner, load(&state, scope, &owner, id).await?).await?,
+        restored(
+            &state,
+            scope,
+            &owner,
+            load(&state, scope, &owner, id).await?,
+        )
+        .await?,
     ))
 }
 
@@ -657,7 +677,13 @@ pub(in crate::web) async fn get(
     let scope = scope(org, ws);
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
     Ok(Json(
-        restored(&state, scope, &owner, load(&state, scope, &owner, id).await?).await?,
+        restored(
+            &state,
+            scope,
+            &owner,
+            load(&state, scope, &owner, id).await?,
+        )
+        .await?,
     ))
 }
 

@@ -111,7 +111,14 @@ impl Store {
              WHERE intent.organization_id=$1 AND intent.project_id=$2 AND intent.owner=$3 AND intent.id=$4",
         ).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent)
             .fetch_optional(&mut *tx).await?;
-        let Some(IntentSubmissionRow {attempt_id: attempt, model, dispatched, submitted_digest, intent_digest}) = row else {
+        let Some(IntentSubmissionRow {
+            attempt_id: attempt,
+            model,
+            dispatched,
+            submitted_digest,
+            intent_digest,
+        }) = row
+        else {
             tx.commit().await?;
             return Ok(None);
         };
@@ -122,7 +129,9 @@ impl Store {
             "SELECT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE organization_id=$1 AND project_id=$2 AND task_id=$3 AND owner<>$4)",
         ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(owner)
             .fetch_one(&mut *tx).await?;
-        if private_to_other { return Err(StoreError::Unauthorized); }
+        if private_to_other {
+            return Err(StoreError::Unauthorized);
+        }
         let status = match Self::media_job_status_on(scope, attempt, &mut *tx).await? {
             None => "submission_unknown",
             Some(crate::MediaJobStatus::Queued) => "queued",
@@ -132,9 +141,10 @@ impl Store {
             Some(crate::MediaJobStatus::Unknown) => "unknown",
             Some(crate::MediaJobStatus::Conflicting) => "reconciliation_required",
         };
-        let job=serde_json::json!({"id":attempt,"object":"video.job","model":model,"status":status});
+        let job =
+            serde_json::json!({"id":attempt,"object":"video.job","model":model,"status":status});
         tx.commit().await?;
-        Ok(Some((dispatched,job)))
+        Ok(Some((dispatched, job)))
     }
 
     /// Rotation preserves spending_root_id; unrelated keys never replace it.

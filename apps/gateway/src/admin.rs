@@ -2,7 +2,6 @@
 //! durable operator sessions carry role-based access after setup.
 pub mod asset_requests;
 pub mod chat_sessions;
-pub mod video_composer_drafts;
 pub mod guardrails;
 pub(crate) mod key_concurrency;
 pub mod key_ip;
@@ -20,6 +19,7 @@ pub mod request_payloads;
 mod session;
 pub(crate) mod vendor_cooldown;
 pub(crate) mod vendor_request_rate;
+pub mod video_composer_drafts;
 pub mod workspace_aliases;
 pub mod workspace_spending;
 pub use operator_audit::operator_events;

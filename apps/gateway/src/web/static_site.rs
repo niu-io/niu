@@ -142,10 +142,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                 "/compare/",
                 ServeFile::new(format!("{directory}/compare/index.html")),
             )
-            .nest_service(
-                "/compare",
-                ServeDir::new(format!("{directory}/compare")),
-            )
+            .nest_service("/compare", ServeDir::new(format!("{directory}/compare")))
             .route_service("/", ServeFile::new(format!("{directory}/index.html")))
             .route_service(
                 "/favicon.ico",

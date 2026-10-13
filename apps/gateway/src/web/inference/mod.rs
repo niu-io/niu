@@ -35,7 +35,7 @@ pub(super) mod video_results;
 
 pub(super) mod generations_artifact_captures;
 pub(super) mod generations_inventory;
-pub(super) mod generations_task_diagnostics;
 pub(super) mod generations_task_actions;
+pub(super) mod generations_task_diagnostics;
 
 pub(super) mod generations_sessions;

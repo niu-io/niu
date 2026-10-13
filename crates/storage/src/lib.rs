@@ -207,15 +207,15 @@ mod generations_chat_sessions;
 mod generations_sessions;
 mod media_query_reports;
 mod media_results;
-mod video_intents;
 mod video_composer_drafts;
-pub use video_composer_drafts::VideoComposerDraft;
+mod video_intents;
 pub use media_jobs::{
     MediaJobStatus, MediaQueryLease, MediaRecoveryCandidate, MediaRecoveryRoute,
     MediaTransportDiagnostic, MediaTransportTiming,
 };
 pub use media_pricing::{MediaLiabilityBound, MediaUsageSource, MediaUsageState};
 pub use media_results::MediaResultKind;
+pub use video_composer_drafts::VideoComposerDraft;
 pub use video_intents::{VideoIntent, VideoIntentInput};
 mod pricing;
 mod providers;
@@ -734,18 +734,36 @@ impl Store {
     /// Foreign keys prohibit deleting credentials, billing, or request history.
     pub async fn delete_empty_workspace(&self, scope: TenantScope) -> Result<bool, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
-        let project: Option<Uuid> = sqlx::query_scalar("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE")
-            .bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
-        if project.is_none() { return Ok(false); }
+        let project: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if project.is_none() {
+            return Ok(false);
+        }
         let retained: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM video_composer_drafts WHERE organization_id=$1 AND project_id=$2 AND payload IS NOT NULL AND expires_at>clock_timestamp())")
             .bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
-        if retained { return Err(StoreError::WorkspaceNotEmpty); }
+        if retained {
+            return Err(StoreError::WorkspaceNotEmpty);
+        }
         // Only disposable cleared/expired draft tombstones cascade; existing
         // business-history foreign keys continue to protect nonempty workspaces.
         match sqlx::query("DELETE FROM projects WHERE organization_id=$1 AND id=$2")
-            .bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await {
-            Ok(result) => { tx.commit().await?; Ok(result.rows_affected() == 1) }
-            Err(sqlx::Error::Database(error)) if error.code().as_deref() == Some("23503") => Err(StoreError::WorkspaceNotEmpty),
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .execute(&mut *tx)
+            .await
+        {
+            Ok(result) => {
+                tx.commit().await?;
+                Ok(result.rows_affected() == 1)
+            }
+            Err(sqlx::Error::Database(error)) if error.code().as_deref() == Some("23503") => {
+                Err(StoreError::WorkspaceNotEmpty)
+            }
             Err(error) => Err(error.into()),
         }
     }
