@@ -398,7 +398,7 @@ describe('Global Chat', () => {
     });
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     render(<SidebarProvider><MemoryRouter initialEntries={['/chat?model=fast&new=1']}><PlaygroundView token="admin-session" models={['fast','other']} initialScope={scope}/></MemoryRouter></SidebarProvider>);
-    await screen.findByRole('button',{name:'Earlier task',exact:true});
+    await screen.findByRole('link',{name:'Earlier task',exact:true});
     expect(screen.getByRole('heading',{name:'New generation',level:1})).toBeTruthy();
     expect(screen.queryByText('Earlier response')).toBeNull();
     expect(screen.getByRole('button',{name:'Edit comparison models (1 selected)'})).toBeTruthy();
@@ -416,7 +416,7 @@ describe('Global Chat', () => {
     render(<SidebarProvider><MemoryRouter initialEntries={['/chat?key=one-key&new=1']}>
       <PlaygroundView token="admin-session" models={['fast', 'other']} initialScope={scope} />
     </MemoryRouter></SidebarProvider>);
-    await screen.findByRole('button', { name: 'Earlier task', exact: true });
+    await screen.findByRole('link', { name: 'Earlier task', exact: true });
     await screen.findByRole('button', { name: 'API key: One model' });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit comparison models (1 selected)' })).toBeTruthy());
     expect(screen.queryByText('Earlier response')).toBeNull();
@@ -957,7 +957,7 @@ it('persists existing chat settings on panel dismissal without sending another m
   return successfulFetch(input,init);
  }));
  const view=renderPlayground();const user=userEvent.setup();
- await screen.findByRole('button',{name:'Saved conversation'});
+ await screen.findByRole('link',{name:'Saved conversation'});
  await user.click(screen.getByRole('button',{name:'Chat settings'}));
  await user.clear(screen.getByLabelText('Max output tokens'));
  await user.type(screen.getByLabelText('Max output tokens'),'2048');
@@ -969,7 +969,7 @@ it('persists existing chat settings on panel dismissal without sending another m
  await waitFor(()=>expect((serverChats.get(url) as {settings:{maxTokens:number}}).settings.maxTokens).toBe(2048));
  expect(serverChats.get(url)).toMatchObject({prompt:'Saved conversation',results:[originalResponse],settings:{logPayloads:false}});
  view.unmount();renderPlayground();
- await screen.findByRole('button',{name:'Saved conversation'});
+ await screen.findByRole('link',{name:'Saved conversation'});
  expect(screen.getByText('Original answer')).toBeTruthy();
  await user.click(screen.getByRole('button',{name:'Chat settings'}));
  expect((screen.getByLabelText('Max output tokens') as HTMLInputElement).value).toBe('2048');
