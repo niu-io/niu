@@ -171,6 +171,25 @@ it('validates UTF-8, integer bounds and actual output pairs rather than assumed 
   expect(videoRequest(model,'Prompt',{...controls,resolution:'1080p',ratio:'1:1'})).toMatchObject({resolution:'1080p',ratio:'1:1'});
 });
 
+it('renders declared ratio choices when a personal model has no output estimator',async()=>{
+  const calls=mockFetch(undefined,undefined,{...model,mode:'owner_funded',output:null});
+  mount();
+  const user=userEvent.setup();
+  await screen.findByText(model.id);
+  await user.click(screen.getByRole('button',{name:'Additional settings'}));
+  await user.click(screen.getByRole('button',{name:'Aspect ratio',exact:true}));
+  expect(await screen.findByRole('menuitemradio',{name:'1:1',exact:true})).toBeTruthy();
+  await user.click(screen.getByRole('menuitemradio',{name:'1:1',exact:true}));
+  expect(screen.getByRole('button',{name:'Aspect ratio',exact:true}).textContent).toContain('1:1');
+  expect(calls.some(call=>call.path.endsWith('/estimate')||call.path.endsWith('/submit'))).toBe(false);
+});
+
+it('preserves discovered controls without inventing output pairs for personal models',()=>{
+  const personal:VideoModel={...model,mode:'owner_funded',output:null};
+  expect(videoRequest(personal,'Prompt',{...initialControls(personal),resolution:'1080p',ratio:'16:9'})).toMatchObject({resolution:'1080p',ratio:'16:9'});
+  expect(()=>videoRequest(personal,'Prompt',{...initialControls(personal),resolution:'unsupported'})).toThrow(/supported/);
+});
+
 it('validates discovered reference requirements before constructing estimates or submissions',()=>{
   const imageModel:VideoModel={...model,input_types:['text','image_url'],requires_image:true,maximum_content_items:3,
     image_url:{maximum_items:2,maximum_bytes:128,https:false,data_mime_types:['image/png'],roles:['first_frame','last_frame'],role_required:true,requires_text:true,maximum_width:32,maximum_height:32,maximum_decoded_bytes:4096}};

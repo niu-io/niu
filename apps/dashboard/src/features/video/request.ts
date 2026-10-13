@@ -42,7 +42,7 @@ export function videoRequest(model: VideoModel, prompt: string, controls: Contro
   }
   const effective={...Object.fromEntries(Object.entries(model.controls).filter(([,rule])=>rule.default !== null).map(([name,rule])=>[name,rule.default])),...request};
   if (model.exclusive_controls.some(pair=>pair.every(name=>effective[name] !== undefined))) throw new Error('These settings cannot be used together.');
-  if (!model.output.specifications.some(spec=>spec.resolution === effective.resolution && spec.ratio === effective.ratio)) throw new Error('Choose a supported resolution and aspect ratio together.');
+  if (model.output && !model.output.specifications.some(spec=>spec.resolution === effective.resolution && spec.ratio === effective.ratio)) throw new Error('Choose a supported resolution and aspect ratio together.');
   if (new TextEncoder().encode(JSON.stringify(request)).length > model.maximum_body_bytes) throw new Error('The request exceeds this model’s size limit.');
   return request;
 }

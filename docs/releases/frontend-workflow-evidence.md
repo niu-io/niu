@@ -1535,3 +1535,10 @@ scope, and confirmed unchanged original financial records. The verification
 script's initial saved-page array alias was corrected before repeating the run
 and accepting its independently checked artifacts. These observations establish
 this directory workflow, not sustained capacity or complete frontend acceptance.
+
+## Personal Video configuration compatibility — 2026-10-13
+
+- Fixed four dashboard TypeScript errors caused by nullable `VideoModel.output`. Personal models without an output estimator retain their declared control validation; no resolution/aspect-ratio pairing is invented when specifications are absent.
+- Dashboard TypeScript checking passed. Five scoped Video regression files passed 44 checks, including request validation and opening/selecting declared ratio options with a null output estimator.
+- The actual personal Video model loaded under the existing demo key after configuration synchronization. Its declared duration, aspect ratio, resolution, seed and watermark controls rendered; the ratio menu was inspected at desktop width and the resolution menu at 390px. No new generation or paid estimate was submitted.
+- This proves configuration compatibility only. Discoverable configuration entry points, complete asynchronous inventory, task status/artifact navigation and lifecycle failures remain open frontend acceptance work.
