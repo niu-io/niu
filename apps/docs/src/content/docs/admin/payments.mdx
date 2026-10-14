@@ -22,3 +22,30 @@ The supported gateway inventory can include integrations configured outside this
 Configured and enabled status do not establish merchant activation or a successful top-up. Verify the actual deployment's signed checkout, notification handling and funding records before advertising a method as available. A return-page visit is not settlement evidence. Do not grant customer balance from an unverified callback or duplicate an already recorded payment.
 
 External refunds and complete commercial settlement qualification have their own implementation boundaries; do not infer them from a working configuration save.
+
+## Credit and administrator gifts
+
+Approved credit permits a customer balance to become negative up to its configured limit, after outstanding reservations. Zero credit implements prepaid access. Changing credit creates no receipt and adds no balance. The existing credit-policy endpoint requires installation write authority and a matching revision.
+
+A platform administrator can issue a noncash gift using [grantCustomerBalance](/docs/api/rest/grantcustomerbalance/) or `NiuAdminClient.grantCustomerBalance`. Supply an exact positive nanounit amount, a reason and a UUID idempotency key. Preserve that key when retrying an uncertain result. Identical retries return the original gift; changing its amount, currency or reason conflicts. Customer owner/admin roles cannot issue their own gifts. The administrator dashboard gift form remains pending.
+
+Gift issuance is neither cash collection nor income. Gifts are a separate funding source for subsequent consumption; they do not retrospectively forgive debt or change a request's pinned selling price. The source allocation records the gift and non-gift components, and a customer refund restores those components. Do not use a gift as a verified payment or an external cash refund.
+
+## Revenue and receipts
+
+Read the platform-only [financial summary](/docs/api/rest/getcustomerfinancialsummary/) with `NiuAdminClient.getCustomerFinancialSummary({ currency: 'USD', days: 30 })`. It reports a UTC posting interval, independent of the Supplier comparison's dispatch interval. Choose 7, 30 or 90 days.
+
+The following is the required accounting example, not a claimed completed payment:
+
+| Measure | Amount |
+| --- | ---: |
+| Nominal consumption | 100 |
+| Consumed gift / sales allowance | 5 |
+| Recognized revenue | 95 |
+| Cash received | 95 |
+
+Do not present revenue as 100 and an offsetting expense as 5. Gift issuance alone creates no revenue or promotional expense. A prepaid receipt precedes consumption; credit-backed consumption can precede payment. A later credit repayment does not recognize the same revenue again. Customer refunds reduce the original non-gift revenue and restore the original gift component; refund-period revenue can be negative.
+
+Missing or unknown historical source allocation leaves the full revenue and gift-allowance totals unavailable. The explicitly named known subtotals are partial. They cannot replace complete totals. Verified cash receipts are separate from consumption; overlapping legacy invoice-payment and balance-funding references leave the combined receipt total unavailable pending reconciliation. A recorded funding reversal is not evidence of an external refund transfer.
+
+The summary is an operational reconciliation read. Populated gift-consumption/refund workflows, closed-period accounting and the complete financial dashboard still require acceptance; a saved gift or successful summary read does not establish them.

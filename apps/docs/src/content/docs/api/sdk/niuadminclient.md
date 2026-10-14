@@ -1052,6 +1052,16 @@ getCommercialPosition(query: {
 }, options?: RequestOptions): Promise<CommercialPosition>;
 ```
 
+### getCustomerFinancialSummary
+
+```typescript
+/** Platform-only posting summary. Cash receipts, gift issuance and net consumption revenue are distinct. */
+getCustomerFinancialSummary(query: {
+    currency: string;
+    days?: 7 | 30 | 90;
+}, options?: RequestOptions): Promise<CustomerFinancialSummary>;
+```
+
 ### listPlatformPricingTargets
 
 ```typescript

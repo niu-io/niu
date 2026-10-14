@@ -907,6 +907,25 @@ export type CommercialPosition = {
   data: CommercialPositionRow[];
 };
 
+/** Posting interval; nullable totals are unavailable, and known subtotals are partial. */
+export type CustomerFinancialSummary = {
+  currency: string; days: 7 | 30 | 90; from: string; until: string;
+  nominal_consumption_nanos: string;
+  customer_refunds_nanos: string;
+  known_revenue_subtotal_nanos: string;
+  known_gift_allowance_subtotal_nanos: string;
+  uncovered_entries: string;
+  uncovered_nominal_nanos: string;
+  balance_funding_receipts_nanos: string;
+  external_invoice_receipts_nanos: string;
+  cash_receipt_reference_conflicts: string;
+  recorded_funding_reversals_nanos: string;
+  issued_gifts_nanos: string;
+  recognized_revenue_nanos: string | null;
+  consumed_gift_allowance_nanos: string | null;
+  verified_cash_receipts_nanos: string | null;
+};
+
 export class NiuAdminClient {
   /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
    * Rejects self changes and protected actors. Never issues a replacement token.
@@ -1643,6 +1662,14 @@ export class NiuAdminClient {
     if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
     const parameters = new URLSearchParams({ currency: query.currency, days: String(query.days ?? 30) });
     return this.request(`/commercial-position?${parameters}`, undefined, options);
+  }
+
+  /** Platform-only posting summary. Cash receipts, gift issuance and net consumption revenue are distinct. */
+  getCustomerFinancialSummary(query: { currency: string; days?: 7 | 30 | 90 }, options?: RequestOptions): Promise<CustomerFinancialSummary> {
+    if (!/^[A-Z]{3}$/.test(query.currency)) throw new TypeError('Provide a three-letter uppercase currency');
+    if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
+    const parameters = new URLSearchParams({ currency: query.currency, days: String(query.days ?? 30) });
+    return this.request(`/financial-summary?${parameters}`, undefined, options);
   }
 
   /** Named pricing targets; platform permission does not grant customer data access. */

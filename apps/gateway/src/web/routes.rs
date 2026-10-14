@@ -132,6 +132,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/billing/funding/settled", axum::routing::post(crate::billing::settled_funding))
         .route("/admin/v1/pricing/models", get(crate::billing::platform_pricing::models))
         .route("/admin/v1/commercial-position", get(crate::billing::commercial_position::read))
+        .route("/admin/v1/financial-summary", get(crate::billing::financial_summary::read))
         .route("/admin/v1/pricing/targets", get(crate::billing::platform_pricing::targets))
         .route("/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs", get(crate::billing::platform_pricing::tariffs))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing", get(crate::billing::overview))

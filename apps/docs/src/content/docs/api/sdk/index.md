@@ -70,6 +70,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [CustomerBalanceTransaction](/docs/api/sdk/customerbalancetransaction/)
 - [CustomerBilling](/docs/api/sdk/customerbilling/)
 - [CustomerChargeReconciliation](/docs/api/sdk/customerchargereconciliation/)
+- [CustomerFinancialSummary](/docs/api/sdk/customerfinancialsummary/)
 - [CustomerInvoiceInput](/docs/api/sdk/customerinvoiceinput/)
 - [CustomerInvoiceLine](/docs/api/sdk/customerinvoiceline/)
 - [CustomerInvoicePage](/docs/api/sdk/customerinvoicepage/)

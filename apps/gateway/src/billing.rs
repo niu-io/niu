@@ -2,6 +2,7 @@
 //! Invoice and financial policy writes retain their separate authority.
 pub(crate) mod balance_policy_history;
 pub(crate) mod commercial_position;
+pub(crate) mod financial_summary;
 pub(crate) mod invoice_history;
 pub(crate) mod noncash_grants;
 pub(crate) mod platform_pricing;

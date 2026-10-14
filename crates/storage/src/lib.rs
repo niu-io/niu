@@ -172,6 +172,7 @@ pub use billing::{CustomerCategoryRates, CustomerTariffPublication};
 mod customer_balance_grants;
 pub use customer_balance_grants::CustomerBalanceGrantPublication;
 mod commercial_position;
+mod customer_financial_summary;
 mod customer_invoice_history;
 mod customer_tariff_history;
 mod key_concurrency;

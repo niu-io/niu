@@ -1,0 +1,33 @@
+---
+title: "CustomerFinancialSummary"
+description: "Generated TypeScript declaration for CustomerFinancialSummary"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+[SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+
+```typescript
+/** Posting interval; nullable totals are unavailable, and known subtotals are partial. */
+export type CustomerFinancialSummary = {
+    currency: string;
+    days: 7 | 30 | 90;
+    from: string;
+    until: string;
+    nominal_consumption_nanos: string;
+    customer_refunds_nanos: string;
+    known_revenue_subtotal_nanos: string;
+    known_gift_allowance_subtotal_nanos: string;
+    uncovered_entries: string;
+    uncovered_nominal_nanos: string;
+    balance_funding_receipts_nanos: string;
+    external_invoice_receipts_nanos: string;
+    cash_receipt_reference_conflicts: string;
+    recorded_funding_reversals_nanos: string;
+    issued_gifts_nanos: string;
+    recognized_revenue_nanos: string | null;
+    consumed_gift_allowance_nanos: string | null;
+    verified_cash_receipts_nanos: string | null;
+};
+```
