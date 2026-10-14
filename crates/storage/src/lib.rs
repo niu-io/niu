@@ -173,6 +173,18 @@ mod customer_balance_grants;
 pub use customer_balance_grants::CustomerBalanceGrantPublication;
 mod commercial_position;
 mod customer_financial_summary;
+mod retail_schedule;
+pub use retail_schedule::{
+    MediaRetailSchedule, NormalizedTextRetailRates, RetailSchedule, TextRetailSchedule,
+};
+mod retail_publication;
+mod retail_selection;
+mod retail_text_bindings;
+pub use retail_publication::{
+    RetailPromotionPublication, RetailPromotionRetirement, RetailStandardPublication,
+};
+pub use retail_selection::RetailSelection;
+pub use retail_text_bindings::RetailTextEnrollmentPublication;
 mod customer_invoice_history;
 mod customer_tariff_history;
 mod key_concurrency;

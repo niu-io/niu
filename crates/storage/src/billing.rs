@@ -489,9 +489,48 @@ SELECT jsonb_build_object(
         &self,
         scope: TenantScope,
     ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
-        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias")
-            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&self.pool).await?;
-        Ok(rows.into_iter().collect())
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text,'pricing_source','workspace') FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND NOT EXISTS(SELECT 1 FROM retail_text_enrollments enrollment WHERE enrollment.organization_id=t.organization_id AND enrollment.project_id=t.project_id AND enrollment.model_alias=t.model_alias AND enrollment.price_id IS NOT NULL) ORDER BY t.model_alias")
+            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+        let mut prices: std::collections::BTreeMap<String, Value> = rows.into_iter().collect();
+        let enrollments:Vec<(String,Uuid)>=sqlx::query_as("SELECT model_alias,price_id FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND price_id IS NOT NULL ORDER BY price_id")
+            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+        for (alias, head) in enrollments {
+            let selected =
+                Self::select_retail_price_in_tx(&mut tx, head, scope.organization_id).await?;
+            let crate::RetailSchedule::Text(schedule) = &selected.schedule else {
+                return Err(StoreError::InvalidPrice);
+            };
+            let mut price = serde_json::to_value(schedule).map_err(|_| StoreError::InvalidPrice)?;
+            price["revision"] = json!(
+                selected
+                    .promotion_revision
+                    .unwrap_or(selected.baseline_revision)
+            );
+            price["discount_baseline_revision"] = json!(
+                selected
+                    .promotion_revision
+                    .map(|_| selected.baseline_revision)
+            );
+            price["currency"] = json!(selected.currency);
+            price["unit"] = json!("nanounits_per_million_tokens");
+            price["pricing_source"] = json!("platform");
+            price["price_id"] = json!(selected.price_id);
+            price["standard_revision"] = json!(selected.baseline_revision);
+            price["promotion_revision"] = json!(selected.promotion_revision);
+            price["promotion_scope"] = json!(selected.promotion_scope);
+            price["selected_at"] = json!(selected.selected_at);
+            price["price_version"] = json!(selected.version);
+            prices.insert(alias, price);
+        }
+        tx.commit().await?;
+        Ok(prices)
     }
 
     pub async fn publish_customer_tariff(
@@ -664,10 +703,15 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        let platform_managed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3 AND price_id IS NOT NULL)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(&input.model_alias).fetch_one(&mut *tx).await?;
+        if platform_managed {
+            return Err(StoreError::Conflict);
+        }
         #[derive(sqlx::FromRow)]
         struct CurrentTariff {
             id: Uuid,
-            current_revision: Uuid,
+            current_revision: Option<Uuid>,
             cached_prompt_rate: Option<i64>,
             minimum_charge_nanos: i64,
             request_fee_nanos: i64,
@@ -675,7 +719,7 @@ SELECT jsonb_build_object(
             cache_write_prompt_rate: Option<i64>,
             context_tiers: Value,
         }
-        let existing: Option<CurrentTariff> =sqlx::query_as("SELECT t.id,t.current_revision,r.cached_prompt_rate,r.minimum_charge_nanos,r.request_fee_nanos,r.reasoning_completion_rate,r.cache_write_prompt_rate,r.context_tiers FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND t.model_alias=$3 FOR UPDATE OF t").bind(scope.organization_id).bind(scope.project_id).bind(&input.model_alias).fetch_optional(&mut *tx).await?;
+        let existing: Option<CurrentTariff> =sqlx::query_as("SELECT t.id,t.current_revision,r.cached_prompt_rate,COALESCE(r.minimum_charge_nanos,0) AS minimum_charge_nanos,COALESCE(r.request_fee_nanos,0) AS request_fee_nanos,r.reasoning_completion_rate,r.cache_write_prompt_rate,COALESCE(r.context_tiers,'[]'::jsonb) AS context_tiers FROM customer_tariffs t LEFT JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND t.model_alias=$3 FOR UPDATE OF t").bind(scope.organization_id).bind(scope.project_id).bind(&input.model_alias).fetch_optional(&mut *tx).await?;
         let tariff = match existing {
             Some(CurrentTariff {
                 id,
@@ -693,7 +737,7 @@ SELECT jsonb_build_object(
                     || (prior_cached.is_some() && cached_prompt_rate.is_none())
                     || (prior_minimum != 0 && minimum_charge_nanos.is_none())
                     || (prior_fee != 0 && request_fee_nanos.is_none())
-                    || input.expected_revision != Some(revision)
+                    || input.expected_revision != revision
                 {
                     return Err(StoreError::Conflict);
                 }
@@ -753,13 +797,21 @@ SELECT jsonb_build_object(
         attempt: Uuid,
         alias: &str,
     ) -> Result<(), StoreError> {
+        // Preserve operation -> workspace -> price -> account order for every
+        // caller, including the public storage binding path. The operation's
+        // immutable price must win before any live configuration is consulted.
+        sqlx::query("SELECT o.id FROM operations o JOIN attempts a ON a.operation_id=o.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent' AND o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.model_alias=$4 FOR UPDATE OF o")
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias)
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
             .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        sqlx::query("INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) SELECT a.id,COALESCE(pinned.revision_id,t.current_revision) FROM attempts a JOIN customer_tariffs t ON t.organization_id=a.organization_id AND t.project_id=a.project_id AND t.model_alias=a.resource_id LEFT JOIN customer_operation_tariffs pinned ON pinned.operation_id=a.operation_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent'").bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias).execute(&mut **tx).await?;
+        if !Self::bind_platform_retail_text_in_tx(tx, scope, attempt, alias).await? {
+            sqlx::query("INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) SELECT a.id,COALESCE(pinned.revision_id,t.current_revision) FROM attempts a JOIN customer_tariffs t ON t.organization_id=a.organization_id AND t.project_id=a.project_id AND t.model_alias=a.resource_id LEFT JOIN customer_operation_tariffs pinned ON pinned.operation_id=a.operation_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent' AND COALESCE(pinned.revision_id,t.current_revision) IS NOT NULL").bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias).execute(&mut **tx).await?;
+        }
         sqlx::query("INSERT INTO customer_attempt_balance_accounts(attempt_id,organization_id,project_id,account_id,currency) SELECT a.id,a.organization_id,a.project_id,c.id,c.currency FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id JOIN customer_balance_accounts c ON c.organization_id=a.organization_id AND c.currency=r.currency WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.execution='not_sent' ON CONFLICT(attempt_id) DO NOTHING")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         Ok(())

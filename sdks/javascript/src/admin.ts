@@ -926,6 +926,45 @@ export type CustomerFinancialSummary = {
   verified_cash_receipts_nanos: string | null;
 };
 
+/** Explicit customer selling terms; amounts and quantities remain decimal strings. */
+export type RetailSchedule = {
+  kind: 'text'; prompt_rate: string; completion_rate: string;
+  cached_prompt_rate: string | null; cache_write_prompt_rate: string | null; reasoning_completion_rate: string | null;
+  minimum_charge_nanos: string; request_fee_nanos: string; context_tiers: ContextPriceTier[];
+} | {
+  kind: 'media'; dimensions: MediaBillingDimensions; meter: string; decimal_places: number;
+  amount_units: string; per_quantity: ExactMediaQuantity; minimum_quantity: ExactMediaQuantity; rounding: 'Down' | 'Up' | 'HalfEven';
+};
+export type RetailTextEnrollmentPublication = { model_alias: string; price_id: string | null; expected_version: string; idempotency_key: string; reason: string };
+export type RetailTextEnrollment = { model_alias: string; price_id: string | null; version: string; pricing_source: 'platform' | 'workspace'; effective_price: RetailSelection | null };
+export type RetailPublicationResult = { price_id: string; revision: string; version: string };
+export type RetailStandardPublication = {
+  model_alias: string; currency: string; schedule: RetailSchedule;
+  expected_version: string; idempotency_key: string; reason: string;
+};
+export type RetailPromotionPublication = {
+  baseline_revision: string; customer_organization_id: string | null; schedule: RetailSchedule;
+  effective_from: string; effective_until: string; expected_version: string; idempotency_key: string; reason: string;
+};
+export type RetailPromotionRetirement = { effective_until: string; expected_version: string; idempotency_key: string; reason: string };
+export type RetailPriceRecord = RetailPublicationResult & { model_alias: string; currency: string; schedule: RetailSchedule; published_at: string };
+/** Advice only; request admission must select and pin again under its transaction. */
+export type RetailSelection = {
+  price_id: string; model_alias: string; currency: string; version: string; current_standard_revision: string;
+  baseline_revision: string; promotion_revision: string | null; promotion_scope: 'customer' | 'global' | null;
+  selected_at: string; schedule: RetailSchedule;
+};
+export type RetailPriceHistory = {
+  price_id: string; model_alias: string; currency: string; current_version: string; current_revision: string | null;
+  next_before: string | null;
+  data: Array<{
+    revision: string; version: string; action: 'standard_published' | 'promotion_published' | 'promotion_retired'; reason: string; created_at: string;
+    standard_schedule: RetailSchedule | null;
+    promotion: { baseline_revision: string; scope: 'customer' | 'global'; customer_organization_id: string | null; customer_name: string | null; effective_from: string; effective_until: string; schedule: RetailSchedule } | null;
+    retirement: { promotion_revision: string; effective_until: string } | null;
+  }>;
+};
+
 export class NiuAdminClient {
   /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
    * Rejects self changes and protected actors. Never issues a replacement token.
@@ -1670,6 +1709,52 @@ export class NiuAdminClient {
     if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
     const parameters = new URLSearchParams({ currency: query.currency, days: String(query.days ?? 30) });
     return this.request(`/financial-summary?${parameters}`, undefined, options);
+  }
+
+  /** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */
+  publishRetailStandard(input: RetailStandardPublication, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
+    retailPublication(input); retailSchedule(input.schedule, input.model_alias, input.currency);
+    return this.request('/pricing/standard-prices', input, options, 'POST');
+  }
+  listRetailStandards(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: RetailPriceRecord[]; next_after: string | null }> {
+    const query=new URLSearchParams();
+    if (page.after !== undefined) query.set('after', uuid(page.after));
+    if (page.limit !== undefined) { if (!Number.isInteger(page.limit) || page.limit<1 || page.limit>100) throw new TypeError('Choose a page size from 1 to 100'); query.set('limit',String(page.limit)); }
+    return this.request(`/pricing/standard-prices${query.size?'?'+query:''}`, undefined, options);
+  }
+  /** Finite explicit result; customer-specific rules override global rules without stacking. */
+  publishRetailPromotion(priceId: string, input: RetailPromotionPublication, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
+    retailPublication(input); uuid(input.baseline_revision);
+    if (input.customer_organization_id !== null) uuid(input.customer_organization_id);
+    retailInteger(input.effective_from,253402300799n); retailInteger(input.effective_until,253402300799n);
+    if (BigInt(input.effective_until)<=BigInt(input.effective_from)) throw new TypeError('Promotion end must follow start');
+    return this.request(`/pricing/standard-prices/${uuid(priceId)}/promotions`,input,options,'POST');
+  }
+  retireRetailPromotion(priceId: string, promotionId: string, input: RetailPromotionRetirement, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
+    retailPublication(input); retailInteger(input.effective_until,253402300799n);
+    return this.request(`/pricing/standard-prices/${uuid(priceId)}/promotions/${uuid(promotionId)}/retire`,input,options,'POST');
+  }
+  getRetailPriceHistory(priceId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<RetailPriceHistory> {
+    const query=new URLSearchParams();
+    if (page.before !== undefined) { retailInteger(page.before,9223372036854775807n); if (BigInt(page.before)===0n) throw new TypeError('Use a positive version cursor'); query.set('before',page.before); }
+    if (page.limit !== undefined) { if (!Number.isInteger(page.limit) || page.limit<1 || page.limit>100) throw new TypeError('Choose a page size from 1 to 100'); query.set('limit',String(page.limit)); }
+    return this.request(`/pricing/standard-prices/${uuid(priceId)}/history${query.size?'?'+query:''}`,undefined,options);
+  }
+  /** Platform preview, not enrollment, spending permission or a request price snapshot. */
+  previewRetailPrice(priceId: string, customerOrganizationId: string, options?: RequestOptions): Promise<RetailSelection> {
+    const query=new URLSearchParams({customer_organization_id:uuid(customerOrganizationId)});
+    return this.request(`/pricing/standard-prices/${uuid(priceId)}/preview?${query}`,undefined,options);
+  }
+
+  setRetailTextEnrollment(scope: TenantScope, input: RetailTextEnrollmentPublication, options?: RequestOptions): Promise<{ data: Omit<RetailTextEnrollment,'pricing_source' | 'effective_price'> & { revision: string } }> {
+    retailPublication(input); if (input.price_id !== null) uuid(input.price_id);
+    if (!input.model_alias || input.model_alias !== input.model_alias.trim() || input.model_alias.length>200) throw new TypeError('Use a model alias');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/retail-price-enrollment`,input,options,'POST');
+  }
+  getRetailTextEnrollment(scope: TenantScope, modelAlias: string, options?: RequestOptions): Promise<{ data: RetailTextEnrollment }> {
+    if (!modelAlias || modelAlias!==modelAlias.trim() || modelAlias.length>200) throw new TypeError('Use a model alias');
+    const query=new URLSearchParams({model_alias:modelAlias});
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/retail-price-enrollment?${query}`,undefined,options);
   }
 
   /** Named pricing targets; platform permission does not grant customer data access. */
@@ -2855,6 +2940,29 @@ function validateRates(rates: SupplierRateInput | CustomerTariffInput): void {
     }
   }
   if (rates.expected_revision !== null) uuid(rates.expected_revision);
+}
+
+function retailInteger(value: unknown, maximum: bigint): void {
+  if (typeof value !== 'string' || !/^\d{1,20}$/.test(value) || BigInt(value)>maximum) throw new TypeError('Use a supported exact nonnegative integer string');
+}
+function retailPublication(input: { expected_version: string; idempotency_key: string; reason: string }): void {
+  retailInteger(input.expected_version,9223372036854775806n); uuid(input.idempotency_key);
+  if (typeof input.reason !== 'string' || input.reason!==input.reason.trim() || [...input.reason].length<1 || [...input.reason].length>500 || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Use a trimmed justification without control characters');
+}
+function retailSchedule(schedule: RetailSchedule, model: string, currency: string): void {
+  if (typeof model!=='string' || !model.length || model!==model.trim() || model.length>200 || /[\u0000-\u001f\u007f-\u009f]/.test(model) || !/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use a model alias and uppercase currency');
+  if (schedule.kind==='text') {
+    validateRates({ ...schedule, model_alias:model, currency, expected_revision:null });
+    retailInteger(schedule.minimum_charge_nanos,9223372036854775807n); retailInteger(schedule.request_fee_nanos,9223372036854775807n);
+  } else if (schedule.kind==='media') {
+    if (schedule.dimensions.model!==model || !Number.isInteger(schedule.decimal_places) || schedule.decimal_places<0 || schedule.decimal_places>9 || !['Down','Up','HalfEven'].includes(schedule.rounding)) throw new TypeError('Use compatible media dimensions and units');
+    retailInteger(schedule.amount_units,18446744073709551615n);
+    for (const quantity of [schedule.per_quantity,schedule.minimum_quantity]) {
+      retailInteger(quantity.numerator,18446744073709551615n); retailInteger(quantity.denominator,18446744073709551615n);
+      if (BigInt(quantity.denominator)===0n) throw new TypeError('Quantity denominator must be positive');
+    }
+    if (BigInt(schedule.per_quantity.numerator)===0n) throw new TypeError('Price unit quantity must be positive');
+  } else { throw new TypeError('Use a text or media schedule'); }
 }
 
 function uuid(value: string): string {

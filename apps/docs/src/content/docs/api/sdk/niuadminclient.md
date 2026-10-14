@@ -1062,6 +1062,78 @@ getCustomerFinancialSummary(query: {
 }, options?: RequestOptions): Promise<CustomerFinancialSummary>;
 ```
 
+### publishRetailStandard
+
+```typescript
+/** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */
+publishRetailStandard(input: RetailStandardPublication, options?: RequestOptions): Promise<{
+    data: RetailPublicationResult;
+}>;
+```
+
+### listRetailStandards
+
+```typescript
+listRetailStandards(page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: RetailPriceRecord[];
+    next_after: string | null;
+}>;
+```
+
+### publishRetailPromotion
+
+```typescript
+/** Finite explicit result; customer-specific rules override global rules without stacking. */
+publishRetailPromotion(priceId: string, input: RetailPromotionPublication, options?: RequestOptions): Promise<{
+    data: RetailPublicationResult;
+}>;
+```
+
+### retireRetailPromotion
+
+```typescript
+retireRetailPromotion(priceId: string, promotionId: string, input: RetailPromotionRetirement, options?: RequestOptions): Promise<{
+    data: RetailPublicationResult;
+}>;
+```
+
+### getRetailPriceHistory
+
+```typescript
+getRetailPriceHistory(priceId: string, page?: {
+    before?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<RetailPriceHistory>;
+```
+
+### previewRetailPrice
+
+```typescript
+/** Platform preview, not enrollment, spending permission or a request price snapshot. */
+previewRetailPrice(priceId: string, customerOrganizationId: string, options?: RequestOptions): Promise<RetailSelection>;
+```
+
+### setRetailTextEnrollment
+
+```typescript
+setRetailTextEnrollment(scope: TenantScope, input: RetailTextEnrollmentPublication, options?: RequestOptions): Promise<{
+    data: Omit<RetailTextEnrollment, 'pricing_source' | 'effective_price'> & {
+        revision: string;
+    };
+}>;
+```
+
+### getRetailTextEnrollment
+
+```typescript
+getRetailTextEnrollment(scope: TenantScope, modelAlias: string, options?: RequestOptions): Promise<{
+    data: RetailTextEnrollment;
+}>;
+```
+
 ### listPlatformPricingTargets
 
 ```typescript

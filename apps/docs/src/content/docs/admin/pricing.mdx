@@ -22,3 +22,21 @@ Company funds or approved credit, workspace spending caps and API-key caps are s
 Missing usage or unresolved customer pricing must stay explicit. Do not label an unknown charge as free or replace it with an upstream expense. Read [usage and billing](/docs/concepts/performance-and-cost/) and the generated [customer tariff operations](/docs/api/rest/listplatformcustomertariffs/) for the contract.
 
 Video/media rate schedules are separate from text token tariffs. Qualify the concrete model and meter before promising a video price or settled charge.
+
+## Platform standard prices and finite promotions
+
+Use the [standard publication API](/docs/api/rest/publishretailstandard/) or `NiuAdminClient.publishRetailStandard` to publish selling terms by model alias, currency and text/media identity. These are customer prices; they contain no Supplier purchase quote or route credential. Exact monetary values are decimal strings. Text schedules include every category, context tier, minimum and request fee. Media schedules use a declared meter, dimensions, units and rounding; route and liability qualification remain separate.
+
+A new identity uses `expected_version: '0'`. Subsequent changes use the latest management version. Keep the UUID idempotency key for an exact retry after an uncertain result. The returned version is the original publication's version, so refresh current configuration before the next edit. [List standard prices](/docs/api/rest/listretailstandards/) and inspect [immutable history](/docs/api/rest/getretailpricehistory/) rather than overwriting a stale version.
+
+Publish a [finite promotion](/docs/api/rest/publishretailpromotion/) as an explicit resulting schedule referencing the exact original standard revision. Explicit `customer_organization_id: null` means global; a company reference means customer-specific. Start is inclusive, end is exclusive, and both are exact UTC epoch-second strings. Customer rules override global rules without stacking. Same-scope overlapping periods conflict. Discounts preserve token categories/context thresholds or media dimensions/meter/units and cannot increase the supported rates. A later standard revision does not silently cancel already published promotion terms.
+
+[Retirement](/docs/api/rest/retireretailpromotion/) appends an explicit eligibility cutoff and retains the original rule. Expiry or retirement changes future selection; it must not reprice an existing operation or asynchronous job. The [platform preview](/docs/api/rest/previewretailprice/) is advice only, not a spending authorization or settlement snapshot.
+
+## Enroll a text workspace
+
+Use [workspace enrollment](/docs/api/rest/setretailtextenrollment/) to select the model's text price identity and currency. The company must already have a billing account in that currency; enrollment creates neither funds nor credit. This write requires platform administration. An explicit null price identity restores workspace-specific pricing for future operations. Existing legacy tariffs and already pinned prices remain intact.
+
+Customers can [read their own pricing mode and applicable selection](/docs/api/rest/getretailtextenrollment/) without seeing other customers' rules. Model discovery reports the customer's applicable selling price with its source; discovery remains advisory until admission binds a concrete immutable revision. Publication, enrollment and a visible price do not establish qualified supply, successful generation or complete billing.
+
+The registry/API/SDK configuration workflow is implemented. The standard-price dashboard forms, current-input text materialization/settlement acceptance and atomic video integration remain pending; continue to treat media qualification and actual job billing as separate acceptance work.

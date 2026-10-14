@@ -9218,6 +9218,754 @@ HTTP 404: Company balance permission required.
 
 HTTP 409: Cursor is unknown or does not match the company/currency.
 
+## Publish a platform standard selling-price revision
+
+`POST /admin/v1/pricing/standard-prices`
+
+Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Independent model/currency/text-or-media identity; standard prices are independent of Supplier purchase offers. expected_version is zero for a new identity and the last management version for replacement. All changes are versioned and attributed. Global UUID idempotency keys preserve canonical intent; exact retries return the original publication version, which may be older than current configuration. New standards take effect at commit and do not revoke still-eligible finite promotions. No request price, balance, supply qualification or route is changed. Rates are decimal integer strings; token rates are nanounits per million tokens, fixed charges are nanounits, media quantities are exact rationals. Publication alone is not customer enrollment or dispatch qualification.
+
+Implementation: `implemented`. Operation: `publishRetailStandard`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/RetailStandardPublication"
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact prior committed publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RetailPublicationResult"
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid exact amount, schedule, period or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Stale version, conflicting key/period, unknown identity/customer or unsupported publication
+
+HTTP 422: Malformed JSON or unsupported schedule shape
+
+## List current platform standard prices
+
+`GET /admin/v1/pricing/standard-prices`
+
+Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Supplier costs. Internal references are API identifiers, never display names. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `listRetailStandards`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact prior committed publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/RetailPriceRecord"
+      }
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "data",
+    "next_after"
+  ]
+}
+```
+
+HTTP 400: Invalid exact amount, schedule, period or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Stale version, conflicting key/period, unknown identity/customer or unsupported publication
+
+## Publish one finite global or customer price
+
+`POST /admin/v1/pricing/standard-prices/{price}/promotions`
+
+Explicit platform administration required; ordinary customer/Supplier membership does not grant access. The explicit result references an exact immutable undiscounted standard revision of this price identity. Null customer_organization_id means global; a company reference means customer-specific. Inclusive start/exclusive end are exact UTC epoch-second strings, with finite end greater than start. Same-scope overlap is rejected; at selection an eligible customer rule overrides the global rule, never stacks. Every text category/fixed charge/context tier must preserve meaning and not increase; media retains dimensions, meter, unit, decimal scale, rounding and minimum and only discounts amount_units. Retained original baselines survive later standard updates. No existing request or job is repriced.
+
+Implementation: `implemented`. Operation: `publishRetailPromotion`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`price` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/RetailPromotionPublication"
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact prior committed publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RetailPublicationResult"
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid exact amount, schedule, period or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Stale version, conflicting key/period, unknown identity/customer or unsupported publication
+
+HTTP 422: Malformed JSON or unsupported schedule shape
+
+## Append a promotion eligibility cutoff
+
+`POST /admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire`
+
+Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Append-only explicit retirement, at most one cutoff for this promotion. Cutoff cannot extend its published end; a cutoff before its start cancels a future rule. Exact epoch-second strings and configuration version are required. Published schedules and already pinned operations/jobs stay immutable. This does not trigger a customer refund or change routing.
+
+Implementation: `implemented`. Operation: `retireRetailPromotion`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`price` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`promotion` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/RetailPromotionRetirement"
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact prior committed publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/RetailPublicationResult"
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid exact amount, schedule, period or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Stale version, conflicting key/period, unknown identity/customer or unsupported publication
+
+HTTP 422: Malformed JSON or unsupported schedule shape
+
+## Read immutable standard and promotion history
+
+`GET /admin/v1/pricing/standard-prices/{price}/history`
+
+Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `getRetailPriceHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`price` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[0-9]+$"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact prior committed publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "price_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "model_alias": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "current_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "current_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/RetailHistoryEntry"
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]*$"
+    }
+  },
+  "required": [
+    "price_id",
+    "model_alias",
+    "currency",
+    "current_version",
+    "current_revision",
+    "data",
+    "next_before"
+  ]
+}
+```
+
+HTTP 400: Invalid exact amount, schedule, period or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Stale version, conflicting key/period, unknown identity/customer or unsupported publication
+
+## Preview a customer applicable price
+
+`GET /admin/v1/pricing/standard-prices/{price}/preview`
+
+Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Advice only: does not enroll a workspace, reserve, dispatch or bind a request. Resolve at server time after the price identity lock, customer promotion then global then current standard. Exposes only this customer selection, not other customer rules. current_standard_revision may differ from the retained promotion baseline. Actual admission must select and pin in its transaction; never use preview as settlement evidence. Exact selected_at is UTC epoch seconds. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `previewRetailPrice`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`price` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`customer_organization_id` (query, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact prior committed publication
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/RetailSelection"
+}
+```
+
+HTTP 400: Invalid exact amount, schedule, period or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Stale version, conflicting key/period, unknown identity/customer or unsupported publication
+
+## Enroll a workspace model in a platform selling price
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
+
+Explicit platform administration required. price_id chooses a published text identity with the same model and an existing company/currency balance account; no account, credit, funds, Supplier qualification or selling permission is created. Explicit null restores legacy workspace tariff selection for future operations. expected_version zero creates the configuration; updates use immutable version history and an exact company/workspace-scoped idempotency key. Existing operation prices, charges and legacy current tariff pointers are unchanged. Missing price_id is rejected rather than silently disabling enrollment. No automatic retry.
+
+Implementation: `implemented`. Operation: `setRetailTextEnrollment`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "model_alias",
+    "price_id",
+    "expected_version",
+    "idempotency_key",
+    "reason"
+  ],
+  "properties": {
+    "model_alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "price_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "expected_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact committed outcome
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision",
+        "version",
+        "model_alias",
+        "price_id"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "model_alias": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "price_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+HTTP 400: Invalid model, reason or exact version
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Stale version, conflicting key, unknown workspace, missing balance account or incompatible price identity
+
+HTTP 422: Malformed body or missing explicit price_id
+
+## Read own workspace retail pricing mode
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
+
+Requires workspace read authority or platform administration. Current configuration only, no other-customer rules, procurement or usage. Absent saved enrollment means workspace pricing, version zero and null price_id. This does not establish an available route or spending permission. Internal references are API values, never display names. Cache-Control: no-store. Effective price is an advisory own-customer selection at server time under the workspace and price locks; null in workspace pricing mode. No other-customer rules are returned.
+
+Implementation: `implemented`. Operation: `getRetailTextEnrollment`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model_alias` (query, required)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+### Responses
+
+HTTP 200: Current configuration or exact committed outcome
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "model_alias",
+        "price_id",
+        "version",
+        "pricing_source",
+        "effective_price"
+      ],
+      "properties": {
+        "model_alias": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "price_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "pricing_source": {
+          "type": "string",
+          "enum": [
+            "platform",
+            "workspace"
+          ]
+        },
+        "effective_price": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/RetailSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+HTTP 400: Invalid model alias
+
+HTTP 401: Authentication required
+
+HTTP 404: Workspace outside authority
+
+HTTP 409: Unknown authorized workspace
+
 ## Supplement missing native request usage from captured OpenRouter evidence
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
@@ -29646,7 +30394,7 @@ HTTP 503: Credential, encrypted content or bounded storage unavailable
 
 `GET /v1/models`
 
-Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed.
+Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
 
 Implementation: `implemented`. Operation: `listModels`.
 
@@ -35194,6 +35942,689 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### RetailContextTier
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "minimum_input_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "prompt_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "cache_write_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "reasoning_completion_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    }
+  },
+  "required": [
+    "minimum_input_tokens",
+    "prompt_rate",
+    "completion_rate",
+    "cached_prompt_rate",
+    "cache_write_prompt_rate",
+    "reasoning_completion_rate"
+  ]
+}
+```
+
+### RetailDimensions
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "resolution": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "reference_video": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "model",
+    "channel",
+    "resolution",
+    "reference_video"
+  ]
+}
+```
+
+### RetailHistoryEntry
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "standard_published",
+        "promotion_published",
+        "promotion_retired"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "standard_schedule": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/RetailSchedule"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "promotion": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/RetailHistoryPromotion"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "retirement": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/RetailHistoryRetirement"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "revision",
+    "version",
+    "action",
+    "reason",
+    "created_at",
+    "standard_schedule",
+    "promotion",
+    "retirement"
+  ]
+}
+```
+
+### RetailHistoryPromotion
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "baseline_revision",
+    "scope",
+    "customer_organization_id",
+    "customer_name",
+    "effective_from",
+    "effective_until",
+    "schedule"
+  ],
+  "properties": {
+    "baseline_revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "global",
+        "customer"
+      ]
+    },
+    "customer_organization_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "customer_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "effective_from": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "effective_until": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "schedule": {
+      "$ref": "#/components/schemas/RetailSchedule"
+    }
+  }
+}
+```
+
+### RetailHistoryRetirement
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "promotion_revision",
+    "effective_until"
+  ],
+  "properties": {
+    "promotion_revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "effective_until": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    }
+  }
+}
+```
+
+### RetailMediaSchedule
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "media"
+    },
+    "dimensions": {
+      "$ref": "#/components/schemas/RetailDimensions"
+    },
+    "meter": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "decimal_places": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9
+    },
+    "amount_units": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "per_quantity": {
+      "$ref": "#/components/schemas/RetailQuantity"
+    },
+    "minimum_quantity": {
+      "$ref": "#/components/schemas/RetailQuantity"
+    },
+    "rounding": {
+      "type": "string",
+      "enum": [
+        "Down",
+        "Up",
+        "HalfEven"
+      ]
+    }
+  },
+  "required": [
+    "kind",
+    "dimensions",
+    "meter",
+    "decimal_places",
+    "amount_units",
+    "per_quantity",
+    "minimum_quantity",
+    "rounding"
+  ]
+}
+```
+
+### RetailPriceRecord
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "price_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "model_alias": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "schedule": {
+      "$ref": "#/components/schemas/RetailSchedule"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "price_id",
+    "model_alias",
+    "currency",
+    "version",
+    "revision",
+    "schedule",
+    "published_at"
+  ]
+}
+```
+
+### RetailPromotionPublication
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "baseline_revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "customer_organization_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "schedule": {
+      "$ref": "#/components/schemas/RetailSchedule"
+    },
+    "effective_from": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "effective_until": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "expected_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "baseline_revision",
+    "customer_organization_id",
+    "schedule",
+    "effective_from",
+    "effective_until",
+    "expected_version",
+    "idempotency_key",
+    "reason"
+  ]
+}
+```
+
+### RetailPromotionRetirement
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "effective_until": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "expected_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "effective_until",
+    "expected_version",
+    "idempotency_key",
+    "reason"
+  ]
+}
+```
+
+### RetailPublicationResult
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "price_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    }
+  },
+  "required": [
+    "price_id",
+    "revision",
+    "version"
+  ]
+}
+```
+
+### RetailQuantity
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "numerator": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "denominator": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    }
+  },
+  "required": [
+    "numerator",
+    "denominator"
+  ]
+}
+```
+
+### RetailSchedule
+
+```json
+{
+  "oneOf": [
+    {
+      "$ref": "#/components/schemas/RetailTextSchedule"
+    },
+    {
+      "$ref": "#/components/schemas/RetailMediaSchedule"
+    }
+  ],
+  "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+}
+```
+
+### RetailSelection
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "price_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "model_alias": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "current_standard_revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "baseline_revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "promotion_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "promotion_scope": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "global",
+        "customer",
+        null
+      ]
+    },
+    "selected_at": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "schedule": {
+      "$ref": "#/components/schemas/RetailSchedule"
+    }
+  },
+  "required": [
+    "price_id",
+    "model_alias",
+    "currency",
+    "version",
+    "current_standard_revision",
+    "baseline_revision",
+    "promotion_revision",
+    "promotion_scope",
+    "selected_at",
+    "schedule"
+  ]
+}
+```
+
+### RetailStandardPublication
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model_alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "schedule": {
+      "$ref": "#/components/schemas/RetailSchedule"
+    },
+    "expected_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "model_alias",
+    "currency",
+    "schedule",
+    "expected_version",
+    "idempotency_key",
+    "reason"
+  ]
+}
+```
+
+### RetailTextSchedule
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "text"
+    },
+    "prompt_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "cache_write_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "reasoning_completion_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "minimum_charge_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "request_fee_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "context_tiers": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/components/schemas/RetailContextTier"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "prompt_rate",
+    "completion_rate",
+    "cached_prompt_rate",
+    "cache_write_prompt_rate",
+    "reasoning_completion_rate",
+    "minimum_charge_nanos",
+    "request_fee_nanos",
+    "context_tiers"
+  ]
+}
+```
+
 ### SupplierOfferHistoryEntry
 
 ```json
@@ -37730,7 +39161,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "properties": {
     "revision": {
       "type": "string",
-      "format": "uuid"
+      "format": "uuid",
+      "description": "Applicable publication reference: scoped tariff revision in workspace mode, standard or promotion revision in platform mode. Not a display label."
     },
     "currency": {
       "type": "string",
@@ -37834,6 +39266,47 @@ Local `#/components/schemas/…` references resolve to these definitions.
         }
       },
       "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+    },
+    "pricing_source": {
+      "type": "string",
+      "enum": [
+        "workspace",
+        "platform"
+      ]
+    },
+    "price_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "standard_revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "promotion_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "promotion_scope": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "global",
+        "customer",
+        null
+      ]
+    },
+    "selected_at": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "price_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
     }
   }
 }

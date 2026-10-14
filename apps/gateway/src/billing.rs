@@ -7,6 +7,7 @@ pub(crate) mod invoice_history;
 pub(crate) mod noncash_grants;
 pub(crate) mod platform_pricing;
 pub(crate) mod reservations;
+pub(crate) mod retail_pricing;
 pub(crate) mod usage_reconciliation;
 use crate::{error::ApiError, state::AppState};
 use axum::{

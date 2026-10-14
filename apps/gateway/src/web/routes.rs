@@ -133,6 +133,12 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/pricing/models", get(crate::billing::platform_pricing::models))
         .route("/admin/v1/commercial-position", get(crate::billing::commercial_position::read))
         .route("/admin/v1/financial-summary", get(crate::billing::financial_summary::read))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment", get(crate::billing::retail_pricing::enrollment).post(crate::billing::retail_pricing::enroll_text).layer(axum::extract::DefaultBodyLimit::max(4096)))
+        .route("/admin/v1/pricing/standard-prices", get(crate::billing::retail_pricing::list).post(crate::billing::retail_pricing::publish_standard).layer(axum::extract::DefaultBodyLimit::max(65536)))
+        .route("/admin/v1/pricing/standard-prices/{price}/promotions", axum::routing::post(crate::billing::retail_pricing::publish_promotion).layer(axum::extract::DefaultBodyLimit::max(65536)))
+        .route("/admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire", axum::routing::post(crate::billing::retail_pricing::retire_promotion).layer(axum::extract::DefaultBodyLimit::max(4096)))
+        .route("/admin/v1/pricing/standard-prices/{price}/history", get(crate::billing::retail_pricing::history))
+        .route("/admin/v1/pricing/standard-prices/{price}/preview", get(crate::billing::retail_pricing::preview))
         .route("/admin/v1/pricing/targets", get(crate::billing::platform_pricing::targets))
         .route("/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs", get(crate::billing::platform_pricing::tariffs))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing", get(crate::billing::overview))
@@ -516,7 +522,7 @@ async fn enterprise_ready(
 ///   "operation": {
 ///     "operationId": "listModels",
 ///     "summary": "List key-accessible model aliases and workspace customer prices",
-///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed.",
+///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -615,7 +621,8 @@ async fn enterprise_ready(
 ///       "properties": {
 ///         "revision": {
 ///           "type": "string",
-///           "format": "uuid"
+///           "format": "uuid",
+///           "description": "Applicable publication reference: scoped tariff revision in workspace mode, standard or promotion revision in platform mode. Not a display label."
 ///         },
 ///         "currency": {
 ///           "type": "string",
@@ -719,6 +726,47 @@ async fn enterprise_ready(
 ///             }
 ///           },
 ///           "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+///         },
+///         "pricing_source": {
+///           "type": "string",
+///           "enum": [
+///             "workspace",
+///             "platform"
+///           ]
+///         },
+///         "price_id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "standard_revision": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "promotion_revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "format": "uuid"
+///         },
+///         "promotion_scope": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "enum": [
+///             "global",
+///             "customer",
+///             null
+///           ]
+///         },
+///         "selected_at": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "price_version": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
 ///         }
 ///       }
 ///     }
