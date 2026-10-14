@@ -256,6 +256,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [RetailMediaEnrollmentResult](/docs/api/sdk/retailmediaenrollmentresult/)
 - [RetailPriceHistory](/docs/api/sdk/retailpricehistory/)
 - [RetailPriceRecord](/docs/api/sdk/retailpricerecord/)
+- [RetailPromotionPage](/docs/api/sdk/retailpromotionpage/)
 - [RetailPromotionPublication](/docs/api/sdk/retailpromotionpublication/)
 - [RetailPromotionRetirement](/docs/api/sdk/retailpromotionretirement/)
 - [RetailPublicationResult](/docs/api/sdk/retailpublicationresult/)

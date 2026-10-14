@@ -1221,6 +1221,16 @@ publishRetailPromotion(priceId: string, input: RetailPromotionPublication, optio
 }>;
 ```
 
+### listRetailPromotions
+
+```typescript
+/** Complete cutoff coverage per page; temporal state is not customer selection or admission. */
+listRetailPromotions(priceId: string, page?: {
+    before?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<RetailPromotionPage>;
+```
+
 ### retireRetailPromotion
 
 ```typescript

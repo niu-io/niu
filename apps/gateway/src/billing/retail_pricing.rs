@@ -1789,3 +1789,245 @@ pub async fn customers(
         .map_err(ApiError::from_store)?;
     Ok(([("cache-control", "no-store")], Json(result)))
 }
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/pricing/standard-prices/{price}/promotions",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listRetailPromotions",
+///     "summary": "Read promotion periods with complete retirement coverage",
+///     "description": "Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "price",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "before",
+///         "in": "query",
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Promotion state at the returned observation time",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "price_id",
+///                 "model_alias",
+///                 "currency",
+///                 "current_version",
+///                 "as_of",
+///                 "next_before",
+///                 "data"
+///               ],
+///               "properties": {
+///                 "price_id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "model_alias": {
+///                   "type": "string"
+///                 },
+///                 "currency": {
+///                   "type": "string"
+///                 },
+///                 "current_version": {
+///                   "type": "string"
+///                 },
+///                 "as_of": {
+///                   "type": "string"
+///                 },
+///                 "next_before": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ]
+///                 },
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "version",
+///                       "baseline_version",
+///                       "reason",
+///                       "effective_from",
+///                       "effective_until",
+///                       "eligibility_until",
+///                       "revision",
+///                       "baseline_revision",
+///                       "created_at",
+///                       "baseline_published_at",
+///                       "original_schedule",
+///                       "schedule",
+///                       "scope",
+///                       "customer_organization_id",
+///                       "customer_name",
+///                       "customer_created_at",
+///                       "retirement_effective_until",
+///                       "state"
+///                     ],
+///                     "properties": {
+///                       "version": {
+///                         "type": "string"
+///                       },
+///                       "baseline_version": {
+///                         "type": "string"
+///                       },
+///                       "reason": {
+///                         "type": "string"
+///                       },
+///                       "effective_from": {
+///                         "type": "string"
+///                       },
+///                       "effective_until": {
+///                         "type": "string"
+///                       },
+///                       "eligibility_until": {
+///                         "type": "string"
+///                       },
+///                       "revision": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "baseline_revision": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "created_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "baseline_published_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "original_schedule": {
+///                         "$ref": "#/components/schemas/RetailSchedule"
+///                       },
+///                       "schedule": {
+///                         "$ref": "#/components/schemas/RetailSchedule"
+///                       },
+///                       "scope": {
+///                         "type": "string",
+///                         "enum": [
+///                           "global",
+///                           "customer"
+///                         ]
+///                       },
+///                       "customer_organization_id": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "format": "uuid"
+///                       },
+///                       "customer_name": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "customer_created_at": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "format": "date-time"
+///                       },
+///                       "retirement_effective_until": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "state": {
+///                         "type": "string",
+///                         "enum": [
+///                           "scheduled",
+///                           "within_period",
+///                           "ended"
+///                         ]
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid limit or positive version cursor"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Price or promotion cursor unavailable; restart pagination"
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn promotions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(price): Path<Uuid>,
+    Query(query): Query<HistoryPage>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    actor(&state, &headers).await?;
+    let before = query
+        .before
+        .as_deref()
+        .map(|value| {
+            value
+                .parse::<i64>()
+                .map_err(|_| ApiError::invalid_request("Use a positive promotion version cursor"))
+        })
+        .transpose()?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) || before.is_some_and(|v| v <= 0) {
+        return Err(ApiError::invalid_request(
+            "Choose a positive cursor and a page size from 1 to 100",
+        ));
+    }
+    let result = state
+        .store
+        .platform_retail_promotions(price, before, limit)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(([("cache-control", "no-store")], Json(result)))
+}

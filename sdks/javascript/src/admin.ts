@@ -1038,6 +1038,19 @@ export type RetailPriceHistory = {
   }>;
 };
 
+/** Temporal eligibility only; global rules can be overridden for a customer. */
+export type RetailPromotionPage = {
+  price_id: string; model_alias: string; currency: string; current_version: string; as_of: string; next_before: string | null;
+  data: Array<{
+    revision: string; version: string; created_at: string; reason: string;
+    baseline_revision: string; baseline_version: string; baseline_published_at: string;
+    original_schedule: RetailSchedule; schedule: RetailSchedule; scope: 'global' | 'customer';
+    customer_organization_id: string | null; customer_name: string | null; customer_created_at: string | null;
+    effective_from: string; effective_until: string; retirement_effective_until: string | null; eligibility_until: string;
+    state: 'scheduled' | 'within_period' | 'ended';
+  }>;
+};
+
 export class NiuAdminClient {
   /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
    * Rejects self changes and protected actors. Never issues a replacement token.
@@ -1886,6 +1899,13 @@ export class NiuAdminClient {
     retailInteger(input.effective_from,253402300799n); retailInteger(input.effective_until,253402300799n);
     if (BigInt(input.effective_until)<=BigInt(input.effective_from)) throw new TypeError('Promotion end must follow start');
     return this.request(`/pricing/standard-prices/${uuid(priceId)}/promotions`,input,options,'POST');
+  }
+  /** Complete cutoff coverage per page; temporal state is not customer selection or admission. */
+  listRetailPromotions(priceId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<RetailPromotionPage> {
+    const query = new URLSearchParams();
+    if (page.before !== undefined) { retailInteger(page.before, 9223372036854775807n); if (BigInt(page.before) === 0n) throw new TypeError('Use a positive promotion version cursor'); query.set('before', page.before); }
+    if (page.limit !== undefined) { if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100'); query.set('limit', String(page.limit)); }
+    return this.request(`/pricing/standard-prices/${uuid(priceId)}/promotions${query.size ? '?' + query : ''}`, undefined, options);
   }
   retireRetailPromotion(priceId: string, promotionId: string, input: RetailPromotionRetirement, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
     retailPublication(input); retailInteger(input.effective_until,253402300799n);

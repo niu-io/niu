@@ -151,6 +151,38 @@ impl Store {
         };
         Ok(json!({"data":rows,"next_after":next}))
     }
+    /// Platform-only temporal promotion state, including all committed cutoffs.
+    /// Within-period status is not customer selection, supply or spending authorization.
+    pub async fn platform_retail_promotions(
+        &self,
+        head: Uuid,
+        before: Option<i64>,
+        limit: i64,
+    ) -> Result<Value, StoreError> {
+        if !(1..=100).contains(&limit) || before.is_some_and(|v| v <= 0) {
+            return Err(StoreError::InvalidPrice);
+        }
+        let result: Option<(bool, Value)> = sqlx::query_as(include_str!("retail_promotions.sql"))
+            .bind(head)
+            .bind(before)
+            .bind(limit)
+            .fetch_optional(&self.pool)
+            .await?;
+        let (valid, mut result) = result.ok_or(StoreError::Conflict)?;
+        if !valid {
+            return Err(StoreError::Conflict);
+        }
+        let rows = result["data"].as_array_mut().ok_or(StoreError::Conflict)?;
+        let more = rows.len() > limit as usize;
+        rows.truncate(limit as usize);
+        let next = if more {
+            rows.last().and_then(|r| r.get("version")).cloned()
+        } else {
+            None
+        };
+        result["next_before"] = json!(next);
+        Ok(result)
+    }
     /// Immutable configuration history. Other customers' rules are returned only
     /// to independently authenticated platform administrators.
     pub async fn platform_retail_price_history(

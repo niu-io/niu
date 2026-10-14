@@ -317,6 +317,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`POST /admin/v1/pricing/standard-prices` — Publish a platform standard selling-price revision](/docs/api/rest/publishretailstandard/)
 - [`GET /admin/v1/pricing/standard-prices/{price}/history` — Read immutable standard and promotion history](/docs/api/rest/getretailpricehistory/)
 - [`GET /admin/v1/pricing/standard-prices/{price}/preview` — Preview a customer applicable price](/docs/api/rest/previewretailprice/)
+- [`GET /admin/v1/pricing/standard-prices/{price}/promotions` — Read promotion periods with complete retirement coverage](/docs/api/rest/listretailpromotions/)
 - [`POST /admin/v1/pricing/standard-prices/{price}/promotions` — Publish one finite global or customer price](/docs/api/rest/publishretailpromotion/)
 - [`POST /admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire` — Append a promotion eligibility cutoff](/docs/api/rest/retireretailpromotion/)
 - [`GET /admin/v1/pricing/standard-prices/models` — List registered shared models for standard-price preparation](/docs/api/rest/listregisteredretailmodels/)

@@ -12030,6 +12030,219 @@ HTTP 403: Platform administration required
 
 HTTP 409: Missing company cursor
 
+## Read promotion periods with complete retirement coverage
+
+`GET /admin/v1/pricing/standard-prices/{price}/promotions`
+
+Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `listRetailPromotions`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`price` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Promotion state at the returned observation time
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "price_id",
+    "model_alias",
+    "currency",
+    "current_version",
+    "as_of",
+    "next_before",
+    "data"
+  ],
+  "properties": {
+    "price_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "model_alias": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "current_version": {
+      "type": "string"
+    },
+    "as_of": {
+      "type": "string"
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "version",
+          "baseline_version",
+          "reason",
+          "effective_from",
+          "effective_until",
+          "eligibility_until",
+          "revision",
+          "baseline_revision",
+          "created_at",
+          "baseline_published_at",
+          "original_schedule",
+          "schedule",
+          "scope",
+          "customer_organization_id",
+          "customer_name",
+          "customer_created_at",
+          "retirement_effective_until",
+          "state"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "baseline_version": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "effective_from": {
+            "type": "string"
+          },
+          "effective_until": {
+            "type": "string"
+          },
+          "eligibility_until": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseline_revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "baseline_published_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "original_schedule": {
+            "$ref": "#/components/schemas/RetailSchedule"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/RetailSchedule"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "customer"
+            ]
+          },
+          "customer_organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "customer_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customer_created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "retirement_effective_until": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "within_period",
+              "ended"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit or positive version cursor
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Price or promotion cursor unavailable; restart pagination
+
 ## Supplement missing native request usage from captured OpenRouter evidence
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
