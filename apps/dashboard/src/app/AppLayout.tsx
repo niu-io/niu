@@ -129,6 +129,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     { to: `/suppliers/${supplier}/settlements`, label: 'Settlements', end: false },
   ] : [
     { to: '/admin/suppliers', label: 'Suppliers', end: false },
+    { to: '/admin/commercial', label: 'Commercial overview', end: false },
     { to: '/admin/pricing', label: 'Customer pricing', end: false },
     { to: '/admin/payments', label: 'Payment gateways', end: false },
     { to: '/admin/branding', label: 'Branding & theme', end: false },
@@ -722,7 +723,7 @@ export default function AppLayout() {
     : helpArea
       ? 'Documentation'
     : supplierArea
-      ? ({ oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Suppliers' : supplierManagement ? 'Overview' : 'Suppliers'))
+      ? ({ commercial: 'Commercial overview', oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Suppliers' : supplierManagement ? 'Overview' : 'Suppliers'))
       : activePath === 'keys/new'
         ? 'New API key'
         : activePath.startsWith('keys/')

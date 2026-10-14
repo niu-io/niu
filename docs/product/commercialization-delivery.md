@@ -11,7 +11,7 @@ This plan implements [Supplier pricing continuation](supplier-pricing-continuati
 | Global and customer promotions | Revised design: explicit discounted tariff revisions; publication pending | Unverified | Finite effective periods, exclusive customer-over-global selection, revocation and publication API |
 | Operation and video price snapshots | Existing text operation bindings and media snapshots | Partial; new promotion policy unverified | Bind standard-price and promotion provenance atomically before liability reservation; preserve retry/job history |
 | Prepaid balance, limits and reconciliation | Existing foundation | Partial | Current-input reservations, exact settlement, unresolved usage and independent ledger reconciliation |
-| Administration and customer price explanation | Commercial-position read and SDK implemented; table and discount publication pending | Partial: current inventory, empty financial states and administrator/member boundaries verified | Publish/history/expiry workflows, applicable customer prices and applied-rule explanation |
+| Administration and customer price explanation | Commercial-position read, SDK and Admin table implemented; discount publication pending | Partial: current inventory, empty financial states and administrator/member boundaries verified | Publish/history/expiry workflows, applicable customer prices and applied-rule explanation |
 | API, SDK and documentation | Existing contracts | New commercial contracts pending | Synchronized typed endpoints, generated references and served documentation |
 | Remaining product workflows | Inventory complete | See individual page states | Resume page-family acceptance after the commercial workflow is integrated |
 | Performance and release recovery | Existing limited evidence | Full qualification pending | Fixed workload measurements and durable recovery without overwriting existing identities |
@@ -43,3 +43,11 @@ The new read/SDK contracts are implemented. Current-input PostgreSQL, actual HTT
 6. Resume each remaining page/workflow family, close issues only when their full acceptance is proven, then qualify performance and release recovery.
 
 External merchant activation and successfully connecting every supported payment service are separate from integration capability readiness. Paid generation requires its own authorization; a personal Supplier route does not establish zero upstream cost or commercial resale eligibility.
+
+## Admin commercial overview checkpoint
+
+The Admin sidebar includes **Commercial overview** at `/admin/commercial`, beside Suppliers and Customer pricing. It reads the confidential platform projection, supports currency and 7/30/90-day intervals, and shows current quotes, customer charges, Supplier payable, settled/outstanding earnings, known cost, margin and unresolved/cost coverage. Personal supply remains excluded by the backend. No Supplier-member entry was added.
+
+Current-input browser observation covers actual administrator form sign-in, sidebar navigation, three existing configured model rows, eighteen unavailable monetary cells remaining empty, an unknown-currency error and recovery to USD, and period choices. The 390px menu fits within the viewport; desktop and narrow DOM dimensions showed no document overflow, while the existing Table container retains horizontal access to additional financial columns. Fourteen original financial tables retained exact full-row fingerprints after these reads. TypeScript and dashboard production compilation completed. Fixture outcomes were not used.
+
+Visual screenshot review remains pending: browser screenshot capture timed out on both existing pages, and the system fallback lacked Screen Recording permission. Semantic snapshots and DOM dimensions do not establish complete visual acceptance. Populated financial sums, completed payment coverage, qualified competing offers and the wider commercial release remain unverified.
