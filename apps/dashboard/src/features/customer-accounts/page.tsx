@@ -1,0 +1,100 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { IconRefresh } from '@tabler/icons-react';
+import { useDashboardContext } from '@/app/dashboard-context';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { request, writeMayHaveCommitted } from '@/features/vendors/api';
+import { priceFromNanos, priceToNanos } from '@/features/customer-pricing/api';
+import { money } from '@/lib/money';
+import type { CustomerBalance } from '../../../../../sdks/javascript/src/admin';
+
+type Company = { organization_id: string; organization_name: string; accounts: CustomerBalance[] };
+type AccountPage = { data: Company[]; next_after: string | null };
+type Editor = { company: Company; account: CustomerBalance | null };
+
+export default function CustomerAccountsRoute() {
+  const { token } = useDashboardContext();
+  return <Accounts key={token} token={token} />;
+}
+/** Platform financial scope is explicit; customer pages keep their own authorization. */
+function Accounts({ token }: { token: string }) {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [failedCursor, setFailedCursor] = useState<string>();
+  const [notice, setNotice] = useState('');
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const active = useRef<AbortController | null>(null);
+  async function load(after?: string) {
+    active.current?.abort(); const controller = new AbortController(); active.current = controller;
+    setLoading(true); setError(''); setFailedCursor(undefined);
+    try {
+      const page = await request<AccountPage>(token, '/admin/v1/platform/customer-accounts?limit=50' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      if (!Array.isArray(page.data) || page.next_after === after) throw new Error('Account page did not advance. Refresh accounts.');
+      setCompanies(current => after ? [...current, ...page.data.filter(row => !current.some(saved => saved.organization_id === row.organization_id))] : page.data);
+      setCursor(page.next_after);
+    } catch (reason) {
+      if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : 'Customer accounts unavailable.'); setFailedCursor(after); }
+    } finally { if (!controller.signal.aborted) setLoading(false); }
+  }
+  useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
+  return <section className="min-w-0 space-y-5" aria-label="Customer accounts">
+    <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Company balances are shared across workspaces. Credit permits borrowing; it does not add funds or recognize revenue.</p><Button variant="outline" disabled={loading} onClick={() => void load()}><IconRefresh size={16} />Refresh accounts</Button></div>
+    {notice && <p role="status">{notice}</p>}
+    {loading && !companies.length && <p role="status">Loading customer accounts…</p>}
+    {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry</Button></AlertDescription></Alert>}
+    {!loading && !error && !companies.length && <p>No customer companies are available.</p>}
+    {!!companies.length && <Table aria-label="Customer billing accounts"><TableHeader><TableRow>{['Company', 'Currency', 'Posted balance', 'Approved credit', 'Outstanding liability', 'Available capacity', 'Actions'].map((name, index) => <TableHead key={name} className={index > 1 && index < 6 ? 'text-right whitespace-nowrap' : 'whitespace-nowrap'}>{name}</TableHead>)}</TableRow></TableHeader>
+      <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map(account => <TableRow key={company.organization_id + ':' + account.currency}>
+        <TableCell className="align-top whitespace-normal min-w-44 max-w-64">{company.organization_name || 'Unnamed company'}</TableCell><TableCell>{account.currency}</TableCell>
+        {[account.balance_nanos, account.credit_limit_nanos, account.outstanding_nanos ?? null, account.available_nanos].map((amount, index) => <TableCell key={index} className="text-right whitespace-nowrap tabular-nums" aria-label={amount === null ? 'Unavailable' : undefined}>{amount === null ? null : money(amount, account.currency)}</TableCell>)}
+        <TableCell><Button variant="outline" disabled={loading || !!error} onClick={() => { setNotice(''); setEditor({ company, account }); }}>Set credit</Button></TableCell>
+      </TableRow>) : [<TableRow key={company.organization_id}><TableCell className="whitespace-normal min-w-44 max-w-64">{company.organization_name || 'Unnamed company'}</TableCell><TableCell colSpan={5} className="text-muted-foreground">No currency accounts</TableCell><TableCell><Button variant="outline" disabled={loading || !!error} onClick={() => { setNotice(''); setEditor({ company, account: null }); }}>Set credit</Button></TableCell></TableRow>])}</TableBody>
+    </Table>}
+    {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? 'Loading…' : 'More companies'}</Button>}
+    {editor && <CreditEditor token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onSaved={() => { setEditor(null); setNotice('Credit policy saved.'); void load(); }} />}
+  </section>;
+}
+/** Compare-and-set approval never posts funds; unknown outcomes require reread. */
+function CreditEditor({ token, editor, onClose, onSaved }: { token: string; editor: Editor; onClose: () => void; onSaved: () => void }) {
+  const { company, account } = editor;
+  const [currency, setCurrency] = useState(account?.currency ?? 'USD');
+  const [amount, setAmount] = useState(priceFromNanos(account?.credit_limit_nanos ?? '0'));
+  const [error, setError] = useState('');
+  const [pending, setPending] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
+  async function submit(event: FormEvent) {
+    event.preventDefault(); if (pending || uncertain) return;
+    let nanos: string;
+    try { if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Use a three-letter uppercase currency.'); nanos = priceToNanos(amount); }
+    catch { setError('Enter an uppercase currency and a nonnegative credit amount with at most nine decimal places, within the supported range.'); return; }
+    setPending(true); setError('');
+    try {
+      const result = await request<{ data: { revision: string } }>(token, `/admin/v1/organizations/${encodeURIComponent(company.organization_id)}/billing/accounts/${currency}/policy`, 'PUT', {
+        credit_limit_nanos: nanos, warning_threshold_nanos: account?.warning_threshold_nanos ?? null, expected_revision: account?.policy_revision ?? '0',
+      });
+      if (!result?.data?.revision || BigInt(result.data.revision) !== BigInt(account?.policy_revision ?? '0') + 1n) throw new Error('Credit approval could not be confirmed.');
+      onSaved();
+    } catch (reason) {
+      if (writeMayHaveCommitted(reason)) { setUncertain(true); setError('Approval outcome is unconfirmed. Close this dialog and refresh accounts before another change.'); }
+      else setError((reason instanceof Error ? reason.message : 'Credit approval failed.') + ' Refresh accounts if another administrator changed this policy.');
+    } finally { setPending(false); }
+  }
+  let preview: string | null = null;
+  try { preview = money(priceToNanos(amount), currency); } catch { /* Invalid input is explained on submit. */ }
+  return <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Set approved credit</DialogTitle><DialogDescription>{company.organization_name || 'Unnamed company'} · Allows the balance to become negative up to this limit. It does not change the posted balance.</DialogDescription></DialogHeader>
+    <div className="grid grid-cols-2 gap-4 border-b pb-4"><div><p className="text-sm text-muted-foreground">Current credit</p><p className="font-medium">{account ? money(account.credit_limit_nanos, currency) : 'No currency account'}</p></div><div><p className="text-sm text-muted-foreground">New credit</p><p className="font-medium">{preview ?? 'Enter a valid amount'}</p></div></div>
+    <form className="space-y-4" onSubmit={event => void submit(event)}>
+      <div className="space-y-2"><Label htmlFor="credit-currency">Currency</Label><Input id="credit-currency" value={currency} maxLength={3} disabled={!!account || pending || uncertain} onChange={event => { setCurrency(event.target.value.toUpperCase()); setError(''); }} /></div>
+      <div className="space-y-2"><Label htmlFor="approved-credit">Approved credit limit</Label><Input id="approved-credit" inputMode="decimal" value={amount} disabled={pending || uncertain} onChange={event => { setAmount(event.target.value); setError(''); }} /><p className="text-sm text-muted-foreground">Zero requires prepayment. Existing request liabilities must still settle.</p></div>
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={pending} onClick={onClose}>Cancel</Button><Button type="submit" disabled={pending || uncertain}>{pending ? 'Saving…' : 'Save credit policy'}</Button></div>
+    </form>
+  </DialogContent></Dialog>;
+}

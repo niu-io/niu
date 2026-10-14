@@ -87,3 +87,9 @@ The commercial-position API distinguishes `customer_cash_applied_nanos` from net
 Credit approvals require explicit platform administration. Each new HTTP approval records its authenticated actor and immutable policy revision atomically; Admin Audit API includes approval metadata without amounts. Earlier revisions remain unattributed. Approval changes capacity, never received funds or revenue. Warning-only preferences retain their separate customer-authorized path.
 
 Use the platform-only [customer account directory](/docs/api/rest/listplatformcustomeraccounts/) to discover named companies and their currency balances for credit and noncash gift administration. It includes companies with no accounts and never creates funds. Each page uses the same balance arithmetic as customer billing; platform permission remains separate from ordinary customer data access.
+
+## Customer account administration
+
+Admin → Customer accounts displays posted balances, approved credit, outstanding request liability and available capacity by company and currency. Set credit previews the current and proposed limit, preserves the existing warning threshold and uses the displayed policy revision to prevent overwriting another approval. Zero requires prepayment. For a company with no accounts, choose a three-letter currency; creating a zero-balance account does not receive funds. An unconfirmed write requires closing the dialog and refreshing the account before another change. New approvals retain the authenticated audit record.
+
+The current page manages credit only. Noncash gift publication remains available through the [grant API](/docs/api/rest/grantcustomerbalance/); a browser grant form with safe unconfirmed-publication recovery is still pending. Verified cash funding remains a separate operation and must have a real settled payment reference.

@@ -88,6 +88,7 @@ export const appRoutes: RouteObject[] = [{
         { path: 'admin', element: <Administration />, children: [
           { index: true, element: <Navigate to="suppliers" replace /> },
           { path: 'commercial', lazy: async () => ({ Component: (await import('@/features/commercial-position/page')).default }) },
+          { path: 'customer-accounts', lazy: async () => ({ Component: (await import('@/features/customer-accounts/page')).default }) },
           { path: 'pricing', lazy: async () => ({ Component: (await import('@/features/customer-pricing/page')).default }) },
           { path: 'audit-logs', lazy: async () => ({ Component: (await import('@/features/audit-logs/page')).default }) },
           { path: 'branding', lazy: async () => ({ Component: (await import('@/features/branding/page')).default }) },
