@@ -25,8 +25,8 @@ WITH events AS (
  UNION ALL
  (SELECT * FROM (
  SELECT 'supplier', e.id::text, 'supplier', e.action,
-   CASE WHEN e.actor_operator_id IS NULL THEN 'unknown' ELSE 'operator' END,
-   COALESCE(a.name,'Unknown actor'), p.name, NULL::bigint, NULL::text, NULL::text, e.created_at
+   CASE WHEN e.actor_kind='installation' THEN 'installation' WHEN e.actor_operator_id IS NOT NULL THEN 'operator' ELSE 'unknown' END,
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(a.name,'Unknown actor') END, p.name, NULL::bigint, NULL::text, NULL::text, e.created_at
  FROM provider_audit_events e JOIN provider_businesses p ON p.id=e.provider_id
  LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)

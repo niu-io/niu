@@ -1,5 +1,5 @@
 //! Provider earnings are an independent liability ledger, never derived from customer cost.
-use crate::{Store, StoreError, TenantScope, TokenRates};
+use crate::{OperatorAuditActor, Store, StoreError, TenantScope, TokenRates};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::Row;
@@ -406,6 +406,23 @@ impl Store {
     }
 
     pub async fn create_provider_business(&self, name: &str) -> Result<Uuid, StoreError> {
+        self.create_provider_business_recorded(name, None).await
+    }
+
+    pub async fn create_provider_business_audited(
+        &self,
+        name: &str,
+        actor: OperatorAuditActor,
+    ) -> Result<Uuid, StoreError> {
+        self.create_provider_business_recorded(name, Some(actor))
+            .await
+    }
+
+    async fn create_provider_business_recorded(
+        &self,
+        name: &str,
+        actor: Option<OperatorAuditActor>,
+    ) -> Result<Uuid, StoreError> {
         if !valid_text(name, 100) {
             return Err(StoreError::InvalidAccount);
         }
@@ -416,7 +433,9 @@ impl Store {
             .bind(name.trim())
             .execute(&mut *tx)
             .await?;
-        sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'provider_created',$1)").bind(id).execute(&mut *tx).await?;
+        let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
+        sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id) VALUES($1,'provider_created',$1,$2,$3)")
+            .bind(id).bind(actor_kind).bind(actor_id).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(id)
     }
@@ -460,6 +479,23 @@ impl Store {
 
     /// Retain audit history; only an unconfigured Supplier can leave the directory.
     pub async fn delete_provider_business(&self, provider: Uuid) -> Result<(), StoreError> {
+        self.delete_provider_business_recorded(provider, None).await
+    }
+
+    pub async fn delete_provider_business_audited(
+        &self,
+        provider: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<(), StoreError> {
+        self.delete_provider_business_recorded(provider, Some(actor))
+            .await
+    }
+
+    async fn delete_provider_business_recorded(
+        &self,
+        provider: Uuid,
+        actor: Option<OperatorAuditActor>,
+    ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
@@ -476,7 +512,9 @@ impl Store {
             .bind(provider)
             .execute(&mut *tx)
             .await?;
-        sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'supplier_deleted',$1)").bind(provider).execute(&mut *tx).await?;
+        let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
+        sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id) VALUES($1,'supplier_deleted',$1,$2,$3)")
+            .bind(provider).bind(actor_kind).bind(actor_id).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }

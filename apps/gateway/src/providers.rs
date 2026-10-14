@@ -9,7 +9,7 @@ use axum::{
     http::HeaderMap,
 };
 use niu_storage::{
-    AdminPermission, ProviderOfferInput, ProviderOfferQualificationInput,
+    AdminPermission, OperatorAuditActor, ProviderOfferInput, ProviderOfferQualificationInput,
     ProviderQualificationInput, ProviderQualificationRevocationInput, SupplierProfileUpdate,
 };
 use serde::Deserialize;
@@ -28,6 +28,13 @@ async fn installation(state: &AppState, headers: &HeaderMap) -> Result<(), ApiEr
         Err(ApiError::forbidden())
     }
 }
+fn supplier_audit_actor(authorization: AdminAuthorization) -> OperatorAuditActor {
+    match authorization {
+        AdminAuthorization::Installation => OperatorAuditActor::Installation,
+        AdminAuthorization::Operator(operator) => OperatorAuditActor::Operator(operator.id),
+    }
+}
+
 async fn member(
     state: &AppState,
     headers: &HeaderMap,
@@ -283,10 +290,10 @@ pub async fn create(
     headers: HeaderMap,
     Json(input): Json<Name>,
 ) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
+    let authorization = state.authorize_platform_headers(&headers).await?;
     let id = state
         .store
-        .create_provider_business(&input.name)
+        .create_provider_business_audited(&input.name, supplier_audit_actor(authorization))
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"id":id}})))
@@ -632,10 +639,10 @@ pub async fn delete(
     headers: HeaderMap,
     Path(provider): Path<Uuid>,
 ) -> Result<Json<Value>, ApiError> {
-    state.authorize_platform_headers(&headers).await?;
+    let authorization = state.authorize_platform_headers(&headers).await?;
     state
         .store
-        .delete_provider_business(provider)
+        .delete_provider_business_audited(provider, supplier_audit_actor(authorization))
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"deleted":true}})))

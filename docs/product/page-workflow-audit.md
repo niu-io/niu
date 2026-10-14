@@ -40,7 +40,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P24 | Admin Supplier details | `/admin/suppliers/:supplier/:section` | Overview, API keys & routes, Models & pricing, Usage, Settlements, Portal access, Settings | In review: all seven sections, profile conflict/reload, exact advanced-rate preservation and disabled key/model API metadata checked; offer conflict/reload and new-offer read recovery qualified; two disabled-key GUI configuration isolation qualified; credential onboarding/settlements pending |
 | P25 | Admin customer pricing | `/admin/pricing` | Published customer categories, history, edit/conflict validation | In review: reasoning publication/readback verified; remaining pricing workflows pending |
 | P26 | Admin payments | `/admin/payments` | Complete supported inventory, configuration and unavailable states | Verified scope: complete supported inventory and existing configuration entry; merchant activation not exercised |
-| P27 | Admin audit logs | `/admin/audit-logs` | Filters, pagination, readable actors/actions, platform authorization | In review: new installation Branding actor and unchanged historical unknown actors independently verified; operator/pagination boundaries pending |
+| P27 | Admin audit logs | `/admin/audit-logs` | Filters, pagination, readable actors/actions, platform authorization | In review: new installation Branding/Supplier actors, unchanged historical events, category/pagination and ordinary Owner denial qualified; platform-member actor branch pending |
 | P28 | Admin branding | `/admin/branding` | Preview, validation, save, conflict recovery and shared shell consistency | In review: actual save, stale conflict freeze/reload, normalized logo pixels and original configuration restoration verified; remaining fields/roles pending |
 | P29 | Supplier member portal | `/suppliers/:supplier/:section?` | Own offers/models/consumption/settlements and permissions | In review: genuine Supplier Viewer current offers, complete text categories/context tiers and own/foreign/platform boundaries qualified at desktop/390px; populated earnings/settlements, historical-rate rendering and manager actions pending |
 | P30 | Global Settings | `/settings/:section?` | Account, Appearance, Billing, Payments, About; underlying-page return | In review: all five sections inspected; actual profile/avatar persistence, conflict and lost-response recovery, shared-menu synchronization, password eligibility/change/session revocation and durable appearance qualified; remaining settings/payment branches pending |
@@ -81,7 +81,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 
 | Candidate | Priority | Page families | Actual gap | State |
 | --- | --- | --- | --- | --- |
-| C21 | P1 | P27 | Newly created/deleted Supplier audit events omit the authenticated actor, while key edits retain it | Reproduced by actual API/SQL; attribution fix in progress; historical unknown actors must remain unchanged |
+| C21 | P1 | P27 | Newly created/deleted Supplier audit events omit the authenticated actor, while key edits retain it | Installation attribution fixed and qualified by actual GUI/API/SQL; historical unknown actors preserved; platform-member runtime branch unverified |
 | C22 | P1 | P07, P12 | A rejected zero-request-rate invocation retains a not-sent attempt but loses requested-key attribution and admission reason in Logs | Actual SDK 429 and desktop/390px Logs reproduced; persistence design under review; never infer missing evidence from current configuration |
 
 ## Delivery order
@@ -500,3 +500,14 @@ A new short-lived own key was restricted to one existing personal free-route ali
 Independent persistence verification found one new prepared `not_sent` attempt with null dispatch time and no bound dispatch key. There was no upstream generation reference, key or Supplier rate admission, customer reservation, debit or Supplier earning for that attempt. The prior four attempts, saved sessions/drafts and original durable financial records remained unchanged. The new key and its fresh CLI session were revoked afterward; the original expired key was not renewed.
 
 The key detail displayed `0 · New requests blocked` at desktop and 390px. Logs honestly showed Not sent, unknown usage and Not charged, but its requested key and admission reason were absent; C22 tracks that diagnostic gap. This scope qualifies zero request-rate rejection, not positive-window exhaustion, concurrency/token limits, budget admission or complete Logs diagnostics. No Provider generation occurred.
+
+
+### Supplier audit actor attribution
+
+New Supplier creation and deletion now pass the authenticated platform actor into the same transaction that saves the immutable business audit event. The aggregate platform audit projection identifies explicit installation actions while retaining the existing operator-reference fallback. Legacy storage callers retain unknown provenance; the migration adds an explicit unknown default without guessing historical actors.
+
+On the updated audit runtime, one actual GUI name-only Supplier create/delete cycle produced two installation-attributed events. Independent PostgreSQL and audit API reads matched both actions and the Installation administrator label. All 48 pre-migration events retained their original fields and unknown defaults. The own Supplier retained its deletion tombstone. Existing Supplier configuration, Owner accounts and durable financial/request records remained unchanged. Actual ordinary Owner requests to platform audit and Supplier deletion returned 403.
+
+Browser checks compared the new attributed events with historical Not recorded entries at desktop and 390px. All-events and Configuration Load more preserved the first 50 rows while appending the next 50; actual API pages and rendered row identities matched without duplicates. The category menu and narrow readable labels were inspected. No Provider call was made.
+
+The gateway build and formatting check completed. No fixture outcome was used. There was no active platform-administrator member available for a genuine operator-actor run, and no role grant was manufactured; that branch remains unverified. Remaining audit read-failure/retry branches are separate scope.
