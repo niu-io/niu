@@ -1797,6 +1797,17 @@ export class NiuAdminClient {
     return this.request(`/pricing/models${query.size ? '?' + query : ''}`, undefined, options);
   }
 
+  /** Platform-only named companies, including companies without workspaces or accounts. */
+  listRetailCustomerTargets(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { organization_id: string; organization_name: string }[]; next_after: string | null }> {
+    const query = new URLSearchParams();
+    if (page.after !== undefined) query.set('after', uuid(page.after));
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/pricing/customers${query.size ? '?' + query : ''}`, undefined, options);
+  }
+
   /** Registered shared aliases, including disabled configuration; not supply readiness. */
   listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string }[]; next_after: string | null }> {
     const query = new URLSearchParams();

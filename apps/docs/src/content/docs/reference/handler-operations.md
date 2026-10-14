@@ -11930,6 +11930,100 @@ HTTP 403: Platform administration required
 
 HTTP 409: Cursor no longer registered; restart pagination
 
+## List named companies for customer-specific promotions
+
+`GET /admin/v1/pricing/customers`
+
+Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names and routing-only company references; no balances, payment details, request content, Supplier costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `listRetailCustomerTargets`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Named company page without financial data
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_after"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "organization_name"
+        ],
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query or page size
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Missing company cursor
+
 ## Supplement missing native request usage from captured OpenRouter evidence
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`

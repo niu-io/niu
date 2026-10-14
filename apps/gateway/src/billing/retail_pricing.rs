@@ -1670,3 +1670,116 @@ pub async fn registered_models(
         .map_err(ApiError::from_store)?;
     Ok(([("cache-control", "no-store")], Json(result)))
 }
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/pricing/customers",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listRetailCustomerTargets",
+///     "summary": "List named companies for customer-specific promotions",
+///     "description": "Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names and routing-only company references; no balances, payment details, request content, Supplier costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Named company page without financial data",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_after"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "organization_id",
+///                       "organization_name"
+///                     ],
+///                     "properties": {
+///                       "organization_id": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "organization_name": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "next_after": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query or page size"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Missing company cursor"
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn customers(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<PricePage>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    actor(&state, &headers).await?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) {
+        return Err(ApiError::invalid_request(
+            "Choose a page size from 1 to 100",
+        ));
+    }
+    let result = state
+        .store
+        .retail_customer_targets(query.after, limit)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(([("cache-control", "no-store")], Json(result)))
+}

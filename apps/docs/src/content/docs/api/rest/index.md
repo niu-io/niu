@@ -309,6 +309,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /admin/v1/platform/payments/epay` — Read EPay configuration with platform administrator read access](/docs/api/rest/getplatformepayconfiguration/)
 - [`PUT /admin/v1/platform/payments/epay` — Save encrypted EPay configuration with platform administrator write access](/docs/api/rest/saveplatformepayconfiguration/)
 - [`GET /admin/v1/platform/payments/integrations` — List supported payment integrations](/docs/api/rest/listpaymentintegrations/)
+- [`GET /admin/v1/pricing/customers` — List named companies for customer-specific promotions](/docs/api/rest/listretailcustomertargets/)
 - [`GET /admin/v1/pricing/models` — List models eligible for customer tariff publication](/docs/api/rest/listplatformpricingmodels/)
 - [`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs` — Page current customer selling tariffs](/docs/api/rest/listplatformcustomertariffs/)
 - [`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history` — Read platform customer selling-price history](/docs/api/rest/listplatformcustomertariffhistory/)

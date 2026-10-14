@@ -487,6 +487,37 @@ SELECT jsonb_build_object(
         Ok(balances.into_iter().map(|(_, balance)| balance).collect())
     }
 
+    /// One shared company cursor contract for platform financial and pricing tools.
+    pub(crate) async fn platform_company_page_in_tx(
+        snapshot: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<(Vec<(Uuid, String)>, Option<Uuid>), StoreError> {
+        if !(1..=100).contains(&limit) {
+            return Err(StoreError::InvalidPrice);
+        }
+        if let Some(cursor) = after {
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM organizations WHERE id=$1)")
+                    .bind(cursor)
+                    .fetch_one(&mut **snapshot)
+                    .await?;
+            if !exists {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let mut companies: Vec<(Uuid, String)> = sqlx::query_as("SELECT id,name FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
+            .bind(after).bind(limit+1).fetch_all(&mut **snapshot).await?;
+        let more = companies.len() > limit as usize;
+        companies.truncate(limit as usize);
+        let next = if more {
+            companies.last().map(|(id, _)| *id)
+        } else {
+            None
+        };
+        Ok((companies, next))
+    }
+
     /// Platform-only named account discovery; callers must authorize platform
     /// administration. Shared arithmetic, one bounded snapshot and no ledger detail.
     pub async fn platform_customer_accounts(
@@ -498,25 +529,8 @@ SELECT jsonb_build_object(
             return Err(StoreError::InvalidPrice);
         }
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        if let Some(cursor) = after {
-            let exists: bool =
-                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM organizations WHERE id=$1)")
-                    .bind(cursor)
-                    .fetch_one(&mut *snapshot)
-                    .await?;
-            if !exists {
-                return Err(StoreError::Conflict);
-            }
-        }
-        let mut companies: Vec<(Uuid, String)> = sqlx::query_as("SELECT id,name FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
-            .bind(after).bind(limit+1).fetch_all(&mut *snapshot).await?;
-        let more = companies.len() > limit as usize;
-        companies.truncate(limit as usize);
-        let next = if more {
-            companies.last().map(|(id, _)| *id)
-        } else {
-            None
-        };
+        let (companies, next) =
+            Self::platform_company_page_in_tx(&mut snapshot, after, limit).await?;
         let balances: Vec<(Uuid, Value)> =
             sqlx::query_as(include_str!("customer_balance_projection.sql"))
                 .bind(companies.iter().map(|(id, _)| *id).collect::<Vec<_>>())

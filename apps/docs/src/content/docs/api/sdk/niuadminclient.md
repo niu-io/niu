@@ -1093,6 +1093,22 @@ listPlatformPricingModels(page?: {
 }>;
 ```
 
+### listRetailCustomerTargets
+
+```typescript
+/** Platform-only named companies, including companies without workspaces or accounts. */
+listRetailCustomerTargets(page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: {
+        organization_id: string;
+        organization_name: string;
+    }[];
+    next_after: string | null;
+}>;
+```
+
 ### listRegisteredRetailModels
 
 ```typescript

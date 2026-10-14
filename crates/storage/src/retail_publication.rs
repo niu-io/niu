@@ -128,6 +128,22 @@ async fn lock_version(
     expected.checked_add(1).ok_or(StoreError::Conflict)
 }
 impl Store {
+    /// Platform-only company names for promotions; no financial account join.
+    pub async fn retail_customer_targets(
+        &self,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<Value, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let (companies, next) =
+            Self::platform_company_page_in_tx(&mut snapshot, after, limit).await?;
+        snapshot.commit().await?;
+        let data: Vec<Value> = companies
+            .into_iter()
+            .map(|(id, name)| json!({"organization_id":id,"organization_name":name}))
+            .collect();
+        Ok(json!({"data":data,"next_after":next}))
+    }
     /// Registered standard-price identities, including disabled configuration.
     /// This metadata read never establishes qualification or dispatch readiness.
     pub async fn registered_retail_models(
