@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request } from '@/features/vendors/api';
 import WorkspacePricing from '@/features/customer-pricing/page';
+import { TextStandardEditor } from './text-editor';
 import { money } from '@/lib/money';
 import type { RetailPriceRecord, RetailPriceHistory, RetailSchedule } from '../../../../../sdks/javascript/src/admin';
 
@@ -24,6 +25,8 @@ function Standards({ token }: { token: string }) {
   const [rows, setRows] = useState<RetailPriceRecord[]>([]), [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState(''), [filter, setFilter] = useState('');
   const [failed, setFailed] = useState<string>(), [selected, setSelected] = useState<RetailPriceRecord | null>(null);
+  const [editor, setEditor] = useState<{ previous: RetailPriceRecord | null } | null>(null);
+  const [notice, setNotice] = useState('');
   const active = useRef<AbortController | null>(null);
   async function load(after?: string) {
     active.current?.abort(); const controller = new AbortController(); active.current = controller;
@@ -38,13 +41,15 @@ function Standards({ token }: { token: string }) {
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
-  return <div className="space-y-6 p-6"><PageHeader title="Standard prices" /><p className="text-sm text-muted-foreground">Platform customer selling prices, independent of Supplier purchase offers. Publication does not establish qualified supply or enroll a workspace. Use the platform API to publish standard prices and finite promotions.</p>
+  return <div className="space-y-6 p-6"><PageHeader title="Standard prices" action={<Button disabled={loading || !!error} onClick={() => setEditor({ previous: null })}>Publish text price</Button>} /><p className="text-sm text-muted-foreground">Platform customer selling prices, independent of Supplier purchase offers. Publication does not establish qualified supply or enroll a workspace. Publish or revise text standards here. Media publication and finite promotion changes currently use the platform API.</p>
     <div className="flex flex-wrap items-center gap-3"><Input aria-label="Filter standard models" placeholder="Filter models" className="max-w-sm" value={filter} onChange={event => setFilter(event.target.value)} /><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button></div>
+    {notice && <p role="status">{notice}</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failed)}>Retry prices</Button></AlertDescription></Alert>}
     {loading && !rows.length && <p role="status">Loading standard prices…</p>}
-    {!!rows.length && <Table aria-label="Platform standard selling prices"><TableHeader><TableRow>{['Model', 'Currency', 'Billing', 'Standard price', 'Published', 'Actions'].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="font-medium">{row.model_alias}</TableCell><TableCell>{row.currency}</TableCell><TableCell><Badge variant="outline">{row.schedule.kind === 'text' ? 'Text tokens' : row.schedule.meter}</Badge></TableCell><TableCell><Schedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell className="whitespace-nowrap">{date(row.published_at)}</TableCell><TableCell><Button variant="outline" disabled={loading || !!error} onClick={() => setSelected(row)}>Prices &amp; history</Button></TableCell></TableRow>)}</TableBody></Table>}
+    {!!rows.length && <Table aria-label="Platform standard selling prices"><TableHeader><TableRow>{['Model', 'Currency', 'Billing', 'Standard price', 'Published', 'Actions'].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="font-medium">{row.model_alias}</TableCell><TableCell>{row.currency}</TableCell><TableCell><Badge variant="outline">{row.schedule.kind === 'text' ? 'Text tokens' : row.schedule.meter}</Badge></TableCell><TableCell><Schedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell className="whitespace-nowrap">{date(row.published_at)}</TableCell><TableCell><div className="flex gap-2"><Button variant="outline" disabled={loading || !!error} onClick={() => setSelected(row)}>Prices &amp; history</Button>{row.schedule.kind === 'text' && <Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ previous: row })}>Revise standard</Button>}</div></TableCell></TableRow>)}</TableBody></Table>}
     {!loading && !error && !visible.length && <p>{rows.length ? 'No loaded prices match this filter.' : 'No platform standard prices have been published.'}</p>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>More prices</Button>}
+    {editor && <TextStandardEditor token={token} previous={editor.previous} onClose={() => { setEditor(null); void load(); }} onSaved={() => { setEditor(null); setNotice('Text standard price published. Refresh confirmed configuration before the next change.'); void load(); }} />}
     {selected && <History key={selected.price_id} token={token} price={selected} onClose={() => setSelected(null)} />}
   </div>;
 }
