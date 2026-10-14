@@ -28,6 +28,12 @@ WITH bounds AS MATERIALIZED (
     LEFT JOIN customer_balance_consumption_allocations allocation ON allocation.entry_id=entry.id
     WHERE c.currency=$1 AND c.created_at>=bounds.since AND c.created_at<bounds.until
         AND funding.funding_source IS DISTINCT FROM 'personal'
+        AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal
+            WHERE personal.attempt_id=attempt.id)
+        AND NOT EXISTS (SELECT 1 FROM provider_attempt_offers binding
+            JOIN provider_offers offer ON offer.id=binding.offer_id
+            JOIN personal_vendor_ownership personal ON personal.vendor_id=offer.vendor_id
+            WHERE binding.attempt_id=attempt.id)
     UNION ALL
     SELECT entry.amount_nanos::numeric, 'refund', allocation.source_coverage='known',
            allocation.gift_nanos::numeric, allocation.nongift_nanos::numeric
@@ -39,6 +45,12 @@ WITH bounds AS MATERIALIZED (
     WHERE entry.currency=$1 AND entry.kind='refund'
         AND entry.created_at>=bounds.since AND entry.created_at<bounds.until
         AND funding.funding_source IS DISTINCT FROM 'personal'
+        AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal
+            WHERE personal.attempt_id=attempt.id)
+        AND NOT EXISTS (SELECT 1 FROM provider_attempt_offers binding
+            JOIN provider_offers offer ON offer.id=binding.offer_id
+            JOIN personal_vendor_ownership personal ON personal.vendor_id=offer.vendor_id
+            WHERE binding.attempt_id=attempt.id)
 ), totals AS (
     SELECT COALESCE(sum(nominal) FILTER (WHERE kind='charge'),0) AS nominal,
            COALESCE(sum(nominal) FILTER (WHERE kind='refund'),0) AS refunded,
