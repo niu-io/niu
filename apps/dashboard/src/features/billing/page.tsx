@@ -213,7 +213,24 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
         {selected && <p>{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? 'Settled' : 'Issued'}</p>}
         {detailError ? <Alert variant="destructive"><AlertTitle>Details unavailable</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>Retry details</Button></AlertDescription></Alert> : lines ? <>
           {lines.length > 0 && <div className="table-wrap"><Table className="provider-ledger" aria-label="Text charges"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Amount</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Rates</TableHead></TableRow></TableHeader>
-            <TableBody>{lines.map(line => <TableRow key={line.revision}><TableCell>{line.model_alias}</TableCell><TableCell>{money(line.amount_nanos, line.currency)}</TableCell><TableCell>{line.requests}</TableCell><TableCell>{line.prompt_tokens} / {line.completion_tokens}{line.cached_prompt_rate != null && <small>Cached input: {line.cached_prompt_tokens ?? "Unknown"}</small>}</TableCell><TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)} per 1M{line.cached_prompt_rate != null && <small>Cache read: {money(line.cached_prompt_rate, line.currency)} per 1M</small>}<small>Fixed fee / request: {line.request_fee_nanos != null ? money(line.request_fee_nanos, line.currency) : "Unknown"}</small><small>Minimum / request: {line.minimum_charge_nanos != null ? money(line.minimum_charge_nanos, line.currency) : "Unknown"}</small></TableCell></TableRow>)}</TableBody>
+            <TableBody>{lines.map(line => <TableRow key={`${line.revision}:${line.currency}:${line.context_minimum_input_tokens ?? 'base'}`}>
+              <TableCell>{line.model_alias}</TableCell>
+              <TableCell>{money(line.amount_nanos, line.currency)}</TableCell>
+              <TableCell>{line.requests}</TableCell>
+              <TableCell>{line.prompt_tokens} / {line.completion_tokens}
+                {(line.cached_prompt_tokens != null || line.cached_prompt_rate != null) && <small>Cached input: {line.cached_prompt_tokens ?? 'Unknown'}</small>}
+                {(line.cache_write_prompt_tokens != null || line.cache_write_prompt_rate != null) && <small>Cache-write input: {line.cache_write_prompt_tokens ?? 'Unknown'}</small>}
+                {(line.reasoning_completion_tokens != null || line.reasoning_completion_rate != null) && <small>Reasoning output: {line.reasoning_completion_tokens ?? 'Unknown'}</small>}
+              </TableCell>
+              <TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)} per 1M
+                {(line.cached_prompt_tokens != null || line.cached_prompt_rate != null) && <small>Cache read: {categoryRate(line.cached_prompt_rate, line.currency)}{line.cached_prompt_rate != null ? ' per 1M' : ''}</small>}
+                {(line.cache_write_prompt_tokens != null || line.cache_write_prompt_rate != null) && <small>Cache write: {categoryRate(line.cache_write_prompt_rate, line.currency)}{line.cache_write_prompt_rate != null ? ' per 1M' : ''}</small>}
+                {(line.reasoning_completion_tokens != null || line.reasoning_completion_rate != null) && <small>Reasoning output: {categoryRate(line.reasoning_completion_rate, line.currency)}{line.reasoning_completion_rate != null ? ' per 1M' : ''}</small>}
+                {line.context_minimum_input_tokens != null && <small>Context input threshold: {line.context_minimum_input_tokens} tokens (inclusive)</small>}
+                <small>Fixed fee / request: {line.request_fee_nanos != null ? money(line.request_fee_nanos, line.currency) : 'Unknown'}</small>
+                <small>Minimum / request: {line.minimum_charge_nanos != null ? money(line.minimum_charge_nanos, line.currency) : 'Unknown'}</small>
+              </TableCell>
+            </TableRow>)}</TableBody>
           </Table></div>}
           {mediaLines.length > 0 && <section aria-label="Media charges" className="min-w-0 space-y-3">
             <h3 className="text-sm font-medium">Media usage</h3>
