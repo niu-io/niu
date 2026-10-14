@@ -69,3 +69,14 @@ Administrator actions must distinguish approved credit, verified cash funding an
 For the requested example, 100 currency units of consumption can contain 95 units from cash-funded balance and 5 from consumed promotional grants. Recognized revenue in this fully consumed example is 95, nominal consumption is 100, and promotional sales allowance is 5. Do not recognize 100 of revenue and offset it with 5 of promotional expense. Actual receipts remain 95. Unconsumed grants, consumed grants, receivables/credit usage and real cash refunds are separate amounts. Receipt timing and consumption timing can differ, so they must not be forced into the same period total. Commercial reporting must keep nominal consumption, recognized revenue net of consumed gifts, actual cash receipts, promotional sales allowance and the corresponding contribution measures distinct. Credit-funded consumption can recognize revenue and a receivable before cash collection; later repayment must not recognize that revenue again. Issuing a gift recognizes neither revenue nor promotional expense. Existing charge-minus-Supplier-earning margin is not proof of cash profit.
 
 Implementation state: existing credit controls are present; noncash grants, source allocation, balanced grant records, administrator grant UI/API and the expanded commercial report are pending. The 100/95/5 example is a required acceptance case, not a verified transaction. Never manufacture a cash receipt to qualify it.
+
+Required report acceptance example (one currency, fully consumed balance, no tax or refund in this example):
+
+| Report measure | Amount |
+| --- | ---: |
+| Nominal customer consumption | 100 |
+| Consumed administrator gift / sales allowance | 5 |
+| Recognized customer revenue, net of gift consumption | 95 |
+| Verified customer cash receipts | 95 |
+
+The report must not present 100 as revenue, nor classify the 5 gift as an operating expense to offset inflated revenue. Issuance, consumption, receipts and refunds need separate posting dates and source references. Supplier payables and known upstream expenses remain separate from these customer measures. A report with incomplete source coverage must leave total recognized revenue unknown and disclose the uncovered amount; a known subtotal must not be labeled as the complete total.
