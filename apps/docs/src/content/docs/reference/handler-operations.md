@@ -12034,7 +12034,7 @@ HTTP 409: Missing company cursor
 
 `GET /admin/v1/pricing/standard-prices/{price}/promotions`
 
-Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store.
+Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store. The current standard and management version share this page snapshot; use them together for a new publication, then rely on server version comparison.
 
 Implementation: `implemented`. Operation: `listRetailPromotions`.
 
@@ -12096,7 +12096,8 @@ Content type: `application/json`.
     "current_version",
     "as_of",
     "next_before",
-    "data"
+    "data",
+    "standard"
   ],
   "properties": {
     "price_id": {
@@ -12230,6 +12231,9 @@ Content type: `application/json`.
           }
         }
       }
+    },
+    "standard": {
+      "$ref": "#/components/schemas/RetailPriceRecord"
     }
   }
 }

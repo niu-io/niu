@@ -16,6 +16,7 @@ export type RetailPromotionPage = {
     currency: string;
     current_version: string;
     as_of: string;
+    standard: RetailPriceRecord;
     next_before: string | null;
     data: Array<{
         revision: string;

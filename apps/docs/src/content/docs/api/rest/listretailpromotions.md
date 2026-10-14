@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/pricing/standard-prices/{price}/promotions`
 
-Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store.
+Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store. The current standard and management version share this page snapshot; use them together for a new publication, then rely on server version comparison.
 
 Operation: `listRetailPromotions`.
 
@@ -91,7 +91,8 @@ Content type: `application/json`.
     "current_version",
     "as_of",
     "next_before",
-    "data"
+    "data",
+    "standard"
   ],
   "properties": {
     "price_id": {
@@ -663,6 +664,265 @@ Content type: `application/json`.
           }
         }
       }
+    },
+    "standard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "price_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "model_alias": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "schedule": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "text"
+                },
+                "prompt_rate": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "completion_rate": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "cached_prompt_rate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[0-9]+$"
+                },
+                "cache_write_prompt_rate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[0-9]+$"
+                },
+                "reasoning_completion_rate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[0-9]+$"
+                },
+                "minimum_charge_nanos": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "request_fee_nanos": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "context_tiers": {
+                  "type": "array",
+                  "maxItems": 32,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "minimum_input_tokens": {
+                        "type": "string",
+                        "pattern": "^[0-9]+$"
+                      },
+                      "prompt_rate": {
+                        "type": "string",
+                        "pattern": "^[0-9]+$"
+                      },
+                      "completion_rate": {
+                        "type": "string",
+                        "pattern": "^[0-9]+$"
+                      },
+                      "cached_prompt_rate": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^[0-9]+$"
+                      },
+                      "cache_write_prompt_rate": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^[0-9]+$"
+                      },
+                      "reasoning_completion_rate": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^[0-9]+$"
+                      }
+                    },
+                    "required": [
+                      "minimum_input_tokens",
+                      "prompt_rate",
+                      "completion_rate",
+                      "cached_prompt_rate",
+                      "cache_write_prompt_rate",
+                      "reasoning_completion_rate"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "prompt_rate",
+                "completion_rate",
+                "cached_prompt_rate",
+                "cache_write_prompt_rate",
+                "reasoning_completion_rate",
+                "minimum_charge_nanos",
+                "request_fee_nanos",
+                "context_tiers"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "media"
+                },
+                "dimensions": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "channel": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "resolution": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "reference_video": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "model",
+                    "channel",
+                    "resolution",
+                    "reference_video"
+                  ]
+                },
+                "meter": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "decimal_places": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
+                },
+                "amount_units": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "per_quantity": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$"
+                    }
+                  },
+                  "required": [
+                    "numerator",
+                    "denominator"
+                  ]
+                },
+                "minimum_quantity": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$"
+                    }
+                  },
+                  "required": [
+                    "numerator",
+                    "denominator"
+                  ]
+                },
+                "rounding": {
+                  "type": "string",
+                  "enum": [
+                    "Down",
+                    "Up",
+                    "HalfEven"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "dimensions",
+                "meter",
+                "decimal_places",
+                "amount_units",
+                "per_quantity",
+                "minimum_quantity",
+                "rounding"
+              ]
+            }
+          ],
+          "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "price_id",
+        "model_alias",
+        "currency",
+        "version",
+        "revision",
+        "schedule",
+        "published_at"
+      ]
     }
   }
 }
@@ -686,6 +946,6 @@ Price or promotion cursor unavailable; restart pagination
 
 ## Behavior and supported scope
 
-Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store.
+Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store. The current standard and management version share this page snapshot; use them together for a new publication, then rely on server version comparison.
 
 **Supported scope:** implemented

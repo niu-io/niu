@@ -1797,7 +1797,7 @@ pub async fn customers(
 ///   "operation": {
 ///     "operationId": "listRetailPromotions",
 ///     "summary": "Read promotion periods with complete retirement coverage",
-///     "description": "Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store.",
+///     "description": "Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store. The current standard and management version share this page snapshot; use them together for a new publication, then rely on server version comparison.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -1846,7 +1846,8 @@ pub async fn customers(
 ///                 "current_version",
 ///                 "as_of",
 ///                 "next_before",
-///                 "data"
+///                 "data",
+///                 "standard"
 ///               ],
 ///               "properties": {
 ///                 "price_id": {
@@ -1980,6 +1981,9 @@ pub async fn customers(
 ///                       }
 ///                     }
 ///                   }
+///                 },
+///                 "standard": {
+///                   "$ref": "#/components/schemas/RetailPriceRecord"
 ///                 }
 ///               }
 ///             }

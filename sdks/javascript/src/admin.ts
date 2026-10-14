@@ -1040,7 +1040,7 @@ export type RetailPriceHistory = {
 
 /** Temporal eligibility only; global rules can be overridden for a customer. */
 export type RetailPromotionPage = {
-  price_id: string; model_alias: string; currency: string; current_version: string; as_of: string; next_before: string | null;
+  price_id: string; model_alias: string; currency: string; current_version: string; as_of: string; standard: RetailPriceRecord; next_before: string | null;
   data: Array<{
     revision: string; version: string; created_at: string; reason: string;
     baseline_revision: string; baseline_version: string; baseline_published_at: string;

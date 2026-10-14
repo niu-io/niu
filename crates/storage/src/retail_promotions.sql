@@ -35,6 +35,11 @@ SELECT (
 ), jsonb_build_object(
     'price_id',h.id,'model_alias',h.model_alias,'currency',h.currency,'current_version',h.version::text,
     'as_of',observed.at::text,
+    'standard',jsonb_build_object('price_id',h.id,'model_alias',h.model_alias,'currency',h.currency,
+        'version',h.version::text,'revision',current_standard.id,'schedule',current_standard.schedule,'published_at',current_change.created_at),
     'data',COALESCE((SELECT jsonb_agg(document ORDER BY version DESC) FROM page),'[]'::jsonb)
 )
-FROM platform_retail_price_heads h CROSS JOIN observed WHERE h.id=$1
+FROM platform_retail_price_heads h
+JOIN platform_retail_standard_revisions current_standard ON current_standard.id=h.current_revision
+JOIN platform_retail_price_changes current_change ON current_change.id=current_standard.id
+CROSS JOIN observed WHERE h.id=$1
