@@ -25,6 +25,10 @@ Video/media rate schedules are separate from text token tariffs. Qualify the con
 
 ## Platform standard prices and finite promotions
 
+The standard-price and global/customer-promotion management pages are not yet available. Use the documented platform APIs and SDK methods below; the existing Customer pricing page manages workspace tariffs.
+
+Discover aliases through [listRegisteredRetailModels](/docs/api/rest/listregisteredretailmodels/) or `NiuAdminClient.listRegisteredRetailModels`. This platform-only, paged metadata read includes registered shared vendor aliases and route pools even when disabled, and excludes personal vendor aliases. Registration permits price preparation; it does not establish qualified supply, selling eligibility or dispatch readiness. The existing `listPlatformPricingModels` endpoint remains the current available-model read for workspace tariff publication. Neither endpoint supplies a media meter, schema or qualified liability bound.
+
 Use the [standard publication API](/docs/api/rest/publishretailstandard/) or `NiuAdminClient.publishRetailStandard` to publish selling terms by model alias, currency and text/media identity. These are customer prices; they contain no Supplier purchase quote or route credential. Exact monetary values are decimal strings. Text schedules include every category, context tier, minimum and request fee. Media schedules use a declared meter, dimensions, units and rounding; route and liability qualification remain separate.
 
 A new identity uses `expected_version: '0'`. Subsequent changes use the latest management version. Keep the UUID idempotency key for an exact retry after an uncertain result. The returned version is the original publication's version, so refresh current configuration before the next edit. [List standard prices](/docs/api/rest/listretailstandards/) and inspect [immutable history](/docs/api/rest/getretailpricehistory/) rather than overwriting a stale version.

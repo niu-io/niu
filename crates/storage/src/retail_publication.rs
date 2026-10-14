@@ -128,6 +128,26 @@ async fn lock_version(
     expected.checked_add(1).ok_or(StoreError::Conflict)
 }
 impl Store {
+    /// Registered standard-price identities, including disabled configuration.
+    /// This metadata read never establishes qualification or dispatch readiness.
+    pub async fn registered_retail_models(
+        &self,
+        after: Option<&str>,
+        limit: i64,
+    ) -> Result<Value, StoreError> {
+        if !(1..=100).contains(&limit) || after.is_some_and(|v| v.is_empty() || v.len() > 200) {
+            return Err(StoreError::InvalidPrice);
+        }
+        let value: Value = sqlx::query_scalar(include_str!("registered_retail_models.sql"))
+            .bind(after)
+            .bind(limit)
+            .fetch_one(&self.pool)
+            .await?;
+        if value["cursor_valid"] != true {
+            return Err(StoreError::Conflict);
+        }
+        Ok(json!({"data":value["data"], "next_after":value["next_after"]}))
+    }
     /// Caller must independently authenticate platform administration. New
     /// standards take effect at commit; finite promotion terms remain intact.
     pub async fn publish_retail_standard(

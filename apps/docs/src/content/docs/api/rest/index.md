@@ -318,6 +318,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /admin/v1/pricing/standard-prices/{price}/preview` — Preview a customer applicable price](/docs/api/rest/previewretailprice/)
 - [`POST /admin/v1/pricing/standard-prices/{price}/promotions` — Publish one finite global or customer price](/docs/api/rest/publishretailpromotion/)
 - [`POST /admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire` — Append a promotion eligibility cutoff](/docs/api/rest/retireretailpromotion/)
+- [`GET /admin/v1/pricing/standard-prices/models` — List registered shared models for standard-price preparation](/docs/api/rest/listregisteredretailmodels/)
 - [`GET /admin/v1/pricing/targets` — Discover named platform pricing targets](/docs/api/rest/listplatformpricingtargets/)
 - [`GET /admin/v1/provider-memberships` — List the signed-in operator’s complete active Supplier memberships](/docs/api/rest/listprovidermemberships/)
 - [`GET /admin/v1/providers` — List active Supplier business identities](/docs/api/rest/listproviderbusinesses/)

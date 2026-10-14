@@ -141,6 +141,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds", get(crate::billing::media_liability::list).post(crate::billing::media_liability::publish).layer(axum::extract::DefaultBodyLimit::max(16384)))
         .route("/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire", axum::routing::post(crate::billing::media_liability::retire).layer(axum::extract::DefaultBodyLimit::max(4096)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment", get(crate::billing::retail_pricing::enrollment).post(crate::billing::retail_pricing::enroll_text).layer(axum::extract::DefaultBodyLimit::max(4096)))
+        .route("/admin/v1/pricing/standard-prices/models", get(crate::billing::retail_pricing::registered_models))
         .route("/admin/v1/pricing/standard-prices", get(crate::billing::retail_pricing::list).post(crate::billing::retail_pricing::publish_standard).layer(axum::extract::DefaultBodyLimit::max(65536)))
         .route("/admin/v1/pricing/standard-prices/{price}/promotions", axum::routing::post(crate::billing::retail_pricing::publish_promotion).layer(axum::extract::DefaultBodyLimit::max(65536)))
         .route("/admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire", axum::routing::post(crate::billing::retail_pricing::retire_promotion).layer(axum::extract::DefaultBodyLimit::max(4096)))

@@ -1797,6 +1797,20 @@ export class NiuAdminClient {
     return this.request(`/pricing/models${query.size ? '?' + query : ''}`, undefined, options);
   }
 
+  /** Registered shared aliases, including disabled configuration; not supply readiness. */
+  listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string }[]; next_after: string | null }> {
+    const query = new URLSearchParams();
+    if (page.after !== undefined) {
+      if (!page.after || new TextEncoder().encode(page.after).length > 200) throw new TypeError('A model cursor of at most 200 bytes is required');
+      query.set('after', page.after);
+    }
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/pricing/standard-prices/models${query.size ? '?' + query : ''}`, undefined, options);
+  }
+
   /** Platform-only read; never changes routes or initiates payment. Unknown amounts remain null. */
   getCommercialPosition(query: { currency: string; days?: 7 | 30 | 90 }, options?: RequestOptions): Promise<CommercialPosition> {
     if (!/^[A-Z]{3}$/.test(query.currency)) throw new TypeError('Provide a three-letter uppercase currency');

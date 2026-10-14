@@ -1093,6 +1093,21 @@ listPlatformPricingModels(page?: {
 }>;
 ```
 
+### listRegisteredRetailModels
+
+```typescript
+/** Registered shared aliases, including disabled configuration; not supply readiness. */
+listRegisteredRetailModels(page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: {
+        model_alias: string;
+    }[];
+    next_after: string | null;
+}>;
+```
+
 ### getCommercialPosition
 
 ```typescript

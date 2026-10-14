@@ -1548,3 +1548,125 @@ pub async fn enrollment(
         Json(json!({"data":result})),
     ))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RegisteredModelPage {
+    after: Option<String>,
+    limit: Option<i64>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/pricing/standard-prices/models",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listRegisteredRetailModels",
+///     "summary": "List registered shared models for standard-price preparation",
+///     "description": "Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 200
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Registered alias page, including disabled configuration",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data",
+///                 "next_after"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "model_alias"
+///                     ],
+///                     "properties": {
+///                       "model_alias": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "next_after": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid page size or alias cursor"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Cursor no longer registered; restart pagination"
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn registered_models(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<RegisteredModelPage>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    actor(&state, &headers).await?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit)
+        || query
+            .after
+            .as_ref()
+            .is_some_and(|v| v.is_empty() || v.len() > 200)
+    {
+        return Err(ApiError::invalid_request(
+            "Choose a page size from 1 to 100 and a valid model cursor",
+        ));
+    }
+    let result = state
+        .store
+        .registered_retail_models(query.after.as_deref(), limit)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(([("cache-control", "no-store")], Json(result)))
+}
