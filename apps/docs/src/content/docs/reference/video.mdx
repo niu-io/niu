@@ -20,11 +20,12 @@ do not send Volcengine Actions, upstream asset identifiers or Provider credentia
 | Verification sessions | Implemented creation, metadata, refresh and private H5-link handoff. Actual session creation, encrypted persistence and natural expiry are verified; human completion remains unverified. |
 | Usage and billing | Implemented observations, billing and timings. A real result reports 257277 video tokens. Positive customer-priced media settlement remains unverified. |
 
-The current local FastRouter configuration enables only the personal Seedance 2.5
-text preset: five seconds, 1080p, 16:9, seed 42, watermark disabled. The 2.0,
-mini and fast mappings remain disabled. This is personal self-funded testing,
-with no customer price or commercial qualification. Model discovery is the
-source of truth for each installation's enabled inputs and controls.
+Available models, inputs and controls depend on the installation's saved
+Supplier mappings, the selected workspace API key's grants and current policy.
+Use model discovery to select an authorized route and inspect its video schema;
+do not assume one Seedance version, duration, resolution or fixed preset.
+Personal self-funded Provider verification does not establish customer pricing
+or commercial supply qualification.
 
 ## Generate, wait and download
 
@@ -227,8 +228,9 @@ backend checks scope, acknowledgement, parent group, current account/model,
 key grants and policy again before dispatch. Do not pass an upstream asset ID
 or an `asset://` URI. Ordinary URL references use `{ kind, url, role }`; inline
 images, optional inspected/library references and their constraints retain their
-separate model/authorization contracts. The local enabled text-only preset does
-not enable reference generation merely because asset management is available.
+separate model/authorization contracts. Asset management availability does not
+establish reference-generation support. Inspect the selected model's admitted
+reference inputs and controls before submitting a reference request.
 
 The dashboard Materials page restores saved operations under the explicitly selected workspace, API key and model context. **Check saved status** reads the retained operation only; it does not retry a mutation or establish material readiness. Prepared and unknown outcomes remain unconfirmed and block new material/group writes. A failed history read retains existing records with an explicit error. A missing record never proves that the request was not sent; transport uncertainty before a durable record exists cannot currently be recovered after leaving the page.
 
