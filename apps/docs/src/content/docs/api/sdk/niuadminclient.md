@@ -990,6 +990,9 @@ setCustomerBalancePolicy(organizationId: string, currency: string, input: Custom
 grantCustomerBalance(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{
     data: {
         id: string;
+        application_policy: 'future_only' | 'unpaid_credit_first';
+        applied_to_credit_nanos: string;
+        retained_for_future_consumption_nanos: string;
     };
 }>;
 ```
