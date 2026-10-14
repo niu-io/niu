@@ -22,6 +22,8 @@ pub struct CustomerMediaRateCard {
 }
 
 pub struct SelectedCustomerMediaRate {
+    /// Platform identity for admission reselection; None preserves legacy cards.
+    pub retail_price_id: Option<Uuid>,
     pub revision: String,
     pub vendor_id: Uuid,
     pub vendor_revision: i64,
@@ -53,7 +55,7 @@ impl CustomerMediaRateCard {
         .map_err(|_| StoreError::InvalidPrice)
     }
 
-    fn validate(&self, organization: Uuid) -> Result<(), StoreError> {
+    pub(crate) fn validate(&self, organization: Uuid) -> Result<(), StoreError> {
         if [
             &self.revision,
             &self.schema_revision,
@@ -304,6 +306,7 @@ impl Store {
         }
         let pricing = card.pricing(organization, at)?;
         Ok(Some(SelectedCustomerMediaRate {
+            retail_price_id: None,
             revision: card.revision,
             vendor_id: card.vendor_id,
             vendor_revision: card.vendor_revision,

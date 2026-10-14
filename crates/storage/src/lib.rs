@@ -177,6 +177,7 @@ mod retail_schedule;
 pub use retail_schedule::{
     MediaRetailSchedule, NormalizedTextRetailRates, RetailSchedule, TextRetailSchedule,
 };
+mod retail_media_admission;
 mod retail_media_enrollment;
 mod retail_publication;
 mod retail_selection;

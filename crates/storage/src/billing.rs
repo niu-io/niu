@@ -1127,7 +1127,7 @@ pub(crate) async fn reserve_customer_balance_in_tx(
     attempt: Uuid,
     maximum_nanos: i64,
 ) -> Result<(), StoreError> {
-    if maximum_nanos <= 0 {
+    if maximum_nanos < 0 {
         return Err(StoreError::InvalidPrice);
     }
     sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")

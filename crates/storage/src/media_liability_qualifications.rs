@@ -366,6 +366,14 @@ impl Store {
         tx: &mut Transaction<'_, Postgres>,
         identity: &MediaLiabilityIdentity,
     ) -> Result<Option<SelectedMediaLiabilityQualification>, StoreError> {
+        Self::select_media_liability_qualification_at_in_tx(tx, identity, None).await
+    }
+    /// Supplied time must be captured after all caller-owned admission locks.
+    pub(crate) async fn select_media_liability_qualification_at_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        identity: &MediaLiabilityIdentity,
+        at: Option<i64>,
+    ) -> Result<Option<SelectedMediaLiabilityQualification>, StoreError> {
         let mut identity = identity.clone();
         identity.canonicalize()?;
         let encoded = serde_json::to_value(&identity).map_err(|_| StoreError::InvalidPrice)?;
@@ -398,10 +406,15 @@ impl Store {
         let Some(head) = head else {
             return Ok(None);
         };
-        let at: i64 =
-            sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
-                .fetch_one(&mut **tx)
-                .await?;
+        let at = match at {
+            Some(at) if at >= 0 => at,
+            Some(_) => return Err(StoreError::InvalidPrice),
+            None => {
+                sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
+                    .fetch_one(&mut **tx)
+                    .await?
+            }
+        };
         let rows:Vec<(Uuid,Value,String)>=sqlx::query_as("SELECT q.id,q.maximum_quantity,q.evidence_revision FROM media_liability_qualifications q LEFT JOIN media_liability_qualification_revocations r ON r.qualification_id=q.id WHERE q.head_id=$1 AND q.effective_from<=$2 AND LEAST(q.effective_until,COALESCE(r.effective_until,q.effective_until))>$2 ORDER BY q.id LIMIT 2")
             .bind(head).bind(at).fetch_all(&mut **tx).await?;
         if rows.len() > 1 {

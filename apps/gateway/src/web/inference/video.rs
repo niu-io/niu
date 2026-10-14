@@ -851,7 +851,7 @@ pub(super) async fn draft_terms(
             .ok_or_else(ApiError::unavailable)?;
         let selected = state
             .store
-            .select_customer_media_rate(scope.organization_id, &dimensions, at)
+            .preview_customer_video_rate(scope, route, &dimensions, at)
             .await
             .map_err(ApiError::from_store)?
             .ok_or_else(|| {
@@ -1888,23 +1888,6 @@ pub(super) async fn create_as(
             )
             .await
             .map_err(ApiError::from_store)?;
-        let rate = selling.as_ref().ok_or_else(ApiError::unavailable)?;
-        state
-            .store
-            .require_customer_media_offer(scope, attempt, rate.pricing.offer(), route.vendor.id)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .bind_supplier_media_rate(
-                scope,
-                attempt,
-                &rate.pricing.tariff().dimensions,
-                &rate.pricing.tariff().meter,
-                rate.pricing.selected_at(),
-            )
-            .await
-            .map_err(ApiError::from_store)?;
     }
     state
         .store
@@ -1941,7 +1924,7 @@ pub(super) async fn create_as(
     if let Some(rate) = &selling {
         state
             .store
-            .bind_and_reserve_customer_media_balance(scope, attempt, &rate.pricing, &rate.liability)
+            .bind_and_reserve_customer_video_rate(scope, attempt, &route, rate)
             .await
             .map_err(ApiError::from_store)?;
     }

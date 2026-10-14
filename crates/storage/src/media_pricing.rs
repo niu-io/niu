@@ -171,7 +171,7 @@ impl Store {
             .await?
             .ok_or(StoreError::Conflict)?;
         // Account-before-attempt also matches the existing reservation path.
-        sqlx::query("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE")
+        sqlx::query("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
             .bind(scope.organization_id).bind(&snapshot.tariff().currency)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, snapshot).await?;
@@ -228,10 +228,10 @@ impl Store {
             .map_err(|_| StoreError::InvalidPrice)?;
         // The existing ledger uses nanos. Do not round away finer tariff units.
         let maximum_nanos = receipt_nanos(&receipt)?;
-        if maximum_nanos <= 0 {
+        if maximum_nanos < 0 {
             return Err(StoreError::InvalidPrice);
         }
-        let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE")
+        let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
             .bind(scope.organization_id).bind(&receipt.currency)
             .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")

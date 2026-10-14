@@ -40,14 +40,28 @@ impl Store {
         head: Uuid,
         customer: Uuid,
     ) -> Result<RetailSelection, StoreError> {
+        Self::select_retail_price_at_in_tx(tx, head, customer, None).await
+    }
+    /// Supplied time must be captured after the caller owns all admission locks.
+    pub(crate) async fn select_retail_price_at_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        head: Uuid,
+        customer: Uuid,
+        at: Option<i64>,
+    ) -> Result<RetailSelection, StoreError> {
         let price:Head=sqlx::query_as("SELECT h.model_alias,h.currency,h.version,h.current_revision,s.schedule FROM platform_retail_price_heads h JOIN platform_retail_standard_revisions s ON s.id=h.current_revision WHERE h.id=$1 FOR SHARE OF h")
             .bind(head).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         // Obtain time after the identity lock, so waiting on publication cannot
         // retain a preview timestamp across an expiry boundary.
-        let at: i64 =
-            sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
-                .fetch_one(&mut **tx)
-                .await?;
+        let at = match at {
+            Some(at) if at >= 0 => at,
+            Some(_) => return Err(StoreError::InvalidPrice),
+            None => {
+                sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
+                    .fetch_one(&mut **tx)
+                    .await?
+            }
+        };
         let promotions:Vec<Promotion>=sqlx::query_as("SELECT p.id,p.baseline_revision,p.customer_organization_id,p.schedule FROM platform_retail_promotions p LEFT JOIN platform_retail_promotion_retirements r ON r.promotion_id=p.id WHERE p.head_id=$1 AND (p.customer_organization_id IS NULL OR p.customer_organization_id=$2) AND p.effective_from<=$3 AND LEAST(p.effective_until,COALESCE(r.effective_until,p.effective_until))>$3 ORDER BY (p.customer_organization_id IS NOT NULL) DESC LIMIT 3")
             .bind(head).bind(customer).bind(at).fetch_all(&mut **tx).await?;
         if promotions
