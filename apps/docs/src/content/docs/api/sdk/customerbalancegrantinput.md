@@ -14,5 +14,6 @@ export type CustomerBalanceGrantInput = {
     amount_nanos: string;
     reason: string;
     idempotency_key: string;
+    application_policy?: 'future_only' | 'unpaid_credit_first';
 };
 ```

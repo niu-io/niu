@@ -39,9 +39,9 @@ WITH bounds AS MATERIALIZED (
                AND refunds.covered AS revenue_covered,
            refunds.nominal AS refunded,
            CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.nongift_nanos END::numeric
-               - refunds.nongift AS net_revenue,
+               - refunds.nongift - late_gifts.amount AS net_revenue,
            CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.gift_nanos END::numeric
-               - refunds.gift AS gift_allowance,
+               - refunds.gift + late_gifts.amount AS gift_allowance,
            settled.attempt_id IS NOT NULL AS supplier_settled
     FROM provider_attempt_offers b
     JOIN attempts a ON a.id=b.attempt_id
@@ -68,6 +68,11 @@ WITH bounds AS MATERIALIZED (
         LEFT JOIN customer_balance_consumption_allocations refund_allocation ON refund_allocation.entry_id=refund.id
         WHERE refund.reverses_entry_id=debit.id AND refund.kind='refund'
     ) refunds ON true
+    LEFT JOIN LATERAL (
+        SELECT COALESCE(sum(application.amount_nanos::numeric),0) AS amount
+        FROM customer_grant_credit_applications application
+        WHERE application.charge_entry_id=debit.id
+    ) late_gifts ON true
     LEFT JOIN provider_earnings e ON e.attempt_id=a.id AND e.currency=$1
     LEFT JOIN cost_entries cost ON cost.attempt_id=a.id AND cost.currency=$1
     LEFT JOIN provider_settlement_entries settled ON settled.attempt_id=e.attempt_id

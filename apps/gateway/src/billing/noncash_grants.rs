@@ -1,8 +1,9 @@
 //! Administrator noncash gifts; never merchant receipts or immediate revenue.
 use super::{ApiError, AppState, HeaderMap, Json, Path, State, Uuid, Value};
-use niu_storage::{CustomerBalanceGrantPublication, OperatorAuditActor};
+use niu_storage::{
+    CustomerBalanceGrantPolicy, CustomerBalanceGrantPublication, OperatorAuditActor,
+};
 use serde::Deserialize;
-use serde_json::json;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -10,6 +11,8 @@ pub struct GrantInput {
     amount_nanos: String,
     reason: String,
     idempotency_key: Uuid,
+    #[serde(default)]
+    application_policy: CustomerBalanceGrantPolicy,
 }
 
 /// ```openapi
@@ -19,7 +22,7 @@ pub struct GrantInput {
 ///   "operation": {
 ///     "operationId": "grantCustomerBalance",
 ///     "summary": "Issue administrator noncash customer credit",
-///     "description": "Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. This is not a payment receipt, debt forgiveness, or revenue. The gift is allocated against future confirmed consumption and reduces recognized revenue when consumed. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount and reason return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.",
+///     "description": "Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. Issuance is not a payment receipt or revenue. application_policy defaults to future_only for compatibility. Explicit unpaid_credit_first applies the new gift against exact known unpaid credit charges as sales allowance, reducing revenue and receivable without repricing the charge or changing Supplier payable. Remaining gift funds future consumption. Unknown debt provenance rejects the complete publication. Refunds restore the corresponding gift before credit or cash, without evidence of an external cash transfer. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount, reason and application policy return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -58,6 +61,11 @@ pub struct GrantInput {
 ///               "idempotency_key"
 ///             ],
 ///             "properties": {
+///               "application_policy": {
+///                 "type": "string",
+///                 "enum": ["future_only", "unpaid_credit_first"],
+///                 "default": "future_only"
+///               },
 ///               "amount_nanos": {
 ///                 "type": "string",
 ///                 "pattern": "^[1-9][0-9]{0,18}$",
@@ -92,9 +100,18 @@ pub struct GrantInput {
 ///                 "data": {
 ///                   "type": "object",
 ///                   "required": [
-///                     "id"
+///                     "id",
+///                     "application_policy",
+///                     "applied_to_credit_nanos",
+///                     "retained_for_future_consumption_nanos"
 ///                   ],
 ///                   "properties": {
+///                     "application_policy": { "type": "string", "enum": ["future_only", "unpaid_credit_first"] },
+///                     "applied_to_credit_nanos": { "type": "string", "pattern": "^[0-9]+$" },
+///                     "retained_for_future_consumption_nanos": {
+///                       "type": "string", "pattern": "^[0-9]+$",
+///                       "description": "Original grant amount retained for future consumption at issuance, not current spendable balance."
+///                     },
 ///                     "id": {
 ///                       "type": "string",
 ///                       "format": "uuid"
@@ -115,8 +132,11 @@ pub struct GrantInput {
 ///       "403": {
 ///         "description": "Explicit platform administration required"
 ///       },
+///       "422": {
+///         "description": "Malformed request body or unsupported application policy"
+///       },
 ///       "409": {
-///         "description": "Unknown company or conflicting idempotency key"
+///         "description": "Unknown company, conflicting idempotency intent or uncovered debt sources for unpaid_credit_first"
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented"
@@ -144,7 +164,7 @@ pub async fn issue(
     }
     let id = state
         .store
-        .publish_customer_balance_grant(
+        .publish_customer_balance_grant_with_policy(
             organization,
             CustomerBalanceGrantPublication {
                 currency: &currency,
@@ -153,8 +173,14 @@ pub async fn issue(
                 idempotency_key: input.idempotency_key,
             },
             actor,
+            input.application_policy,
         )
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": {"id": id}})))
+    let result = state
+        .store
+        .customer_balance_grant_result(organization, id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(serde_json::json!({"data": result})))
 }

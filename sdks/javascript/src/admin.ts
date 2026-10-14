@@ -335,7 +335,7 @@ export type CustomerBalancePolicyHistory = {
   data: Array<{ revision: string; credit_limit_nanos: string; warning_threshold_nanos: string | null; created_at: string; is_current: boolean }>;
 };
 /** Noncash gift; issuance is neither a receipt nor revenue. */
-export type CustomerBalanceGrantInput = { amount_nanos: string; reason: string; idempotency_key: string };
+export type CustomerBalanceGrantInput = { amount_nanos: string; reason: string; idempotency_key: string; application_policy?: 'future_only' | 'unpaid_credit_first' };
 
 /** Exact nonnegative nanounits and optimistic revision for installation credit policy. */
 export type CustomerBalancePolicyInput = {
@@ -1695,14 +1695,16 @@ export class NiuAdminClient {
   }
 
   /** Platform-only noncash gift. Reuse the same idempotency key for an exact retry; never creates a payment receipt. */
-  grantCustomerBalance(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
+  grantCustomerBalance(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{ data: { id: string; application_policy: 'future_only' | 'unpaid_credit_first'; applied_to_credit_nanos: string; retained_for_future_consumption_nanos: string } }> {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     if (typeof input.amount_nanos !== 'string' || !/^[1-9][0-9]{0,18}$/.test(input.amount_nanos)
       || BigInt(input.amount_nanos) > 9223372036854775807n) throw new TypeError('Use an exact positive amount');
     if (typeof input.reason !== 'string' || input.reason !== input.reason.trim() || [...input.reason].length < 1
       || [...input.reason].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Use a trimmed justification without control characters');
+    if (input.application_policy !== undefined && !['future_only', 'unpaid_credit_first'].includes(input.application_policy)) throw new TypeError('Use a supported gift application policy');
     return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants`, {
       amount_nanos: input.amount_nanos, reason: input.reason, idempotency_key: uuid(input.idempotency_key),
+      ...(input.application_policy === undefined ? {} : { application_policy: input.application_policy }),
     }, options, 'POST');
   }
 

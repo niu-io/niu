@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants`
 
-Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. This is not a payment receipt, debt forgiveness, or revenue. The gift is allocated against future confirmed consumption and reduces recognized revenue when consumed. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount and reason return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
+Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. Issuance is not a payment receipt or revenue. application_policy defaults to future_only for compatibility. Explicit unpaid_credit_first applies the new gift against exact known unpaid credit charges as sales allowance, reducing revenue and receivable without repricing the charge or changing Supplier payable. Remaining gift funds future consumption. Unknown debt provenance rejects the complete publication. Refunds restore the corresponding gift before credit or cash, without evidence of an external cash transfer. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount, reason and application policy return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
 
 Operation: `grantCustomerBalance`.
 
@@ -77,6 +77,14 @@ Location: **path**. **Required.**
     "idempotency_key"
   ],
   "properties": {
+    "application_policy": {
+      "type": "string",
+      "enum": [
+        "future_only",
+        "unpaid_credit_first"
+      ],
+      "default": "future_only"
+    },
     "amount_nanos": {
       "type": "string",
       "pattern": "^[1-9][0-9]{0,18}$",
@@ -114,9 +122,28 @@ Content type: `application/json`.
     "data": {
       "type": "object",
       "required": [
-        "id"
+        "id",
+        "application_policy",
+        "applied_to_credit_nanos",
+        "retained_for_future_consumption_nanos"
       ],
       "properties": {
+        "application_policy": {
+          "type": "string",
+          "enum": [
+            "future_only",
+            "unpaid_credit_first"
+          ]
+        },
+        "applied_to_credit_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "retained_for_future_consumption_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Original grant amount retained for future consumption at issuance, not current spendable balance."
+        },
         "id": {
           "type": "string",
           "format": "uuid"
@@ -141,10 +168,14 @@ Explicit platform administration required
 
 ### HTTP 409
 
-Unknown company or conflicting idempotency key
+Unknown company, conflicting idempotency intent or uncovered debt sources for unpaid_credit_first
+
+### HTTP 422
+
+Malformed request body or unsupported application policy
 
 ## Behavior and supported scope
 
-Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. This is not a payment receipt, debt forgiveness, or revenue. The gift is allocated against future confirmed consumption and reduces recognized revenue when consumed. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount and reason return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
+Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. Issuance is not a payment receipt or revenue. application_policy defaults to future_only for compatibility. Explicit unpaid_credit_first applies the new gift against exact known unpaid credit charges as sales allowance, reducing revenue and receivable without repricing the charge or changing Supplier payable. Remaining gift funds future consumption. Unknown debt provenance rejects the complete publication. Refunds restore the corresponding gift before credit or cash, without evidence of an external cash transfer. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount, reason and application policy return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
 
 **Supported scope:** implemented

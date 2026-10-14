@@ -3,6 +3,23 @@
 use crate::{OperatorAuditActor, Store, StoreError};
 use uuid::Uuid;
 
+/// Explicit application intent; omission at existing callers preserves future gifts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CustomerBalanceGrantPolicy {
+    #[default]
+    FutureOnly,
+    UnpaidCreditFirst,
+}
+impl CustomerBalanceGrantPolicy {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::FutureOnly => "future_only",
+            Self::UnpaidCreditFirst => "unpaid_credit_first",
+        }
+    }
+}
+
 /// Positive noncash grant publication; all amounts are integer nanounits.
 pub struct CustomerBalanceGrantPublication<'a> {
     pub currency: &'a str,
@@ -12,6 +29,37 @@ pub struct CustomerBalanceGrantPublication<'a> {
 }
 
 impl Store {
+    /// Return immutable issuance intent and its original allocation, not current
+    /// spendable capacity. Scoped read; callers retain platform authorization.
+    pub async fn customer_balance_grant_result(
+        &self,
+        organization: Uuid,
+        grant: Uuid,
+    ) -> Result<serde_json::Value, StoreError> {
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
+        let result = sqlx::query_scalar(
+            r#"SELECT jsonb_build_object(
+                'id',g.id,'application_policy',COALESCE(p.policy,'future_only'),
+                'applied_to_credit_nanos',allocation.amount::text,
+                'retained_for_future_consumption_nanos',
+                    (g.amount_nanos::numeric-allocation.amount)::text)
+            FROM customer_balance_grants g
+            LEFT JOIN customer_grant_policies p ON p.grant_id=g.id
+            CROSS JOIN LATERAL (
+                SELECT COALESCE(sum(a.amount_nanos::numeric),0) AS amount
+                FROM customer_grant_credit_applications a WHERE a.grant_id=g.id
+            ) allocation
+            WHERE g.organization_id=$1 AND g.id=$2"#,
+        )
+        .bind(organization)
+        .bind(grant)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        tx.commit().await?;
+        Ok(result)
+    }
+
     /// Publish one positive company/currency gift and its opposite signed
     /// noncash memorandum record atomically. Callers must authorize installation financial
     /// administration and supply the authenticated actor; this storage method
@@ -26,6 +74,24 @@ impl Store {
         organization: Uuid,
         publication: CustomerBalanceGrantPublication<'_>,
         actor: OperatorAuditActor,
+    ) -> Result<Uuid, StoreError> {
+        self.publish_customer_balance_grant_with_policy(
+            organization,
+            publication,
+            actor,
+            CustomerBalanceGrantPolicy::FutureOnly,
+        )
+        .await
+    }
+
+    /// Explicit late grants may reduce exact known unpaid credit as sales allowance.
+    /// Unknown debt sources reject the entire publication; no extra balance credit.
+    pub async fn publish_customer_balance_grant_with_policy(
+        &self,
+        organization: Uuid,
+        publication: CustomerBalanceGrantPublication<'_>,
+        actor: OperatorAuditActor,
+        policy: CustomerBalanceGrantPolicy,
     ) -> Result<Uuid, StoreError> {
         let CustomerBalanceGrantPublication {
             currency,
@@ -51,18 +117,19 @@ impl Store {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let prior: Option<(Uuid, String, i64, String)> = sqlx::query_as(
-            "SELECT id,currency,amount_nanos,reason FROM customer_balance_grants \
-             WHERE organization_id=$1 AND idempotency_key=$2",
+        let prior: Option<(Uuid, String, i64, String, String)> = sqlx::query_as(
+            "SELECT g.id,g.currency,g.amount_nanos,g.reason,COALESCE(p.policy,'future_only') FROM customer_balance_grants g \
+             LEFT JOIN customer_grant_policies p ON p.grant_id=g.id WHERE g.organization_id=$1 AND g.idempotency_key=$2",
         )
         .bind(organization)
         .bind(idempotency_key)
         .fetch_optional(&mut *tx)
         .await?;
-        if let Some((id, saved_currency, saved_amount, saved_reason)) = prior {
+        if let Some((id, saved_currency, saved_amount, saved_reason, saved_policy)) = prior {
             return if saved_currency == currency
                 && saved_amount == amount_nanos
                 && saved_reason == reason
+                && saved_policy == policy.as_str()
             {
                 Ok(id)
             } else {
@@ -99,6 +166,16 @@ impl Store {
         if occupied {
             return Err(StoreError::Conflict);
         }
+        if policy == CustomerBalanceGrantPolicy::UnpaidCreditFirst {
+            let covered: bool =
+                sqlx::query_scalar("SELECT niu_customer_credit_account_covered($1)")
+                    .bind(account)
+                    .fetch_one(&mut *tx)
+                    .await?;
+            if !covered {
+                return Err(StoreError::Conflict);
+            }
+        }
         let entry = Uuid::new_v4();
         sqlx::query(
             "INSERT INTO customer_balance_entries \
@@ -134,6 +211,11 @@ impl Store {
         .bind(actor_id)
         .execute(&mut *tx)
         .await?;
+        sqlx::query("INSERT INTO customer_grant_policies(grant_id,policy) VALUES($1,$2)")
+            .bind(id)
+            .bind(policy.as_str())
+            .execute(&mut *tx)
+            .await?;
         tx.commit().await?;
         Ok(id)
     }

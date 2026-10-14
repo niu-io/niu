@@ -51,12 +51,29 @@ WITH bounds AS MATERIALIZED (
             JOIN provider_offers offer ON offer.id=binding.offer_id
             JOIN personal_vendor_ownership personal ON personal.vendor_id=offer.vendor_id
             WHERE binding.attempt_id=attempt.id)
+    UNION ALL
+    -- An application is an allowance posting, not another nominal charge or
+    -- wallet adjustment. Late-gift refunds already appear in refund gift_nanos.
+    SELECT 0::numeric, 'grant_application', true, application.amount_nanos::numeric,
+           -application.amount_nanos::numeric
+    FROM customer_grant_credit_applications application CROSS JOIN bounds
+    JOIN customer_balance_entries original ON original.id=application.charge_entry_id
+    JOIN attempts attempt ON attempt.id=original.attempt_id
+    LEFT JOIN operation_funding_sources funding ON funding.operation_id=attempt.operation_id
+    WHERE application.currency=$1 AND application.created_at>=bounds.since
+        AND application.created_at<bounds.until
+        AND funding.funding_source IS DISTINCT FROM 'personal'
+        AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=attempt.id)
+        AND NOT EXISTS (SELECT 1 FROM provider_attempt_offers binding
+            JOIN provider_offers offer ON offer.id=binding.offer_id
+            JOIN personal_vendor_ownership personal ON personal.vendor_id=offer.vendor_id
+            WHERE binding.attempt_id=attempt.id)
 ), totals AS (
     SELECT COALESCE(sum(nominal) FILTER (WHERE kind='charge'),0) AS nominal,
            COALESCE(sum(nominal) FILTER (WHERE kind='refund'),0) AS refunded,
-           COALESCE(sum(CASE WHEN kind='charge' THEN nongift ELSE -nongift END)
+           COALESCE(sum(CASE WHEN kind='refund' THEN -nongift ELSE nongift END)
                FILTER (WHERE covered IS TRUE),0) AS known_revenue,
-           COALESCE(sum(CASE WHEN kind='charge' THEN gift ELSE -gift END)
+           COALESCE(sum(CASE WHEN kind='refund' THEN -gift ELSE gift END)
                FILTER (WHERE covered IS TRUE),0) AS known_allowance,
            count(*) FILTER (WHERE covered IS NOT TRUE) AS uncovered_entries,
            COALESCE(sum(nominal) FILTER (WHERE covered IS NOT TRUE),0) AS uncovered_nominal
@@ -69,7 +86,9 @@ WITH bounds AS MATERIALIZED (
         -COALESCE(source.cash_consumed,0)+COALESCE(source.cash_restored,0)
         -COALESCE(repaid.amount,0) AS prepaid_cash,
         COALESCE(source.credit_incurred,0)-COALESCE(source.credit_cancelled,0)
-        -COALESCE(repaid.amount,0) AS outstanding_credit
+        -COALESCE(repaid.amount,0)
+        -COALESCE((SELECT sum(application.amount_nanos::numeric) FROM customer_grant_credit_applications application
+            WHERE application.account_id=account.id),0) AS outstanding_credit
     FROM customer_balance_accounts account
     LEFT JOIN LATERAL (
         SELECT sum(cash_nanos::numeric) FILTER (WHERE kind='charge') AS cash_consumed,

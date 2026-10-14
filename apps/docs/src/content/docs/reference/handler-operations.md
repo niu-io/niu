@@ -7879,7 +7879,7 @@ HTTP 409: Cursor revision does not exist for this account
 
 `GET /admin/v1/commercial-position`
 
-Explicit platform administrator only. One current database snapshot for a UTC rolling dispatch interval [from, until), 7/30/90 days and a configured currency. Personal owner-funded supply is excluded. Each row is a Supplier, customer-facing model alias and currency; route-pool candidates appear as distinct offers. Customer charges are confirmed retail charges, not external cash receipts. Supplier settlement links record confirmed external payments, not automatic transfers. Null monetary values mean unavailable, never zero. Margin is customer charge minus Supplier earning over matched attempts only, withheld when any potentially executed attempt is unresolved. Cost is separately reported over matched attempts and withheld if any matching cost entry is missing; cost coverage counts are explicit. Empty offers means no quote in the selected currency. No customer identity, request identity, body or credential is returned. Read-only; never changes routing or model. Identifiers are API references and must not become product labels. Cache-Control: no-store. Net customer revenue excludes consumed gifts and recorded customer refunds for this dispatch cohort; it is not cash receipts or posting-period income. Missing charge/source coverage leaves the full net revenue unavailable. Gift allowance is a sales allowance, not an operating expense. net_contribution_nanos subtracts matched Supplier earnings from net customer revenue, never known upstream expense again. Legacy margin_nanos remains nominal charge minus Supplier earnings and must not be labeled income or net profit. Personal funding is excluded independently of current vendor ownership. customer_refunds_nanos records associated balance-credit restorations for the dispatch cohort, not external cash refund transfers. When fully covered, nominal charge minus recorded refunds minus net consumed-gift allowance equals net customer revenue. Each known customer/Supplier/cost ledger currency is represented independently, without conversion. known_upstream_cost_subtotal_nanos sums only actual recorded costs in the selected currency, independently of same-currency customer/Supplier matching. It is a known partial subtotal, not proof of complete expense coverage; absent records remain null. upstream_cost_recorded_attempts counts these recorded cost entries. Legacy cost_nanos and cost_known_attempts retain their matched-attempt coverage semantics.
+Explicit late-grant applications against a cohort charge reduce net revenue and increase sales allowance without repricing nominal charges or Supplier payable. Their refund restoration is included in recorded refund gift allocation once. Explicit platform administrator only. One current database snapshot for a UTC rolling dispatch interval [from, until), 7/30/90 days and a configured currency. Personal owner-funded supply is excluded. Each row is a Supplier, customer-facing model alias and currency; route-pool candidates appear as distinct offers. Customer charges are confirmed retail charges, not external cash receipts. Supplier settlement links record confirmed external payments, not automatic transfers. Null monetary values mean unavailable, never zero. Margin is customer charge minus Supplier earning over matched attempts only, withheld when any potentially executed attempt is unresolved. Cost is separately reported over matched attempts and withheld if any matching cost entry is missing; cost coverage counts are explicit. Empty offers means no quote in the selected currency. No customer identity, request identity, body or credential is returned. Read-only; never changes routing or model. Identifiers are API references and must not become product labels. Cache-Control: no-store. Net customer revenue excludes consumed gifts and recorded customer refunds for this dispatch cohort; it is not cash receipts or posting-period income. Missing charge/source coverage leaves the full net revenue unavailable. Gift allowance is a sales allowance, not an operating expense. net_contribution_nanos subtracts matched Supplier earnings from net customer revenue, never known upstream expense again. Legacy margin_nanos remains nominal charge minus Supplier earnings and must not be labeled income or net profit. Personal funding is excluded independently of current vendor ownership. customer_refunds_nanos records associated balance-credit restorations for the dispatch cohort, not external cash refund transfers. When fully covered, nominal charge minus recorded refunds minus net consumed-gift allowance equals net customer revenue. Each known customer/Supplier/cost ledger currency is represented independently, without conversion. known_upstream_cost_subtotal_nanos sums only actual recorded costs in the selected currency, independently of same-currency customer/Supplier matching. It is a known partial subtotal, not proof of complete expense coverage; absent records remain null. upstream_cost_recorded_attempts counts these recorded cost entries. Legacy cost_nanos and cost_known_attempts retain their matched-attempt coverage semantics.
 
 Implementation: `implemented`. Operation: `getCommercialPosition`.
 
@@ -8153,7 +8153,7 @@ HTTP 401: Invalid credentials
 
 `GET /admin/v1/financial-summary`
 
-Explicit platform administrator only; no customer or Supplier access. One database snapshot, configured currency and UTC rolling posting interval [from, until), 7/30/90 days. Confirmed text/media charges use their immutable charge posting time; customer refunds, grants and cash receipts use their own posting times. This differs from the commercial dispatch cohort. Personal-funded operations, durable personal attempt bindings and current personal-owned Supplier offer credentials are excluded from consumption and related refunds. Revenue is nominal consumption minus consumed gift allowance and non-gift refunds; non-gift can be prepaid or credit-backed. Issuing a gift or collecting a credit repayment never creates consumption revenue. Missing or legacy-unknown consumption allocation leaves revenue and total allowance null; known subtotals are partial. Uncovered nominal includes both charge and refund amounts as positive coverage exposure. A zero-charge record is known zero. Net allowance/revenue may be negative when refunds relate to an earlier interval. Verified cash receipt records remain independent; potentially overlapping legacy invoice and funding references leave the combined receipt total null. Funding reversal records do not attest an external cash refund transfer. No procurement prices, customer identifiers, credentials or content. The balance_credit_sources object is a point-in-time company wallet cash/credit provenance view at as_of, independent of the selected posting interval and external invoice receivables. Verified cash repayments reduce outstanding credit without creating revenue. Missing historical sources, unclassified adjustments or funding reversal ambiguity withhold complete prepaid cash and outstanding credit; known subtotals include only wholly covered accounts. Aggregate read only; does not initiate merchant operations. Cache-Control: no-store. This operational reconciliation report is not a closed general ledger or tax statement.
+Explicit platform administrator only; no customer or Supplier access. One database snapshot, configured currency and UTC rolling posting interval [from, until), 7/30/90 days. Confirmed text/media charges use their immutable charge posting time; customer refunds, grants and cash receipts use their own posting times. This differs from the commercial dispatch cohort. Personal-funded operations, durable personal attempt bindings and current personal-owned Supplier offer credentials are excluded from consumption and related refunds. Revenue is nominal consumption minus consumed gift allowance and non-gift refunds; explicit late-grant applications post sales allowance at application time, while their refund restoration is already part of refund gift allocation and is not posted twice; non-gift can be prepaid or credit-backed. Issuing a gift or collecting a credit repayment never creates consumption revenue. Missing or legacy-unknown consumption allocation leaves revenue and total allowance null; known subtotals are partial. Uncovered nominal includes both charge and refund amounts as positive coverage exposure. A zero-charge record is known zero. Net allowance/revenue may be negative when refunds relate to an earlier interval. Verified cash receipt records remain independent; potentially overlapping legacy invoice and funding references leave the combined receipt total null. Funding reversal records do not attest an external cash refund transfer. No procurement prices, customer identifiers, credentials or content. The balance_credit_sources object is a point-in-time company wallet cash/credit provenance view at as_of, independent of the selected posting interval and external invoice receivables. Verified cash repayments reduce outstanding credit without creating revenue. Missing historical sources, unclassified adjustments or funding reversal ambiguity withhold complete prepaid cash and outstanding credit; known subtotals include only wholly covered accounts. Aggregate read only; does not initiate merchant operations. Cache-Control: no-store. This operational reconciliation report is not a closed general ledger or tax statement.
 
 Implementation: `implemented`. Operation: `getCustomerFinancialSummary`.
 
@@ -9614,7 +9614,7 @@ HTTP 409: Stale version, conflicting key, mismatched price or absent existing cu
 
 `POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants`
 
-Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. This is not a payment receipt, debt forgiveness, or revenue. The gift is allocated against future confirmed consumption and reduces recognized revenue when consumed. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount and reason return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
+Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. Issuance is not a payment receipt or revenue. application_policy defaults to future_only for compatibility. Explicit unpaid_credit_first applies the new gift against exact known unpaid credit charges as sales allowance, reducing revenue and receivable without repricing the charge or changing Supplier payable. Remaining gift funds future consumption. Unknown debt provenance rejects the complete publication. Refunds restore the corresponding gift before credit or cash, without evidence of an external cash transfer. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount, reason and application policy return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
 
 Implementation: `implemented`. Operation: `grantCustomerBalance`.
 
@@ -9666,6 +9666,14 @@ Content type: `application/json`.
     "idempotency_key"
   ],
   "properties": {
+    "application_policy": {
+      "type": "string",
+      "enum": [
+        "future_only",
+        "unpaid_credit_first"
+      ],
+      "default": "future_only"
+    },
     "amount_nanos": {
       "type": "string",
       "pattern": "^[1-9][0-9]{0,18}$",
@@ -9701,9 +9709,28 @@ Content type: `application/json`.
     "data": {
       "type": "object",
       "required": [
-        "id"
+        "id",
+        "application_policy",
+        "applied_to_credit_nanos",
+        "retained_for_future_consumption_nanos"
       ],
       "properties": {
+        "application_policy": {
+          "type": "string",
+          "enum": [
+            "future_only",
+            "unpaid_credit_first"
+          ]
+        },
+        "applied_to_credit_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "retained_for_future_consumption_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Original grant amount retained for future consumption at issuance, not current spendable balance."
+        },
         "id": {
           "type": "string",
           "format": "uuid"
@@ -9720,7 +9747,9 @@ HTTP 401: Authentication required
 
 HTTP 403: Explicit platform administration required
 
-HTTP 409: Unknown company or conflicting idempotency key
+HTTP 422: Malformed request body or unsupported application policy
+
+HTTP 409: Unknown company, conflicting idempotency intent or uncovered debt sources for unpaid_credit_first
 
 ## Discover named platform pricing targets
 

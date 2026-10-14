@@ -170,7 +170,7 @@ pub use workspace_creation::WorkspaceCreationKey;
 mod billing;
 pub use billing::{CustomerCategoryRates, CustomerTariffPublication};
 mod customer_balance_grants;
-pub use customer_balance_grants::CustomerBalanceGrantPublication;
+pub use customer_balance_grants::{CustomerBalanceGrantPolicy, CustomerBalanceGrantPublication};
 mod commercial_position;
 mod customer_financial_summary;
 mod retail_schedule;
