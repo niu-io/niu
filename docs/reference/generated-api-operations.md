@@ -7188,7 +7188,7 @@ Restrict attempts and summaries to one operation within the authorized workspace
 
 `key_id` (query, optional)
 
-Workspace API key ID filter. Key names and IDs are visible only within the authorized workspace.
+Workspace API key ID filter. Matches the dispatched key or a captured requested key in saved admission-denial evidence while the attempt remains unsent. Does not change billing attribution. Key names and IDs are visible only within the authorized workspace.
 
 ```json
 {
@@ -7199,7 +7199,7 @@ Workspace API key ID filter. Key names and IDs are visible only within the autho
 
 `status` (query, optional)
 
-Exact gateway execution state, or output_withheld for recorded blocked/indeterminate output inspection. delivery_failed selects recorded HTTP errors (400–599). recorded_failure selects persisted failure observations, including errors delivered inside HTTP 200 streams. Missing failure observations are not inferred from execution uncertainty. Completion at the Provider does not establish successful response delivery.
+Exact gateway execution state, or output_withheld for recorded blocked/indeterminate output inspection. delivery_failed selects recorded HTTP errors (400–599). recorded_failure selects persisted upstream failure observations, including errors delivered inside HTTP 200 streams, and saved Gateway admission denials while the attempt remains unsent. Missing failure observations are not inferred from execution uncertainty. Completion at the Provider does not establish successful response delivery.
 
 ```json
 {

@@ -287,13 +287,15 @@ fn push_activity_scope_and_filters<'a>(
         query.push(" AND o.model_alias = ").push_bind(model_alias);
     }
     if let Some(api_key_id) = filter.api_key_id {
-        query.push(" AND a.api_key_id = ").push_bind(api_key_id);
+        query.push(" AND (a.api_key_id = ").push_bind(api_key_id)
+            .push(" OR (a.dispatched_at IS NULL AND a.execution='not_sent' AND EXISTS (SELECT 1 FROM gateway_admission_denials denial WHERE denial.attempt_id=a.id AND denial.organization_id=a.organization_id AND denial.project_id=a.project_id AND denial.requested_key_id=")
+            .push_bind(api_key_id).push(")))");
     }
     if let Some(execution) = filter.execution.as_deref() {
         if execution == "output_withheld" {
             query.push(" AND EXISTS (SELECT 1 FROM output_guardrail_decisions decision WHERE decision.organization_id=a.organization_id AND decision.project_id=a.project_id AND decision.attempt_id=a.id AND decision.outcome IN ('blocked','indeterminate'))");
         } else if execution == "recorded_failure" {
-            query.push(" AND EXISTS (SELECT 1 FROM request_failures failure WHERE failure.attempt_id=a.id)");
+            query.push(" AND (EXISTS (SELECT 1 FROM request_failures failure WHERE failure.attempt_id=a.id) OR (a.dispatched_at IS NULL AND a.execution='not_sent' AND EXISTS (SELECT 1 FROM gateway_admission_denials denial WHERE denial.attempt_id=a.id AND denial.organization_id=a.organization_id AND denial.project_id=a.project_id)))");
         } else if execution == "delivery_failed" {
             query.push(" AND EXISTS (SELECT 1 FROM request_timings delivery WHERE delivery.attempt_id=a.id AND delivery.http_status>=400)");
         } else {

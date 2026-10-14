@@ -221,7 +221,7 @@ const failureDescriptions: Record<string, string> = {
   upstream_transport_error: 'The upstream request failed during transport.',
   upstream_invalid_response: 'The upstream service returned an invalid response.',
 };
-const filterStatusLabel = (value: string) => value === 'confirmed_completed' ? 'Provider completed' : statusLabel(value);
+const filterStatusLabel = (value: string) => value === 'recorded_failure' ? 'Recorded failure' : value === 'confirmed_completed' ? 'Provider completed' : statusLabel(value);
 
 function filterQuery(filters: ActivityFilters) {
   const query = new URLSearchParams();
@@ -655,7 +655,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
               {([
                 ['model', 'Model', [...new Set([...models, ...requests.map(item => item.model)])].map(value => ({ value, label: value }))],
                 ['keyId', 'API key', keys.map(key => ({ value: key.id, label: key.name }))],
-                ['status', 'Status', ['confirmed_completed', 'output_withheld', 'delivery_failed', 'may_have_executed', 'confirmed_not_executed', 'not_sent'].map(value => ({ value, label: filterStatusLabel(value) }))],
+                ['status', 'Status', ['confirmed_completed', 'output_withheld', 'delivery_failed', 'recorded_failure', 'may_have_executed', 'confirmed_not_executed', 'not_sent'].map(value => ({ value, label: filterStatusLabel(value) }))],
                 ['httpStatus', 'HTTP status', [...new Set(['unknown', ...(summary?.delivery_statuses ?? []).map(item => item.http_status === null ? 'unknown' : String(item.http_status)), ...(filters.httpStatus ? [filters.httpStatus] : [])])].map(value => ({value, label: value === 'unknown' ? 'Unknown' : `HTTP ${value}`}))],
               ] as Array<[keyof ActivityFilters, string, Array<{value: string; label: string}>]>).map(([field, label, options]) => isMobile ? mobileFilterField === null ? <DropdownMenuItem key={field} onSelect={event => { event.preventDefault(); setMobileFilterField(field); }}>{label}</DropdownMenuItem> : mobileFilterField === field ? <div key={field}>
                 <DropdownMenuItem onSelect={event => { event.preventDefault(); setMobileFilterField(null); }}>← Filters</DropdownMenuItem>
