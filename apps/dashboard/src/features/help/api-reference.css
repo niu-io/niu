@@ -1,0 +1,46 @@
+/* Use Scalar's published theme variables; retain its navigation and layout. */
+.niu-api-documentation {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.niu-api-documentation > .public-header { flex-shrink: 0; }
+.niu-api-reference {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  --scalar-font: var(--font-sans);
+  --scalar-font-code: var(--font-mono);
+  --scalar-color-1: var(--foreground);
+  --scalar-color-2: var(--muted-foreground);
+  --scalar-color-3: var(--muted-foreground);
+  --scalar-color-accent: var(--primary);
+  --scalar-background-1: var(--background);
+  --scalar-background-2: var(--muted);
+  --scalar-background-3: var(--accent);
+  --scalar-background-accent: var(--accent);
+  --scalar-border-color: var(--border);
+  --scalar-sidebar-background-1: var(--sidebar);
+  --scalar-sidebar-color-1: var(--sidebar-foreground);
+  --scalar-sidebar-color-2: var(--muted-foreground);
+  --scalar-sidebar-color-active: var(--sidebar-accent-foreground);
+  --scalar-sidebar-item-hover-background: var(--sidebar-accent);
+  --scalar-sidebar-item-active-background: var(--sidebar-accent);
+  --scalar-sidebar-border-color: var(--border);
+  --scalar-radius: var(--radius);
+}
+
+/* Scalar 0.9.80 has no configuration switch for its local-host promotions.
+   Keep these overrides scoped to the embedded reference, including its footer
+   attribution, without hiding documentation or request-client controls. */
+.niu-api-reference .darklight-reference,
+.niu-api-reference .explore-scalar,
+.niu-api-reference .generate-sdk-button,
+.niu-api-reference .selected-client-action {
+  display: none !important;
+}

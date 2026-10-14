@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import YAML from 'yaml';
+import { addOpenApiNavigation } from './openapi-navigation.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const check = process.argv.includes('--check');
 const outputFlag = process.argv.indexOf('--output-dir');
@@ -58,6 +59,7 @@ function validateRefs(value) {
   Object.values(value).forEach(validateRefs);
 }
 validateRefs(spec);
+addOpenApiNavigation(spec);
 outputs.set('contracts/generated/public-openapi.json', JSON.stringify(spec, null, 2) + '\n');
 const generated = 'Generated from the checked-in source. Do not edit this reference by hand.';
 function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, 'tableOfContents: false', '---', '', generated, '', ...lines].join('\n') + '\n'; }

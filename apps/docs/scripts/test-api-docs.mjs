@@ -13,6 +13,16 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
    assert.match(run(),/REST operations and \d+ public SDK exports generated/);
    const spec=JSON.parse(readFileSync(join(directory,'contracts/generated/public-openapi.json'),'utf8'));
    assert.ok(spec.paths['/v1/chat/completions'].post.requestBody);
+   assert.equal(spec.paths['/v1/chat/completions'].post.tags[0], 'Chat completions');
+   assert.equal(spec.paths['/admin/v1/platform/customer-accounts'].get.tags[0], 'Customer balances');
+   const tags = new Set(spec.tags.map(tag => tag.name));
+   for (const item of Object.values(spec.paths)) for (const [method, operation] of Object.entries(item)) {
+     if (!['get','post','put','patch','delete','head','options'].includes(method)) continue;
+     assert.equal(operation.tags.length, 1);
+     assert.ok(tags.has(operation.tags[0]));
+   }
+   assert.deepEqual(new Set(spec['x-tagGroups'].flatMap(group => group.tags)), tags);
+   assert.match(spec.info.description, /Authentication and scope/);
    assert.equal(spec.paths['/v1/models'].get.operationId,'listModels');
    const client=readFileSync(join(directory,'apps/docs/src/content/docs/api/sdk/niuclient.md'),'utf8');
    assert.ok(client.indexOf('### constructor')<client.indexOf('### chat'));

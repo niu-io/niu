@@ -1,7 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
+const ApiReference = lazy(() => import('./ApiReference'));
+
 export default function HelpPage() {
+  const { pathname } = useLocation();
+  return /^\/help\/api(?:\/rest)?\/?$/.test(pathname)
+    ? <Suspense fallback={<p role="status" className="p-6 text-muted-foreground">Loading API reference…</p>}><ApiReference /></Suspense>
+    : <DocumentationPage />;
+}
+
+function DocumentationPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const frame = useRef<HTMLIFrameElement>(null);

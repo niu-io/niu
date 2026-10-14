@@ -2,7 +2,34 @@ openapi: 3.1.0
 info:
   title: Niu Gateway API
   version: 0.1.0
-  description: Public inference, health, and initial management endpoints for Niu.
+  description: |
+    Model inference and management APIs for Niu. Browse the resource groups in the sidebar,
+    search by operation or path, and expand the request and response schemas for exact fields.
+
+    ## Getting started
+    Use the [HTTP quickstart](/help/guides/api-quickstart/) for your first model request,
+    or the [JavaScript SDK guide](/help/guides/sdk-quickstart/) for typed clients.
+    [Download the complete OpenAPI 3.1 document](/docs/openapi/public.json).
+
+    ## Authentication and scope
+    Inference uses a workspace API key. Management operations require the member session,
+    platform authority or Supplier membership stated by that operation. These credentials
+    are not interchangeable. See each operation's security scheme and access description.
+    Legacy `project` path segments refer to workspaces; legacy `provider` paths refer to Suppliers.
+
+    ## Requests and responses
+    Send the documented Content-Type and use the declared request schema. Response status codes,
+    error bodies and pagination fields are operation-specific. Follow the returned cursor rather
+    than assuming a list is complete. Streaming operations document their event format separately.
+
+    Monetary amounts and large counters use the exact string representation in their schemas.
+    Preserve currency and rate units; Supplier purchase rates and customer charges are separate.
+
+    ## Writes and retries
+    Where an operation documents an idempotency key, retry an uncertain outcome with the same
+    key and identical input. Preserve expected revisions for configuration updates; reload after
+    a conflict. A timeout does not prove that a write or an upstream generation did not execute.
+    Read the individual operation's retry and reconciliation behavior before resubmitting.
 servers:
   - url: /
 paths:

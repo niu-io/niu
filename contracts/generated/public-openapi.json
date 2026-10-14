@@ -3,7 +3,7 @@
   "info": {
     "title": "Niu Gateway API",
     "version": "0.1.0",
-    "description": "Public inference, health, and initial management endpoints for Niu."
+    "description": "Model inference and management APIs for Niu. Browse the resource groups in the sidebar,\nsearch by operation or path, and expand the request and response schemas for exact fields.\n\n## Getting started\nUse the [HTTP quickstart](/help/guides/api-quickstart/) for your first model request,\nor the [JavaScript SDK guide](/help/guides/sdk-quickstart/) for typed clients.\n[Download the complete OpenAPI 3.1 document](/docs/openapi/public.json).\n\n## Authentication and scope\nInference uses a workspace API key. Management operations require the member session,\nplatform authority or Supplier membership stated by that operation. These credentials\nare not interchangeable. See each operation's security scheme and access description.\nLegacy `project` path segments refer to workspaces; legacy `provider` paths refer to Suppliers.\n\n## Requests and responses\nSend the documented Content-Type and use the declared request schema. Response status codes,\nerror bodies and pagination fields are operation-specific. Follow the returned cursor rather\nthan assuming a list is complete. Streaming operations document their event format separately.\n\nMonetary amounts and large counters use the exact string representation in their schemas.\nPreserve currency and rate units; Supplier purchase rates and customer charges are separate.\n\n## Writes and retries\nWhere an operation documents an idempotency key, retry an uncertain outcome with the same\nkey and identical input. Preserve expected revisions for configuration updates; reload after\na conflict. A timeout does not prove that a write or an upstream generation did not execute.\nRead the individual operation's retry and reconciliation behavior before resubmitting.\n"
   },
   "servers": [
     {
@@ -195,7 +195,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Customer prices and statements"
+        ]
       },
       "get": {
         "operationId": "getRetailMediaEnrollment",
@@ -368,7 +371,10 @@
           "409": {
             "description": "Stale version, conflicting key, mismatched price or absent existing currency account"
           }
-        }
+        },
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds": {
@@ -597,7 +603,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       },
       "get": {
         "operationId": "listMediaLiabilityQualifications",
@@ -903,7 +912,10 @@
           "409": {
             "description": "Stale version, conflicting idempotency/interval or unavailable current qualified offer"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire": {
@@ -1032,7 +1044,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment": {
@@ -1175,7 +1190,10 @@
             "description": "Malformed body or missing explicit price_id"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       },
       "get": {
         "operationId": "getRetailTextEnrollment",
@@ -1292,7 +1310,10 @@
             "description": "Unknown authorized workspace"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/pricing/customers": {
@@ -1532,7 +1553,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Customer prices and statements"
+        ]
       },
       "get": {
         "operationId": "listRetailStandards",
@@ -1609,6 +1633,9 @@
               "default": 50
             }
           }
+        ],
+        "tags": [
+          "Customer prices and statements"
         ]
       }
     },
@@ -1679,6 +1706,9 @@
               "format": "uuid"
             }
           }
+        ],
+        "tags": [
+          "Customer prices and statements"
         ]
       },
       "get": {
@@ -1968,6 +1998,9 @@
               "format": "uuid"
             }
           }
+        ],
+        "tags": [
+          "Customer prices and statements"
         ]
       }
     },
@@ -2082,6 +2115,9 @@
               "default": 50
             }
           }
+        ],
+        "tags": [
+          "Customer prices and statements"
         ]
       }
     },
@@ -2139,6 +2175,9 @@
               "format": "uuid"
             }
           }
+        ],
+        "tags": [
+          "Customer prices and statements"
         ]
       }
     },
@@ -2330,7 +2369,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared": {
@@ -2506,7 +2548,10 @@
           "409": {
             "description": "Intent conflict, unknown company or invalid cursor"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}": {
@@ -2665,7 +2710,10 @@
           "409": {
             "description": "Intent conflict, unknown company or invalid cursor"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/platform/customer-accounts": {
@@ -2808,7 +2856,10 @@
           "409": {
             "description": "Missing company cursor"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/financial-summary": {
@@ -3020,7 +3071,10 @@
             "description": "Explicit platform administration required"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Financial reports"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants": {
@@ -3157,7 +3211,10 @@
             "description": "Malformed request body or unsupported application policy"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/commercial-position": {
@@ -3444,7 +3501,10 @@
           "403": {
             "description": "Platform administration required"
           }
-        }
+        },
+        "tags": [
+          "Financial reports"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations": {
@@ -3453,7 +3513,7 @@
         "summary": "List historical native material operations",
         "description": "Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. Newest-first creation time and UUID tie-breaker with exclusive cursor pagination. Validation and page share one bounded database snapshot; keep all filters fixed. This is a live history, not a fixed export snapshot.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -3598,7 +3658,7 @@
         "summary": "Read historical native material operations",
         "description": "Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -3720,7 +3780,7 @@
         "summary": "Read historical native material operations",
         "description": "Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. The path id is the original canonical nonnil request idempotency UUID, not an operation reference.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -3842,7 +3902,7 @@
         "summary": "Prepare a native material operation without dispatch",
         "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -3954,7 +4014,7 @@
         "summary": "Explicitly dispatch an existing native material preparation",
         "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4075,7 +4135,7 @@
         "summary": "Cancel an unclaimed native material preparation",
         "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4162,7 +4222,7 @@
         "summary": "Prepare a native material operation without dispatch",
         "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4301,7 +4361,7 @@
         "summary": "Explicitly dispatch an existing native material preparation",
         "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4449,7 +4509,7 @@
         "summary": "Cancel an unclaimed native material preparation",
         "description": "Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4563,7 +4623,7 @@
         "summary": "Abandon an unclaimed native operation after key expiry",
         "description": "Current member workspace Write permission required, independent of inference-key expiry or revocation. Native operation history is workspace-shared. Exact workspace, Niu operation and immutable group model binding are checked under group-first locks. Only prepared becomes not_sent; unknown is never resolved, resent or canceled. No Provider client, calls, route reenabling or inference authority restoration. Repeated not_sent cancellation is unchanged. Original key and private account binding remain immutable.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4668,7 +4728,7 @@
         "summary": "List saved Provider mutation operations",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4773,7 +4833,7 @@
         "summary": "Read a saved Provider operation by request idempotency UUID",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4856,7 +4916,7 @@
         "summary": "List saved Provider mutation operations",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -4988,7 +5048,7 @@
         "summary": "Read a saved Provider operation by request idempotency UUID",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5146,7 +5206,10 @@
           "503": {
             "description": "Storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       },
       "put": {
         "operationId": "saveVideoComposerDraft",
@@ -5220,7 +5283,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/v1/media/verification-sessions": {
@@ -5230,7 +5296,7 @@
         "description": "Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Forwards only caller-supplied optional subject_name and return_url to the upstream H5 service. Exactly one creation follows a durable claim. All after-send failures remain unknown without automatic retry. A created session is not human completion or a local liveness approval. Token and H5 URL are encrypted and absent from ordinary metadata and logs.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5329,7 +5395,7 @@
         "description": "Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local owned metadata only; no global upstream discovery, H5 URL, token or raw response.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5430,7 +5496,7 @@
         "description": "Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local saved status only, with known expiry reflected; no token, H5 URL or upstream request.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5509,7 +5575,7 @@
         "description": "Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Empty body only. One explicit bounded query for an active genuine saved token. Upstream resolution can create a group, so a durable query claim prevents concurrent or uncertain replay. In-flight or after-send uncertain queries are exposed as unknown. Genuine waiting/processing results permit a later explicit query. Other states return unchanged without an upstream call. Only actual decoded verified GroupId binds a person group; no fake completion or local detector.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5588,7 +5654,7 @@
         "description": "Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Explicit authenticated disclosure of the genuine external H5 URL to the current authorized workspace. Known expiry is checked before disclosure; absent upstream expiry is not replaced with invented entitlement. Only waiting/processing sessions expose a link. No raw BytedToken field, anonymous NIU link or local biometric processing. Cache-Control no-store and Referrer-Policy no-referrer.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5689,7 +5755,7 @@
         "summary": "Create a Provider asset group",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5783,7 +5849,7 @@
         "summary": "List saved workspace Provider groups",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5868,7 +5934,7 @@
         "summary": "Update Provider group metadata",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -5974,7 +6040,7 @@
         "summary": "Delete a Provider asset group",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness. Group deletion is destructive and includes its Provider assets.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6065,7 +6131,7 @@
         "summary": "Read a saved Provider group",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6147,7 +6213,7 @@
         "summary": "Refresh one owned Provider group",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6229,7 +6295,7 @@
         "summary": "Create a Provider asset from a URL",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6338,7 +6404,7 @@
         "summary": "List saved workspace Provider assets",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6432,7 +6498,7 @@
         "summary": "Rename a Provider asset",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6535,7 +6601,7 @@
         "summary": "Delete a Provider asset",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6626,7 +6692,7 @@
         "summary": "Read a saved Provider asset",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6708,7 +6774,7 @@
         "summary": "Refresh one owned Provider asset",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -6790,7 +6856,7 @@
         "summary": "Read a saved Provider mutation operation",
         "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -7024,7 +7090,10 @@
             "description": "Authorization or storage unavailable"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/assets": {
@@ -7206,7 +7275,10 @@
           "503": {
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Workspace assets"
+        ]
       },
       "post": {
         "operationId": "uploadWorkspaceAsset",
@@ -7427,7 +7499,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Workspace assets"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}": {
@@ -7576,7 +7651,10 @@
           "503": {
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Workspace assets"
+        ]
       },
       "patch": {
         "operationId": "renameWorkspaceAsset",
@@ -7751,7 +7829,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Workspace assets"
+        ]
       },
       "delete": {
         "operationId": "deleteWorkspaceAsset",
@@ -7823,7 +7904,10 @@
           "503": {
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Workspace assets"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content": {
@@ -7946,7 +8030,10 @@
           "503": {
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Workspace assets"
+        ]
       }
     },
     "/admin/v1/workspaces/{workspace}": {
@@ -8035,7 +8122,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       },
       "delete": {
         "operationId": "deleteWorkspaceById",
@@ -8080,7 +8170,10 @@
           "503": {
             "description": "Storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials": {
@@ -8243,7 +8336,10 @@
           "503": {
             "description": "Authorization/storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/guardrails/detectors/{detector}/preview": {
@@ -8362,7 +8458,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/guardrails/detectors/{detector}": {
@@ -8510,7 +8609,10 @@
           "503": {
             "description": "Authorization/storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions": {
@@ -8673,7 +8775,10 @@
           "503": {
             "description": "Authorization/storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview": {
@@ -8832,7 +8937,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors": {
@@ -8995,7 +9103,10 @@
           "503": {
             "description": "Authorization/storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors": {
@@ -9168,7 +9279,10 @@
           "503": {
             "description": "Authorization/storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke": {
@@ -9277,7 +9391,10 @@
           "503": {
             "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/offers/{offer}/qualification": {
@@ -9430,7 +9547,10 @@
           "503": {
             "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/qualification/revoke": {
@@ -9530,7 +9650,10 @@
           "503": {
             "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/qualification": {
@@ -9649,7 +9772,10 @@
           "503": {
             "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/auth/preferences": {
@@ -9712,7 +9838,10 @@
           "503": {
             "description": "Durable storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       },
       "put": {
         "operationId": "updateMemberPreferences",
@@ -9800,7 +9929,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/auth/profile": {
@@ -9879,7 +10011,10 @@
           "503": {
             "description": "Durable storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       },
       "put": {
         "operationId": "updateMemberProfile",
@@ -9998,7 +10133,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects": {
@@ -10102,7 +10240,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       },
       "get": {
         "operationId": "listOrganizationWorkspaces",
@@ -10169,7 +10310,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Companies and workspaces"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/configuration-usage": {
@@ -10436,7 +10580,10 @@
             "description": "Storage unavailable or diagnostic query deadline exceeded; no partial totals."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation": {
@@ -10615,7 +10762,10 @@
             "description": "Storage or credential decryption unavailable, including a bounded record-lock or statement timeout. A failed recording transaction preserves prior usage and leaves no partial receipt; retry does not resubmit inference."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Request logs and usage"
+        ]
       },
       "get": {
         "operationId": "getRequestUsageReconciliation",
@@ -10765,7 +10915,10 @@
             "description": "Storage or credential decryption unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Request logs and usage"
+        ]
       }
     },
     "/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs": {
@@ -10999,7 +11152,10 @@
           "503": {
             "description": "Storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/pricing/models": {
@@ -11085,7 +11241,10 @@
           "409": {
             "description": "Cursor no longer eligible; restart pagination"
           }
-        }
+        },
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/pricing/targets": {
@@ -11190,7 +11349,10 @@
           "503": {
             "description": "Storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history": {
@@ -11314,7 +11476,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/vendors/{vendor}/cooldown": {
@@ -11416,7 +11581,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/vendors/{vendor}/request-rate-limit/history": {
@@ -11500,7 +11668,10 @@
             "description": "Storage unavailable or bounded storage wait exceeded; no empty-success policy/history fallback."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/vendors/{vendor}/request-rate-limit": {
@@ -11562,7 +11733,10 @@
             "description": "Storage unavailable or bounded storage wait exceeded; no empty-success policy/history fallback."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       },
       "put": {
         "operationId": "setVendorRequestRateLimit",
@@ -11652,7 +11826,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/offers/{offer}/revisions": {
@@ -11762,7 +11939,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history": {
@@ -11883,7 +12063,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/video-intents": {
@@ -12001,7 +12184,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate."
+        "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.",
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}": {
@@ -12124,7 +12310,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       },
       "get": {
         "operationId": "getVideoSubmissionIntent",
@@ -12215,7 +12404,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate."
+        "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate.",
+        "tags": [
+          "Generation history"
+        ]
       },
       "delete": {
         "operationId": "deleteVideoSubmissionIntent",
@@ -12344,7 +12536,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit": {
@@ -12509,7 +12704,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/payments/stripe/notify": {
@@ -12561,7 +12759,10 @@
           "503": {
             "description": "Durable storage is unavailable."
           }
-        }
+        },
+        "tags": [
+          "Customer payments"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions": {
@@ -12691,7 +12892,10 @@
         },
         "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
         "description": "Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Chat completions"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/members": {
@@ -12782,7 +12986,10 @@
           "503": {
             "description": "Storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}": {
@@ -12877,7 +13084,10 @@
           "503": {
             "description": "Storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       },
       "delete": {
         "security": [
@@ -12931,7 +13141,10 @@
           "503": {
             "description": "Storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       }
     },
     "/admin/v1/platform/financial-recovery": {
@@ -12941,7 +13154,7 @@
         "summary": "Read committed financial recovery progress",
         "description": "Platform administrators only. Stages are ordered by name. Null step fields mean no durable worker step has committed since diagnostics were installed. Counts describe the last committed candidate page, not settled rows, total backlog or throughput. A cursor indicates traversal position, not remaining recoverable debt. Zero failures does not establish settlement. Storage failures leave previous committed diagnostics unchanged and are reported separately in worker logs. No attempt IDs, amounts or credentials.",
         "tags": [
-          "Platform administration"
+          "Platform operations"
         ],
         "security": [
           {
@@ -13107,7 +13320,10 @@
           "503": {
             "description": "Durable storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Platform operations"
+        ]
       }
     },
     "/admin/v1/platform/configuration": {
@@ -13178,7 +13394,10 @@
           "503": {
             "description": "Configuration storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Platform operations"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}": {
@@ -13257,7 +13476,10 @@
           "404": {
             "description": "Workspace or request unavailable in this scope"
           }
-        }
+        },
+        "tags": [
+          "Request logs and usage"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/spending-limit": {
@@ -13325,7 +13547,10 @@
           "404": {
             "description": "Workspace unavailable in the authorized scope"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}": {
@@ -13406,7 +13631,10 @@
           "404": {
             "description": "Workspace unavailable in the authorized scope"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       },
       "put": {
         "operationId": "setWorkspaceSpendingLimit",
@@ -13507,7 +13735,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history": {
@@ -13612,7 +13843,10 @@
           "404": {
             "description": "Workspace unavailable in the authorized scope"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/auth/password": {
@@ -13702,7 +13936,10 @@
           "503": {
             "description": "Password change unavailable; do not assume completion"
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/auth/config": {
@@ -13743,7 +13980,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/auth/browser/login": {
@@ -13835,7 +14075,10 @@
           "503": {
             "description": "Session creation unavailable"
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/auth/browser/token": {
@@ -13911,7 +14154,10 @@
           "503": {
             "description": "Durable authentication storage is unavailable."
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/auth/browser/logout": {
@@ -13950,7 +14196,10 @@
           "503": {
             "description": "Revocation unavailable; retry before assuming sign-out"
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/auth/logout": {
@@ -13976,7 +14225,10 @@
           "503": {
             "description": "Storage unavailable; retry sign-out before assuming revocation"
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/auth/login": {
@@ -14086,7 +14338,10 @@
           "503": {
             "description": "Durable storage or credential processing is unavailable; no session token is returned."
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/operators/{operator}/password": {
@@ -14206,7 +14461,10 @@
           "503": {
             "description": "Durable storage or credential processing is unavailable."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire": {
@@ -14316,7 +14574,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/media-rate-models": {
@@ -14457,7 +14718,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/media-rates/replace": {
@@ -14560,7 +14824,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/media-rates": {
@@ -14645,7 +14912,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       },
       "get": {
         "operationId": "listCustomerMediaRates",
@@ -14756,7 +15026,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/reservations": {
@@ -14950,7 +15223,10 @@
             "description": "Cursor is unknown or does not match the company/currency."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/charge-reconciliation": {
@@ -15066,7 +15342,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}": {
@@ -15141,7 +15420,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/platform/payments/integrations": {
@@ -15244,7 +15526,10 @@
           "403": {
             "description": "Platform administration authority required"
           }
-        }
+        },
+        "tags": [
+          "Payment gateways"
+        ]
       }
     },
     "/admin/v1/model-route-pools": {
@@ -15301,7 +15586,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access."
+        "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.",
+        "tags": [
+          "Model routing"
+        ]
       },
       "put": {
         "operationId": "setModelRoutePool",
@@ -15433,7 +15721,10 @@
             "description": "Malformed body schema or unknown fields; framework rejection may use plain text."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Model routing"
+        ]
       }
     },
     "/admin/v1/model-route-pools/index": {
@@ -15513,7 +15804,10 @@
           "403": {
             "description": "Platform administration required."
           }
-        }
+        },
+        "tags": [
+          "Model routing"
+        ]
       }
     },
     "/admin/v1/model-route-pools/history": {
@@ -15596,7 +15890,10 @@
         },
         "x-niu-implementation": "implemented",
         "summary": "Read immutable model candidate pool revisions",
-        "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access."
+        "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.",
+        "tags": [
+          "Model routing"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit": {
@@ -15667,7 +15964,10 @@
           }
         ],
         "summary": "Read API key token rate policy",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       },
       "put": {
         "security": [
@@ -15779,7 +16079,10 @@
           }
         ],
         "summary": "Set API key token rate policy",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history": {
@@ -15904,7 +16207,10 @@
           }
         },
         "summary": "List API key token rate policy history",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window": {
@@ -16014,7 +16320,10 @@
           }
         ],
         "summary": "Read API key token usage window",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit": {
@@ -16127,7 +16436,10 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "summary": "List API key spending limits"
+        "summary": "List API key spending limits",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}": {
@@ -16252,7 +16564,10 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "summary": "Set API key spending limit"
+        "summary": "Set API key spending limit",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history": {
@@ -16395,7 +16710,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "summary": "List API key spending history"
+        "summary": "List API key spending history",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy": {
@@ -16494,7 +16812,10 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "summary": "Read API key source policy"
+        "summary": "Read API key source policy",
+        "tags": [
+          "API keys"
+        ]
       },
       "put": {
         "security": [
@@ -16615,7 +16936,10 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "summary": "Set API key source policy"
+        "summary": "Set API key source policy",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history": {
@@ -16752,7 +17076,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "summary": "List API key source policy history"
+        "summary": "List API key source policy history",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit": {
@@ -16823,7 +17150,10 @@
           }
         ],
         "summary": "Read API key request rate policy",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       },
       "put": {
         "security": [
@@ -16935,7 +17265,10 @@
           }
         ],
         "summary": "Set API key request rate policy",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history": {
@@ -17060,7 +17393,10 @@
           }
         },
         "summary": "List API key request rate policy history",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit": {
@@ -17131,7 +17467,10 @@
           }
         ],
         "summary": "Read API key concurrency policy",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       },
       "put": {
         "security": [
@@ -17243,7 +17582,10 @@
           }
         ],
         "summary": "Set API key concurrency policy",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history": {
@@ -17368,7 +17710,10 @@
           }
         },
         "summary": "List API key concurrency policy history",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/v1/media/image-ingestions": {
@@ -17404,7 +17749,10 @@
           "404": {
             "description": "Cursor unavailable under this key"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       }
     },
     "/v1/media/image-ingestions/{id}/readiness/{read_id}": {
@@ -17469,7 +17817,10 @@
           "503": {
             "description": "Read capacity, credentials or persistence unavailable"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       },
       "get": {
         "operationId": "getIngestedImageReadiness",
@@ -17489,7 +17840,10 @@
           "404": {
             "description": "Observation unavailable under this key and ingestion"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       }
     },
     "/v1/media/image-sources": {
@@ -17586,7 +17940,10 @@
           "503": {
             "description": "Encryption, preparation capacity, storage capacity or durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       }
     },
     "/v1/media/image-sources/{id}": {
@@ -17617,7 +17974,10 @@
           "401": {
             "description": "Active API key required"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       }
     },
     "/v1/media/image-ingestions/{id}/dispatch": {
@@ -17673,7 +18033,10 @@
           "503": {
             "description": "Source origin or encryption unavailable, upload capacity exhausted or worker storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       }
     },
     "/v1/media/image-ingestions/{id}": {
@@ -17757,7 +18120,10 @@
           "409": {
             "description": "Source, destination or reviewed authorization unavailable; consent conflict"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       },
       "get": {
         "operationId": "getImageIngestionConsent",
@@ -17777,7 +18143,10 @@
           "404": {
             "description": "Consent unavailable under this API key"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       },
       "delete": {
         "operationId": "revokeImageIngestionConsent",
@@ -17798,7 +18167,10 @@
           "404": {
             "description": "Consent unavailable under this API key"
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       }
     },
     "/v1/media/sources/{token}": {
@@ -17870,7 +18242,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       },
       "get": {
         "operationId": "fetchInspectedImageSource",
@@ -17935,7 +18310,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Image ingestion"
+        ]
       }
     },
     "/v1/branding": {
@@ -17959,7 +18337,10 @@
           "503": {
             "description": "Durable storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Branding"
+        ]
       }
     },
     "/admin/v1/platform/branding": {
@@ -17993,7 +18374,10 @@
           "503": {
             "description": "Durable storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Branding"
+        ]
       },
       "put": {
         "operationId": "saveBranding",
@@ -18064,7 +18448,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Branding"
+        ]
       }
     },
     "/v1/video/models": {
@@ -18097,7 +18484,10 @@
           "403": {
             "description": "Workspace permission denied"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models": {
@@ -18156,7 +18546,10 @@
           "403": {
             "description": "Workspace permission denied"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/estimate": {
@@ -18316,7 +18709,10 @@
           "503": {
             "description": "Qualified route or original tariff binding unavailable"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs": {
@@ -18456,7 +18852,10 @@
           "401": {
             "description": "Invalid, expired or revoked credential"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       },
       "post": {
         "operationId": "createDashboardVideoJob",
@@ -18577,7 +18976,10 @@
           "503": {
             "description": "Qualified offer or original route unavailable"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}": {
@@ -18676,7 +19078,10 @@
           "404": {
             "description": "Missing job, workspace mismatch or model access denied"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}": {
@@ -18787,7 +19192,10 @@
           "504": {
             "description": "Overall result retrieval deadline exceeded; media_result_timeout"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results": {
@@ -18858,7 +19266,10 @@
           "404": {
             "description": "Missing or inaccessible job"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       },
       "delete": {
         "operationId": "deleteDashboardVideoResults",
@@ -18936,7 +19347,10 @@
           "404": {
             "description": "Missing or inaccessible job"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/observations": {
@@ -19035,7 +19449,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "operationId": "dashboardVideoQueryObservations"
+        "operationId": "dashboardVideoQueryObservations",
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing": {
@@ -19107,7 +19524,10 @@
           "404": {
             "description": "Job missing or inaccessible to the selected key"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/timings": {
@@ -19264,7 +19684,10 @@
           "404": {
             "description": "Missing job or workspace/model access denied"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/refresh": {
@@ -19337,7 +19760,10 @@
           "502": {
             "description": "Query could not be refreshed; original generation is not retried"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/estimate": {
@@ -19471,7 +19897,10 @@
           "503": {
             "description": "Qualified route or original tariff binding unavailable"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs/{id}/observations": {
@@ -19543,7 +19972,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "operationId": "videoQueryObservations"
+        "operationId": "videoQueryObservations",
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs/{id}/billing": {
@@ -19589,7 +20021,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence."
+        "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence.",
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs/{id}/timings": {
@@ -19776,7 +20211,10 @@
           "404": {
             "description": "Missing job or workspace/model access denied"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs/{id}/refresh": {
@@ -19825,7 +20263,10 @@
           "502": {
             "description": "Query could not be refreshed; original generation is not retried"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs": {
@@ -19943,7 +20384,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence."
+        "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence.",
+        "tags": [
+          "Video generation"
+        ]
       },
       "post": {
         "operationId": "createOwnerFundedVideoJob",
@@ -20309,7 +20753,10 @@
             "description": "Qualified offer, original route or storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs/{id}/results/{kind}": {
@@ -20399,7 +20846,10 @@
           "504": {
             "description": "Overall result retrieval deadline exceeded; media_result_timeout"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs/{id}/results": {
@@ -20446,7 +20896,10 @@
           "404": {
             "description": "Missing or inaccessible job"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       },
       "delete": {
         "operationId": "deleteVideoResults",
@@ -20497,7 +20950,10 @@
           "404": {
             "description": "Inaccessible or missing job"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/v1/video/jobs/{id}": {
@@ -20574,7 +21030,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence."
+        "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence.",
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/chat-draft": {
@@ -20631,7 +21090,10 @@
           "503": {
             "description": "Storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Chat sessions"
+        ]
       },
       "put": {
         "operationId": "saveChatDraft",
@@ -20702,7 +21164,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Chat sessions"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export": {
@@ -20860,7 +21325,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Chat sessions"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/denials": {
@@ -21031,7 +21499,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}": {
@@ -21161,7 +21632,10 @@
           "503": {
             "description": "Durable storage unavailable or read wait exceeded."
           }
-        }
+        },
+        "tags": [
+          "Chat sessions"
+        ]
       },
       "put": {
         "operationId": "saveChatSession",
@@ -21431,6 +21905,9 @@
               "format": "uuid"
             }
           }
+        ],
+        "tags": [
+          "Chat sessions"
         ]
       },
       "delete": {
@@ -21452,7 +21929,10 @@
           "403": {
             "description": "Workspace write access required."
           }
-        }
+        },
+        "tags": [
+          "Chat sessions"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions": {
@@ -21560,7 +22040,10 @@
           "503": {
             "description": "Storage unavailable or read wait exceeded; no empty-success fallback."
           }
-        }
+        },
+        "tags": [
+          "Chat sessions"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive": {
@@ -21637,7 +22120,10 @@
           "404": {
             "description": "No session in the caller's owner and workspace scope."
           }
-        }
+        },
+        "tags": [
+          "Chat sessions"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/supplier": {
@@ -21710,7 +22196,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       },
       "put": {
         "operationId": "associateConfigurationSupplier",
@@ -21778,7 +22267,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails": {
@@ -22062,7 +22554,10 @@
           "403": {
             "description": "Workspace read access required."
           }
-        }
+        },
+        "tags": [
+          "Request logs and usage"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview": {
@@ -22261,7 +22756,10 @@
           "503": {
             "description": "Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/input-preview": {
@@ -22438,7 +22936,10 @@
           "503": {
             "description": "Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history": {
@@ -22503,7 +23004,10 @@
           "403": {
             "description": "Workspace read access required."
           }
-        }
+        },
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail": {
@@ -22553,7 +23057,10 @@
           "403": {
             "description": "Workspace read access required."
           }
-        }
+        },
+        "tags": [
+          "API keys"
+        ]
       },
       "put": {
         "summary": "Assign a preserved workspace policy revision to an active key",
@@ -22613,7 +23120,10 @@
           "422": {
             "description": "Missing required assignment fields or malformed JSON shape."
           }
-        }
+        },
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}": {
@@ -22699,7 +23209,10 @@
           "404": {
             "description": "No such version in this workspace."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/history": {
@@ -22818,7 +23331,10 @@
           "403": {
             "description": "Workspace read access required."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/rollback": {
@@ -22894,7 +23410,10 @@
           "409": {
             "description": "Active revision changed."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails": {
@@ -22935,7 +23454,10 @@
           "403": {
             "description": "Workspace read access required."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       },
       "put": {
         "summary": "Activate a validated workspace access-policy revision",
@@ -22984,7 +23506,10 @@
           "409": {
             "description": "Revision conflict; active policy remains unchanged."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/guardrails/preview": {
@@ -23060,7 +23585,10 @@
           "403": {
             "description": "Workspace read access required."
           }
-        }
+        },
+        "tags": [
+          "Guardrails"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads": {
@@ -23140,7 +23668,10 @@
           "503": {
             "description": "Retained structured response cannot be safely serialized, or content storage is unavailable. No unsanitized payload is returned."
           }
-        }
+        },
+        "tags": [
+          "Request logs and usage"
+        ]
       },
       "delete": {
         "operationId": "deleteRequestPayload",
@@ -23164,7 +23695,10 @@
           "404": {
             "description": "Workspace is outside the authenticated scope."
           }
-        }
+        },
+        "tags": [
+          "Request logs and usage"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold": {
@@ -23273,7 +23807,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/topups": {
@@ -23402,6 +23939,9 @@
           {
             "bearerAuth": []
           }
+        ],
+        "tags": [
+          "Customer payments"
         ]
       },
       "post": {
@@ -23561,6 +24101,9 @@
           {
             "bearerAuth": []
           }
+        ],
+        "tags": [
+          "Customer payments"
         ]
       }
     },
@@ -23688,6 +24231,9 @@
           {
             "bearerAuth": []
           }
+        ],
+        "tags": [
+          "Customer payments"
         ]
       }
     },
@@ -23798,6 +24344,9 @@
           {
             "bearerAuth": []
           }
+        ],
+        "tags": [
+          "Customer payments"
         ]
       }
     },
@@ -23920,6 +24469,9 @@
           {
             "bearerAuth": []
           }
+        ],
+        "tags": [
+          "Customer payments"
         ]
       }
     },
@@ -24023,7 +24575,10 @@
             "description": "Durable storage unavailable; retry notification"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer payments"
+        ]
       },
       "get": {
         "operationId": "receiveEPayQueryNotification",
@@ -24145,7 +24700,10 @@
             "description": "Durable storage unavailable; retry notification"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer payments"
+        ]
       }
     },
     "/payments/zhifux/notify": {
@@ -24227,7 +24785,10 @@
           "503": {
             "description": "Durable receipt storage unavailable; retry notification"
           }
-        }
+        },
+        "tags": [
+          "Customer payments"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy": {
@@ -24333,7 +24894,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/transactions": {
@@ -24467,7 +25031,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/entries/{entry}/reversal": {
@@ -24567,7 +25134,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/balance": {
@@ -24677,7 +25247,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/funding/settled": {
@@ -24762,7 +25335,10 @@
           "409": {
             "description": "Unknown organization or conflicting payment reference"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/billing": {
@@ -25076,7 +25652,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs": {
@@ -25292,7 +25871,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices": {
@@ -25480,7 +26062,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       },
       "post": {
         "security": [
@@ -25591,7 +26176,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}": {
@@ -25978,7 +26566,10 @@
             "description": "Invoice not found in the authorized workspace."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment": {
@@ -26037,7 +26628,10 @@
           "409": {
             "description": "Invoice missing, balance-bound or zero-value invoice, already recorded with another reference, or reference already used"
           }
-        }
+        },
+        "tags": [
+          "Customer prices and statements"
+        ]
       }
     },
     "/admin/v1/provider-memberships": {
@@ -26110,7 +26704,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/platform/payments/epay": {
@@ -26155,7 +26752,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Payment gateways"
+        ]
       },
       "put": {
         "operationId": "savePlatformEPayConfiguration",
@@ -26266,7 +26866,10 @@
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Payment gateways"
+        ]
       }
     },
     "/admin/v1/providers/{provider}": {
@@ -26355,7 +26958,10 @@
           "503": {
             "description": "Storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       },
       "parameters": [
         {
@@ -26500,7 +27106,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       },
       "delete": {
         "operationId": "deleteSupplierBusiness",
@@ -26563,7 +27172,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers": {
@@ -26958,7 +27570,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/media-rates": {
@@ -27064,7 +27679,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       },
       "post": {
         "operationId": "publishSupplierMediaRate",
@@ -27130,7 +27748,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/media-offer-models": {
@@ -27255,7 +27876,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/media-offers": {
@@ -27395,7 +28019,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/media-rate-models": {
@@ -27524,7 +28151,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/media-rates/replace": {
@@ -27612,7 +28242,10 @@
           "503": {
             "description": "Durable storage unavailable"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/offers": {
@@ -27851,7 +28484,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       },
       "parameters": [
         {
@@ -28044,7 +28680,10 @@
           "422": {
             "description": "JSON schema mismatch; context_tiers must be an array, never null"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/offers/{offer}": {
@@ -28095,7 +28734,10 @@
           "409": {
             "description": "Offer unavailable in supplier scope"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/dashboard": {
@@ -28124,7 +28766,10 @@
           "404": {
             "description": "No active membership for this provider"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/administration": {
@@ -28150,7 +28795,10 @@
           "409": {
             "description": "Supplier is missing or deleted"
           }
-        }
+        },
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/earnings": {
@@ -28382,7 +29030,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/admin/v1/providers/{provider}/settlements": {
@@ -28544,7 +29195,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       },
       "parameters": [
         {
@@ -28654,7 +29308,10 @@
             "description": "Storage unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Suppliers"
+        ]
       }
     },
     "/healthz": {
@@ -28665,7 +29322,10 @@
           "200": {
             "description": "The Niu process is serving requests."
           }
-        }
+        },
+        "tags": [
+          "Service health"
+        ]
       }
     },
     "/readyz": {
@@ -28677,7 +29337,10 @@
           "200": {
             "description": "The gateway loaded its configuration and can accept requests."
           }
-        }
+        },
+        "tags": [
+          "Service health"
+        ]
       }
     },
     "/enterprise/readyz": {
@@ -28692,7 +29355,10 @@
           "503": {
             "description": "At least one required Enterprise module is unavailable or incompatible."
           }
-        }
+        },
+        "tags": [
+          "Service health"
+        ]
       }
     },
     "/v1/models": {
@@ -28776,7 +29442,10 @@
             "description": "Storage or route configuration unavailable."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Model discovery"
+        ]
       }
     },
     "/catalog/v1/models": {
@@ -28788,7 +29457,10 @@
           "200": {
             "description": "Public model aliases and declared capabilities."
           }
-        }
+        },
+        "tags": [
+          "Model discovery"
+        ]
       }
     },
     "/v1/chat/completions": {
@@ -28894,7 +29566,10 @@
         },
         "x-niu-status": "Basic chat is implemented for configured native provider routes. Local buffered_full output rules support single-choice plain text streaming: retain the real upstream stream until terminal evidence, inspect the complete bounded output, then emit compatible sanitized chunks. Required output withholding emits a guardrail_output_withheld SSE error without [DONE]; known executed usage remains billable. Text buffering is limited to 1 MiB and total stream bytes to 2 MiB, with four concurrent collectors per process. Output rules with tools or structured format remain unsupported. Observation-only plain-text streams preserve delivery and asynchronously record clear, matched or indeterminate without transforming output. Mandatory and observation rules compose across workspace/key scopes. Optional collection and inspection have separate bounded capacity; observation overload does not deny the request. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
         "x-niu-implementation": "implemented",
-        "description": "Uses the workspace API key and its model grants, source policy, rate/concurrency/token limits and configured billing. Streaming HTTP 200 starts delivery; completion and reported usage require the terminal stream evidence. Niu does not execute function tools. See the supported scope below for structured output and modality restrictions."
+        "description": "Uses the workspace API key and its model grants, source policy, rate/concurrency/token limits and configured billing. Streaming HTTP 200 starts delivery; completion and reported usage require the terminal stream evidence. Niu does not execute function tools. See the supported scope below for structured output and modality restrictions.",
+        "tags": [
+          "Chat completions"
+        ]
       }
     },
     "/v1/embeddings": {
@@ -29104,7 +29779,10 @@
           }
         },
         "x-niu-status": "OpenAI-compatible text inputs and float/base64 response vectors; no token-ID arrays, multimodal inputs, or streaming.",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Embeddings"
+        ]
       }
     },
     "/v1beta/models/{model_action}": {
@@ -29763,7 +30441,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Messages and GenerateContent"
+        ]
       }
     },
     "/v1/messages": {
@@ -30364,7 +31045,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Messages and GenerateContent"
+        ]
       }
     },
     "/v1/responses": {
@@ -30674,7 +31358,10 @@
           }
         },
         "x-niu-status": "Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.",
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Responses"
+        ]
       }
     },
     "/admin/v1/models": {
@@ -30708,7 +31395,10 @@
           "404": {
             "description": "Selected account is outside the authenticated scope."
           }
-        }
+        },
+        "tags": [
+          "Model discovery"
+        ]
       }
     },
     "/admin/v1/routing-registry": {
@@ -30717,7 +31407,7 @@
         "summary": "Read the active routing generation",
         "description": "Platform administrators can read the active immutable routing generation for diagnostics and an explicit static-configuration replacement. No definitions, endpoints, credential references, secrets or purchase prices are returned. local_static_configuration_matches is false on a Gateway whose local static configuration has been superseded; new inference on that instance fails closed until it restarts with matching configuration. The response is not cached.",
         "tags": [
-          "Admin"
+          "Model routing"
         ],
         "security": [
           {
@@ -30830,7 +31520,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "description": "Returns every matching configuration, including disabled configurations, in one data array. Optional supplier filtering uses explicit business ownership. No pagination or silent row cap; response memory grows with list size. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned."
+        "description": "Returns every matching configuration, including disabled configurations, in one data array. Optional supplier filtering uses explicit business ownership. No pagination or silent row cap; response memory grows with list size. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.",
+        "tags": [
+          "Supplier API connections"
+        ]
       },
       "post": {
         "operationId": "createVendor",
@@ -30887,7 +31580,10 @@
         },
         "parameters": [],
         "x-niu-implementation": "implemented",
-        "description": " Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned."
+        "description": " Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/vendors/{id}": {
@@ -30956,7 +31652,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management": {
@@ -31012,7 +31711,10 @@
           "404": {
             "description": "Credential configuration not found."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "put": {
         "operationId": "configureAssetManagement",
@@ -31098,7 +31800,10 @@
           "413": {
             "description": "Request exceeds the configured body limit."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "delete": {
         "operationId": "revokeAssetManagement",
@@ -31192,7 +31897,10 @@
           "413": {
             "description": "Request body exceeds 16 KiB."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/lookups": {
@@ -31318,7 +32026,10 @@
           "503": {
             "description": "Capacity exhausted or safe transport/persistence failure."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "get": {
         "summary": "List durable asset lookup audit history",
@@ -31406,7 +32117,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/lookups/{lookup}": {
@@ -31487,7 +32201,10 @@
           "503": {
             "description": "Safe decryption or validation failure."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "delete": {
         "summary": "Erase retained asset lookup content",
@@ -31507,7 +32224,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/listings": {
@@ -31607,7 +32327,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "post": {
         "summary": "List one bounded page of assets in a saved ordinary group",
@@ -31706,7 +32429,10 @@
           "503": {
             "description": "Capacity exhausted or safe transport/persistence failure."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/listings/{listing}": {
@@ -31779,7 +32505,10 @@
           "503": {
             "description": "Retained page cannot be decoded."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "delete": {
         "summary": "Erase retained ordinary asset listing content",
@@ -31799,7 +32528,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-reads": {
@@ -31956,7 +32688,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "post": {
         "summary": "Read a saved ordinary asset group using its original account",
@@ -32068,7 +32803,10 @@
           "503": {
             "description": "Read capacity, credentials, transport or outcome persistence unavailable; no automatic retry."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-reads/{read}": {
@@ -32180,7 +32918,10 @@
           "503": {
             "description": "Decryption or storage unavailable."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "delete": {
         "summary": "Erase retained group-read content",
@@ -32200,7 +32941,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-updates/{update}": {
@@ -32265,7 +33009,10 @@
           "404": {
             "description": "Update unavailable in this account and workspace."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile": {
@@ -32352,7 +33099,10 @@
           "503": {
             "description": "Read capacity, encryption, transport or durable persistence unavailable."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch": {
@@ -32470,7 +33220,10 @@
           "503": {
             "description": "Execution capacity, encryption or durable completion unavailable; never automatically retry a claimed update."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-updates": {
@@ -32636,7 +33389,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "post": {
         "summary": "Prepare an encrypted metadata patch for a saved ordinary group",
@@ -32730,7 +33486,10 @@
           "503": {
             "description": "Encryption unavailable."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/groups": {
@@ -32826,7 +33585,10 @@
           "503": {
             "description": "Asset management capacity or encrypted credentials unavailable. No send was admitted by this request."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-deletion-consents": {
@@ -32997,7 +33759,10 @@
           "422": {
             "description": "Invalid request shape or unknown fields."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch": {
@@ -33120,7 +33885,10 @@
           "503": {
             "description": "Execution capacity, credential decryption or durable outcome unavailable. Read saved status; do not automatically retry."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}": {
@@ -33258,7 +34026,10 @@
           "404": {
             "description": "Consent not found in the specified scope."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "delete": {
         "operationId": "revokeOrdinaryAssetGroupDeletionConsent",
@@ -33282,7 +34053,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/authorizations": {
@@ -33383,7 +34157,10 @@
           "422": {
             "description": "Invalid request shape or unknown fields."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "get": {
         "operationId": "listAssetOperationAuthorizations",
@@ -33453,7 +34230,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/asset-management/authorizations/{authorization}": {
@@ -33496,7 +34276,10 @@
           "403": {
             "description": "Platform administrator required."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/personal-owner": {
@@ -33579,7 +34362,10 @@
           "409": {
             "description": "Stale revision, different owner, existing model route pricing, commercial qualification or unavailable account."
           }
-        }
+        },
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/models": {
@@ -33635,7 +34421,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       },
       "post": {
         "operationId": "upsertVendorModel",
@@ -33702,7 +34491,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/catalog": {
@@ -33762,7 +34554,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       },
       "post": {
         "operationId": "refreshProviderCatalogMetadata",
@@ -33820,7 +34615,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/vendors/{id}/check": {
@@ -33946,7 +34744,10 @@
             }
           }
         ],
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Supplier API connections"
+        ]
       }
     },
     "/admin/v1/session": {
@@ -34088,7 +34889,10 @@
           "503": {
             "description": "Operator storage is unavailable."
           }
-        }
+        },
+        "tags": [
+          "Authentication"
+        ]
       }
     },
     "/admin/v1/operators": {
@@ -34111,7 +34915,10 @@
           "403": {
             "description": "The authenticated operator is not an owner."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       },
       "post": {
         "operationId": "adminCreateOperator",
@@ -34145,7 +34952,10 @@
           "403": {
             "description": "The authenticated operator is not an owner."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       }
     },
     "/admin/v1/operators/{operator}": {
@@ -34154,7 +34964,7 @@
         "summary": "Change a scoped customer member role",
         "description": "Current scoped Owner management permission or installation administrator required. Admin and Viewer cannot manage user roles. Preserves the original member organization/workspace, credentials, sessions, session expiries and Supplier memberships. Rejects self role changes, revoked/noncustomer/platform actors and role-update demotion of the last applicable active Owner. expected_role is a compare-and-set precondition; stale input returns 409 and requires reloading. Organization-scoped serialization and current actor/session validation protect the mutation transaction. A same-role request with a matching precondition returns unchanged metadata without an audit event. Changed roles apply to the original token on its next authenticated request; no replacement token or renewed session is issued. A future immutable role_changed journal records exact before/after roles and actor attribution; historical roles are never inferred. No credentials or commercial data returned.",
         "tags": [
-          "Administration"
+          "Users and sessions"
         ],
         "security": [
           {
@@ -34266,7 +35076,10 @@
           "409": {
             "description": "Operator was already revoked or does not exist."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       }
     },
     "/admin/v1/operators/{operator}/sessions": {
@@ -34299,7 +35112,10 @@
           "403": {
             "description": "The authenticated operator is not an owner."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       },
       "post": {
         "operationId": "adminIssueOperatorSession",
@@ -34346,7 +35162,10 @@
           "409": {
             "description": "Operator is unavailable."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       }
     },
     "/admin/v1/operators/{operator}/sessions/{session}": {
@@ -34391,7 +35210,10 @@
           "409": {
             "description": "Session was already revoked or does not exist."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       }
     },
     "/admin/v1/operators/{operator}/events": {
@@ -34457,7 +35279,10 @@
           "404": {
             "description": "Target operator is absent or outside the caller's scope."
           }
-        }
+        },
+        "tags": [
+          "Users and sessions"
+        ]
       }
     },
     "/admin/v1/metrics": {
@@ -34514,7 +35339,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Request logs and usage"
+        ]
       }
     },
     "/admin/v1/benchmarks/compare": {
@@ -34562,7 +35390,10 @@
           "401": {
             "description": "Invalid or expired administrator/operator credential."
           }
-        }
+        },
+        "tags": [
+          "Offline analysis"
+        ]
       }
     },
     "/admin/v1/workspaces/by-route/{route_slug}": {
@@ -34639,7 +35470,10 @@
           "404": {
             "description": "No authorized workspace matches the reference."
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       }
     },
     "/admin/v1/workspaces": {
@@ -34716,7 +35550,10 @@
           "409": {
             "description": "Cursor is missing, deleted or outside the authorized scope. Restart traversal."
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       },
       "post": {
         "operationId": "createWorkspace",
@@ -34784,7 +35621,10 @@
           "503": {
             "description": "Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input."
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       }
     },
     "/admin/v1/organizations": {
@@ -34889,6 +35729,9 @@
             },
             "description": "Exactly one visible-ASCII identity; preserve it with the original input when retrying."
           }
+        ],
+        "tags": [
+          "Companies and workspaces"
         ]
       },
       "get": {
@@ -34963,6 +35806,9 @@
               "default": 1000
             }
           }
+        ],
+        "tags": [
+          "Companies and workspaces"
         ]
       }
     },
@@ -35073,7 +35919,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response. ttl_seconds is required; explicit null opts into no automatic expiration. Finite integer lifetimes retain their existing range."
+        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response. ttl_seconds is required; explicit null opts into no automatic expiration. Finite integer lifetimes retain their existing range.",
+        "tags": [
+          "API keys"
+        ]
       },
       "get": {
         "operationId": "listKeys",
@@ -35182,7 +36031,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels. Supplying limit or after selects a bounded keyset page and adds next_cursor; without either, the complete compatibility response is unchanged."
+        "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels. Supplying limit or after selects a bounded keyset page and adds next_cursor; without either, the complete compatibility response is unchanged.",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}": {
@@ -35269,7 +36121,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations."
+        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations.",
+        "tags": [
+          "API keys"
+        ]
       },
       "patch": {
         "operationId": "updateKeyMetadata",
@@ -35435,7 +36290,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/accounts": {
@@ -35474,7 +36332,10 @@
           "401": {
             "description": "Invalid administrator token."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       },
       "post": {
         "operationId": "registerAccount",
@@ -35521,7 +36382,10 @@
           "401": {
             "description": "Invalid administrator token."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota": {
@@ -35587,7 +36451,10 @@
           "401": {
             "description": "Invalid administrator token."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       },
       "post": {
         "operationId": "importAccountQuotaObservation",
@@ -35650,7 +36517,10 @@
           "409": {
             "description": "Duplicate observation for this provider window and timestamp."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       },
       "delete": {
         "operationId": "deleteAccountQuotaWindowHistory",
@@ -35733,7 +36603,10 @@
           "409": {
             "description": "Supplier account is not in the requested project."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/executions": {
@@ -35803,7 +36676,10 @@
           "409": {
             "description": "Account is not available in this project."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate": {
@@ -35906,7 +36782,10 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Revokes the old secret atomically. The replacement preserves grants, expiry, spending identity and configured key policies; rotation does not reset consumed allowance."
+        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Revokes the old secret atomically. The replacement preserves grants, expiry, spending identity and configured key policies; rotation does not reset consumed allowance.",
+        "tags": [
+          "API keys"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/budget": {
@@ -35981,7 +36860,10 @@
           "422": {
             "description": "JSON does not match the required schema."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       },
       "get": {
         "operationId": "getProjectBudget",
@@ -36021,7 +36903,10 @@
           "401": {
             "description": "Administrator authentication required."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/costs": {
@@ -36081,7 +36966,10 @@
           "401": {
             "description": "Administrator authentication required."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/requests/export": {
@@ -36234,7 +37122,10 @@
           "413": {
             "description": "More than 10000 requests match; narrow the filters."
           }
-        }
+        },
+        "tags": [
+          "Request logs and usage"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/requests": {
@@ -36890,7 +37781,10 @@
             "description": "Administrator authentication required."
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Request logs and usage"
+        ]
       }
     },
     "/admin/v1/setup/default-workspace": {
@@ -36937,7 +37831,10 @@
           "403": {
             "description": "Authenticated member lacks installation authority, including a platform administrator."
           }
-        }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/collector-keys": {
@@ -37047,7 +37944,10 @@
           "403": {
             "description": "Session does not have read access to this project."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       },
       "post": {
         "operationId": "issueCollectorKey",
@@ -37118,7 +38018,10 @@
           "401": {
             "description": "Administrator authentication required."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}": {
@@ -37166,7 +38069,10 @@
           "401": {
             "description": "Administrator authentication required."
           }
-        }
+        },
+        "tags": [
+          "Legacy account and cost APIs"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents": {
@@ -37301,7 +38207,10 @@
           "404": {
             "description": "Workspace unavailable to this caller."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request": {
@@ -37466,7 +38375,10 @@
           "404": {
             "description": "Workspace outside authorized scope."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       },
       "delete": {
         "operationId": "deleteAssetGroupRequest",
@@ -37519,7 +38431,10 @@
           "404": {
             "description": "Workspace outside the authorized scope."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history": {
@@ -37651,7 +38566,10 @@
           "409": {
             "description": "Cursor revision does not exist for this account"
           }
-        }
+        },
+        "tags": [
+          "Customer balances"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions": {
@@ -37780,7 +38698,10 @@
           "409": {
             "description": "Stale revision, changed idempotent identity, archive or task association conflict"
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}": {
@@ -37884,7 +38805,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       },
       "get": {
         "operationId": "generationsSessionGet",
@@ -37982,7 +38906,10 @@
           "413": {
             "description": "Saved Chat payload exceeds the bounded 32 MiB materialization budget."
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       },
       "patch": {
         "operationId": "generationsSessionUpdate",
@@ -38086,7 +39013,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}": {
@@ -38197,7 +39127,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       },
       "delete": {
         "operationId": "generationsSessionDeleteInstruction",
@@ -38302,7 +39235,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task": {
@@ -38414,7 +39350,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks": {
@@ -38766,7 +39705,10 @@
             "description": "Saved read unavailable; never presented as empty inventory"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}": {
@@ -39053,7 +39995,10 @@
             "description": "Saved read unavailable; never presented as empty inventory"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts": {
@@ -39272,7 +40217,10 @@
             "description": "Saved read unavailable; never presented as empty inventory"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}": {
@@ -39438,7 +40386,10 @@
             "description": "Saved read unavailable; never presented as empty inventory"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content": {
@@ -39523,7 +40474,10 @@
             "description": "Saved read unavailable; never presented as empty inventory"
           }
         },
-        "x-niu-implementation": "implemented"
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}/refresh": {
@@ -39641,7 +40595,10 @@
           "504": {
             "description": "Upstream query or delivery timed out"
           }
-        }
+        },
+        "tags": [
+          "Video generation"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics": {
@@ -39720,7 +40677,10 @@
           "503": {
             "description": "Saved diagnostics unavailable"
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh": {
@@ -39829,7 +40789,10 @@
           "504": {
             "description": "Upstream query or delivery timed out"
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh": {
@@ -39938,7 +40901,10 @@
           "504": {
             "description": "Upstream query or delivery timed out"
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups": {
@@ -39947,7 +40913,7 @@
         "summary": "Create a Provider asset group",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40068,7 +41034,7 @@
         "summary": "List saved workspace Provider groups",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40180,7 +41146,7 @@
         "summary": "Update Provider group metadata",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40313,7 +41279,7 @@
         "summary": "Delete a Provider asset group",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness. Group deletion is destructive and includes its Provider assets.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40431,7 +41397,7 @@
         "summary": "Read a saved Provider group",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40540,7 +41506,7 @@
         "summary": "Create a Provider asset from a URL",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40676,7 +41642,7 @@
         "summary": "List saved workspace Provider assets",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40797,7 +41763,7 @@
         "summary": "Rename a Provider asset",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -40927,7 +41893,7 @@
         "summary": "Delete a Provider asset",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41045,7 +42011,7 @@
         "summary": "Read a saved Provider asset",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41154,7 +42120,7 @@
         "summary": "Read a saved Provider mutation operation",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41263,7 +42229,7 @@
         "summary": "Refresh one owned Provider group",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41372,7 +42338,7 @@
         "summary": "Refresh one owned Provider asset",
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41565,7 +42531,10 @@
           "503": {
             "description": "Storage, selectable credential, Supplier qualification or native configuration unavailable."
           }
-        }
+        },
+        "tags": [
+          "Media assets and verification"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions": {
@@ -41575,7 +42544,7 @@
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Forwards only caller-supplied optional subject_name and return_url to the upstream H5 service. Exactly one creation follows a durable claim. All after-send failures remain unknown without automatic retry. A created session is not human completion or a local liveness approval. Token and H5 URL are encrypted and absent from ordinary metadata and logs.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41701,7 +42670,7 @@
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local owned metadata only; no global upstream discovery, H5 URL, token or raw response.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41829,7 +42798,7 @@
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local saved status only, with known expiry reflected; no token, H5 URL or upstream request.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -41935,7 +42904,7 @@
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Explicit authenticated disclosure of the genuine external H5 URL to the current authorized workspace. Known expiry is checked before disclosure; absent upstream expiry is not replaced with invented entitlement. Only waiting/processing sessions expose a link. No raw BytedToken field, anonymous NIU link or local biometric processing. Cache-Control no-store and Referrer-Policy no-referrer.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -42064,7 +43033,7 @@
         "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Empty body only. One explicit bounded query for an active genuine saved token. Upstream resolution can create a group, so a durable query claim prevents concurrent or uncertain replay. In-flight or after-send uncertain queries are exposed as unknown. Genuine waiting/processing results permit a later explicit query. Other states return unchanged without an upstream call. Only actual decoded verified GroupId binds a person group; no fake completion or local detector.",
         "x-niu-implementation": "implemented",
         "tags": [
-          "Media"
+          "Media assets and verification"
         ],
         "security": [
           {
@@ -42330,7 +43299,10 @@
           "504": {
             "description": "Upstream query or delivery timeout"
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       },
       "post": {
         "operationId": "captureGenerationsArtifact",
@@ -42541,7 +43513,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent": {
@@ -42653,7 +43628,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "Generation history"
+        ]
       }
     }
   },
@@ -54362,5 +55340,189 @@
         }
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "Model discovery",
+      "description": "Discover models and their published capabilities."
+    },
+    {
+      "name": "Chat completions",
+      "description": "OpenAI-compatible Chat requests, including dashboard-key invocation."
+    },
+    {
+      "name": "Responses",
+      "description": "Responses API requests."
+    },
+    {
+      "name": "Messages and GenerateContent",
+      "description": "Native protocol compatibility. Read each operation’s supported subset."
+    },
+    {
+      "name": "Embeddings",
+      "description": "Embedding requests and supported response encodings."
+    },
+    {
+      "name": "Video generation",
+      "description": "Discover video models, estimate a request, submit a job, and retrieve its status and results."
+    },
+    {
+      "name": "Authentication",
+      "description": "Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation."
+    },
+    {
+      "name": "Users and sessions",
+      "description": "User identities, roles, sessions and authentication events."
+    },
+    {
+      "name": "API keys",
+      "description": "Workspace inference keys, rotation, grants, access policies and limits."
+    },
+    {
+      "name": "Companies and workspaces",
+      "description": "Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces."
+    },
+    {
+      "name": "Chat sessions",
+      "description": "Saved conversations, drafts, exports and archive state. Saving content does not invoke a model."
+    },
+    {
+      "name": "Generation history",
+      "description": "Durable generation sessions, saved tasks, artifacts and video request drafts."
+    },
+    {
+      "name": "Workspace assets",
+      "description": "Saved workspace assets and their content."
+    },
+    {
+      "name": "Media assets and verification",
+      "description": "Upstream-specific asset groups, materials, operations and verification sessions. These are distinct from Supplier onboarding."
+    },
+    {
+      "name": "Image ingestion",
+      "description": "Image sources, inspection, ingestion and readiness reads."
+    },
+    {
+      "name": "Request logs and usage",
+      "description": "Request history, exports, diagnostics, timing and captured usage reconciliation."
+    },
+    {
+      "name": "Guardrails",
+      "description": "Policy configuration, previews, history, key bindings and recorded denials."
+    },
+    {
+      "name": "Financial reports",
+      "description": "Platform financial summaries and Supplier commercial positions. These are privileged reports, not customer account lifecycle APIs."
+    },
+    {
+      "name": "Customer balances",
+      "description": "Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Supplier costs."
+    },
+    {
+      "name": "Customer payments",
+      "description": "Top-up methods, checkout history and payment callbacks. Checkout creation is not confirmation of funding."
+    },
+    {
+      "name": "Customer prices and statements",
+      "description": "Customer selling prices, price enrollment, invoices and statements. Prices are independent of Supplier purchase rates."
+    },
+    {
+      "name": "Suppliers",
+      "description": "Supplier identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints."
+    },
+    {
+      "name": "Supplier API connections",
+      "description": "Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics."
+    },
+    {
+      "name": "Model routing",
+      "description": "Published routing snapshots and candidate pools."
+    },
+    {
+      "name": "Payment gateways",
+      "description": "Platform merchant and payment integration configuration."
+    },
+    {
+      "name": "Branding",
+      "description": "Public branding and platform-controlled theme configuration."
+    },
+    {
+      "name": "Platform operations",
+      "description": "Audit events, runtime configuration and recovery controls."
+    },
+    {
+      "name": "Service health",
+      "description": "Process health, readiness and composed extension readiness."
+    },
+    {
+      "name": "Legacy account and cost APIs",
+      "description": "Compatibility APIs for account quota observations, collection credentials and upstream accounting. These are not customer billing accounts or customer charges."
+    },
+    {
+      "name": "Offline analysis",
+      "description": "Offline dataset analysis. These endpoints do not run an inference workload."
+    }
+  ],
+  "x-tagGroups": [
+    {
+      "name": "Model APIs",
+      "tags": [
+        "Model discovery",
+        "Chat completions",
+        "Responses",
+        "Messages and GenerateContent",
+        "Embeddings",
+        "Video generation"
+      ]
+    },
+    {
+      "name": "Authentication and access",
+      "tags": [
+        "Authentication",
+        "Users and sessions",
+        "API keys"
+      ]
+    },
+    {
+      "name": "Workspaces and content",
+      "tags": [
+        "Companies and workspaces",
+        "Chat sessions",
+        "Generation history",
+        "Workspace assets",
+        "Media assets and verification",
+        "Image ingestion"
+      ]
+    },
+    {
+      "name": "Usage and billing",
+      "tags": [
+        "Request logs and usage",
+        "Guardrails",
+        "Financial reports",
+        "Customer balances",
+        "Customer payments",
+        "Customer prices and statements"
+      ]
+    },
+    {
+      "name": "Platform administration",
+      "tags": [
+        "Suppliers",
+        "Supplier API connections",
+        "Model routing",
+        "Payment gateways",
+        "Branding",
+        "Platform operations"
+      ]
+    },
+    {
+      "name": "Service and compatibility",
+      "tags": [
+        "Service health",
+        "Legacy account and cost APIs",
+        "Offline analysis"
+      ]
+    }
+  ]
 }
