@@ -40,7 +40,7 @@ pub struct PreviewQuery {
 ///   "operation": {
 ///     "operationId": "publishRetailStandard",
 ///     "summary": "Publish a platform standard selling-price revision",
-///     "description": "Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Independent model/currency/text-or-media identity; standard prices are independent of Supplier purchase offers. expected_version is zero for a new identity and the last management version for replacement. All changes are versioned and attributed. Global UUID idempotency keys preserve canonical intent; exact retries return the original publication version, which may be older than current configuration. New standards take effect at commit and do not revoke still-eligible finite promotions. No request price, balance, supply qualification or route is changed. Rates are decimal integer strings; token rates are nanounits per million tokens, fixed charges are nanounits, media quantities are exact rationals. Publication alone is not customer enrollment or dispatch qualification.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Independent model/currency/text-or-media identity; standard prices are independent of Provider purchase offers. expected_version is zero for a new identity and the last management version for replacement. All changes are versioned and attributed. Global UUID idempotency keys preserve canonical intent; exact retries return the original publication version, which may be older than current configuration. New standards take effect at commit and do not revoke still-eligible finite promotions. No request price, balance, supply qualification or route is changed. Rates are decimal integer strings; token rates are nanounits per million tokens, fixed charges are nanounits, media quantities are exact rationals. Publication alone is not customer enrollment or dispatch qualification.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -315,7 +315,7 @@ pub struct PreviewQuery {
 ///           "$ref": "#/components/schemas/RetailMediaSchedule"
 ///         }
 ///       ],
-///       "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+///       "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
 ///     },
 ///     "RetailStandardPublication": {
 ///       "type": "object",
@@ -727,7 +727,7 @@ pub async fn publish_standard(
 ///   "operation": {
 ///     "operationId": "listRetailStandards",
 ///     "summary": "List current platform standard prices",
-///     "description": "Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Supplier costs. Internal references are API identifiers, never display names. Cache-Control: no-store.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Provider costs. Internal references are API identifiers, never display names. Cache-Control: no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -824,7 +824,7 @@ pub async fn list(
 ///   "operation": {
 ///     "operationId": "publishRetailPromotion",
 ///     "summary": "Publish one finite global or customer price",
-///     "description": "Explicit platform administration required; ordinary customer/Supplier membership does not grant access. The explicit result references an exact immutable undiscounted standard revision of this price identity. Null customer_organization_id means global; a company reference means customer-specific. Inclusive start/exclusive end are exact UTC epoch-second strings, with finite end greater than start. Same-scope overlap is rejected; at selection an eligible customer rule overrides the global rule, never stacks. Every text category/fixed charge/context tier must preserve meaning and not increase; media retains dimensions, meter, unit, decimal scale, rounding and minimum and only discounts amount_units. Retained original baselines survive later standard updates. No existing request or job is repriced.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. The explicit result references an exact immutable undiscounted standard revision of this price identity. Null customer_organization_id means global; a company reference means customer-specific. Inclusive start/exclusive end are exact UTC epoch-second strings, with finite end greater than start. Same-scope overlap is rejected; at selection an eligible customer rule overrides the global rule, never stacks. Every text category/fixed charge/context tier must preserve meaning and not increase; media retains dimensions, meter, unit, decimal scale, rounding and minimum and only discounts amount_units. Retained original baselines survive later standard updates. No existing request or job is repriced.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -913,7 +913,7 @@ pub async fn publish_promotion(
 ///   "operation": {
 ///     "operationId": "retireRetailPromotion",
 ///     "summary": "Append a promotion eligibility cutoff",
-///     "description": "Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Append-only explicit retirement, at most one cutoff for this promotion. Cutoff cannot extend its published end; a cutoff before its start cancels a future rule. Exact epoch-second strings and configuration version are required. Published schedules and already pinned operations/jobs stay immutable. This does not trigger a customer refund or change routing.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Append-only explicit retirement, at most one cutoff for this promotion. Cutoff cannot extend its published end; a cutoff before its start cancels a future rule. Exact epoch-second strings and configuration version are required. Published schedules and already pinned operations/jobs stay immutable. This does not trigger a customer refund or change routing.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1011,7 +1011,7 @@ pub async fn retire_promotion(
 ///   "operation": {
 ///     "operationId": "getRetailPriceHistory",
 ///     "summary": "Read immutable standard and promotion history",
-///     "description": "Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1149,7 +1149,7 @@ pub async fn history(
 ///   "operation": {
 ///     "operationId": "previewRetailPrice",
 ///     "summary": "Preview a customer applicable price",
-///     "description": "Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Advice only: does not enroll a workspace, reserve, dispatch or bind a request. Resolve at server time after the price identity lock, customer promotion then global then current standard. Exposes only this customer selection, not other customer rules. current_standard_revision may differ from the retained promotion baseline. Actual admission must select and pin in its transaction; never use preview as settlement evidence. Exact selected_at is UTC epoch seconds. Cache-Control: no-store.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Advice only: does not enroll a workspace, reserve, dispatch or bind a request. Resolve at server time after the price identity lock, customer promotion then global then current standard. Exposes only this customer selection, not other customer rules. current_standard_revision may differ from the retained promotion baseline. Actual admission must select and pin in its transaction; never use preview as settlement evidence. Exact selected_at is UTC epoch seconds. Cache-Control: no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1237,7 +1237,7 @@ pub struct EnrollmentQuery {
 ///   "operation": {
 ///     "operationId": "setRetailTextEnrollment",
 ///     "summary": "Enroll a workspace model in a platform selling price",
-///     "description": "Explicit platform administration required. price_id chooses a published text identity with the same model and an existing company/currency balance account; no account, credit, funds, Supplier qualification or selling permission is created. Explicit null restores legacy workspace tariff selection for future operations. expected_version zero creates the configuration; updates use immutable version history and an exact company/workspace-scoped idempotency key. Existing operation prices, charges and legacy current tariff pointers are unchanged. Missing price_id is rejected rather than silently disabling enrollment. No automatic retry.",
+///     "description": "Explicit platform administration required. price_id chooses a published text identity with the same model and an existing company/currency balance account; no account, credit, funds, Provider qualification or selling permission is created. Explicit null restores legacy workspace tariff selection for future operations. expected_version zero creates the configuration; updates use immutable version history and an exact company/workspace-scoped idempotency key. Existing operation prices, charges and legacy current tariff pointers are unchanged. Missing price_id is rejected rather than silently disabling enrollment. No automatic retry.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []

@@ -9,7 +9,7 @@ Send your first request through Niu using a workspace API key and a configured m
 
 1. **Start Niu.** Follow the [deployment guide](/docs/deployment/single-container/), or run `pnpm dev` for local development.
 2. **Open the dashboard.** Sign in with your account. For local development, use the account configured by the launcher.
-3. **Connect a Supplier.** Choose its Provider adapter, save its API credential, and configure model routes using the [model route guide](/docs/configuration/models/). Confirm your route appears in **Models**.
+3. **Connect a Provider.** Choose its Provider adapter, save its API credential, and configure model routes using the [model route guide](/docs/configuration/models/). Confirm your route appears in **Models**.
 4. **Create an API key.** Select a workspace and open **API keys → New API key**. Enter a name and expiration, then select **Create key**. The key can call every model route available in the workspace. Copy its secret now; it cannot be retrieved later.
 
 ## Make a request
@@ -35,7 +35,7 @@ Open workspace **Logs** to inspect status, timing, reported tokens, and retained
 request and response payloads. **Usage** shows consumption and customer charges.
 See [request logs](/docs/concepts/execution-observation/) for capture and retention settings.
 
-Applications authenticate with workspace keys. Keep Supplier credentials and
+Applications authenticate with workspace keys. Keep Provider credentials and
 installation administrator tokens on the server.
 
 ## Run Niu locally

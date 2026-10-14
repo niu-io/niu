@@ -50,7 +50,7 @@ fn currency(value: &str) -> Result<(), ApiError> {
 ///       }
 ///     ],
 ///     "operationId": "listKeySpendingLimits",
-///     "description": "Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Supplier costs or company balance are exposed.",
+///     "description": "Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Provider costs or company balance are exposed.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Account currencies and lifetime key commitments; null limit means unlimited and null revision means never configured.",

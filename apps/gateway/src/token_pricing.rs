@@ -25,7 +25,7 @@ fn cache_rate_field<'de, D: serde::Deserializer<'de>>(
     Option::<String>::deserialize(deserializer).map(Some)
 }
 
-/// Customer-only extensions must not be accepted by Supplier rate publication.
+/// Customer-only extensions must not be accepted by Provider rate publication.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CustomerTariffInput {

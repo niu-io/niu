@@ -27,7 +27,7 @@ pub(super) struct Capabilities {
     supports_generate_content: bool,
 }
 
-/// Explicit protocol capability, not asset readiness or Supplier qualification.
+/// Explicit protocol capability, not asset readiness or Provider qualification.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ProviderAssetCapabilities {

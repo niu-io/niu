@@ -7,11 +7,13 @@ pub(in crate::web) async fn models(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     models_as(&state, &principal).await
 }
 
-pub(super) async fn models_as(
+pub(in crate::web) async fn models_as(
     state: &AppState,
     principal: &niu_storage::Principal,
 ) -> Result<Json<Value>, ApiError> {
@@ -254,7 +256,7 @@ mod tests {
             "version":1,"revision":"private-schema-revision","model_alias":"video","upstream_model":"private-upstream","channel":"ark-direct-v1",
             "maximum_body_bytes":4096,"maximum_content_items":2,
             "inputs":{"text":{"maximum_items":2,"maximum_bytes":1024,"https":false,"data_mime_types":[],"roles":[],"role_required":false},
-                "image_url":{"maximum_items":1,"maximum_bytes":1024,"https":true,"data_mime_types":[],"roles":[],"role_required":false}},
+                "image_url":{"maximum_items":1,"maximum_bytes":1024,"https":false,"data_mime_types":["image/gif"],"roles":[],"role_required":false}},
             "controls":{"resolution":{"kind":"choice","values":["720p","1080p"],"default":"720p"},"ratio":{"kind":"choice","values":["16:9","1:1"],"default":"16:9"},
                 "duration":{"kind":"integer","minimum":1,"maximum":10,"default":5},"frames_per_second":{"kind":"integer","minimum":24,"maximum":60,"default":24},
                 "callback_url":{"kind":"https_url","maximum_bytes":1024}},

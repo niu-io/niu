@@ -1,6 +1,6 @@
 ---
 title: Platform audit logs
-description: Read durable account, access, Supplier and configuration operation history from Admin and the JavaScript SDK.
+description: Read durable account, access, Provider and configuration operation history from Admin and the JavaScript SDK.
 ---
 
 Open **Admin → Audit logs** to inspect saved operation metadata. This is platform administration history, separate from customer request logs. Only installation administrators and currently authorized platform administrators can read the API; workspace ownership alone does not grant access.
@@ -11,8 +11,8 @@ Open **Admin → Audit logs** to inspect saved operation metadata. This is platf
 | --- | --- |
 | Authentication | Password login success, session issuance and revocation, password changes |
 | Access | Account creation/revocation and database administrator platform grants/revocations |
-| Configuration | Supplier API configurations and model bindings, branding/theme saves, payment gateway saves |
-| Supplier | Supplier profile, qualification, offer and settlement operations recorded by the Supplier journal |
+| Configuration | Provider API configurations and model bindings, branding/theme saves, payment gateway saves |
+| Provider | Provider profile, qualification, offer and settlement operations recorded by the Provider journal |
 
 The view combines six existing journals rather than copying their state. Successful password login commits its session and `password_login_succeeded` event together. Administrator-issued sessions remain `session_created`; issuance alone does not prove interactive login. Failed login attempts, read requests, rejected configuration saves and uncommitted drafts are not recorded by this version. Do not use an absent event to infer that an action did not occur.
 

@@ -49,9 +49,9 @@ Create/associate recover independently: after a Video submission response is los
 
 ### Restore history after a key becomes unavailable
 
-The dashboard can restore retained Video input and saved task state after its original inference key is revoked or expires. Historical reads still require current workspace Read permission and the original actor-owned intent. Returned key references are context, not authorization to generate, estimate or query a Supplier. An unavailable key leads to API-key management rather than Supplier configuration.
+The dashboard can restore retained Video input and saved task state after its original inference key is revoked or expires. Historical reads still require current workspace Read permission and the original actor-owned intent. Returned key references are context, not authorization to generate, estimate or query a Provider. An unavailable key leads to API-key management rather than Provider configuration.
 
-The dashboard loads saved previews and persisted billing/transport diagnostics through workspace-scoped task APIs independently of active inference keys. Generation and fresh Supplier checks still require current inference authority. Complete shared-output controls remain dashboard integration work; the SDK contracts below expose their supported operations independently.
+The dashboard loads saved previews and persisted billing/transport diagnostics through workspace-scoped task APIs independently of active inference keys. Generation and fresh Provider checks still require current inference authority. Complete shared-output controls remain dashboard integration work; the SDK contracts below expose their supported operations independently.
 
 
 ## Unsubmitted Video composition
@@ -217,4 +217,4 @@ Copying explicitly shares the resulting material with authorized workspace membe
 
 Task artifact summaries and artifact list/detail responses include `capture`: the canonical active or stored capture, otherwise the latest failed capture, or `null` when no save was requested. Its `availability` describes the library copy independently of the original artifact’s saved-reference `availability`. A deleted copy remains visible as `stored`/`deleted`; it does not make the original reference deleted. Artifact `content_type` is populated only from validated captured-library metadata and is otherwise `null`. Capture state changes never change artifact pagination identity.
 
-Copied library bytes persist independently of Supplier signed-URL expiry and remain until explicit library deletion. Deletion preserves the capture/source record and prevents automatic resurrection. Starting another generation, registering a Provider asset and saving an output are separate explicit operations.
+Copied library bytes persist independently of Provider signed-URL expiry and remain until explicit library deletion. Deletion preserves the capture/source record and prevents automatic resurrection. Starting another generation, registering a Provider asset and saving an output are separate explicit operations.

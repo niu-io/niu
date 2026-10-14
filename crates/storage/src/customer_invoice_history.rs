@@ -1,4 +1,4 @@
-//! Customer invoice history; never reads Supplier purchase prices.
+//! Customer invoice history; never reads Provider purchase prices.
 use crate::{LedgerHistoryQuery, Store, StoreError, TenantScope};
 use serde_json::Value;
 

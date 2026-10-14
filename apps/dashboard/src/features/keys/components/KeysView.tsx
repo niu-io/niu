@@ -19,11 +19,13 @@ import { Button } from '@/components/ui/button';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/PageHeader';
 import { useDashboardContext, type Model } from '@/app/dashboard-context';
-import { keyRequest, keyStatus, keyLastUsed, projectKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
+import { amountToNanos, money } from '@/lib/money';
+import { keyRequest, keyStatus, keyLastUsed, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
 
 type KeyDialog = { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
 const expiryOptions = [{ label: '7 days', seconds: 7 * 86400 }, { label: '30 days', seconds: 30 * 86400 }, { label: '90 days', seconds: 90 * 86400 }, { label: '1 year', seconds: 365 * 86400 }, { label: 'Never', seconds: null }];
@@ -33,6 +35,33 @@ function baseUrl() {
   return `${window.location.origin}${base}/v1`;
 }
 
+function keyLimitsSummary(key: ProjectKey): string {
+  const parts: string[] = [];
+  if (key.spending_limits?.length) {
+    for (const limit of key.spending_limits) {
+      if (limit.limit_nanos !== null) {
+        parts.push(money(limit.limit_nanos, limit.currency));
+      }
+    }
+  }
+  const rpm = key.request_rate_limit?.requests_per_minute ?? key.requests_per_minute;
+  if (rpm !== undefined && rpm !== null) {
+    parts.push(`${rpm.toLocaleString()} req/m`);
+  }
+  const conc = key.concurrency_limit?.max_concurrent_requests ?? key.max_concurrent_requests;
+  if (conc !== undefined && conc !== null) {
+    parts.push(`${conc.toLocaleString()} concurrent`);
+  }
+  const tpm = key.token_rate_limit?.tokens_per_minute ?? key.tokens_per_minute;
+  if (tpm !== undefined && tpm !== null) {
+    parts.push(`${tpm.toLocaleString()} tok/m`);
+  }
+  const cidrs = key.ip_policy ? key.ip_policy.allowed_cidrs : key.allowed_cidrs;
+  if (cidrs !== undefined && cidrs !== null) {
+    parts.push(cidrs.length ? `${cidrs.length} IP${cidrs.length === 1 ? '' : 's'}` : 'IPs blocked');
+  }
+  return parts.length ? parts.join(' · ') : 'Unlimited';
+}
 
 export default function KeysView({ token, models, canWrite, initialScope }: {
   token: string;
@@ -55,18 +84,27 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const [name, setName] = useState('');
   const [copyError, setCopyError] = useState('');
   const [ttl, setTtl] = useState<number|null>(expiryOptions[1].seconds);
+  const [allowedModels, setAllowedModels] = useState<string[]>(['*']);
+  const [showAdvancedPolicies, setShowAdvancedPolicies] = useState(false);
+  const [spendingCurrency, setSpendingCurrency] = useState('USD');
+  const [spendingAmount, setSpendingAmount] = useState('');
+  const [requestsPerMinute, setRequestsPerMinute] = useState('');
+  const [maxConcurrentRequests, setMaxConcurrentRequests] = useState('');
+  const [tokensPerMinute, setTokensPerMinute] = useState('');
+  const [allowedCidrsText, setAllowedCidrsText] = useState('');
   const [issued, setIssued] = useState<IssuedProjectKey | null>(null);
   const [secretModel, setSecretModel] = useState('');
   const [copied, setCopied] = useState('');
   const [dialogError, setDialogError] = useState('');
   const root = workspacePath(location.pathname);
-  const collectionPath = initialScope ? projectKeyPath(initialScope.organizationId, initialScope.projectId) : '';
+  const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
   const canIssue = canWrite && Boolean(workspace);
   const showActions = canWrite && keys.some(key => !key.revoked && !key.expired);
-  const exampleModel = secretModel || models[0]?.id || '';
-  const exampleMetadata=models.find(model=>model.id===exampleModel);
+  const modelIds = models.map(model => typeof model === 'string' ? model : model.id);
+  const exampleModel = secretModel || modelIds[0] || '';
+  const exampleMetadata = models.find(model => (typeof model === 'string' ? model : model.id) === exampleModel);
   // Catalog text output is descriptive, not a Chat protocol capability.
-  const videoExample=exampleMetadata?.catalog?.output_modalities?.includes('video')===true;
+  const videoExample = typeof exampleMetadata === 'object' && exampleMetadata?.catalog?.output_modalities?.includes('video') === true;
 
   const dialogReturnFocus = useRef<HTMLButtonElement | null>(null);
   const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -98,6 +136,14 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   function openCreate() {
     setName('');
     setTtl(expiryOptions[1].seconds);
+    setAllowedModels(['*']);
+    setShowAdvancedPolicies(false);
+    setSpendingCurrency('USD');
+    setSpendingAmount('');
+    setRequestsPerMinute('');
+    setMaxConcurrentRequests('');
+    setTokensPerMinute('');
+    setAllowedCidrsText('');
     setIssued(null);
     setSecretModel('');
     setDialogError('');
@@ -125,18 +171,49 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
 
   async function issue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!collectionPath || !name.trim() || busy) return;
+    if (!collectionPath || !name.trim() || !allowedModels.length || busy) return;
+    const body: Record<string, unknown> = {
+      name: name.trim(),
+      ttl_seconds: ttl,
+    };
+    if (!allowedModels.includes('*')) {
+      body.allowed_models = allowedModels;
+    }
+    try {
+      if (spendingAmount.trim()) {
+        const nanos = /^0+(?:\.0{1,9})?$/.test(spendingAmount.trim()) ? '0' : amountToNanos(spendingAmount.trim());
+        body.spending_limit = { currency: spendingCurrency, limit_nanos: nanos };
+      }
+      if (requestsPerMinute.trim()) {
+        if (!/^\d+$/.test(requestsPerMinute.trim())) throw new Error('Requests per minute must be a whole number.');
+        body.requests_per_minute = Number(requestsPerMinute.trim());
+      }
+      if (maxConcurrentRequests.trim()) {
+        if (!/^\d+$/.test(maxConcurrentRequests.trim())) throw new Error('Concurrent requests must be a whole number.');
+        body.max_concurrent_requests = Number(maxConcurrentRequests.trim());
+      }
+      if (tokensPerMinute.trim()) {
+        if (!/^\d+$/.test(tokensPerMinute.trim())) throw new Error('Tokens per minute must be a whole number.');
+        body.tokens_per_minute = Number(tokensPerMinute.trim());
+      }
+      const cidrs = allowedCidrsText.split('\n').map(entry => entry.trim()).filter(Boolean);
+      if (cidrs.length > 0) {
+        body.allowed_cidrs = cidrs;
+      }
+    } catch (validationError) {
+      setDialogError(validationError instanceof Error ? validationError.message : 'Enter valid key limits.');
+      return;
+    }
     const pending = new AbortController();
     mutationController.current = pending;
     setBusy(true); setDialogError('');
     try {
-      const result = await keyRequest<IssuedProjectKey>(token, collectionPath, 'POST', {
-        name: name.trim(), ttl_seconds: ttl,
-      }, pending.signal);
+      const result = await keyRequest<IssuedProjectKey>(token, collectionPath, 'POST', body, pending.signal);
       if (pending.signal.aborted) return;
       setIssued(result);
-      setSecretModel(models[0]?.id ?? '');
-      if (initialScope) rememberChatKey({ ...result, name: name.trim(), allowedModels: ['*'], ...initialScope });
+      const effectiveModels = result.allowed_models ?? allowedModels;
+      setSecretModel(effectiveModels.includes('*') ? modelIds[0] ?? '' : effectiveModels[0] ?? modelIds[0] ?? '');
+      if (initialScope) rememberChatKey({ ...result, name: name.trim(), allowedModels: effectiveModels, ...initialScope });
       setDialog({ kind: 'secret' });
       await reload();
     } catch (cause) {
@@ -153,7 +230,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
       const result = await keyRequest<IssuedProjectKey>(token, `${collectionPath}/${encodeURIComponent(key.id)}/rotate`, 'POST', undefined, pending.signal);
       if (pending.signal.aborted) return;
       setIssued(result);
-      setSecretModel(key.allowed_models.includes('*') ? models[0]?.id ?? '' : key.allowed_models[0] ?? models[0]?.id ?? '');
+      setSecretModel(key.allowed_models.includes('*') ? modelIds[0] ?? '' : key.allowed_models[0] ?? modelIds[0] ?? '');
       if (initialScope) rememberChatKey({ ...result, name: key.name, allowedModels: key.allowed_models, ...initialScope });
       setDialog({ kind: 'secret', key });
       await reload();
@@ -201,9 +278,10 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
 
       {!loading && !error && !keys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>No API keys yet</EmptyTitle><EmptyDescription>{canIssue ? 'Create a key for an app or agent to send requests through Niu.' : 'Your session can review keys, but cannot create them.'}</EmptyDescription></EmptyHeader></Empty>}
       {!loading && keys.length > 0 && visibleKeys.length === 0 && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>No matching keys</EmptyTitle><EmptyDescription>Try another name or clear your search.</EmptyDescription></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => {setKeyQuery('');searchTriggerRef.current?.focus();}}>Clear search</Button></EmptyContent></Empty>}
-      {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>Key</TableHead><TableHead className="key-table-metadata">Model access</TableHead><TableHead className="key-table-metadata">Expires</TableHead><TableHead className="key-table-metadata">Last used</TableHead><TableHead>Status</TableHead>{showActions && <TableHead>Actions</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
+      {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>Key</TableHead><TableHead className="key-table-metadata">Model access</TableHead><TableHead className="key-table-metadata">Limits</TableHead><TableHead className="key-table-metadata">Expires</TableHead><TableHead className="key-table-metadata">Last used</TableHead><TableHead>Status</TableHead>{showActions && <TableHead>Actions</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
         <TableCell><Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.id)}`} aria-label={`View key ${key.name}`}><KeyRound size={15} />{key.name}</Link></TableCell>
         <TableCell className="key-table-metadata"><span className="key-model-summary" title={key.allowed_models.includes('*') ? 'Every configured model route' : key.allowed_models.join(', ')}>{key.allowed_models.includes('*') ? 'All configured models' : key.allowed_models.join(', ')}</span></TableCell>
+        <TableCell className="key-table-metadata"><span className="key-model-summary">{keyLimitsSummary(key)}</span></TableCell>
         <TableCell className="key-table-metadata">{key.expires_at_ms === null ? 'Never' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
         <TableCell className="key-table-metadata">{keyLastUsed(key)}</TableCell>
         <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'}>{keyStatus(key)}</Badge></TableCell>
@@ -214,13 +292,38 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
 
     {copyError && <p role="alert" className="error-text">{copyError}</p>}
     <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !busy) { setDialog(null); setDialogError(''); } }}>
-      <DialogContent className="niu-modal key-dialog" showCloseButton={false} onCloseAutoFocus={event => {const target=dialogReturnFocus.current?.isConnected ? dialogReturnFocus.current : searchTriggerRef.current;if (target) {event.preventDefault();target.focus();}}}>
+      <DialogContent className="niu-modal key-dialog max-h-[90dvh] overflow-y-auto" showCloseButton={false} onCloseAutoFocus={event => {const target=dialogReturnFocus.current?.isConnected ? dialogReturnFocus.current : searchTriggerRef.current;if (target) {event.preventDefault();target.focus();}}}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
           <div><DialogTitle>{dialogTitle}</DialogTitle>{dialogDescription && <DialogDescription>{dialogDescription}</DialogDescription>}</div>
           <DialogClose className="niu-modal-close" aria-label="Close dialog" disabled={busy}><X size={18} /></DialogClose>
         </DialogHeader>
       {dialog?.kind === 'create' && <form className="niu-modal-form" onSubmit={event => void issue(event)}>
         <Label htmlFor="api-key-name">Name<Input id="api-key-name" disabled={busy} autoFocus maxLength={200} autoComplete="off" placeholder="e.g. production app" value={name} onChange={event => setName(event.target.value)} required /></Label>
+        <div className="key-expiration-field">
+          <Label htmlFor="api-key-models">Model access</Label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button id="api-key-models" disabled={busy} type="button" variant="outline" className="h-10 w-full justify-between font-normal">
+                {allowedModels.includes('*') ? 'All configured models' : `${allowedModels.length} model${allowedModels.length === 1 ? '' : 's'} selected`}
+                <ChevronDown aria-hidden="true" size={16} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="max-h-72 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto" align="start" sideOffset={5} collisionPadding={10}>
+              <DropdownMenuCheckboxItem checked={allowedModels.includes('*')} onSelect={event => event.preventDefault()} onCheckedChange={checked => setAllowedModels(checked ? ['*'] : [])}>All configured models</DropdownMenuCheckboxItem>
+              {modelIds.length > 0 && <DropdownMenuSeparator />}
+              {[...new Set(modelIds)].sort().map(modelId => (
+                <DropdownMenuCheckboxItem
+                  key={modelId}
+                  checked={allowedModels.includes(modelId)}
+                  onSelect={event => event.preventDefault()}
+                  onCheckedChange={checked => setAllowedModels(current => checked ? [...current.filter(value => value !== '*'), modelId] : current.filter(value => value !== modelId))}
+                >
+                  {modelId}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <div className="key-expiration-field">
           <Label htmlFor="api-key-expiry">Expiration</Label>
           <DropdownMenu>
@@ -237,14 +340,62 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        <div className="grid gap-3 pt-1">
+          <Button type="button" variant="ghost" size="sm" className="justify-between px-2 text-muted-foreground" disabled={busy} onClick={() => setShowAdvancedPolicies(current => !current)}>
+            <span>Limits & access policies (optional)</span>
+            <ChevronDown size={15} className={showAdvancedPolicies ? 'rotate-180 transition-transform' : 'transition-transform'} />
+          </Button>
+          {showAdvancedPolicies && <div className="grid gap-3 rounded-md bg-muted/40 p-3">
+            <div className="grid gap-2 sm:grid-cols-[7rem_1fr] sm:items-end">
+              <div className="grid gap-1.5">
+                <Label htmlFor="api-key-spending-currency">Currency</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button id="api-key-spending-currency" disabled={busy} type="button" variant="outline" className="h-10 w-full justify-between font-normal">
+                      {spendingCurrency}
+                      <ChevronDown aria-hidden="true" size={15} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuRadioGroup value={spendingCurrency} onValueChange={setSpendingCurrency}>
+                      {['USD', 'CNY', 'EUR'].map(curr => <DropdownMenuRadioItem key={curr} value={curr}>{curr}</DropdownMenuRadioItem>)}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="api-key-spending-limit">Spending limit ({spendingCurrency})</Label>
+                <Input id="api-key-spending-limit" inputMode="decimal" disabled={busy} placeholder="Unlimited" value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="api-key-rpm">Requests / min</Label>
+                <Input id="api-key-rpm" inputMode="numeric" disabled={busy} placeholder="Unlimited" value={requestsPerMinute} onChange={event => setRequestsPerMinute(event.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="api-key-concurrency">Concurrent</Label>
+                <Input id="api-key-concurrency" inputMode="numeric" disabled={busy} placeholder="Unlimited" value={maxConcurrentRequests} onChange={event => setMaxConcurrentRequests(event.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="api-key-tpm">Tokens / min</Label>
+                <Input id="api-key-tpm" inputMode="numeric" disabled={busy} placeholder="Unlimited" value={tokensPerMinute} onChange={event => setTokensPerMinute(event.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="api-key-cidrs">Allowed IP addresses or CIDRs</Label>
+              <Textarea id="api-key-cidrs" rows={2} disabled={busy} className="font-mono text-xs" placeholder="Leave blank to allow all sources (one IP or CIDR per line)" value={allowedCidrsText} onChange={event => setAllowedCidrsText(event.target.value)} />
+            </div>
+          </div>}
+        </div>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <footer className="niu-modal-actions"><Button type="button" variant="ghost" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button><Button type="submit" disabled={busy || !name.trim()}>{busy ? 'Creating…' : 'Create key'}</Button></footer>
+        <footer className="niu-modal-actions"><Button type="button" variant="ghost" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? 'Creating…' : 'Create key'}</Button></footer>
       </form>}
       {dialog?.kind === 'secret' && issued && <div className="niu-modal-form key-issued-view">
         <div className="key-once-notice"><Check size={17} /><span>Copy this secret before closing. Niu cannot reveal it again.</span></div>
         <div className="key-copy-row"><Label htmlFor="issued-api-key">API key</Label><div><Input id="issued-api-key" value={issued.token} readOnly type="text" /><Button type="button" variant="outline" onClick={() => void copy('key', issued.token)}><Clipboard size={15} />{copied === 'key' ? 'Copied' : 'Copy key'}</Button></div></div>
         <div className="key-copy-row"><Label htmlFor="issued-base-url">Base URL</Label><div><Input id="issued-base-url" value={baseUrl()} readOnly /><Button type="button" variant="outline" onClick={() => void copy('url', baseUrl())}><Clipboard size={15} />{copied === 'url' ? 'Copied' : 'Copy URL'}</Button></div></div>
-        <div className="key-example key-example-prerequisite" role="status"><div><strong>Request example unavailable</strong></div><p>{videoExample ? 'Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.' : exampleModel ? 'A runnable request example cannot be confirmed from this model’s catalog metadata. Open Generations to choose a supported workflow.' : canManagePlatform ? 'Connect a Supplier and add a supported model route to use this key.' : 'Ask a platform administrator to add a model route to the catalog.'}</p>{!exampleModel&&canManagePlatform && <Button asChild variant="outline"><Link to="/admin/suppliers">Connect supplier</Link></Button>}</div>
+        <div className="key-example key-example-prerequisite" role="status"><div><strong>Request example unavailable</strong></div><p>{videoExample ? 'Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.' : exampleModel ? 'A runnable request example cannot be confirmed from this model’s catalog metadata. Open Generations to choose a supported workflow.' : canManagePlatform ? 'Connect a Provider and add a supported model route to use this key.' : 'Ask a platform administrator to add a model route to the catalog.'}</p>{!exampleModel&&canManagePlatform && <Button asChild variant="outline"><Link to="/admin/suppliers">Connect provider</Link></Button>}</div>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
         <footer className="niu-modal-actions"><Button asChild><Link to={`/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.id})}`} onClick={() => setDialog(null)}>{videoExample?'Use in Video':'Open Generations'}</Link></Button><Button variant="outline" onClick={() => setDialog(null)}>Done</Button></footer>
       </div>}

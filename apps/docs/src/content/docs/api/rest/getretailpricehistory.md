@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/pricing/standard-prices/{price}/history`
 
-Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.
+Explicit platform administration required; ordinary customer/Provider membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.
 
 Operation: `getRetailPriceHistory`.
 
@@ -361,7 +361,7 @@ Content type: `application/json`.
                     ]
                   }
                 ],
-                "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+                "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
               },
               {
                 "type": "null"
@@ -635,7 +635,7 @@ Content type: `application/json`.
                         ]
                       }
                     ],
-                    "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+                    "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
                   }
                 }
               },
@@ -720,6 +720,6 @@ Stale version, conflicting key/period, unknown identity/customer or unsupported 
 
 ## Behavior and supported scope
 
-Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.
+Explicit platform administration required; ordinary customer/Provider membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.
 
 **Supported scope:** implemented

@@ -45,7 +45,7 @@ All product pages and APIs use the same origin. The workspace name in `/workspac
 
 The gateway serves HTTP. Terminate HTTPS at the hosting platform's TLS edge and forward requests to the single application port. A unified hostname does not provide TLS by itself. Keep browser API requests same-origin so credentials and logout stay on `niu.io`.
 
-When migrating existing hosts, configure permanent redirects at the TLS edge: `docs.niu.io/<path>` should map to `niu.io/docs/<path>`. Redirect the old dashboard root to `/workspaces/default/` and map prior dashboard sections such as `/keys` and `/usage` to `/workspaces/default/keys` and `/workspaces/default/usage`. In the unified product, `/models/` is the public catalog and `/suppliers` manages Supplier configuration. Model supply is global; workspaces manage scoped keys, requests and customer billing.
+When migrating existing hosts, configure permanent redirects at the TLS edge: `docs.niu.io/<path>` should map to `niu.io/docs/<path>`. Redirect the old dashboard root to `/workspaces/default/` and map prior dashboard sections such as `/keys` and `/usage` to `/workspaces/default/keys` and `/workspaces/default/usage`. In the unified product, `/models/` is the public catalog and `/suppliers` manages Provider configuration. Model supply is global; workspaces manage scoped keys, requests and customer billing.
 
 The static documentation tree is mounted separately from the dashboard. Missing documentation paths return 404, and unknown `/v1/`, `/catalog/v1/` and `/admin/v1/` endpoints return JSON API errors. Nested workspace links can be opened or refreshed directly. Static routes do not buffer inference responses; streaming remains on the gateway's inference handler.
 

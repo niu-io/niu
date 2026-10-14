@@ -4,7 +4,7 @@ description: Compare Niu and OpenRouter by model access, operating responsibilit
 next: false
 ---
 
-OpenRouter provides hosted access to a model catalog through a unified API. Niu is a gateway you can operate with configured Suppliers. They can be alternatives at the application boundary, or work together with OpenRouter supplying models upstream of Niu.
+OpenRouter provides hosted access to a model catalog through a unified API. Niu is a gateway you can operate with configured Providers. They can be alternatives at the application boundary, or work together with OpenRouter supplying models upstream of Niu.
 
 Product documentation reviewed October 13, 2026. This comparison describes documented scope; it does not establish performance, prices, or full feature parity.
 
@@ -15,9 +15,9 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCap
   <TableHeader><TableRow><TableHead>Feature</TableHead><TableHead>Niu</TableHead><TableHead>OpenRouter</TableHead></TableRow></TableHeader>
   <TableBody>
     <TableRow><TableCell data-label="Feature">What you operate</TableCell><TableCell data-label="Niu">Your gateway and PostgreSQL deployment</TableCell><TableCell data-label="OpenRouter">Your application; OpenRouter runs the hosted gateway</TableCell></TableRow>
-    <TableRow><TableCell data-label="Feature">Model access</TableCell><TableCell data-label="Niu">Models exposed by your configured Supplier routes</TableCell><TableCell data-label="OpenRouter">Models available in the hosted catalog</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Model access</TableCell><TableCell data-label="Niu">Models exposed by your configured Provider routes</TableCell><TableCell data-label="OpenRouter">Models available in the hosted catalog</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Routing configuration</TableCell><TableCell data-label="Niu">Explicit model mappings and supported route-pool policies</TableCell><TableCell data-label="OpenRouter">Provider preferences, sorting, and fallback controls</TableCell></TableRow>
-    <TableRow><TableCell data-label="Feature">Credentials</TableCell><TableCell data-label="Niu">Workspace keys downstream; Supplier credentials upstream</TableCell><TableCell data-label="OpenRouter">OpenRouter API keys for hosted model access</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Credentials</TableCell><TableCell data-label="Niu">Workspace keys downstream; Provider credentials upstream</TableCell><TableCell data-label="OpenRouter">OpenRouter API keys for hosted model access</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Request evidence</TableCell><TableCell data-label="Niu">Request logs, reported usage, and customer billing in your deployment</TableCell><TableCell data-label="OpenRouter">Hosted activity and API usage reporting</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Current scope</TableCell><TableCell data-label="Niu">Active development with route-specific qualification limits</TableCell><TableCell data-label="OpenRouter">Model and Provider capabilities differ; check the selected route</TableCell></TableRow>
   </TableBody>
@@ -29,13 +29,13 @@ OpenRouter gives applications a hosted catalog and documented Provider routing c
 
 ## 02 / Where Niu is useful
 
-Niu is useful when you want to operate the gateway and its saved workspace request records, configure your own Suppliers, and manage application keys through its public interfaces. Hosting Niu does not make an upstream model local or eliminate the upstream service’s data policy.
+Niu is useful when you want to operate the gateway and its saved workspace request records, configure your own Providers, and manage application keys through its public interfaces. Hosting Niu does not make an upstream model local or eliminate the upstream service’s data policy.
 
 See [model configuration](/docs/configuration/models/), [request logs](/docs/concepts/execution-observation/), and the [API contracts](/docs/reference/api/) for supported behavior.
 
 ## 03 / Which one to pick
 
-Choose OpenRouter for hosted catalog access and Provider routing with less gateway operational work. Evaluate Niu when you need to operate its workspace and Supplier workflows. You can configure OpenRouter as an upstream Provider in Niu; the additional gateway still needs deployment, monitoring, and route qualification.
+Choose OpenRouter for hosted catalog access and Provider routing with less gateway operational work. Evaluate Niu when you need to operate its workspace and Provider workflows. You can configure OpenRouter as an upstream Provider in Niu; the additional gateway still needs deployment, monitoring, and route qualification.
 
 Niu’s first feature-complete release has not yet been qualified. Confirm the model, protocol, authorization, and billing behavior required by your workload before choosing a deployment.
 

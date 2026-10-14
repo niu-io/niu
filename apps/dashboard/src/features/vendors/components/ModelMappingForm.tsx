@@ -102,17 +102,17 @@ export default function ModelMappingForm({ ownerFunded = false, model, catalog, 
         <DropdownMenu open={catalogOpen} onOpenChange={open => { setCatalogOpen(open); if (open) setCatalogQuery(''); }}>
           <DropdownMenuTrigger asChild>
             <Button id="supplier-model-search-trigger" type="button" variant="outline" disabled={disabled} className="supplier-model-trigger w-full justify-between font-normal">
-              <span>{catalog.find(item => item.id === upstreamModel)?.name ?? 'Search supplier models'}</span><ChevronDown size={16} aria-hidden="true" />
+              <span>{catalog.find(item => item.id === upstreamModel)?.name ?? 'Search provider models'}</span><ChevronDown size={16} aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" collisionPadding={12} className="w-[min(420px,calc(100vw-24px))]">
-            <Input aria-label="Search supplier models" autoFocus maxLength={200} value={catalogQuery} onChange={event => setCatalogQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || ['Home', 'End', 'Backspace', 'Delete'].includes(event.key)) event.stopPropagation(); }} placeholder={catalogLoading ? 'Loading supplier models…' : 'Search by model name or ID'} />
+            <Input aria-label="Search provider models" autoFocus maxLength={200} value={catalogQuery} onChange={event => setCatalogQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || ['Home', 'End', 'Backspace', 'Delete'].includes(event.key)) event.stopPropagation(); }} placeholder={catalogLoading ? 'Loading provider models…' : 'Search by model name or ID'} />
             <DropdownMenuRadioGroup value={upstreamModel} onValueChange={id => { const item = catalog.find(item => item.id === id); if (item) chooseProviderModel(item); }}>
               {visibleCatalog.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>
                 <span><strong className="block">{item.name}</strong><small className="block text-muted-foreground">{item.id}</small></span>
               </DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
-            {visibleCatalog.length === 0 && <p role="status" className="p-2 text-sm text-muted-foreground">{catalogLoading ? 'Loading supplier models…' : catalogError ? 'Supplier model catalog is unavailable' : 'No matching models'}</p>}
+            {visibleCatalog.length === 0 && <p role="status" className="p-2 text-sm text-muted-foreground">{catalogLoading ? 'Loading provider models…' : catalogError ? 'Provider model catalog is unavailable' : 'No matching models'}</p>}
           </DropdownMenuContent>
         </DropdownMenu>
         {catalogLoading

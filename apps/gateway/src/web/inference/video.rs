@@ -141,7 +141,9 @@ pub(in crate::web) async fn history(
     headers: HeaderMap,
     query: Result<axum::extract::Query<HistoryQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     let axum::extract::Query(query) = query
         .map_err(|_| ApiError::invalid_request("Invalid video history cursor or page size"))?;
     state
@@ -556,7 +558,9 @@ pub(in crate::web) async fn billing(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     state
         .store
         .media_billing_for_key(&principal, id)
@@ -653,7 +657,9 @@ pub(in crate::web) async fn status(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     state
         .store
         .media_job_state_for_key(&principal, id)
@@ -1115,7 +1121,9 @@ pub(in crate::web) async fn estimate(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     estimate_as(state, body, principal).await
 }
 
@@ -2408,7 +2416,9 @@ pub(in crate::web) async fn timings(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     state
         .store
         .media_transport_timings_for_key(&principal, id)

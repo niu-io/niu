@@ -1,5 +1,5 @@
 ---
-title: "List model bindings for one Supplier API-key configuration"
+title: "List model bindings for one Provider API-key configuration"
 description: "GET /admin/v1/vendors/{id}/models"
 tableOfContents: false
 ---

@@ -158,7 +158,7 @@ pub async fn read(
 ///       }
 ///     ],
 ///     "operationId": "getKeyTokenUsageWindow",
-///     "description": "Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Supplier cost.",
+///     "description": "Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Provider cost.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "One consistent database snapshot, including an empty window for an unused key.",

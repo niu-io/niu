@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/organizations/{organization}/billing/media-rates`
 
-Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Supplier purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.
+Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Provider purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.
 
 Operation: `listCustomerMediaRates`.
 
@@ -457,6 +457,6 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Supplier purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.
+Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Provider purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.
 
 **Supported scope:** implemented

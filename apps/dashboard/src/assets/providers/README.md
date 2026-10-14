@@ -4,4 +4,4 @@ Selected SVGs from [Lobe Icons](https://github.com/lobehub/lobe-icons), pinned t
 
 Only these static assets are reused; no upstream runtime or repository history is included. These marks identify model families or known endpoint hosts; they do not imply API adapter support or endorsement. Unknown providers use a neutral fallback. Assets are bundled locally, with no third-party requests at runtime.
 
-Supplier profile presets also use the pinned OpenRouter, New API, Azure, AWS, and Google Cloud marks. Their canonical upstream URLs are stored in the existing `logo_url` field; the dashboard resolves recognized presets to bundled assets. Custom URLs retain their original behavior.
+Provider profile presets also use the pinned OpenRouter, New API, Azure, AWS, and Google Cloud marks. Their canonical upstream URLs are stored in the existing `logo_url` field; the dashboard resolves recognized presets to bundled assets. Custom URLs retain their original behavior.

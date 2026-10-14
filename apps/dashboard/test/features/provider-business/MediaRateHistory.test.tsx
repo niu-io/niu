@@ -19,7 +19,7 @@ function record(overrides = {}) {
   };
 }
 
-describe('Supplier media purchase history', () => {
+describe('Provider media purchase history', () => {
   it('explains network failures and lets retry recover to an empty history', async () => {
     const fetchMock = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch'))
       .mockResolvedValue(Response.json({ data: [], has_more: false, next_after: null }));

@@ -179,7 +179,7 @@ impl Store {
         Ok(())
     }
 
-    /// Caller authorizes installation or this Supplier's active membership.
+    /// Caller authorizes installation or this Provider's active membership.
     /// Monetary amounts and version/time integers are exact strings on reads.
     pub async fn supplier_media_rates(
         &self,
@@ -208,7 +208,7 @@ impl Store {
         Ok(serde_json::json!({"data":rows,"has_more":more,"next_after":next}))
     }
 
-    /// Select and bind the original Supplier's qualified purchase price before paid dispatch.
+    /// Select and bind the original Provider's qualified purchase price before paid dispatch.
     pub async fn bind_supplier_media_rate(
         &self,
         scope: TenantScope,
@@ -272,7 +272,7 @@ impl Store {
         }
         Ok(())
     }
-    /// Independent Supplier liability; customer funding and charges are not consulted.
+    /// Independent Provider liability; customer funding and charges are not consulted.
     pub async fn accrue_supplier_media_earning(&self, attempt: Uuid) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
         Self::accrue_supplier_media_earning_in_tx(&mut tx, attempt).await?;

@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/organizations/{organization}/billing/balance`
 
-Requires organization-wide owner/admin access or installation administration. Workspace-only sessions and organization viewers cannot read shared funds. Exact nanounit amounts are decimal strings. Available funds equal posted balance plus approved credit minus outstanding liabilities (including known media charges above their original holds); each request must still atomically reserve its full liability. No account identifiers, Supplier prices or payment references are exposed. Storage reads retain one amount snapshot with transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never zero balances or partial success; pool admission and a complete HTTP deadline remain separate.
+Requires organization-wide owner/admin access or installation administration. Workspace-only sessions and organization viewers cannot read shared funds. Exact nanounit amounts are decimal strings. Available funds equal posted balance plus approved credit minus outstanding liabilities (including known media charges above their original holds); each request must still atomically reserve its full liability. No account identifiers, Provider prices or payment references are exposed. Storage reads retain one amount snapshot with transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never zero balances or partial success; pool admission and a complete HTTP deadline remain separate.
 
 Operation: `getCustomerBalance`.
 
@@ -142,6 +142,6 @@ Company account access not granted
 
 ## Behavior and supported scope
 
-Requires organization-wide owner/admin access or installation administration. Workspace-only sessions and organization viewers cannot read shared funds. Exact nanounit amounts are decimal strings. Available funds equal posted balance plus approved credit minus outstanding liabilities (including known media charges above their original holds); each request must still atomically reserve its full liability. No account identifiers, Supplier prices or payment references are exposed. Storage reads retain one amount snapshot with transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never zero balances or partial success; pool admission and a complete HTTP deadline remain separate.
+Requires organization-wide owner/admin access or installation administration. Workspace-only sessions and organization viewers cannot read shared funds. Exact nanounit amounts are decimal strings. Available funds equal posted balance plus approved credit minus outstanding liabilities (including known media charges above their original holds); each request must still atomically reserve its full liability. No account identifiers, Provider prices or payment references are exposed. Storage reads retain one amount snapshot with transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never zero balances or partial success; pool admission and a complete HTTP deadline remain separate.
 
 **Supported scope:** implemented

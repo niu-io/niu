@@ -150,76 +150,54 @@ test('uncertain top-up creation is never retried automatically', async () => {
   await assert.rejects(client.createCustomerTopup(id,{amount_nanos:'1000000000',payment_method:'wxpaynative',idempotency_key:id}),/connection lost/);
   assert.equal(calls,1);
 });
-const observation = { window_key: 'monthly', unit: 'tokens', remaining: '9223372036854775807', maximum: null, observed_at_ms: 1, valid_until_ms: 2, resets_at_ms: 3, source: 'fixture' };
-
-test('collector requests preserve exact quantities, scope, cancellation and explicit auth', async () => {
+test('account management preserves scope, cancellation and explicit auth', async () => {
   const calls = [];
   const abort = new AbortController();
   const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
-    calls.push({ url, init }); return Response.json({ id });
+    calls.push({ url, init }); return Response.json({ id, data: [] });
   }});
-  assert.deepEqual(await client.observeQuota(scope, id, observation, { signal: abort.signal }), { id });
-  await client.quota(scope, id);
-  await client.listAccounts(scope);
+  await client.listAccounts(scope, { signal: abort.signal });
   await client.createAccount(scope, { provider: 'fixture', plan: 'monthly', authentication_mode: 'api_key', billing_mode: 'subscription', credential_reference: 'env:FIXTURE', concurrency_limit: 1 });
-  assert.equal(calls[0].url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/accounts/${id}/quota`);
+  assert.equal(calls[0].url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/accounts`);
   assert.equal(calls[0].init.headers.authorization, 'Bearer test-admin');
   assert.equal(calls[0].init.signal, abort.signal);
   assert.equal(calls[0].init.redirect, 'error');
-  assert.deepEqual(JSON.parse(calls[0].init.body), observation);
-  assert.deepEqual(calls.map(x => x.init.method), ['POST', 'GET', 'GET', 'POST']);
+  assert.deepEqual(calls.map(x => x.init.method), ['GET', 'POST']);
 });
 
-test('invalid quantities and scope injection are rejected before transport', () => {
-  const client = new NiuAdminClient({ adminToken: 'test', fetch: () => { throw new Error('transport reached'); } });
-  for (const remaining of [1, '-1', '9223372036854775808', '', '1.5']) {
-    assert.throws(() => client.observeQuota(scope, id, { ...observation, remaining }), /decimal strings/);
-  }
-  assert.throws(() => client.observeQuota(scope, id, { ...observation, observed_at_ms: Number.MAX_SAFE_INTEGER + 1 }), /safe-integer/);
-  assert.throws(() => client.quota({ ...scope, projectId: '../other' }, id), /UUID/);
-});
-
-test('conflicts propagate without automatic resubmission', async () => {
-  let calls = 0;
-  const client = new NiuAdminClient({ adminToken: 'test', fetch: async () => {
-    calls++; return Response.json({ error: { message: 'Conflicting evidence' } }, { status: 409 });
-  }});
-  await assert.rejects(client.observeQuota(scope, id, observation), error => error instanceof NiuAPIError && error.status === 409);
-  assert.equal(calls, 1);
-});
-
-test('collector is bound to a copied project scope and exposes only ingestion', async () => {
-  const { NiuCollectorClient } = await import('../dist/index.js');
-  const mutableScope = { ...scope };
-  let captured;
-  const collector = new NiuCollectorClient({ collectorToken: 'test-collector', scope: mutableScope, fetch: async (url, init) => {
-    captured = { url, init }; return Response.json({ id });
-  }});
-  mutableScope.projectId = '../other';
-  await collector.observeQuota(id, observation);
-  assert.equal(captured.url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/accounts/${id}/quota`);
-  assert.equal(captured.init.headers.authorization, 'Bearer test-collector');
-  assert.deepEqual(Object.getOwnPropertyNames(Object.getPrototypeOf(collector)), ['constructor', 'observeQuota']);
-});
-
-test('admin credential lifecycle sends explicit creation and deletion requests', async () => {
+test('unified workspace key lifecycle sends /api/v1/workspaces/{workspace}/keys requests with aggregated policies', async () => {
   const calls = [];
   const admin = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
     calls.push({ url, init });
     if (init.method === 'DELETE') return new Response(null, { status: 204 });
-    if (init.method === 'GET') return Response.json({ data: [{ id, purpose: 'quota', revoked: false }] });
-    return Response.json({ id, token: 'test-collector' });
+    if (init.method === 'GET') return Response.json({ data: { id, name: 'App Key', allowed_models: ['*'], expires_at_ms: null, last_used_at_ms: null, revoked: false, expired: false, spending_limits: [], request_rate_limit: { requests_per_minute: 60, revision: '1' }, token_rate_limit: { tokens_per_minute: null, revision: '0' }, concurrency_limit: { max_concurrent_requests: 5, revision: '1' }, token_usage_window: { window_seconds: 60, prompt_tokens: '0', completion_tokens: '0', total_tokens: '0', unknown_usage_requests: '0' }, ip_policy: { allowed_cidrs: null, revision: '0' } } });
+    return Response.json({ id, token: 'niu-key-secret' });
   }});
-  assert.equal((await admin.issueCollectorKey(scope, { name: 'collector', ttl_seconds: 3600 })).id, id);
-  assert.equal((await admin.listCollectorKeys(scope, 'quota')).data[0].purpose, 'quota');
-  assert.equal(await admin.revokeCollectorKey(scope, id), undefined);
-  assert.equal(calls[1].init.method, 'GET');
-  assert.ok(calls[1].url.endsWith('/collector-keys?purpose=quota'));
-  assert.equal(calls[2].init.method, 'DELETE');
-  assert.equal(calls[2].init.body, undefined);
-  assert.ok(calls[2].url.endsWith(`/collector-keys/${id}`));
-  assert.throws(() => admin.issueCollectorKey(scope, { name: 'collector', ttl_seconds: 0 }), /lifetime/);
-  assert.equal(calls.length, 3);
+  const created = await admin.createWorkspaceKey(scope, {
+    name: 'App Key',
+    ttl_seconds: null,
+    allowed_models: ['*'],
+    request_rate_limit: { requests_per_minute: 60 },
+    concurrency_limit: { max_concurrent_requests: 5 },
+  });
+  assert.equal(created.id, id);
+  assert.equal(calls[0].url, `http://localhost:2555/api/v1/workspaces/${id}/keys`);
+  assert.equal(calls[0].init.method, 'POST');
+  const detail = await admin.getWorkspaceKey(scope, id);
+  assert.equal(detail.data.request_rate_limit.requests_per_minute, 60);
+  assert.equal(calls[1].url, `http://localhost:2555/api/v1/workspaces/${id}/keys/${id}`);
+  await admin.updateWorkspaceKey(scope, id, {
+    name: 'Updated Key',
+    request_rate_limit: { requests_per_minute: 120, expected_revision: '1' },
+  });
+  assert.equal(calls[2].url, `http://localhost:2555/api/v1/workspaces/${id}/keys/${id}`);
+  assert.equal(calls[2].init.method, 'PATCH');
+  await admin.rotateWorkspaceKey(scope, id, { ttl_seconds: 3600 });
+  assert.equal(calls[3].url, `http://localhost:2555/api/v1/workspaces/${id}/keys/${id}/rotate`);
+  assert.equal(calls[3].init.method, 'POST');
+  await admin.revokeWorkspaceKey(scope, id);
+  assert.equal(calls[4].url, `http://localhost:2555/api/v1/workspaces/${id}/keys/${id}`);
+  assert.equal(calls[4].init.method, 'DELETE');
 });
 
 test('activity filters and retained content stay scoped and preserve exact customer charges', async () => {
@@ -383,12 +361,12 @@ test('Supplier offer reads expose current rates without unrelated administration
     prompt_rate: '400000000', completion_rate: '1600000000', active: false, qualified: false, route_ready: false }];
   let call;
   const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
-    call = { url, init }; return Response.json({ data: { offers, earnings: [{ private: true }], settlements: [] } });
+    call = { url, init }; return Response.json({ data: offers, next_after: null });
   }});
   assert.deepEqual(await client.listSupplierOffers(id, { signal }), offers);
   assert.equal(call.init.method, 'GET');
   assert.equal(call.init.signal, signal);
-  assert.ok(call.url.endsWith(`/providers/${id}/administration`));
+  assert.ok(call.url.endsWith(`/providers/${id}/offers?`));
   assert.equal(call.init.body, undefined);
   await assert.rejects(client.listSupplierOffers('invalid'), /UUID/);
 });
@@ -763,7 +741,7 @@ test('workspace key metadata preserves nullable last use, scope and cancellation
     transport = {url, init}; return Response.json({data});
   }});
   assert.deepEqual(await client.listWorkspaceKeys(scope, {signal: abort.signal}), {data});
-  assert.equal(transport.url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/keys`);
+  assert.equal(transport.url, `http://localhost:2555/api/v1/workspaces/${id}/keys`);
   assert.equal(transport.init.method, 'GET');
   assert.equal(transport.init.signal, abort.signal);
   assert.equal(transport.init.headers.authorization, 'Bearer test-admin');

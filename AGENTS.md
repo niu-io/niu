@@ -60,11 +60,11 @@ Use Manus as the reference for the shared visual treatment of agent-product surf
 
 Design management lists around the decision users need to make. Every column and status must distinguish meaningful outcomes or support a concrete action. Do not expose a backend field merely because it exists, or display universal labels such as “Configuration saved” on lists containing only saved records.
 
-Keep API credential presence, configuration, current Supplier and offer qualification, supply readiness, live upstream verification, and workspace selling eligibility distinct. An API key or enabled route does not establish sellable inventory. Derive supply readiness from current approved, active model/rate offers and their matching enabled routes and credentials. Customer selling prices and authorization remain workspace-specific. Show missing requirements and link to the relevant remedy; never infer a positive state when evidence is unavailable.
+Keep API credential presence, configuration, current Provider and offer qualification, supply readiness, live upstream verification, and workspace selling eligibility distinct. An API key or enabled route does not establish sellable inventory. Derive supply readiness from current approved, active model/rate offers and their matching enabled routes and credentials. Customer selling prices and authorization remain workspace-specific. Show missing requirements and link to the relevant remedy; never infer a positive state when evidence is unavailable.
 
-## Supplier terminology
+## Provider terminology
 
-Use **Supplier** for model-supply businesses, their offers, memberships, earnings and settlements. Keep **Provider** for upstream API services/adapters such as OpenRouter and OpenAI. Preserve existing provider-named API, route and storage contracts; apply Supplier terminology at the business-facing product boundary.
+Use **Provider** consistently for model-supply businesses, upstream API services/adapters, offers, memberships, earnings and settlements. Preserve existing API, route and storage contracts, including legacy supplier-named identifiers.
 
 ## Internal identifiers
 
@@ -76,4 +76,4 @@ The backend is the source of truth for saved product data, including Chat sessio
 
 ## Commercial data boundaries
 
-Supplier purchase prices, upstream expenses, procurement budgets, and platform margins are confidential platform information. Never show them in customer workspace pages, Chat, Observability, usage reports, exports, or customer API responses. Customer billing and request costs mean customer-facing charges only; never substitute supplier cost when a customer charge is unavailable. Keep procurement controls in platform administration, and restrict suppliers to their own agreed rates and settlements. Enforce these boundaries in backend authorization and response serialization, not merely by hiding UI elements. Installation administrator access does not justify mixing procurement information into customer-facing workspace screens.
+Provider purchase prices, upstream expenses, procurement budgets, and platform margins are confidential platform information. Never show them in customer workspace pages, Chat, Observability, usage reports, exports, or customer API responses. Customer billing and request costs mean customer-facing charges only; never substitute supplier cost when a customer charge is unavailable. Keep procurement controls in platform administration, and restrict providers to their own agreed rates and settlements. Enforce these boundaries in backend authorization and response serialization, not merely by hiding UI elements. Installation administrator access does not justify mixing procurement information into customer-facing workspace screens.

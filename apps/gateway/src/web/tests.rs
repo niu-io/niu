@@ -272,7 +272,6 @@ mod operator_audit;
 mod operators;
 mod passwords;
 mod profile;
-mod quota;
 mod request_exports;
 mod video;
 mod video_images;
@@ -293,9 +292,12 @@ async fn external_agent_ingestion_routes_are_not_available() {
         "/admin/v1/agent-observability/connections".to_string(),
         "/admin/v1/agent-observability/traces".to_string(),
         "/admin/v1/agent-observability/observations".to_string(),
+        "/admin/v1/benchmarks/compare".to_string(),
         format!("{scope}/codex-usage/imports"),
         format!("{scope}/execution-imports"),
         format!("{scope}/executions"),
+        format!("{scope}/collector-keys"),
+        format!("{scope}/accounts/00000000-0000-0000-0000-000000000003/quota"),
     ] {
         let response = app
             .clone()
@@ -312,6 +314,87 @@ async fn external_agent_ingestion_routes_are_not_available() {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+}
+
+#[tokio::test]
+async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_inference() {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://unused:unused@127.0.0.1:1/unused")
+        .unwrap();
+    let app = router(test_state(None, pool));
+    let key_scope = "/admin/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000003";
+    for (method, path) in [
+        ("POST", format!("{key_scope}/chat/completions")),
+        ("POST", format!("{key_scope}/video/jobs")),
+        ("GET", format!("{key_scope}/video/models")),
+        ("GET", format!("{key_scope}/media/capabilities")),
+        ("GET", format!("{key_scope}/media/assets")),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    for (method, path) in [
+        ("GET", "/v1/key"),
+        ("GET", "/v1/generations/00000000-0000-0000-0000-000000000001"),
+        ("GET", "/v1/media/capabilities"),
+        (
+            "POST",
+            "/v1/video/jobs/00000000-0000-0000-0000-000000000001/results/video/refresh",
+        ),
+        ("GET", "/api/v1/session"),
+        ("GET", "/api/v1/workspaces"),
+        ("GET", "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys"),
+        ("POST", "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys"),
+        (
+            "GET",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000001",
+        ),
+        (
+            "PATCH",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000001",
+        ),
+        (
+            "DELETE",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000001",
+        ),
+        (
+            "POST",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000001/rotate",
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "{method} {path} should require authentication"
+        );
     }
 }
 

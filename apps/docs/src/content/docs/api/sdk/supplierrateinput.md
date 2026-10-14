@@ -9,7 +9,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 [SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
-/** Agreed Supplier rates in currency nanounits per million tokens. */
+/** Agreed Provider rates in currency nanounits per million tokens. */
 export type SupplierRateInput = {
     context_tiers?: ContextPriceTier[];
     model_alias: string;

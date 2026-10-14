@@ -289,6 +289,15 @@ impl AppState {
         &self,
         headers: &HeaderMap,
     ) -> Result<niu_storage::Principal, ApiError> {
+        self.authorize_api_headers_with_permission(headers, niu_storage::AdminPermission::Write)
+            .await
+    }
+
+    pub async fn authorize_api_headers_with_permission(
+        &self,
+        headers: &HeaderMap,
+        dashboard_permission: niu_storage::AdminPermission,
+    ) -> Result<niu_storage::Principal, ApiError> {
         let niu_keys = headers.get_all("x-niu-api-key").iter().collect::<Vec<_>>();
         if niu_keys.len() > 1 {
             return Err(ApiError::unauthorized());
@@ -303,6 +312,27 @@ impl AppState {
                 .authenticate(token)
                 .await
                 .map_err(ApiError::from_store)?;
+            return self.authorize_key_source(principal).await;
+        }
+        let key_ids = headers.get_all("x-niu-key-id").iter().collect::<Vec<_>>();
+        if key_ids.len() > 1 {
+            return Err(ApiError::unauthorized());
+        }
+        if let Some(value) = key_ids.first() {
+            let raw = value.to_str().map_err(|_| ApiError::unauthorized())?.trim();
+            let key_id = uuid::Uuid::parse_str(raw)
+                .map_err(|_| ApiError::invalid_request("Invalid X-Niu-Key-Id header"))?;
+            let authorization = self
+                .authorize_admin_headers(headers, dashboard_permission)
+                .await?;
+            let principal = self
+                .store
+                .dashboard_key_by_id(key_id)
+                .await
+                .map_err(ApiError::from_store)?;
+            if !authorization.permits_project(principal.scope()) {
+                return Err(ApiError::forbidden());
+            }
             return self.authorize_key_source(principal).await;
         }
         self.authorize_api(

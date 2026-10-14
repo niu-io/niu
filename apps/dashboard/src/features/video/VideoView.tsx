@@ -4,7 +4,7 @@ import { GenerationSessionBindings } from '@/features/generations/GenerationsLay
 import { useBranding } from '@/app/branding';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router';
-import { IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw } from '@tabler/icons-react';
+import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw } from '@tabler/icons-react';
 import type { VideoEstimate, VideoJobBilling, VideoJobState, VideoModelList, VideoTransportTimings } from '../../../../../sdks/javascript/src/index';
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule, type GenerationTask, type VideoComposerDraftPayload } from '../../../../../sdks/javascript/src/admin';
 import { useVideoDraft, type VideoDraftTicket } from './useVideoDraft';
@@ -19,12 +19,12 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
 import type { DashboardContext } from '@/app/dashboard-context';
 import { workspaceDisplayName, workspacePathSegment } from '@/app/workspace-route';
-import { keyRequest, projectKeyPath, type ProjectKey } from '@/features/keys/api';
+import { keyRequest, workspaceKeyPath, type ProjectKey } from '@/features/keys/api';
 import { money } from '@/lib/money';
 import { controlLabels, initialControls, videoRequest, type ControlValues } from './request';
 import VideoResult from './VideoResult';
@@ -38,8 +38,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 const statusLabel: Record<string,string> = {submission_unknown:'Submission uncertain',queued:'Queued',running:'Running',succeeded:'Succeeded',failed:'Failed',unknown:'Status unavailable',reconciliation_required:'Needs reconciliation'};
 function message(error: unknown) { return error instanceof Error ? error.message : 'The request could not be completed.'; }
 class VideoHTTPError extends Error { constructor(readonly status:number, text:string) { super(text); } }
-async function request<T>(token:string,path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
-  const response=await fetch(path,{method:body === undefined ? 'GET':'POST',headers:{authorization:`Bearer ${token}`,...(body === undefined ? {}:{'content-type':'application/json'})},body:body === undefined ? undefined:JSON.stringify(body),signal});
+async function request<T>(token:string,keyId:string,path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
+  const response=await fetch(path,{method:body === undefined ? 'GET':'POST',headers:{authorization:`Bearer ${token}`,'x-niu-key-id':keyId,...(body === undefined ? {}:{'content-type':'application/json'})},body:body === undefined ? undefined:JSON.stringify(body),signal});
   const payload=await response.json().catch(()=>{throw new VideoHTTPError(response.status,'The server returned an unreadable response.');});
   if (!response.ok) throw new VideoHTTPError(response.status,payload?.error?.message ?? 'The request could not be completed.');
   return payload;
@@ -105,7 +105,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   useEffect(()=>{
     const controller=new AbortController();setProviderToolsOpen(false);
     setNativeTools({identity:toolsIdentity,state:'loading'});
-    if(!intentClient||!workspace||!keyId||!modelId||!keys.some(key=>key.id===keyId&&(key.allowed_models.includes('*')||key.allowed_models.includes(modelId)))){setNativeTools({identity:toolsIdentity,state:'unsupported'});return()=>controller.abort();}
+    if(!intentClient||!workspace||!keyId||!modelId||!keys.some(key=>key.id===keyId&&(!key.allowed_models||key.allowed_models.includes('*')||key.allowed_models.includes(modelId)))){setNativeTools({identity:toolsIdentity,state:'unsupported'});return()=>controller.abort();}
     const media=intentClient.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},keyId);
     void media.capabilities(modelId,{signal:controller.signal}).then(capabilities=>{
       if(controller.signal.aborted)return;
@@ -124,7 +124,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     }).catch(error=>{if(!request.signal.aborted)setIntentError(message(error));});
     return()=>request.abort();
   },[intentClient,workspace?.organization_id,workspace?.id,selected,intentId,busy==='create',revision]);
-  const scopePath=workspace ? projectKeyPath(workspace.organization_id,workspace.id) : '';
+  const scopePath=workspace ? workspaceKeyPath(workspace.id) : '';
   const composerIdentity=JSON.stringify([token,scopePath,session?.operator?.id??session?.kind]);
   const mutableComposer=!selected&&!intentId;
   const composerControls=Object.fromEntries(Object.entries(controls).filter(([name])=>['duration','seed','frames_per_second','resolution','ratio','omni_reference_task_type','watermark','camera_fixed','return_last_frame'].includes(name))) as VideoComposerDraftPayload['controls'];
@@ -145,8 +145,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const savedModel=intentDocument?.model??savedTask?.model;
   const originalKey=allKeys.find(key=>key.id===keyId);
-  const keyCanReadModel=keys.some(key=>key.id===keyId&&(!savedModel||key.allowed_models.includes('*')||key.allowed_models.includes(savedModel)));
-  const base=keyId && keysScope===keyScopeIdentity && keyCanReadModel ? `${scopePath}/${encodeURIComponent(keyId)}/video` : '';
+  const keyCanReadModel=keys.some(key=>key.id===keyId&&(!savedModel||!key.allowed_models||key.allowed_models.includes('*')||key.allowed_models.includes(savedModel)));
+  const base=keyId && keysScope===keyScopeIdentity && keyCanReadModel ? keyId : '';
   const historicalReadOnly=Boolean((intentDocument||savedTask)&&!base&&!loading);
   const responseScope = useRef({ identity: '', generation: 0 });
   const responseIdentity = JSON.stringify([token, base]);
@@ -203,7 +203,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     if (!base || !composerReady) return;
     setLoading(changedScope);setError('');
     void Promise.allSettled([
-      request<VideoModelList>(token,`${base}/models`,undefined,controller.signal),
+      request<VideoModelList>(token,base,'/v1/video/models',undefined,controller.signal),
     ]).then(([catalog])=>{
       if(controller.signal.aborted)return;
       if(catalog.status === 'fulfilled') {
@@ -281,7 +281,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       if(diagnostics.status === 'fulfilled'){setBilling(diagnostics.value.billing);setTimings(diagnostics.value.timings);}else setDetailError(message(diagnostics.reason));
     });
     return()=>controller.abort();
-  },[intentClient,token,workspace?.organization_id,workspace?.id,base,selected,revision]);
+  },[intentClient,token,workspace?.organization_id,workspace?.id,selected,revision]);
 
   // Only reconcile an existing job. Polling never creates or retries a submission.
   useEffect(()=>{
@@ -290,8 +290,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
     const timer=window.setInterval(async()=>{
       if(pending || lock.current)return;pending=true;
       try {
-        if(canWrite)await request(token,`${base}/jobs/${encodeURIComponent(selected)}/refresh`,{},controller.signal);
-        const status=await request<VideoJobState>(token,`${base}/jobs/${encodeURIComponent(selected)}`,undefined,controller.signal);
+        if(canWrite)await request(token,base,`/v1/video/jobs/${encodeURIComponent(selected)}/refresh`,{},controller.signal);
+        const status=await request<VideoJobState>(token,base,`/v1/video/jobs/${encodeURIComponent(selected)}`,undefined,controller.signal);
         if(!controller.signal.aborted){setJob(status);setDetailError('');}
       }catch(error){if(!controller.signal.aborted)setDetailError(message(error));}
       finally{pending=false;}
@@ -303,10 +303,10 @@ export default function VideoView({context}:{context:DashboardContext}) {
 
   function chooseKey(id:string) {restoredComposer.current=null;setComposerEdited(true);setKeyId(id);const next=new URLSearchParams(search);next.set('key',id);next.delete('job');next.delete('intent');next.set('new','video');setSearch(next);setQuote(null);setUncertain(false);}
   async function estimate() {
-    if(!form.body || !base || lock.current || readingImages || draftBlocked)return;
+    if(!form.body || !base || lock.current || uncertain || readingImages || draftBlocked)return;
     const controller=new AbortController();estimateController.current?.abort();estimateController.current=controller;
     setBusy('estimate');setError('');
-    try {if(mutableComposer&&canWrite&&!await draft.flush())return;const result=await request<VideoEstimate>(token,`${base}/estimate`,form.body,controller.signal);if(!controller.signal.aborted){setQuote(result);setQuotedBody(JSON.stringify(form.body));}}
+    try {if(mutableComposer&&canWrite&&!await draft.flush())return;const result=await request<VideoEstimate>(token,base,'/v1/video/estimate',form.body,controller.signal);if(!controller.signal.aborted){setQuote(result);setQuotedBody(JSON.stringify(form.body));}}
     catch(error){if(!controller.signal.aborted)setError(message(error));}
     finally{if(estimateController.current === controller)setBusy('');}
   }
@@ -344,7 +344,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
         next.set('job',result.id);setSearch(next,{replace:true});
       }else{
         if(!submit)throw new Error('Inline image attachments cannot be saved as requests yet.');
-        result=await request<VideoJobState>(token,`${base}/jobs`,form.body);
+        result=await request<VideoJobState>(token,base,'/v1/video/jobs',form.body);
         if(generation !== currentGeneration())return;
         openJob(result.id);
       }
@@ -363,7 +363,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     if(!base || !selected || lock.current || !canWrite)return;
     const generation=currentGeneration();
     lock.current=true;setBusy('refresh');setDetailError('');
-    try {await request(token,`${base}/jobs/${encodeURIComponent(selected)}/refresh`,{});if(generation === currentGeneration())setRevision(value=>value+1);}
+    try {await request(token,base,`/v1/video/jobs/${encodeURIComponent(selected)}/refresh`,{});if(generation === currentGeneration())setRevision(value=>value+1);}
     catch(error){if(generation === currentGeneration())setDetailError(message(error));}
     finally{if(generation === currentGeneration()){lock.current=false;setBusy('');}}
   }
@@ -385,18 +385,18 @@ export default function VideoView({context}:{context:DashboardContext}) {
               <div className="video-result-heading"><span className="video-response-model">{job?.model ?? intentDocument?.model ?? 'Video'}</span>{job && <Badge variant="secondary">{statusLabel[job.status]}</Badge>}</div>
             {detailError && <p role="alert" className="video-error">{detailError}</p>}
             {selected && !job && detailError && <Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button>}
-            {historicalReadOnly&&<p role="status" className="video-muted">Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Supplier checks are disabled.</p>}
+            {historicalReadOnly&&<p role="status" className="video-muted">Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Provider checks are disabled.</p>}
             {!selected ? <p className="video-muted">{intentDocument?.submission_state==='saved' ? 'This saved request has not been submitted.':'Submit a video or select a saved job.'}</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
               {(job.status === 'submission_unknown' || job.status === 'reconciliation_required') && <p>The outcome is unresolved. Do not resubmit this generation.</p>}
                   {job.status === 'succeeded' && intentClient && workspace && <VideoResult key={`${workspace.id}/${selected}`} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} task={selected} keyId={base ? keyId:undefined} canWrite={canWrite}/>}
 
-              {job.status !== 'succeeded' && <p role="status" className="video-muted">{job.status === 'queued' ? 'Your video is queued.' : job.status === 'running' ? 'Generating your video…' : job.status === 'failed' ? 'Video generation failed. Open generation details for the recorded status.' : 'Waiting for a confirmed generation status.'}</p>}
-              <Collapsible className="video-generation-details"><CollapsibleTrigger asChild><Button variant="ghost" size="sm">Generation details<ChevronDown size={14}/></Button></CollapsibleTrigger><CollapsibleContent className="video-details">
-                  <div className="video-actions"><Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || !base || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Supplier'}</Button></div>
+              {job.status !== 'succeeded' && <div className="video-artifact-placeholder">{(job.status==='queued'||job.status==='running')&&<Loader className="animate-spin"/>}<h3 role="status">{job.status==='queued'?'Waiting to generate':job.status==='running'?'Generating your video…':job.status==='failed'?'Video generation failed':'Waiting for a confirmed status'}</h3><p>{job.status==='queued'?'Your request is queued. This conversation updates automatically.':job.status==='running'?'Your video will appear here when it is ready.':job.status==='failed'?'Open video details to inspect the recorded failure.':'The original task is being checked. Do not submit it again.'}</p></div>}
+              <Sheet><SheetTrigger asChild><Button variant="ghost" size="icon" className="video-details-trigger" aria-label="Video details"><InfoCircle size={18}/></Button></SheetTrigger><SheetContent className="overflow-y-auto"><SheetHeader><SheetTitle>Video details</SheetTitle><SheetDescription>Generation status, timing and customer charges.</SheetDescription></SheetHeader><div className="video-details p-4">
+                  <div className="video-actions"><Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || !base || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Provider'}</Button></div>
                   {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle}/>}
-                  {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission and status requests; Supplier queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission':'Status query'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
+                  {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission and status requests; Provider queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission':'Status query'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
                   <h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
-              </CollapsibleContent></Collapsible>
+              </div></SheetContent></Sheet>
 
             </>}
 
@@ -411,13 +411,13 @@ export default function VideoView({context}:{context:DashboardContext}) {
             {images.length>0&&<p className="video-muted">Inline image attachments are not saved in your draft. Reattach them after reloading.</p>}
             {draftReferences.length>0&&<p className="video-muted">{draftReferences.length} saved material reference{draftReferences.length===1?'':'s'}. Current access and inspection are checked when submitting.</p>}
             {mutableComposer&&draft.ready&&restoredComposer.current&&!base&&!loading&&<p className="video-muted">The saved API key is unavailable for generation. Your draft is retained. Choose an active API key to continue.</p>}
-            {loading ? <p role="status" className="video-muted">Loading video models…</p> : keys.length > 0 && !model && !error && !keysError ? <Empty className="min-h-40"><EmptyHeader><EmptyTitle>No video model available</EmptyTitle><EmptyDescription>This API key has no supported video route.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/suppliers':'/models'}>{canManageSuppliers ? 'Manage Suppliers':'View models'}</Link></Button></EmptyContent></Empty> : null}
+            {loading ? <p role="status" className="video-muted">Loading video models…</p> : keys.length > 0 && !model && !error && !keysError ? <Empty className="min-h-40"><EmptyHeader><EmptyTitle>No video model available</EmptyTitle><EmptyDescription>This API key has no supported video route.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/suppliers':'/models'}>{canManageSuppliers ? 'Manage Providers':'View models'}</Link></Button></EmptyContent></Empty> : null}
             <>
               {model&&intentClient&&workspace&&<ImageReferences model={model} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} references={draftReferences} onReferencesChange={references=>{setComposerEdited(true);setDraftReferences(references);}} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || draftBlocked || (!model.workspace_asset&&draftReferences.length>0) || Boolean(intentId && !intentDocument?.job)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>}
 
               <Label htmlFor="video-prompt" className="sr-only">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={2} value={prompt} onChange={event=>{setComposerEdited(true);setPrompt(event.target.value);}} disabled={draftBlocked || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!busy && !uncertain && !draftBlocked && form.body)void (quoteMatches ? saveOrSubmitRequest('submit') : estimate());}}}/>
               {prompt && form.error && <p role="alert" className="video-error">{form.error}</p>}
-              {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Supplier account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
+              {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Provider account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
 
               {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? 'The saved input has expired or been deleted. Task history remains available.':'Reload this saved request to confirm its input and original submission status before continuing.'}</p>}
             </>
@@ -435,7 +435,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
                   : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>{setComposerEdited(true);setControls(current=>({...current,[name]:checked === true}));}} disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}/>}</div>)}
               <Button type="button" variant="ghost" onClick={()=>{setComposerEdited(true);setControls(initialControls(model));}} disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}>Reset settings</Button>
 
-                </div><Button type="button" variant="ghost" disabled={toolsState==='loading'||toolsState==='unsupported'} onClick={()=>toolsState==='error' ? setToolsRevision(value=>value+1) : setProviderToolsOpen(true)}>{toolsState==='loading'?'Checking Supplier tools…':toolsState==='error'?'Retry Supplier tools':'Supplier tools'}</Button>{toolsState==='unsupported'&&<p className="video-muted">This model has no native Supplier tools.</p>}{toolsState==='error'&&<p role="alert" className="video-error">{nativeTools.error}</p>}</PopoverContent></Popover>
+                </div><Button type="button" variant="ghost" disabled={toolsState==='loading'||toolsState==='unsupported'} onClick={()=>toolsState==='error' ? setToolsRevision(value=>value+1) : setProviderToolsOpen(true)}>{toolsState==='loading'?'Checking Provider tools…':toolsState==='error'?'Retry Provider tools':'Provider tools'}</Button>{toolsState==='unsupported'&&<p className="video-muted">This model has no native Provider tools.</p>}{toolsState==='error'&&<p role="alert" className="video-error">{nativeTools.error}</p>}</PopoverContent></Popover>
               </>}
             </div>
             {model && <Button type="submit" size="icon" aria-label={quoteMatches ? 'Generate video':'Estimate'} title={quoteMatches ? 'Generate video':'Estimate generation cost'} disabled={!base || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || draftBlocked || (quoteMatches && !canWrite)}><ArrowUp size={20}/></Button>}
@@ -444,7 +444,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
             {!canWrite && <small className="video-muted">Read access can estimate; generation needs write access.</small>}
           </div>
         </form>}
-        <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Supplier tools</DialogTitle><DialogDescription>Tools available for the selected video model.</DialogDescription></DialogHeader>{toolsModule&&<VolcengineView key={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={modelId} nativeContext={{keyId,model:modelId}}/>}</DialogContent></Dialog>
+        <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Provider tools</DialogTitle><DialogDescription>Tools available for the selected video model.</DialogDescription></DialogHeader>{toolsModule&&<VolcengineView key={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={modelId} nativeContext={{keyId,model:modelId}}/>}</DialogContent></Dialog>
         </>}
       </div>
     </section>

@@ -15,7 +15,7 @@ export type { GenerationTaskState, GenerationArtifactAvailability, GenerationArt
 import { platformAuditQuery, type PlatformAuditQuery, type PlatformAuditPage } from './platform-audit.js';
 export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, PlatformAuditPage, PlatformAuditQuery } from './platform-audit.js';
 import { assetBinaryRequest, type WorkspaceAsset, type WorkspaceAssetPage, type WorkspaceAssetPageOptions } from './workspace-assets.js';
-import { nativeCapabilityQuery, type NativeProviderCapabilities } from './provider-capabilities.js';
+import { nativeCapabilityQuery } from './provider-capabilities.js';
 export type { NativeProviderCapabilities, NativeProviderModule } from './provider-capabilities.js';
 import type { MediaAssetOperation, MediaAssetPage } from './media-assets.js';
 import { createDashboardMediaClient } from './dashboard-media.js';
@@ -197,7 +197,7 @@ export type KeySpendingLimitRevision = { currency: string; limit_nanos: string |
 export type WorkspaceSpendingLimit = { currency: string; limit_nanos: string; committed_nanos: string; revision: string };
 export type WorkspaceSpendingAccount = { currency: string; limit_nanos: string | null; committed_nanos: string; revision: string | null };
 export type WorkspaceSpendingLimitRevision = { currency: string; limit_nanos: string; revision: string; recorded_at: string | null; source: 'configuration' | 'migration_baseline'; actor_kind: 'unknown' | 'installation' | 'member'; actor_name: string | null };
-/** Agreed Supplier rates in currency nanounits per million tokens. */
+/** Agreed Provider rates in currency nanounits per million tokens. */
 export type SupplierRateInput = {
   context_tiers?: ContextPriceTier[];
   model_alias: string; currency: string; prompt_rate: string; completion_rate: string;
@@ -206,7 +206,7 @@ export type SupplierRateInput = {
   reasoning_completion_rate?: string | null;
   cache_write_prompt_rate?: string | null;
 };
-/** Customer selling rates, independent from Supplier procurement prices. */
+/** Customer selling rates, independent from Provider procurement prices. */
 export type ContextPriceTier = {
   minimum_input_tokens: string; prompt_rate: string; completion_rate: string;
   cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null; reasoning_completion_rate?: string | null;
@@ -222,7 +222,7 @@ export type VideoOutputSchema = {
 };
 export type ExactMediaQuantity = { numerator: string; denominator: string };
 export type MediaBillingDimensions = { model: string; channel: string; resolution: string; reference_video: boolean };
-/** Customer selling configuration; Supplier purchase prices do not belong here. */
+/** Customer selling configuration; Provider purchase prices do not belong here. */
 export type CustomerMediaRateCard = {
   revision: string; vendor_id: string; vendor_revision: number; model_revision: number;
   schema_revision: string; offer_revision: string;
@@ -239,7 +239,7 @@ export type CustomerMediaRateCard = {
   }>;
   maximum_quantity: ExactMediaQuantity; liability_qualification_revision: string;
 };
-/** Confidential Supplier purchase card; never submit to customer selling configuration. */
+/** Confidential Provider purchase card; never submit to customer selling configuration. */
 export type SupplierMediaRateCard = Omit<CustomerMediaRateCard, 'vendor_id' | 'maximum_quantity' | 'liability_qualification_revision'>;
 export type SupplierMediaRateRecord = {
   card: Omit<SupplierMediaRateCard, 'vendor_revision' | 'model_revision' | 'tariff' | 'discounts'> & {
@@ -389,7 +389,7 @@ export type SupplierOfferRevision = {
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null; cached_prompt_rate: null; reasoning_completion_rate: null; cache_write_prompt_rate: null });
 /** Payment-record metadata only; never contains customer or request identities. */
 export type SupplierSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };
-/** Immutable Supplier earning attribution; null quantities remain unknown or unpriced. */
+/** Immutable Provider earning attribution; null quantities remain unknown or unpriced. */
 export type SupplierEarning = { revision: string; offer_id: string; context_minimum_input_tokens: string | null;
   prompt_tokens: string | null; completion_tokens: string | null; cached_prompt_tokens: string | null;
   cache_write_prompt_tokens: string | null; reasoning_completion_tokens: string | null; id: string; model_alias: string; currency: string; amount_nanos: string; billing_meter: string; created_at: string; status: 'accrued' | 'paid' };
@@ -398,7 +398,7 @@ export type SupplierSettlementInput = { idempotency_key: string; payment_referen
 export type SupplierSettlementPage = { data: SupplierSettlement[]; next_cursor: string | null };
 export type SupplierSettlementQuery = LedgerHistoryQuery;
 export type LedgerHistoryQuery = { before?: string; currency?: string; fromMs?: number; toMs?: number; limit?: number };
-/** Supplier procurement history, never customer workspace billing data. */
+/** Provider procurement history, never customer workspace billing data. */
 export type SupplierOfferHistory = {
   current_revision: string | null;
   data: (SupplierOfferRevision & { is_current: boolean })[];
@@ -570,37 +570,71 @@ export type SupplierAccountInput = {
 export type SupplierAccount = Omit<SupplierAccountInput, 'credential_reference'> & {
   id: string; credential_revision: number; health: string; refreshing: boolean;
 };
-export type QuotaObservation = {
-  window_key: string;
-  unit: 'tokens' | 'requests' | 'millionths_of_window';
-  remaining: string | null;
-  maximum: string | null;
-  observed_at_ms: number;
-  valid_until_ms: number;
-  resets_at_ms: number;
-  source: string;
-};
-export type QuotaWindow = QuotaObservation & { fresh: boolean };
 export type NiuAdminOptions = {
   adminToken: string;
   /** Administration API base; defaults to http://localhost:2555/admin/v1. */
   baseURL?: string;
   fetch?: typeof globalThis.fetch;
 };
-export type ExecutionReceipt = { id: string; created: boolean };
+export type WorkspaceKeySpendingLimitPatch = {
+  currency: string;
+  limit_nanos: string | null;
+  expected_revision?: string;
+};
+export type WorkspaceKeyRequestRateLimitPatch = {
+  requests_per_minute: number | null;
+  expected_revision?: string;
+};
+export type WorkspaceKeyTokenRateLimitPatch = {
+  tokens_per_minute: number | null;
+  expected_revision?: string;
+};
+export type WorkspaceKeyConcurrencyLimitPatch = {
+  max_concurrent_requests: number | null;
+  expected_revision?: string;
+};
+export type WorkspaceKeyIpPolicyPatch = {
+  allowed_cidrs: string[] | null;
+  expected_revision?: string;
+};
+export type WorkspaceKeyDetail = WorkspaceKey & {
+  spending_limits: KeySpendingAccount[];
+  request_rate_limit: KeyRequestRateLimit;
+  token_rate_limit: KeyTokenRateLimit;
+  concurrency_limit: KeyConcurrencyLimit;
+  token_usage_window: KeyTokenUsageWindow;
+  ip_policy: KeyIpPolicy;
+};
 export type WorkspaceKeyPage = { data: WorkspaceKey[]; next_cursor: string | null };
+export type WorkspaceKeyDetailPage = { data: WorkspaceKeyDetail[]; next_cursor: string | null };
 
 /** Explicit null opts into no automatic expiration; omission is invalid. */
 export type WorkspaceKeyCreateInput = {
   name: string;
   ttl_seconds: number | null;
   allowed_models?: string[];
+  spending_limit?: WorkspaceKeySpendingLimitPatch;
+  request_rate_limit?: WorkspaceKeyRequestRateLimitPatch;
+  token_rate_limit?: WorkspaceKeyTokenRateLimitPatch;
+  concurrency_limit?: WorkspaceKeyConcurrencyLimitPatch;
+  ip_policy?: WorkspaceKeyIpPolicyPatch;
 };
 export type WorkspaceKeyMetadataInput = {
   name: string;
   allowed_models: string[];
   /** Integer metadata revision, distinct from decimal-string policy revisions. */
   expected_revision: number;
+};
+export type WorkspaceKeyUpdateInput = {
+  name?: string;
+  allowed_models?: string[];
+  expected_revision?: number;
+  ttl_seconds?: number | null;
+  spending_limit?: WorkspaceKeySpendingLimitPatch;
+  request_rate_limit?: WorkspaceKeyRequestRateLimitPatch;
+  token_rate_limit?: WorkspaceKeyTokenRateLimitPatch;
+  concurrency_limit?: WorkspaceKeyConcurrencyLimitPatch;
+  ip_policy?: WorkspaceKeyIpPolicyPatch;
 };
 /** Secret is returned only by creation or rotation. Store it securely. */
 export type IssuedWorkspaceKey = { id: string; token: string };
@@ -614,15 +648,6 @@ export type WorkspaceKey = {
   expires_at_ms: number | null;
   /** Latest durable dispatch intent; null means no recorded dispatch, not no authentication. */
   last_used_at_ms: number | null;
-  revoked: boolean;
-  expired: boolean;
-};
-export type CollectorKeyView = {
-  id: string;
-  name: string;
-  purpose: 'quota' | 'execution';
-  created_at_ms: number;
-  expires_at_ms: number;
   revoked: boolean;
   expired: boolean;
 };
@@ -1087,7 +1112,7 @@ export class NiuAdminClient {
     return this.request(`/providers/${uuid(supplierId)}/members`, undefined, options);
   }
 
-  /** Grant/change/revoke a membership; Supplier roles do not grant platform configuration authority. */
+  /** Grant/change/revoke a membership; Provider roles do not grant platform configuration authority. */
   setSupplierMember(supplierId: string, operatorId: string, input: SupplierMemberUpdate, options?: RequestOptions): Promise<{ data: { active: boolean } }> {
     return this.request(`/providers/${uuid(supplierId)}/members/${uuid(operatorId)}`, input, options, 'PUT');
   }
@@ -1102,7 +1127,7 @@ export class NiuAdminClient {
     return this.request('/providers', { name }, options);
   }
 
-  /** Only an unconfigured Supplier can be removed; dependent configurations/offers/memberships return 409. */
+  /** Only an unconfigured Provider can be removed; dependent configurations/offers/memberships return 409. */
   deleteSupplierBusiness(supplierId: string, options?: RequestOptions): Promise<{ data: { deleted: true } }> {
     return this.request(`/providers/${uuid(supplierId)}`, undefined, options, 'DELETE');
   }
@@ -1114,7 +1139,7 @@ export class NiuAdminClient {
 
   /** Empty strings clear optional metadata; omission/null preserves it. Retain the last read revision. */
   updateSupplierProfile(supplierId: string, input: SupplierProfileUpdate, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
-    if (input.expected_revision != null && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new TypeError('Choose a positive safe integer Supplier profile revision');
+    if (input.expected_revision != null && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new TypeError('Choose a positive safe integer Provider profile revision');
     return this.request(`/providers/${uuid(supplierId)}`, input, options, 'PATCH');
   }
 
@@ -1125,6 +1150,8 @@ export class NiuAdminClient {
 
   private readonly token: string;
   private readonly base: string;
+  private readonly apiBase: string;
+  private readonly v1Base: string;
   private readonly requestFetch: typeof globalThis.fetch;
 
   /** A bounded directory page. Keep credentials fixed while following next_cursor. */
@@ -1214,7 +1241,7 @@ export class NiuAdminClient {
     return this.request(`/workspaces/by-route/${encodeURIComponent(routeSlug)}`, undefined, options);
   }
 
-  /** Complete active Supplier grants for the signed-in operator; installation sessions return an empty list. */
+  /** Complete active Provider grants for the signed-in operator; installation sessions return an empty list. */
   listSupplierMemberships(options?: RequestOptions): Promise<{ data: SupplierMembership[] }> {
     return this.request('/provider-memberships', undefined, options);
   }
@@ -1369,78 +1396,94 @@ export class NiuAdminClient {
 
   /** Session-authenticated media with an explicit current key/account context. */
   dashboardMedia(scope: TenantScope, keyId: string) {
-    const media = createDashboardMediaClient(
-      <T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body: unknown, options?: import('./media-assets.js').MediaAssetMutationOptions) => this.request<T>(path, body, options, method),
+    uuid(scope.organizationId);
+    uuid(scope.projectId);
+    uuid(keyId);
+    return createDashboardMediaClient(
+      <T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body: unknown, options?: import('./media-assets.js').MediaAssetMutationOptions) => this.v1Request<T>(keyId, path, body, options, method),
       scope.organizationId, scope.projectId, keyId,
     );
-    return {...media, capabilities: (model?: string, options?: RequestOptions): Promise<NativeProviderCapabilities> =>
-      this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/media/capabilities${nativeCapabilityQuery(model)}`, undefined, options)};
   }
 
-  private dashboardVideoPath(scope: TenantScope, keyId: string): string {
-    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/video`;
+  private checkDashboardVideoScope(scope: TenantScope, keyId: string): string {
+    uuid(scope.organizationId);
+    uuid(scope.projectId);
+    return uuid(keyId);
   }
 
-  /** Uses the member session and current key grants; never requires the key secret. */
+  /** Uses the member session and current key grants via X-Niu-Key-Id; never requires the key secret. */
   listDashboardVideoJobs(scope: TenantScope, keyId: string, query: VideoJobHistoryQuery = {}, options?: RequestOptions): Promise<VideoJobHistory> {
+    const key = this.checkDashboardVideoScope(scope, keyId);
     if (query.limit !== undefined && (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 100)) throw new TypeError('Video history limit must be an integer from 1 to 100');
     const parameters = new URLSearchParams();
     if (query.before !== undefined) parameters.set('before', uuid(query.before));
     if (query.limit !== undefined) parameters.set('limit', String(query.limit));
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs${parameters.size ? `?${parameters}` : ''}`, undefined, options);
+    return this.v1Request(key, `/video/jobs${parameters.size ? `?${parameters}` : ''}`, undefined, options);
   }
 
   listDashboardVideoModels(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<VideoModelList> {
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/models`, undefined, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, '/video/models', undefined, options);
   }
 
   estimateDashboardVideo(scope: TenantScope, keyId: string, input: VideoCreateRequest, options?: RequestOptions): Promise<VideoEstimate> {
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/estimate`, input, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, '/video/estimate', input, options);
   }
 
   createDashboardVideoJob(scope: TenantScope, keyId: string, input: VideoCreateRequest, options?: VideoCreateOptions): Promise<VideoJobState> {
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs`, input, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, '/video/jobs', input, options);
   }
 
   getDashboardVideoJob(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoJobState> {
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs/${uuid(jobId)}`, undefined, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, `/video/jobs/${uuid(jobId)}`, undefined, options);
   }
 
   getDashboardVideoBilling(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoJobBilling> {
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs/${uuid(jobId)}/billing`, undefined, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, `/video/jobs/${uuid(jobId)}/billing`, undefined, options);
   }
 
   /** Saved safe query receipts; no polling or financial mutation. */
   getDashboardVideoObservations(scope: TenantScope, keyId: string, jobId: string, query: VideoQueryObservationQuery = {}, options?: RequestOptions): Promise<VideoQueryObservationPage> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/video/jobs/${uuid(jobId)}/observations${videoObservationQuery(query)}`, undefined, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, `/video/jobs/${uuid(jobId)}/observations${videoObservationQuery(query)}`, undefined, options);
   }
 
   getDashboardVideoTimings(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoTransportTimings> {
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs/${uuid(jobId)}/timings`, undefined, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, `/video/jobs/${uuid(jobId)}/timings`, undefined, options);
   }
 
-  /** May query the original Supplier job; never resubmits generation. */
+  /** May query the original Provider job; never resubmits generation. */
   refreshDashboardVideoJob(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoJobState> {
-    return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs/${uuid(jobId)}/refresh`, {}, options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, `/video/jobs/${uuid(jobId)}/refresh`, {}, options);
   }
 
   getDashboardVideoResultsStatus(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoResultAvailability> {
-    return this.request(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results`,undefined,options);
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, `/video/jobs/${uuid(jobId)}/results`, undefined, options);
   }
 
   getDashboardVideoResult(scope: TenantScope, keyId: string, jobId: string, kind: 'video' | 'last_frame', options: RequestOptions = {}): Promise<Response> {
+    const key = this.checkDashboardVideoScope(scope, keyId);
     if (!['video','last_frame'].includes(kind)) throw new TypeError('A video result kind is required');
-    return this.raw(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results/${kind}`,undefined,options,undefined,'video/mp4,video/webm,image/png,image/jpeg');
+    return this.v1Raw(key, `/video/jobs/${uuid(jobId)}/results/${kind}`, undefined, options, undefined, 'video/mp4,video/webm,image/png,image/jpeg');
   }
 
   /** Query the original task and deliver its current output once; never generates. */
   refreshDashboardVideoResult(scope: TenantScope, keyId: string, jobId: string, kind: 'video' | 'last_frame', options: RequestOptions = {}): Promise<Response> {
+    const key = this.checkDashboardVideoScope(scope, keyId);
     if (kind !== 'video' && kind !== 'last_frame') throw new TypeError('A video result kind is required');
-    return this.raw(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results/${kind}/refresh`,undefined,options,'POST','video/mp4,video/webm,image/png,image/jpeg');
+    return this.v1Raw(key, `/video/jobs/${uuid(jobId)}/results/${kind}/refresh`, undefined, options, 'POST', 'video/mp4,video/webm,image/png,image/jpeg');
   }
 
   deleteDashboardVideoResults(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<{ deleted: true }> {
-    return this.request(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results`,undefined,options,'DELETE');
+    const key = this.checkDashboardVideoScope(scope, keyId);
+    return this.v1Request(key, `/video/jobs/${uuid(jobId)}/results`, undefined, options, 'DELETE');
   }
 
   /** Platform-only current-configuration traffic, independent of offers and earnings.
@@ -1460,7 +1503,7 @@ export class NiuAdminClient {
     return this.request(`/providers/${uuid(supplierId)}/configuration-usage?${query}`, undefined, options);
   }
 
-  /** Current own-Supplier rates, with explicit alias continuation; no customer identities. */
+  /** Current own-Provider rates, with explicit alias continuation; no customer identities. */
   listSupplierOffersPage(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierOffer[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.limit !== undefined) {
@@ -1482,7 +1525,7 @@ export class NiuAdminClient {
       const page = await this.listSupplierOffersPage(supplierId, { after }, options);
       offers.push(...page.data);
       if (page.next_after === null) return offers;
-      if (page.next_after === after) throw new Error('Supplier offer cursor did not advance');
+      if (page.next_after === after) throw new Error('Provider offer cursor did not advance');
       after = page.next_after;
     } while (true);
   }
@@ -1493,7 +1536,7 @@ export class NiuAdminClient {
     return this.request(`/providers/${uuid(supplierId)}/offers`, rates, options);
   }
 
-  /** Platform administration or active membership in this Supplier is required. */
+  /** Platform administration or active membership in this Provider is required. */
   getSupplierOfferRevision(supplierId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{ data: SupplierOfferRevision }> {
     return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions/${uuid(revisionId)}`, undefined, options);
   }
@@ -1523,7 +1566,7 @@ export class NiuAdminClient {
     return this.request(`/providers/${uuid(supplierId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
   }
 
-  /** All-time Supplier payment history; keep filters fixed while following next_cursor. */
+  /** All-time Provider payment history; keep filters fixed while following next_cursor. */
   listSupplierSettlements(supplierId: string, page: SupplierSettlementQuery = {}, options?: RequestOptions): Promise<SupplierSettlementPage> {
     const query = ledgerHistoryQuery(page);
     return this.request(`/providers/${uuid(supplierId)}/settlements${query.size ? `?${query}` : ''}`, undefined, options);
@@ -1556,50 +1599,59 @@ export class NiuAdminClient {
     return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/qualification/revoke`, {reason_sha256:evidenceDigest(reasonSha256)}, options, 'POST');
   }
 
-  /** Requires Supplier owner/admin or installation access; activation still requires current qualification. */
+  /** Requires Provider owner/admin or installation access; activation still requires current qualification. */
   setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
     if (typeof active !== 'boolean') throw new TypeError('Offer active state must be boolean');
     return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
   }
 
+  private resolveWorkspaceId(scope: TenantScope | string): string {
+    return typeof scope === 'string' ? uuid(scope) : (uuid(scope.organizationId), uuid(scope.projectId));
+  }
+
+  /** Retrieve one workspace API key with its unified limits and 60s usage window. */
+  getWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<{ data: WorkspaceKeyDetail }> {
+    return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys/${uuid(keyId)}`, undefined, options);
+  }
+
   /** Workspace owner/admin write access. Requires an explicit finite or null lifetime. */
-  createWorkspaceKey(scope: TenantScope, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
+  createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
     if (typeof input.name !== 'string' || !input.name.trim()) throw new TypeError('Key name is required');
     if (input.ttl_seconds !== null && (!Number.isSafeInteger(input.ttl_seconds) || input.ttl_seconds < 1 || input.ttl_seconds > 31_536_000)) {
       throw new TypeError('Key lifetime must be explicit null or an integer from 1 to 31536000');
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys`, input, options, 'POST');
+    return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys`, input, options, 'POST');
   }
 
-  /** Changes name/grants with optimistic revision; preserves lifetime and secret. */
-  updateWorkspaceKey(scope: TenantScope, keyId: string, input: WorkspaceKeyMetadataInput, options?: RequestOptions): Promise<{ revision: number }> {
-    if (typeof input.name !== 'string' || !input.name.trim()) throw new TypeError('Key name is required');
-    if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1) throw new TypeError('Key metadata revision must be a positive safe integer');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}`, input, options, 'PATCH');
+  /** Changes metadata, expiration, or policy limits; preserves secret. */
+  updateWorkspaceKey(scope: TenantScope | string, keyId: string, input: WorkspaceKeyUpdateInput, options?: RequestOptions): Promise<{ revision: number; data: WorkspaceKeyDetail }> {
+    if (input.name !== undefined && (typeof input.name !== 'string' || !input.name.trim())) throw new TypeError('Key name is required');
+    if (input.expected_revision !== undefined && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new TypeError('Key metadata revision must be a positive safe integer');
+    return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys/${uuid(keyId)}`, input, options, 'PATCH');
   }
 
   /** Returns the replacement secret once; preserves expiry and shared lineage limits. */
-  rotateWorkspaceKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/rotate`, {}, options, 'POST');
+  rotateWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
+    return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys/${uuid(keyId)}/rotate`, {}, options, 'POST');
   }
 
   /** Blocks new access while retaining saved metadata and request history. */
-  revokeWorkspaceKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}`, undefined, options, 'DELETE');
+  revokeWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<void> {
+    return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys/${uuid(keyId)}`, undefined, options, 'DELETE');
   }
 
   /** Scoped key metadata without secrets; uncertain dispatches still count as last use. */
-  listWorkspaceKeys(scope: TenantScope, options?: RequestOptions): Promise<{ data: WorkspaceKey[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys`, undefined, options);
+  listWorkspaceKeys(scope: TenantScope | string, options?: RequestOptions): Promise<{ data: WorkspaceKeyDetail[] }> {
+    return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys`, undefined, options);
   }
 
   /** Explicit bounded page; the complete-directory method remains compatible. */
-  listWorkspaceKeyPage(scope: TenantScope, query: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<WorkspaceKeyPage> {
+  listWorkspaceKeyPage(scope: TenantScope | string, query: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<WorkspaceKeyDetailPage> {
     const limit = query.limit ?? 50;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Key page limit must be between 1 and 100');
     const parameters = new URLSearchParams({ limit: String(limit) });
     if (query.after !== undefined) parameters.set('after', uuid(query.after));
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys?${parameters}`, undefined, options);
+    return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys?${parameters}`, undefined, options);
   }
 
   /** Shared company funds require organization-wide owner/admin authorization. */
@@ -1853,7 +1905,7 @@ export class NiuAdminClient {
 
   /** Platform-only explicit liability evidence; publication does not authorize dispatch. */
   publishMediaLiabilityQualification(supplier: string, offer: string, input: MediaLiabilityPublication, options?: RequestOptions): Promise<{ data: MediaLiabilityPublicationResult }> {
-    if (input.identity.supplier_id !== supplier || input.identity.offer_id !== offer) throw new TypeError('Route identity must match the requested Supplier offer');
+    if (input.identity.supplier_id !== supplier || input.identity.offer_id !== offer) throw new TypeError('Route identity must match the requested Provider offer');
     return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds`, input, options, 'POST');
   }
   /** Platform-only immutable qualification history. Quantities do not imply an available route. */
@@ -1969,7 +2021,7 @@ export class NiuAdminClient {
     return this.request(`/pricing/organizations/${uuid(scope.organizationId)}/workspaces/${uuid(scope.projectId)}/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
-  /** Explicit platform-administrator retail publication. No retry or Supplier-price fallback. */
+  /** Explicit platform-administrator retail publication. No retry or Provider-price fallback. */
   publishCustomerTariff(scope: TenantScope, rates: CustomerTariffInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);
     if (rates.discount_baseline_revision != null) uuid(rates.discount_baseline_revision);
@@ -2013,20 +2065,20 @@ export class NiuAdminClient {
     }, options);
   }
 
-  /** Platform-administrator agreed Supplier media purchase terms; independent from retail pricing. */
+  /** Platform-administrator agreed Provider media purchase terms; independent from retail pricing. */
   publishSupplierMediaRate(supplierId: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     return this.request(`/providers/${uuid(supplierId)}/media-rates`, supplierMediaRateBody(input), options);
   }
 
   /** Atomically publish new terms and end the previous schedule at their start. */
   replaceSupplierMediaRate(supplierId: string, previousRevision: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string; effective_from: string } }> {
-    if (!previousRevision || previousRevision.trim() !== previousRevision || previousRevision.length > 256 || /[\x00-\x1f\x7f]/.test(previousRevision)) throw new TypeError('Choose a valid previous Supplier media revision');
+    if (!previousRevision || previousRevision.trim() !== previousRevision || previousRevision.length > 256 || /[\x00-\x1f\x7f]/.test(previousRevision)) throw new TypeError('Choose a valid previous Provider media revision');
     return this.request(`/providers/${uuid(supplierId)}/media-rates/replace`, {
       previous_revision: previousRevision, rate: supplierMediaRateBody(input),
     }, options);
   }
 
-  /** Exact purchase history, authorized for installation or this Supplier's active member. */
+  /** Exact purchase history, authorized for installation or this Provider's active member. */
   listSupplierMediaRates(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaRateRecord[]; has_more: boolean; next_after: string | null }> {
     if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a rate page size from 1 to 100');
     if (page.after !== undefined && (!page.after || page.after.trim() !== page.after || page.after.length > 256 || /[\x00-\x1f\x7f]/.test(page.after))) throw new TypeError('Choose a valid rate cursor');
@@ -2072,7 +2124,7 @@ export class NiuAdminClient {
 
   /** Platform-administrator cutoff; existing purchase snapshots and earnings stay immutable. */
   retireSupplierMediaRate(supplierId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
-    if (!revision || revision.trim() !== revision || revision.length > 256 || /[\x00-\x1f\x7f/]/.test(revision)) throw new TypeError('Choose a valid Supplier media revision');
+    if (!revision || revision.trim() !== revision || revision.length > 256 || /[\x00-\x1f\x7f/]/.test(revision)) throw new TypeError('Choose a valid Provider media revision');
     if (!Number.isSafeInteger(effectiveUntil)) throw new TypeError('Retirement time must be exact Unix seconds');
     return this.request(`/providers/${uuid(supplierId)}/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
   }
@@ -2146,7 +2198,7 @@ export class NiuAdminClient {
   }
 
   /** All matching configurations, including disabled entries. No silent row cap.
-   * Platform administration required; supplying a Supplier ID filters business ownership. */
+   * Platform administration required; supplying a Provider ID filters business ownership. */
   listSupplierCredentials(query: { supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: SupplierCredential[] }> {
     const suffix = query.supplierId === undefined ? '' : `?supplier=${uuid(query.supplierId)}`;
     return this.request(`/vendors${suffix}`, undefined, options);
@@ -2154,7 +2206,7 @@ export class NiuAdminClient {
 
   /** Platform-only creation; preserve the returned configuration identity. No automatic retry. */
   createSupplierCredential(input: SupplierCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
-    if (input.create_supplier && input.supplier_id !== undefined) throw new Error('Choose a new or existing Supplier');
+    if (input.create_supplier && input.supplier_id !== undefined) throw new Error('Choose a new or existing Provider');
     return this.request('/vendors', { ...input, ...(input.supplier_id === undefined ? {} : { supplier_id: uuid(input.supplier_id) }) }, options);
   }
 
@@ -2804,29 +2856,14 @@ export class NiuAdminClient {
     if (!options.adminToken.trim()) throw new Error('adminToken is required');
     this.token = options.adminToken;
     this.base = (options.baseURL ?? 'http://localhost:2555/admin/v1').replace(/\/+$/, '');
+    this.apiBase = this.base.replace(/\/(?:admin|api)\/v1$/, '/api/v1');
+    this.v1Base = this.base.replace(/\/(?:admin|api)\/v1$/, '/v1');
     const url = new URL(this.base);
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
       throw new Error('baseURL must be an HTTP(S) API base without credentials, query or fragment');
     }
     this.requestFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
-
-  issueCollectorKey(scope: TenantScope, input: { name: string; ttl_seconds: number; purpose?: 'quota' }, options?: RequestOptions): Promise<{ id: string; token: string }> {
-    if (!input.name.trim() || !Number.isSafeInteger(input.ttl_seconds) || input.ttl_seconds < 1 || input.ttl_seconds > 31_536_000) {
-      throw new Error('Collector key requires a name and a lifetime of 1 to 31536000 seconds');
-    }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys`, input, options);
-  }
-
-  listCollectorKeys(scope: TenantScope, purpose?: 'quota', options?: RequestOptions): Promise<{ data: CollectorKeyView[] }> {
-    const query = purpose ? `?purpose=${purpose}` : '';
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys${query}`, undefined, options);
-  }
-
-  revokeCollectorKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys/${uuid(keyId)}`, undefined, options, 'DELETE');
-  }
-
 
   listGatewayActivity(scope: TenantScope, query: GatewayActivityQuery = {}, options?: RequestOptions): Promise<GatewayActivityPage> {
     if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
@@ -2945,22 +2982,6 @@ export class NiuAdminClient {
     return this.request(this.accountsPath(scope), account, options);
   }
 
-  quota(scope: TenantScope, accountId: string, options?: RequestOptions): Promise<{ data: QuotaWindow[] }> {
-    return this.request(`${this.accountsPath(scope)}/${uuid(accountId)}/quota`, undefined, options);
-  }
-
-  observeQuota(scope: TenantScope, accountId: string, observation: QuotaObservation, options?: RequestOptions): Promise<{ id: string }> {
-    for (const value of [observation.remaining, observation.maximum]) {
-      if (value !== null && (typeof value !== 'string' || !/^\d+$/.test(value) || BigInt(value) > 9223372036854775807n)) {
-        throw new Error('Quota quantities must be nonnegative signed-64-bit decimal strings or null');
-      }
-    }
-    for (const value of [observation.observed_at_ms, observation.valid_until_ms, observation.resets_at_ms]) {
-      if (!Number.isSafeInteger(value) || value < 0) throw new Error('Quota timestamps must be nonnegative safe-integer milliseconds');
-    }
-    return this.request(`${this.accountsPath(scope)}/${uuid(accountId)}/quota`, observation, options);
-  }
-
   private workspaceAssetsPath(scope: TenantScope): string {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/assets`;
   }
@@ -3007,19 +3028,83 @@ export class NiuAdminClient {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/accounts`;
   }
 
+  private async apiRequest<T>(path: string, body?: unknown, options: RequestOptions & { idempotencyKey?: string } = {}, method?: string): Promise<T> {
+    const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
+    const headers: Record<string, string> = { authorization: `Bearer ${this.token}`, accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }) };
+    if (options.idempotencyKey !== undefined) {
+      if (typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
+        throw new TypeError('idempotencyKey must be a non-empty ASCII token');
+      }
+      headers['idempotency-key'] = options.idempotencyKey;
+    }
+    const response = await this.requestFetch(`${this.apiBase}${path}`, {
+      method: requestMethod,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: options.signal,
+      redirect: 'error',
+    });
+    const text = await response.text();
+    let payload: unknown;
+    try { payload = text ? JSON.parse(text) : undefined; } catch { payload = text; }
+    if (!response.ok) throw NiuAPIError.fromResponse(response, payload);
+    return payload as T;
+  }
+
+  private async v1Raw(keyId: string, path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, method?: string, accept = 'application/json'): Promise<Response> {
+    const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${this.token}`,
+      'x-niu-key-id': uuid(keyId),
+      accept,
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+    };
+    if (options.idempotencyKey !== undefined) {
+      const mediaCollection = /^\/media\/(?:asset-groups|assets|verification-sessions)$/.test(path);
+      const mediaMember = /^\/media\/(?:asset-groups|assets)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\?.*)?$/.test(path);
+      const mediaPreparation = /^\/media\/asset-operations\/(?:prepare|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dispatch)$/.test(path);
+      const mediaMutation = (requestMethod === 'POST' && (mediaCollection || mediaPreparation)) || ((requestMethod === 'PATCH' || requestMethod === 'DELETE') && mediaMember);
+      const videoCreation = requestMethod === 'POST' && path === '/video/jobs';
+      const validKey = typeof options.idempotencyKey === 'string' && (mediaMutation
+        ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(options.idempotencyKey) && options.idempotencyKey !== '00000000-0000-0000-0000-000000000000'
+        : /^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey));
+      if ((!videoCreation && !mediaMutation) || !validKey) {
+        throw new TypeError('idempotencyKey requires supported creation or media mutation; media keys must be canonical nonnil UUIDs');
+      }
+      headers['idempotency-key'] = options.idempotencyKey;
+    }
+    const response = await this.requestFetch(`${this.v1Base}${path}`, {
+      method: requestMethod,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: options.signal,
+      redirect: 'error',
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      let payload: unknown;
+      try { payload = text ? JSON.parse(text) : undefined; } catch { payload = text; }
+      throw NiuAPIError.fromResponse(response, payload);
+    }
+    return response;
+  }
+
+  private async v1Request<T>(keyId: string, path: string, body?: unknown, options: RequestOptions & { idempotencyKey?: string } = {}, method?: string, accept = 'application/json'): Promise<T> {
+    const response = await this.v1Raw(keyId, path, body, options, method, accept);
+    const text = await response.text();
+    let payload: unknown;
+    try { payload = text ? JSON.parse(text) : undefined; } catch { payload = text; }
+    if (!response.ok) throw NiuAPIError.fromResponse(response, payload);
+    return payload as T;
+  }
+
   private async raw(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, method?: string, accept = 'application/json'): Promise<Response> {
     const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
     const headers: Record<string, string> = { authorization: `Bearer ${this.token}`, accept, ...(body === undefined ? {} : { 'content-type': 'application/json' }) };
     if (options.idempotencyKey !== undefined) {
-      const mediaCollection = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/(?:asset-groups|assets|verification-sessions)$/.test(path);
-      const mediaMember = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/(?:asset-groups|assets)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\?.*)?$/.test(path);
-      const mediaPreparation = /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/media\/asset-operations\/(?:prepare|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dispatch)$/.test(path);
-      const mediaMutation = (requestMethod === 'POST' && (mediaCollection || mediaPreparation)) || ((requestMethod === 'PATCH' || requestMethod === 'DELETE') && mediaMember);
-      const legacyCreation = requestMethod === 'POST' && (path === '/organizations' || path === '/workspaces' || /^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/video\/jobs$/.test(path));
-      const validKey = typeof options.idempotencyKey === 'string' && (mediaMutation
-        ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(options.idempotencyKey) && options.idempotencyKey !== '00000000-0000-0000-0000-000000000000'
-        : /^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey));
-      if ((!legacyCreation && !mediaMutation) || !validKey) {
+      const legacyCreation = requestMethod === 'POST' && (path === '/organizations' || path === '/workspaces');
+      const validKey = typeof options.idempotencyKey === 'string' && /^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey);
+      if (!legacyCreation || !validKey) {
         throw new TypeError('idempotencyKey requires supported creation or media mutation; media keys must be canonical nonnil UUIDs');
       }
       headers['idempotency-key'] = options.idempotencyKey;
@@ -3145,30 +3230,6 @@ function retailSchedule(schedule: RetailSchedule, model: string, currency: strin
 function uuid(value: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Scope and account IDs must be UUIDs');
   return value;
-}
-
-export type NiuCollectorOptions = {
-  collectorToken: string;
-  scope: TenantScope;
-  baseURL?: string;
-  fetch?: typeof globalThis.fetch;
-};
-
-/** Quota writer bound to one project. Server authorization is authoritative. */
-export class NiuCollectorClient {
-  readonly #client: NiuAdminClient;
-  readonly #scope: TenantScope;
-
-  constructor(options: NiuCollectorOptions) {
-    if (!options.collectorToken.trim()) throw new Error('collectorToken is required');
-    this.#scope = { organizationId: uuid(options.scope.organizationId), projectId: uuid(options.scope.projectId) };
-    this.#client = new NiuAdminClient({ adminToken: options.collectorToken, baseURL: options.baseURL, fetch: options.fetch });
-  }
-
-  observeQuota(accountId: string, observation: QuotaObservation, options?: RequestOptions): Promise<{ id: string }> {
-    return this.#client.observeQuota(this.#scope, accountId, observation, options);
-  }
-
 }
 
 function supplierMediaRateBody(input: SupplierMediaRateCard): SupplierMediaRateCard {

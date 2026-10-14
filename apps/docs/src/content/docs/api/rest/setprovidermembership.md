@@ -1,5 +1,5 @@
 ---
-title: "Grant, change or disable a Supplier membership"
+title: "Grant, change or disable a Provider membership"
 description: "PUT /admin/v1/providers/{provider}/members/{operator}"
 tableOfContents: false
 ---
@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `PUT /admin/v1/providers/{provider}/members/{operator}`
 
-Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Supplier membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
+Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
 
 Operation: `setProviderMembership`.
 
@@ -134,7 +134,7 @@ Platform administration required
 
 ### HTTP 409
 
-Missing/deleted Supplier or missing/revoked operator
+Missing/deleted Provider or missing/revoked operator
 
 ### HTTP 422
 
@@ -146,6 +146,6 @@ Storage unavailable or transaction lock/statement timeout
 
 ## Behavior and supported scope
 
-Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Supplier membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
+Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
 
 **Supported scope:** implemented

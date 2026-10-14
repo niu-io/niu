@@ -1,5 +1,5 @@
 ---
-title: "Create a Supplier business identity"
+title: "Create a Provider business identity"
 description: "POST /admin/v1/providers"
 tableOfContents: false
 ---
@@ -98,7 +98,7 @@ Content type: `application/json`.
 
 ### HTTP 400
 
-Invalid Supplier name
+Invalid Provider name
 
 ### HTTP 401
 

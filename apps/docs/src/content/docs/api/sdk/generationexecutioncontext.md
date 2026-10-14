@@ -9,8 +9,8 @@ Generated from the checked-in source. Do not edit this reference by hand.
 [SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/generations-inventory.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
-/** Original dispatch facts, never inferred from current Supplier configuration.
- * Provider identifies the saved adapter, not a mutable Supplier/account name.
+/** Original dispatch facts, never inferred from current Provider configuration.
+ * Provider identifies the saved adapter, not a mutable Provider/account name.
  * Parameters contain only retained validated scalar controls; references and
  * prompts remain in actor-private retained session/intent content, when present.
  */

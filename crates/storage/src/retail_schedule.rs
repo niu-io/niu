@@ -1,5 +1,5 @@
 //! Concrete customer selling schedules. Registry identity, effective periods
-//! and publication provenance are external; Supplier qualification is separate.
+//! and publication provenance are external; Provider qualification is separate.
 //! Discounts are explicit resulting prices, never runtime multipliers.
 use crate::{ContextPriceTier, ContextTierRates, StoreError, TokenRates};
 use niu_metered_cost::{Dimensions, Quantity, Rounding, Tariff};

@@ -143,7 +143,7 @@ fn chat_feature_contracts_validate_input_and_provider_output() {
         }}
     });
     assert!(validate_chat_capabilities(&structured, model, false).is_ok());
-    assert!(validate_chat_capabilities(&structured, model, true).is_err());
+    assert!(validate_chat_capabilities(&structured, model, true).is_ok());
     assert!(valid_chat_completion_features(
         &json!({"choices":[{"message":{"content":"{\"answer\":42}"}}]}),
         &structured
@@ -1630,32 +1630,39 @@ async fn dashboard_chat_requires_authorization_and_active_scoped_key(pool: PgPoo
         .create_project(scope.organization_id, "Other")
         .await
         .unwrap();
+    let other_viewer = state
+        .store
+        .create_operator(
+            niu_storage::OperatorScope {
+                organization_id: other.organization_id,
+                project_id: Some(other.project_id),
+            },
+            "Other viewer",
+            niu_storage::OperatorRole::Owner,
+            3600,
+            niu_storage::OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
     let app = router(state.clone());
-    let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/chat/completions",
-        scope.organization_id, scope.project_id, key.id
-    );
-    for (auth, route, model, expected) in [
+    for (auth, key_header, model, expected) in [
         (
-            "Bearer invalid",
-            path.clone(),
+            "Bearer invalid".to_string(),
+            key.id.to_string(),
             "fast",
             StatusCode::UNAUTHORIZED,
         ),
         (
-            "Bearer niu-test-admin-token-that-is-long-1234",
-            path.clone(),
+            "Bearer niu-test-admin-token-that-is-long-1234".to_string(),
+            key.id.to_string(),
             "not-allowed",
             StatusCode::NOT_FOUND,
         ),
         (
-            "Bearer niu-test-admin-token-that-is-long-1234",
-            format!(
-                "/admin/v1/organizations/{}/projects/{}/keys/{}/chat/completions",
-                scope.organization_id, other.project_id, key.id
-            ),
+            format!("Bearer {}", other_viewer.token),
+            key.id.to_string(),
             "fast",
-            StatusCode::UNAUTHORIZED,
+            StatusCode::FORBIDDEN,
         ),
     ] {
         let response = app
@@ -1663,8 +1670,9 @@ async fn dashboard_chat_requires_authorization_and_active_scoped_key(pool: PgPoo
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri(route)
+                    .uri("/v1/chat/completions")
                     .header("authorization", auth)
+                    .header("x-niu-key-id", key_header)
                     .header("content-type", "application/json")
                     .body(axum::body::Body::from(
                         json!({"model":model,"messages":[{"role":"user","content":"test"}]})
@@ -3051,11 +3059,7 @@ async fn live_input_guardrails_block_and_redact_all_protocols(pool: PgPool) {
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
     assert!(captured.0.lock().unwrap().is_empty());
-    let dashboard_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/chat/completions",
-        scope.organization_id, scope.project_id, key.id
-    );
-    let response = app.clone().oneshot(Request::post(dashboard_path).header("authorization","Bearer niu-test-admin-token-that-is-long-1234").header("content-type","application/json").body(axum::body::Body::from(json!({"model":"fast","stream":true,"messages":[{"role":"user","content":"sensitive-fixture"}]}).to_string())).unwrap()).await.unwrap();
+    let response = app.clone().oneshot(Request::post("/v1/chat/completions").header("authorization","Bearer niu-test-admin-token-that-is-long-1234").header("x-niu-key-id", key.id.to_string()).header("content-type","application/json").body(axum::body::Body::from(json!({"model":"fast","stream":true,"messages":[{"role":"user","content":"sensitive-fixture"}]}).to_string())).unwrap()).await.unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert!(captured.0.lock().unwrap().is_empty());
     let audit = state

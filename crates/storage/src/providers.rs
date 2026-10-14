@@ -135,7 +135,7 @@ fn map_qualification_write_error(error: sqlx::Error) -> StoreError {
 
 impl Store {
     /// Explicit offers require an enabled matching route and current qualification before exposure.
-    /// Legacy routes without a Supplier offer retain their existing behavior.
+    /// Legacy routes without a Provider offer retain their existing behavior.
     pub async fn unavailable_supplier_models(&self) -> Result<Vec<String>, StoreError> {
         Ok(sqlx::query_scalar("SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)")
             .fetch_all(&self.pool).await?)
@@ -477,7 +477,7 @@ impl Store {
         Ok(profile)
     }
 
-    /// Retain audit history; only an unconfigured Supplier can leave the directory.
+    /// Retain audit history; only an unconfigured Provider can leave the directory.
     pub async fn delete_provider_business(&self, provider: Uuid) -> Result<(), StoreError> {
         self.delete_provider_business_recorded(provider, None).await
     }
@@ -673,7 +673,7 @@ impl Store {
         .await
     }
 
-    /// Publish one complete immutable Supplier schedule. Existing tiers require
+    /// Publish one complete immutable Provider schedule. Existing tiers require
     /// an explicit replacement (or empty array), just like category rates.
     pub async fn publish_provider_offer_schedule(
         &self,
@@ -831,7 +831,7 @@ impl Store {
         Ok(())
     }
 
-    /// Read an immutable agreed rate by its full Supplier/offer/revision identity.
+    /// Read an immutable agreed rate by its full Provider/offer/revision identity.
     pub async fn provider_offer_revision(
         &self,
         provider: Uuid,

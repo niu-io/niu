@@ -127,7 +127,7 @@ impl Store {
         Ok(selected)
     }
     /// Platform management list only. Cursor and rows share a statement snapshot;
-    /// no Supplier quote, customer charge or credential is read.
+    /// no Provider quote, customer charge or credential is read.
     pub async fn platform_retail_prices(
         &self,
         after: Option<Uuid>,

@@ -188,21 +188,21 @@ pub struct VendorFilter {
 ///         "name": "supplier",
 ///         "in": "query",
 ///         "required": false,
-///         "description": "Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required. A missing or deleted Supplier returns 404; an active Supplier without configurations returns an empty data array.",
+///         "description": "Filter by explicit Provider business ownership; no name matching or unassociated fallback. Platform administration is required. A missing or deleted Provider returns 404; an active Provider without configurations returns an empty data array.",
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
 ///         }
 ///       }
 ///     ],
-///     "summary": "List Supplier API-key configurations without credentials",
+///     "summary": "List Provider API-key configurations without credentials",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
 ///       }
 ///     ],
 ///     "responses": {
-///       "404": { "description": "Selected Supplier does not exist or has been deleted." },
+///       "404": { "description": "Selected Provider does not exist or has been deleted." },
 ///       "200": {
 ///         "description": "Vendor metadata. All management responses use Cache-Control no-store.",
 ///         "content": {
@@ -289,7 +289,7 @@ pub struct VendorFilter {
 ///             "object",
 ///             "null"
 ///           ],
-///           "description": "Supplier ownership on configuration-list reads; credentials and commercial data are excluded.",
+///           "description": "Provider ownership on configuration-list reads; credentials and commercial data are excluded.",
 ///           "required": [
 ///             "id",
 ///             "name"
@@ -351,12 +351,12 @@ pub struct VendorFilter {
 ///         "supplier_id": {
 ///           "type": "string",
 ///           "format": "uuid",
-///           "description": "Existing Supplier business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
+///           "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
 ///         },
 ///         "create_supplier": {
 ///           "type": "boolean",
 ///           "default": false,
-///           "description": "Atomically create a Supplier business with this name and its explicit configuration ownership link. Omission preserves legacy configuration-only creation."
+///           "description": "Atomically create a Provider business with this name and its explicit configuration ownership link. Omission preserves legacy configuration-only creation."
 ///         }
 ///       }
 ///     },
@@ -427,7 +427,7 @@ pub async fn list(
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createVendor",
-///     "summary": "Create an encrypted Supplier API-key configuration",
+///     "summary": "Create an encrypted Provider API-key configuration",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -540,7 +540,7 @@ pub async fn create(
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "updateVendor",
-///     "summary": "Update one Supplier API-key configuration or rotate its credential",
+///     "summary": "Update one Provider API-key configuration or rotate its credential",
 ///     "description": "Adapter is immutable. Changes affect new requests; already dispatched work can finish using its original configuration. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.",
 ///     "security": [
 ///       {
@@ -673,7 +673,7 @@ pub async fn update(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendorModels",
-///     "summary": "List model bindings for one Supplier API-key configuration",
+///     "summary": "List model bindings for one Provider API-key configuration",
 ///     "description": "Management reads include route eligibility in available and an owner_funded flag. Owner-funded routes are private to their recorded account and excluded from shared supply and the public catalog, regardless of their legacy configured public_catalog flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.",
 ///     "security": [
 ///       {
@@ -1429,7 +1429,7 @@ pub async fn list_models(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
-///     "summary": "Discover upstream models for a Supplier API-key configuration",
+///     "summary": "Discover upstream models for a Provider API-key configuration",
 ///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
 ///     "security": [
 ///       {
@@ -2204,9 +2204,9 @@ pub struct SupplierAssociation {
 ///   "path": "/admin/v1/vendors/{id}/supplier",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "getConfigurationSupplier",
-///     "summary": "Read the Supplier owning an API configuration",
-///     "description": "Installation credential or explicitly granted platform administrator required. Supplier membership and customer ownership alone do not grant access. Returns the Supplier identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.",
+///     "operationId": "getConfigurationProvider",
+///     "summary": "Read the Provider owning an API configuration",
+///     "description": "Installation credential or explicitly granted platform administrator required. Provider membership and customer ownership alone do not grant access. Returns the Provider identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -2225,7 +2225,7 @@ pub struct SupplierAssociation {
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Supplier association or null.",
+///         "description": "Provider association or null.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -2295,9 +2295,9 @@ pub async fn supplier(
 ///   "path": "/admin/v1/vendors/{id}/supplier",
 ///   "method": "put",
 ///   "operation": {
-///     "operationId": "associateConfigurationSupplier",
-///     "summary": "Associate an API configuration with a Supplier",
-///     "description": "Installation credential or explicitly granted platform administrator required. Supplier membership and customer ownership alone do not grant access. Atomic and audited. The first association requires the current configuration revision. Repeating the same Supplier association is idempotent even with the original revision and does not increment it again. A different Supplier cannot take over an existing association. Deleted Suppliers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.",
+///     "operationId": "associateConfigurationProvider",
+///     "summary": "Associate an API configuration with a Provider",
+///     "description": "Installation credential or explicitly granted platform administrator required. Provider membership and customer ownership alone do not grant access. Atomic and audited. The first association requires the current configuration revision. Repeating the same Provider association is idempotent even with the original revision and does not increment it again. A different Provider cannot take over an existing association. Deleted Providers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -2345,7 +2345,7 @@ pub async fn supplier(
 ///         "description": "Association established or already present; no response body."
 ///       },
 ///       "409": {
-///         "description": "Unknown or deleted Supplier, unknown configuration, stale first-association revision, conflicting offer ownership or attempted reassignment."
+///         "description": "Unknown or deleted Provider, unknown configuration, stale first-association revision, conflicting offer ownership or attempted reassignment."
 ///       },
 ///       "422": {
 ///         "description": "Malformed request fields or unknown properties."

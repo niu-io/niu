@@ -1,4 +1,4 @@
-//! Supplier-only business APIs. Installation configuration is a separate authority.
+//! Provider-only business APIs. Installation configuration is a separate authority.
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
@@ -62,8 +62,8 @@ async fn member(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderMemberships",
-///     "summary": "List the signed-in operator\u2019s complete active Supplier memberships",
-///     "description": "Returns every active membership for the current non-revoked operator, ordered by Supplier name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Supplier access. Deleted Suppliers are excluded. IDs are routing references, not display labels.",
+///     "summary": "List the signed-in operator\u2019s complete active Provider memberships",
+///     "description": "Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -205,7 +205,7 @@ pub struct Name {
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createProviderBusiness",
-///     "summary": "Create a Supplier business identity",
+///     "summary": "Create a Provider business identity",
 ///     "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.",
 ///     "requestBody": {
 ///       "required": true,
@@ -258,7 +258,7 @@ pub struct Name {
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid Supplier name"
+///         "description": "Invalid Provider name"
 ///       },
 ///       "401": {
 ///         "description": "Missing, expired or revoked administrative credential"
@@ -274,7 +274,7 @@ pub struct Name {
 ///       }
 ///     },
 ///     "tags": [
-///       "Suppliers"
+///       "Providers"
 ///     ],
 ///     "security": [
 ///       {
@@ -303,8 +303,8 @@ pub async fn create(
 ///   "path": "/admin/v1/providers/{provider}",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "getSupplierProfile",
-///     "summary": "Read Supplier business profile",
+///     "operationId": "getProviderProfile",
+///     "summary": "Read Provider business profile",
 ///     "description": "Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
@@ -325,7 +325,7 @@ pub async fn create(
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Saved Supplier profile",
+///         "description": "Saved Provider profile",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -382,7 +382,7 @@ pub async fn create(
 ///         "description": "Platform management permission required"
 ///       },
 ///       "404": {
-///         "description": "Supplier missing or deleted"
+///         "description": "Provider missing or deleted"
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable"
@@ -410,8 +410,8 @@ pub async fn profile(
 ///   "path": "/admin/v1/providers/{provider}",
 ///   "method": "patch",
 ///   "operation": {
-///     "operationId": "renameSupplierBusiness",
-///     "summary": "Update Supplier business profile",
+///     "operationId": "renameProviderBusiness",
+///     "summary": "Update Provider business profile",
 ///     "description": "Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
@@ -432,7 +432,7 @@ pub async fn profile(
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Saved Supplier profile",
+///         "description": "Saved Provider profile",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -492,7 +492,7 @@ pub async fn profile(
 ///         "description": "Storage unavailable"
 ///       },
 ///       "409": {
-///         "description": "Stale revision, missing or deleted Supplier"
+///         "description": "Stale revision, missing or deleted Provider"
 ///       },
 ///       "422": {
 ///         "description": "Invalid body shape or unknown field"
@@ -570,9 +570,9 @@ pub async fn rename(
 ///   "path": "/admin/v1/providers/{provider}",
 ///   "method": "delete",
 ///   "operation": {
-///     "operationId": "deleteSupplierBusiness",
-///     "summary": "Remove an unconfigured Supplier from the directory",
-///     "description": "Platform administration required. Soft-deletes only a live Supplier with no owned API configurations, offers or memberships; disabled configurations and inactive memberships still count as dependencies. Audit history is retained. Concurrent configuration association serializes with deletion. This is not a credential revocation or financial-history deletion operation. Repeating deletion returns 409.",
+///     "operationId": "deleteProviderBusiness",
+///     "summary": "Remove an unconfigured Provider from the directory",
+///     "description": "Platform administration required. Soft-deletes only a live Provider with no owned API configurations, offers or memberships; disabled configurations and inactive memberships still count as dependencies. Audit history is retained. Concurrent configuration association serializes with deletion. This is not a credential revocation or financial-history deletion operation. Repeating deletion returns 409.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -591,7 +591,7 @@ pub async fn rename(
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Supplier removed from the active directory.",
+///         "description": "Provider removed from the active directory.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -624,7 +624,7 @@ pub async fn rename(
 ///         "description": "Platform administration required."
 ///       },
 ///       "409": {
-///         "description": "Unknown or already deleted Supplier, or existing configuration, offer or membership dependency."
+///         "description": "Unknown or already deleted Provider, or existing configuration, offer or membership dependency."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -659,10 +659,10 @@ pub struct Membership {
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setProviderMembership",
-///     "summary": "Grant, change or disable a Supplier membership",
-///     "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Supplier membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
+///     "summary": "Grant, change or disable a Provider membership",
+///     "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
 ///     "tags": [
-///       "Suppliers"
+///       "Providers"
 ///     ],
 ///     "parameters": [
 ///       {
@@ -748,7 +748,7 @@ pub struct Membership {
 ///         "description": "Platform administration required"
 ///       },
 ///       "409": {
-///         "description": "Missing/deleted Supplier or missing/revoked operator"
+///         "description": "Missing/deleted Provider or missing/revoked operator"
 ///       },
 ///       "422": {
 ///         "description": "Malformed membership input"
@@ -780,7 +780,7 @@ pub async fn set_member(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"active":input.active}})))
 }
-/// Immutable Supplier schedule publication.
+/// Immutable Provider schedule publication.
 /// ```openapi
 /// {
 ///   "path": "/admin/v1/providers/{provider}/offers",
@@ -789,8 +789,8 @@ pub async fn set_member(
 ///     "operationId": "publishProviderPayoutRates",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [{"bearerAuth": []}],
-///     "summary": "Publish an immutable agreed Supplier payout schedule",
-///     "description": "Installation-only publication binds an existing vendor model alias to one Supplier. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.",
+///     "summary": "Publish an immutable agreed Provider payout schedule",
+///     "description": "Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.",
 ///     "parameters": [
 ///       {
 ///         "name": "provider",
@@ -1018,9 +1018,9 @@ pub async fn publish_offer(
 ///   "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "getSupplierOfferRevision",
-///     "summary": "Read an immutable Supplier procurement quote",
-///     "description": "Installation administrators or active members of this Supplier may read a quote. Ordinary company/workspace ownership grants no procurement access. Supplier, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
+///     "operationId": "getProviderOfferRevision",
+///     "summary": "Read an immutable Provider procurement quote",
+///     "description": "Installation administrators or active members of this Provider may read a quote. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1068,7 +1068,7 @@ pub async fn publish_offer(
 ///               ],
 ///               "properties": {
 ///                 "data": {
-///                   "$ref": "#/components/schemas/SupplierOfferRevision"
+///                   "$ref": "#/components/schemas/ProviderOfferRevision"
 ///                 }
 ///               }
 ///             }
@@ -1082,7 +1082,7 @@ pub async fn publish_offer(
 ///         "description": "Management authentication required."
 ///       },
 ///       "404": {
-///         "description": "Supplier membership denied or quote identity not found."
+///         "description": "Provider membership denied or quote identity not found."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -1091,7 +1091,7 @@ pub async fn publish_offer(
 ///     "x-niu-implementation": "implemented"
 ///   },
 ///   "schemas": {
-///     "SupplierOfferRevision": {
+///     "ProviderOfferRevision": {
 ///       "oneOf": [
 ///         {
 ///           "type": "object",
@@ -1156,7 +1156,7 @@ pub async fn publish_offer(
 ///                 "null"
 ///               ],
 ///               "pattern": "^[0-9]+$",
-///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Provider rate prices it separately; missing quantity remains unresolved."
 ///             },
 ///             "context_tiers": {
 ///               "type": "array",
@@ -1263,7 +1263,7 @@ pub async fn publish_offer(
 ///             },
 ///             "cache_write_prompt_rate": {
 ///               "type": "null",
-///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Provider rate prices it separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         }
@@ -1295,10 +1295,10 @@ pub async fn offer_revision(
 ///   "path": "/admin/v1/providers/{provider}/qualification",
 ///   "method": "put",
 ///   "operation": {
-///     "operationId": "qualifySupplierBusiness",
+///     "operationId": "qualifyProviderBusiness",
 ///     "x-niu-implementation": "implemented",
-///     "summary": "Record a Supplier business qualification review",
-///     "description": "Platform administration required; Supplier membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Supplier conflicts.",
+///     "summary": "Record a Provider business qualification review",
+///     "description": "Platform administration required; Provider membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Provider conflicts.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1433,10 +1433,10 @@ pub async fn qualify_business(
 ///   "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification",
 ///   "method": "put",
 ///   "operation": {
-///     "operationId": "qualifySupplierOffer",
+///     "operationId": "qualifyProviderOffer",
 ///     "x-niu-implementation": "implemented",
-///     "summary": "Record a Supplier offer qualification review",
-///     "description": "Platform administration required. Requires current Supplier business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.",
+///     "summary": "Record a Provider offer qualification review",
+///     "description": "Platform administration required. Requires current Provider business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1605,10 +1605,10 @@ pub async fn qualify_offer(
 ///   "path": "/admin/v1/providers/{provider}/qualification/revoke",
 ///   "method": "post",
 ///   "operation": {
-///     "operationId": "revokeSupplierBusinessQualification",
+///     "operationId": "revokeProviderBusinessQualification",
 ///     "x-niu-implementation": "implemented",
-///     "summary": "Revoke the current Supplier business qualification",
-///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Supplier offers while clearing their current reviews atomically. Missing/deleted Supplier or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.",
+///     "summary": "Revoke the current Provider business qualification",
+///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Provider offers while clearing their current reviews atomically. Missing/deleted Provider or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1724,10 +1724,10 @@ pub async fn revoke_business_qualification(
 ///   "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke",
 ///   "method": "post",
 ///   "operation": {
-///     "operationId": "revokeSupplierOfferQualification",
+///     "operationId": "revokeProviderOfferQualification",
 ///     "x-niu-implementation": "implemented",
-///     "summary": "Revoke the current Supplier offer qualification",
-///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Supplier, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.",
+///     "summary": "Revoke the current Provider offer qualification",
+///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Provider, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1859,8 +1859,8 @@ pub struct Settlement {
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "recordExternalProviderPayment",
-///     "summary": "Record an already completed external Supplier payment",
-///     "description": "Platform administration required; Supplier membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Supplier, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Supplier qualification is created.",
+///     "summary": "Record an already completed external Provider payment",
+///     "description": "Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1954,7 +1954,7 @@ pub struct Settlement {
 ///         "description": "Platform administration required."
 ///       },
 ///       "409": {
-///         "description": "Supplier or earnings unavailable, changed replay, or duplicate payment reference."
+///         "description": "Provider or earnings unavailable, changed replay, or duplicate payment reference."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -1990,8 +1990,8 @@ pub async fn record_settlement(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderBusinesses",
-///     "summary": "List active Supplier business identities",
-///     "description": "Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Suppliers are excluded. Qualification is explicit and never inferred from configuration counts.",
+///     "summary": "List active Provider business identities",
+///     "description": "Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Qualification is explicit and never inferred from configuration counts.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Active directory",
@@ -2024,7 +2024,7 @@ pub async fn record_settlement(
 ///                       "name": {
 ///                         "type": "string"
 ///                       },
-///                       "logo_url": { "type": "string", "description": "Saved Supplier logo URL; empty uses the default logo." },
+///                       "logo_url": { "type": "string", "description": "Saved Provider logo URL; empty uses the default logo." },
 ///                       "api_keys": {
 ///                         "type": "integer",
 ///                         "minimum": 0
@@ -2037,8 +2037,8 @@ pub async fn record_settlement(
 ///                         "type": "integer",
 ///                         "minimum": 0
 ///                       },
-///                       "offers": {"type":"integer","minimum":0,"description":"Saved model offers with agreed Supplier rates."},
-///                       "ready_offers": {"type":"integer","minimum":0,"description":"Active offers with current Supplier and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."},
+///                       "offers": {"type":"integer","minimum":0,"description":"Saved model offers with agreed Provider rates."},
+///                       "ready_offers": {"type":"integer","minimum":0,"description":"Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."},
 ///                       "enabled_api_keys": {"type":"integer","minimum":0},
 ///                       "enabled_model_routes": {"type":"integer","minimum":0},
 ///                       "qualification_status": {
@@ -2067,7 +2067,7 @@ pub async fn record_settlement(
 ///       }
 ///     },
 ///     "tags": [
-///       "Suppliers"
+///       "Providers"
 ///     ],
 ///     "security": [
 ///       {
@@ -2092,8 +2092,8 @@ pub async fn list(
 ///   "path": "/admin/v1/providers/{provider}/members",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "listSupplierMembers",
-///     "summary": "List Supplier business members",
+///     "operationId": "listProviderMembers",
+///     "summary": "List Provider business members",
 ///     "description": "Requires platform management permission. Lists saved memberships ordered by member name and internal identity. active is false when membership is disabled or the member account is revoked; revoked reports account revocation separately. No tokens, merchant secrets or procurement amounts are returned. Internal operator identities are for routing, not product labels.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
@@ -2173,7 +2173,7 @@ pub async fn list(
 ///         "description": "Platform management permission required"
 ///       },
 ///       "409": {
-///         "description": "Supplier missing or deleted"
+///         "description": "Provider missing or deleted"
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable"
@@ -2431,15 +2431,15 @@ pub struct OfferHistoryQuery {
     limit: Option<i64>,
 }
 
-/// Supplier history requires the same procurement authority as an individual quote.
+/// Provider history requires the same procurement authority as an individual quote.
 /// ```openapi
 /// {
 ///   "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "listSupplierOfferHistory",
-///     "summary": "List immutable Supplier quote history",
-///     "description": "Installation administration or active membership in this Supplier is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Supplier/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.",
+///     "operationId": "listProviderOfferHistory",
+///     "summary": "List immutable Provider quote history",
+///     "description": "Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -2508,7 +2508,7 @@ pub struct OfferHistoryQuery {
 ///                 "data": {
 ///                   "type": "array",
 ///                   "items": {
-///                     "$ref": "#/components/schemas/SupplierOfferHistoryEntry"
+///                     "$ref": "#/components/schemas/ProviderOfferHistoryEntry"
 ///                   }
 ///                 },
 ///                 "has_more": {
@@ -2533,7 +2533,7 @@ pub struct OfferHistoryQuery {
 ///         "description": "Management authentication required."
 ///       },
 ///       "404": {
-///         "description": "Supplier membership denied or offer not found."
+///         "description": "Provider membership denied or offer not found."
 ///       },
 ///       "409": {
 ///         "description": "Cursor does not belong to this offer."
@@ -2545,7 +2545,7 @@ pub struct OfferHistoryQuery {
 ///     "x-niu-implementation": "implemented"
 ///   },
 ///   "schemas": {
-///     "SupplierOfferHistoryEntry": {
+///     "ProviderOfferHistoryEntry": {
 ///       "oneOf": [
 ///         {
 ///           "type": "object",
@@ -2614,7 +2614,7 @@ pub struct OfferHistoryQuery {
 ///                 "null"
 ///               ],
 ///               "pattern": "^[0-9]+$",
-///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Provider rate prices it separately; missing quantity remains unresolved."
 ///             },
 ///             "context_tiers": {
 ///               "type": "array",
@@ -2725,7 +2725,7 @@ pub struct OfferHistoryQuery {
 ///             },
 ///             "cache_write_prompt_rate": {
 ///               "type": "null",
-///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Provider rate prices it separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         }
@@ -2758,9 +2758,9 @@ pub async fn offer_history(
 ///   "path": "/admin/v1/providers/{provider}/settlements",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "listSupplierSettlements",
-///     "summary": "Page Supplier settlement history",
-///     "description": "Platform administration or active membership of this Supplier required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1–100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Supplier or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.",
+///     "operationId": "listProviderSettlements",
+///     "summary": "Page Provider settlement history",
+///     "description": "Platform administration or active membership of this Provider required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1–100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Provider or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -2906,10 +2906,10 @@ pub async fn offer_history(
 ///         "description": "Unsupported administrative authority."
 ///       },
 ///       "404": {
-///         "description": "Supplier not found or membership unavailable."
+///         "description": "Provider not found or membership unavailable."
 ///       },
 ///       "409": {
-///         "description": "Cursor not in this Supplier and filter scope."
+///         "description": "Cursor not in this Provider and filter scope."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -2943,9 +2943,9 @@ pub async fn settlement_history(
 ///   "path": "/admin/v1/providers/{provider}/earnings",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "listSupplierEarnings",
-///     "summary": "Page platform Supplier accrued and paid obligations",
-///     "description": "Platform administration required; Supplier membership and company ownership do not grant access. Full retained earning history, creation time descending then attempt ID ascending, using the existing ledger index. Exact amount strings; no customer identity, workspace, credential or customer selling price. The id is an internal selection value for the existing settlement POST, never a display label. A page is one database snapshot; settlement status may change between requests and settlement writes revalidate unpaid selections. Reads do not create earnings or payments. Missing or out-of-filter cursors return 409. Cache-Control no-store.",
+///     "operationId": "listProviderEarnings",
+///     "summary": "Page platform Provider accrued and paid obligations",
+///     "description": "Platform administration required; Provider membership and company ownership do not grant access. Full retained earning history, creation time descending then attempt ID ascending, using the existing ledger index. Exact amount strings; no customer identity, workspace, credential or customer selling price. The id is an internal selection value for the existing settlement POST, never a display label. A page is one database snapshot; settlement status may change between requests and settlement writes revalidate unpaid selections. Reads do not create earnings or payments. Missing or out-of-filter cursors return 409. Cache-Control no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -3023,7 +3023,7 @@ pub async fn settlement_history(
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Supplier earning page; next_cursor null ends traversal.",
+///         "description": "Provider earning page; next_cursor null ends traversal.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -3158,13 +3158,13 @@ pub async fn settlement_history(
 ///         "description": "Invalid credential."
 ///       },
 ///       "403": {
-///         "description": "Platform administration required, including for Supplier members."
+///         "description": "Platform administration required, including for Provider members."
 ///       },
 ///       "404": {
-///         "description": "Supplier does not exist or is deleted."
+///         "description": "Provider does not exist or is deleted."
 ///       },
 ///       "409": {
-///         "description": "Cursor not in this Supplier and filter scope."
+///         "description": "Cursor not in this Provider and filter scope."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -3202,9 +3202,9 @@ pub struct CurrentOfferPage {
 ///   "path": "/admin/v1/providers/{provider}/offers",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "listSupplierOffersPage",
-///     "summary": "Page current Supplier offers and rate revisions",
-///     "description": "Platform administration or active membership of this Supplier required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Supplier or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
+///     "operationId": "listProviderOffersPage",
+///     "summary": "Page current Provider offers and rate revisions",
+///     "description": "Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -3349,7 +3349,7 @@ pub struct CurrentOfferPage {
 ///                           "string",
 ///                           "null"
 ///                         ],
-///                         "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///                         "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Provider rate prices it separately; missing quantity remains unresolved."
 ///                       },
 ///                       "context_tiers": {
 ///                         "type": "array",
@@ -3427,7 +3427,7 @@ pub struct CurrentOfferPage {
 ///         "description": "Invalid session."
 ///       },
 ///       "404": {
-///         "description": "Supplier missing or unauthorized."
+///         "description": "Provider missing or unauthorized."
 ///       },
 ///       "409": {
 ///         "description": "Missing or foreign continuation alias."

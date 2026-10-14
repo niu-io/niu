@@ -23,6 +23,24 @@ constructor(options: NiuClientOptions);
 getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration>;
 ```
 
+### getKey
+
+```typescript
+/** Inspect the current API key's label, model grants, limits, and 60s usage window. */
+getKey(options?: RequestOptions): Promise<{
+    data: KeyIntrospection;
+}>;
+```
+
+### getGeneration
+
+```typescript
+/** Retrieve token breakdown, timings, and customer charge for one generation attempt. */
+getGeneration(id: string, options?: RequestOptions): Promise<{
+    data: GenerationView;
+}>;
+```
+
 ### imageSources
 
 ```typescript
@@ -76,6 +94,7 @@ readonly imageIngestions: {
 
 ```typescript
 media: {
+    capabilities: (model?: string, options?: RequestOptions) => Promise<import("./provider-capabilities.js").NativeProviderCapabilities>;
     verification: {
         create: (input: import("./media-verification.js").MediaVerificationInput, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<{
             data: import("./media-verification.js").MediaVerificationSession;
@@ -190,6 +209,7 @@ readonly video: {
         results: {
             status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>;
             retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>;
+            refresh: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>;
             delete: (id: string, options?: RequestOptions) => Promise<{
                 deleted: true;
             }>;

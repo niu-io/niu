@@ -21,16 +21,16 @@ async function open(session: AdminSession | null) {
   await userEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
 }
 
-it.each([customer, null, { ...customer, kind: 'installation', operator: null, permissions: { read: true, write: false, manage_operators: false } } as AdminSession])('does not offer Supplier administration to unauthorized sessions', async session => {
+it.each([customer, null, { ...customer, kind: 'installation', operator: null, permissions: { read: true, write: false, manage_operators: false } } as AdminSession])('does not offer Provider administration to unauthorized sessions', async session => {
   await open(session);
-  expect(screen.queryByRole('menuitem', { name: 'Suppliers' })).toBeNull();
+  expect(screen.queryByRole('menuitem', { name: 'Providers' })).toBeNull();
   expect(screen.queryByRole('menuitem', { name: 'Admin', exact: true })).toBeNull();
   expect(screen.getByRole('menuitem', { name: 'Models' })).toBeTruthy();
 });
 
-it('keeps a Supplier member linked to their own business', async () => {
-  await open({ ...customer, provider_memberships: [{ id: 'supplier-member', name: 'Demo supplier', role: 'viewer' }] });
-  expect(screen.getByRole('menuitem', { name: 'Suppliers' }).getAttribute('href')).toBe('/suppliers/supplier-member');
+it('keeps a Provider member linked to their own business', async () => {
+  await open({ ...customer, provider_memberships: [{ id: 'supplier-member', name: 'Demo provider', role: 'viewer' }] });
+  expect(screen.getByRole('menuitem', { name: 'Providers' }).getAttribute('href')).toBe('/suppliers/supplier-member');
 });
 
 it('adds administration without removing customer navigation', async () => {

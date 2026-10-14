@@ -1,5 +1,5 @@
 ---
-title: "Publish confidential agreed Supplier media purchase terms"
+title: "Publish confidential agreed Provider media purchase terms"
 description: "POST /admin/v1/providers/{provider}/media-rates"
 tableOfContents: false
 ---
@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /admin/v1/providers/{provider}/media-rates`
 
-Installation write permission only; Supplier membership and company roles do not authorize procurement configuration. Pins the Supplier's current qualified offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Supplier earning. Maximum JSON body is 128 KiB.
+Installation write permission only; Provider membership and company roles do not authorize procurement configuration. Pins the Provider's current qualified offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Provider earning. Maximum JSON body is 128 KiB.
 
 Operation: `publishSupplierMediaRate`.
 
@@ -388,7 +388,7 @@ Installation write permission required
 
 ### HTTP 409
 
-Changed revision or mismatched/unqualified Supplier route
+Changed revision or mismatched/unqualified Provider route
 
 ### HTTP 413
 
@@ -404,4 +404,4 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Installation write permission only; Supplier membership and company roles do not authorize procurement configuration. Pins the Supplier's current qualified offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Supplier earning. Maximum JSON body is 128 KiB.
+Installation write permission only; Provider membership and company roles do not authorize procurement configuration. Pins the Provider's current qualified offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Provider earning. Maximum JSON body is 128 KiB.

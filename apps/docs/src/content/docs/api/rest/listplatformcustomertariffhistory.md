@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
 
-Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Supplier procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.
+Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Provider procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.
 
 Operation: `listPlatformCustomerTariffHistory`.
 
@@ -299,6 +299,6 @@ Storage unavailable.
 
 ## Behavior and supported scope
 
-Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Supplier procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.
+Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Provider procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.
 
 **Supported scope:** implemented

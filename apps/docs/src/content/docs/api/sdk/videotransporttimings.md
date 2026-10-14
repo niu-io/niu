@@ -11,7 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 /** Result spans measure upstream retrieval, not client delivery or generation billing. */
 export type VideoTransportTimings = {
-    /** First gateway observations, not exact Supplier queue/run transitions. */
+    /** First gateway observations, not exact Provider queue/run transitions. */
     lifecycle?: VideoLifecycleTiming;
     data: Array<{
         phase: 'submission' | 'query' | 'result';

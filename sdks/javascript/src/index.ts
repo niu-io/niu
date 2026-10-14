@@ -97,23 +97,83 @@ export type ChatCompletionResponse = {
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens?: number };
 };
 
-export { NiuExecutionRecorder } from './execution.js';
-export type {
-  ExecutionCoverage,
-  ExecutionLinkKind,
-  ExecutionLinkV1,
-  ExecutionOutcomeAuthority,
-  ExecutionOutcomeResult,
-  ExecutionOutcomeV1,
-  ExternalUsageV1,
-  ExecutionRecordV1,
-  ExecutionRecorderOptions,
-  ExecutionSpanKind,
-  ExecutionSpanStatus,
-  ExecutionSpanV1,
-  ModelExecutionEvidence,
-  StartExecutionSpanOptions,
-} from './execution.js';
+export type KeyIntrospection = {
+  label: string;
+  allowed_models: string[];
+  expires_at_ms: number | null;
+  last_used_at_ms: number | null;
+  revoked: boolean;
+  expired: boolean;
+  spending_limits: Array<{
+    currency: string;
+    limit_nanos: string | null;
+    committed_nanos: string;
+    remaining_nanos: string | null;
+  }>;
+  request_rate_limit: { requests_per_minute: number | null };
+  token_rate_limit: {
+    snapshot_at: string;
+    known_tokens: string;
+    reserved_tokens: string;
+    unbounded_requests: number;
+    committed_tokens: string | null;
+    tokens_per_minute: number | null;
+  };
+  concurrency_limit: {
+    active_requests: number;
+    max_concurrent_requests: number | null;
+  };
+  token_usage_window: {
+    window_seconds: 60;
+    window_end: string;
+    requests: number;
+    known_usage_requests: number;
+    unknown_usage_requests: number;
+    known_prompt_tokens: string;
+    known_completion_tokens: string;
+  };
+  ip_policy: { allowed_cidrs: string[] | null };
+};
+
+export type GenerationView = {
+  id: string;
+  operation_id: string;
+  model: string;
+  provider_model: string | null;
+  request_kind: 'video' | 'inference';
+  created_at: string;
+  dispatched_at: string | null;
+  completed_at: string | null;
+  duration_ms: number | null;
+  execution: string;
+  usage_confidence: string;
+  tokens_prompt: string | null;
+  tokens_completion: string | null;
+  native_tokens_cached: string | null;
+  native_tokens_cache_write: string | null;
+  native_tokens_reasoning: string | null;
+  finish_reasons: Array<{ index: number; reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'function_call' }> | null;
+  timing: {
+    dispatch_ms: number | null;
+    headers_ms: number | null;
+    first_output_ms: number | null;
+    total_ms: number;
+    complete: boolean;
+    http_status: number | null;
+  } | null;
+  customer_charge: {
+    status: 'charged' | 'owner_funded' | 'pending' | 'unpriced' | 'not_charged';
+    currency: string | null;
+    amount_nanos: string | null;
+  };
+  output_guardrail_outcome: 'allowed' | 'redacted' | 'blocked' | 'indeterminate' | null;
+  failure: {
+    kind: 'upstream_http_error' | 'upstream_region_unavailable' | 'upstream_timeout'
+      | 'upstream_connection_error' | 'upstream_transport_error' | 'upstream_invalid_response' | 'response_stream_cancelled';
+    upstream_http_status: number | null;
+    transport_phase?: 'connection' | 'request' | null;
+  } | null;
+};
 
 export type ChatCompletionRequest = {
   model: string;
@@ -138,7 +198,7 @@ export type Model = {
   id: string;
   object: 'model' | string;
   owned_by?: string;
-  customer_pricing?: { revision: string; pricing_source?: 'workspace' | 'platform'; price_id?: string; standard_revision?: string; promotion_revision?: string | null; promotion_scope?: 'global' | 'customer' | null; selected_at?: string; price_version?: string; discount_baseline_revision?: string | null; currency: string; unit: 'nanounits_per_million_tokens'; context_tiers?: ContextPriceTier[]; prompt_rate: string; completion_rate: string; cached_prompt_rate?: string | null; reasoning_completion_rate?: string | null; cache_write_prompt_rate?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string } | null;
+  customer_pricing?: { pricing_source?: 'workspace' | 'platform'; promotion_scope?: 'global' | 'customer' | null; selected_at?: string; price_version?: string; currency: string; unit: 'nanounits_per_million_tokens'; context_tiers?: ContextPriceTier[]; prompt_rate: string; completion_rate: string; cached_prompt_rate?: string | null; reasoning_completion_rate?: string | null; cache_write_prompt_rate?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string } | null;
 };
 
 export type ModelList = {
@@ -215,6 +275,8 @@ export type ResponsesResponse = {
 
 export type NiuClientOptions = {
   apiKey: string;
+  /** Optional workspace API key ID when apiKey is a console session token. Sends X-Niu-Key-Id. */
+  keyId?: string;
   /** Defaults to Authorization: Bearer. Use x-niu-api-key to preserve a separate provider Authorization header. */
   credentialHeader?: NiuCredentialHeader;
   baseURL?: string;
@@ -274,7 +336,7 @@ export type VideoLifecycleTiming = {
 
 /** Result spans measure upstream retrieval, not client delivery or generation billing. */
 export type VideoTransportTimings = {
-  /** First gateway observations, not exact Supplier queue/run transitions. */
+  /** First gateway observations, not exact Provider queue/run transitions. */
   lifecycle?: VideoLifecycleTiming;
   data: Array<{ phase: 'submission' | 'query' | 'result'; started_unix_ms: number; elapsed_ms: number; outcome: 'received' | 'unavailable'; upstream_http_status?: number | null; upstream_error_code?: string | null; upstream_request_id?: string | null }>;
   has_more: boolean;
@@ -386,6 +448,19 @@ export class NiuClient {
     return this.request('/branding', undefined, options);
   }
 
+  /** Inspect the current API key's label, model grants, limits, and 60s usage window. */
+  getKey(options?: RequestOptions): Promise<{ data: KeyIntrospection }> {
+    return this.request('/key', undefined, options);
+  }
+
+  /** Retrieve token breakdown, timings, and customer charge for one generation attempt. */
+  getGeneration(id: string, options?: RequestOptions): Promise<{ data: GenerationView }> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      throw new TypeError('A canonical generation attempt UUID is required');
+    }
+    return this.request(`/generations/${encodeURIComponent(id)}`, undefined, options);
+  }
+
   readonly imageSources: {
     prepare: (input: { image: string; valid_for_seconds: number }, options?: RequestOptions) => Promise<{ data: { source_id: string; retained: true; retention_seconds: number } }>;
     erase: (id: string, options?: RequestOptions) => Promise<void>;
@@ -402,7 +477,7 @@ export class NiuClient {
     revoke: (id: string, options?: RequestOptions) => Promise<void>;
   };
   readonly media: ReturnType<typeof createMediaAssetsClient>;
-  readonly video: { generate: (input: NiuVideoGenerationInput, options?: VideoCreateOptions) => Promise<VideoJobState>; models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { wait: (id: string, options?: VideoWaitOptions) => Promise<VideoJobState>; results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; observations: (id: string, query?: VideoQueryObservationQuery, options?: RequestOptions) => Promise<VideoQueryObservationPage>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
+  readonly video: { generate: (input: NiuVideoGenerationInput, options?: VideoCreateOptions) => Promise<VideoJobState>; models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { wait: (id: string, options?: VideoWaitOptions) => Promise<VideoJobState>; results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; refresh: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; observations: (id: string, query?: VideoQueryObservationQuery, options?: RequestOptions) => Promise<VideoQueryObservationPage>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
   readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
@@ -414,6 +489,7 @@ export class NiuClient {
   };
 
   private readonly apiKey: string;
+  private readonly keyId: string | undefined;
   private readonly credentialHeader: NiuCredentialHeader;
   private readonly baseURL: string;
   private readonly requestFetch: typeof globalThis.fetch;
@@ -421,7 +497,11 @@ export class NiuClient {
 
   constructor(options: NiuClientOptions) {
     if (!options.apiKey.trim()) throw new Error('apiKey is required');
+    if (options.keyId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(options.keyId)) {
+      throw new TypeError('keyId must be a canonical UUID');
+    }
     this.apiKey = options.apiKey;
+    this.keyId = options.keyId;
     this.credentialHeader = options.credentialHeader ?? 'authorization';
     this.baseURL = (options.baseURL ?? 'http://localhost:2555/v1').replace(/\/+$/, '');
     this.requestFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
@@ -434,6 +514,9 @@ export class NiuClient {
     }, retrieve: (id, kind, requestOptions = {}) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || !['video','last_frame'].includes(kind)) throw new TypeError('A Niu video job reference and result kind are required');
       return this.send(`/video/jobs/${encodeURIComponent(id)}/results/${kind}`,undefined,requestOptions,'video/mp4,video/webm,image/png,image/jpeg');
+    }, refresh: (id, kind, requestOptions = {}) => {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || !['video','last_frame'].includes(kind)) throw new TypeError('A Niu video job reference and result kind are required');
+      return this.send(`/video/jobs/${encodeURIComponent(id)}/results/${kind}/refresh`,undefined,requestOptions,'video/mp4,video/webm,image/png,image/jpeg','POST');
     }, delete: async (id, requestOptions = {}) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new TypeError('A Niu video job reference is required');
       return await readPayload(await this.send(`/video/jobs/${encodeURIComponent(id)}/results`,undefined,requestOptions,'application/json','DELETE')) as { deleted: true };
@@ -589,6 +672,9 @@ export class NiuClient {
       if (typeof options.logPayloads !== 'boolean') throw new TypeError('logPayloads must be a boolean');
       headers.set('x-niu-log-payloads', String(options.logPayloads));
     }
+    if (this.keyId !== undefined) {
+      headers.set('x-niu-key-id', this.keyId);
+    }
     if (this.credentialHeader === 'authorization') {
       headers.set('authorization', `Bearer ${this.apiKey}`);
     } else {
@@ -703,14 +789,14 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
   }
 }
 
-export { NiuAdminClient, NiuCollectorClient, chatBranchMessages } from './admin.js';
+export { NiuAdminClient, chatBranchMessages } from './admin.js';
 export type { OperatorAccessRole, OperatorRoleUpdate, OperatorAccessView, ChatDraftPayload, ChatDraftState } from './admin.js';
 export type { OrdinaryAssetGroupDeletionConsentInput, OrdinaryAssetGroupDeletionConsentStatus, AssetManagementConfiguration, AssetManagementConfigurationInput, AssetOperationAuthorizationInput, AssetOperationAuthorization, OrdinaryAssetGroupInput, OrdinaryAssetGroupUpdateInput, OrdinaryAssetGroupUpdatePreparation, OrdinaryAssetGroupUpdateAudit, OrdinaryAssetGroupReadInput, OrdinaryAssetListingInput, OrdinaryAssetListing, OrdinaryAssetListingAudit, OrdinaryAssetLookupInput, OrdinaryAssetLookupAudit, OrdinaryAssetLookupResult } from './admin.js';
 export type { ContextPriceTier, CustomerInvoiceInput, CustomerInvoiceLine } from './admin.js';
 export type { WorkspaceSpendingAccount, WorkspaceSpendingLimit, WorkspaceSpendingLimitRevision } from './admin.js';
 export type { SupplierMediaOfferInput, SupplierMediaOfferModel, SupplierMediaRateModel, SupplierMediaRateRecord, SupplierMediaRateCard, CustomerMediaRateCard, CustomerMediaRateRecord, CustomerMediaRateModel, VideoOutputSchema, ExactMediaQuantity, MediaBillingDimensions } from './admin.js';
 export type { GuardrailPreparationDenial } from './admin.js';
-export type { SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, SupplierQualificationInput, SupplierOfferQualificationInput, NiuCollectorOptions, TenantScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, QuotaObservation, QuotaWindow, ExecutionReceipt, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
+export type { SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, WorkspaceKeyDetail, WorkspaceKeyDetailPage, WorkspaceKeyUpdateInput, WorkspaceKeySpendingLimitPatch, WorkspaceKeyRequestRateLimitPatch, WorkspaceKeyTokenRateLimitPatch, WorkspaceKeyConcurrencyLimitPatch, WorkspaceKeyIpPolicyPatch, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, SupplierQualificationInput, SupplierOfferQualificationInput, TenantScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
 
 export { NiuAuthClient } from './auth.js';
 export type { NiuAuthOptions, MemberSignIn, MemberSession } from './auth.js';

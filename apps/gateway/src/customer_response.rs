@@ -12,7 +12,7 @@ pub(crate) fn sse_event_limit(responses: bool) -> usize {
     }
 }
 
-/// Token counts remain provider evidence. Supplier prices are never customer charges.
+/// Token counts remain provider evidence. Provider prices are never customer charges.
 pub fn sanitize(value: &mut Value) -> bool {
     let mut changed = false;
     if let Some(object) = value.as_object_mut() {

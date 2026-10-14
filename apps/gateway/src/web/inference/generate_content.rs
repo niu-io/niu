@@ -466,7 +466,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///         }
 ///       },
 ///       "413": {
-///         "description": "Body exceeds 64 KiB",
+///         "description": "Body exceeds 1 MiB",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -681,6 +681,9 @@ pub(in crate::web) async fn generate_content(
 ) -> Response {
     let result = match input {
         Ok(Json(body)) => execute(&state, &headers, &action, body).await,
+        Err(rejection) if rejection.status() == axum::http::StatusCode::PAYLOAD_TOO_LARGE => {
+            Err(ApiError::request_too_large())
+        }
         Err(_) => Err(ApiError::invalid_request(
             "Expected a bounded GenerateContent JSON request",
         )),

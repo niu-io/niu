@@ -1,5 +1,5 @@
 ---
-title: "List Supplier API-key configurations without credentials"
+title: "List Provider API-key configurations without credentials"
 description: "GET /admin/v1/vendors"
 tableOfContents: false
 ---
@@ -37,7 +37,7 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/vendors" \
 
 ### supplier
 
-Location: **query**. Optional. Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required. A missing or deleted Supplier returns 404; an active Supplier without configurations returns an empty data array.
+Location: **query**. Optional. Filter by explicit Provider business ownership; no name matching or unassociated fallback. Platform administration is required. A missing or deleted Provider returns 404; an active Provider without configurations returns an empty data array.
 
 ```json
 {
@@ -121,7 +121,7 @@ Content type: `application/json`.
               "object",
               "null"
             ],
-            "description": "Supplier ownership on configuration-list reads; credentials and commercial data are excluded.",
+            "description": "Provider ownership on configuration-list reads; credentials and commercial data are excluded.",
             "required": [
               "id",
               "name"
@@ -154,7 +154,7 @@ Platform administration permission required.
 
 ### HTTP 404
 
-Selected Supplier does not exist or has been deleted.
+Selected Provider does not exist or has been deleted.
 
 ## Behavior and supported scope
 

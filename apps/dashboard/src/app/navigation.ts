@@ -12,7 +12,7 @@ import { IconUsers as UsersRound } from "@tabler/icons-react";
 import { IconPlugConnected as SupplierConnection } from "@tabler/icons-react";
 import type { TablerIcon } from "@tabler/icons-react";
 
-export type Destination = 'Organization' | 'Global' | 'Workspace' | 'Models' | 'Administration' | 'Suppliers' | 'Settings';
+export type Destination = 'Organization' | 'Global' | 'Workspace' | 'Models' | 'Administration' | 'Providers' | 'Settings';
 
 export const navigation: Array<{ to: string; label: string; icon: TablerIcon; destination: Destination }> = [
   { destination: 'Settings', to: '/settings', label: 'Settings', icon: IconSettings },
@@ -28,7 +28,7 @@ export const navigation: Array<{ to: string; label: string; icon: TablerIcon; de
   { destination: 'Workspace', to: 'usage', label: 'Activity', icon: ChartNoAxesCombined },
   { destination: 'Workspace', to: 'billing', label: 'Billing', icon: CreditCard },
   { destination: 'Administration', to: '/admin', label: 'Admin', icon: IconShieldLock },
-  { destination: 'Suppliers', to: '/suppliers', label: 'Suppliers', icon: SupplierConnection },
+  { destination: 'Providers', to: '/suppliers', label: 'Providers', icon: SupplierConnection },
   { destination: 'Workspace', to: 'users', label: 'Users', icon: UsersRound },
   { destination: 'Workspace', to: 'settings', label: 'Settings', icon: IconSettings },
 ];

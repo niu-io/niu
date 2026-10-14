@@ -54,7 +54,7 @@ describe('saved account appearance', () => {
     act(()=>{saveTheme('dark');saveTheme('light');});
     expect(writes).toBe(1);
     await act(async()=>{complete(Response.json({data:{color_mode:'dark'}}));});
-    await waitFor(()=>expect(view.result.current.error).toContain('previous mode'));
+    await waitFor(()=>expect(view.result.current.error).toContain('confirm your saved color mode'));
     expect(writes).toBe(2);
     expect(readTheme()).toBe('dark');
     expect(JSON.parse(String(fetcher.mock.calls[2][1]?.body))).toEqual({color_mode:'light'});

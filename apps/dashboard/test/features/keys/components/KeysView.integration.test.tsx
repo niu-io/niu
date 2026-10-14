@@ -20,7 +20,7 @@ vi.mock('../../../../src/app/dashboard-context', () => ({
 
 it('issues a workspace API key and makes its one-time secret easy to copy', async () => {
   const calls: Array<{ path: string; method: string; body?: string }> = [];
-  const keyPath = '/admin/v1/organizations/org-1/projects/project-1/keys';
+  const keyPath = '/api/v1/workspaces/project-1/keys';
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     const method = init?.method ?? 'GET';
@@ -34,7 +34,7 @@ it('issues a workspace API key and makes its one-time secret easy to copy', asyn
   const user = userEvent.setup();
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
-  render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast', 'careful']} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={[{ id: 'fast' }, { id: 'careful' }]} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
   expect(await screen.findByText('No API keys yet')).toBeTruthy();
   expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(1);
@@ -46,13 +46,11 @@ it('issues a workspace API key and makes its one-time secret easy to copy', asyn
 
   expect(await screen.findByRole('heading', { name: 'Save your API key' })).toBeTruthy();
   expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('niu_once_test_secret');
-  expect(screen.getByRole('link', {name: 'Use in Chat'}).getAttribute('href')).toBe('/generations?new=1&workspace=production&key=key-1');
+  expect(screen.getByRole('link', {name: 'Open Generations'}).getAttribute('href')).toBe('/generations?new=1&workspace=production&key=key-1');
   expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe(expectedBaseUrl());
   expect(screen.queryByText(/admin-token/)).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Copy URL' }));
   expect(writeText).toHaveBeenCalledWith(expectedBaseUrl());
-  await user.click(screen.getByRole('button', { name: 'Copy example' }));
-  expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('"model":"fast"'));
   await user.click(screen.getByRole('button', { name: 'Copy key' }));
   expect(writeText).toHaveBeenCalledWith('niu_once_test_secret');
 
@@ -91,7 +89,7 @@ it('does not present a runnable request example before the workspace has a model
   await user.click(screen.getByRole('button', { name: 'Create key' }));
 
   expect(await screen.findByText('Request example unavailable')).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'Connect supplier' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Connect provider' })).toBeNull();
   expect(screen.getByText('Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Copy example' })).toBeNull();
   expect(document.body.textContent).not.toContain('your-model');

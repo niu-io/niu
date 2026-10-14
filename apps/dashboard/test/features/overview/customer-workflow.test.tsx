@@ -17,15 +17,15 @@ describe('customer model workflow', () => {
       session: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } },
     } as unknown as DashboardContext;
     const { container } = render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
-    expect(screen.getByRole('link', { name: 'Connect supplier' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Connect supplier' }).getAttribute('href')).toBe('/admin/suppliers');
+    expect(screen.getByRole('link', { name: 'Connect provider' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Connect provider' }).getAttribute('href')).toBe('/admin/suppliers');
   });
-  it('allows a user account with platform administration permissions to connect a Supplier', () => {
+  it('allows a user account with platform administration permissions to connect a Provider', () => {
     fixture.context = {token: 'test-session', models: [], workspace: null,
       session: {kind: 'operator', permissions: {platform_admin: true, manage_operators: true}},
     } as unknown as DashboardContext;
     render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
-    expect(screen.getByRole('link', {name: 'Connect supplier'}).getAttribute('href')).toBe('/admin/suppliers');
+    expect(screen.getByRole('link', {name: 'Connect provider'}).getAttribute('href')).toBe('/admin/suppliers');
   });
   it('keeps operator setup in the model catalog instead of upstream configuration', () => {
     fixture.context = {

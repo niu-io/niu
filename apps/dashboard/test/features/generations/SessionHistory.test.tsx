@@ -9,27 +9,26 @@ const a={id:'11111111-1111-4111-8111-111111111111',organization_id:'22222222-222
 const b={...a,id:'33333333-3333-4333-8333-333333333333',name:'B'};
 const context={token:'member',workspace:a,workspaces:[a,b]} as DashboardContext;
 afterEach(()=>vi.unstubAllGlobals());
-it('merges saved chat and video sessions across accessible workspaces and preserves original key links and pagination',async()=>{
+it('merges saved chat and video sessions across accessible workspaces and preserves pagination',async()=>{
  const calls:string[]=[];
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
   calls.push(path);
   if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
   if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'chat-b',title:'Other workspace conversation',prompt:'B',createdAt:200}]});
-  if(path.endsWith('/keys'))return Response.json({data:[{id:path.includes(a.id)?'key-a':'key-b',revoked:false,expired:false}]});
-  if(path.includes('key-b/video/jobs'))return Response.json({data:[],has_more:false,next_before:null});
-  if(path.includes('before='))return Response.json({data:[{id:'older-video',model:'Older model',status:'succeeded',created_at_ms:'50'}],has_more:false,next_before:null});
-  return Response.json({data:[{id:'video-a',model:'Video model',status:'succeeded',created_at_ms:'300'}],has_more:true,next_before:'cursor'});
+  if(path.includes(`${b.id}/generations/tasks`))return Response.json({data:[],has_more:false,next_cursor:null});
+  if(path.includes('cursor=cursor'))return Response.json({data:[{id:'older-video',kind:'video',model:'Older model',state:'succeeded',created_at:new Date(50).toISOString(),updated_at:new Date(50).toISOString()}],has_more:false,next_cursor:null});
+  return Response.json({data:[{id:'video-a',kind:'video',model:'Video model',state:'succeeded',created_at:new Date(300).toISOString(),updated_at:new Date(300).toISOString()}],has_more:true,next_cursor:'cursor'});
  }));
  const open=vi.fn();
  render(<MemoryRouter><SidebarProvider><SessionHistory context={context} chats={[{id:'chat-a',title:'Current conversation',prompt:'A',createdAt:100}]} onChat={open}/></SidebarProvider></MemoryRouter>);
  const video=await screen.findByRole('link',{name:'Video · Video model'});
- expect(video.getAttribute('href')).toContain('key=key-a');
+ expect(video.getAttribute('href')).toContain('job=video-a');
  expect(video.getAttribute('href')).toContain(`workspace=${a.id}`);
  expect(screen.getByRole('link',{name:'Other workspace conversation'}).getAttribute('href')).toContain(`workspace=${b.id}`);
  await userEvent.click(screen.getByRole('link',{name:'Current conversation'}));expect(open).toHaveBeenCalledWith('chat-a');
  await userEvent.click(screen.getByRole('button',{name:'Load more sessions'}));
  await screen.findByRole('link',{name:'Video · Older model'});
- expect(calls.some(path=>path.includes('key-a/video/jobs?limit=25&before=cursor'))).toBe(true);
+ expect(calls.some(path=>path.includes('/generations/tasks?kind=video&cursor=cursor&limit=25'))).toBe(true);
  expect(screen.queryByRole('button',{name:'Load more sessions'})).toBeNull();
  expect(screen.queryByRole('alert')).toBeNull();
 } );
@@ -38,8 +37,8 @@ it('discards history that resolves after the account and workspace change',async
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
   if(path.includes(a.id)&&path.endsWith('/chat-sessions'))return new Promise<Response>(resolve=>{finish=resolve;});
   if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.includes('/generations/tasks'))return Response.json({data:[],has_more:false,next_cursor:null});
   if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'current',title:'Current account session',prompt:'',createdAt:100}]});
-  if(path.endsWith('/keys'))return Response.json({data:[]});
   throw new Error('Unexpected request');
  }));
  const tree=(ctx:DashboardContext)=><MemoryRouter><SidebarProvider><SessionHistory context={ctx}/></SidebarProvider></MemoryRouter>;
@@ -51,19 +50,17 @@ it('discards history that resolves after the account and workspace change',async
  expect(screen.queryByText('Previous account session')).toBeNull();
  expect(screen.getByRole('link',{name:'Current account session'})).toBeTruthy();
 });
-it('keeps available chat and video history when earlier workspaces or individual keys fail',async()=>{
+it('keeps available chat and video history when earlier workspaces fail',async()=>{
  const workspaces=['bad1','bad2','bad3','bad4','good'].map((name,index)=>({...a,id:`00000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,name}));
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
   if(!path.includes(workspaces[4].id))return Response.json({error:{message:'Unavailable'}},{status:403});
   if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
   if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'available-chat',title:'Available conversation',prompt:'',createdAt:100}]});
-  if(path.endsWith('/keys'))return Response.json({data:[{id:'bad-key',revoked:false,expired:false},{id:'good-key',revoked:false,expired:false}]});
-  if(path.includes('/bad-key/'))return Response.json({error:{message:'Unavailable'}},{status:403});
-  return Response.json({data:[{id:'available-video',model:'Available video',status:'succeeded',created_at_ms:'200'}],has_more:false});
+  return Response.json({data:[{id:'available-video',kind:'video',model:'Available video',state:'succeeded',created_at:new Date(200).toISOString(),updated_at:new Date(200).toISOString()}],has_more:false,next_cursor:null});
  }));
  render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspace:workspaces[0],workspaces}}/></SidebarProvider></MemoryRouter>);
  await screen.findByRole('link',{name:'Available conversation'});
- expect(screen.getByRole('link',{name:'Video · Available video'}).getAttribute('href')).toContain('key=good-key');
+ expect(screen.getByRole('link',{name:'Video · Available video'}).getAttribute('href')).toContain('job=available-video');
  expect(screen.getByRole('alert').textContent).toBe('Some sessions could not be loaded.');
  expect(screen.queryByText('No sessions yet')).toBeNull();
 });
@@ -72,11 +69,10 @@ it('aborts pagination and rejects an old page after leaving and returning to the
  let finish!:(value:Response)=>void;
  let signal:AbortSignal|undefined;
  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
-  if(path.includes('before=')){signal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});}
+  if(path.includes('cursor=')){signal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});}
   if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
   if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
-  if(path.endsWith('/keys'))return Response.json({data:[{id:'history-key',revoked:false,expired:false}]});
-  return Response.json({data:[],has_more:path.includes(a.id),next_before:'cursor'});
+  return Response.json({data:[],has_more:path.includes(a.id),next_cursor:path.includes(a.id)?'cursor':null});
  }));
  const tree=(workspace:typeof a)=><MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspace,workspaces:[workspace]}}/></SidebarProvider></MemoryRouter>;
  const view=render(tree(a));
@@ -85,7 +81,7 @@ it('aborts pagination and rejects an old page after leaving and returning to the
  view.rerender(tree(b));expect(signal?.aborted).toBe(true);
  await waitFor(()=>expect(screen.getByText('No sessions yet')).toBeTruthy());
  view.rerender(tree(a));await screen.findByRole('button',{name:'Load more sessions'});
- await act(async()=>finish(Response.json({data:[{id:'old-page',model:'Outdated video',status:'queued',created_at_ms:'200'}],has_more:false})));
+ await act(async()=>finish(Response.json({data:[{id:'old-page',kind:'video',model:'Outdated video',state:'queued',created_at:new Date(200).toISOString(),updated_at:new Date(200).toISOString()}],has_more:false,next_cursor:null})));
  expect(screen.queryByRole('link',{name:'Video · Outdated video'})).toBeNull();
  expect(screen.getByRole('button',{name:'Load more sessions'})).toBeTruthy();
 });

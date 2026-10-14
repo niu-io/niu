@@ -46,6 +46,7 @@ function stubOperatorApi(options: {
 } = {}) {
   const calls: Array<{ path: string; method: string; body?: unknown }> = [];
   const sessions = new Map<string, ReturnType<typeof session>[]>();
+  const operators = [...(options.existing ?? [])];
   let issuedCount = 0;
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const path = String(input);
@@ -60,7 +61,7 @@ function stubOperatorApi(options: {
       return jsonResponse({ data: [project] });
     }
     if (path === '/admin/v1/operators' && method === 'GET') {
-      return jsonResponse({ data: options.existing ?? [] });
+      return jsonResponse({ data: operators });
     }
     if (path.startsWith('/admin/v1/operators/') && path.endsWith('/sessions') && method === 'GET') {
       const id = path.split('/')[4];
@@ -105,6 +106,7 @@ function stubOperatorApi(options: {
       };
       const createdSession = session('session-new', created.id);
       sessions.set(created.id, [createdSession]);
+      operators.unshift(created);
       return jsonResponse({ operator: created, session: createdSession, token: 'niu_once_new_operator_token' }, 201);
     }
     if (path.endsWith('/sessions') && method === 'POST') {

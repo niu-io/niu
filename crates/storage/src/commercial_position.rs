@@ -1,5 +1,5 @@
 //! Installation-only commercial projection. Authorization is enforced by the
-//! HTTP boundary; no customer or Supplier-member handler may reuse this read.
+//! HTTP boundary; no customer or Provider-member handler may reuse this read.
 use crate::{Store, StoreError};
 use serde_json::Value;
 

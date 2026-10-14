@@ -1,5 +1,5 @@
 ---
-title: "Read this Supplier's agreed media purchase schedules"
+title: "Read this Provider's agreed media purchase schedules"
 description: "GET /admin/v1/providers/{provider}/media-rates"
 tableOfContents: false
 ---
@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/providers/{provider}/media-rates`
 
-Installation read access or active membership of this exact Supplier only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
+Installation read access or active membership of this exact Provider only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
 
 Operation: `listSupplierMediaRates`.
 
@@ -416,7 +416,7 @@ Valid management session required
 
 ### HTTP 404
 
-No active membership for this Supplier
+No active membership for this Provider
 
 ### HTTP 503
 
@@ -424,4 +424,4 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Installation read access or active membership of this exact Supplier only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
+Installation read access or active membership of this exact Provider only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.

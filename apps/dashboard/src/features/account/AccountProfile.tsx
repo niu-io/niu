@@ -38,7 +38,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
       if (read.signal.aborted) return;
       if (!validProfile(result.data)) throw new Error('Invalid profile response');
       setProfile(result.data);setName(result.data.name);setAvatar(result.data.avatar_data_url);
-      setConflict(false);setUnconfirmed(false);onSavedRef.current(result.data);
+      setConflict(false);setUnconfirmed(false);if (revision > 0) onSavedRef.current(result.data);
     }).catch(()=>{if (!read.signal.aborted) {setLoadFailed(true);setError('Could not load your profile. Try again.');}})
       .finally(()=>{if (!read.signal.aborted) setLoading(false);});
     return ()=>{read.abort();controller.current?.abort();};

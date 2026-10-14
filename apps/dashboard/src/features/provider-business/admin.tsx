@@ -72,12 +72,12 @@ export default function ProviderAdministration() {
   if (!(session?.kind === "installation" || session?.permissions.platform_admin))
     return (
       <>
-        <PageHeader title="Suppliers" />
+        <PageHeader title="Providers" />
         <section className="panel provider-access-message">
           <ShieldCheck />
-          <h2>Supplier access required</h2>
+          <h2>Provider access required</h2>
           <p>
-            Supplier membership and agreed rates are controlled by installation
+            Provider membership and agreed rates are controlled by installation
             administration.
           </p>
         </section>
@@ -334,7 +334,7 @@ function Administration({ token }: { token: string }) {
     members: "Portal access",
     models: "Models & pricing",
     settlements: "Settlements",
-  }[section] ?? "Suppliers";
+  }[section] ?? "Providers";
   const sectionAction =
     section === "members" ? (
       <Button variant="outline" className="header-icon-action" aria-label="Manage portal access" title="Manage portal access" disabled={!data} onClick={() => open("membership")}>
@@ -376,7 +376,7 @@ function Administration({ token }: { token: string }) {
         ? reviewExpiryMilliseconds(validUntil)
         : undefined;
       if (dialog === "membership" && !accounts.some(account => account.id === operator))
-        throw new Error("Choose an account to manage Supplier access.");
+        throw new Error("Choose an account to manage Provider access.");
       if (dialog === "membership")
         await request(
           token,
@@ -458,7 +458,7 @@ function Administration({ token }: { token: string }) {
           ? "Qualification review recorded. No discount or model-equivalence claim is implied."
           : dialog === "supplier-revocation" || dialog === "offer-revocation"
             ? "Qualification review revoked; affected offers are paused."
-            : "Supplier configuration saved.");
+            : "Provider configuration saved.");
       setDialog("");
       setRevision((value) => value + 1);
     } catch (reason) {
@@ -484,15 +484,15 @@ function Administration({ token }: { token: string }) {
       // a second creation of the already persisted business/configuration.
       setDialog("");
       setSearch(current => { current.delete("create"); return current; }, { replace: true });
-      setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : "Supplier created. Add models and agreed rates to continue setup.");
-      const ownership = await request<{ data: { id: string } }>(token, `/admin/v1/vendors/${encodeURIComponent(created.data.id)}/supplier`, "GET");
+      setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
+      const ownership = await request<{ data: { id: string } }>(token, `/admin/v1/vendors/${encodeURIComponent(created.data.id)}/provider`, "GET");
       setSelected(ownership.data.id);
     } catch (reason) {
-      setError(committed ? "API key saved, but Supplier details could not be opened. Refresh the Supplier list." : reason instanceof Error ? reason.message : "Supplier could not be created.");
+      setError(committed ? "API key saved, but Provider details could not be opened. Refresh the Provider list." : reason instanceof Error ? reason.message : "Provider could not be created.");
       if (!committed && writeMayHaveCommitted(reason)) {
         setDialog("");
         setSearch(current => { current.delete("create"); return current; }, { replace: true });
-        setError("Supplier creation could not be confirmed. Refresh the Supplier list before creating another key; the previous request may have saved it.");
+        setError("Provider creation could not be confirmed. Refresh the Provider list before creating another key; the previous request may have saved it.");
       } else if (!committed) throw reason;
     } finally {
       if (committed) setRevision(value => value + 1);
@@ -501,10 +501,10 @@ function Administration({ token }: { token: string }) {
   }
   const sectionDescription = {
     overview: 'Connect API access and model routes, then manage commercial rates and payments.',
-    models: 'Agreed purchase rates and qualification for the models this supplier offers.',
-    consumption: 'Supplier usage and accrued purchase charges over the last 90 days.',
-    settlements: 'Outstanding balances and confirmed payments to this supplier.',
-    members: 'Grant supplier representatives access to their own offers, usage, earnings, and payments.',
+    models: 'Agreed purchase rates and qualification for the models this provider offers.',
+    consumption: 'Provider usage and accrued purchase charges over the last 90 days.',
+    settlements: 'Outstanding balances and confirmed payments to this provider.',
+    members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
   }[section];
   return (
     <>
@@ -526,14 +526,14 @@ function Administration({ token }: { token: string }) {
           {error} <Button variant="ghost" size="sm" onClick={() => { setError(""); setRevision(value => value + 1); }}>Retry</Button>
         </p>
       )}
-      {loading || (selected && !data && !error) ? <section className="panel provider-access-message" role="status">Loading suppliers…</section> : error && !data ? null : businesses.length === 0 ? (
+      {loading || (selected && !data && !error) ? <section className="panel provider-access-message" role="status">Loading providers…</section> : error && !data ? null : businesses.length === 0 ? (
         <section className="panel provider-access-message">
           <Building2 size={28} aria-hidden="true" />
-          <h2>No suppliers yet</h2>
+          <h2>No providers yet</h2>
           <p>
-            Add a supplier to manage its models, pricing, and payments.
+            Add a provider to manage its models, pricing, and payments.
           </p>
-          <Button onClick={() => open("create")}><Plus size={16} />Add supplier</Button>
+          <Button onClick={() => open("create")}><Plus size={16} />Add provider</Button>
         </section>
       ) : (
         <section className="provider-admin-panel supplier-admin-surface" data-section={section}>
@@ -545,7 +545,7 @@ function Administration({ token }: { token: string }) {
               <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/suppliers/${selected}/configuration`}>Configure models</Link></Button></TableCell></TableRow>
               <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Managed by workspace</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Customer pricing</Link></Button></TableCell></TableRow>
             </TableBody></ShadcnTable>
-            <p className="px-6 pt-4 text-sm text-muted-foreground">Supplier portal access is optional. It lets Supplier representatives view their own business records; it does not connect an API key.</p>
+            <p className="px-6 pt-4 text-sm text-muted-foreground">Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.</p>
           </div>}
           {section === "members" && members.length > 0 && <div className="provider-members-summary">
             <IconUsers size={20} aria-hidden="true" />
@@ -558,7 +558,7 @@ function Administration({ token }: { token: string }) {
               <TableCell>{member.name || "Unnamed account"}</TableCell><TableCell>{member.role === "manager" ? "Manager" : "Viewer"}</TableCell><TableCell>{member.revoked ? "Account revoked" : member.active ? "Active" : "Revoked"}</TableCell>
               <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={`Edit access for ${member.name || "unnamed account"}`} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>Edit access</Button></TableCell>
             </TableRow>)}</TableBody>
-          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No supplier portal access granted</EmptyTitle><EmptyDescription>API keys and model routes work without portal access.</EmptyDescription></EmptyHeader></Empty>)}
+          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No provider portal access granted</EmptyTitle><EmptyDescription>API keys and model routes work without portal access.</EmptyDescription></EmptyHeader></Empty>)}
           {section === "overview" && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>Model offers</h2><Button asChild variant="ghost"><Link to={`/admin/suppliers/${encodeURIComponent(selected)}/models`}>Models & pricing</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
@@ -570,24 +570,24 @@ function Administration({ token }: { token: string }) {
           {(section === "overview" || section === "models") && <>
           <div className={section === "models" ? "supplier-qualification-strip" : "provider-admin-block"}>
             <div className="provider-admin-section-heading">
-              <h2>{section === "models" ? "Supply readiness" : "Supplier qualification"}</h2>
+              <h2>{section === "models" ? "Supply readiness" : "Provider qualification"}</h2>
               <Badge variant={supplierQualified ? "default" : "secondary"}>
                 {supplierQualified ? "Qualified" : "Qualification required"}
               </Badge>
             </div>
             <div className="provider-qualification-content">
-              <p>{section === "models" ? "Supplier qualification and an offer review are required before activation." : "Review supply rights, capabilities, and data handling before enabling offers. Model offers and their agreed rates are reviewed separately."}</p>
+              <p>{section === "models" ? "Provider qualification and an offer review are required before activation." : "Review supply rights, capabilities, and data handling before enabling offers. Model offers and their agreed rates are reviewed separately."}</p>
               <div className="provider-qualification-actions">
-                <Button variant="outline" onClick={() => open("supplier-qualification")}>Review Supplier</Button>
+                <Button variant="outline" onClick={() => open("supplier-qualification")}>Review Provider</Button>
                 {supplierQualified && <Button variant="outline" onClick={() => open("supplier-revocation")}>Revoke review</Button>}
               </div>
             </div>
           </div>
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {section === "models" && <TabsList variant="line" className="mx-6 mb-4" aria-label="Supplier pricing category"><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
+            {section === "models" && <TabsList variant="line" className="mx-6 mb-4" aria-label="Provider pricing category"><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
             <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="px-6 pb-4"><div className="flex min-w-0 w-full max-w-sm items-center gap-2"><IconFilter size={17} className="shrink-0"/><Input ref={offerSearch} aria-label="Filter supplier models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
+            {section === "models" && Boolean(textOffers.length) && <div className="px-6 pb-4"><div className="flex min-w-0 w-full max-w-sm items-center gap-2"><IconFilter size={17} className="shrink-0"/><Input ref={offerSearch} aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
               visibleOffers.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle>No matching models</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>Clear search</Button></EmptyContent></Empty> :
               <div className="table-wrap">
@@ -646,13 +646,13 @@ function Administration({ token }: { token: string }) {
           </div>}
           </>}
           {(section === "overview" || section === "settlements") && <div className="provider-admin-block">
-            <div className="provider-admin-section-heading"><h2>Supplier payables</h2></div>
+            <div className="provider-admin-section-heading"><h2>Provider payables</h2></div>
             <div className="provider-balance-list">
               {data?.balances?.length ? data.balances.map(balance => <div className="provider-balance-row" key={balance.currency}>
                 <div><span>Accrued · {balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
                 <div><span>Unpaid</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
                 <div><span>Paid</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
-              </div>) : <p className="provider-inline-empty">No supplier charges recorded yet.</p>}
+              </div>) : <p className="provider-inline-empty">No provider charges recorded yet.</p>}
             </div>
           </div>}
           {section === "consumption" && <>
@@ -682,17 +682,17 @@ function Administration({ token }: { token: string }) {
         <DialogHeader className="niu-modal-heading flex-row items-start justify-between text-left">
           <div><DialogTitle>{
           {
-            create: "New supplier",
-            properties: "Supplier properties",
-            membership: "Manage supplier portal access",
+            create: "New provider",
+            properties: "Provider properties",
+            membership: "Manage provider portal access",
             offer: offerId ? "Edit agreed rates" : "Set agreed rates",
             settlement: "Record a confirmed external payment",
-            "supplier-qualification": "Review Supplier qualification",
+            "supplier-qualification": "Review Provider qualification",
             "offer-qualification": "Review offer qualification",
-            "supplier-revocation": "Revoke Supplier qualification",
+            "supplier-revocation": "Revoke Provider qualification",
             "offer-revocation": "Revoke offer qualification",
           }[dialog] ?? ""
-        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? "Manage account access to this supplier portal." : dialog === "offer" ? "Supplier payments for model usage." : dialog.includes("qualification") || dialog.includes("revocation") ? "Installation-only evidence review" : "Supplier management"}</DialogDescription></div>
+        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? "Manage account access to this provider portal." : dialog === "offer" ? "Provider payments for model usage." : dialog.includes("qualification") || dialog.includes("revocation") ? "Installation-only evidence review" : "Provider management"}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
         </DialogHeader>
         {error && (
@@ -720,7 +720,7 @@ function Administration({ token }: { token: string }) {
                 {!accountsLoading && !accounts.length && !error && <p>No active accounts available.</p>}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="supplier-member-role">Supplier role</Label>
+                <Label htmlFor="supplier-member-role">Provider role</Label>
                 <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-role" aria-describedby="supplier-member-role-help" variant="outline" className="w-full justify-between font-normal">{role === "viewer" ? "Viewer" : "Manager"}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={role} onValueChange={setRole}>
                     <DropdownMenuRadioItem value="viewer">Viewer</DropdownMenuRadioItem>
@@ -739,7 +739,7 @@ function Administration({ token }: { token: string }) {
                 </DropdownMenu>
               </div>
               <p>
-                Only grant access to an approved supplier member. Customer
+                Only grant access to an approved provider member. Customer
                 workspace roles do not grant this access automatically.
               </p>
             </>
@@ -929,7 +929,7 @@ function Administration({ token }: { token: string }) {
             <p>The current rate revision is attached automatically. Its internal reference is not displayed. A qualified status is not a claim of model equivalence or discount.</p>
           </>}
           {(dialog === "supplier-revocation" || dialog === "offer-revocation") && <>
-            <p>{dialog === "supplier-revocation" ? "Revoking this Supplier review pauses all of its offers." : "Revoking this offer review pauses this offer."} Store the detailed reason in the confidential procurement system; Niu records only its SHA-256 fingerprint.</p>
+            <p>{dialog === "supplier-revocation" ? "Revoking this Provider review pauses all of its offers." : "Revoking this offer review pauses this offer."} Store the detailed reason in the confidential procurement system; Niu records only its SHA-256 fingerprint.</p>
             <Label htmlFor="qualification-revocation-reason">Revocation reason SHA-256</Label>
             <Input id="qualification-revocation-reason" required pattern={sha256Pattern} maxLength={64} minLength={64} autoComplete="off" placeholder="64 lowercase hexadecimal characters" value={revocationReasonHash} onChange={event => setRevocationReasonHash(event.target.value)} />
           </>}

@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /v1/video/models`
 
-Current workspace key grants, Supplier availability, personal ownership and video-compatible Guardrails apply. Omits unsupported channels/meters, callback controls and media-reference inputs. Returns only mapped output choices without credentials, upstream mappings, revisions or procurement prices. This read makes no upstream calls and does not guarantee tariffs, funds or future admission; estimate and submission recheck those independently.
+Current workspace key grants, Provider availability, personal ownership and video-compatible Guardrails apply. Omits unsupported channels/meters, callback controls and media-reference inputs. Returns only mapped output choices without credentials, upstream mappings, revisions or procurement prices. This read makes no upstream calls and does not guarantee tariffs, funds or future admission; estimate and submission recheck those independently.
 
 Operation: `listVideoModels`.
 
@@ -537,4 +537,4 @@ Workspace permission denied
 
 ## Behavior and supported scope
 
-Current workspace key grants, Supplier availability, personal ownership and video-compatible Guardrails apply. Omits unsupported channels/meters, callback controls and media-reference inputs. Returns only mapped output choices without credentials, upstream mappings, revisions or procurement prices. This read makes no upstream calls and does not guarantee tariffs, funds or future admission; estimate and submission recheck those independently.
+Current workspace key grants, Provider availability, personal ownership and video-compatible Guardrails apply. Omits unsupported channels/meters, callback controls and media-reference inputs. Returns only mapped output choices without credentials, upstream mappings, revisions or procurement prices. This read makes no upstream calls and does not guarantee tariffs, funds or future admission; estimate and submission recheck those independently.

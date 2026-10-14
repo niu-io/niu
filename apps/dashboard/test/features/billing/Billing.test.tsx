@@ -411,7 +411,7 @@ describe('customer cached-input billing evidence', () => {
   it.each([
     ['123456789', 'USD 0.123456789'],
     ['0', 'USD 0.00'],
-    [null, 'Input rate'],
+    [null, 'Not configured'],
   ])('uses only the published cached customer rate (%s)', async (cachedRate, expected) => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: { ...data, tariffs: [{model_alias:'qwen/text',revision:'private-revision',currency:'USD',prompt_rate:'1000000000',completion_rate:'2000000000',cached_prompt_rate:cachedRate,supplier_cost:'999999999'}] } })));
     setup('operator', '/billing?tab=rates');
@@ -507,7 +507,7 @@ describe('customer media statement pagination', () => {
   const row = await screen.findByRole('row',{name:/exact\/model/});
   expect(within(row).getByText('USD 9007199.254740993')).toBeTruthy();
   expect(within(row).getByText('USD 0.00')).toBeTruthy();
-  expect(within(screen.getByRole('row',{name:/legacy\/model/})).getAllByText('Unknown')).toHaveLength(2);
+  expect(within(screen.getByRole('row',{name:/legacy\/model/})).getAllByText('Unknown')).toHaveLength(5);
  });
 
 it('pages complete statement history, preserves rows on failure and refreshes latest', async () => {

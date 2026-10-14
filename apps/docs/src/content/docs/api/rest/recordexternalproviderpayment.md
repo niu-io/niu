@@ -1,5 +1,5 @@
 ---
-title: "Record an already completed external Supplier payment"
+title: "Record an already completed external Provider payment"
 description: "POST /admin/v1/providers/{provider}/settlements"
 tableOfContents: false
 ---
@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /admin/v1/providers/{provider}/settlements`
 
-Platform administration required; Supplier membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Supplier, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Supplier qualification is created.
+Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.
 
 Operation: `recordExternalProviderPayment`.
 
@@ -147,7 +147,7 @@ Platform administration required.
 
 ### HTTP 409
 
-Supplier or earnings unavailable, changed replay, or duplicate payment reference.
+Provider or earnings unavailable, changed replay, or duplicate payment reference.
 
 ### HTTP 503
 
@@ -155,6 +155,6 @@ Storage unavailable.
 
 ## Behavior and supported scope
 
-Platform administration required; Supplier membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Supplier, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Supplier qualification is created.
+Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.
 
 **Supported scope:** implemented

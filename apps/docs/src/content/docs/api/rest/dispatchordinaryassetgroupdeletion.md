@@ -146,7 +146,7 @@ Platform administrator required.
 
 ### HTTP 404
 
-Consent does not belong to this workspace and Supplier configuration.
+Consent does not belong to this workspace and Provider configuration.
 
 ### HTTP 409
 

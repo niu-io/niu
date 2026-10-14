@@ -10,7 +10,7 @@ PostgreSQL is the only required external service. The gateway applies its own mi
 
 The process serves inference, management APIs, member sessions, health checks, static files, and in-process recovery. Static files are built artifacts read from disk (`NIU_SITE_DIR`, `NIU_DOCS_DIR`, `NIU_CATALOG_DIR`, `NIU_DASHBOARD_DIR`). They do not use the database. Serving them from this process does not justify splitting domains. A CDN in front of the same host can cache public files; the gateway remains the origin for `/v1/`, `/admin/v1/`, `/catalog/v1/`, and payment callbacks.
 
-Enterprise, when composed, keeps this listener as the only public bind. Private modules use build-time manifests and Unix sockets. See [Enterprise composition](docs/architecture/enterprise-composition.md) and [repository ownership](docs/architecture/repository-ownership.md).
+Cloud (`niu-io/cloud`) and self-hosted Enterprise (`niu-io/enterprise`) distributions keep this listener as the only public bind, composing built-in open-source plugins (`niu/plugins/*`) and private commercial/enterprise plugins (`niu-io/plugins`) through build-time manifests and Unix sockets. See [Plugin composition, Cloud SaaS, and Enterprise distributions](docs/architecture/enterprise-composition.md) and [repository ownership](docs/architecture/repository-ownership.md).
 
 ## Layout
 
@@ -179,9 +179,9 @@ establish these properties for a published registry.
 | Route pools and failover limits | [model routing](docs/architecture/model-routing-evolution.md) |
 | Customer charges, prepaid balance, invoices | [billing](docs/architecture/billing.md) |
 | Supplier earnings | [Supplier workspace](docs/architecture/provider-workspace.md) |
-| Enterprise modules | [Enterprise composition](docs/architecture/enterprise-composition.md) |
+| Plugin composition and distributions | [Plugin composition](docs/architecture/enterprise-composition.md) |
 | Attempt evidence and retries | [capability and execution](docs/architecture/capability-execution-contract.md) |
-| Extension traits | [capability contracts](docs/architecture/capability-contracts.md) |
+| Plugin hook and observer traits | [capability contracts](docs/architecture/capability-contracts.md) |
 | Imported task records | [execution observation](docs/architecture/execution-observation.md) |
 | Private Codex supply | [private Codex supply](docs/architecture/private-codex-supply.md) |
 | Supplier account registry | [supplier accounts](docs/architecture/supplier-accounts.md) |

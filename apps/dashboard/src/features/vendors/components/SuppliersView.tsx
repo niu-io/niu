@@ -234,7 +234,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
         // secret-bearing form and reconcile through reads instead of reposting.
         setAddingVendor(false);
         setEditingVendor(false);
-        throw new Error('API key creation could not be confirmed. Refresh the Supplier list before creating another key; the previous request may have saved it.');
+        throw new Error('API key creation could not be confirmed. Refresh the Provider list before creating another key; the previous request may have saved it.');
       }
       if (signal.aborted || generation !== authGeneration.current || !currentScope.current.canManage || currentScope.current.token !== token) return;
       // Creation committed: close before discovery so a failed refresh cannot
@@ -246,7 +246,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
       try {
         await reloadVendors(signal);
       } catch {
-        throw new Error('API key saved, but the Supplier list could not be refreshed. Refresh the list to view it.');
+        throw new Error('API key saved, but the Provider list could not be refreshed. Refresh the list to view it.');
       }
       if (signal.aborted || generation !== authGeneration.current) return;
       void refreshWorkspace().catch(() => {});
@@ -323,7 +323,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     } catch (reason) {
       const scope = currentScope.current;
       if (!controller.signal.aborted && generation === catalogGeneration.current && scope.canManage && scope.token === token && scope.selectedVendorId === vendorId) {
-        setCatalogError(reason instanceof Error ? reason.message : 'Supplier models could not be loaded.');
+        setCatalogError(reason instanceof Error ? reason.message : 'Provider models could not be loaded.');
       }
     } finally {
       if (!controller.signal.aborted && generation === catalogGeneration.current) setCatalogLoading(false);
@@ -378,17 +378,17 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
 
   if (!canManage) {
     return <>
-      <PageHeader title="Suppliers" />
+      <PageHeader title="Providers" />
       <section className="panel vendor-access-denied" role="status">
         <span className="vendor-access-mark"><ShieldAlert size={18} /></span>
-        <div><h2>Platform administrator access required</h2><p>Your account does not have permission to manage Suppliers. Contact a platform administrator if you need access.</p></div>
+        <div><h2>Platform administrator access required</h2><p>Your account does not have permission to manage Providers. Contact a platform administrator if you need access.</p></div>
       </section>
     </>;
   }
 
   return <>
     {supplierId && <div className="supplier-section-heading"><h2>API keys &amp; routes</h2><p>Configure API keys and the model routes they serve.</p></div>}
-    <PageHeader title="Suppliers" action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={supplierId ? 'Add API key' : 'Add supplier'} title={supplierId ? 'Add API key' : 'Add supplier'} onClick={() => { setError(''); setAddingVendor(true); }}><Router size={16} aria-hidden="true" /><span>{supplierId ? 'Add API key' : 'Add supplier'}</span></Button>}</>} />
+    <PageHeader title="Providers" action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={supplierId ? 'Add API key' : 'Add provider'} title={supplierId ? 'Add API key' : 'Add provider'} onClick={() => { setError(''); setAddingVendor(true); }}><Router size={16} aria-hidden="true" /><span>{supplierId ? 'Add API key' : 'Add provider'}</span></Button>}</>} />
     {error && !addingVendor && !editingVendor && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingVendors || loadingModels} onClick={() => void retryData()}>Retry</Button></div>}
     <div className="supplier-detail-layout">
       {vendors.length > 1 && <SupplierDirectory
@@ -405,12 +405,12 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
         {!selectedVendor.has_credential && <p className="error-text" role="status">No credential stored. Edit this API key to configure access.</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedVendor.id}`} token={token} vendorId={selectedVendor.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedVendor.id}:cooldown`} token={token} vendorId={selectedVendor.id} />}
-      </section> : loadingVendors ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading API keys…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>No API keys</strong><p>Add an API key to configure the models supplied by this Supplier.</p><Button type="button" onClick={() => setAddingVendor(true)}>Add API key</Button></div></section>}
+      </section> : loadingVendors ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading API keys…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>No API keys</strong><p>Add an API key to configure the models supplied by this Provider.</p><Button type="button" onClick={() => setAddingVendor(true)}>Add API key</Button></div></section>}
     </div>
     <Dialog open={managingModels && !!selectedVendor && !addingVendor} onOpenChange={setManagingModels}>
       <DialogContent className="supplier-models-dialog" showCloseButton={false}>
         <DialogHeader className="flex-row items-start justify-between gap-4 text-left">
-          <div><DialogTitle>{selectedVendor?.supplier?.name ?? selectedVendor?.name ?? 'Supplier'} routes</DialogTitle><DialogDescription>Model routes served by {selectedVendor?.name ?? 'this API key'}.</DialogDescription></div>
+          <div><DialogTitle>{selectedVendor?.supplier?.name ?? selectedVendor?.name ?? 'Provider'} routes</DialogTitle><DialogDescription>Model routes served by {selectedVendor?.name ?? 'this API key'}.</DialogDescription></div>
           <DialogClose asChild><Button variant="ghost" size="icon-sm" aria-label="Close model management"><X /></Button></DialogClose>
         </DialogHeader>
         {selectedVendor && <ModelMappings
@@ -433,7 +433,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     <Dialog open={addingVendor || editingVendor} onOpenChange={open => { if (!open && !busy) { setAddingVendor(false); setEditingVendor(false); } }}>
       <DialogContent className="niu-modal vendor-dialog" showCloseButton={false}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{addingVendor ? 'Add Supplier API key' : `Edit ${selectedVendor?.name ?? 'API key'}`}</DialogTitle><DialogDescription>{addingVendor ? 'Choose a Supplier and configure the API key for its model routes.' : 'Update the supplier endpoint or replace its stored credential.'}</DialogDescription></div>
+          <div><DialogTitle>{addingVendor ? 'Add Provider API key' : `Edit ${selectedVendor?.name ?? 'API key'}`}</DialogTitle><DialogDescription>{addingVendor ? 'Choose a Provider and configure the API key for its model routes.' : 'Update the provider endpoint or replace its stored credential.'}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
         </DialogHeader>
       {error && <p className="error-text" role="alert">{error}</p>}

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-export default function PasswordSettings({ token, hasPassword, onChanged }: {token: string; hasPassword: boolean; onChanged: () => Promise<void>}) {
+export default function PasswordSettings({ token, hasPassword = true, onChanged }: {token: string; hasPassword?: boolean; onChanged: () => Promise<void>}) {
   const saveController = useRef<AbortController | null>(null);
   useEffect(() => () => saveController.current?.abort(), [token]);
   const [enabled, setEnabled] = useState(false);

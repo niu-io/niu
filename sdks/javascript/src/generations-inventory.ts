@@ -4,8 +4,8 @@ import type { GenerationArtifactCapture } from './generation-artifact-capture.js
 export type GenerationTaskState = 'queued' | 'running' | 'succeeded' | 'failed' | 'unknown' | 'submission_unknown' | 'reconciliation_required';
 export type GenerationArtifactAvailability = 'available' | 'expired' | 'deleted' | 'unavailable';
 export type GenerationArtifactKind = 'video' | 'last_frame';
-/** Original dispatch facts, never inferred from current Supplier configuration.
- * Provider identifies the saved adapter, not a mutable Supplier/account name.
+/** Original dispatch facts, never inferred from current Provider configuration.
+ * Provider identifies the saved adapter, not a mutable Provider/account name.
  * Parameters contain only retained validated scalar controls; references and
  * prompts remain in actor-private retained session/intent content, when present.
  */

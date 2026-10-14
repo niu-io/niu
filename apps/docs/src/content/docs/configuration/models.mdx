@@ -18,9 +18,9 @@ api_key_env = "OPENROUTER_API_KEY"
 
 `openrouter` uses OpenAI-compatible chat completions at `https://openrouter.ai/api/v1` when `api_base` is omitted. OpenAI remains supported with its own default endpoint. Provider names remain distinct in administration and route records.
 
-## Managed suppliers
+## Managed providers
 
-Platform administrators manage shared Suppliers and their model routes in the dashboard or through the compatibility endpoint `/admin/v1/vendors`. A Supplier is the business supplying model access; a Provider identifies the upstream API adapter. OpenRouter can be a Supplier using the `openrouter` Provider adapter. Model developers offered through that Supplier do not require separate Niu credentials. Supplier records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Suppliers.
+Platform administrators manage shared Providers and their model routes in the dashboard or through the compatibility endpoint `/admin/v1/vendors`. A Provider is the business supplying model access; a Provider identifies the upstream API adapter. OpenRouter can be a Provider using the `openrouter` Provider adapter. Model developers offered through that Provider do not require separate Niu credentials. Provider records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Providers.
 
 Managed configurations accept `openai`, `openrouter` and `anthropic` adapters.
 For native Anthropic Messages, set `api_base` to `https://api.anthropic.com/v1`
@@ -32,11 +32,11 @@ invalid-credential refusal are verified; successful direct Anthropic generation
 and catalog discovery remain unverified. See the [native protocol boundary](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#managed-anthropic-configuration--2026-10-11).
 
 
-Set `NIU_VENDOR_ENCRYPTION_KEY` to a separate, high-entropy secret of at least 32 characters before storing a Supplier credential. Niu encrypts credentials using AES-256-GCM; API responses never return them. Keep the encryption key in your deployment secret store and back it up separately from PostgreSQL. Changing it without re-encrypting stored credentials makes them unreadable; automatic master-key rotation is not implemented.
+Set `NIU_VENDOR_ENCRYPTION_KEY` to a separate, high-entropy secret of at least 32 characters before storing a Provider credential. Niu encrypts credentials using AES-256-GCM; API responses never return them. Keep the encryption key in your deployment secret store and back it up separately from PostgreSQL. Changing it without re-encrypting stored credentials makes them unreadable; automatic master-key rotation is not implemented.
 
 A database model alias overrides the same alias in TOML, including when the database route is disabled. A configuration with an empty `[models]` section can use only managed routes. Static file routes remain supported.
 
-Deployment operators may set `NIU_VENDOR_BOOTSTRAP_FILE` to a JSON seed file. It contains Supplier metadata, model routes, and the name of the environment variable holding the initial credential. It must contain no secret values. The seed runs once per bootstrap Supplier identity and preserves later edits, renames, credential rotations and disabled state.
+Deployment operators may set `NIU_VENDOR_BOOTSTRAP_FILE` to a JSON seed file. It contains Provider metadata, model routes, and the name of the environment variable holding the initial credential. It must contain no secret values. The seed runs once per bootstrap Provider identity and preserves later edits, renames, credential rotations and disabled state.
 
 Keep credentials out of TOML, source control, browser storage and public catalog responses.
 
@@ -126,11 +126,11 @@ Priced streaming requests always request final usage via `stream_options.include
 
 ## Published routing configuration
 
-Static TOML routes and stored Supplier mappings are compiled into one immutable
+Static TOML routes and stored Provider mappings are compiled into one immutable
 routing generation. Disabled stored aliases cannot fall back to a same-name static
 route. Changes affect new selection; already dispatched work retains its pinned
 route. Authorization, qualification expiry and credential cooldowns are checked
-live. Initial Supplier imports and their publication commit together, and a normal
+live. Initial Provider imports and their publication commit together, and a normal
 restart preserves saved administrator edits.
 
 Platform administrators can call `GET /admin/v1/routing-registry`, or

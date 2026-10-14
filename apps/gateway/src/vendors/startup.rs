@@ -1,4 +1,4 @@
-//! Fail closed before listening when retained Supplier secrets cannot be decrypted.
+//! Fail closed before listening when retained Provider secrets cannot be decrypted.
 use super::crypto::CredentialCipher;
 use niu_storage::Store;
 
@@ -62,7 +62,7 @@ pub(crate) async fn validate_saved_credentials(
     Ok(())
 }
 
-/// A correct Supplier key alone does not prove that retained content uses it.
+/// A correct Provider key alone does not prove that retained content uses it.
 /// Authenticate exact stored domain bindings before any listener or cleanup starts.
 pub(crate) async fn validate_retained_content(
     store: &Store,

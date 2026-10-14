@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /v1/video/jobs/{id}/results/{kind}`
 
-Requires current workspace/model and compatible Guardrail access, checked again after retrieval. Uses encrypted references with a fixed 24-hour retention window. URLs may expire sooner. Never returns or redirects to a signed Supplier URL. Supports MP4/WebM up to 64 MiB and PNG/JPEG up to 10 MiB; no Range support or automatic retry. Local transport tests do not qualify a live channel.
+Requires current workspace/model and compatible Guardrail access, checked again after retrieval. Uses encrypted references with a fixed 24-hour retention window. URLs may expire sooner. Never returns or redirects to a signed Provider URL. Supports MP4/WebM up to 64 MiB and PNG/JPEG up to 10 MiB; no Range support or automatic retry. Local transport tests do not qualify a live channel.
 
 Operation: `retrieveVideoResult`.
 
@@ -139,4 +139,4 @@ Overall result retrieval deadline exceeded; media_result_timeout
 
 ## Behavior and supported scope
 
-Requires current workspace/model and compatible Guardrail access, checked again after retrieval. Uses encrypted references with a fixed 24-hour retention window. URLs may expire sooner. Never returns or redirects to a signed Supplier URL. Supports MP4/WebM up to 64 MiB and PNG/JPEG up to 10 MiB; no Range support or automatic retry. Local transport tests do not qualify a live channel.
+Requires current workspace/model and compatible Guardrail access, checked again after retrieval. Uses encrypted references with a fixed 24-hour retention window. URLs may expire sooner. Never returns or redirects to a signed Provider URL. Supports MP4/WebM up to 64 MiB and PNG/JPEG up to 10 MiB; no Range support or automatic retry. Local transport tests do not qualify a live channel.

@@ -70,7 +70,7 @@ it('hides stale key details and ignores a late revocation after changing scope',
   let finishRead!:(response:Response)=>void;
   vi.stubGlobal('fetch',vi.fn((input:RequestInfo | URL,init?:RequestInit)=>{
     if(init?.method==='DELETE') return new Promise<Response>(resolve=>{finishRevoke=resolve;});
-    if(String(input).includes('/projects/next/')) return new Promise<Response>(resolve=>{finishRead=resolve;});
+    if(String(input).includes('/workspaces/next/')) return new Promise<Response>(resolve=>{finishRead=resolve;});
     return Promise.resolve(Response.json({data:[record('Previous workspace key')]}));
   }));
   const view=(projectId:string)=><MemoryRouter initialEntries={['/workspaces/demo/keys/saved']}><Routes><Route path="/workspaces/:workspace/keys/:keyId" element={<KeyDetailView token={projectId} models={[]} canWrite initialScope={{organizationId:'org',projectId}}/>}/></Routes></MemoryRouter>;

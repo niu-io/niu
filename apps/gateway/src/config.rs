@@ -20,12 +20,12 @@ pub struct AppConfig {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ServerConfig {
-    /// Trusted deployment origin for short-lived Supplier image fetches.
+    /// Trusted deployment origin for short-lived Provider image fetches.
     #[serde(default)]
     pub image_source_origin: Option<String>,
     #[serde(default = "default_timeout")]
     pub request_timeout_seconds: u64,
-    /// Direct text inference and Supplier connectivity; media keeps its own budget.
+    /// Direct text inference and Provider connectivity; media keeps its own budget.
     #[serde(default = "default_endpoint_timeout")]
     pub provider_connect_timeout_seconds: u64,
     #[serde(default = "default_endpoint_timeout")]

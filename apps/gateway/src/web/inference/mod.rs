@@ -1,7 +1,6 @@
 mod chat;
 mod codex;
 mod common;
-pub(super) mod dashboard_video;
 mod embeddings;
 mod generate_content;
 mod messages;
@@ -18,7 +17,7 @@ pub(super) mod video_intents;
 pub(super) mod video_provider_assets;
 pub(super) mod video_workspace_assets;
 
-pub(super) use chat::{chat, dashboard_chat};
+pub(super) use chat::chat;
 #[cfg(test)]
 pub(super) use chat::{valid_chat_completion_features, validate_chat_capabilities};
 pub(super) use embeddings::embeddings;

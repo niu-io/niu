@@ -3,7 +3,7 @@ title: Administration
 description: Configure model supply, customer pricing, payments and deployment branding.
 ---
 
-Administration manages the installation-wide settings behind your Niu gateway. It is separate from a customer's workspace and from a Supplier's own business portal.
+Administration manages the installation-wide settings behind your Niu gateway. It is separate from a customer's workspace and from a Provider's own business portal.
 
 ## Open Admin
 
@@ -15,14 +15,14 @@ The current dashboard requires installation or platform administrator authority 
 
 | Task | Guide | Dashboard destination |
 | --- | --- | --- |
-| Connect model supply and credentials | [Suppliers](/docs/admin/suppliers/) | Admin → Suppliers |
+| Connect model supply and credentials | [Providers](/docs/admin/suppliers/) | Admin → Providers |
 | Configure customer selling prices | [Customer pricing](/docs/admin/pricing/) | Admin → Customer pricing |
 | Configure supported top-up payment methods | [Payments](/docs/admin/payments/) | Admin → Payment gateways |
 | Set deployment branding and appearance | [Branding & theme](/docs/admin/branding/) | Admin → Branding & theme |
 | Review saved administrative changes | [Audit logs](/docs/reference/platform-audit/) | Admin → Audit logs |
 
-Connect a Supplier and model route first, then configure the applicable customer pricing before enabling paid access. Create a workspace key with the intended model grants and limits, and use the [API quickstart](/docs/guides/api-quickstart/) to check an application request. Review its customer-facing usage separately from confidential supply information.
+Connect a Provider and model route first, then configure the applicable customer pricing before enabling paid access. Create a workspace key with the intended model grants and limits, and use the [API quickstart](/docs/guides/api-quickstart/) to check an application request. Review its customer-facing usage separately from confidential supply information.
 
 ## Guides and generated references
 
-These guides explain administrator workflows. Exact parameters, response types and authorization requirements belong to the generated [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niuadminclient/). The route names `vendors`, `organizations` and `projects` remain compatibility contracts; product guidance uses Supplier, company and workspace.
+These guides explain administrator workflows. Exact parameters, response types and authorization requirements belong to the generated [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niuadminclient/). The route names `vendors`, `organizations` and `projects` remain compatibility contracts; product guidance uses Provider, company and workspace.

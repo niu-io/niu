@@ -39,6 +39,10 @@ impl Principal {
             .any(|allowed| allowed == "*" || allowed == model)
     }
 
+    pub fn allowed_models(&self) -> &[String] {
+        &self.allowed_models
+    }
+
     pub fn scope(&self) -> TenantScope {
         self.scope
     }
@@ -135,6 +139,181 @@ impl Store {
         })
     }
 
+    /// Look up an active key by its ID so a console session passing `X-Niu-Key-Id`
+    /// on `/v1/*` can resolve the key's workspace scope before checking operator permissions.
+    pub async fn dashboard_key_by_id(&self, id: Uuid) -> Result<Principal, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let row = sqlx::query("SELECT organization_id, project_id, allowed_models FROM api_keys WHERE id=$1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+            .bind(id)
+            .fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        let row = row.ok_or(StoreError::Unauthorized)?;
+        Ok(Principal {
+            key_id: id,
+            scope: TenantScope {
+                organization_id: row.get("organization_id"),
+                project_id: row.get("project_id"),
+            },
+            allowed_models: row.get("allowed_models"),
+        })
+    }
+
+    /// Self-introspection for `GET /v1/key`. Exposes key label, model grants,
+    /// expiration, spending limits, and rate/concurrency limits without internal UUIDs.
+    pub async fn key_introspection(
+        &self,
+        principal: &Principal,
+    ) -> Result<serde_json::Value, StoreError> {
+        let scope = principal.scope;
+        let id = principal.key_id;
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let row = sqlx::query(
+            "SELECT k.name, k.allowed_models, CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms, (SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms, k.revoked_at IS NOT NULL AS revoked, k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(id)
+        .fetch_optional(&mut *snapshot)
+        .await?;
+        snapshot.commit().await?;
+        let row = row.ok_or(StoreError::Unauthorized)?;
+        let name: String = row.get("name");
+        let allowed_models: Vec<String> = row.get("allowed_models");
+        let expires_at_ms: Option<i64> = row.get("expires_at_ms");
+        let last_used_at_ms: Option<i64> = row.get("last_used_at_ms");
+        let revoked: bool = row.get("revoked");
+        let expired: bool = row.get("expired");
+
+        let raw_spending = self.customer_key_spending_limits(scope, id).await?;
+        let spending_limits: Vec<serde_json::Value> = raw_spending
+            .into_iter()
+            .map(|mut item| {
+                if let Some(obj) = item.as_object_mut() {
+                    obj.remove("revision");
+                }
+                item
+            })
+            .collect();
+        let rpm_policy = self.key_request_rate_policy(scope, id).await?;
+        let tpm_policy = self.key_token_rate_policy(scope, id).await?;
+        let concurrency_policy = self.key_concurrency_policy(scope, id).await?;
+        let usage_window = self.key_token_usage_window(scope, id).await?;
+        let ip_policy = self.key_ip_policy(scope, id).await?;
+
+        let requests_per_minute = rpm_policy
+            .as_ref()
+            .and_then(|v| v.get("requests_per_minute"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let tokens_per_minute = tpm_policy
+            .as_ref()
+            .and_then(|v| v.get("tokens_per_minute"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let max_concurrent_requests = concurrency_policy
+            .as_ref()
+            .and_then(|v| v.get("max_concurrent_requests"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let active_requests = concurrency_policy
+            .as_ref()
+            .and_then(|v| v.get("active_requests"))
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!(0));
+        let allowed_cidrs = ip_policy
+            .as_ref()
+            .and_then(|v| v.get("allowed_cidrs"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+
+        Ok(serde_json::json!({
+            "object": "api_key",
+            "label": name,
+            "allowed_models": allowed_models,
+            "expires_at_ms": expires_at_ms,
+            "last_used_at_ms": last_used_at_ms,
+            "revoked": revoked,
+            "expired": expired,
+            "spending_limits": spending_limits,
+            "rate_limits": {
+                "requests_per_minute": requests_per_minute,
+                "tokens_per_minute": tokens_per_minute,
+                "max_concurrent_requests": max_concurrent_requests,
+                "active_requests": active_requests,
+            },
+            "usage_window": usage_window,
+            "allowed_cidrs": allowed_cidrs,
+        }))
+    }
+
+    /// Unified console key detail view combining metadata, spending limits,
+    /// rate/concurrency limits, token window, and IP policy.
+    pub async fn key_detail(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+    ) -> Result<Option<serde_json::Value>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let key: Option<KeyView> = sqlx::query_as(
+            "SELECT k.id,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(id)
+        .fetch_optional(&mut *snapshot)
+        .await?;
+        snapshot.commit().await?;
+        let Some(key) = key else {
+            return Ok(None);
+        };
+        self.enrich_key_view(scope, key).await.map(Some)
+    }
+
+    async fn enrich_key_view(
+        &self,
+        scope: TenantScope,
+        key: KeyView,
+    ) -> Result<serde_json::Value, StoreError> {
+        let id = key.id;
+        let spending_limits = self.customer_key_spending_limits(scope, id).await?;
+        let ip_policy = self
+            .key_ip_policy(scope, id)
+            .await?
+            .unwrap_or_else(|| serde_json::json!({"allowed_cidrs": null, "revision": null}));
+        let request_rate_limit = self
+            .key_request_rate_policy(scope, id)
+            .await?
+            .unwrap_or_else(|| serde_json::json!({"requests_per_minute": null, "revision": null}));
+        let concurrency_limit = self
+            .key_concurrency_policy(scope, id)
+            .await?
+            .unwrap_or_else(|| {
+                serde_json::json!({"max_concurrent_requests": null, "revision": null, "active_requests": 0})
+            });
+        let token_rate_limit = self
+            .key_token_rate_policy(scope, id)
+            .await?
+            .unwrap_or_else(|| serde_json::json!({"tokens_per_minute": null, "revision": null}));
+        let token_usage_window = self.key_token_usage_window(scope, id).await?;
+
+        Ok(serde_json::json!({
+            "id": key.id,
+            "revision": key.revision,
+            "name": key.name,
+            "allowed_models": key.allowed_models,
+            "expires_at_ms": key.expires_at_ms,
+            "last_used_at_ms": key.last_used_at_ms,
+            "revoked": key.revoked,
+            "expired": key.expired,
+            "spending_limits": spending_limits,
+            "ip_policy": ip_policy,
+            "request_rate_limit": request_rate_limit,
+            "concurrency_limit": concurrency_limit,
+            "token_rate_limit": token_rate_limit,
+            "token_usage_window": token_usage_window,
+        }))
+    }
+
     /// Resolve current access for a saved video query without reusing a revoked secret.
     /// Only the original rotation lineage, tenant and model grant can authorize recovery.
     pub async fn media_recovery_key(
@@ -149,6 +328,32 @@ impl Store {
 
     pub async fn list_keys(&self, scope: TenantScope) -> Result<Vec<KeyView>, StoreError> {
         self.key_directory_selection(scope, None, None).await
+    }
+
+    pub async fn list_key_details(
+        &self,
+        scope: TenantScope,
+    ) -> Result<Vec<serde_json::Value>, StoreError> {
+        let keys = self.list_keys(scope).await?;
+        let mut details = Vec::with_capacity(keys.len());
+        for key in keys {
+            details.push(self.enrich_key_view(scope, key).await?);
+        }
+        Ok(details)
+    }
+
+    pub async fn key_detail_directory_page(
+        &self,
+        scope: TenantScope,
+        after: Option<Uuid>,
+        limit: u16,
+    ) -> Result<(Vec<serde_json::Value>, Option<Uuid>), StoreError> {
+        let (keys, next) = self.key_directory_page(scope, after, limit).await?;
+        let mut details = Vec::with_capacity(keys.len());
+        for key in keys {
+            details.push(self.enrich_key_view(scope, key).await?);
+        }
+        Ok((details, next))
     }
 
     /// Bounded keyset page; cursor lookup and rows share a tenant-scoped snapshot.

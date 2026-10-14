@@ -455,7 +455,7 @@ impl Store {
     }
 
     /// Opt-in business creation shares the configuration transaction: a failed
-    /// configuration write cannot leave an orphan Supplier or ownership record.
+    /// configuration write cannot leave an orphan Provider or ownership record.
     pub async fn create_vendor_with_supplier(
         &self,
         input: VendorInput,

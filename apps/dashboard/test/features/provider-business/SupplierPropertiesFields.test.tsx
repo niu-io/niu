@@ -19,10 +19,10 @@ it('loads linked settings and preserves credentials and availability on revision
   render(<MemoryRouter><SupplierPropertiesFields supplierId="supplier-fixture" supplierName="OpenRouter" token="test-token" /></MemoryRouter>);
   const user = userEvent.setup();
   await screen.findByLabelText('API endpoint');
-  expect((screen.getByLabelText('Supplier name') as HTMLInputElement).readOnly).toBe(true);
+  expect((screen.getByLabelText('Provider name') as HTMLInputElement).readOnly).toBe(true);
   expect((screen.getByLabelText('Replace API key (optional)') as HTMLInputElement).value).toBe('');
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  await screen.findByText('Supplier API settings saved.');
+  await screen.findByText('Provider API settings saved.');
   expect(writes[0]).toEqual({ name: vendor.name, enabled: false, api_base: vendor.api_base, expected_revision: 3 });
   await user.type(screen.getByLabelText('Replace API key (optional)'), 'test-replacement');
   await user.click(screen.getByRole('button', { name: 'Save changes' }));

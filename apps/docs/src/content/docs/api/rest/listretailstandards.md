@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/pricing/standard-prices`
 
-Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Supplier costs. Internal references are API identifiers, never display names. Cache-Control: no-store.
+Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Provider costs. Internal references are API identifiers, never display names. Cache-Control: no-store.
 
 Operation: `listRetailStandards`.
 
@@ -320,7 +320,7 @@ Content type: `application/json`.
                 ]
               }
             ],
-            "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+            "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
           },
           "published_at": {
             "type": "string",
@@ -371,6 +371,6 @@ Stale version, conflicting key/period, unknown identity/customer or unsupported 
 
 ## Behavior and supported scope
 
-Explicit platform administration required; ordinary customer/Supplier membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Supplier costs. Internal references are API identifiers, never display names. Cache-Control: no-store.
+Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Provider costs. Internal references are API identifiers, never display names. Cache-Control: no-store.
 
 **Supported scope:** implemented

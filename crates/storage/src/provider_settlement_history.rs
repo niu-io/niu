@@ -1,5 +1,5 @@
-//! Supplier payment history and platform-only earning navigation.
-//! The HTTP layer keeps request-level earning selection outside Supplier membership.
+//! Provider payment history and platform-only earning navigation.
+//! The HTTP layer keeps request-level earning selection outside Provider membership.
 use crate::{Store, StoreError};
 use serde_json::Value;
 use uuid::Uuid;

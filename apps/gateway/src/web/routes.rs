@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use axum::{
     Json, Router,
     body::Body,
-    extract::{DefaultBodyLimit, Query, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header::CACHE_CONTROL},
     middleware::{self, Next},
     response::Response,
@@ -79,11 +79,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive", axum::routing::put(crate::admin::chat_sessions::archive).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export", get(crate::admin::chat_sessions::export))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}", get(crate::admin::chat_sessions::get).put(crate::admin::chat_sessions::save).delete(crate::admin::chat_sessions::delete).layer(DefaultBodyLimit::max(24 * 1024 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models", get(super::inference::dashboard_video::models))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/estimate", axum::routing::post(super::inference::dashboard_video::estimate).layer(DefaultBodyLimit::max(16 * 1024 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh", axum::routing::post(super::inference::generations_task_actions::refresh).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh", axum::routing::post(super::inference::generations_task_actions::fresh_result).layer(DefaultBodyLimit::max(1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities", get(super::provider_capabilities::discover))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture", get(super::inference::generations_artifact_captures::retrieve).post(super::inference::generations_artifact_captures::capture).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks", get(super::inference::generations_inventory::tasks))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}", get(super::inference::generations_inventory::task))
@@ -96,16 +93,6 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}", axum::routing::put(super::inference::generations_sessions::append).delete(super::inference::generations_sessions::delete_instruction).layer(DefaultBodyLimit::max(65536)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task", axum::routing::put(super::inference::generations_sessions::attach).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent", axum::routing::put(super::inference::generations_sessions::bind_intent).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs", get(super::inference::dashboard_video::history).post(super::inference::dashboard_video::create).layer(DefaultBodyLimit::max(16 * 1024 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}", get(super::inference::dashboard_video::status))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}/refresh", post(super::inference::dashboard_video::fresh_result))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}", get(super::inference::dashboard_video::result))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results", get(super::inference::dashboard_video::results_status).delete(super::inference::dashboard_video::delete_results))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing", get(super::inference::dashboard_video::billing))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/timings", get(super::inference::dashboard_video::timings))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/observations", get(super::inference::dashboard_video::observations))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/refresh", axum::routing::post(super::inference::dashboard_video::refresh))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions", axum::routing::post(super::inference::dashboard_chat))
         .route("/admin/v1/organizations/{organization}/billing/transactions", get(crate::billing::balance_transactions))
         .route("/admin/v1/organizations/{organization}/billing/topups/{order}/reconcile", axum::routing::post(crate::payments::reconcile))
         .route("/admin/v1/organizations/{organization}/billing/topups", get(crate::payments::topup_history).post(crate::payments::create_topup))
@@ -194,18 +181,20 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/auth/browser/logout", axum::routing::post(crate::admin::passwords::browser_logout).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/auth/logout", axum::routing::post(crate::admin::passwords::logout).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/auth/login", axum::routing::post(crate::admin::passwords::login).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/session", get(crate::admin::current_session).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/profile", get(crate::admin::profile::profile).put(crate::admin::profile::update_profile).layer(DefaultBodyLimit::max(180000)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/preferences", get(crate::admin::preferences::preferences).put(crate::admin::preferences::update_preferences).layer(DefaultBodyLimit::max(1024)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/password", axum::routing::put(crate::admin::passwords::change_password).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/config", get(crate::admin::passwords::configuration).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/browser/login", axum::routing::post(crate::admin::passwords::browser_login).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/browser/token", axum::routing::post(crate::admin::browser_tokens::exchange).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/browser/logout", axum::routing::post(crate::admin::passwords::browser_logout).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/logout", axum::routing::post(crate::admin::passwords::logout).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/auth/login", axum::routing::post(crate::admin::passwords::login).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/operators/{operator}/password", axum::routing::put(crate::admin::passwords::set_password).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route(
             "/admin/v1/setup/default-workspace",
             axum::routing::post(crate::admin::default_workspace),
-        )
-        .route(
-            "/admin/v1/organizations/{organization}/projects/{project}/collector-keys",
-            get(crate::admin::collector_keys).post(crate::admin::issue_collector_key),
-        )
-        .route(
-            "/admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}",
-            axum::routing::delete(crate::admin::revoke_collector_key),
         )
         .merge(super::static_site::router())
         .route("/healthz", get(health))
@@ -223,6 +212,33 @@ pub(crate) fn router(state: AppState) -> Router {
         .route(
             "/admin/v1/workspaces",
             get(crate::admin::workspaces).post(crate::admin::create_workspace),
+        )
+        .route(
+            "/api/v1/workspaces/by-route/{route_slug}",
+            get(crate::admin::workspace_route),
+        )
+        .route("/api/v1/workspaces/{workspace}", axum::routing::patch(crate::admin::workspace_aliases::rename).delete(crate::admin::workspace_aliases::delete))
+        .route(
+            "/api/v1/workspaces",
+            get(crate::admin::workspaces).post(crate::admin::create_workspace),
+        )
+        .route(
+            "/api/v1/workspaces/{workspace}/keys",
+            get(crate::admin::workspace_aliases::list_keys)
+                .post(crate::admin::workspace_aliases::create_key)
+                .layer(DefaultBodyLimit::max(16 * 1024)),
+        )
+        .route(
+            "/api/v1/workspaces/{workspace}/keys/{key}",
+            get(crate::admin::workspace_aliases::get_key)
+                .patch(crate::admin::workspace_aliases::update_key)
+                .delete(crate::admin::workspace_aliases::revoke_key)
+                .layer(DefaultBodyLimit::max(16 * 1024)),
+        )
+        .route(
+            "/api/v1/workspaces/{workspace}/keys/{key}/rotate",
+            axum::routing::post(crate::admin::workspace_aliases::rotate_key)
+                .layer(DefaultBodyLimit::max(4096)),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}",
@@ -272,26 +288,13 @@ pub(crate) fn router(state: AppState) -> Router {
         )
         .route("/catalog/v1/models", get(catalog_models))
         .route("/v1/models", get(public_models))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions", get(super::provider_verification::list).post(super::provider_verification::create).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}", get(super::provider_verification::get).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/refresh", post(super::provider_verification::refresh).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/link", get(super::provider_verification::link).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups", get(super::provider_assets::list_groups).post(super::provider_assets::create_group).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}", get(super::provider_assets::get_group).patch(super::provider_assets::update_group).delete(super::provider_assets::delete_group).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}/refresh", post(super::provider_assets::refresh_group).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets", get(super::provider_assets::list_assets).post(super::provider_assets::create_asset).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}", get(super::provider_assets::get_asset).patch(super::provider_assets::rename_asset).delete(super::provider_assets::delete_asset).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}/refresh", post(super::provider_assets::refresh_asset).layer(DefaultBodyLimit::max(16 * 1024)))
+        .route("/v1/key", get(inspect_key))
+        .route("/v1/generations/{id}", get(get_generation))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations", get(super::provider_assets::list_historical_operations).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}", get(super::provider_assets::get_historical_operation).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}", get(super::provider_assets::get_historical_operation_by_idempotency).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel", post(super::provider_assets::cancel_historical_operation).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations", get(super::provider_assets::list_operations).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/prepare", post(super::provider_assets::prepare_operation).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/dispatch", post(super::provider_assets::dispatch_operation).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/cancel", post(super::provider_assets::cancel_operation).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/by-idempotency/{id}", get(super::provider_assets::get_operation_by_idempotency).layer(DefaultBodyLimit::max(16 * 1024)))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}", get(super::provider_assets::get_operation).layer(DefaultBodyLimit::max(16 * 1024)))
+        .route("/v1/media/capabilities", get(super::provider_capabilities::discover))
         .route("/v1/media/verification-sessions", get(super::provider_verification::list).post(super::provider_verification::create).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/v1/media/verification-sessions/{id}", get(super::provider_verification::get).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/v1/media/verification-sessions/{id}/refresh", post(super::provider_verification::refresh).layer(DefaultBodyLimit::max(16 * 1024)))
@@ -315,11 +318,12 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/video/jobs/{id}/billing", get(super::inference::video::billing))
         .route("/v1/video/jobs/{id}/observations", get(super::inference::video_observations::observations))
         .route("/v1/video/jobs/{id}/refresh", axum::routing::post(super::inference::video::refresh))
+        .route("/v1/video/jobs/{id}/results/{kind}/refresh", post(super::inference::video_results::retrieve_fresh))
         .route("/v1/video/jobs/{id}/results/{kind}", get(super::inference::video_results::retrieve))
         .route("/v1/video/jobs/{id}/results", get(super::inference::video_results::availability).delete(super::inference::video_results::delete))
         .route("/v1/video/jobs/{id}", get(super::inference::video::status))
-        .route("/v1beta/models/{model_action}", post(generate_content).layer(DefaultBodyLimit::max(64*1024)))
-        .route("/v1/messages", post(messages).layer(DefaultBodyLimit::max(64*1024)))
+        .route("/v1beta/models/{model_action}", post(generate_content).layer(DefaultBodyLimit::max(1_048_576)))
+        .route("/v1/messages", post(messages).layer(DefaultBodyLimit::max(1_048_576)))
         .route("/v1/chat/completions", axum::routing::post(chat))
         .route("/v1/responses", axum::routing::post(responses))
         .route("/v1/embeddings", axum::routing::post(embeddings))
@@ -358,16 +362,6 @@ pub(crate) fn router(state: AppState) -> Router {
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/accounts",
             get(crate::admin::accounts).post(crate::admin::create_account),
-        )
-        .route(
-            "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota",
-            get(crate::admin::quota)
-                .post(crate::admin::observe_quota)
-                .delete(crate::admin::delete_quota_window),
-        )
-        .route(
-            "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/executions",
-            get(crate::admin::account_executions),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/budget",
@@ -422,16 +416,14 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit", get(crate::admin::key_token_rate::read).put(crate::admin::key_token_rate::write).layer(DefaultBodyLimit::max(8192)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history", get(crate::admin::key_token_rate::history))
         .route("/admin/v1/metrics", get(admin_metrics))
-        .route(
-            "/admin/v1/benchmarks/compare",
-            axum::routing::post(crate::admin::compare_benchmark),
-        )
         .route("/v1", any(api_not_found))
         .route("/v1/{*path}", any(api_not_found))
         .route("/v1beta", any(api_not_found))
         .route("/v1beta/{*path}", any(api_not_found))
         .route("/catalog/v1", any(api_not_found))
         .route("/catalog/v1/{*path}", any(api_not_found))
+        .route("/api/v1", any(api_not_found))
+        .route("/api/v1/{*path}", any(api_not_found))
         .route("/admin/v1", any(api_not_found))
         .route("/admin/v1/{*path}", any(api_not_found))
         .layer(DefaultBodyLimit::max(1_048_576));
@@ -462,6 +454,8 @@ async fn private_api_cache_control(request: axum::http::Request<Body>, next: Nex
     let private = path == "/admin/v1"
         || path == "/auth/callback"
         || path.starts_with("/admin/v1/")
+        || path == "/api/v1"
+        || path.starts_with("/api/v1/")
         || path == "/enterprise/api/v1"
         || path.starts_with("/enterprise/api/v1/")
         || path == "/v1"
@@ -531,7 +525,7 @@ async fn enterprise_ready(
 ///   "operation": {
 ///     "operationId": "listModels",
 ///     "summary": "List key-accessible model aliases and workspace customer prices",
-///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
+///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -615,7 +609,6 @@ async fn enterprise_ready(
 ///       "type": "object",
 ///       "additionalProperties": false,
 ///       "required": [
-///         "revision",
 ///         "currency",
 ///         "unit",
 ///         "prompt_rate",
@@ -628,11 +621,6 @@ async fn enterprise_ready(
 ///         "context_tiers"
 ///       ],
 ///       "properties": {
-///         "revision": {
-///           "type": "string",
-///           "format": "uuid",
-///           "description": "Applicable publication reference: scoped tariff revision in workspace mode, standard or promotion revision in platform mode. Not a display label."
-///         },
 ///         "currency": {
 ///           "type": "string",
 ///           "pattern": "^[A-Z]{3}$"
@@ -743,21 +731,6 @@ async fn enterprise_ready(
 ///             "platform"
 ///           ]
 ///         },
-///         "price_id": {
-///           "type": "string",
-///           "format": "uuid"
-///         },
-///         "standard_revision": {
-///           "type": "string",
-///           "format": "uuid"
-///         },
-///         "promotion_revision": {
-///           "type": [
-///             "string",
-///             "null"
-///           ],
-///           "format": "uuid"
-///         },
 ///         "promotion_scope": {
 ///           "type": [
 ///             "string",
@@ -786,7 +759,9 @@ async fn public_models(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     let mut models =
         crate::vendors::scoped_models(&state, principal.scope().organization_id).await?;
     models.extend(crate::codex::private_models(&state, principal.scope()).await?);
@@ -806,9 +781,358 @@ async fn public_models(
     let data: Vec<_> = models
         .keys()
         .filter(|model| principal.allows_model(model))
-        .map(|model| json!({"id": model, "object": "model", "owned_by": "niu", "customer_pricing": prices.get(model)}))
+        .map(|model| {
+            let customer_pricing = prices.get(model).and_then(|price| {
+                let mut value = serde_json::to_value(price).ok()?;
+                if let Some(obj) = value.as_object_mut() {
+                    obj.remove("revision");
+                    obj.remove("discount_baseline_revision");
+                    obj.remove("price_id");
+                    obj.remove("standard_revision");
+                    obj.remove("promotion_revision");
+                }
+                Some(value)
+            });
+            json!({"id": model, "object": "model", "owned_by": "niu", "customer_pricing": customer_pricing})
+        })
         .collect();
     Ok(Json(json!({"object": "list", "data": data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/v1/key",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getCurrentKey",
+///     "summary": "Inspect the current workspace API key",
+///     "description": "Returns customer-safe metadata, model grants, expiration, spending limits and remaining allowance, request/token/concurrency rate limits, 60-second usage window, and IP allowlist for the authenticated API key (or the workspace key selected via X-Niu-Key-Id with a console session). Never returns the secret token or internal platform UUIDs.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current API key metadata, limits, and usage.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["data"],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "label",
+///                     "allowed_models",
+///                     "expires_at",
+///                     "spending_limits",
+///                     "request_rate_limit",
+///                     "token_rate_limit",
+///                     "concurrency_limit",
+///                     "usage_window",
+///                     "ip_policy"
+///                   ],
+///                   "properties": {
+///                     "label": { "type": "string" },
+///                     "allowed_models": {
+///                       "type": "array",
+///                       "items": { "type": "string" }
+///                     },
+///                     "expires_at": {
+///                       "type": ["integer", "null"],
+///                       "format": "int64"
+///                     },
+///                     "spending_limits": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "required": [
+///                           "currency",
+///                           "enabled",
+///                           "max_amount_nanos",
+///                           "settled_amount_nanos",
+///                           "reserved_amount_nanos",
+///                           "remaining_allowance_nanos"
+///                         ],
+///                         "properties": {
+///                           "currency": { "type": "string" },
+///                           "enabled": { "type": "boolean" },
+///                           "max_amount_nanos": { "type": ["string", "null"] },
+///                           "settled_amount_nanos": { "type": "string" },
+///                           "reserved_amount_nanos": { "type": "string" },
+///                           "remaining_allowance_nanos": { "type": ["string", "null"] }
+///                         }
+///                       }
+///                     },
+///                     "request_rate_limit": {
+///                       "type": "object",
+///                       "required": [
+///                         "enabled",
+///                         "requests_per_minute",
+///                         "window_seconds",
+///                         "observed_requests_in_window",
+///                         "remaining_requests_in_window"
+///                       ],
+///                       "properties": {
+///                         "enabled": { "type": "boolean" },
+///                         "requests_per_minute": { "type": ["integer", "null"] },
+///                         "window_seconds": { "type": "integer" },
+///                         "observed_requests_in_window": { "type": "integer" },
+///                         "remaining_requests_in_window": { "type": ["integer", "null"] }
+///                       }
+///                     },
+///                     "token_rate_limit": {
+///                       "type": "object",
+///                       "required": [
+///                         "enabled",
+///                         "tokens_per_minute",
+///                         "window_seconds",
+///                         "observed_tokens_in_window",
+///                         "remaining_tokens_in_window"
+///                       ],
+///                       "properties": {
+///                         "enabled": { "type": "boolean" },
+///                         "tokens_per_minute": { "type": ["string", "null"] },
+///                         "window_seconds": { "type": "integer" },
+///                         "observed_tokens_in_window": { "type": "string" },
+///                         "remaining_tokens_in_window": { "type": ["string", "null"] }
+///                       }
+///                     },
+///                     "concurrency_limit": {
+///                       "type": "object",
+///                       "required": [
+///                         "enabled",
+///                         "max_concurrent_requests",
+///                         "in_flight_requests",
+///                         "remaining_concurrent_requests"
+///                       ],
+///                       "properties": {
+///                         "enabled": { "type": "boolean" },
+///                         "max_concurrent_requests": { "type": ["integer", "null"] },
+///                         "in_flight_requests": { "type": "integer" },
+///                         "remaining_concurrent_requests": { "type": ["integer", "null"] }
+///                       }
+///                     },
+///                     "usage_window": {
+///                       "type": "object",
+///                       "required": [
+///                         "window_seconds",
+///                         "request_count",
+///                         "known_usage_requests",
+///                         "unknown_usage_requests",
+///                         "prompt_tokens",
+///                         "completion_tokens",
+///                         "total_tokens"
+///                       ],
+///                       "properties": {
+///                         "window_seconds": { "type": "integer" },
+///                         "request_count": { "type": "integer" },
+///                         "known_usage_requests": { "type": "integer" },
+///                         "unknown_usage_requests": { "type": "integer" },
+///                         "prompt_tokens": { "type": "string" },
+///                         "completion_tokens": { "type": "string" },
+///                         "total_tokens": { "type": "string" }
+///                       }
+///                     },
+///                     "ip_policy": {
+///                       "type": "object",
+///                       "required": ["enabled", "allowed_cidrs"],
+///                       "properties": {
+///                         "enabled": { "type": "boolean" },
+///                         "allowed_cidrs": {
+///                           "type": "array",
+///                           "items": { "type": "string" }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, revoked, expired or invalid key."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+async fn inspect_key(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
+    let data = state
+        .store
+        .key_introspection(&principal)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({ "data": data })))
+}
+
+/// ```openapi
+/// {
+///   "path": "/v1/generations/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getGeneration",
+///     "summary": "Get generation usage, latency, and customer charge by ID",
+///     "description": "Returns token breakdown, latency/timing observations, execution status, and customer-facing charge for a generation attempt in the authenticated key's workspace. Never exposes Provider purchase costs, platform margins, or internal correlation UUIDs.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Generation telemetry and customer charge.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["data"],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "id",
+///                     "model",
+///                     "request_kind",
+///                     "created_at",
+///                     "execution",
+///                     "usage_confidence",
+///                     "usage",
+///                     "customer_charge"
+///                   ],
+///                   "properties": {
+///                     "id": { "type": "string", "format": "uuid" },
+///                     "model": { "type": "string" },
+///                     "provider_model": { "type": ["string", "null"] },
+///                     "request_kind": { "type": "string", "enum": ["inference", "video"] },
+///                     "created_at": { "type": "string", "format": "date-time" },
+///                     "dispatched_at": { "type": ["string", "null"], "format": "date-time" },
+///                     "completed_at": { "type": ["string", "null"], "format": "date-time" },
+///                     "duration_ms": { "type": ["integer", "null"] },
+///                     "execution": { "type": "string" },
+///                     "usage_confidence": { "type": "string" },
+///                     "usage": {
+///                       "type": "object",
+///                       "required": [
+///                         "prompt_tokens",
+///                         "completion_tokens",
+///                         "cached_input_tokens",
+///                         "cache_write_input_tokens",
+///                         "reasoning_output_tokens"
+///                       ],
+///                       "properties": {
+///                         "prompt_tokens": { "type": ["string", "null"] },
+///                         "completion_tokens": { "type": ["string", "null"] },
+///                         "cached_input_tokens": { "type": ["string", "null"] },
+///                         "cache_write_input_tokens": { "type": ["string", "null"] },
+///                         "reasoning_output_tokens": { "type": ["string", "null"] }
+///                       }
+///                     },
+///                     "customer_charge": {
+///                       "type": "object",
+///                       "required": ["status", "currency", "amount_nanos"],
+///                       "properties": {
+///                         "status": { "type": "string" },
+///                         "currency": { "type": ["string", "null"] },
+///                         "amount_nanos": { "type": ["string", "null"] }
+///                       }
+///                     },
+///                     "timing": { "type": ["object", "null"] },
+///                     "finish_reasons": { "type": ["array", "null"] },
+///                     "failure": { "type": ["object", "null"] },
+///                     "output_guardrail_outcome": { "type": ["string", "null"] }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, revoked, expired or invalid key."
+///       },
+///       "404": {
+///         "description": "Generation not found in workspace."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+async fn get_generation(
+    State(state): State<AppState>,
+    Path(id): Path<uuid::Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
+    let entry = state
+        .store
+        .gateway_request(principal.scope(), id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let raw = serde_json::to_value(&entry)
+        .map_err(|_| ApiError::invalid_request("Generation serialization failed"))?;
+    Ok(Json(json!({
+        "data": {
+            "id": entry.attempt_id,
+            "model": entry.model,
+            "provider_model": entry.provider_model,
+            "request_kind": raw.get("request_kind").cloned().unwrap_or(Value::Null),
+            "created_at": entry.created_at,
+            "dispatched_at": entry.dispatched_at,
+            "completed_at": entry.completed_at,
+            "duration_ms": entry.duration_ms,
+            "execution": raw.get("execution").cloned().unwrap_or(Value::Null),
+            "usage_confidence": raw.get("usage_confidence").cloned().unwrap_or(Value::Null),
+            "usage": {
+                "prompt_tokens": raw.get("prompt_tokens").cloned().unwrap_or(Value::Null),
+                "completion_tokens": raw.get("completion_tokens").cloned().unwrap_or(Value::Null),
+                "cached_input_tokens": raw.get("cached_input_tokens").cloned().unwrap_or(Value::Null),
+                "cache_write_input_tokens": raw.get("cache_write_input_tokens").cloned().unwrap_or(Value::Null),
+                "reasoning_output_tokens": raw.get("reasoning_output_tokens").cloned().unwrap_or(Value::Null),
+            },
+            "customer_charge": {
+                "status": raw.get("customer_charge_status").cloned().unwrap_or(Value::Null),
+                "currency": raw.get("customer_charge_currency").cloned().unwrap_or(Value::Null),
+                "amount_nanos": raw.get("customer_charge_nanos").cloned().unwrap_or(Value::Null),
+            },
+            "timing": raw.get("timing").cloned().unwrap_or(Value::Null),
+            "finish_reasons": raw.get("finish_reasons").cloned().unwrap_or(Value::Null),
+            "failure": raw.get("failure").cloned().unwrap_or(Value::Null),
+            "output_guardrail_outcome": raw.get("output_guardrail_outcome").cloned().unwrap_or(Value::Null),
+        }
+    })))
 }
 
 async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {

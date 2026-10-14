@@ -1,5 +1,6 @@
 import type { RequestOptions } from './index.js';
 import { createMediaVerificationClient } from './media-verification.js';
+import { nativeCapabilityQuery, type NativeProviderCapabilities } from './provider-capabilities.js';
 
 /** Current metadata from an explicit, successful, identity-validated Get.
  * Independent of operation ACKs; cannot unblock unknown writes or grant reuse.
@@ -79,6 +80,7 @@ function query(input: PageQuery & { group_id?: string; expected_revision?: strin
 /** Explicit reads and one-shot mutations; no automatic retry or readiness claim. */
 export function createMediaAssetsClient(send: MediaAssetSender) {
   return {
+    capabilities: (model?: string, options?: RequestOptions) => send<NativeProviderCapabilities>(`/media/capabilities${nativeCapabilityQuery(model)}`, 'GET', undefined, options),
     verification: createMediaVerificationClient(send, reference, query),
     groups: {
       list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetGroup>>(`/media/asset-groups${query(input)}`, 'GET', undefined, options),

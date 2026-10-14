@@ -1,5 +1,5 @@
 ---
-title: "Create an encrypted Supplier API-key configuration"
+title: "Create an encrypted Provider API-key configuration"
 description: "POST /admin/v1/vendors"
 tableOfContents: false
 ---
@@ -92,12 +92,12 @@ No path, query, or header parameters are declared.
     "supplier_id": {
       "type": "string",
       "format": "uuid",
-      "description": "Existing Supplier business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
+      "description": "Existing Provider business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
     },
     "create_supplier": {
       "type": "boolean",
       "default": false,
-      "description": "Atomically create a Supplier business with this name and its explicit configuration ownership link. Omission preserves legacy configuration-only creation."
+      "description": "Atomically create a Provider business with this name and its explicit configuration ownership link. Omission preserves legacy configuration-only creation."
     }
   }
 }
@@ -172,7 +172,7 @@ Content type: `application/json`.
             "object",
             "null"
           ],
-          "description": "Supplier ownership on configuration-list reads; credentials and commercial data are excluded.",
+          "description": "Provider ownership on configuration-list reads; credentials and commercial data are excluded.",
           "required": [
             "id",
             "name"

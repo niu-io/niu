@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/vendors/{id}/asset-management/group-reads`
 
-Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Supplier queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
+Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Provider queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
 
 Operation: `get--admin-v1-vendors--id--asset-management-group-reads`.
 
@@ -199,4 +199,4 @@ Platform administrator required.
 
 ## Behavior and supported scope
 
-Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Supplier queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
+Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Provider queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.

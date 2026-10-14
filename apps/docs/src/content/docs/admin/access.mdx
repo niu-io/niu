@@ -9,8 +9,8 @@ description: Distinguish installation setup, platform administrators and scoped 
 | --- | --- |
 | Installation administrator | Initial setup and installation-wide administration using the configured bootstrap credential |
 | Authorized platform administrator | Platform configuration through an authenticated member session with the necessary permissions |
-| Company or workspace operator | Scoped customer resources; ownership does not grant platform-wide Supplier or configuration access |
-| Supplier member | The Supplier's own permitted business records, rather than platform administration |
+| Company or workspace operator | Scoped customer resources; ownership does not grant platform-wide Provider or configuration access |
+| Provider member | The Provider's own permitted business records, rather than platform administration |
 
 The dashboard restores a server session and checks its permissions before rendering protected administration routes. APIs check access independently. Do not use a customer workspace key as a platform administrator credential.
 

@@ -478,7 +478,7 @@ Content type: `text/event-stream`.
 
 ### HTTP 400
 
-Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Supplier dispatch.
+Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Provider dispatch.
 
 ### HTTP 401
 

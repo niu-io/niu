@@ -78,7 +78,7 @@ impl TokenRates {
     }
 }
 
-/// Exact public rate syntax shared by Supplier offers and customer tariffs.
+/// Exact public rate syntax shared by Provider offers and customer tariffs.
 pub(crate) fn parse_token_rate(value: &str) -> Result<i64, StoreError> {
     if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
         return Err(StoreError::InvalidPrice);

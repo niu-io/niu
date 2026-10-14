@@ -22,7 +22,9 @@ export function createDashboardMediaClient(
   workspace: string,
   key: string,
 ) {
-  const root = `/organizations/${reference(organization)}/projects/${reference(workspace)}/keys/${reference(key)}`;
+  reference(organization);
+  reference(workspace);
+  reference(key);
   return createMediaAssetsClient(<T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body: unknown, options?: MediaAssetMutationOptions): Promise<T> => {
     // Accept only the media domain prefix, never strip arbitrary versions or
     // forward an absolute URL into the administrator-authenticated sender.
@@ -37,6 +39,6 @@ export function createDashboardMediaClient(
         throw new TypeError('Media idempotencyKey must be a canonical nonnil UUID');
       }
     }
-    return send<T>(root + relative, method, body, options);
+    return send<T>(relative, method, body, options);
   });
 }

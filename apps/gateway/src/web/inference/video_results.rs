@@ -288,7 +288,9 @@ pub(in crate::web) async fn retrieve(
     headers: HeaderMap,
     Path((id, kind)): Path<(Uuid, String)>,
 ) -> Result<Response, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     retrieve_as(&state, &principal, id, &kind).await
 }
 pub(in crate::web) async fn delete(
@@ -319,8 +321,117 @@ pub(in crate::web) async fn availability(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     availability_as(&state, &principal, id).await
+}
+
+/// ```openapi
+/// {
+///   "path": "/v1/video/jobs/{id}/results/{kind}/refresh",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "retrieveFreshVideoResult",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Retrieve fresh output from the original Video task",
+///     "description": "Explicitly queries the original upstream video task once using the immutable original Provider/account/model/channel binding and delivers bounded media bytes without rewriting cached references. Requires a current workspace API key or a workspace session with X-Niu-Key-Id and Write permission.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "kind",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video",
+///             "last_frame"
+///           ]
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Bounded media bytes",
+///         "content": {
+///           "video/mp4": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           },
+///           "video/webm": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           },
+///           "image/png": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           },
+///           "image/jpeg": {
+///             "schema": {
+///               "type": "string",
+///               "format": "binary"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid kind or request"
+///       },
+///       "401": {
+///         "description": "Invalid, expired or revoked credential"
+///       },
+///       "403": {
+///         "description": "Permission or guardrail policy denied"
+///       },
+///       "404": {
+///         "description": "Task or requested result missing"
+///       },
+///       "409": {
+///         "description": "Original Provider binding changed or query already claimed"
+///       },
+///       "502": {
+///         "description": "Upstream query or result delivery failed"
+///       },
+///       "503": {
+///         "description": "Storage or bounded delivery unavailable"
+///       },
+///       "504": {
+///         "description": "Upstream query or delivery timed out"
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub(in crate::web) async fn retrieve_fresh(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((id, kind)): Path<(Uuid, String)>,
+) -> Result<Response, ApiError> {
+    let principal = state.authorize_api_headers(&headers).await?;
+    retrieve_fresh_as(&state, &principal, id, &kind).await
 }
 
 /// Deliberate retrieval from the original task, not a generation or automatic retry.

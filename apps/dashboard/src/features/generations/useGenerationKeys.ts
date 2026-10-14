@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import type {DashboardContext,Workspace} from '@/app/dashboard-context';
-import {keyRequest,projectKeyPath,type ProjectKey} from '@/features/keys/api';
+import {keyRequest,workspaceKeyPath,type ProjectKey} from '@/features/keys/api';
 
 /** Metadata only: the selected key's workspace supplies authorization and billing scope. */
 export function useGenerationKeys(context:DashboardContext,enabled:boolean){
@@ -21,7 +21,7 @@ export function useGenerationKeys(context:DashboardContext,enabled:boolean){
         while(queue.length&&!controller.signal.aborted){
           const workspace=queue.shift()!;
           try {
-          const page=await keyRequest<{data:ProjectKey[]}>(context.token,projectKeyPath(workspace.organization_id,workspace.id),'GET',undefined,controller.signal);
+          const page=await keyRequest<{data:ProjectKey[]}>(context.token,workspaceKeyPath(workspace.id),'GET',undefined,controller.signal);
           rows.push(...page.data.filter(key=>!key.revoked&&!key.expired).map(key=>({...key,workspace})));
           } catch {failed=true;}
         }
@@ -32,3 +32,4 @@ export function useGenerationKeys(context:DashboardContext,enabled:boolean){
   },[context.token,identity,enabled]);
   return {keys,loading,error};
 }
+

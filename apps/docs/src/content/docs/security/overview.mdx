@@ -7,7 +7,7 @@ Niu separates account sign-in, workspace access, application API keys, and platf
 
 ## Credential ownership
 
-Provider credentials remain server-side. Managed Supplier credentials are encrypted in PostgreSQL with AES-256-GCM using `NIU_VENDOR_ENCRYPTION_KEY`, held separately in the deployment secret store. Only platform administrators can manage these shared connections; organization or workspace members cannot. Management APIs never return provider credentials. Back up the encryption secret separately from database backups; automatic master-key rotation is not implemented. Startup validates every retained Supplier inference credential against its Supplier identity in bounded pages, including disabled Suppliers and those with no model mappings. A wrong key or undecryptable credential prevents startup; disabling a Supplier does not bypass validation. This check does not re-encrypt records or qualify master-key rotation for other encrypted data. Public model names resolve through approved routes; requests cannot override provider, credential, or endpoint settings. Logs and browser responses must not contain secrets.
+Provider credentials remain server-side. Managed Provider credentials are encrypted in PostgreSQL with AES-256-GCM using `NIU_VENDOR_ENCRYPTION_KEY`, held separately in the deployment secret store. Only platform administrators can manage these shared connections; organization or workspace members cannot. Management APIs never return provider credentials. Back up the encryption secret separately from database backups; automatic master-key rotation is not implemented. Startup validates every retained Provider inference credential against its Provider identity in bounded pages, including disabled Providers and those with no model mappings. A wrong key or undecryptable credential prevents startup; disabling a Provider does not bypass validation. This check does not re-encrypt records or qualify master-key rotation for other encrypted data. Public model names resolve through approved routes; requests cannot override provider, credential, or endpoint settings. Logs and browser responses must not contain secrets.
 
 ## Authorization
 
@@ -49,7 +49,7 @@ billing remains an explicit administrative operation.
 ## Platform grants and customer roles
 
 An explicit platform-administrator grant is separate from the member's role in
-a customer company or workspace. Platform-only Supplier, route-pool, branding,
+a customer company or workspace. Platform-only Provider, route-pool, branding,
 payment support-inventory, payment-configuration and media-pricing handlers check that grant after session
 authentication; they do not require the member to be a customer-company owner.
 An ordinary company owner has no platform authority without the explicit grant.
@@ -61,4 +61,4 @@ Installation-only financial policy operations remain installation-only. Grant
 changes are read on authenticated requests, so revocation removes platform access
 from an existing session without granting or removing its separate customer role.
 
-Saved payment configuration is also authenticated and decoded before the Gateway becomes ready, including disabled configurations and installations with no Supplier records. Missing or incompatible master keys prevent startup without changing the saved ciphertext or exposing merchant settings in diagnostics. Restore the matching key; this guard does not re-encrypt records or implement master-key rotation.
+Saved payment configuration is also authenticated and decoded before the Gateway becomes ready, including disabled configurations and installations with no Provider records. Missing or incompatible master keys prevent startup without changing the saved ciphertext or exposing merchant settings in diagnostics. Restore the matching key; this guard does not re-encrypt records or implement master-key rotation.

@@ -9,7 +9,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 [SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
-/** Immutable Supplier earning attribution; null quantities remain unknown or unpriced. */
+/** Immutable Provider earning attribution; null quantities remain unknown or unpriced. */
 export type SupplierEarning = {
     revision: string;
     offer_id: string;

@@ -249,7 +249,7 @@ impl Store {
         Ok(Some(prepared.rate))
     }
 
-    /// One owned transaction pins exact customer/Supplier prices, qualified
+    /// One owned transaction pins exact customer/Provider prices, qualified
     /// liability and reservation. Unknown commit never authorizes another egress.
     pub async fn bind_and_reserve_customer_video_rate(
         &self,

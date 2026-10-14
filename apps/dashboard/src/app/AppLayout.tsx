@@ -111,10 +111,10 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     setLoading(true);setError('');
     void request<{data: {id: string; name: string}[]}>(context.token, '/admin/v1/providers', 'GET', undefined, controller.signal)
       .then(result => {
-        if (!Array.isArray(result.data)) throw new Error('Invalid supplier list');
+        if (!Array.isArray(result.data)) throw new Error('Invalid provider list');
         if (!controller.signal.aborted) { setSuppliers(result.data);setDirectoryOwner(context.token);setError(''); }
       })
-      .catch(() => { if (!controller.signal.aborted) setError('Could not load suppliers.'); })
+      .catch(() => { if (!controller.signal.aborted) setError('Could not load providers.'); })
       .finally(() => {if (!controller.signal.aborted) setLoading(false);});
     return () => controller.abort();
   }, [context.token, context.session, retryRevision]);
@@ -128,7 +128,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     { to: `/suppliers/${supplier}/consumption`, label: 'Usage', end: false },
     { to: `/suppliers/${supplier}/settlements`, label: 'Settlements', end: false },
   ] : [
-    { to: '/admin/suppliers', label: 'Suppliers', end: false },
+    { to: '/admin/suppliers', label: 'Providers', end: false },
     { to: '/admin/commercial', label: 'Commercial overview', end: false },
     { to: '/admin/customer-accounts', label: 'Customer accounts', end: false },
     { to: '/admin/pricing', label: 'Customer pricing', end: false },
@@ -140,11 +140,11 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     <SidebarHeader className="sidebar-heading">
       {!supplier && <h2 className="sidebar-heading-row">Admin</h2>}
       {supplier && <div className="workspace-switcher"><DropdownMenu>
-        <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" aria-label="Switch supplier" title="Switch supplier">
-          <span className="workspace-switcher-copy"><strong>{membership?.name ?? (loading ? 'Loading supplier…' : error ? 'Supplier unavailable' : 'Choose supplier')}</strong></span><ChevronsUpDown size={16} />
+        <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" aria-label="Switch provider" title="Switch provider">
+          <span className="workspace-switcher-copy"><strong>{membership?.name ?? (loading ? 'Loading provider…' : error ? 'Provider unavailable' : 'Choose provider')}</strong></span><ChevronsUpDown size={16} />
         </Button></DropdownMenuTrigger>
         <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-          <DropdownMenuLabel className="workspace-switcher-menu-title">Suppliers</DropdownMenuLabel>
+          <DropdownMenuLabel className="workspace-switcher-menu-title">Providers</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={selected} onValueChange={id => {
             const section = location.pathname.split('/')[adminSupplier ? 4 : 3];
             const nextSearch = new URLSearchParams(location.search);
@@ -152,16 +152,16 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
             navigate(`${adminSupplier ? '/admin' : ''}/suppliers/${encodeURIComponent(id)}${section ? '/' + section : ''}${nextSearch.size ? '?' + nextSearch.toString() : ''}${location.hash}`);
             if (isMobile) setOpenMobile(false);
           }}>{suppliers.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}><span>{item.name}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>
-          {loading && <DropdownMenuLabel role="status">Loading suppliers…</DropdownMenuLabel>}
-          {!loading && !error && suppliers.length === 0 && <DropdownMenuLabel>No suppliers yet</DropdownMenuLabel>}
-          {error && <><div className="workspace-switcher-error" role="alert">{error}</div><DropdownMenuItem onSelect={event => {event.preventDefault();setRetryRevision(value => value + 1);}}>Retry supplier list</DropdownMenuItem></>}
-          {!adminSupplier && (context.session?.kind === 'installation' || context.session?.permissions.platform_admin) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/suppliers/' + encodeURIComponent(selected) + '/settings')}><Settings2 size={16} />Supplier settings</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/suppliers/overview?create=supplier' + (selected ? '&supplier=' + encodeURIComponent(selected) : ''))}><Plus size={16} />Add supplier</DropdownMenuItem></>}
+          {loading && <DropdownMenuLabel role="status">Loading providers…</DropdownMenuLabel>}
+          {!loading && !error && suppliers.length === 0 && <DropdownMenuLabel>No providers yet</DropdownMenuLabel>}
+          {error && <><div className="workspace-switcher-error" role="alert">{error}</div><DropdownMenuItem onSelect={event => {event.preventDefault();setRetryRevision(value => value + 1);}}>Retry provider list</DropdownMenuItem></>}
+          {!adminSupplier && (context.session?.kind === 'installation' || context.session?.permissions.platform_admin) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/suppliers/' + encodeURIComponent(selected) + '/settings')}><Settings2 size={16} />Provider settings</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/suppliers/overview?create=supplier' + (selected ? '&supplier=' + encodeURIComponent(selected) : ''))}><Plus size={16} />Add provider</DropdownMenuItem></>}
         </DropdownMenuContent>
       </DropdownMenu></div>}
     </SidebarHeader>
     <SidebarContent className="workspace-sidebar-content">
-      <nav aria-label={supplier ? "Supplier navigation" : "Admin navigation"}><SidebarMenu className="workspace-nav-menu">
-        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys & routes' ? KeyRound : item.label === 'Portal access' ? Users : item.label === 'Suppliers' ? RailSuppliers : item.label === 'Customer accounts' ? Users : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding & theme' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models & pricing' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
+      <nav aria-label={supplier ? "Provider navigation" : "Admin navigation"}><SidebarMenu className="workspace-nav-menu">
+        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys & routes' ? KeyRound : item.label === 'Portal access' ? Users : item.label === 'Providers' ? RailSuppliers : item.label === 'Customer accounts' ? Users : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding & theme' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models & pricing' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
           <SidebarMenuButton asChild isActive={location.pathname === item.to || (!supplier && location.pathname.startsWith(item.to + "/"))} className="nav-item provider-zone-item">
             <NavLink to={item.to} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{item.label}</span></NavLink>
           </SidebarMenuButton>
@@ -174,7 +174,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
 function WorkspaceSidebarToggle({ buttonRef, supplierArea = false, modelsArea = false, settingsArea = false, activityArea = false, adminArea = false }: { buttonRef: RefObject<HTMLButtonElement | null>; supplierArea?: boolean; modelsArea?: boolean; settingsArea?: boolean; activityArea?: boolean; adminArea?: boolean }) {
   const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
   const expanded = isMobile ? openMobile : state === 'expanded';
-  return <Button ref={buttonRef} type="button" variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={expanded} aria-controls={adminArea ? "admin-navigation" : activityArea ? "activity-navigation" : settingsArea ? "settings-navigation" : modelsArea ? "model-filters" : supplierArea ? "supplier-navigation" : "workspace-navigation"} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${adminArea ? 'admin navigation' : activityArea ? 'activity navigation' : settingsArea ? 'settings navigation' : modelsArea ? 'model filters' : supplierArea ? 'supplier navigation' : 'workspace navigation'}`} title={expanded ? 'Collapse navigation' : 'Expand navigation'}>
+  return <Button ref={buttonRef} type="button" variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={expanded} aria-controls={adminArea ? "admin-navigation" : activityArea ? "activity-navigation" : settingsArea ? "settings-navigation" : modelsArea ? "model-filters" : supplierArea ? "supplier-navigation" : "workspace-navigation"} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${adminArea ? 'admin navigation' : activityArea ? 'activity navigation' : settingsArea ? 'settings navigation' : modelsArea ? 'model filters' : supplierArea ? 'provider navigation' : 'workspace navigation'}`} title={expanded ? 'Collapse navigation' : 'Expand navigation'}>
     {expanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
   </Button>;
 }
@@ -228,7 +228,7 @@ export default function AppLayout() {
     if (!adminSupplierId || !token) return;
     const controller = new AbortController();
     void request<{ data: {id: string; name: string}[] }>(token, '/admin/v1/providers', 'GET', undefined, controller.signal).then(result => {
-      if (!controller.signal.aborted) setAdminSupplierName(result.data.find(item => item.id === adminSupplierId)?.name ?? 'Supplier unavailable');
+      if (!controller.signal.aborted) setAdminSupplierName(result.data.find(item => item.id === adminSupplierId)?.name ?? 'Provider unavailable');
     }).catch(() => {});
     return () => controller.abort();
   }, [adminSupplierId, token, supplierProfileRevision]);
@@ -724,13 +724,12 @@ export default function AppLayout() {
     : helpArea
       ? 'Documentation'
     : supplierArea
-      ? ({ commercial: 'Commercial overview', 'customer-accounts': 'Customer accounts', oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Suppliers' : supplierManagement ? 'Overview' : 'Suppliers'))
+      ? ({ commercial: 'Commercial overview', 'customer-accounts': 'Customer accounts', oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
       : activePath === 'keys/new'
         ? 'New API key'
         : activePath.startsWith('keys/')
           ? 'API key'
           : activePath.startsWith('guardrails/') ? guardrailTitles[activePath.split('/')[1]] ?? 'Guardrails'
-          : activePath === 'benchmarks' ? 'Benchmarks'
           : activeNavigation?.label ?? 'Page not found';
 
   useEffect(() => {
@@ -805,7 +804,7 @@ export default function AppLayout() {
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/activity" className={`rail-item${activePath.startsWith('activity') ? ' selected' : ''}`} aria-label="Activity"><ChartNoAxesCombined size={23} aria-hidden="true" /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Activity</TooltipContent></Tooltip>
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/models" className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models"><RailModels size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Models</TooltipContent></Tooltip>
       </>}
-      <div className="rail-bottom">{((isInstallation && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/suppliers' : session?.provider_memberships?.length ? `/suppliers/${session.provider_memberships[0].id}` : '/suppliers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? "Admin" : "Suppliers"}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? "Admin" : "Suppliers"}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation">{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Documentation</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
+      <div className="rail-bottom">{((isInstallation && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/suppliers' : session?.provider_memberships?.length ? `/suppliers/${session.provider_memberships[0].id}` : '/suppliers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? "Admin" : "Providers"}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? "Admin" : "Providers"}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation">{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Documentation</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
     </nav>
     <div className="app-rail-spacer" aria-hidden="true" />
     {hasSidebar && <Sidebar
@@ -838,7 +837,7 @@ export default function AppLayout() {
           {isGuardrailEditor && <><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator></>}
           {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="sm:hidden"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6" aria-label="Show parent pages">…</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>Guardrails</NavLink></DropdownMenuItem>{isGuardrailEditor && <DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></BreadcrumbItem><BreadcrumbSeparator className="sm:hidden">/</BreadcrumbSeparator></>}
           <BreadcrumbItem className="min-w-0"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 max-w-full gap-1 px-1 py-1" aria-label="Switch workspace page"><h1 className="dashboard-route-title">{title}</h1><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeNavigation?.to ?? ''} onValueChange={value => navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)}>{scopedNavigation.filter(item => item.destination === 'Workspace').map(item => <DropdownMenuRadioItem key={item.to} value={item.to}>{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></BreadcrumbItem>
-        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin">Admin</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink to="/admin/suppliers">Suppliers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/suppliers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Supplier…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : adminArea ? 'Admin' : supplierArea ? 'Suppliers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to="/models">Models</NavLink> : title}</h1></Breadcrumb>}
+        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin">Admin</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink to="/admin/suppliers">Providers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/suppliers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Provider…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : adminArea ? 'Admin' : supplierArea ? 'Providers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to="/models">Models</NavLink> : title}</h1></Breadcrumb>}
         <div id="dashboard-page-actions" className="dashboard-page-actions" />
       </header>}
       <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>
@@ -846,7 +845,7 @@ export default function AppLayout() {
         {gatewayOutage}{signOutFailure}
         {(helpArea || gateway.everConnected) && <div className="gateway-route-content" hidden={!helpArea && gatewayStatus !== 'online'}>
           {adminSupplierId && <Tabs value={location.pathname.split('/')[4] || 'overview'} onValueChange={section => navigate(`/admin/suppliers/${encodeURIComponent(adminSupplierId)}${section === 'overview' ? '' : '/' + section}`)} className="mb-6 min-w-0">
-            <div ref={supplierTabsRef} className="max-w-full overflow-x-auto"><TabsList variant="line" aria-label="Supplier sections">
+            <div ref={supplierTabsRef} className="max-w-full overflow-x-auto"><TabsList variant="line" aria-label="Provider sections">
               {[['overview', 'Overview'], ['configuration', 'API keys & routes'], ['models', 'Models & pricing'], ['consumption', 'Usage'], ['settlements', 'Settlements'], ['members', 'Portal access'], ['settings', 'Settings']].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
             </TabsList></div>
           </Tabs>}

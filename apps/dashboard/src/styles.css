@@ -131,7 +131,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .niu-modal-actions > a, .niu-modal-actions > button { min-height: 40px; }
 @keyframes niu-modal-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-.keys-page { display: grid; gap: 18px; }
+.keys-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .keys-page .page-heading { margin-bottom: 2px; }
 .keys-scope-line { display: flex; align-items: center; gap: 12px; min-height: 36px; color: var(--muted-foreground); }
 .keys-scope-line strong { color: var(--foreground); font-weight: 620; }
@@ -142,9 +142,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .key-prerequisite > div { flex: 1; }
 .key-prerequisite strong { font-weight: 620; }
 .key-prerequisite p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
-.key-list { overflow: hidden; border: 0; border-radius: 0; background: transparent; }
+.key-list { min-width: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; }
 .key-list .table-wrap { border: 0; }
-.key-table td:first-child { min-width: 190px; }
+.key-table th, .key-table td { padding-inline: 12px; }
+.key-table td:first-child { min-width: 170px; }
 .key-name-link { display: inline-flex; align-items: center; gap: 9px; color: var(--foreground); font-weight: 610; text-decoration: none; }
 .key-id { display: block; max-width: 250px; overflow: hidden; margin: 5px 0 0 24px; color: var(--muted-foreground); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
 .key-model-summary { display: block; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1412,18 +1413,21 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .key-page-heading .page-subtitle { margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
 .model-route-title h2 { margin: 0; font-size: clamp(20px, 2vw, 26px); font-weight: 650; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .dashboard-login-shell { min-height: 100dvh; }
-.dashboard-login { display: grid; min-height: 100dvh; place-items: center; padding: 24px; background: var(--background); }
-.dashboard-login-card { width: min(100%, 390px); padding: 30px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
-.dashboard-login-brand { display: flex; align-items: center; gap: 9px; margin-bottom: 34px; color: var(--foreground); font-size: 16px; font-weight: 680; letter-spacing: -.035em; text-decoration: none; }
-.dashboard-login-brand img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
+.dashboard-login { display: grid; min-height: 100dvh; place-items: center; padding: 24px; color:var(--foreground); background: var(--background); }
+.dashboard-login-card { width: min(100%, 360px); padding: 24px 8px; border: 0; background: transparent; }
+.dashboard-login-brand { display: flex; align-items: center; justify-content:center; gap: 10px; margin-bottom: 32px; color: var(--foreground); font-size: 24px; font-weight: 600; letter-spacing: -.025em; text-decoration: none; }
+.dashboard-login-brand img { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; }
 .dashboard-login-brand > span:first-of-type { min-width: 0; overflow-wrap: anywhere; }
 .dashboard-login-product { flex-shrink: 0; }
 .dashboard-login-product { color: var(--muted-foreground); font-size: 13px; font-weight: 500; letter-spacing: 0; }
 .dashboard-login h1 { margin: 0; font-size: 25px; font-weight: 620; letter-spacing: -.04em; }
 .dashboard-login-intro { margin: 8px 0 23px; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; }
-.dashboard-login-form { display: grid; gap: 10px; }
+.dashboard-login-form { display: grid; gap: 20px; }
+.dashboard-login-field { display:grid; gap:8px; }
+.dashboard-login-form input { min-height:44px; background:var(--card); box-shadow:none; }
+.dashboard-login-form > button { min-height:44px; }
 .dashboard-login-form > label { color: var(--foreground); font-size: 13px; font-weight: 600; }
-.dashboard-login-form > button { width: 100%; margin-top: 8px; }
+.dashboard-login-form > button { width: 100%; margin-top:0; }
 .dashboard-login-error { margin: 0; color: var(--destructive); font-size: 13px; line-height: 1.45; }
 
 .page-heading .eyebrow { display: none; }
@@ -1481,7 +1485,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
   .breadcrumbs { gap: 6px; }.breadcrumbs > span { display: none; }
   .dashboard-route-title { max-width: calc(100vw - 116px); }
   .dashboard-login { padding: 16px; }
-  .dashboard-login-card { padding: 25px 22px; }
+  .dashboard-login-card { padding: 24px 8px; }
   .page-content { padding: 20px 16px 40px; }
   .overview-gateway, .overview-trace, .overview-workflow { padding: 18px; }
   .connect-panel { flex-direction: column; padding: 18px; }
@@ -2496,7 +2500,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .key-detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 20px 0 0; padding-top: 17px; border-top: 1px solid var(--border); }
 .key-detail-facts dt { color: var(--muted-foreground); font-size: 12px; }
 .key-detail-facts dd { margin: 5px 0 0; font-size: 14px; font-weight: 550; overflow-wrap: anywhere; }
-.key-revoke-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+.key-revoke-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .key-revoke-actions [role=group] { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .key-revoke-actions [role=group] > span { margin-right: 3px; color: var(--destructive); font-size: 13px; }
 .key-not-found { display: flex; align-items: center; gap: 12px; }
@@ -2807,7 +2811,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 
 .key-table .key-name-link { max-width: 220px; white-space: normal; overflow-wrap: anywhere; }
 .key-table .key-name-link svg { flex-shrink: 0; }
-.key-table .key-model-summary { max-width: 160px; }
+.key-table .key-model-summary { max-width: 220px; }
 
 /* Flat section surfaces: navigation and content are separated by tone.
    Reserve elevation for floating controls; retain table and input affordances. */

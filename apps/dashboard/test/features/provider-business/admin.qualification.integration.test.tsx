@@ -40,13 +40,13 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
 
     if (path === "/admin/v1/providers") {
       return Response.json({
-        data: [{ id: supplierId, name: "Example supplier", members: 0, qualification_status: supplierQualified ? "qualified" : "unqualified" }],
+        data: [{ id: supplierId, name: "Example provider", members: 0, qualification_status: supplierQualified ? "qualified" : "unqualified" }],
       });
     }
     if (path === `/admin/v1/providers/${supplierId}/administration?days=90`) {
       if (failInitialRead) {
         failInitialRead = false;
-        return Response.json({ error: { message: 'Supplier data temporarily unavailable' } }, { status: 503 });
+        return Response.json({ error: { message: 'Provider data temporarily unavailable' } }, { status: 503 });
       }
       return Response.json({
         data: {
@@ -90,8 +90,8 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
   return { requests, router };
 }
 
-describe("installation Supplier qualification workflow", () => {
-  it("ignores a previous Supplier save failure after navigation", async () => {
+describe("installation Provider qualification workflow", () => {
+  it("ignores a previous Provider save failure after navigation", async () => {
     const { router } = setup("1000000000", false, false, "members");
     const originalFetch = globalThis.fetch;
     let finish!: (response: Response) => void;
@@ -103,18 +103,18 @@ describe("installation Supplier qualification workflow", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Save", exact: true }).hasAttribute("disabled")).toBe(false));
     await user.click(screen.getByRole("button", { name: "Save", exact: true }));
     await act(async () => { await router.navigate('/admin/suppliers/another-supplier/members'); });
-    await act(async () => { finish(Response.json({ error: { message: "Previous Supplier save failed" } }, { status: 503 })); });
-    expect(screen.queryByText("Previous Supplier save failed")).toBeNull();
+    await act(async () => { finish(Response.json({ error: { message: "Previous Provider save failed" } }, { status: 503 })); });
+    expect(screen.queryByText("Previous Provider save failed")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
-  it("discards an open membership draft when the Supplier changes", async () => {
+  it("discards an open membership draft when the Provider changes", async () => {
     const { router } = setup("1000000000", false, false, "members");
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Edit access for Demo" }));
-    await screen.findByRole("dialog", { name: "Manage supplier portal access" });
+    await screen.findByRole("dialog", { name: "Manage provider portal access" });
     await act(async () => { await router.navigate('/admin/suppliers/another-supplier/members'); });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.queryByText("Supplier configuration saved.")).toBeNull();
+    expect(screen.queryByText("Provider configuration saved.")).toBeNull();
   });
   it("shows named memberships and prefills existing access without exposing identifiers", async () => {
     setup("1000000000", false, false, "members");
@@ -124,7 +124,7 @@ describe("installation Supplier qualification workflow", () => {
     expect(screen.getByRole("button", { name: "Edit access for Revoked account" }).hasAttribute("disabled")).toBe(true);
     await user.click(screen.getByRole("button", { name: "Edit access for Demo" }));
     await waitFor(() => expect(screen.getByLabelText("Account").textContent).toContain("Demo"));
-    expect(screen.getByLabelText("Supplier role").textContent).toContain("Manager");
+    expect(screen.getByLabelText("Provider role").textContent).toContain("Manager");
     expect(screen.getByLabelText("Access").textContent).toContain("Grant access");
   });
   it("selects an active account by name while retaining its identifier only in the request", async () => {
@@ -170,7 +170,7 @@ describe("installation Supplier qualification workflow", () => {
     expect(document.body.textContent).not.toContain("private-schema");
   });
 
-  it("requires supplier review before offer review and binds the offer review to current rates", async () => {
+  it("requires provider review before offer review and binds the offer review to current rates", async () => {
     const { requests } = setup();
     const user = userEvent.setup();
 
@@ -180,7 +180,7 @@ describe("installation Supplier qualification workflow", () => {
     expect(offerReview.getAttribute("aria-disabled")).toBe("true");
     await user.keyboard("{Escape}");
 
-    await user.click(screen.getByRole("button", { name: "Review Supplier" }));
+    await user.click(screen.getByRole("button", { name: "Review Provider" }));
     await user.type(screen.getByLabelText("Supply-rights evidence SHA-256"), "invalid");
     await user.click(screen.getByRole("button", { name: "Record review" }));
     expect(requests.some((request) => request.path.endsWith("/qualification") && request.method === "PUT")).toBe(false);
@@ -260,7 +260,7 @@ it('edits current agreed rates with exact decimal values and the saved revision'
   }));
 });
 
-it('does not replace a failed Supplier read with a false empty pricing state', async () => {
+it('does not replace a failed Provider read with a false empty pricing state', async () => {
   setup('1000000000', true);
   const user = userEvent.setup();
   expect(await screen.findByRole('alert')).toBeTruthy();
@@ -271,7 +271,7 @@ it('does not replace a failed Supplier read with a false empty pricing state', a
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
-it.each([false, true])('creates atomic Supplier setup and handles discovery failure=%s after commit', async (discoveryFails) => {
+it.each([false, true])('creates atomic Provider setup and handles discovery failure=%s after commit', async (discoveryFails) => {
   fixture.context = { token: 'installation-token', session: { kind: 'installation' } } as unknown as DashboardContext;
   const writes: Record<string, unknown>[] = [];
   const reads: string[] = [];
@@ -284,28 +284,28 @@ it.each([false, true])('creates atomic Supplier setup and handles discovery fail
       writes.push(JSON.parse(String(init.body)));
       return Response.json({ data: { id: 'configured-api' } });
     }
-    if (path.endsWith('/supplier')) return discoveryFails ? Response.json({ error: { message: 'Discovery unavailable' } }, { status: 503 }) : Response.json({ data: { id: supplierId, name: 'Test supplier' } });
-    if (path === '/admin/v1/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test supplier', members: 0, qualification_status: 'unqualified' }] : [] });
+    if (path.endsWith('/provider') || path.endsWith('/supplier')) return discoveryFails ? Response.json({ error: { message: 'Discovery unavailable' } }, { status: 503 }) : Response.json({ data: { id: supplierId, name: 'Test provider' } });
+    if (path === '/admin/v1/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0, qualification_status: 'unqualified' }] : [] });
     return Response.json({ data: { offers: [], balances: [], consumption: [], settlements: [], earnings: [] } });
   }));
   render(<MemoryRouter initialEntries={['/admin/suppliers/overview?create=supplier']}><Routes><Route path='/admin/suppliers/:section' element={<ProviderAdministration />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
-  await user.type(await screen.findByLabelText('Supplier name'), 'Test supplier');
-  await user.type(screen.getByLabelText('Supplier API key'), 'fixture-credential');
+  await user.type(await screen.findByLabelText('Provider name'), 'Test provider');
+  await user.type(screen.getByLabelText('Provider API key'), 'fixture-credential');
   expect((screen.getByLabelText('API base URL') as HTMLInputElement).disabled).toBe(false);
-  await user.click(screen.getByRole('button', { name: 'Create supplier', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Create provider', exact: true }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  expect(writes).toEqual([{ name: 'Test supplier', adapter: 'openrouter', api_base: 'https://openrouter.ai/api/v1', api_key: 'fixture-credential', enabled: true, create_supplier: true }]);
-  if (discoveryFails) expect(await screen.findByText('API key saved, but Supplier details could not be opened. Refresh the Supplier list.')).toBeTruthy();
+  expect(writes).toEqual([{ name: 'Test provider', adapter: 'openrouter', api_base: 'https://openrouter.ai/api/v1', api_key: 'fixture-credential', enabled: true, create_supplier: true }]);
+  if (discoveryFails) expect(await screen.findByText('API key saved, but Provider details could not be opened. Refresh the Provider list.')).toBeTruthy();
   else {
-    expect(await screen.findByText('Supplier created. Add models and agreed rates to continue setup.')).toBeTruthy();
+    expect(await screen.findByText('Provider created. Add models and agreed rates to continue setup.')).toBeTruthy();
     await waitFor(() => expect(reads).toContain(`/admin/v1/providers/${supplierId}/administration?days=90`));
   }
   expect(document.body.textContent).not.toContain('fixture-credential');
 });
 
 
-describe('Supplier cached-input rates', () => {
+describe('Provider cached-input rates', () => {
   it.each([
     ['preserve', '0.123456789', '123456789'],
     ['clear', '', null],

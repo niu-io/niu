@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `DELETE /v1/video/jobs/{id}/results`
 
-Requires current workspace/model access. Removes encrypted URLs and leaves content-free markers preventing later refresh from restoring them, including unfinished jobs. Preserves status and financial records. Does not delete media held by a Supplier or downloaded copies.
+Requires current workspace/model access. Removes encrypted URLs and leaves content-free markers preventing later refresh from restoring them, including unfinished jobs. Preserves status and financial records. Does not delete media held by a Provider or downloaded copies.
 
 Operation: `deleteVideoResults`.
 
@@ -86,4 +86,4 @@ Inaccessible or missing job
 
 ## Behavior and supported scope
 
-Requires current workspace/model access. Removes encrypted URLs and leaves content-free markers preventing later refresh from restoring them, including unfinished jobs. Preserves status and financial records. Does not delete media held by a Supplier or downloaded copies.
+Requires current workspace/model access. Removes encrypted URLs and leaves content-free markers preventing later refresh from restoring them, including unfinished jobs. Preserves status and financial records. Does not delete media held by a Provider or downloaded copies.

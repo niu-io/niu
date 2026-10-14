@@ -13,10 +13,10 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCap
   <TableHeader><TableRow><TableHead>Capability</TableHead><TableHead>Niu</TableHead><TableHead>New API</TableHead><TableHead>OpenRouter</TableHead></TableRow></TableHeader>
   <TableBody>
     <TableRow><TableCell data-label="Feature">Deployment</TableCell><TableCell data-label="Niu">Self-hosted public gateway with PostgreSQL</TableCell><TableCell data-label="New API">Self-hosted gateway and web console</TableCell><TableCell data-label="OpenRouter">Hosted API service</TableCell></TableRow>
-    <TableRow><TableCell data-label="Feature">Model access</TableCell><TableCell data-label="Niu">Configured Supplier credentials and model mappings</TableCell><TableCell data-label="New API">Configured upstream channels and models</TableCell><TableCell data-label="OpenRouter">Hosted model catalog and Provider selection</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Model access</TableCell><TableCell data-label="Niu">Configured Provider credentials and model mappings</TableCell><TableCell data-label="New API">Configured upstream channels and models</TableCell><TableCell data-label="OpenRouter">Hosted model catalog and Provider selection</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Application integration</TableCell><TableCell data-label="Niu">OpenAI-compatible routes; native protocols have explicit scope</TableCell><TableCell data-label="New API">OpenAI, Claude, and Gemini-compatible formats</TableCell><TableCell data-label="OpenRouter">Unified API and client SDKs</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Access and usage</TableCell><TableCell data-label="Niu">Workspace keys, request logs, usage and customer billing contracts</TableCell><TableCell data-label="New API">Token management, usage and cost accounting</TableCell><TableCell data-label="OpenRouter">API keys, activity and hosted account usage</TableCell></TableRow>
-    <TableRow><TableCell data-label="Feature">Operating responsibility</TableCell><TableCell data-label="Niu">You manage deployment, storage, Suppliers, and customer tariffs</TableCell><TableCell data-label="New API">You manage the instance and upstream channels</TableCell><TableCell data-label="OpenRouter">OpenRouter operates the gateway; you configure account and routing preferences</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Operating responsibility</TableCell><TableCell data-label="Niu">You manage deployment, storage, Providers, and customer tariffs</TableCell><TableCell data-label="New API">You manage the instance and upstream channels</TableCell><TableCell data-label="OpenRouter">OpenRouter operates the gateway; you configure account and routing preferences</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Scope to check</TableCell><TableCell data-label="Niu">Active development; read each route's qualification limits</TableCell><TableCell data-label="New API">Check the chosen version, channel, and integration</TableCell><TableCell data-label="OpenRouter">Check model availability and each Provider's parameters and policies</TableCell></TableRow>
   </TableBody>
 </Table>
@@ -33,7 +33,7 @@ Compare running your gateway with using hosted model access. They can also work 
 
 ## Which approach fits?
 
-Choose **OpenRouter** if you want hosted catalog access without operating a gateway. Evaluate **New API** if its documented upstream integrations and instance-management workflows match your requirements. Evaluate **Niu** if you want to operate its workspace, Supplier, and request-accounting workflows and its current supported scope meets your needs.
+Choose **OpenRouter** if you want hosted catalog access without operating a gateway. Evaluate **New API** if its documented upstream integrations and instance-management workflows match your requirements. Evaluate **Niu** if you want to operate its workspace, Provider, and request-accounting workflows and its current supported scope meets your needs.
 
 No gateway makes every model cheaper or interchangeable. Compare the actual model, endpoint, supported inputs, customer price, and observed behavior for your workload.
 

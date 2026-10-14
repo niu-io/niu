@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /v1/media/sources/{token}`
 
-Internal Supplier handoff capability, not a customer download API. The secret path token authorizes at most four deliveries within sixty seconds. Current consent, policy, detector configuration and retained content are checked on every fetch. Never log or persist the token URL. Issuance is not exposed by this API. Query parameters, request bodies and range requests are unsupported.
+Internal Provider handoff capability, not a customer download API. The secret path token authorizes at most four deliveries within sixty seconds. Current consent, policy, detector configuration and retained content are checked on every fetch. Never log or persist the token URL. Issuance is not exposed by this API. Query parameters, request bodies and range requests are unsupported.
 
 Operation: `fetchInspectedImageSource`.
 
@@ -113,4 +113,4 @@ Response headers:
 
 ## Behavior and supported scope
 
-Internal Supplier handoff capability, not a customer download API. The secret path token authorizes at most four deliveries within sixty seconds. Current consent, policy, detector configuration and retained content are checked on every fetch. Never log or persist the token URL. Issuance is not exposed by this API. Query parameters, request bodies and range requests are unsupported.
+Internal Provider handoff capability, not a customer download API. The secret path token authorizes at most four deliveries within sixty seconds. Current consent, policy, detector configuration and retained content are checked on every fetch. Never log or persist the token URL. Issuance is not exposed by this API. Query parameters, request bodies and range requests are unsupported.

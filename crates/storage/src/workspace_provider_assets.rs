@@ -1,5 +1,5 @@
 //! Scoped Provider objects and one-shot mutations, not a local inspection system.
-//! Gateway must independently admit the selected published route and Supplier
+//! Gateway must independently admit the selected published route and Provider
 //! policy. Saved route identity/enablement alone does not grant dispatch rights.
 use crate::{Principal, Store, StoreError, TenantScope};
 use niu_media::fastrouter_domain::{

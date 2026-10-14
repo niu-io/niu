@@ -16,8 +16,9 @@ test('dashboard Video preserves scope, methods, bodies and cancellation without 
   await client.getDashboardVideoTimings(scope,id,id);
   await client.refreshDashboardVideoJob(scope,id,id);
   assert.equal(calls.length,7);
-  const prefix=`/admin/v1/organizations/${id}/projects/${id}/keys/${id}/video`;
+  const prefix='/v1/video';
   assert.ok(calls.every(c=>new URL(c.url).pathname.startsWith(prefix)));
+  assert.ok(calls.every(c=>c.init.headers['x-niu-key-id']===id));
   assert.deepEqual(calls.map(c=>c.init.method),['GET','POST','POST','GET','GET','GET','POST']);
   assert.equal(calls[0].init.signal,signal);
   assert.equal(new URL(calls[0].url).searchParams.get('limit'),'2');
@@ -37,7 +38,8 @@ test('dashboard Video discovery uses a scoped session GET and carries cancellati
   const client=new NiuAdminClient({adminToken:'member-session',baseURL:'https://niu.example/admin/v1',fetch:async(url,init)=>{captured={url,init};return Response.json({object:'list',data:[]});}});
   const signal=new AbortController().signal;
   assert.deepEqual(await client.listDashboardVideoModels(scope,id,{signal}),{object:'list',data:[]});
-  assert.equal(captured.url,`https://niu.example/admin/v1/organizations/${id}/projects/${id}/keys/${id}/video/models`);
+  assert.equal(captured.url,'https://niu.example/v1/video/models');
+  assert.equal(captured.init.headers['x-niu-key-id'],id);
   assert.equal(captured.init.method,'GET');
   assert.equal(captured.init.body,undefined);
   assert.equal(captured.init.signal,signal);
@@ -47,9 +49,9 @@ test('dashboard saved media preserves binary bodies, session scope and deletion 
  const calls=[];const signal=new AbortController().signal;
  const client=new NiuAdminClient({adminToken:'member-session',fetch:async(url,init)=>{calls.push({url,init});return init.method==='DELETE' ? Response.json({deleted:true}):new Response(new Uint8Array([0,1,2]),{headers:{'content-type':'video/mp4'}});}});
  const response=await client.getDashboardVideoResult(scope,id,id,'video',{signal});assert.deepEqual([...new Uint8Array(await response.arrayBuffer())],[0,1,2]);assert.deepEqual(await client.deleteDashboardVideoResults(scope,id,id),{deleted:true});
- assert.equal(calls[0].init.signal,signal);assert.equal(calls[0].init.headers.authorization,'Bearer member-session');assert.ok(calls[0].url.endsWith(`/keys/${id}/video/jobs/${id}/results/video`));assert.deepEqual(calls.map(c=>c.init.method),['GET','DELETE']);assert.throws(()=>client.getDashboardVideoResult(scope,id,id,'../'),/kind/);
+ assert.equal(calls[0].init.signal,signal);assert.equal(calls[0].init.headers.authorization,'Bearer member-session');assert.equal(calls[0].init.headers['x-niu-key-id'],id);assert.ok(calls[0].url.endsWith(`/v1/video/jobs/${id}/results/video`));assert.deepEqual(calls.map(c=>c.init.method),['GET','DELETE']);assert.throws(()=>client.getDashboardVideoResult(scope,id,id,'../'),/kind/);
 });
 test('dashboard result availability uses the selected-key session scope',async()=>{
  let seen;const client=new NiuAdminClient({adminToken:'member-session',fetch:async(url,init)=>{seen={url,init};return Response.json({video:'unavailable',last_frame:'unavailable'});}});
- assert.deepEqual(await client.getDashboardVideoResultsStatus(scope,id,id),{video:'unavailable',last_frame:'unavailable'});assert.ok(seen.url.endsWith(`/keys/${id}/video/jobs/${id}/results`));assert.equal(seen.init.method,'GET');assert.equal(seen.init.headers.authorization,'Bearer member-session');
+ assert.deepEqual(await client.getDashboardVideoResultsStatus(scope,id,id),{video:'unavailable',last_frame:'unavailable'});assert.ok(seen.url.endsWith(`/v1/video/jobs/${id}/results`));assert.equal(seen.init.headers['x-niu-key-id'],id);assert.equal(seen.init.method,'GET');assert.equal(seen.init.headers.authorization,'Bearer member-session');
 });

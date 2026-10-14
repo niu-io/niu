@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/providers/{provider}/media-rate-models`
 
-Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Suppliers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
+Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
 
 Operation: `listSupplierMediaRateModels`.
 
@@ -174,4 +174,4 @@ Durable storage unavailable
 
 ## Behavior and supported scope
 
-Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Suppliers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
+Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.

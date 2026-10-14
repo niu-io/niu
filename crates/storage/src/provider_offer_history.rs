@@ -1,4 +1,4 @@
-//! Supplier-scoped immutable procurement history; never used by customer APIs.
+//! Provider-scoped immutable procurement history; never used by customer APIs.
 use crate::{Store, StoreError};
 use serde_json::Value;
 use uuid::Uuid;

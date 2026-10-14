@@ -827,7 +827,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
     assert_eq!(priced["data"].as_array().unwrap().len(), 1);
     assert_eq!(
         priced["data"][0]["customer_pricing"],
-        json!({"revision":revision,"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null})
+        json!({"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null})
     );
     let dashboard_path = format!(
         "/admin/v1/models?organization_id={}&project_id={}",
@@ -843,7 +843,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         .unwrap();
     assert_eq!(
         fast["customer_pricing"],
-        priced["data"][0]["customer_pricing"]
+        json!({"revision":revision,"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null})
     );
     let (_, unscoped) = call(&app, Method::GET, "/admin/v1/models", ADMIN, None).await;
     assert!(
@@ -867,7 +867,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         scope.organization_id, scope.project_id
     );
     let update = json!({"model_alias":"fast","currency":"USD","prompt_rate":"0","completion_rate":"0","expected_revision":revision});
-    let (status, updated) = call(
+    let (status, _updated) = call(
         &app,
         Method::POST,
         &tariff_path,
@@ -883,10 +883,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         StatusCode::CONFLICT
     );
     let (_, current) = call(&app, Method::GET, "/v1/models", &key.token, None).await;
-    assert_eq!(
-        current["data"][0]["customer_pricing"]["revision"],
-        updated["data"]["revision"]
-    );
+    assert!(current["data"][0]["customer_pricing"].get("revision").is_none());
     assert_eq!(current["data"][0]["customer_pricing"]["prompt_rate"], "0");
     let historical: (i64, i64) = sqlx::query_as(
         "SELECT prompt_rate,completion_rate FROM customer_tariff_revisions WHERE id=$1",

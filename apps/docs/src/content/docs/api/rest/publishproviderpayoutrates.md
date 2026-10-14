@@ -1,5 +1,5 @@
 ---
-title: "Publish an immutable agreed Supplier payout schedule"
+title: "Publish an immutable agreed Provider payout schedule"
 description: "POST /admin/v1/providers/{provider}/offers"
 tableOfContents: false
 ---
@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /admin/v1/providers/{provider}/offers`
 
-Installation-only publication binds an existing vendor model alias to one Supplier. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.
+Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.
 
 Operation: `publishProviderPayoutRates`.
 
@@ -237,6 +237,6 @@ JSON schema mismatch; context_tiers must be an array, never null
 
 ## Behavior and supported scope
 
-Installation-only publication binds an existing vendor model alias to one Supplier. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.
+Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.
 
 **Supported scope:** implemented

@@ -11,7 +11,7 @@ function mount() {
   const context = { token: 'fixture', session: {kind:'installation',operator:null,permissions:{read:true,write:true,manage_operators:true}}, appearance:{ready:true}, organization:null } as unknown as DashboardContext;
   const router = createMemoryRouter([{ element: <SidebarProvider><SettingsNavigation context={context}/><Outlet context={context}/></SidebarProvider>, children: [
     {path:'/settings/:section?',Component:SettingsPage},
-    {path:'/admin/suppliers/models',element:<p>Supplier models</p>},
+    {path:'/admin/suppliers/models',element:<p>Provider models</p>},
     {path:'/workspaces/default',element:<p>Workspace</p>},
   ]}], {initialEntries:[{pathname:'/settings/appearance',state:null}]});
   render(<RouterProvider router={router}/>);

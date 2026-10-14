@@ -42,7 +42,7 @@ test('key example prints scoped activity without credentials or internal identif
   assert.equal(keys[1].activityAvailable, true);
   assert.equal(keys[2].activityAvailable, false);
   assert.equal(keys[2].status, 'Revoked');
-  assert.deepEqual(result.calls, [{ method: 'GET', path: '/admin/v1/organizations/12345678-1234-1234-1234-123456789abc/projects/22345678-1234-1234-1234-123456789abc/keys' }]);
+  assert.deepEqual(result.calls, [{ method: 'GET', path: '/api/v1/workspaces/22345678-1234-1234-1234-123456789abc/keys' }]);
   for (const hidden of [key.id, key.token, key.api_key_hash, 'key-example-private']) {
     assert.ok(!(result.stdout + result.stderr).includes(hidden));
   }

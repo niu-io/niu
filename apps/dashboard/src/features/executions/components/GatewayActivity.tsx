@@ -483,7 +483,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     if (!organization || !project || compact || statisticsOnly) return;
     const controller = new AbortController();
     setKeyFilterError('');
-    void get<{ data: KeyOption[] }>(`/admin/v1/organizations/${organization}/projects/${project}/keys`, token, controller.signal)
+    void get<{ data: KeyOption[] }>(`/api/v1/workspaces/${encodeURIComponent(project)}/keys`, token, controller.signal)
       .then(value => { if (!controller.signal.aborted) setKeys(value.data); })
       .catch(reason => { if (!controller.signal.aborted) setKeyFilterError((reason as Error).message); });
     return () => controller.abort();

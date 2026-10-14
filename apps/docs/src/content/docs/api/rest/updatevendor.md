@@ -1,5 +1,5 @@
 ---
-title: "Update one Supplier API-key configuration or rotate its credential"
+title: "Update one Provider API-key configuration or rotate its credential"
 description: "PUT /admin/v1/vendors/{id}"
 tableOfContents: false
 ---
@@ -164,7 +164,7 @@ Content type: `application/json`.
             "object",
             "null"
           ],
-          "description": "Supplier ownership on configuration-list reads; credentials and commercial data are excluded.",
+          "description": "Provider ownership on configuration-list reads; credentials and commercial data are excluded.",
           "required": [
             "id",
             "name"

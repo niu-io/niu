@@ -558,7 +558,7 @@ SELECT jsonb_build_object(
     }
 
     /// Complete customer catalog prices; this compatibility map has no cursor.
-    /// Never joins Supplier offers or upstream costs.
+    /// Never joins Provider offers or upstream costs.
     pub async fn customer_model_prices(
         &self,
         scope: TenantScope,
@@ -645,7 +645,7 @@ SELECT jsonb_build_object(
         .await
     }
 
-    /// Fixed fees and floors are pinned retail amounts, independent of Supplier rates.
+    /// Fixed fees and floors are pinned retail amounts, independent of Provider rates.
     pub async fn publish_customer_tariff_with_fixed(
         &self,
         scope: TenantScope,

@@ -8,7 +8,7 @@ description: Run and build Niu from source.
 - Rust 1.98.0 for the current selected native runtime modules.
 - Node.js 24 or newer and pnpm 11 for the dashboard and documentation workspace.
 - PostgreSQL 17 for durable state.
-- A configured Supplier credential and usable model route for live inference requests.
+- A configured Provider credential and usable model route for live inference requests.
 
 ## Build from source
 
@@ -43,6 +43,6 @@ Open `http://127.0.0.1:2566/workspaces/default/`. The launcher prints the local
 login username and the location of its private password file. You can configure
 `NIU_DEV_USERNAME` and `NIU_DEV_PASSWORD` in the ignored root `.env` file.
 Frontend changes use Vite hot reload; successful Rust rebuilds restart the
-backend. Development starts with an empty model registry: add a Supplier before
+backend. Development starts with an empty model registry: add a Provider before
 testing inference. The launcher preserves the local database between restarts.
 

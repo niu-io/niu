@@ -137,7 +137,7 @@ fn checked_actor(actor: &str) -> Result<(), StoreError> {
 impl Store {
     /// The Gateway authorizes member Read/Write before calling scoped methods.
     /// Bytes are immutable, quota is serialized, and metadata/content/audit commit
-    /// together. Local storage is not a detector verdict or Supplier entitlement.
+    /// together. Local storage is not a detector verdict or Provider entitlement.
     pub async fn create_workspace_asset<F>(
         &self,
         scope: TenantScope,

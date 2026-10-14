@@ -75,7 +75,7 @@ listSupplierMembers(supplierId: string, options?: RequestOptions): Promise<{
 ### setSupplierMember
 
 ```typescript
-/** Grant/change/revoke a membership; Supplier roles do not grant platform configuration authority. */
+/** Grant/change/revoke a membership; Provider roles do not grant platform configuration authority. */
 setSupplierMember(supplierId: string, operatorId: string, input: SupplierMemberUpdate, options?: RequestOptions): Promise<{
     data: {
         active: boolean;
@@ -106,7 +106,7 @@ createSupplierBusiness(name: string, options?: RequestOptions): Promise<{
 ### deleteSupplierBusiness
 
 ```typescript
-/** Only an unconfigured Supplier can be removed; dependent configurations/offers/memberships return 409. */
+/** Only an unconfigured Provider can be removed; dependent configurations/offers/memberships return 409. */
 deleteSupplierBusiness(supplierId: string, options?: RequestOptions): Promise<{
     data: {
         deleted: true;
@@ -238,7 +238,7 @@ resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<Work
 ### listSupplierMemberships
 
 ```typescript
-/** Complete active Supplier grants for the signed-in operator; installation sessions return an empty list. */
+/** Complete active Provider grants for the signed-in operator; installation sessions return an empty list. */
 listSupplierMemberships(options?: RequestOptions): Promise<{
     data: SupplierMembership[];
 }>;
@@ -469,7 +469,7 @@ mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext)
 ```typescript
 /** Session-authenticated media with an explicit current key/account context. */
 dashboardMedia(scope: TenantScope, keyId: string): {
-    capabilities: (model?: string, options?: RequestOptions) => Promise<NativeProviderCapabilities>;
+    capabilities: (model?: string, options?: RequestOptions) => Promise<import("./provider-capabilities.js").NativeProviderCapabilities>;
     verification: {
         create: (input: import("./media-verification.js").MediaVerificationInput, options?: import("./media-assets.js").MediaAssetMutationOptions) => Promise<{
             data: import("./media-verification.js").MediaVerificationSession;
@@ -573,7 +573,7 @@ dashboardMedia(scope: TenantScope, keyId: string): {
 ### listDashboardVideoJobs
 
 ```typescript
-/** Uses the member session and current key grants; never requires the key secret. */
+/** Uses the member session and current key grants via X-Niu-Key-Id; never requires the key secret. */
 listDashboardVideoJobs(scope: TenantScope, keyId: string, query?: VideoJobHistoryQuery, options?: RequestOptions): Promise<VideoJobHistory>;
 ```
 
@@ -623,7 +623,7 @@ getDashboardVideoTimings(scope: TenantScope, keyId: string, jobId: string, optio
 ### refreshDashboardVideoJob
 
 ```typescript
-/** May query the original Supplier job; never resubmits generation. */
+/** May query the original Provider job; never resubmits generation. */
 refreshDashboardVideoJob(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoJobState>;
 ```
 
@@ -668,7 +668,7 @@ getSupplierConfigurationUsage(supplierId: string, range: SupplierConfigurationUs
 ### listSupplierOffersPage
 
 ```typescript
-/** Current own-Supplier rates, with explicit alias continuation; no customer identities. */
+/** Current own-Provider rates, with explicit alias continuation; no customer identities. */
 listSupplierOffersPage(supplierId: string, page?: {
     after?: string;
     limit?: number;
@@ -699,7 +699,7 @@ publishSupplierRates(supplierId: string, rates: SupplierRateInput, options?: Req
 ### getSupplierOfferRevision
 
 ```typescript
-/** Platform administration or active membership in this Supplier is required. */
+/** Platform administration or active membership in this Provider is required. */
 getSupplierOfferRevision(supplierId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{
     data: SupplierOfferRevision;
 }>;
@@ -736,7 +736,7 @@ recordSupplierSettlement(supplierId: string, input: SupplierSettlementInput, opt
 ### listSupplierSettlements
 
 ```typescript
-/** All-time Supplier payment history; keep filters fixed while following next_cursor. */
+/** All-time Provider payment history; keep filters fixed while following next_cursor. */
 listSupplierSettlements(supplierId: string, page?: SupplierSettlementQuery, options?: RequestOptions): Promise<SupplierSettlementPage>;
 ```
 
@@ -785,7 +785,7 @@ revokeSupplierOfferQualification(supplierId: string, offerId: string, reasonSha2
 ### setSupplierOfferActive
 
 ```typescript
-/** Requires Supplier owner/admin or installation access; activation still requires current qualification. */
+/** Requires Provider owner/admin or installation access; activation still requires current qualification. */
 setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{
     data: {
         active: boolean;
@@ -793,19 +793,29 @@ setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, opt
 }>;
 ```
 
+### getWorkspaceKey
+
+```typescript
+/** Retrieve one workspace API key with its unified limits and 60s usage window. */
+getWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<{
+    data: WorkspaceKeyDetail;
+}>;
+```
+
 ### createWorkspaceKey
 
 ```typescript
 /** Workspace owner/admin write access. Requires an explicit finite or null lifetime. */
-createWorkspaceKey(scope: TenantScope, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey>;
+createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey>;
 ```
 
 ### updateWorkspaceKey
 
 ```typescript
-/** Changes name/grants with optimistic revision; preserves lifetime and secret. */
-updateWorkspaceKey(scope: TenantScope, keyId: string, input: WorkspaceKeyMetadataInput, options?: RequestOptions): Promise<{
+/** Changes metadata, expiration, or policy limits; preserves secret. */
+updateWorkspaceKey(scope: TenantScope | string, keyId: string, input: WorkspaceKeyUpdateInput, options?: RequestOptions): Promise<{
     revision: number;
+    data: WorkspaceKeyDetail;
 }>;
 ```
 
@@ -813,22 +823,22 @@ updateWorkspaceKey(scope: TenantScope, keyId: string, input: WorkspaceKeyMetadat
 
 ```typescript
 /** Returns the replacement secret once; preserves expiry and shared lineage limits. */
-rotateWorkspaceKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey>;
+rotateWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey>;
 ```
 
 ### revokeWorkspaceKey
 
 ```typescript
 /** Blocks new access while retaining saved metadata and request history. */
-revokeWorkspaceKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<void>;
+revokeWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<void>;
 ```
 
 ### listWorkspaceKeys
 
 ```typescript
 /** Scoped key metadata without secrets; uncertain dispatches still count as last use. */
-listWorkspaceKeys(scope: TenantScope, options?: RequestOptions): Promise<{
-    data: WorkspaceKey[];
+listWorkspaceKeys(scope: TenantScope | string, options?: RequestOptions): Promise<{
+    data: WorkspaceKeyDetail[];
 }>;
 ```
 
@@ -836,10 +846,10 @@ listWorkspaceKeys(scope: TenantScope, options?: RequestOptions): Promise<{
 
 ```typescript
 /** Explicit bounded page; the complete-directory method remains compatible. */
-listWorkspaceKeyPage(scope: TenantScope, query?: {
+listWorkspaceKeyPage(scope: TenantScope | string, query?: {
     after?: string;
     limit?: number;
-}, options?: RequestOptions): Promise<WorkspaceKeyPage>;
+}, options?: RequestOptions): Promise<WorkspaceKeyDetailPage>;
 ```
 
 ### listPlatformCustomerAccounts
@@ -1319,7 +1329,7 @@ getPlatformCustomerTariffHistory(scope: TenantScope, model: string, page?: {
 ### publishCustomerTariff
 
 ```typescript
-/** Explicit platform-administrator retail publication. No retry or Supplier-price fallback. */
+/** Explicit platform-administrator retail publication. No retry or Provider-price fallback. */
 publishCustomerTariff(scope: TenantScope, rates: CustomerTariffInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;
@@ -1381,7 +1391,7 @@ replaceCustomerMediaRate(organizationId: string, previousRevision: string, input
 ### publishSupplierMediaRate
 
 ```typescript
-/** Platform-administrator agreed Supplier media purchase terms; independent from retail pricing. */
+/** Platform-administrator agreed Provider media purchase terms; independent from retail pricing. */
 publishSupplierMediaRate(supplierId: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{
     data: {
         revision: string;
@@ -1404,7 +1414,7 @@ replaceSupplierMediaRate(supplierId: string, previousRevision: string, input: Su
 ### listSupplierMediaRates
 
 ```typescript
-/** Exact purchase history, authorized for installation or this Supplier's active member. */
+/** Exact purchase history, authorized for installation or this Provider's active member. */
 listSupplierMediaRates(supplierId: string, page?: {
     after?: string;
     limit?: number;
@@ -1575,7 +1585,7 @@ getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptio
 
 ```typescript
 /** All matching configurations, including disabled entries. No silent row cap.
- * Platform administration required; supplying a Supplier ID filters business ownership. */
+ * Platform administration required; supplying a Provider ID filters business ownership. */
 listSupplierCredentials(query?: {
     supplierId?: string;
 }, options?: RequestOptions): Promise<{
@@ -2452,33 +2462,6 @@ assignPersonalCredentialOwner(configurationId: string, organizationId: string, e
 }>;
 ```
 
-### issueCollectorKey
-
-```typescript
-issueCollectorKey(scope: TenantScope, input: {
-    name: string;
-    ttl_seconds: number;
-    purpose?: 'quota';
-}, options?: RequestOptions): Promise<{
-    id: string;
-    token: string;
-}>;
-```
-
-### listCollectorKeys
-
-```typescript
-listCollectorKeys(scope: TenantScope, purpose?: 'quota', options?: RequestOptions): Promise<{
-    data: CollectorKeyView[];
-}>;
-```
-
-### revokeCollectorKey
-
-```typescript
-revokeCollectorKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<void>;
-```
-
 ### listGatewayActivity
 
 ```typescript
@@ -2679,22 +2662,6 @@ listAccounts(scope: TenantScope, options?: RequestOptions): Promise<{
 createAccount(scope: TenantScope, account: SupplierAccountInput, options?: RequestOptions): Promise<{
     id: string;
     health: string;
-}>;
-```
-
-### quota
-
-```typescript
-quota(scope: TenantScope, accountId: string, options?: RequestOptions): Promise<{
-    data: QuotaWindow[];
-}>;
-```
-
-### observeQuota
-
-```typescript
-observeQuota(scope: TenantScope, accountId: string, observation: QuotaObservation, options?: RequestOptions): Promise<{
-    id: string;
 }>;
 ```
 

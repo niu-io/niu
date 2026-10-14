@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useDashboardContext} from '@/app/dashboard-context';
-import {keyRequest,projectKeyPath,type ProjectKey} from '@/features/keys/api';
+import {keyRequest,workspaceKeyPath,type ProjectKey} from '@/features/keys/api';
 import {type MediaAssetGroup,type MediaAsset,type MediaAssetOperation} from '../../../../../../sdks/javascript/src/media-assets';
 import {NiuAdminClient,type NativeProviderModule} from '../../../../../../sdks/javascript/src/admin';
 import type {MediaVerificationSession} from '../../../../../../sdks/javascript/src/media-verification';
@@ -32,7 +32,7 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   const controller=new AbortController();setDiscovery({identity:discoveryIdentity,loading:true,keys:[],choices:[],errors:[]});
   if(!workspace){setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],errors:[]});return()=>controller.abort();}
   void(async()=>{
-   const page=await keyRequest<{data:ProjectKey[]}>(context.token,projectKeyPath(workspace.organization_id,workspace.id),'GET',undefined,controller.signal);
+   const page=await keyRequest<{data:ProjectKey[]}>(context.token,workspaceKeyPath(workspace.id),'GET',undefined,controller.signal);
    const keys=page.data,queue=keys.filter(key=>!key.revoked&&!key.expired),choices:NativeContextChoice[]=[],errors:string[]=[];
    await Promise.all(Array.from({length:Math.min(4,queue.length)},async()=>{
     while(queue.length&&!controller.signal.aborted){
@@ -94,7 +94,7 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
    const capabilities=await api.capabilities(requested.model,{signal:controller.signal});
    if(controller.signal.aborted)return;
    const modules=capabilities.modules.filter(module=>module.module==='volcengine'&&module.model_alias===requested.model);
-   if(!capabilities.complete||modules.length!==1)throw new Error(modules.length>1?'This model has ambiguous native contexts; no account was selected.':'This model has no native Supplier tools.');
+   if(!capabilities.complete||modules.length!==1)throw new Error(modules.length>1?'This model has ambiguous native contexts; no account was selected.':'This model has no native Provider tools.');
    const page=await allPages(after=>api.groups.list({model:requested.model,limit:100,after},{signal:controller.signal}));
    if(controller.signal.aborted)return;
    setBinding({identity,keyId:requested.keyId,model:requested.model,module:modules[0]});setGroups(page.data);setGroup(page.data.find(group=>group.status!=='deleted')?.id??'');

@@ -94,40 +94,39 @@ export default function LoginRoute() {
       <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
         <img src={logo} alt="" />
         <span>{branding.display_name}</span>
-        <span className="dashboard-login-product">Dashboard</span>
       </Link>
       <form className="dashboard-login-form" onSubmit={submit}>
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && <p role="status">Password changed. Sign in again.</p>}
-          {mode==='token'?<>
+          {mode==='token'?<div className="dashboard-login-field">
             <Label htmlFor="local-access-token">User access token</Label>
             <Input key="access-token" id="local-access-token" type="password" autoComplete="off" autoFocus spellCheck={false}
               value={accessToken} onChange={event=>setAccessToken(event.target.value)}
-              disabled={submitting||checking} required maxLength={256}/>
+              disabled={submitting} required maxLength={256}/>
             <p className="text-sm text-muted-foreground">Use the temporary access token your workspace owner shared with you.</p>
-          </>:<>
-          <Label htmlFor="local-username">Email</Label>
+          </div>:<>
+          <div className="dashboard-login-field"><Label htmlFor="local-username">Email</Label>
           <Input
             key="email"
             id="local-username"
             type="email"
             autoComplete="username"
-            disabled={submitting||checking}
+            disabled={submitting}
             autoFocus
             onChange={event => setUsername(event.target.value)}
             value={username}
             required
           />
-          <Label htmlFor="local-password">Password</Label>
+          </div><div className="dashboard-login-field"><Label htmlFor="local-password">Password</Label>
           <Input
             id="local-password"
             autoComplete="current-password"
-            disabled={submitting||checking}
+            disabled={submitting}
             onChange={event => setPassword(event.target.value)}
             type="password"
             value={password}
             required
           />
-          </>}
+          </div></>}
           {(localError || context.error) && <p className="dashboard-login-error" role="alert">{localError || context.error}</p>}
         {configurationFailed && <>
           <p className="dashboard-login-error" role="alert">Sign-in is temporarily unavailable.</p>
@@ -139,7 +138,7 @@ export default function LoginRoute() {
           }}>Try again</Button>
         </>}
         <Button type="submit" disabled={submitting || checking || configurationFailed || !(mode==='token'?tokenLogin:memberLogin)}>{submitting ? 'Signing in…' : checking ? 'Loading…' : 'Sign in'}</Button>
-        {mode==='password'&&tokenLogin&&<Button type="button" variant="outline" disabled={submitting||checking} onClick={()=>changeMode('token')}>Use an access token</Button>}
+        {mode==='password'&&tokenLogin&&<Button type="button" variant="ghost" disabled={submitting||checking} onClick={()=>changeMode('token')}>Use an access token</Button>}
         {mode==='token'&&memberLogin&&<Button type="button" variant="ghost" disabled={submitting||checking} onClick={()=>changeMode('password')}>Use email and password</Button>}
       </form>
     </section>

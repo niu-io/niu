@@ -1,4 +1,4 @@
-//! Platform-only operational diagnostics, separate from Supplier financial history.
+//! Platform-only operational diagnostics, separate from Provider financial history.
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
@@ -28,9 +28,9 @@ fn default_limit() -> u32 {
 ///   "path": "/admin/v1/providers/{provider}/configuration-usage",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "getSupplierConfigurationUsage",
-///     "summary": "Inspect operational usage of Supplier-owned configurations",
-///     "description": "Installation credential or explicit platform administrator required. Supplier membership and customer roles do not grant access. Uses current explicit configuration ownership and persisted managed/media request routes; includes disabled configurations and does not infer unbound legacy/static traffic. This is current-configuration operational history, not historical financial attribution, qualified commercial supply, earnings or settlement. Counts each dispatched attempt once, including retry attempts. From is inclusive, to exclusive, in epoch milliseconds; maximum range 90 days. Token sums include only complete provider-reported aggregate token usage; unknown requests and non-token media remain separately counted. Failures count persisted safe failure observations, not an inference that every unsuccessful request has one. Timing counts refer to recorded HTTP delivery, not video job completion. Totals cover the whole range regardless of model page. after is an exclusive lexical model-alias boundary, not an identity lookup; pages are live statement snapshots. No customer identity, request/key IDs, endpoint, credentials, costs or prices are returned. No upstream call or mutation. Cache-Control no-store.",
+///     "operationId": "getProviderConfigurationUsage",
+///     "summary": "Inspect operational usage of Provider-owned configurations",
+///     "description": "Installation credential or explicit platform administrator required. Provider membership and customer roles do not grant access. Uses current explicit configuration ownership and persisted managed/media request routes; includes disabled configurations and does not infer unbound legacy/static traffic. This is current-configuration operational history, not historical financial attribution, qualified commercial supply, earnings or settlement. Counts each dispatched attempt once, including retry attempts. From is inclusive, to exclusive, in epoch milliseconds; maximum range 90 days. Token sums include only complete provider-reported aggregate token usage; unknown requests and non-token media remain separately counted. Failures count persisted safe failure observations, not an inference that every unsuccessful request has one. Timing counts refer to recorded HTTP delivery, not video job completion. Totals cover the whole range regardless of model page. after is an exclusive lexical model-alias boundary, not an identity lookup; pages are live statement snapshots. No customer identity, request/key IDs, endpoint, credentials, costs or prices are returned. No upstream call or mutation. Cache-Control no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -284,7 +284,7 @@ fn default_limit() -> u32 {
 ///         "description": "Platform administration required."
 ///       },
 ///       "404": {
-///         "description": "Supplier does not exist or is deleted."
+///         "description": "Provider does not exist or is deleted."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable or diagnostic query deadline exceeded; no partial totals."

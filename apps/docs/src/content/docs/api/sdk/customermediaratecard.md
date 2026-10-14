@@ -9,7 +9,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 [SDK source](https://github.com/niu-io/niu/blob/main/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
-/** Customer selling configuration; Supplier purchase prices do not belong here. */
+/** Customer selling configuration; Provider purchase prices do not belong here. */
 export type CustomerMediaRateCard = {
     revision: string;
     vendor_id: string;

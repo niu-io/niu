@@ -323,21 +323,18 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
         )
         .await
         .unwrap();
-    let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/video",
-        scope.organization_id, scope.project_id, key.id
-    );
     for suffix in [
-        "/jobs".to_string(),
-        format!("/jobs/{id}"),
-        format!("/jobs/{id}/billing"),
-        format!("/jobs/{id}/timings"),
+        "/v1/video/jobs".to_string(),
+        format!("/v1/video/jobs/{id}"),
+        format!("/v1/video/jobs/{id}/billing"),
+        format!("/v1/video/jobs/{id}/timings"),
     ] {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!("{base}{suffix}"))
+                Request::get(&suffix)
                     .header("authorization", format!("Bearer {}", viewer.token))
+                    .header("x-niu-key-id", key.id.to_string())
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -347,12 +344,13 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         assert!(!String::from_utf8_lossy(&bytes).contains(&key.token));
     }
-    for suffix in ["/jobs".to_string(), format!("/jobs/{id}/refresh")] {
+    for suffix in ["/v1/video/jobs".to_string(), format!("/v1/video/jobs/{id}/refresh")] {
         let response = app
             .clone()
             .oneshot(
-                Request::post(format!("{base}{suffix}"))
+                Request::post(&suffix)
                     .header("authorization", format!("Bearer {}", viewer.token))
+                    .header("x-niu-key-id", key.id.to_string())
                     .header("content-type", "application/json")
                     .body(axum::body::Body::from("{}"))
                     .unwrap(),
@@ -361,35 +359,29 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
             .unwrap();
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
-    let foreign = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/video/jobs",
-        other.organization_id, other.project_id, other_key.id
-    );
     let response = app
         .clone()
         .oneshot(
-            Request::get(foreign)
+            Request::get("/v1/video/jobs")
                 .header("authorization", format!("Bearer {}", viewer.token))
+                .header("x-niu-key-id", other_key.id.to_string())
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    let denied_base = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/video",
-        scope.organization_id, scope.project_id, denied_key.id
-    );
     for suffix in [
-        format!("/jobs/{id}"),
-        format!("/jobs/{id}/billing"),
-        format!("/jobs/{id}/timings"),
+        format!("/v1/video/jobs/{id}"),
+        format!("/v1/video/jobs/{id}/billing"),
+        format!("/v1/video/jobs/{id}/timings"),
     ] {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!("{denied_base}{suffix}"))
+                Request::get(&suffix)
                     .header("authorization", format!("Bearer {}", viewer.token))
+                    .header("x-niu-key-id", denied_key.id.to_string())
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -449,8 +441,9 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
     let response = app
         .clone()
         .oneshot(
-            Request::get(format!("{base}/jobs/{id}/results/video"))
+            Request::get(format!("/v1/video/jobs/{id}/results/video"))
                 .header("authorization", format!("Bearer {}", viewer.token))
+                .header("x-niu-key-id", key.id.to_string())
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -464,8 +457,9 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
     let response = app
         .clone()
         .oneshot(
-            Request::delete(format!("{base}/jobs/{id}/results"))
+            Request::delete(format!("/v1/video/jobs/{id}/results"))
                 .header("authorization", format!("Bearer {}", viewer.token))
+                .header("x-niu-key-id", key.id.to_string())
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -475,41 +469,39 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
     let response = app
         .clone()
         .oneshot(
-            Request::get(format!("{denied_base}/jobs/{id}/results/video"))
+            Request::get(format!("/v1/video/jobs/{id}/results/video"))
                 .header("authorization", format!("Bearer {}", viewer.token))
+                .header("x-niu-key-id", denied_key.id.to_string())
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    let foreign_result = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/video/jobs/{id}/results/video",
-        other.organization_id, other.project_id, other_key.id
-    );
     let response = app
         .clone()
         .oneshot(
-            Request::get(foreign_result)
+            Request::get(format!("/v1/video/jobs/{id}/results/video"))
                 .header("authorization", format!("Bearer {}", viewer.token))
+                .header("x-niu-key-id", other_key.id.to_string())
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    for (path, token) in [
-        (format!("/v1/video/jobs/{id}/results"), &key.token),
-        (format!("{base}/jobs/{id}/results"), &viewer.token),
+    for (token, key_header) in [
+        (&key.token, None),
+        (&viewer.token, Some(key.id.to_string())),
     ] {
+        let mut req = Request::get(format!("/v1/video/jobs/{id}/results"))
+            .header("authorization", format!("Bearer {token}"));
+        if let Some(kid) = key_header {
+            req = req.header("x-niu-key-id", kid);
+        }
         let response = app
             .clone()
-            .oneshot(
-                Request::get(path)
-                    .header("authorization", format!("Bearer {token}"))
-                    .body(axum::body::Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(req.body(axum::body::Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -580,8 +572,9 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
     let response = app
         .clone()
         .oneshot(
-            Request::get(format!("{base}/jobs/{id}"))
+            Request::get(format!("/v1/video/jobs/{id}"))
                 .header("authorization", format!("Bearer {}", viewer.token))
+                .header("x-niu-key-id", key.id.to_string())
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -596,8 +589,9 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
     let response = app
         .clone()
         .oneshot(
-            Request::get(format!("{base}/jobs"))
+            Request::get("/v1/video/jobs")
                 .header("authorization", format!("Bearer {}", viewer.token))
+                .header("x-niu-key-id", key.id.to_string())
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -1686,6 +1680,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         &router(state.clone()),
         "/v1/video/jobs",
         &missing_purchase_key.token,
+        None,
         "valid",
     )
     .await;
@@ -1725,28 +1720,17 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         "input_rules":[{"pattern":"secret","action":"redact"},{"pattern":"denied","action":"block"}]
     })).await.unwrap();
     let app = router(state.clone());
-    let dashboard_base = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/video",
-        scope.organization_id, scope.project_id, key.id
-    );
-    let create_path = if via_dashboard {
-        format!("{dashboard_base}/jobs")
-    } else {
-        "/v1/video/jobs".into()
-    };
-    let estimate_path = if via_dashboard {
-        format!("{dashboard_base}/estimate")
-    } else {
-        "/v1/video/estimate".into()
-    };
+    let create_path = "/v1/video/jobs".to_string();
+    let estimate_path = "/v1/video/estimate".to_string();
     let inference_token = if via_dashboard {
         actor.token.as_str()
     } else {
         key.token.as_str()
     };
+    let mut dashboard_key_id = via_dashboard.then_some(key.id);
     let before_block: (i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")
         .bind(organization).fetch_one(&pool).await.unwrap();
-    let blocked = create(&app, &create_path, inference_token, "denied secret").await;
+    let blocked = create(&app, &create_path, inference_token, dashboard_key_id, "denied secret").await;
     assert_eq!(blocked.0, StatusCode::FORBIDDEN);
     assert_eq!(posts.load(std::sync::atomic::Ordering::SeqCst), 0);
     let after_block: (i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")
@@ -1900,18 +1884,27 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
             .await
             .is_err()
     );
-    async fn create(app: &Router, path: &str, key: &str, prompt: &str) -> (StatusCode, Value) {
+    async fn create(
+        app: &Router,
+        path: &str,
+        key: &str,
+        key_id: Option<Uuid>,
+        prompt: &str,
+    ) -> (StatusCode, Value) {
+        let mut req = Request::post(path)
+            .header("authorization", format!("Bearer {key}"))
+            .header("content-type", "application/json");
+        if let Some(kid) = key_id {
+            req = req.header("x-niu-key-id", kid.to_string());
+        }
         let response = app
             .clone()
             .oneshot(
-                Request::post(path)
-                    .header("authorization", format!("Bearer {key}"))
-                    .header("content-type", "application/json")
-                    .body(axum::body::Body::from(
-                        json!({"model":"fixture-video","content":[{"type":"text","text":prompt}]})
-                            .to_string(),
-                    ))
-                    .unwrap(),
+                req.body(axum::body::Body::from(
+                    json!({"model":"fixture-video","content":[{"type":"text","text":prompt}]})
+                        .to_string(),
+                ))
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -1922,7 +1915,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         (status, body)
     }
     assert_eq!(
-        create(&app, &create_path, inference_token, "valid").await.0,
+        create(&app, &create_path, inference_token, dashboard_key_id, "valid").await.0,
         StatusCode::PAYMENT_REQUIRED
     );
     assert_eq!(posts.load(std::sync::atomic::Ordering::SeqCst), 0);
@@ -1977,19 +1970,15 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     .await
     .unwrap();
     assert_eq!(charged, 0);
-    let models_path = if via_dashboard {
-        format!("{dashboard_base}/models")
-    } else {
-        "/v1/video/models".into()
-    };
+    let models_path = "/v1/video/models";
+    let mut models_req = Request::get(models_path)
+        .header("authorization", format!("Bearer {inference_token}"));
+    if let Some(kid) = dashboard_key_id {
+        models_req = models_req.header("x-niu-key-id", kid.to_string());
+    }
     let response = app
         .clone()
-        .oneshot(
-            Request::get(&models_path)
-                .header("authorization", format!("Bearer {inference_token}"))
-                .body(axum::body::Body::empty())
-                .unwrap(),
-        )
+        .oneshot(models_req.body(axum::body::Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -2021,12 +2010,16 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         .bind(organization).fetch_one(&pool).await.unwrap();
     let estimate_body =
         json!({"model":"fixture-video","content":[{"type":"text","text":"Estimate only"}]});
+    let mut estimate_req = Request::post(&estimate_path)
+        .header("authorization", format!("Bearer {inference_token}"))
+        .header("content-type", "application/json");
+    if let Some(kid) = dashboard_key_id {
+        estimate_req = estimate_req.header("x-niu-key-id", kid.to_string());
+    }
     let response = app
         .clone()
         .oneshot(
-            Request::post(&estimate_path)
-                .header("authorization", format!("Bearer {inference_token}"))
-                .header("content-type", "application/json")
+            estimate_req
                 .body(axum::body::Body::from(estimate_body.to_string()))
                 .unwrap(),
         )
@@ -2062,6 +2055,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
             .oneshot(
                 Request::post(&estimate_path)
                     .header("authorization", format!("Bearer {}", viewer.token))
+                    .header("x-niu-key-id", key.id.to_string())
                     .header("content-type", "application/json")
                     .body(axum::body::Body::from(estimate_body.to_string()))
                     .unwrap(),
@@ -2129,7 +2123,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         .set_customer_workspace_spending_limit(scope, "CNY", 19, 0)
         .await
         .unwrap();
-    let limit_denied = create(&app, &create_path, inference_token, "valid").await;
+    let limit_denied = create(&app, &create_path, inference_token, dashboard_key_id, "valid").await;
     assert_eq!(limit_denied.0, StatusCode::PAYMENT_REQUIRED);
     assert_eq!(
         limit_denied.1["error"]["type"],
@@ -2149,7 +2143,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         .set_customer_workspace_spending_limit(scope, "CNY", 30, 1)
         .await
         .unwrap();
-    let (status, job) = create(&app, &create_path, inference_token, "valid secret").await;
+    let (status, job) = create(&app, &create_path, inference_token, dashboard_key_id, "valid secret").await;
     assert_eq!(status, StatusCode::ACCEPTED, "{job}");
     assert_eq!(job["status"], "unknown");
     let id = Uuid::parse_str(job["id"].as_str().unwrap()).unwrap();
@@ -2442,8 +2436,9 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!("{dashboard_base}/jobs/{id}/billing"))
+                Request::get(format!("/v1/video/jobs/{id}/billing"))
                     .header("authorization", format!("Bearer {}", actor.token))
+                    .header("x-niu-key-id", key.id.to_string())
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -2591,14 +2586,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         )
         .await
         .unwrap();
-    let create_path = if via_dashboard {
-        format!(
-            "/admin/v1/organizations/{}/projects/{}/keys/{}/video/jobs",
-            scope.organization_id, scope.project_id, key.id
-        )
-    } else {
-        "/v1/video/jobs".into()
-    };
+    dashboard_key_id = via_dashboard.then_some(key.id);
     let inference_token = if via_dashboard {
         actor.token.as_str()
     } else {
@@ -2735,11 +2723,11 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     assert_eq!(bill["estimate"], original_estimate);
     assert_eq!(bill["effective_output"], original_output);
     assert_ne!(bill["estimate"]["amount_nanos"], bill["charge_nanos"]);
-    let (status, uncertain) = create(&app, &create_path, inference_token, "uncertain").await;
+    let (status, uncertain) = create(&app, &create_path, inference_token, dashboard_key_id, "uncertain").await;
     assert_eq!(status, StatusCode::ACCEPTED);
     assert_eq!(uncertain["status"], "submission_unknown");
     assert_eq!(
-        create(&app, &create_path, inference_token, "insufficient")
+        create(&app, &create_path, inference_token, dashboard_key_id, "insufficient")
             .await
             .0,
         StatusCode::PAYMENT_REQUIRED
@@ -2857,7 +2845,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     let before_budget: (i64, i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM attempts WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")
         .bind(organization).fetch_one(&pool).await.unwrap();
     let calls_before_budget = posts.load(std::sync::atomic::Ordering::SeqCst);
-    let budget_denial = create(&app, &create_path, inference_token, "valid").await;
+    let budget_denial = create(&app, &create_path, inference_token, dashboard_key_id, "valid").await;
     assert_eq!(budget_denial.0, StatusCode::NOT_IMPLEMENTED);
     assert!(budget_denial.1.to_string().contains("workspace budget"));
     let after_budget: (i64, i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM attempts WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")
@@ -2891,22 +2879,14 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         json!([]),
         "paused commercial offers are unavailable to customer price configuration"
     );
-    let disabled_models_path = if via_dashboard {
-        format!(
-            "/admin/v1/organizations/{}/projects/{}/keys/{}/video/models",
-            scope.organization_id, scope.project_id, key.id
-        )
-    } else {
-        "/v1/video/models".into()
-    };
+    let mut disabled_models_req = Request::get("/v1/video/models")
+        .header("authorization", format!("Bearer {inference_token}"));
+    if let Some(kid) = dashboard_key_id {
+        disabled_models_req = disabled_models_req.header("x-niu-key-id", kid.to_string());
+    }
     let response = app
         .clone()
-        .oneshot(
-            Request::get(disabled_models_path)
-                .header("authorization", format!("Bearer {inference_token}"))
-                .body(axum::body::Body::empty())
-                .unwrap(),
-        )
+        .oneshot(disabled_models_req.body(axum::body::Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);

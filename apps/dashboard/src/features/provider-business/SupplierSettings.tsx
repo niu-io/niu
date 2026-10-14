@@ -59,17 +59,17 @@ export default function SupplierSettings() {
     } catch (reason) { if (!controller.signal.aborted) {
       const stale = reason instanceof VendorRequestError && reason.status === 409;
       if (stale) setConflict(true);
-      setError(stale ? conflictMessage : reason instanceof Error ? reason.message : 'Could not save supplier details.');
+      setError(stale ? conflictMessage : reason instanceof Error ? reason.message : 'Could not save provider details.');
     } }
     finally { if (!controller.signal.aborted) setBusy(false); }
   }
   return <section className="supplier-settings space-y-8 py-6">
-    <div className="supplier-section-heading"><h2>Settings</h2><p>Manage this supplier’s identity and business information.</p></div>
-    {loading ? <p role="status">Loading supplier details…</p> : !profile ? <div><p role="alert">{error}</p><Button variant="outline" onClick={() => setReload(value => value + 1)}>Retry</Button></div> :
+    <div className="supplier-section-heading"><h2>Settings</h2><p>Manage this provider’s identity and business information.</p></div>
+    {loading ? <p role="status">Loading provider details…</p> : !profile ? <div><p role="alert">{error}</p><Button variant="outline" onClick={() => setReload(value => value + 1)}>Retry</Button></div> :
       <form onSubmit={event => void save(event)} className="space-y-7">
-        <div className="space-y-2"><h3 className="font-medium">Business profile</h3><p className="text-sm text-muted-foreground">These details identify the supplier. API endpoints and credentials are managed in API keys &amp; routes.</p></div>
+        <div className="space-y-2"><h3 className="font-medium">Business profile</h3><p className="text-sm text-muted-foreground">These details identify the provider. API endpoints and credentials are managed in API keys &amp; routes.</p></div>
         <fieldset disabled={busy} className="space-y-6">
-          <div className="flex items-start gap-4"><div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label="Supplier logo preview">{draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={supplierLogoSource(draft.logo_url)} alt="Supplier logo" className="size-full object-contain" referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}</div><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="supplier-logo">Logo URL</Label><Input id="supplier-logo" type="url" maxLength={2048} value={draft.logo_url} onChange={event => change('logo_url', event.target.value)} placeholder="https://example.com/logo.png" aria-describedby="supplier-logo-help" /><p id="supplier-logo-help" className="text-sm text-muted-foreground">Choose a preset or use a publicly accessible image URL. Leave it empty to use the default logo.{brokenLogo ? ' The image could not be loaded.' : ''}</p></div></div>
+          <div className="flex items-start gap-4"><div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label="Provider logo preview">{draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={supplierLogoSource(draft.logo_url)} alt="Provider logo" className="size-full object-contain" referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}</div><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="supplier-logo">Logo URL</Label><Input id="supplier-logo" type="url" maxLength={2048} value={draft.logo_url} onChange={event => change('logo_url', event.target.value)} placeholder="https://example.com/logo.png" aria-describedby="supplier-logo-help" /><p id="supplier-logo-help" className="text-sm text-muted-foreground">Choose a preset or use a publicly accessible image URL. Leave it empty to use the default logo.{brokenLogo ? ' The image could not be loaded.' : ''}</p></div></div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button type="button" variant="outline">{supplierLogoPresets.find(preset => preset.url === draft.logo_url)?.name ?? (draft.logo_url ? 'Custom logo' : 'Default logo')}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -80,11 +80,11 @@ export default function SupplierSettings() {
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="space-y-2"><Label htmlFor="supplier-profile-name">Name</Label><Input ref={nameInput} id="supplier-profile-name" required maxLength={100} value={draft.name} onChange={event => change('name', event.target.value)} /></div>
-          <div className="space-y-2"><Label htmlFor="supplier-description">Description</Label><Textarea id="supplier-description" rows={4} maxLength={2000} value={draft.description} onChange={event => change('description', event.target.value)} placeholder="A short description of the supplier and its services." /></div>
+          <div className="space-y-2"><Label htmlFor="supplier-description">Description</Label><Textarea id="supplier-description" rows={4} maxLength={2000} value={draft.description} onChange={event => change('description', event.target.value)} placeholder="A short description of the provider and its services." /></div>
           <div className="space-y-2"><Label htmlFor="supplier-website">Website URL</Label><Input id="supplier-website" type="url" maxLength={2048} value={draft.website_url} onChange={event => change('website_url', event.target.value)} placeholder="https://example.com" /></div>
         </fieldset>
         {(error || conflict) && <div className="space-y-2"><p role="alert" className="text-destructive">{conflict ? conflictMessage : error}</p>{conflict && error && error !== conflictMessage && <p role="alert" className="text-destructive">{error}</p>}<Button type="button" variant="outline" onClick={() => setReload(value => value + 1)}>Reload saved details</Button><p className="text-sm text-muted-foreground">Reloading replaces your unsaved changes.</p></div>}
-        <div className="flex flex-wrap items-center gap-4">{dirty && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setDraft({ name: profile.name, description: profile.description, website_url: profile.website_url, logo_url: profile.logo_url }); if (!conflict) setError(''); setSaved(false); nameInput.current?.focus(); }}>Cancel</Button>}<Button disabled={busy || conflict || !dirty || !draft.name.trim()}>{busy ? 'Saving…' : 'Save changes'}</Button>{saved && <p role="status" className="text-sm text-muted-foreground">Supplier details saved.</p>}</div>
+        <div className="flex flex-wrap items-center gap-4">{dirty && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setDraft({ name: profile.name, description: profile.description, website_url: profile.website_url, logo_url: profile.logo_url }); if (!conflict) setError(''); setSaved(false); nameInput.current?.focus(); }}>Cancel</Button>}<Button disabled={busy || conflict || !dirty || !draft.name.trim()}>{busy ? 'Saving…' : 'Save changes'}</Button>{saved && <p role="status" className="text-sm text-muted-foreground">Provider details saved.</p>}</div>
       </form>}
   </section>;
 }

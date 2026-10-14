@@ -130,7 +130,6 @@ export const appRoutes: RouteObject[] = [{
           { path: 'usage', lazy: async () => ({ Component: (await import('@/features/activity/page')).default }) },
           { path: 'activity', element: <WorkspaceSectionRedirect section="usage" /> },
           { path: 'executions', lazy: async () => ({ Component: (await import('@/features/executions/page')).default }) },
-          { path: 'benchmarks', lazy: async () => ({ Component: (await import('@/features/benchmarks/page')).default }) },
           { path: 'costs', element: <WorkspaceSectionRedirect section="billing" /> },
           { path: 'playground', element: <WorkspaceChatRedirect /> },
           { path: 'subscriptions', element: <WorkspaceSectionRedirect section="usage" /> },

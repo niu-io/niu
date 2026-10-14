@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/vendors/{id}/asset-management/listings`
 
-Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Supplier queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.
+Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Provider queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.
 
 Operation: `get--admin-v1-vendors--id--asset-management-listings`.
 
@@ -232,4 +232,4 @@ Platform administrator required.
 
 ## Behavior and supported scope
 
-Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Supplier queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.
+Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Provider queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.

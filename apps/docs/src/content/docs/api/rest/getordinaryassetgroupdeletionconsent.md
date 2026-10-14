@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}`
 
-Platform administrator only. Scoped to the original workspace and Supplier configuration. Returns no upstream identities, credentials, grant evidence or procurement data. Consent status alone is not current dispatch authorization. Claimed/outcome state takes precedence over later consent revocation or expiry. Does not query upstream. Cache-Control no-store.
+Platform administrator only. Scoped to the original workspace and Provider configuration. Returns no upstream identities, credentials, grant evidence or procurement data. Consent status alone is not current dispatch authorization. Claimed/outcome state takes precedence over later consent revocation or expiry. Does not query upstream. Cache-Control no-store.
 
 Operation: `getOrdinaryAssetGroupDeletionConsent`.
 
@@ -179,4 +179,4 @@ Consent not found in the specified scope.
 
 ## Behavior and supported scope
 
-Platform administrator only. Scoped to the original workspace and Supplier configuration. Returns no upstream identities, credentials, grant evidence or procurement data. Consent status alone is not current dispatch authorization. Claimed/outcome state takes precedence over later consent revocation or expiry. Does not query upstream. Cache-Control no-store.
+Platform administrator only. Scoped to the original workspace and Provider configuration. Returns no upstream identities, credentials, grant evidence or procurement data. Consent status alone is not current dispatch authorization. Claimed/outcome state takes precedence over later consent revocation or expiry. Does not query upstream. Cache-Control no-store.

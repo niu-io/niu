@@ -120,7 +120,7 @@ pub struct GatewayActivityFilter {
 }
 
 /// Customer-safe export fields only: no credentials, internal identifiers,
-/// payloads, Supplier prices or procurement accounting.
+/// payloads, Provider prices or procurement accounting.
 #[derive(Debug, sqlx::FromRow)]
 pub struct GatewayActivityExportEntry {
     pub created_at: String,
@@ -793,7 +793,7 @@ impl Store {
         accrual.and(cost)
     }
 
-    /// Persist completion evidence and its independent customer and Supplier
+    /// Persist completion evidence and its independent customer and Provider
     /// ledger entries. This also applies when no Niu-side budget is configured.
     pub async fn complete_and_accrue_gateway_batch(
         &self,
@@ -808,7 +808,7 @@ impl Store {
         self.accrue_gateway_ledgers(&ids).await
     }
 
-    /// Each ledger owns its evidence and idempotency rules. A missing Supplier
+    /// Each ledger owns its evidence and idempotency rules. A missing Provider
     /// quantity must not suppress an independently resolvable customer charge,
     /// nor prevent another completed attempt in the batch from being accrued.
     /// Preserve the first error so callers still schedule recovery.

@@ -259,7 +259,9 @@ pub(in crate::web) async fn observations(
     Path(id): Path<Uuid>,
     query: Result<Query<ObservationQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Result<([(String, String); 1], Json<Value>), ApiError> {
-    let principal = state.authorize_api_headers(&headers).await?;
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
     let query = ObservationQuery::parse(query)?;
     let limit = query.limit.unwrap_or(50);
     let result = state

@@ -1,5 +1,5 @@
 ---
-title: "List active Supplier business identities"
+title: "List active Provider business identities"
 description: "GET /admin/v1/providers"
 tableOfContents: false
 ---
@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/providers`
 
-Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Suppliers are excluded. Qualification is explicit and never inferred from configuration counts.
+Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Qualification is explicit and never inferred from configuration counts.
 
 Operation: `listProviderBusinesses`.
 
@@ -79,7 +79,7 @@ Content type: `application/json`.
           },
           "logo_url": {
             "type": "string",
-            "description": "Saved Supplier logo URL; empty uses the default logo."
+            "description": "Saved Provider logo URL; empty uses the default logo."
           },
           "api_keys": {
             "type": "integer",
@@ -96,12 +96,12 @@ Content type: `application/json`.
           "offers": {
             "type": "integer",
             "minimum": 0,
-            "description": "Saved model offers with agreed Supplier rates."
+            "description": "Saved model offers with agreed Provider rates."
           },
           "ready_offers": {
             "type": "integer",
             "minimum": 0,
-            "description": "Active offers with current Supplier and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+            "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
           },
           "enabled_api_keys": {
             "type": "integer",
@@ -139,6 +139,6 @@ Storage unavailable
 
 ## Behavior and supported scope
 
-Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Suppliers are excluded. Qualification is explicit and never inferred from configuration counts.
+Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Qualification is explicit and never inferred from configuration counts.
 
 **Supported scope:** implemented

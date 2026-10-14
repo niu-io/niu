@@ -1,4 +1,4 @@
-//! Exact approved bytes for a short-lived, claimed Supplier fetch capability.
+//! Exact approved bytes for a short-lived, claimed Provider fetch capability.
 //! Never log token paths or accept a caller-controlled remote source URL.
 use crate::state::AppState;
 use axum::{

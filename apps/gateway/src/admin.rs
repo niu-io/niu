@@ -104,11 +104,6 @@ pub struct OperatorSessionInput {
     expires_in_seconds: i64,
 }
 
-#[derive(Deserialize)]
-pub struct QuotaWindowQuery {
-    window_key: String,
-}
-
 async fn authorize(
     state: &AppState,
     headers: &HeaderMap,
@@ -1839,148 +1834,6 @@ pub async fn accounts(
     Ok(Json(json!({"data": accounts})))
 }
 
-pub async fn quota(
-    State(state): State<AppState>,
-    Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
-    headers: HeaderMap,
-) -> Result<Json<Value>, ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Read,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let windows = state
-        .store
-        .quota(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            account,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": windows})))
-}
-
-pub async fn account_executions(
-    State(state): State<AppState>,
-    Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
-    headers: HeaderMap,
-) -> Result<Json<Value>, ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Read,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let executions = state
-        .store
-        .executions_for_account(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            account,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": executions})))
-}
-
-/// Ingest an independently observed provider quota window. This endpoint only
-/// records the sample; it never refreshes credentials or resets provider state.
-pub async fn observe_quota(
-    State(state): State<AppState>,
-    Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
-    headers: HeaderMap,
-    body: Result<Json<niu_storage::QuotaInput>, axum::extract::rejection::JsonRejection>,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let scope = TenantScope {
-        organization_id,
-        project_id,
-    };
-    let header = headers
-        .get("authorization")
-        .and_then(|value| value.to_str().ok());
-    let token = header
-        .and_then(|value| value.strip_prefix("Bearer "))
-        .ok_or_else(ApiError::unauthorized)?;
-    let local_installation = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await
-        .is_ok_and(|authorization| authorization.is_installation());
-    let result = if state.admin_tokens.matches(header) || local_installation {
-        let Json(input) =
-            body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
-        state.store.observe_quota(scope, account, &input).await
-    } else {
-        match state.store.authenticate_operator(token).await {
-            Ok(operator) => {
-                if !operator.scope.permits_project(scope) {
-                    return Err(ApiError::not_found());
-                }
-                if !operator.role.permits(AdminPermission::Write) {
-                    return Err(ApiError::forbidden());
-                }
-                let Json(input) =
-                    body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
-                state.store.observe_quota(scope, account, &input).await
-            }
-            Err(niu_storage::StoreError::Unauthorized) => {
-                let Json(input) =
-                    body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
-                state
-                    .store
-                    .observe_quota_as_collector(token, scope, account, &input)
-                    .await
-            }
-            Err(error) => return Err(ApiError::from_store(error)),
-        }
-    };
-    let id = result.map_err(ApiError::from_store)?;
-    Ok((StatusCode::CREATED, Json(json!({"id": id}))))
-}
-
-/// Remove all imported quota samples for one account window. This does not
-/// update the provider, subscription, account state, attempts or cost ledger.
-pub async fn delete_quota_window(
-    State(state): State<AppState>,
-    Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
-    Query(query): Query<QuotaWindowQuery>,
-    headers: HeaderMap,
-) -> Result<Json<Value>, ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Write,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let deleted_count = state
-        .store
-        .delete_quota_window(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            account,
-            &query.window_key,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({
-        "window_key": query.window_key,
-        "deleted_count": deleted_count,
-    })))
-}
-
 /// ```openapi
 /// {
 ///   "path": "/admin/v1/organizations",
@@ -2326,8 +2179,8 @@ pub async fn projects(
 
 #[derive(Deserialize, Default)]
 pub struct KeyListQuery {
-    after: Option<Uuid>,
-    limit: Option<u16>,
+    pub(crate) after: Option<Uuid>,
+    pub(crate) limit: Option<u16>,
 }
 
 /// ```openapi
@@ -2956,7 +2809,7 @@ pub(super) fn gateway_activity_filter(
 ///   "operation": {
 ///     "operationId": "getGatewayRequest",
 ///     "summary": "Read a recorded gateway request",
-///     "description": "Scoped workspace read access required. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Supplier procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.",
+///     "description": "Scoped workspace read access required. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -3416,7 +3269,7 @@ pub async fn gateway_request(
 ///   "operation": {
 ///     "operationId": "listProjectGatewayActivity",
 ///     "summary": "Read automatically retained gateway request activity",
-///     "description": "Returns metadata for model attempts admitted by Niu, newest first by default, with the requested sort applied to the whole range. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole workspace scope. summary totals cover the selected filters independent of page. Rows and summary in one response share a database snapshot. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. All workspace responses exclude Supplier expenses and platform margins, including for installation administrators. Customer-facing charges and nullable observed request phase timing are included.",
+///     "description": "Returns metadata for model attempts admitted by Niu, newest first by default, with the requested sort applied to the whole range. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole workspace scope. summary totals cover the selected filters independent of page. Rows and summary in one response share a database snapshot. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. All workspace responses exclude Provider expenses and platform margins, including for installation administrators. Customer-facing charges and nullable observed request phase timing are included.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -3723,7 +3576,7 @@ pub async fn gateway_request(
 ///                         "allOf": [
 ///                           {
 ///                             "type": "object",
-///                             "description": "Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Supplier expenses are excluded.",
+///                             "description": "Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Provider expenses are excluded.",
 ///                             "required": [
 ///                               "currency",
 ///                               "amount_nanos",
@@ -3790,7 +3643,7 @@ pub async fn gateway_request(
 ///                         "allOf": [
 ///                           {
 ///                             "type": "object",
-///                             "description": "Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Supplier expenses are excluded.",
+///                             "description": "Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Provider expenses are excluded.",
 ///                             "required": [
 ///                               "currency",
 ///                               "amount_nanos",
@@ -4647,130 +4500,4 @@ pub async fn create_budget(
             "reserved_nanos": "0", "spent_nanos": "0", "period": "lifetime"
         }})),
     ))
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CollectorKeyInput {
-    #[serde(default = "default_collector_purpose")]
-    purpose: String,
-    name: String,
-    ttl_seconds: i64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CollectorKeyQuery {
-    purpose: Option<String>,
-}
-
-fn default_collector_purpose() -> String {
-    "quota".into()
-}
-
-pub async fn issue_collector_key(
-    State(state): State<AppState>,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    headers: HeaderMap,
-    Json(input): Json<CollectorKeyInput>,
-) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Write,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    if input.purpose != "quota" {
-        return Err(ApiError::invalid_request(
-            "Only supplier quota collection is supported",
-        ));
-    }
-    let issued = state
-        .store
-        .issue_collector_key_for(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            &input.name,
-            input.ttl_seconds,
-            &input.purpose,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok((
-        [("cache-control", "no-store")],
-        Json(json!({"id": issued.id, "token": issued.token})),
-    ))
-}
-
-pub async fn collector_keys(
-    State(state): State<AppState>,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    headers: HeaderMap,
-    Query(query): Query<CollectorKeyQuery>,
-) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Read,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let data = state
-        .store
-        .list_collector_keys(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            query.purpose.as_deref(),
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(([("cache-control", "no-store")], Json(json!({"data": data}))))
-}
-
-pub async fn revoke_collector_key(
-    State(state): State<AppState>,
-    Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
-    headers: HeaderMap,
-) -> Result<StatusCode, ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Write,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    state
-        .store
-        .revoke_collector_key(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            id,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-/// Analyze an already-collected paired dataset. This endpoint is stateless and
-/// never dispatches inference or writes imported traces or cost entries.
-pub async fn compare_benchmark(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(dataset): Json<niu_benchmark::PairedExperiment>,
-) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
-    let report = dataset.evaluate().map_err(|_| {
-        ApiError::invalid_request("Invalid paired benchmark dataset or incomplete cost evidence")
-    })?;
-    Ok(Json(json!({ "data": report })))
 }

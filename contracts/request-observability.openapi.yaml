@@ -14,7 +14,7 @@ paths:
     get:
       operationId: getRequestPayload
       summary: Read retained request content in an authorized workspace
-      description: Content is separate from accounting, expires 24 hours after the original request creation time and is retained by default unless the inference request opts out. Missing or expired content returns null. Headers and known confidential Supplier cost fields are excluded, including historical response usage metadata sanitized on read. Truncated SSE captures expose only complete sanitized events. Truncated JSON that cannot be safely parsed is withheld as an empty response string with response_omitted true, while authorized request content stays readable. Other malformed or incomplete structured responses fail closed with 503. Known credential fields in historical request objects are removed on read. Arbitrary secrets embedded in prompts are not automatically redacted.
+      description: Content is separate from accounting, expires 24 hours after the original request creation time and is retained by default unless the inference request opts out. Missing or expired content returns null. Headers and known confidential Provider cost fields are excluded, including historical response usage metadata sanitized on read. Truncated SSE captures expose only complete sanitized events. Truncated JSON that cannot be safely parsed is withheld as an empty response string with response_omitted true, while authorized request content stays readable. Other malformed or incomplete structured responses fail closed with 503. Known credential fields in historical request objects are removed on read. Arbitrary secrets embedded in prompts are not automatically redacted.
       security: [{ adminBearerAuth: [] }]
       responses:
         '200':
@@ -74,7 +74,7 @@ components:
           description: Safe observed transport stage; null retains unknown historical observations.
     CustomerChargeBreakdown:
       type: object
-      description: Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Supplier expenses are excluded.
+      description: Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Provider expenses are excluded.
       required: [currency, amount_nanos, request_count, charged_requests, unresolved_requests, unpriced_requests, not_charged_requests]
       properties:
         currency: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }

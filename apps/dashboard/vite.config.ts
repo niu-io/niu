@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 
 const gateway = process.env.NIU_DEV_GATEWAY_URL ?? 'http://127.0.0.1:2566';
-const gatewayPaths = ['/auth/callback', '/enterprise', '/v1', '/admin/v1', '/catalog', '/docs', '/compare', '/healthz', '/readyz', '/models', '/__niu_dev', '/catalog-assets', '/_catalog', '/_astro', '/site-assets', '/favicon.ico', '/robots.txt', '/sitemap.xml'];
+const gatewayPaths = ['/auth/callback', '/enterprise', '/v1', '/v1beta', '/api/v1', '/admin/v1', '/catalog', '/docs', '/compare', '/healthz', '/readyz', '/models', '/__niu_dev', '/catalog-assets', '/_catalog', '/_astro', '/site-assets', '/favicon.ico', '/robots.txt', '/sitemap.xml'];
 
 export default defineConfig(({ command, mode }) => {
   if (command === 'serve') {

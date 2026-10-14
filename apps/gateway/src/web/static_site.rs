@@ -134,15 +134,14 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                 "/docs/compare/openrouter/",
                 get(|| async { Redirect::permanent("/compare/openrouter/") }),
             )
-            .route(
-                "/compare",
-                get(|| async { Redirect::permanent("/compare/") }),
-            )
             .route_service(
                 "/compare/",
                 ServeFile::new(format!("{directory}/compare/index.html")),
             )
-            .nest_service("/compare", ServeDir::new(format!("{directory}/compare")))
+            .nest(
+                "/compare",
+                Router::new().fallback_service(ServeDir::new(format!("{directory}/compare"))),
+            )
             .route_service("/", ServeFile::new(format!("{directory}/index.html")))
             .route_service(
                 "/favicon.ico",

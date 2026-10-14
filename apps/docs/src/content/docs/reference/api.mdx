@@ -18,7 +18,7 @@ Management automation uses the authority required by the specific operation; a c
 
 ## Administration
 
-[Administration](/docs/admin/) explains Supplier setup, customer tariffs, payment integration and branding. The [NiuAdminClient reference](/docs/api/sdk/niuadminclient/) contains the generated client interfaces; guides do not duplicate their signatures.
+[Administration](/docs/admin/) explains Provider setup, customer tariffs, payment integration and branding. The [NiuAdminClient reference](/docs/api/sdk/niuadminclient/) contains the generated client interfaces; guides do not duplicate their signatures.
 
 ## Saved generation state
 
@@ -29,7 +29,7 @@ reload and reconciliation. Saving a draft does not submit a model request.
 
 ## Customer billing
 
-The [customer billing contract](https://github.com/niu-io/niu/blob/main/contracts/billing.openapi.yaml), included by the main OpenAPI document, covers workspace-authorized billing summaries and invoice line reads. Customer charges use explicit selling tariffs, independent from Supplier prices. Unpriced requests are not assumed free; unresolved charges remain unknown. Monetary amounts and aggregate counts are exact decimal integer strings. Workspace billing tariff lists and model-discovery customer prices include every matching saved tariff; they do not silently stop at 1,000 entries. These compatibility responses remain unpaginated, with memory use proportional to their size.
+The [customer billing contract](https://github.com/niu-io/niu/blob/main/contracts/billing.openapi.yaml), included by the main OpenAPI document, covers workspace-authorized billing summaries and invoice line reads. Customer charges use explicit selling tariffs, independent from Provider prices. Unpriced requests are not assumed free; unresolved charges remain unknown. Monetary amounts and aggregate counts are exact decimal integer strings. Workspace billing tariff lists and model-discovery customer prices include every matching saved tariff; they do not silently stop at 1,000 entries. These compatibility responses remain unpaginated, with memory use proportional to their size.
 
 Invoice text lines retain the tariff revision and selected context threshold used by the charge, rather than substituting current model prices. A revision can produce multiple lines for different context thresholds; clients must preserve those distinct groups. Absent cache-read, cache-write and reasoning quantities remain unknown. A null category rate means that category is not configured in the bound tariff; an omitted rate is unknown. A null selected context threshold selects the base tariff and must not be displayed as a zero threshold. Use exact integer strings when displaying or reconciling amounts.
 
@@ -98,7 +98,7 @@ Inference model discovery traverses all saved route-pool pages rather than silen
 limiting discovery to the first 1,000 pools. Disabled and unauthorized pools remain
 excluded. The compatibility `/v1/models` response remains a complete list; bounded
 database fetches do not imply a fixed-size response. Inference discovery reads
-shared mappings, personal ownership, Supplier eligibility, cooldowns and every
+shared mappings, personal ownership, Provider eligibility, cooldowns and every
 pool page in one read-only database snapshot. It composes the catalog without
 per-pool route queries or credential decryption. Static aliases remain shadowed
 by database aliases, including disabled and foreign personal mappings.
@@ -110,7 +110,7 @@ A revisioned pool update applies to selection for new requests. Disabling a
 candidate does not cancel a generation already dispatched through it. That request
 retains its original mapping and pool revision for diagnosis and accounting;
 subsequent requests can select another eligible candidate under the new revision.
-Customer model aliases and customer tariffs remain separate from Supplier mappings.
+Customer model aliases and customer tariffs remain separate from Provider mappings.
 
 This behavior has been exercised with actual concurrent priced requests and
 independent charge/revision checks. Separately, Chat pools can try a different
@@ -124,7 +124,7 @@ source. Other errors and streams already returned to the client are not retried.
 
 The workspace request list and detail endpoints report the customer model alias,
 execution state, reported usage, customer charge and saved timing. A pool's selected
-Supplier mapping and confidential procurement prices are not customer billing data.
+Provider mapping and confidential procurement prices are not customer billing data.
 Installation credentials receive the same customer-facing detail shape; they do
 not expand it with wholesale costs. Request metadata responses use
 `Cache-Control: no-store`.
@@ -243,7 +243,7 @@ Non-streaming provider JSON responses are limited to 16 MiB before decoding. Lar
 
 ## Chat function tools and structured output
 
-Chat validates common generation parameters before admission or Supplier dispatch: `temperature` from 0 to 2, `top_p` from 0 to 1, and presence/frequency penalties from -2 to 2. Non-null `max_tokens`, `max_completion_tokens` and `n` must be positive signed 64-bit integers; non-null `seed` must be a signed 64-bit integer. Only one non-null output token limit may be supplied. `stream` must be boolean; non-null `stream_options` must be an object and its `include_usage`, when present, must be boolean. Invalid values return clear `400` errors without an operation or attempt. Omitted and nullable optional values preserve their existing semantics; Niu does not inject sampling defaults or clamp explicit values. A configured native adapter or priced route may impose stricter supported bounds.
+Chat validates common generation parameters before admission or Provider dispatch: `temperature` from 0 to 2, `top_p` from 0 to 1, and presence/frequency penalties from -2 to 2. Non-null `max_tokens`, `max_completion_tokens` and `n` must be positive signed 64-bit integers; non-null `seed` must be a signed 64-bit integer. Only one non-null output token limit may be supplied. `stream` must be boolean; non-null `stream_options` must be an object and its `include_usage`, when present, must be boolean. Invalid values return clear `400` errors without an operation or attempt. Omitted and nullable optional values preserve their existing semantics; Niu does not inject sampling defaults or clamp explicit values. A configured native adapter or priced route may impose stricter supported bounds.
 
 `POST /v1/chat/completions` accepts OpenAI-compatible function tool definitions, `tool_choice`, and `response_format` values `json_object` or `json_schema` only when the configured OpenAI-compatible route explicitly enables the corresponding capability. Streaming tool-call deltas require the separate `supports_streaming_tool_calls` flag. Requests for disabled capabilities return `501` before an operation or attempt is recorded. The `unsupported_operation_error` message identifies tools, streaming tools or structured JSON and gives a supported alternative. Combined tools plus structured JSON remains unsupported; Niu does not silently remove those requested features. Malformed tool definitions, choices, and schemas receive `400`.
 
@@ -287,7 +287,7 @@ to export or import gateway logs.
 returns one request's metadata independently of list pagination and filters. It
 requires read access to that workspace and returns 404 when the request is absent
 from that scope. The response uses the same customer-safe fields as the request
-list; Supplier costs are excluded. Payload content is retrieved separately.
+list; Provider costs are excluded. Payload content is retrieved separately.
 
 For retained unsent attempts, nullable `admission_denial` records checked
 request-rate refusals: `key_request_rate_disabled` for RPM zero and
@@ -356,7 +356,7 @@ API key and execution-status filters. It reads the range in one database
 statement, independently of the paginated Logs page. Workspace read access is
 required; inference keys cannot export. The response is an attachment with
 `Cache-Control: no-store`. Internal identifiers, task records, payloads,
-credentials and Supplier commercial data are excluded. Unknown values remain
+credentials and Provider commercial data are excluded. Unknown values remain
 empty cells, with usage and charge status alongside them. Token counts and
 customer nanounits preserve their exact decimal digits. Formula-like text cells
 are prefixed with an apostrophe for spreadsheet safety. Exports over 10,000
@@ -375,7 +375,7 @@ are exact decimal strings in nanos; missing settlement produces null currency
 and amount, with separate unresolved, unpriced and not-charged request counts.
 These counts and charged requests partition each row's request count. Key
 identifiers are API references for scoped drilldowns, not display labels.
-These breakdowns contain no Supplier purchase costs or margins.
+These breakdowns contain no Provider purchase costs or margins.
 
 ### Request phase timing
 
@@ -412,7 +412,7 @@ with incomplete and truncated responses labeled. HTTP headers are not retained.
 Known credential fields in request objects are removed, including Authorization,
 Proxy-Authorization, Cookie, Set-Cookie and API-key header names. Arbitrary secrets
 inside prompts are not automatically redacted. Response capture excludes
-confidential Supplier cost metadata. Historical JSON and SSE responses are also sanitized when read. If a malformed or incomplete structured response cannot be safely serialized, the read returns HTTP 503 without its raw body; accounting and timing metadata remain available independently.
+confidential Provider cost metadata. Historical JSON and SSE responses are also sanitized when read. If a malformed or incomplete structured response cannot be safely serialized, the read returns HTTP 503 without its raw body; accounting and timing metadata remain available independently.
 
 An authorized workspace reader can fetch retained content with
 `GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`.
@@ -434,23 +434,18 @@ Task correlation covers only model requests handled by Niu. External model
 calls, agent tool events, task acceptance, and subscription usage are outside
 Niu's collection scope. Niu does not expose execution or agent-usage import APIs.
 
-## Paired benchmark analysis
+## Three-plane API architecture
 
-`POST /admin/v1/benchmarks/compare` accepts a `PairedExperimentV1` dataset and returns a stateless comparison report. Candidate trials must reference the same declared task snapshot, tool, permission and acceptance-policy hashes and match the pinned route revision. Each trial joins execution-span charge references to supplied Gateway attempt rows by canonical attempt UUID; the evaluator checks task ID, model alias, unique references and that settled attempt sums match trial totals. The evaluator requires explicit opt-in metadata, validator or human acceptance evidence to qualify a completion, complete trace coverage and settled cost evidence for every billable invocation. Unknown prices prevent a paired cost comparison; pricing remains optional for ordinary gateway use. Evaluator cost and unsuccessful work are included in totals.
+Niu separates HTTP endpoints into three explicit planes:
 
-The endpoint only analyzes supplied records. It does not dispatch requests, enforce the approval metadata, reserve budget, persist reports, isolate task tools, or authenticate the evidence source. The `opt_in` and `authorization_ref` fields are assertions, not security controls. See [paired benchmark analysis](/docs/concepts/benchmarking/) for the CLI, fixture and limits. No real paired experiment has been run by this feature.
+- **Developer & Inference Data Plane (`/v1/*` and `/v1beta/*`)**: Model discovery (`GET /v1/models`), API key self-introspection (`GET /v1/key`), generation lookup (`GET /v1/generations/{id}`), text inference (`POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`, `POST /v1beta/models/{model_action}`, `POST /v1/embeddings`), and media/video generation (`GET /v1/media/capabilities`, `POST /v1/video/jobs`, `GET /v1/video/jobs`, `GET /v1/video/jobs/{id}`, `POST /v1/video/jobs/{id}/cancel`, `DELETE /v1/video/jobs/{id}`, `GET /v1/video/jobs/{id}/results/{kind}`, `POST /v1/video/jobs/{id}/results/{kind}/refresh`). Authorizes either a workspace API key (`Authorization: Bearer <niu_api_key>`) or an authenticated console session paired with `X-Niu-Key-Id: <key_uuid>`.
+- **Customer Console & Commercial Plane (`/api/v1/*`)**: Customer session, authentication, organization, workspace, request diagnostics, billing, and unified workspace API key management (`GET /api/v1/workspaces/{workspace}/keys`, `POST /api/v1/workspaces/{workspace}/keys`, `GET /api/v1/workspaces/{workspace}/keys/{key}`, `PATCH /api/v1/workspaces/{workspace}/keys/{key}`, `DELETE /api/v1/workspaces/{workspace}/keys/{key}`, `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`).
+- **Platform Administration Plane (`/admin/v1/*`)**: Provider supply, upstream credentials, model route pools, pricing administration, and installation governance.
 
-## Subscription quota observations
+### API key self-introspection and generation lookup
 
-Bootstrap administrators can register supplier account metadata and import provider-reported quota snapshots without proxying inference:
-
-- `POST /admin/v1/organizations/{organization}/projects/{project}/accounts` registers a workspace-scoped account. Provide an opaque `env:` or `secret:` credential reference; the account starts unverified and registration does not enable inference.
-- `POST /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota` accepts a version 1 `QuotaObservationV1` sample. An exact replay returns the original observation ID; a conflicting payload for the same account, window, and timestamp returns `409`.
-- `GET .../accounts` lists account metadata without returning credential references. `GET .../accounts/{account}/quota` returns the latest sample per provider window, including its freshness, validity deadline, reset time, and previous sample baseline.
-- `DELETE .../accounts/{account}/quota?window_key=weekly` permanently removes all imported samples for that account window, including the comparison baseline. The response reports the number deleted; repeating the request is safe.
-- `GET .../accounts/{account}/executions` lists metadata-only tasks with charge references matching attempts assigned to the account, up to 100 records.
-
-The `Subscriptions` dashboard page displays provider-reported units as reported and marks changes between snapshots as unattributed. It does not infer token amounts from percentages or claim that a quota delta was caused by one task. When an execution span's `charge_ref` exactly matches a Niu attempt UUID assigned to an account, task and account views link to each other without exposing execution payloads in the account index. Other charge namespaces remain unresolved. Latest and previous BIGINT quantities are decimal strings for exact browser display. Imports only persist observations: they do not refresh credentials, forward inference, change subscriptions, or reset provider allowances. These endpoints accept scoped operator credentials with the required read/write permission, or installation bootstrap credentials. Quota collection also accepts scoped collector keys; native provider collectors remain unimplemented.
+- `GET /v1/key` returns the authenticated API key's label, status, expiration, model access mode, allowed models, request-rate and token-rate limits, concurrency limit, and customer spending allowance (`limit_nanos`, `committed_nanos`, `remaining_nanos`) without exposing internal UUIDs.
+- `GET /v1/generations/{id}` returns customer-safe execution metadata, token usage, latency, and settled customer charge (`total_cost_nanos`, `currency`) for a single attempt ID owned by the caller's workspace, omitting confidential Provider costs and internal route identifiers.
 
 :::caution[Current status]
 The current gateway milestone is limited. This reference grows with tested endpoints; it does not claim parity with every LiteLLM operation or provider today.
@@ -458,7 +453,7 @@ The current gateway milestone is limited. This reference grows with tested endpo
 
 ## Platform upstream cost reporting
 
-Installation administrators can read persisted platform upstream accounting for a workspace. These compatibility endpoints are procurement controls, not customer billing APIs. Ordinary workspace sessions and Supplier memberships do not grant access.
+Installation administrators can read persisted platform upstream accounting for a workspace. These compatibility endpoints are procurement controls, not customer billing APIs. Ordinary workspace sessions and Provider memberships do not grant access.
 
 - `GET /admin/v1/organizations/{organization}/projects/{project}/budget` returns `data` with currency, lifetime limit, reserved exposure and settled cash spend, or `null` when no budget exists.
 - `GET /admin/v1/organizations/{organization}/projects/{project}/costs?limit=50` returns settled entries and a nullable `next_cursor`. Pass that UUID as `after` to continue; limits range from 1 to 100.
@@ -485,14 +480,14 @@ This creates a USD 100 lifetime upstream budget for the workspace. It does not s
 
 Shared upstream connections persist in PostgreSQL and are managed with installation authority or an explicitly granted platform-administrator role:
 
-- `GET /admin/v1/vendors` lists all configuration metadata, including disabled configurations, without credentials. Optional `supplier` filters by explicit Supplier business ownership. The response is one unpaginated `data` array without a silent row cap; memory use grows with list size.
+- `GET /admin/v1/vendors` lists all configuration metadata, including disabled configurations, without credentials. Optional `supplier` filters by explicit Provider business ownership. The response is one unpaginated `data` array without a silent row cap; memory use grows with list size.
 - `POST /admin/v1/vendors` creates a vendor with a write-only `api_key`.
 - `PUT /admin/v1/vendors/{id}` updates metadata, enabled state or the credential using `expected_revision`.
 - `GET /admin/v1/vendors/{id}/models` lists all of the vendor's mappings, including disabled mappings, in alias order. This compatibility endpoint returns one `data` array without pagination; it does not silently truncate at 1,000 rows. Large lists still consume response memory proportional to their size.
 - `POST /admin/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
 - `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 2 MiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Chat to test a real request through Niu.
 
-A Supplier can own multiple independently configured credentials, and each credential can bind multiple model aliases. Workspace key grants apply to each requested alias even when aliases share a credential. See the [current multi-key and multi-model verification](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md#multiple-mappings-on-one-credential--current-input-verification) for the exercised update, disable, restart and billing behavior.
+A Provider can own multiple independently configured credentials, and each credential can bind multiple model aliases. Workspace key grants apply to each requested alias even when aliases share a credential. See the [current multi-key and multi-model verification](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md#multiple-mappings-on-one-credential--current-input-verification) for the exercised update, disable, restart and billing behavior.
 
 On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Ordinary organization and workspace roles cannot administer these platform resources without an explicit platform-administrator grant. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.
 
@@ -574,7 +569,7 @@ Known completed usage costs the greater of the rounded token amount and this
 minimum. Admission reserves the greater of the token bound and minimum, including
 when token rates are zero. Unknown usage remains unresolved; a client disconnect
 does not authorize charging the minimum or releasing its outstanding reservation. Existing history is
-not repriced, and this field does not configure Supplier or video charges.
+not repriced, and this field does not configure Provider or video charges.
 Invoice lines and model-price reads expose the pinned/current minimum as
 appropriate. Internal balance refunds remain bounded by the original charge,
 restore the refunded key allowance once and preserve historical invoice pricing. The SDK uses the same `minimum_charge_nanos` field. See the
@@ -638,7 +633,7 @@ or SDK `getCustomerTariffHistory` to read immutable customer text prices. The
 response includes the current revision and newest-first pages with `next_before`;
 all monetary fields remain strings. Follow the cursor to continue and refresh the
 first page to see newly published prices. Missing/foreign cursors return 409;
-inaccessible workspaces or unknown model tariffs return 404. Supplier procurement
+inaccessible workspaces or unknown model tariffs return 404. Provider procurement
 prices are excluded. See the [contract and actual pagination evidence](https://github.com/niu-io/niu/blob/main/docs/reference/customer-tariff-history.md).
 
 
@@ -664,12 +659,12 @@ matched the charges, invoice and refund balance. See the
 [formula and verification scope](https://github.com/niu-io/niu/blob/main/docs/reference/cached-input-pricing.md#cached-tokens-combined-with-fixed-fees-and-minimums).
 
 
-## Immutable Supplier quotes
+## Immutable Provider quotes
 
 `GET /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}` reads
 a known historical procurement quote. Installation administration or active
-membership in that Supplier is required; company ownership grants no access.
-The Supplier, offer and revision must match. Missing or inaccessible quotes
+membership in that Provider is required; company ownership grants no access.
+The Provider, offer and revision must match. Missing or inaccessible quotes
 return 404. The JavaScript SDK exposes `getSupplierOfferRevision`.
 
 Text rates remain exact strings, with nullable cached-input pricing. Media
@@ -677,19 +672,19 @@ revisions have null text-price fields and use the separate media rate-card API.
 Reading a quote does not activate or qualify it. Keep procurement information
 out of customer workspace screens. The handler-generated OpenAPI now documents
 the response variants and authorization boundary. Current HTTP reads matched
-four saved text revisions; active Supplier viewer access, company-role denial
+four saved text revisions; active Provider viewer access, company-role denial
 and membership revocation were independently checked against database records.
 Media quote reads remain unverified.
 
 
-### Discovering Supplier quote revisions
+### Discovering Provider quote revisions
 
 `GET /admin/v1/providers/{provider}/offers/{offer}/revisions` lists historical
-quotes without requiring a known revision ID. The same Supplier membership or
+quotes without requiring a known revision ID. The same Provider membership or
 platform authority applies. Use `limit` (1–100, default 50), then pass
 `next_before` as `before` while `has_more` is true. Each entry adds `is_current`;
 the response also includes `current_revision`. Unknown or foreign cursors
-return 409, and inaccessible Supplier/offer identities return 404.
+return 409, and inaccessible Provider/offer identities return 404.
 
 The SDK exposes `listSupplierOfferHistory`. Read the
 [pagination and confidentiality contract](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-offer-history.md)
@@ -765,9 +760,9 @@ See [qualified nonexecution policy](https://github.com/niu-io/niu/blob/main/docs
 for the implemented boundary and actual verification.
 
 
-## Supplier secret startup checks
+## Provider secret startup checks
 
-The gateway checks every retained Supplier inference and asset-management
+The gateway checks every retained Provider inference and asset-management
 credential revision before listening. A missing or incompatible deployment key
 fails closed. Revoked asset credentials remain checked until explicitly erased;
 startup does not delete or re-encrypt them. Restore the matching key rather than
@@ -775,11 +770,11 @@ erasing data to bypass the diagnostic. See
 [startup validation and its limits](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-secret-startup.md).
 
 
-## Supplier settlement history
+## Provider settlement history
 
 `GET /admin/v1/providers/{provider}/settlements` provides history beyond the
-Supplier dashboard's latest 100 payment records. Platform administrators or
-active members of that Supplier can read it. Use `limit` (1–100), `before`,
+Provider dashboard's latest 100 payment records. Platform administrators or
+active members of that Provider can read it. Use `limit` (1–100), `before`,
 `currency`, `from_ms` (inclusive) and `to_ms` (exclusive); keep filters fixed while
 following `next_cursor` until null. Time bounds are Unix milliseconds. The SDK
 provides `listSupplierSettlements`, with `fromMs` and `toMs` query properties.
@@ -827,15 +822,15 @@ cancellation does not trigger a retry or credential cooldown. Completed streams
 and known upstream errors retain their own outcomes. See the
 [actual cancellation, completion and timeout verification](https://github.com/niu-io/niu/blob/main/docs/reference/stream-cancellation-diagnostics.md).
 
-### Platform Supplier earning history
+### Platform Provider earning history
 
 Platform administrators can use `GET /admin/v1/providers/{provider}/earnings`
 to page beyond the administration overview's recent earning preview. The SDK
-exposes `listSupplierEarnings`; exact amounts remain Supplier liabilities.
-Supplier membership does not grant this request-level reconciliation access.
+exposes `listSupplierEarnings`; exact amounts remain Provider liabilities.
+Provider membership does not grant this request-level reconciliation access.
 Internal selection IDs must not appear in product UI. The existing settlement
 write still revalidates unpaid selections and requires confirmed payment evidence.
-Nonempty pagination and full Supplier reconciliation remain unverified.
+Nonempty pagination and full Provider reconciliation remain unverified.
 
 ### Platform customer-price configuration reads
 
@@ -845,7 +840,7 @@ targets with `GET /admin/v1/pricing/targets`, then read current selling prices a
 Both use `after`, `limit` (1–100) and `next_after` pagination. Append
 `/{model}/history` to the tariff route for immutable history (`before`, `limit`,
 `next_before`). These reads exclude customer balances, usage, statements,
-request content and Supplier procurement. Customer-scoped billing access remains
+request content and Provider procurement. Customer-scoped billing access remains
 independent. SDK methods are `listPlatformPricingTargets`,
 `listPlatformCustomerTariffs` and `getPlatformCustomerTariffHistory`.
 
@@ -876,7 +871,7 @@ The SDK exposes `client.generateContent(alias, body)` using a base URL ending in
 `/v1`. [Generated contracts](/docs/reference/handler-operations/#generate-native-buffered-gemini-text)
 list the exact supported fields. Actual negative paths, input redaction, retained
 upstream rejection and restart were verified; successful Google generation,
-output processing and settled billing remain unverified. Supplier credentials accept `adapter: "gemini"`; model mappings require
+output processing and settled billing remain unverified. Provider credentials accept `adapter: "gemini"`; model mappings require
 `capabilities.supports_generate_content: true`. Discovery and checks use native
 Google authentication and bounded catalog reads. See the [implementation and verification boundary](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#gemini-generatecontent-text).
 
@@ -886,7 +881,7 @@ Google authentication and bounded catalog reads. See the [implementation and ver
 `POST /v1/messages` supports bounded nonstreaming text on explicitly opted-in
 OpenRouter or Anthropic mappings. Set `capabilities.supports_messages: true` for
 managed mappings. Anthropic mappings can save conservative route prices through
-the same Supplier configuration API; customer selling tariffs remain separate.
+the same Provider configuration API; customer selling tariffs remain separate.
 Missing usage stays unknown. Unsupported reasoning rates, including explicit zero
 rates, are rejected before dispatch. An upstream refusal with uncertain execution
 retains its priced reservation for reconciliation.
@@ -904,7 +899,7 @@ Use `limit` (1–100), optional `currency`, and `before` from `next_before`.
 Released reservations disappear from results but remain valid cursors. Responses
 include workspace/key names, model, current execution/usage state, and exact
 customer reservation and outstanding amounts. Internal identifiers are links,
-not display labels. Supplier costs and upstream credentials are excluded.
+not display labels. Provider costs and upstream credentials are excluded.
 
 This is a diagnostic read, not a release-funds or retry operation. Unknown
 execution/usage stays unknown. Separate pages are independent observations.

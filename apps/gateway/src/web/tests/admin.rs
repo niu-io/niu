@@ -125,65 +125,6 @@ async fn key_metadata_patch_requires_workspace_write_and_valid_grants(pool: PgPo
     );
 }
 
-#[tokio::test]
-async fn benchmark_analysis_is_admin_only_and_does_not_dispatch_work() {
-    let app = router(test_state(
-        None,
-        sqlx::postgres::PgPoolOptions::new()
-            .connect_lazy("postgres://localhost/unused")
-            .unwrap(),
-    ));
-    let fixture = include_str!("../../../../../contracts/fixtures/paired-experiment.v1.json");
-    let unauthorized = app
-        .clone()
-        .oneshot(
-            Request::post("/admin/v1/benchmarks/compare")
-                .header("content-type", "application/json")
-                .body(axum::body::Body::from(fixture.to_owned()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
-
-    let response = app
-        .clone()
-        .oneshot(
-            Request::post("/admin/v1/benchmarks/compare")
-                .header(
-                    "authorization",
-                    "Bearer niu-test-admin-token-that-is-long-1234",
-                )
-                .header("content-type", "application/json")
-                .body(axum::body::Body::from(fixture.to_owned()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let report: Value =
-        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert_eq!(report["data"]["evidence_kind"], "paired_experiment");
-    assert_eq!(report["data"]["total_cash_nanos"], "630");
-    assert_eq!(report["data"]["pairs"].as_array().unwrap().len(), 3);
-
-    let mut invalid: Value = serde_json::from_str(fixture).unwrap();
-    invalid["opt_in"] = Value::Bool(false);
-    let rejected = app
-        .oneshot(
-            Request::post("/admin/v1/benchmarks/compare")
-                .header(
-                    "authorization",
-                    "Bearer niu-test-admin-token-that-is-long-1234",
-                )
-                .header("content-type", "application/json")
-                .body(axum::body::Body::from(invalid.to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
-}
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]

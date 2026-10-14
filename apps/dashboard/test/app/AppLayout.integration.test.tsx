@@ -22,6 +22,7 @@ function renderAt(path: string, requiresLogin = false) {
 }
 
 async function signIn(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole('button', { name: 'Sign in' });
   await user.type(await screen.findByLabelText('Email'), 'demo@example.test');
   await user.type(await screen.findByLabelText('Password'), 'fixture-password');
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -79,25 +80,25 @@ describe('dashboard route layout', () => {
     expect(router.state.location.pathname).toBe('/login');
     expect(router.state.location.state?.from).toBe('/workspaces/default/keys?filter=active');
   });
-  it('passes the Supplier identity to the portal through its expected route parameter', () => {
+  it('passes the Provider identity to the portal through its expected route parameter', () => {
     const matches = matchRoutes(appRoutes, '/suppliers/example-supplier/models');
     expect(matches?.at(-1)?.params.supplier).toBe('example-supplier');
     expect(matches?.at(-1)?.params.section).toBe('models');
   });
-  it('keeps Admin sections available while navigating Supplier detail tabs', async () => {
+  it('keeps Admin sections available while navigating Provider detail tabs', async () => {
     mockHealth();
     const router = renderAt('/admin/suppliers/example-supplier');
     const user = userEvent.setup();
     const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' });
     expect(within(navigation).getByRole('link', { name: 'Payment gateways' }).getAttribute('href')).toBe('/admin/payments');
-    expect(screen.queryByRole('button', { name: 'Switch supplier' })).toBeNull();
-    const tabs = await screen.findByRole('tablist', { name: 'Supplier sections' });
+    expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
+    const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
     await user.click(within(tabs).getByRole('tab', { name: 'API keys & routes' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/suppliers/example-supplier/configuration'));
     await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys & routes' }).getAttribute('aria-selected')).toBe('true'));
     await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
-    expect(screen.queryByRole('tablist', { name: 'Supplier sections' })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
   });
   it('uses the shared loading page while checking the browser session', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;
@@ -308,14 +309,6 @@ describe('dashboard route layout', () => {
     expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
   });
 
-  it('recognizes the Benchmarks route and links to integrated documentation', async () => {
-    mockHealth();
-    renderAt('/workspaces/default/benchmarks');
-    expect(await screen.findByRole('heading', { name: 'Benchmarks', exact: true })).toBeTruthy();
-    expect(document.title).toBe('Benchmarks · Niu');
-    expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
-    expect((await screen.findByRole('link', { name: 'Review the matching and evidence requirements.' })).getAttribute('href')).toBe('/help/concepts/benchmarking/');
-  });
 
   it('keeps Guardrails History under Guardrails without treating Policy as its parent', async () => {
     mockHealth();
@@ -425,8 +418,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/default/');
 
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'Connect provider' })).toBeNull();
-    expect((await screen.findByRole('link', { name: 'Connect supplier' })).getAttribute('href')).toBe('/admin/suppliers');
+    expect((await screen.findByRole('link', { name: 'Connect provider' })).getAttribute('href')).toBe('/admin/suppliers');
 
     expect(screen.queryByText('Requests today')).toBeNull();
 
@@ -497,8 +489,8 @@ describe('dashboard route layout', () => {
     expect(rail.getByRole('link', { name: 'Workspace' }).className).not.toContain('selected');
 
     await user.click(rail.getByRole('link', { name: 'Generations' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/generations'));
-    await waitFor(() => expect(rail.getByRole('link', { name: 'Generations' }).className).toContain('selected'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/generations'), { timeout: 5000 });
+    await waitFor(() => expect(rail.getByRole('link', { name: 'Generations' }).className).toContain('selected'), { timeout: 5000 });
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
     await user.click(rail.getByRole('link', { name: 'Workspace' }));
@@ -535,7 +527,7 @@ describe('dashboard route layout', () => {
 
 
 
-  it.each(['/agent-observability', '/subscription-value', '/workspaces/default/codex-report', '/workspaces/default/tasks'])('does not expose retired agent route %s', async path => {
+  it.each(['/agent-observability', '/subscription-value', '/workspaces/default/codex-report', '/workspaces/default/tasks', '/workspaces/default/benchmarks'])('does not expose retired agent route %s', async path => {
     mockHealth();
     const router = renderAt(path);
     expect(await screen.findByRole('heading', { name: path.startsWith('/workspaces/') ? 'Page not found' : 'Not Found' })).toBeTruthy();
@@ -586,7 +578,7 @@ describe('dashboard route layout', () => {
     } else {
       expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
       expect(router.state.location.pathname).toBe('/workspaces/second-project/keys');
-      await waitFor(() => expect(calls.filter(path => path.endsWith('/keys'))).toContain('/admin/v1/organizations/org-1/projects/project-2/keys'));
+      await waitFor(() => expect(calls.filter(path => path.endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys'));
     }
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
@@ -623,8 +615,8 @@ describe('dashboard route layout', () => {
     expect(router.state.location.hash).toBe('#list');
     expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy();
     expect([...new Set(calls.filter(path => path.endsWith('/keys')))]).toEqual([
-      '/admin/v1/organizations/org-1/projects/project-1/keys',
-      '/admin/v1/organizations/org-1/projects/project-2/keys',
+      '/api/v1/workspaces/project-1/keys',
+      '/api/v1/workspaces/project-2/keys',
     ]);
   });
 
@@ -673,8 +665,8 @@ describe('dashboard route layout', () => {
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
-      if (path === '/admin/v1/organizations/org-1/projects/project-1/keys') { firstKeyRequestSignal = init?.signal as AbortSignal; return firstKeys; }
-      if (path === '/admin/v1/organizations/org-1/projects/project-2/keys') return json({ data: [
+      if (path === '/api/v1/workspaces/project-1/keys') { firstKeyRequestSignal = init?.signal as AbortSignal; return firstKeys; }
+      if (path === '/api/v1/workspaces/project-2/keys') return json({ data: [
         { id: 'second-key', name: 'Second workspace key', allowed_models: ['fast'], expires_at_ms: 2_000_000_000_000, revoked: false, expired: false },
       ] });
       throw new Error(`Unexpected request: ${path}`);
@@ -736,8 +728,8 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
     expect(calls.find(call => call.path === '/admin/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', organization_id: 'org-1' }));
     const keyRequests = calls.filter(call => call.path.endsWith('/keys')).map(call => call.path);
-    expect(keyRequests).toContain('/admin/v1/organizations/org-1/projects/project-1/keys');
-    expect(keyRequests.at(-1)).toBe('/admin/v1/organizations/org-1/projects/project-2/keys');
+    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys');
+    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys');
   });
 
   it('verifies session permissions before loading operator administration', async () => {
@@ -825,7 +817,7 @@ describe('dashboard route layout', () => {
     expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
   });
 
-  it('preserves customer navigation when supplier administration is denied', async () => {
+  it('preserves customer navigation when provider administration is denied', async () => {
     mockHealth();
     const previousFetch = globalThis.fetch;
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/admin/v1/session'

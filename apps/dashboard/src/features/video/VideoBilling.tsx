@@ -13,7 +13,7 @@ function rate(units:string,places:number,currency:string) {
 }
 export default function VideoBilling({billing}:{billing:VideoJobBilling}) {
  const [open,setOpen]=useState(false);
- const charge=billing.charge_nanos != null && billing.currency ? money(billing.charge_nanos,billing.currency):billing.mode === 'owner_funded' ? 'Own Supplier account':'Not settled';
+ const charge=billing.charge_nanos != null && billing.currency ? money(billing.charge_nanos,billing.currency):billing.mode === 'owner_funded' ? 'Own Provider account':'Not settled';
  const usage=billing.settled_usage ?? billing.usage;
  return <div className="video-output">
  {billing.state === 'reconciliation_required' && <p role="status" className="video-muted">Billing needs reconciliation. Any posted charge below retains its original settlement quantity.</p>}

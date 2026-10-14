@@ -20,8 +20,8 @@ async function fillNew(user: ReturnType<typeof userEvent.setup>) {
   await user.paste('1000000');
 }
 
-describe('Supplier media rate publication', () => {
-  it('discards model pagination from a previous Supplier', async () => {
+describe('Provider media rate publication', () => {
+  it('discards model pagination from a previous Provider', async () => {
     let resolvePage!: (value: Response) => void;
     let pageSignal: AbortSignal | undefined;
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

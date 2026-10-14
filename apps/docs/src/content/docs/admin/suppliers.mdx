@@ -1,9 +1,9 @@
 ---
-title: Supplier administration
+title: Provider administration
 description: Connect upstream credentials and manage customer model routes.
 ---
 
-A **Supplier** is the business supplying model access. A **Provider** is its technical API adapter. One Supplier can have multiple API credentials, each with its own endpoint, enabled state and model mappings.
+A **Provider** supplies model access through an upstream API service. One Provider can have multiple API credentials, each with its own adapter, endpoint, enabled state and model mappings. Its offers, agreed purchase rates, portal access and settlements belong to the same Provider.
 
 ## Before you connect
 
@@ -11,7 +11,7 @@ Set `NIU_VENDOR_ENCRYPTION_KEY` in the deployment secret store before saving cre
 
 ## Connect model supply
 
-1. Open **Admin → Suppliers** and create or choose a Supplier.
+1. Open **Admin → Providers** and create or choose a Provider.
 2. Open its **API keys & routes** section. Add a credential using the adapter and endpoint appropriate to the upstream service.
 3. Configure the upstream models exposed by that credential and the customer model aliases you intend to offer. Select only capabilities supported by the actual model and adapter.
 4. Check the connection and inspect its result. Saving a credential or seeing a model in a catalog does not establish successful generation.
@@ -19,11 +19,11 @@ Set `NIU_VENDOR_ENCRYPTION_KEY` in the deployment secret store before saving cre
 
 Use the enabled Provider adapters offered by the configuration UI. Do not infer native protocol, video or tool support from a Provider name alone. [Model routes](/docs/configuration/models/) explains aliases, static configuration, managed-route precedence and capability declarations.
 
-## Manage the Supplier lifecycle
+## Manage the Provider lifecycle
 
-Supplier sections include **Overview**, **API keys & routes**, **Models & pricing**, **Usage**, **Settlements**, **Portal access** and **Settings**. Keep credential rotation and enabled-state changes scoped to the selected credential; they must not replace the Supplier identity or unrelated model mappings.
+Provider sections include **Overview**, **API keys & routes**, **Models & pricing**, **Usage**, **Settlements**, **Portal access** and **Settings**. Keep credential rotation and enabled-state changes scoped to the selected credential; they must not replace the Provider identity or unrelated model mappings.
 
-Keep customer selling prices separate from Supplier offers. Procurement rates, upstream expenses and platform margins belong to authorized platform administration; customer reports expose customer charges only. Supplier portal access is limited to the Supplier's own permitted records.
+Keep customer selling prices separate from Provider offers. Procurement rates, upstream expenses and platform margins belong to authorized platform administration; customer reports expose customer charges only. Provider portal access is limited to the Provider's own permitted records.
 
 For commercial supply, qualify service rights, model behavior, data handling, availability and agreed rates before publishing an offer. A personal upstream credential used for testing is not a qualified commercial supply agreement.
 
@@ -31,4 +31,4 @@ For commercial supply, qualify service rights, model behavior, data handling, av
 
 For a supported video adapter, configure the concrete model and its supported capabilities before exposing it to users. Materials, reference assets and verification are separate scoped workflows; a saved credential does not enable every upstream video operation. Follow the [video guide](/docs/reference/video/) for supported jobs, result handling and current boundaries.
 
-The [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niuadminclient/) contain the exact Supplier-management interfaces.
+The [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niuadminclient/) contain the exact Provider-management interfaces.

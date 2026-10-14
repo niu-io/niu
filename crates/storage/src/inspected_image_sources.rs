@@ -1,4 +1,4 @@
-//! Encrypted exact approved bytes; no public URL or Supplier dispatch authority.
+//! Encrypted exact approved bytes; no public URL or Provider dispatch authority.
 use crate::{GuardrailSnapshot, Principal, Store, StoreError};
 use base64::Engine;
 use niu_media::image_detector::{Consent, ProcessingApproval, Runtime};

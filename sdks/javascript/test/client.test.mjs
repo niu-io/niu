@@ -397,3 +397,67 @@ test('lists configured Video models without submission or retries', async () => 
   assert.equal(calls[0].init.signal,signal);
   assert.equal(new Headers(calls[0].init.headers).get('authorization'),'Bearer selected-key');
 });
+
+test('introspects current API key and generation details via /v1/key and /v1/generations/{id}', async () => {
+  const calls = [];
+  const generationId = '12345678-1234-1234-1234-123456789abc';
+  const client = new NiuClient({
+    apiKey: 'session-token',
+    keyId: generationId,
+    baseURL: 'https://niu.example/v1',
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), headers: new Headers(init?.headers), method: init?.method });
+      if (String(url).endsWith('/key')) {
+        return Response.json({
+          data: {
+            label: 'Production key',
+            allowed_models: ['*'],
+            expires_at_ms: null,
+            revoked: false,
+            expired: false,
+            spending_limits: [],
+            requests_per_minute: 120,
+            tokens_per_minute: null,
+            max_concurrent_requests: 10,
+            token_usage_window: { window_seconds: 60, prompt_tokens: '10', completion_tokens: '20', total_tokens: '30', unknown_usage_requests: '0' },
+            allowed_cidrs: null,
+          },
+        });
+      }
+      return Response.json({
+        data: {
+          id: generationId,
+          model: 'openai/gpt-5',
+          protocol: 'openai_chat',
+          request_kind: 'chat',
+          status: 'confirmed_completed',
+          http_status: 200,
+          streamed: true,
+          tokens_prompt: 10,
+          tokens_completion: 20,
+          tokens_cached_prompt: null,
+          tokens_cache_write_prompt: null,
+          tokens_reasoning: null,
+          usage: '1000',
+          currency: 'USD',
+          billing_status: 'charged',
+          latency_ms: 420,
+          generation_time_ms: 380,
+          created_at: '2026-10-15T00:00:00Z',
+          completed_at: '2026-10-15T00:00:01Z',
+          finish_reason: null,
+        },
+      });
+    },
+  });
+  const key = await client.getKey();
+  assert.equal(key.data.label, 'Production key');
+  assert.equal(calls[0].url, 'https://niu.example/v1/key');
+  assert.equal(calls[0].headers.get('x-niu-key-id'), generationId);
+
+  const gen = await client.getGeneration(generationId);
+  assert.equal(gen.data.model, 'openai/gpt-5');
+  assert.equal(calls[1].url, `https://niu.example/v1/generations/${generationId}`);
+  assert.throws(() => client.getGeneration('../invalid'), TypeError);
+});
+

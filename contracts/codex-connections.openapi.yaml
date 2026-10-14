@@ -144,7 +144,7 @@ paths:
             type: string
       responses:
         '303':
-          description: Returns to Suppliers with connected, cancelled or failed status and the selected workspace on success. Uses no-store and no-referrer.
+          description: Returns to Providers with connected, cancelled or failed status and the selected workspace on success. Uses no-store and no-referrer.
         '400':
           description: Invalid, expired or already consumed sign-in state.
 components:

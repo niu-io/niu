@@ -1,5 +1,5 @@
 ---
-title: "Supplier-scoped earnings and operations; active explicit membership required"
+title: "Provider-scoped earnings and operations; active explicit membership required"
 description: "GET /admin/v1/providers/{provider}/dashboard"
 tableOfContents: false
 ---

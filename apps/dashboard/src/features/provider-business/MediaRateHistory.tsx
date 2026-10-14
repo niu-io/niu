@@ -124,7 +124,7 @@ export default function MediaRateHistory({ token, supplier, organization, canCon
   }
 
   return <>
-    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 pb-4"><p className="max-w-xl text-sm text-muted-foreground">{customer ? 'Customer prices by model and specification.' : 'Supplier purchase rates by model and specification. These are separate from customer selling prices.'}</p><Button variant="outline" disabled={!canConfigure} onClick={() => { setReplacement(undefined); setPublishing(true); }}>{customer ? 'Publish selling rate' : 'Publish media rate'}</Button></div>
+    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 pb-4"><p className="max-w-xl text-sm text-muted-foreground">{customer ? 'Customer prices by model and specification.' : 'Provider purchase rates by model and specification. These are separate from customer selling prices.'}</p><Button variant="outline" disabled={!canConfigure} onClick={() => { setReplacement(undefined); setPublishing(true); }}>{customer ? 'Publish selling rate' : 'Publish media rate'}</Button></div>
     {notice && <p role="status" className="px-6 pb-4 text-sm">{notice}</p>}
     {error && <div role="alert" className="px-6 pb-4 text-sm">{error} <Button variant="ghost" size="sm" disabled={loading} onClick={() => records.length && next ? void more() : setRevision(value => value + 1)}>Retry</Button></div>}
     {loading && !records.length ? <p role="status" className="px-6 pb-4">Loading media rates…</p> : !error && !records.length ?

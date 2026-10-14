@@ -293,7 +293,7 @@ async fn list(
 ///                               "string",
 ///                               "null"
 ///                             ],
-///                             "description": "Adapter recorded at dispatch; not a Supplier account name."
+///                             "description": "Adapter recorded at dispatch; not a Provider account name."
 ///                           },
 ///                           "channel": {
 ///                             "type": [
@@ -921,7 +921,7 @@ pub(in crate::web) async fn artifacts(
 ///                             "string",
 ///                             "null"
 ///                           ],
-///                           "description": "Adapter recorded at dispatch; not a Supplier account name."
+///                           "description": "Adapter recorded at dispatch; not a Provider account name."
 ///                         },
 ///                         "channel": {
 ///                           "type": [

@@ -1,4 +1,4 @@
-//! Internal customer-only media tariff binding; no Supplier-cost fallback.
+//! Internal customer-only media tariff binding; no Provider-cost fallback.
 use crate::{Store, StoreError, TenantScope};
 use niu_metered_cost::{PricingSnapshot, Provenance, Quantity, Receipt, Usage};
 use sha2::{Digest, Sha256};

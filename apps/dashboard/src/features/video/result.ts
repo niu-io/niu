@@ -1,12 +1,12 @@
 import { NiuAPIError } from '../../../../../sdks/javascript/src/index';
 export class ResultReadError extends Error {constructor(message:string,readonly status?:number){super(message);}}
 const resultFailures: Record<string,{status:number;message:string}> = {
-  media_result_gone:{status:502,message:'The Supplier download endpoint reports that this video is no longer available.'},
-  media_result_unavailable:{status:502,message:'The Supplier cannot serve this saved result right now. Its link may have expired.'},
+  media_result_gone:{status:502,message:'The Provider download endpoint reports that this video is no longer available.'},
+  media_result_unavailable:{status:502,message:'The Provider cannot serve this saved result right now. Its link may have expired.'},
   media_result_destination_rejected:{status:502,message:'The result cannot be reached safely. Ask your administrator to check gateway DNS and HTTPS access.'},
   media_result_too_large:{status:502,message:'The saved result exceeds the download limit.'},
-  media_result_invalid:{status:502,message:'The Supplier returned an unsupported or invalid media file.'},
-  media_result_transport_error:{status:502,message:'The Supplier result request failed. Try loading the preview again.'},
+  media_result_invalid:{status:502,message:'The Provider returned an unsupported or invalid media file.'},
+  media_result_transport_error:{status:502,message:'The Provider result request failed. Try loading the preview again.'},
   media_result_timeout:{status:504,message:'Result retrieval timed out. Try loading the preview again.'},
   media_result_busy:{status:503,message:'Downloads are busy. Try loading the preview again.'},
   media_result_configuration_error:{status:503,message:'Result retrieval is not configured correctly. Contact your administrator.'},

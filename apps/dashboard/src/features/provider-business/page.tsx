@@ -82,13 +82,13 @@ export default function ProviderBusinessRoute() {
   if (!context.token || !membership)
     return (
       <>
-        <PageHeader title="Suppliers" />
+        <PageHeader title="Providers" />
         <section className="panel provider-access-message">
           <ShieldCheck size={28} />
-          <h2>Supplier access required</h2>
+          <h2>Provider access required</h2>
           <p>
-            This area is for approved suppliers earning revenue on Niu. Your
-            account needs an active supplier membership.
+            This area is for approved providers earning revenue on Niu. Your
+            account needs an active provider membership.
           </p>
         </section>
       </>
@@ -154,7 +154,7 @@ function ProviderBusiness({
         setError(
           reason instanceof Error
             ? reason.message
-            : "Supplier data could not be loaded.",
+            : "Provider data could not be loaded.",
         );
         if (
           reason instanceof VendorRequestError &&
@@ -230,16 +230,16 @@ function ProviderBusiness({
   return (
     <>
       <PageHeader
-        title={{ overview: "Overview", offers: "Model offers", earnings: "Consumption & earnings", settlements: "Settlements" }[tab] ?? "Suppliers"}
+        title={{ overview: "Overview", offers: "Model offers", earnings: "Consumption & earnings", settlements: "Settlements" }[tab] ?? "Providers"}
         eyebrow={memberships.length === 1 ? data?.name : undefined}
         action={
           <div className="provider-header-actions">
             {memberships.length > 1 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button aria-label="Switch supplier" variant="outline" className="provider-context-picker">
+                  <Button aria-label="Switch provider" variant="outline" className="provider-context-picker">
                     <Building2 size={16} />
-                    <span>{memberships.find((item) => item.id === provider)?.name ?? "Choose supplier"}</span>
+                    <span>{memberships.find((item) => item.id === provider)?.name ?? "Choose provider"}</span>
                     <ChevronDown size={16} />
                   </Button>
                 </DropdownMenuTrigger>
@@ -257,7 +257,7 @@ function ProviderBusiness({
             </DropdownMenu>}
             <Button
               variant="outline"
-              aria-label="Refresh supplier data"
+              aria-label="Refresh provider data"
               disabled={loading}
               onClick={() => setRevision((value) => value + 1)}
             >
@@ -294,7 +294,7 @@ function ProviderBusiness({
       )}
       {loading ? (
         <section className="panel provider-access-message" role="status">
-          Loading your supplier business…
+          Loading your provider business…
         </section>
       ) : (
         data && (
@@ -524,7 +524,7 @@ function ProviderBusiness({
                   </div>
                 )}
                 <p className="provider-panel-note">
-                  Price changes require a new agreed rate revision from Supplier
+                  Price changes require a new agreed rate revision from Provider
                   management. Pausing prevents new admissions; requests already
                   dispatched can still complete and earn revenue.
                 </p>
@@ -620,7 +620,7 @@ function ProviderBusiness({
                 ) : (
                   <Empty
                     title="No settlements recorded"
-                    detail="Your accrued earnings remain unpaid until supplier management records a confirmed external payment."
+                    detail="Your accrued earnings remain unpaid until provider management records a confirmed external payment."
                   />
                 )}
               </section>

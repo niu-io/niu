@@ -1,5 +1,5 @@
 ---
-title: "Discover upstream models for a Supplier API-key configuration"
+title: "Discover upstream models for a Provider API-key configuration"
 description: "GET /admin/v1/vendors/{id}/catalog"
 tableOfContents: false
 ---

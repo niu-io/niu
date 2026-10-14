@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/asset-group-intents`
 
-Workspace-scoped local metadata only; no upstream query or asset-readiness claim. IDs and cursors are internal routing references and must not be displayed as labels. Expired and deleted request names are omitted as null. Supplier bindings, credentials, fingerprints and procurement data are excluded.
+Workspace-scoped local metadata only; no upstream query or asset-readiness claim. IDs and cursors are internal routing references and must not be displayed as labels. Expired and deleted request names are omitted as null. Provider bindings, credentials, fingerprints and procurement data are excluded.
 
 Operation: `listAssetGroupRequests`.
 
@@ -178,4 +178,4 @@ Workspace unavailable to this caller.
 
 ## Behavior and supported scope
 
-Workspace-scoped local metadata only; no upstream query or asset-readiness claim. IDs and cursors are internal routing references and must not be displayed as labels. Expired and deleted request names are omitted as null. Supplier bindings, credentials, fingerprints and procurement data are excluded.
+Workspace-scoped local metadata only; no upstream query or asset-readiness claim. IDs and cursors are internal routing references and must not be displayed as labels. Expired and deleted request names are omitted as null. Provider bindings, credentials, fingerprints and procurement data are excluded.

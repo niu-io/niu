@@ -496,7 +496,7 @@ Content type: `application/json`.
 
 ### HTTP 413
 
-Body exceeds 64 KiB
+Body exceeds 1 MiB
 
 Content type: `application/json`.
 

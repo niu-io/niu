@@ -60,7 +60,7 @@ it('does not attribute an old check to a revised mapping or credential, or repla
   await user.click(screen.getByRole('button',{name:'Check',exact:true}));
   completions[0]({status:'credentials_rejected',model:'unknown'});
   await waitFor(()=>expect(screen.getByRole('button',{name:'Checking…'})).toBeTruthy());
-  expect(screen.queryByText('Key rejected. Check the saved supplier key.')).toBeNull();
+  expect(screen.queryByText('Key rejected. Check the saved provider key.')).toBeNull();
   completions[1]({status:'connected',model:'listed'});
   await screen.findByText('Reachable · model listed. Try Chat to verify access.');
   view.rerender(<MemoryRouter><ModelMappings {...props} models={[updated]} credentialRevision={2}/></MemoryRouter>);

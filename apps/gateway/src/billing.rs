@@ -384,7 +384,7 @@ pub async fn overview(
 ///     ],
 ///     "operationId": "publishCustomerSellingRate",
 ///     "summary": "Publish an immutable customer selling rate revision",
-///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. Personal owner-funded models do not accept customer tariffs, even when callable by their owner. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Supplier procurement rates remain independent. Optional discount_baseline_revision publishes explicit discounted rates against an immutable original revision for the same model and currency. Missing or already discounted baselines, increased rates, changed category presence or context thresholds return 409. No runtime multiplier or historical repricing.",
+///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. Personal owner-funded models do not accept customer tariffs, even when callable by their owner. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Provider procurement rates remain independent. Optional discount_baseline_revision publishes explicit discounted rates against an immutable original revision for the same model and currency. Missing or already discounted baselines, increased rates, changed category presence or context thresholds return 409. No runtime multiplier or historical repricing.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -1177,7 +1177,7 @@ pub async fn media_rate_models(
 ///   "operation": {
 ///     "operationId": "listCustomerMediaRates",
 ///     "summary": "Read bounded immutable customer selling history",
-///     "description": "Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Supplier purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.",
+///     "description": "Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Provider purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.",
 ///     "parameters": [
 ///       {
 ///         "name": "organization",
@@ -1968,7 +1968,7 @@ pub struct InvoiceLinesQuery {
 ///       }
 ///     ],
 ///     "summary": "Read invoice lines grouped by model and pinned rate revision",
-///     "description": "Requires workspace read access and an existing invoice in that workspace. Unknown or out-of-scope invoice IDs return 404. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Empty text or media arrays describe an existing invoice with no entries of that kind. Supplier expenses are never included. Cache-Control no-store.",
+///     "description": "Requires workspace read access and an existing invoice in that workspace. Unknown or out-of-scope invoice IDs return 404. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Empty text or media arrays describe an existing invoice with no entries of that kind. Provider expenses are never included. Cache-Control no-store.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Grouped immutable charge entries",
@@ -2372,7 +2372,7 @@ pub async fn payment(
 ///   "operation": {
 ///     "operationId": "getCustomerBalance",
 ///     "summary": "Read shared company account balances",
-///     "description": "Requires organization-wide owner/admin access or installation administration. Workspace-only sessions and organization viewers cannot read shared funds. Exact nanounit amounts are decimal strings. Available funds equal posted balance plus approved credit minus outstanding liabilities (including known media charges above their original holds); each request must still atomically reserve its full liability. No account identifiers, Supplier prices or payment references are exposed. Storage reads retain one amount snapshot with transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never zero balances or partial success; pool admission and a complete HTTP deadline remain separate.",
+///     "description": "Requires organization-wide owner/admin access or installation administration. Workspace-only sessions and organization viewers cannot read shared funds. Exact nanounit amounts are decimal strings. Available funds equal posted balance plus approved credit minus outstanding liabilities (including known media charges above their original holds); each request must still atomically reserve its full liability. No account identifiers, Provider prices or payment references are exposed. Storage reads retain one amount snapshot with transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never zero balances or partial success; pool admission and a complete HTTP deadline remain separate.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Customer balance summaries by currency",
@@ -2502,7 +2502,7 @@ pub async fn account_balance(
 ///   "operation": {
 ///     "operationId": "getCustomerChargeReconciliation",
 ///     "summary": "Compare customer charge records with prepaid ledger debits",
-///     "description": "Organization-wide owner/admin or installation read access required. One database snapshot compares prepaid-bound text and media charges against original charge entries per currency. Refunds do not reduce original charge matching. Reports counts and exact decimal amounts only, with no internal identifiers or Supplier prices. Zero counts on an empty account do not establish financial readiness. This is read-only and does not verify external payment settlement, recalculate prices, reconcile legacy invoices or repair discrepancies. Pending settlement can appear as a discrepancy; use a later observation to distinguish an in-flight write from a persistent mismatch.",
+///     "description": "Organization-wide owner/admin or installation read access required. One database snapshot compares prepaid-bound text and media charges against original charge entries per currency. Refunds do not reduce original charge matching. Reports counts and exact decimal amounts only, with no internal identifiers or Provider prices. Zero counts on an empty account do not establish financial readiness. This is read-only and does not verify external payment settlement, recalculate prices, reconcile legacy invoices or repair discrepancies. Pending settlement can appear as a discrepancy; use a later observation to distinguish an in-flight write from a persistent mismatch.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Per-currency observations",
@@ -3172,7 +3172,7 @@ pub struct BalanceTransactionsQuery {
 ///         }
 ///       }
 ///     ],
-///     "description": "Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh. Optional currency and kind filters apply before pagination. Keep filters fixed while following cursors; out-of-filter cursors return 409. Each page and cursor check share one database snapshot.",
+///     "description": "Organization-wide owner/admin or installation access required. Customer ledger only; no Provider costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh. Optional currency and kind filters apply before pagination. Keep filters fixed while following cursors; out-of-filter cursors return 409. Each page and cursor check share one database snapshot.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Customer balance entries",
@@ -3300,7 +3300,7 @@ pub struct CustomerTariffHistoryQuery {
 ///   "operation": {
 ///     "operationId": "listCustomerTariffHistory",
 ///     "summary": "Read immutable customer text price history",
-///     "description": "Same scoped management read permission as workspace billing. Newest first by created_at and revision UUID, with exclusive keyset pagination. A single database statement observes the current revision and page coherently. All prices are exact decimal strings: token rates are nanounits per million tokens, minimum and fixed fees are currency nanounits per known completed request. Includes no Supplier procurement prices or upstream credentials. Unknown model returns 404; an unknown or foreign cursor returns 409. A newer publication can appear on a fresh first page but does not duplicate earlier entries when following an existing cursor. This read does not publish or reprice anything. Revision identifiers are API references, not display labels.",
+///     "description": "Same scoped management read permission as workspace billing. Newest first by created_at and revision UUID, with exclusive keyset pagination. A single database statement observes the current revision and page coherently. All prices are exact decimal strings: token rates are nanounits per million tokens, minimum and fixed fees are currency nanounits per known completed request. Includes no Provider procurement prices or upstream credentials. Unknown model returns 404; an unknown or foreign cursor returns 409. A newer publication can appear on a fresh first page but does not duplicate earlier entries when following an existing cursor. This read does not publish or reprice anything. Revision identifiers are API references, not display labels.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -3580,7 +3580,7 @@ pub async fn tariff_history(
 ///   "operation": {
 ///     "operationId": "listPlatformCustomerTariffHistory",
 ///     "summary": "Read platform customer selling-price history",
-///     "description": "Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Supplier procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.",
+///     "description": "Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Provider procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []

@@ -254,7 +254,7 @@ describe('Global Chat', () => {
     expect(screen.getByText('Saved answer')).toBeTruthy();
     rendered.rerender(view([], false, 'Could not load the model catalog.'));
     expect(screen.getByText('Saved answer')).toBeTruthy();
-    expect(screen.queryByRole('link', {name:'Connect supplier'})).toBeNull();
+    expect(screen.queryByRole('link', {name:'Connect provider'})).toBeNull();
     rendered.rerender(view(['fast', 'strong'], false));
     await user.click(await screen.findByRole('button', { name: 'Choose models', exact: true }));
     const dialog = screen.getByRole('dialog', { name: 'Choose models' });
@@ -296,7 +296,7 @@ describe('Global Chat', () => {
     expect(click).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Actions for Saved diagnosis' })).toBeTruthy();
   });
-  it('restores customer charge states without displaying legacy Supplier accounting', async () => {
+  it('restores customer charge states without displaying legacy Provider accounting', async () => {
     serverChats.set('/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/accounting', {
       id: 'accounting', prompt: 'Customer accounting', createdAt: 1,
       results: ['charged', 'pending', 'unpriced', 'not_charged', 'owner_funded'].map((status, index) => ({
@@ -437,7 +437,9 @@ describe('Global Chat', () => {
     }));
     const user=userEvent.setup();const view=renderPlayground(['fast']);
     await screen.findByText('No sessions yet');
+    await screen.findByRole('button',{name:'API key: Default'});
     await user.click(screen.getByRole('button',{name:/Car wash/i}));
+    await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
     await waitFor(()=>expect(finish).toBeTypeOf('function'));
     expect(chargeSignal?.aborted).toBe(false);
     view.unmount();expect(chargeSignal?.aborted).toBe(true);
@@ -458,7 +460,9 @@ describe('Global Chat', () => {
     }));
     const user=userEvent.setup();const view=renderPlayground(['fast','strong']);
     await screen.findByText('No sessions yet');
+    await screen.findByRole('button',{name:'API key: Default'});
     await user.click(screen.getByRole('button',{name:/Car wash/i}));
+    await user.click(screen.getByRole('button',{name:'Send to 2 models'}));
     await waitFor(()=>expect(finish).toBeTypeOf('function'));
     view.unmount();
     await act(async()=>{finish(jsonResponse({saved:true}));});
@@ -476,7 +480,9 @@ describe('Global Chat', () => {
     const user = userEvent.setup();
     renderPlayground(['fast', 'strong']);
     await screen.findByText('No sessions yet');
+    await screen.findByRole('button', { name: 'API key: Default' });
     await user.click(screen.getByRole('button', { name: /Car wash/i }));
+    await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     await screen.findByText('Could not save this chat. Check your connection and try again.');
     expect(calls.some(url => url.endsWith('/chat/completions'))).toBe(false);
   });
@@ -604,6 +610,7 @@ describe('Global Chat', () => {
       if (url.endsWith('/chat/completions')) {
         requests.push(url);
         expect(new Headers(init?.headers).get('authorization')).toBe('Bearer admin-session');
+        expect(new Headers(init?.headers).get('x-niu-key-id')).toBe('key-a');
         const body = JSON.parse(String(init?.body));
         expect(body.messages[0].content).toContain('car');
         return streamResponse(body.model, 4, 'attempt-example');
@@ -614,8 +621,9 @@ describe('Global Chat', () => {
     const view = renderPlayground(['fast', 'strong']);
     await screen.findByRole('button', { name: 'API key: Default' });
     await user.click(screen.getByRole('button', { name: /Car wash/i }));
+    await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     await waitFor(() => expect(requests).toHaveLength(2));
-    expect(requests.every(url => url === '/admin/v1/organizations/org-a/projects/workspace-a/keys/key-a/chat/completions')).toBe(true);
+    expect(requests.every(url => url === '/v1/chat/completions')).toBe(true);
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await screen.findAllByText('Complete');
     await waitFor(() => expect([...serverChats.values()].some(item => (item as {results: {phase: string}[]}).results.every(result => result.phase === 'complete'))).toBe(true));
@@ -993,14 +1001,14 @@ it('does not create an empty history entry when changing settings in an unsent d
  expect((screen.getByLabelText('Max output tokens') as HTMLInputElement).value).toBe('2048');
 });
 
-it('offers catalog retry without misleading supplier setup on catalog failure', async () => {
+it('offers catalog retry without misleading provider setup on catalog failure', async () => {
  serverChats.clear();stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
  const retry=vi.fn(async()=>{});
  render(<SidebarProvider><MemoryRouter><PlaygroundView token="test" models={[]} modelsError="Could not load the model catalog." onRetryModels={retry} initialScope={scope}/></MemoryRouter></SidebarProvider>);
  const user=userEvent.setup();
  expect(screen.getByRole('alert').textContent).toContain('Could not load the model catalog.');
- expect(screen.queryByRole('link',{name:'Connect supplier'})).toBeNull();
- expect(screen.queryByRole('heading',{name:'Connect a supplier to start'})).toBeNull();
+ expect(screen.queryByRole('link',{name:'Connect provider'})).toBeNull();
+ expect(screen.queryByRole('heading',{name:'Connect a provider to start'})).toBeNull();
  await user.click(screen.getByRole('button',{name:'Retry model catalog'}));
  expect(retry).toHaveBeenCalledTimes(1);
 });
@@ -1009,7 +1017,7 @@ it('does not mistake a loading catalog for an empty installation', async () => {
  serverChats.clear();stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
  render(<SidebarProvider><MemoryRouter><PlaygroundView token="test" models={[]} modelsLoading initialScope={scope}/></MemoryRouter></SidebarProvider>);
  expect(screen.getByText('Loading model catalog…')).toBeTruthy();
- expect(screen.queryByRole('link',{name:'Connect supplier'})).toBeNull();
+ expect(screen.queryByRole('link',{name:'Connect provider'})).toBeNull();
 });
 
 
@@ -1038,5 +1046,5 @@ it('keeps a cleared temperature invalid until the user enters a value', async ()
   expect(await screen.findByRole('heading', {name: 'What would you like to create?'})).toBeTruthy();
   expect(screen.getByText('No text models are available. Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
   expect(screen.getByRole('tab',{name:'Video'})).toBeTruthy();
-  expect(screen.queryByRole('link', {name: 'Connect supplier'})).toBeNull();
+  expect(screen.queryByRole('link', {name: 'Connect provider'})).toBeNull();
  });

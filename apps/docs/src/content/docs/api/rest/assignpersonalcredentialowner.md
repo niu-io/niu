@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `PUT /admin/v1/vendors/{id}/personal-owner`
 
-Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Supplier offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.
+Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Provider offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.
 
 Operation: `assignPersonalCredentialOwner`.
 
@@ -120,4 +120,4 @@ Stale revision, different owner, existing model route pricing, commercial qualif
 
 ## Behavior and supported scope
 
-Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Supplier offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.
+Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Provider offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.

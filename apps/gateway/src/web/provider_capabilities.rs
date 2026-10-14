@@ -4,8 +4,8 @@ use super::{media_authorization::MediaPrincipal, provider_assets};
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
-    extract::{Path, Query, State, rejection::QueryRejection},
-    http::{HeaderMap, header},
+    extract::{Query, State, rejection::QueryRejection},
+    http::header,
     response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
@@ -59,46 +59,22 @@ struct ReferenceInput {
 ///
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities",
+///   "path": "/v1/media/capabilities",
 ///   "method": "get",
 ///   "operation": {
-///     "operationId": "discoverDashboardNativeProviderCapabilities",
+///     "operationId": "discoverNativeProviderCapabilities",
 ///     "summary": "Discover authorized model-specific native Provider tools",
-///     "description": "Requires a workspace member/operator session with Read access to the selected workspace key. Reuses current video discovery and native module admission: current key/model grants, composed workspace/key model and Provider policy, eligible exact route, ownership, selectable credential and current configuration identity. Optional model is an exact alias, never a Provider inference hint. With no model, returns all eligible admitted contexts without picking the first. With an authorized video model that has no supported native module (including OpenRouter), returns complete:true and modules:[]. Unknown or unauthorized model returns 404. Admission, storage or configuration failures are errors, never successful empty discovery. No upstream request, inventory probe, material mutation, verification creation or generation is issued. Volcengine requires explicitly configured fastrouter-actions-v1 management plus a validated matching ark-direct-v1 video schema and valid management endpoint. Materials support is independent of generation reference support; reference_inputs describes configured schema only, and use still requires acknowledged Active materials, exact account/model/channel binding, current policy and dispatch authorization. Mutation endpoints additionally require Write permission. Human verification support is not a verification outcome. Contains no credentials, API base, upstream model, Provider resource references or internal account identifiers. Successful responses carry Cache-Control:no-store.",
+///     "description": "Requires a current workspace API key or a workspace session with X-Niu-Key-Id. Reuses current video discovery and native module admission: current key/model grants, composed workspace/key model and Provider policy, eligible exact route, ownership, selectable credential and current configuration identity. Optional model is an exact alias, never a Provider inference hint. With no model, returns all eligible admitted contexts without picking the first. With an authorized video model that has no supported native module (including OpenRouter), returns complete:true and modules:[]. Unknown or unauthorized model returns 404. Admission, storage or configuration failures are errors, never successful empty discovery. No upstream request, inventory probe, material mutation, verification creation or generation is issued. Volcengine requires explicitly configured fastrouter-actions-v1 management plus a validated matching ark-direct-v1 video schema and valid management endpoint. Materials support is independent of generation reference support; reference_inputs describes configured schema only, and use still requires acknowledged Active materials, exact account/model/channel binding, current policy and dispatch authorization. Mutation endpoints additionally require Write permission. Human verification support is not a verification outcome. Contains no credentials, API base, upstream model, Provider resource references or internal account identifiers. Successful responses carry Cache-Control:no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "x-niu-implementation": "implemented",
 ///     "parameters": [
-///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "key",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
 ///       {
 ///         "name": "model",
 ///         "in": "query",
@@ -148,7 +124,7 @@ struct ReferenceInput {
 ///         "description": "Configured native management transport is unsupported."
 ///       },
 ///       "503": {
-///         "description": "Storage, selectable credential, Supplier qualification or native configuration unavailable."
+///         "description": "Storage, selectable credential, Provider qualification or native configuration unavailable."
 ///       }
 ///     }
 ///   },
@@ -316,7 +292,6 @@ struct ReferenceInput {
 pub(super) async fn discover(
     State(state): State<AppState>,
     MediaPrincipal(principal): MediaPrincipal,
-    headers: HeaderMap,
     query: Result<Query<CapabilityQuery>, QueryRejection>,
 ) -> Result<Response, ApiError> {
     let Query(query) =
@@ -330,14 +305,7 @@ pub(super) async fn discover(
         return Err(ApiError::invalid_request("Invalid model"));
     }
     let scope = principal.scope();
-    // Reuse exact dashboard video discovery, including membership and current
-    // selected-key grants. This is not a Provider or asset inventory request.
-    let Json(discovery) = super::inference::dashboard_video::models(
-        State(state.clone()),
-        Path((scope.organization_id, scope.project_id, principal.key_id())),
-        headers,
-    )
-    .await?;
+    let Json(discovery) = super::inference::video_models::models_as(&state, &principal).await?;
     let models = discovery
         .get("data")
         .and_then(Value::as_array)

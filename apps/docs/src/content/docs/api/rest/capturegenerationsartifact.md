@@ -135,7 +135,7 @@ Location: **path**. **Required.**
 
 ### HTTP 200
 
-Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Supplier URL expiry.
+Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Provider URL expiry.
 
 Content type: `application/json`.
 

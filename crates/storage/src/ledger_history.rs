@@ -1,4 +1,4 @@
-//! Shared bounded filters for customer and Supplier ledger history reads.
+//! Shared bounded filters for customer and Provider ledger history reads.
 use crate::StoreError;
 use serde::Deserialize;
 use uuid::Uuid;

@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /v1/models`
 
-Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
+Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
 
 Operation: `listModels`.
 
@@ -94,7 +94,6 @@ Content type: `application/json`.
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                  "revision",
                   "currency",
                   "unit",
                   "prompt_rate",
@@ -107,11 +106,6 @@ Content type: `application/json`.
                   "context_tiers"
                 ],
                 "properties": {
-                  "revision": {
-                    "type": "string",
-                    "format": "uuid",
-                    "description": "Applicable publication reference: scoped tariff revision in workspace mode, standard or promotion revision in platform mode. Not a display label."
-                  },
                   "currency": {
                     "type": "string",
                     "pattern": "^[A-Z]{3}$"
@@ -222,21 +216,6 @@ Content type: `application/json`.
                       "platform"
                     ]
                   },
-                  "price_id": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "standard_revision": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "promotion_revision": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "format": "uuid"
-                  },
                   "promotion_scope": {
                     "type": [
                       "string",
@@ -284,6 +263,6 @@ Storage or route configuration unavailable.
 
 ## Behavior and supported scope
 
-Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
+Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Provider procurement rates, internal revision identifiers, upstream credentials, endpoints or private model mappings are exposed. Enrolled text models resolve the own-customer promotion, then global promotion, then standard price at server time; this is advisory until admission pins a concrete revision. No other-customer rules are exposed.
 
 **Supported scope:** implemented

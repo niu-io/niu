@@ -104,7 +104,7 @@ fn kind(value: &str) -> Result<(), ApiError> {
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Supplier URL expiry.",
+///         "description": "Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Provider URL expiry.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -300,7 +300,7 @@ pub(in crate::web) async fn retrieve(
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Supplier URL expiry.",
+///         "description": "Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Provider URL expiry.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {

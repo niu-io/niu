@@ -92,7 +92,7 @@ const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, CO
  AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>a.organization_id)";
 
 impl Store {
-    /// No upstream reference, credential, Supplier price or raw response leaves this projection.
+    /// No upstream reference, credential, Provider price or raw response leaves this projection.
     pub async fn openrouter_usage_receipt(
         &self,
         scope: TenantScope,

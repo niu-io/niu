@@ -10,7 +10,7 @@ vi.mock("../../../src/app/dashboard-context", () => ({
 }));
 const response = {
   id: "supplier",
-  name: "Example supplier",
+  name: "Example provider",
   days: 30,
   balances: [
     {
@@ -52,7 +52,7 @@ function setup(role?: "manager" | "viewer") {
       operator: null,
       permissions: { read: true, write: true, manage_operators: true },
       provider_memberships: role
-        ? [{ id: "supplier", name: "Example supplier", role }]
+        ? [{ id: "supplier", name: "Example provider", role }]
         : [],
     },
     refreshWorkspace: vi.fn().mockResolvedValue(undefined),
@@ -84,7 +84,7 @@ describe("provider business access and earnings", () => {
     setup('viewer');
     await screen.findByText('USD 1.2');
     await userEvent.setup().click(screen.getByRole('link', {name:'Model offers',exact:true}));
-    const label = screen.getByText('Cache read').parentElement!;
+    const label = screen.getByText('Cache read');
     expect(label.textContent).toContain(expected);
     expect(label.textContent?.includes('(Input rate)')).toBe(fallback);
     expect(screen.queryByRole('button', {name:'Pause'})).toBeNull();
@@ -104,7 +104,7 @@ describe("provider business access and earnings", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     setup();
-    expect(screen.getByText("Supplier access required")).toBeTruthy();
+    expect(screen.getByText("Provider access required")).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();
   });
   it("shows earnings independently from unresolved usage and does not give viewers offer controls", async () => {
@@ -168,7 +168,7 @@ describe("provider business access and earnings", () => {
     revoked = true;
     await userEvent
       .setup()
-      .click(screen.getByRole("button", { name: "Refresh supplier data" }));
+      .click(screen.getByRole("button", { name: "Refresh provider data" }));
     await screen.findByText("Access revoked");
     expect(screen.queryByText("USD 1.2")).toBeNull();
     expect(fixture.context.refreshWorkspace).toHaveBeenCalled();

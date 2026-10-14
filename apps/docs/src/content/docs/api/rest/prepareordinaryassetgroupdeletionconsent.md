@@ -197,7 +197,7 @@ Platform administrator required.
 
 ### HTTP 404
 
-Original group not found in the specified workspace and Supplier configuration.
+Original group not found in the specified workspace and Provider configuration.
 
 ### HTTP 409
 

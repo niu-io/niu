@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/providers/{provider}/administration`
 
-Only an active Supplier is readable. Soft-deleted and missing Suppliers return the existing unavailable-resource conflict; audit history is retained.
+Only an active Provider is readable. Soft-deleted and missing Providers return the existing unavailable-resource conflict; audit history is retained.
 
 Operation: `getProviderAdministrationDashboard`.
 
@@ -73,8 +73,8 @@ Installation access required
 
 ### HTTP 409
 
-Supplier is missing or deleted
+Provider is missing or deleted
 
 ## Behavior and supported scope
 
-Only an active Supplier is readable. Soft-deleted and missing Suppliers return the existing unavailable-resource conflict; audit history is retained.
+Only an active Provider is readable. Soft-deleted and missing Providers return the existing unavailable-resource conflict; audit history is retained.

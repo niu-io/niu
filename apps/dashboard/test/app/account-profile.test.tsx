@@ -95,7 +95,7 @@ describe('account profile',()=>{
     const saved=vi.fn();let stored=profile;let fail=true;
     const fetcher=vi.fn<typeof fetch>(async(_url,init)=>{
       if (init?.method==='PUT') {
-        if(fail)return Response.json({error:{message:'Unavailable'}},{status:503});
+        if(fail)return Response.json({error:{message:'Unavailable'}},{status:400});
         const input=JSON.parse(String(init.body));
         expect(input).toEqual({name:'Updated member',avatar_data_url:null,expected_revision:0});
         stored={...stored,name:input.name,revision:1};

@@ -14,15 +14,10 @@ export type Model = {
     object: 'model' | string;
     owned_by?: string;
     customer_pricing?: {
-        revision: string;
         pricing_source?: 'workspace' | 'platform';
-        price_id?: string;
-        standard_revision?: string;
-        promotion_revision?: string | null;
         promotion_scope?: 'global' | 'customer' | null;
         selected_at?: string;
         price_version?: string;
-        discount_baseline_revision?: string | null;
         currency: string;
         unit: 'nanounits_per_million_tokens';
         context_tiers?: ContextPriceTier[];

@@ -397,7 +397,7 @@ Content type: `application/json`.
                 ]
               }
             ],
-            "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+            "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
           },
           "schedule": {
             "oneOf": [
@@ -619,7 +619,7 @@ Content type: `application/json`.
                 ]
               }
             ],
-            "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+            "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
           },
           "scope": {
             "type": "string",
@@ -907,7 +907,7 @@ Content type: `application/json`.
               ]
             }
           ],
-          "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+          "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
         },
         "published_at": {
           "type": "string",

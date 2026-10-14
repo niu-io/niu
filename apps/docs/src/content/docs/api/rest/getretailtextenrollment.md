@@ -391,7 +391,7 @@ Content type: `application/json`.
                       ]
                     }
                   ],
-                  "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Supplier purchase terms."
+                  "description": "Concrete resulting selling price; exact decimal strings, no multipliers or Provider purchase terms."
                 }
               },
               "required": [

@@ -1,5 +1,5 @@
 ---
-title: "List the signed-in operator’s complete active Supplier memberships"
+title: "List the signed-in operator’s complete active Provider memberships"
 description: "GET /admin/v1/provider-memberships"
 tableOfContents: false
 ---
@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /admin/v1/provider-memberships`
 
-Returns every active membership for the current non-revoked operator, ordered by Supplier name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Supplier access. Deleted Suppliers are excluded. IDs are routing references, not display labels.
+Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.
 
 Operation: `listProviderMemberships`.
 
@@ -112,6 +112,6 @@ Storage unavailable.
 
 ## Behavior and supported scope
 
-Returns every active membership for the current non-revoked operator, ordered by Supplier name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Supplier access. Deleted Suppliers are excluded. IDs are routing references, not display labels.
+Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.
 
 **Supported scope:** implemented

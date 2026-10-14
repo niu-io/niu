@@ -47,7 +47,7 @@ export default defineConfig({
         { label: 'Administration', items: [
           { label: 'Overview', slug: 'admin' },
           { label: 'Access & roles', slug: 'admin/access' },
-          { label: 'Suppliers', slug: 'admin/suppliers' },
+          { label: 'Providers', slug: 'admin/suppliers' },
           { label: 'Customer pricing', slug: 'admin/pricing' },
           { label: 'Payments', slug: 'admin/payments' },
           { label: 'Branding & theme', slug: 'admin/branding' },

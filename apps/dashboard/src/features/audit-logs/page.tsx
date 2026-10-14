@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 const categories: Record<PlatformAuditCategory | 'all', string> = {
-  all: 'All events', authentication: 'Authentication', configuration: 'Configuration', access: 'Access', supplier: 'Supplier',
+  all: 'All events', authentication: 'Authentication', configuration: 'Configuration', access: 'Access', supplier: 'Provider',
 };
 function actionName(action: string) {
   const names: Record<string, string> = {
@@ -19,9 +19,9 @@ function actionName(action: string) {
     platform_access_revoked: 'Platform access revoked', vendor_created: 'API configuration created',
     vendor_updated: 'API configuration updated', vendor_seeded: 'API configuration imported',
     vendor_model_created: 'Model binding created', vendor_model_updated: 'Model binding updated',
-    vendor_model_seeded: 'Model binding imported', provider_created: 'Supplier created',
+    vendor_model_seeded: 'Model binding imported', provider_created: 'Provider created',
   };
-  return names[action] ?? action.replaceAll('_', ' ').replace(/^./, value => value.toUpperCase());
+  return names[action] ?? action.replaceAll('_', ' ').replace(/\bsuppliers?\b/gi, value => value.endsWith('s') ? 'providers' : 'provider').replace(/^./, value => value.toUpperCase());
 }
 function actorName(event: PlatformAuditEvent) {
   return event.actor_kind === 'unknown' ? 'Not recorded' : event.actor_label;
@@ -73,7 +73,7 @@ function AuditLogs({ token }: { token: string }) {
   }
 
   return <section className="space-y-5 py-5" aria-label="Platform audit logs">
-    <p className="text-sm text-muted-foreground">Saved account, access, Supplier and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.</p>
+    <p className="text-sm text-muted-foreground">Saved account, access, Provider and configuration operations. Rejected login attempts and reads are not recorded here. Historical actor details may be missing; session issuance does not prove an interactive login.</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Audit category">{categories[category]}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>

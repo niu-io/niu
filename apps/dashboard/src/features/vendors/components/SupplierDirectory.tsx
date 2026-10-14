@@ -21,12 +21,12 @@ export default function SupplierDirectory({ vendors, selectedId, loading, disabl
     group.keys.push(vendor);
     groups.set(groupId, group);
   }
-  return <section className="supplier-key-picker" aria-label="Supplier API keys">
+  return <section className="supplier-key-picker" aria-label="Provider API keys">
     <h2 className="sr-only">API keys</h2>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" className="supplier-key-trigger" aria-label="Select Supplier API key" disabled={disabled || loading || vendors.length === 0}>
-          <span>{loading ? 'Loading API keys…' : selected ? `${selected.supplier?.name && selected.supplier.name !== selected.name ? selected.supplier.name + ' / ' : ''}${selected.name}` : 'Select Supplier API key'}</span>
+        <Button type="button" variant="outline" className="supplier-key-trigger" aria-label="Select Provider API key" disabled={disabled || loading || vendors.length === 0}>
+          <span>{loading ? 'Loading API keys…' : selected ? `${selected.supplier?.name && selected.supplier.name !== selected.name ? selected.supplier.name + ' / ' : ''}${selected.name}` : 'Select Provider API key'}</span>
           <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>

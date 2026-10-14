@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import SupplierSettings from '@/features/provider-business/SupplierSettings';
 vi.mock('@/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'test' }) }));
-it('loads saved supplier identity, saves with revision and refreshes navigation', async () => {
-  let profile = { name: 'Supplier', description: 'Existing description', website_url: 'https://example.com', logo_url: '', revision: 2 };
+it('loads saved provider identity, saves with revision and refreshes navigation', async () => {
+  let profile = { name: 'Provider', description: 'Existing description', website_url: 'https://example.com', logo_url: '', revision: 2 };
   const fetch = vi.fn(async (_url: string, init: RequestInit) => {
     if (init.method === 'PATCH') { const body = JSON.parse(init.body as string); expect(body.expected_revision).toBe(2); profile = { ...body, revision: 3 }; }
     return Response.json({ data: profile });
@@ -15,16 +15,16 @@ it('loads saved supplier identity, saves with revision and refreshes navigation'
   const view = render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
   const name = await screen.findByLabelText('Name');
-  expect((name as HTMLInputElement).value).toBe('Supplier');
+  expect((name as HTMLInputElement).value).toBe('Provider');
   expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
-  await user.clear(name); await user.type(name, 'Updated supplier');
+  await user.clear(name); await user.type(name, 'Updated provider');
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  await screen.findByText('Supplier details saved.');
+  await screen.findByText('Provider details saved.');
   expect(updated).toHaveBeenCalledOnce();
   expect(profile.description).toBe('Existing description');
   view.unmount();
   render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
-  await waitFor(() => expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Updated supplier'));
+  await waitFor(() => expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Updated provider'));
   window.removeEventListener('niu:supplier-profile-updated', updated);
 });
 
@@ -32,7 +32,7 @@ it('keeps the draft after a conflicting save and allows reloading the latest pro
   let reads = 0;
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => init.method === 'PATCH'
     ? Response.json({error:{message:'Conflict'}}, {status:409})
-    : Response.json({data:{name:++reads === 1 ? 'Original supplier' : 'Other administrator’s change', description:'', website_url:'', logo_url:'', revision:reads}})));
+    : Response.json({data:{name:++reads === 1 ? 'Original provider' : 'Other administrator’s change', description:'', website_url:'', logo_url:'', revision:reads}})));
   render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
   const name = await screen.findByLabelText('Name');
@@ -45,13 +45,13 @@ it('keeps the draft after a conflicting save and allows reloading the latest pro
 });
 
 it('cancels all profile drafts without submitting an update and restores name focus', async () => {
-  const profile = { name: 'Saved supplier', description: 'Saved description', website_url: 'https://example.com', logo_url: '', revision: 1 };
+  const profile = { name: 'Saved provider', description: 'Saved description', website_url: 'https://example.com', logo_url: '', revision: 1 };
   const fetcher = vi.fn(async () => Response.json({ data: profile }));
   vi.stubGlobal('fetch', fetcher);
   render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
   const name = await screen.findByLabelText('Name');
-  await user.clear(name); await user.type(name, 'Draft supplier');
+  await user.clear(name); await user.type(name, 'Draft provider');
   const description = screen.getByLabelText('Description');
   await user.clear(description); await user.type(description, 'Draft description');
   const website = screen.getByLabelText('Website URL');
@@ -69,7 +69,7 @@ it('cancels all profile drafts without submitting an update and restores name fo
 
 it('persists each preset, restores it after reload, and can return to the default or a custom URL', async () => {
   const { supplierLogoPresets } = await import('@/features/vendors/supplier-logos');
-  let profile = { name: 'Supplier', description: '', website_url: '', logo_url: '', revision: 1 };
+  let profile = { name: 'Provider', description: '', website_url: '', logo_url: '', revision: 1 };
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
     if (init.method === 'PATCH') {
       const body = JSON.parse(init.body as string);
@@ -82,13 +82,13 @@ it('persists each preset, restores it after reload, and can return to the defaul
   let view = mount();
   const user = userEvent.setup();
   await screen.findByLabelText('Name');
-  expect(screen.queryByAltText('Supplier logo')).toBeNull();
+  expect(screen.queryByAltText('Provider logo')).toBeNull();
   for (const preset of supplierLogoPresets) {
     await user.click(screen.getByRole('button', { name: profile.logo_url ? supplierLogoPresets.find(item => item.url === profile.logo_url)!.name : 'Default logo', exact: true }));
     await user.click(screen.getByRole('menuitemradio', { name: preset.name, exact: true }));
-    expect(screen.getByAltText('Supplier logo').getAttribute('src')).toBe(preset.src);
+    expect(screen.getByAltText('Provider logo').getAttribute('src')).toBe(preset.src);
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    await screen.findByText('Supplier details saved.');
+    await screen.findByText('Provider details saved.');
     expect(profile.logo_url).toBe(preset.url);
   }
   view.unmount(); view = mount();
@@ -97,13 +97,13 @@ it('persists each preset, restores it after reload, and can return to the defaul
   await user.click(screen.getByRole('button', { name: 'Google Cloud', exact: true }));
   await user.click(screen.getByRole('menuitemradio', { name: 'Default logo' }));
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  await screen.findByText('Supplier details saved.');
+  await screen.findByText('Provider details saved.');
   expect(profile.logo_url).toBe('');
-  expect(screen.queryByAltText('Supplier logo')).toBeNull();
+  expect(screen.queryByAltText('Provider logo')).toBeNull();
   await user.type(screen.getByLabelText('Logo URL'), 'https://example.com/custom.png');
   expect(screen.getByRole('button', { name: 'Custom logo' })).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  await screen.findByText('Supplier details saved.');
+  await screen.findByText('Provider details saved.');
   expect(profile.logo_url).toBe('https://example.com/custom.png');
   view.unmount();
 });

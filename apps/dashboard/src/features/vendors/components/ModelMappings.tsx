@@ -90,16 +90,16 @@ export default function ModelMappings({ credentialRevision = 0, ownerFunded = fa
   function checkLabel(result: ProviderModelCheck, model: VendorModel) {
     if (result.status === 'connected' && result.model === 'listed') return model.capabilities.video_schema ? 'Reachable · model listed. Video generation is not verified by this check.' : 'Reachable · model listed. Try Chat to verify access.';
     if (result.status === 'connected' && result.model === 'not_listed') return 'Reachable · model not listed. Check the upstream ID.';
-    if (result.status === 'credentials_rejected') return 'Key rejected. Check the saved supplier key.';
+    if (result.status === 'credentials_rejected') return 'Key rejected. Check the saved provider key.';
     if (result.status === 'private_endpoint_blocked') return 'Private endpoint blocked.';
-    if (result.status === 'endpoint_unavailable') return 'Could not reach supplier endpoint.';
-    if (result.status === 'invalid_endpoint') return 'Supplier endpoint URL is invalid.';
-    if (result.status === 'redirect_blocked') return 'Supplier redirected; Niu did not follow it.';
-    if (result.status === 'provider_rate_limited') return 'Supplier rate limited the check.';
-    if (result.status === 'model_catalog_unavailable') return 'Supplier has no compatible model list.';
-    if (result.status === 'model_catalog_too_large') return 'Supplier model list exceeded the 2 MiB check limit.';
-    if (result.status === 'invalid_model_catalog') return 'Supplier returned an unreadable model list.';
-    return `Supplier returned an error${result.http_status ? ` (${result.http_status})` : ''}.`;
+    if (result.status === 'endpoint_unavailable') return 'Could not reach provider endpoint.';
+    if (result.status === 'invalid_endpoint') return 'Provider endpoint URL is invalid.';
+    if (result.status === 'redirect_blocked') return 'Provider redirected; Niu did not follow it.';
+    if (result.status === 'provider_rate_limited') return 'Provider rate limited the check.';
+    if (result.status === 'model_catalog_unavailable') return 'Provider has no compatible model list.';
+    if (result.status === 'model_catalog_too_large') return 'Provider model list exceeded the 2 MiB check limit.';
+    if (result.status === 'invalid_model_catalog') return 'Provider returned an unreadable model list.';
+    return `Provider returned an error${result.http_status ? ` (${result.http_status})` : ''}.`;
   }
 
   return <section className="vendor-models" aria-label="Model routes">
@@ -115,7 +115,7 @@ export default function ModelMappings({ credentialRevision = 0, ownerFunded = fa
         ? <div className="vendor-empty vendor-model-empty">
           <span className="vendor-empty-mark"><Route size={17} /></span>
           <strong>No model mappings yet</strong>
-          <p>Add the first alias to route requests to this supplier.</p>
+          <p>Add the first alias to route requests to this provider.</p>
           <Button type="button" variant="outline" disabled={disabled} onClick={event => { editorTriggerRef.current = event.currentTarget; addModel(); }}><Plus />Add model mapping</Button>
         </div>
         : <><div className="vendor-model-toolbar"><span>{filteredModels.length.toLocaleString()} route{filteredModels.length === 1 ? '' : 's'}</span></div>{filteredModels.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle role="heading" aria-level={3}>No matching routes</EmptyTitle><EmptyDescription>Try another alias or upstream model.</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" onClick={() => { setQuery(''); setPage(0); filterRef.current?.focus(); }}>Clear filter</Button></EmptyContent></Empty> : <div className="table-wrap vendor-model-table-wrap">

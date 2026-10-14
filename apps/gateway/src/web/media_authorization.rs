@@ -39,7 +39,16 @@ impl FromRequestParts<AppState> for MediaPrincipal {
                 )
                 .await?
         } else {
-            state.authorize_api_headers(&parts.headers).await?
+            state
+                .authorize_api_headers_with_permission(
+                    &parts.headers,
+                    if parts.method == Method::GET {
+                        AdminPermission::Read
+                    } else {
+                        AdminPermission::Write
+                    },
+                )
+                .await?
         };
         Ok(Self(principal))
     }

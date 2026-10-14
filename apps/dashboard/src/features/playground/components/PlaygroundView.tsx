@@ -191,6 +191,7 @@ async function runModel(
   onUpdate: (result: ComparisonResult) => void,
   endpoint = '/v1/chat/completions',
   logPayloads = true,
+  keyId?: string,
 ): Promise<ComparisonResult> {
   const startedAt = performance.now();
   let attemptId: string | null = null;
@@ -222,13 +223,19 @@ async function runModel(
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json', accept: 'text/event-stream', 'x-niu-log-payloads': String(logPayloads) },
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+        accept: 'text/event-stream',
+        'x-niu-log-payloads': String(logPayloads),
+        ...(keyId ? { 'x-niu-key-id': keyId } : {}),
+      },
       body: JSON.stringify({ model, messages, max_completion_tokens: maxTokens, temperature, stream: true }),
       signal,
     });
     attemptId = response.headers.get('x-niu-attempt-id');
-    if (response.status === 401 && endpoint.startsWith('/admin/')) {
-      const session = await fetch('/admin/v1/session', { headers: { authorization: `Bearer ${apiKey}` }, signal });
+    if (response.status === 401 && keyId) {
+      const session = await fetch('/api/v1/session', { headers: { authorization: `Bearer ${apiKey}` }, signal });
       if (session.status === 401) {
         sessionStorage.setItem('niu.login-return', location.pathname + location.search);
         window.location.assign(`${import.meta.env.BASE_URL}login`);
@@ -618,7 +625,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     const controller = new AbortController();
     setKeyLoadError('');
     setWorkspaceKeysReady(false);
-    fetch(`/admin/v1/organizations/${organization}/projects/${workspaceId}/keys`, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
+    fetch(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/keys`, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error('Could not load API keys. Reopen this menu to retry.'); return response.json(); })
       .then(value => { if (!controller.signal.aborted) { setWorkspaceKeys(value.data.filter((key: {revoked: boolean; expired: boolean}) => !key.revoked && !key.expired)); setWorkspaceKeysReady(true); } })
       .catch(error => { if (!controller.signal.aborted) setKeyLoadError(error.message); });
@@ -632,7 +639,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     ? modelAliases.filter(model => allowedModels.includes(model))
     : modelAliases, [modelAliases, allowedModels]);
   const apiKey = managedKey ? token : selectedKey?.token ?? manualKey.trim();
-  const chatEndpoint = managedKey ? `/admin/v1/organizations/${organization}/projects/${workspaceId}/keys/${managedKey.id}/chat/completions` : '/v1/chat/completions';
+  const chatEndpoint = '/v1/chat/completions';
   const keyIds = keyChoices.map(key => key.id).join('\u0000');
   const preferredKey = new URLSearchParams(location.search).get('key');
   const preferredModel = new URLSearchParams(location.search).get('model');
@@ -746,8 +753,8 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   async function compare(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (running || settingsSaving || historyLoading || !draft.ready || draft.error
-      || modelsLoading || modelsError || !workspaceKeysReady || keyLoadError
-      || (selectedKey && !managedKey) || !session?.permissions.write
+      || modelsLoading || modelsError
+      || (selectedKey && !managedKey) || session?.permissions.write === false
       || !selectedModels.every(model => usableModels.includes(model))) return;
     if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0) { setChatSettingsOpen(true); return; }
     const submittedPrompt = prompt;
@@ -758,6 +765,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       setApiSettingsOpen(true);
       return;
     }
+    if (managedKey && (!workspaceKeysReady || keyLoadError)) return;
     if (usableModels.length < minComparisonModels) {
       setApiSettingsOpen(true);
       return;
@@ -810,7 +818,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       const completed = await Promise.all(selectedModels.map(model => {
         const messages: ConversationMessage[] = systemPrompt.trim() ? [{ role: 'system', content: systemPrompt.trim() }] : [];
         messages.push(...branchMessages(previousTurns, model), userMessage(currentTurn));
-        return runModel(model, apiKey, messages, maxTokens, temperature, controller.signal, updateResult, chatEndpoint, logPayloads);
+        return runModel(model, apiKey, messages, maxTokens, temperature, controller.signal, updateResult, chatEndpoint, logPayloads, managedKey?.id);
       }));
       saved.results = completed;
       saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
@@ -876,7 +884,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     }
   }
 
-  const canSubmit = Boolean(organization && workspaceId && draft.ready && !draft.error && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && workspaceKeysReady && !keyLoadError && apiKey && (!selectedKey || managedKey) && session?.permissions.write && selectedModels.every(model => usableModels.includes(model)));
+  const canSubmit = Boolean(organization && workspaceId && draft.ready && !draft.error && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && (!managedKey || (workspaceKeysReady && !keyLoadError)) && (!selectedKey || managedKey) && session?.permissions.write !== false && selectedModels.every(model => usableModels.includes(model)));
   const activeComparison = history.find(item => item.id === activeComparisonId);
   const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? (manualKey ? 'Workspace key added' : 'Choose API key');
   const visiblePromptExamples = promptExamples.filter(item => promptCategory === 'all' || item.category === promptCategory);

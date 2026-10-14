@@ -6,7 +6,7 @@ prev:
   label: Compare overview
 ---
 
-Both products let you operate a gateway between your applications and upstream model services. New API offers a broad upstream integration surface and instance-management console. Niu organizes configured supply, application access, and request evidence around Suppliers and workspaces.
+Both products let you operate a gateway between your applications and upstream model services. New API offers a broad upstream integration surface and instance-management console. Niu organizes configured supply, application access, and request evidence around Providers and workspaces.
 
 Product documentation reviewed October 13, 2026. This comparison describes documented scope; it does not establish performance, prices, or full feature parity.
 
@@ -17,7 +17,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCap
   <TableHeader><TableRow><TableHead>Feature</TableHead><TableHead>Niu</TableHead><TableHead>New API</TableHead></TableRow></TableHeader>
   <TableBody>
     <TableRow><TableCell data-label="Feature">What you operate</TableCell><TableCell data-label="Niu">Public gateway, dashboard, catalog, and docs; external PostgreSQL</TableCell><TableCell data-label="New API">Gateway and web console; deployment options documented by New API</TableCell></TableRow>
-    <TableRow><TableCell data-label="Feature">Upstream setup</TableCell><TableCell data-label="Niu">Supplier credentials with explicit adapter and model mappings</TableCell><TableCell data-label="New API">Channels connecting upstream model services</TableCell></TableRow>
+    <TableRow><TableCell data-label="Feature">Upstream setup</TableCell><TableCell data-label="Niu">Provider credentials with explicit adapter and model mappings</TableCell><TableCell data-label="New API">Channels connecting upstream model services</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Client protocols</TableCell><TableCell data-label="Niu">OpenAI-compatible APIs and explicitly scoped native protocols</TableCell><TableCell data-label="New API">OpenAI, Claude, and Gemini-compatible formats</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Application access</TableCell><TableCell data-label="Niu">Workspace API keys and scoped management contracts</TableCell><TableCell data-label="New API">Token management and instance access controls</TableCell></TableRow>
     <TableRow><TableCell data-label="Feature">Request evidence</TableCell><TableCell data-label="Niu">Saved request logs, reported usage, and customer-charge state</TableCell><TableCell data-label="New API">Usage analytics and cost accounting</TableCell></TableRow>
@@ -31,13 +31,13 @@ New API documents a broad selection of upstream integrations and protocol conver
 
 ## 02 / Where Niu is useful
 
-Niu makes Suppliers and customer workspaces separate scopes. Its public contracts distinguish customer charges from upstream costs, preserve unknown usage and unsettled charge states, and connect request investigation to saved gateway evidence. Read the supported contracts before relying on a workflow.
+Niu makes Providers and customer workspaces separate scopes. Its public contracts distinguish customer charges from upstream costs, preserve unknown usage and unsettled charge states, and connect request investigation to saved gateway evidence. Read the supported contracts before relying on a workflow.
 
 See [model configuration](/docs/configuration/models/), [request logs](/docs/concepts/execution-observation/), and the [API contracts](/docs/reference/api/) for supported behavior.
 
 ## 03 / Which one to pick
 
-Choose New API when its upstream integrations and instance-management workflows meet your needs. Evaluate Niu when its workspace access, Supplier configuration, and request-accounting model fits your application. Both require you to operate storage, configure authorized upstream access, and verify the routes you expose.
+Choose New API when its upstream integrations and instance-management workflows meet your needs. Evaluate Niu when its workspace access, Provider configuration, and request-accounting model fits your application. Both require you to operate storage, configure authorized upstream access, and verify the routes you expose.
 
 Niu’s first feature-complete release has not yet been qualified. Confirm the model, protocol, authorization, and billing behavior required by your workload before choosing a deployment.
 

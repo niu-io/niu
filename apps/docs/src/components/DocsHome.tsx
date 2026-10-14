@@ -3,7 +3,7 @@ import { Button } from '../../../dashboard/src/components/ui/button';
 
 const groups = [
   { title: 'Connect & build', links: [
-    { title: 'Models & routing', description: 'Connect Suppliers and choose the models your applications can call.', href: '/docs/configuration/models/', icon: IconRoute },
+    { title: 'Models & routing', description: 'Connect Providers and choose the models your applications can call.', href: '/docs/configuration/models/', icon: IconRoute },
     { title: 'API quickstart', description: 'Use a workspace key, discover models and send your first request.', href: '/docs/guides/api-quickstart/', icon: IconKey },
     { title: 'SDK quickstart', description: 'Make typed model calls and handle streaming with the JavaScript client.', href: '/docs/guides/sdk-quickstart/', icon: IconCode },
   ] },

@@ -55,7 +55,7 @@ impl Store {
     }
 
     /// Platform financial administration must be authorized by the caller.
-    /// Enrollment selects a published price identity, not Supplier readiness.
+    /// Enrollment selects a published price identity, not Provider readiness.
     pub async fn publish_retail_text_enrollment(
         &self,
         scope: TenantScope,

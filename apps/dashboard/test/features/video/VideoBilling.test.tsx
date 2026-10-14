@@ -19,7 +19,7 @@ it('keeps exact settled quantities and customer rates distinct from unresolved o
 });
 it('keeps unknown and owner-funded amounts distinct from zero',()=>{
  render(<VideoBilling billing={{...billing,mode:'owner_funded',state:'owner_funded',currency:null,charge_nanos:null,settled_usage:null,price:null}}/>);
- expect(screen.getByText('Own Supplier account')).toBeDefined();
+ expect(screen.getByText('Own Provider account')).toBeDefined();
  expect(screen.queryByRole('button',{name:'Charge calculation'})).toBeNull();
 });
 it('does not hide qualified zero charges or turn pending liability into a charge',()=>{

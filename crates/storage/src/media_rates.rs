@@ -1,5 +1,5 @@
 //! Internal customer schedules. Callers authorize configuration separately;
-//! registration is not Supplier qualification or permission to dispatch.
+//! registration is not Provider qualification or permission to dispatch.
 use crate::{MediaLiabilityBound, Store, StoreError};
 use niu_metered_cost::{Dimensions, Discount, PricingContext, PricingSnapshot, Quantity, Tariff};
 use serde::{Deserialize, Serialize};
@@ -248,7 +248,7 @@ impl Store {
     }
 
     /// Installation-only administration history. Exact numeric strings preserve
-    /// prices and timestamps; this query never reads Supplier purchase terms.
+    /// prices and timestamps; this query never reads Provider purchase terms.
     pub async fn customer_media_rates(
         &self,
         organization: Uuid,

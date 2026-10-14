@@ -13,9 +13,9 @@ info:
 
     ## Authentication and scope
     Inference uses a workspace API key. Management operations require the member session,
-    platform authority or Supplier membership stated by that operation. These credentials
+    platform authority or Provider membership stated by that operation. These credentials
     are not interchangeable. See each operation's security scheme and access description.
-    Legacy `project` path segments refer to workspaces; legacy `provider` paths refer to Suppliers.
+    Legacy `project` path segments refer to workspaces; legacy `provider` paths refer to Providers.
 
     ## Requests and responses
     Send the documented Content-Type and use the declared request schema. Response status codes,
@@ -23,7 +23,7 @@ info:
     than assuming a list is complete. Streaming operations document their event format separately.
 
     Monetary amounts and large counters use the exact string representation in their schemas.
-    Preserve currency and rate units; Supplier purchase rates and customer charges are separate.
+    Preserve currency and rate units; Provider purchase rates and customer charges are separate.
 
     ## Writes and retries
     Where an operation documents an idempotency key, retry an uncertain outcome with the same
@@ -81,22 +81,12 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}~1dispatch'
   /v1/media/asset-operations/{id}/cancel:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}~1cancel'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/prepare:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1prepare'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/dispatch:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1{id}~1dispatch'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}/cancel:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1{id}~1cancel'
   /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1{id}~1cancel'
   /v1/media/asset-operations:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations'
   /v1/media/asset-operations/by-idempotency/{id}:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1by-idempotency~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/by-idempotency/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1by-idempotency~1{id}'
   /admin/v1/organizations/{organization}/projects/{project}/video-draft:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-draft'
   /v1/media/verification-sessions:
@@ -189,8 +179,6 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}~1submit'
   /payments/stripe/notify:
     $ref: './generated/handler-operations.json#/paths/~1payments~1stripe~1notify'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1chat~1completions'
   /admin/v1/providers/{provider}/members:
     $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1members'
   /admin/v1/organizations/{organization}/projects/{project}:
@@ -418,7 +406,7 @@ paths:
       operationId: fetchInspectedImageSource
       security: []
       summary: Fetch exact approved image bytes using an expiring capability
-      description: Internal Supplier handoff capability, not a customer download API. The secret path token authorizes at most four deliveries within sixty seconds. Current consent, policy, detector configuration and retained content are checked on every fetch. Never log or persist the token URL. Issuance is not exposed by this API. Query parameters, request bodies and range requests are unsupported.
+      description: Internal Provider handoff capability, not a customer download API. The secret path token authorizes at most four deliveries within sixty seconds. Current consent, policy, detector configuration and retained content are checked on every fetch. Never log or persist the token URL. Issuance is not exposed by this API. Query parameters, request bodies and range requests are unsupported.
       parameters:
         - in: path
           name: token
@@ -452,7 +440,7 @@ paths:
       operationId: listVideoModels
       security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Read customer-safe configured text-video capabilities
-      description: Current workspace key grants, Supplier availability, personal ownership and video-compatible Guardrails apply. Omits unsupported channels/meters, callback controls and media-reference inputs. Returns only mapped output choices without credentials, upstream mappings, revisions or procurement prices. This read makes no upstream calls and does not guarantee tariffs, funds or future admission; estimate and submission recheck those independently.
+      description: Current workspace key grants, Provider availability, personal ownership and video-compatible Guardrails apply. Omits unsupported channels/meters, callback controls and media-reference inputs. Returns only mapped output choices without credentials, upstream mappings, revisions or procurement prices. This read makes no upstream calls and does not guarantee tariffs, funds or future admission; estimate and submission recheck those independently.
       responses:
         '200':
           description: Configured text-video capabilities
@@ -461,314 +449,6 @@ paths:
               schema: { $ref: '#/components/schemas/VideoModelList' }
         '401': { description: Invalid or inactive credential }
         '403': { description: Workspace permission denied }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models:
-    get:
-      operationId: listDashboardVideoModels
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-      summary: Read customer-safe configured text-video capabilities
-      description: Current workspace key grants, Supplier availability, personal ownership and video-compatible Guardrails apply. Omits unsupported channels/meters, callback controls and media-reference inputs. Returns only mapped output choices without credentials, upstream mappings, revisions or procurement prices. This read makes no upstream calls and does not guarantee tariffs, funds or future admission; estimate and submission recheck those independently.
-      responses:
-        '200':
-          description: Configured text-video capabilities
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/VideoModelList' }
-        '401': { description: Invalid or inactive credential }
-        '403': { description: Workspace permission denied }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/estimate:
-    post:
-      operationId: estimateDashboardVideo
-      summary: Estimate a configured text-video request without submission
-      description: Checks current key/model, route, capability, tariff and policy access. Performs no upstream request, job creation, reservation or debit. Estimates are not binding quotes, final charges or admission guarantees. Submission rechecks current configuration and available funds. Owner-funded amounts remain null; missing output estimators and unqualified contracts are unavailable.
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [model, content]
-              additionalProperties: true
-              properties:
-                model: { type: string }
-                content:
-                  type: array
-                  minItems: 1
-                  maxItems: 32
-                  items:
-                    type: object
-                    additionalProperties: false
-                    required: [type, text]
-                    properties:
-                      type: { const: text }
-                      text: { type: string, minLength: 1 }
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Nonbinding estimate and independently reviewed maximum charge
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [object, model, mode, effective_output, estimate, maximum_charge_nanos, selected_at]
-                properties:
-                  object: { const: video.estimate }
-                  model: { type: string }
-                  mode: { type: string, enum: [owner_funded, customer] }
-                  effective_output: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/effective_output' }
-                  estimate: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/estimate' }
-                  maximum_charge_nanos: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer maximum from separately reviewed liability; not funds reserved by this read. }
-                  selected_at: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer tariff selection time in Unix seconds; does not guarantee future availability. }
-        '400': { description: Request violates configured capabilities }
-        '401': { description: Invalid credential }
-        '403': { description: Policy cannot be satisfied }
-        '404': { description: Model access denied }
-        '501': { description: "Unsupported channel, meter, estimator, media or callback contract" }
-        '503': { description: Qualified route or original tariff binding unavailable }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs:
-    get:
-      operationId: listDashboardVideoJobs
-      summary: List durable workspace video jobs
-      description: Reads saved dispatched jobs, including uncertain submissions, in newest-first creation order with an ID tie-breaker. Applies current key workspace/model grants and returns no upstream references, prompts, credentials or procurement terms. Listing does not poll or regenerate videos. Cursor jobs must remain accessible under the current key. New head entries do not move existing cursor positions.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: before, in: query, schema: { type: string, format: uuid }, description: next_before from the preceding page; scoped to currently accessible jobs. }
-        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
-      responses:
-        '200':
-          description: Saved scoped job history
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [data, has_more, next_before]
-                properties:
-                  has_more: { type: boolean }
-                  next_before: { type: [string, 'null'], format: uuid }
-                  data:
-                    type: array
-                    maxItems: 100
-                    items:
-                      type: object
-                      additionalProperties: false
-                      required: [id, object, model, status, created_at_ms]
-                      properties:
-                        id: { type: string, format: uuid }
-                        object: { const: video.job }
-                        model: { type: string }
-                        created_at_ms: { type: string, pattern: '^-?[0-9]+$', description: Exact Unix milliseconds from the saved attempt. }
-                        status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '400': { description: "Invalid limit, unknown query field, malformed or inaccessible cursor" }
-        '401': { description: "Invalid, expired or revoked credential" }
-    post:
-      operationId: createDashboardVideoJob
-      summary: Submit a direct-channel text video job
-      description: Initial ark-direct-v1 adapter with configured video schema. Personal routes are owner-funded. Customer-funded routes require an effective customer selling card, current qualified Supplier offer, exact route/schema, effective resolution and supported video_tokens meter; reserve qualified maximum liability before dispatch. Active workspace budgets fail closed until video budget reservation is supported. Media references, callbacks and required content inspection remain unavailable. Commits authorization and dispatch intent before one POST; no automatic retry. Uncertainty returns the Niu reference and retains customer liability. Successful explicit queries settle reported customer usage once. Client abort is not cancellation/refund. Text-only creation supports an optional workspace-scoped Idempotency-Key. Same key and JSON document return the original reference and saved status; changed input conflicts. Object field order is ignored. Concurrent and restarted retries never submit again; interrupted preparation can remain submission_unknown. Unkeyed creation is not idempotent. Live channel, result and complete recovery qualification remain pending.
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [model, content]
-              properties:
-                model: { type: string }
-                content:
-                  type: array
-                  minItems: 1
-                  maxItems: 32
-                  items:
-                    type: object
-                    additionalProperties: false
-                    required: [type, text]
-                    properties:
-                      type: { const: text }
-                      text: { type: string, minLength: 1 }
-              additionalProperties: true
-      parameters:
-        - { name: Idempotency-Key, in: header, required: false, schema: { type: string, minLength: 1, maxLength: 128 }, description: Workspace-scoped text-video submission identity. Reuse only with the same JSON document. }
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '202': { description: "Durable Niu reference; new submissions are unknown or submission_unknown, replays return the current saved status" }
-        '400': { description: Request violates the configured schema or idempotency header format }
-        '401': { description: Invalid credential }
-        '403': { description: Policy cannot be satisfied }
-        '404': { description: Model access denied }
-        '402': { description: Insufficient balance or missing required budget reservation; no upstream submission }
-        '409': { description: "Idempotency key reused with different input; or route, key, policy or offer changed before dispatch" }
-        '501': { description: "Unsupported channel, billing, media or callback contract; idempotent reference-image submission is not supported" }
-        '503': { description: Qualified offer or original route unavailable }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}:
-    get:
-      operationId: retrieveDashboardVideoJob
-      summary: Read persisted video job state
-      description: Requires a current workspace API key with access to the original model. Reads saved evidence only; performs no upstream poll, generation or settlement. Succeeded does not guarantee available results, reported usage or a settled charge. No upstream identifiers, credentials or procurement values are returned.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: job, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Durable scoped state
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [id, object, model, status]
-                properties:
-                  id: { type: string, format: uuid }
-                  object: { const: video.job }
-                  model: { type: string }
-                  status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '401': { description: "Invalid, expired or revoked credential" }
-        '404': { description: "Missing job, workspace mismatch or model access denied" }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}:
-    get:
-      operationId: retrieveDashboardVideoResult
-      summary: Retrieve saved media with a dashboard session and selected workspace key
-      description: Requires read access to the exact workspace and a current key permitting the original model. Reuses public result destination, type, retention and policy checks. Returns bounded attachment bytes, never a key secret or signed Supplier URL.
-      security: [{ adminBearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: job, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: kind, in: path, required: true, schema: { type: string, enum: [video, last_frame] } }
-      responses:
-        '200':
-          description: Saved bounded media with private no-store and nosniff headers
-          content:
-            video/mp4: { schema: { type: string, format: binary } }
-            video/webm: { schema: { type: string, format: binary } }
-            image/png: { schema: { type: string, format: binary } }
-            image/jpeg: { schema: { type: string, format: binary } }
-        '401': { description: Invalid session or selected key }
-        '403': { description: Workspace or policy access denied }
-        '404': { description: "Missing, inaccessible, locally expired or deleted reference" }
-        '502': { description: 'Safe media_result_* error category for unavailable links, rejected destinations, oversized or invalid media, or transport failure' }
-        '503': { description: "Encryption, configuration or bounded retrieval capacity unavailable; capacity errors use media_result_busy" }
-        '504': { description: Overall result retrieval deadline exceeded; media_result_timeout }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results:
-    get:
-      operationId: getDashboardVideoResultsStatus
-      summary: Read saved result availability without downloading media
-      description: Requires current scoped model and compatible policy access. Returns no URLs or media content. Missing means no captured reference; unavailable includes expiry, deletion or conflicting terminal evidence. No regeneration, download or automatic query is performed.
-      security: [{ adminBearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: job, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Current saved availability
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/VideoResultAvailability' }
-        '401': { description: Invalid credential }
-        '403': { description: Workspace or policy access denied }
-        '404': { description: Missing or inaccessible job }
-    delete:
-      operationId: deleteDashboardVideoResults
-      summary: Permanently delete saved result references with workspace write access
-      description: Reuses current selected-key model access and permanent deletion markers. Preserves status and accounting; does not delete Supplier media or previous downloads.
-      security: [{ adminBearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: job, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Local result references deleted permanently
-          content:
-            application/json:
-              schema: { type: object, additionalProperties: false, required: [deleted], properties: { deleted: { const: true } } }
-        '401': { description: Invalid session or selected key }
-        '403': { description: Write access denied }
-        '404': { description: Missing or inaccessible job }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/observations:
-    get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1observations/get'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1billing'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/timings:
-    get:
-      operationId: retrieveDashboardVideoTimings
-      summary: Read measured gateway video transport spans
-      description: Same current workspace/model authorization as job reads. Returns at most the latest 100 spans in chronological order with explicit truncation. Submission/query network intervals are distinct from Provider queue/run timestamps; unavailable is a transport outcome, not a generation failure or refund. No upstream references or internal span IDs are exposed.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: job, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Measured spans; missing observations are not invented
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [data, has_more]
-                properties:
-                  has_more: { type: boolean }
-                  data:
-                    type: array
-                    maxItems: 100
-                    items:
-                      type: object
-                      additionalProperties: false
-                      required: [phase, started_unix_ms, elapsed_ms, outcome]
-                      properties:
-                        phase: { type: string, enum: [submission, query, result], description: "Result measures retrieval transport only; received does not imply client delivery or another generation." }
-                        started_unix_ms: { type: integer, minimum: 0, maximum: 9007199254740991 }
-                        elapsed_ms: { type: integer, minimum: 0, maximum: 120000 }
-                        outcome: { type: string, enum: [received, unavailable] }
-                        upstream_http_status: { type: [integer, 'null'], minimum: 100, maximum: 599, description: "Safe HTTP failure status only; null for historical or unclassified outcomes. Does not prove generation nonexecution or authorize a refund." }
-                        upstream_error_code: { type: [string, 'null'], maxLength: 128, description: "Bounded observed Provider error code; no response message or body." }
-                        upstream_request_id: { type: [string, 'null'], maxLength: 200, description: "Bounded observed Provider correlation identifier for diagnostics." }
-                        transport_phase: { type: [string, 'null'], enum: [connection, request, null], description: 'Observed stage only; historical unknown remains null and does not prove nonexecution.' }
-        '401': { description: Invalid credential }
-        '404': { description: Missing job or workspace/model access denied }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/refresh:
-    post:
-      operationId: refreshDashboardVideoJob
-      summary: Refresh one direct-channel video job
-      description: Rechecks current workspace/model/policy access and original pinned account/route. Performs one bounded GET and applies saved status evidence. Missing references require reconciliation and never trigger a new generation. OpenRouter cancelled/expired observations normalize to failed generation while preserving their exact safe query status; they do not establish zero usage or release financial liability. Does not expose private result URLs. Explicit refresh supports personal ownership or the original customer pricing binding. Reported successful customer usage settles the pinned price once; missing/conflicting usage retains liability. Opt-in automatic recovery includes prepaid jobs; successful jobs with missing usage or unposted liability keep recovery active. Saved successful reported usage can settle locally without another upstream query, including after key revocation; new queries still require a current key. Result retrieval and live channel qualification remain pending.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: job, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200': { description: Refreshed durable scoped state }
-        '401': { description: Invalid credential }
-        '403': { description: Current policy denies access }
-        '404': { description: Missing job or workspace/model access denied }
-        '409': { description: Missing reference or original route changed }
-        '501': { description: Unsupported recovery channel }
-        '502': { description: Query could not be refreshed; original generation is not retried }
   /v1/video/estimate:
     post:
       operationId: estimateVideoGeneration
@@ -905,7 +585,7 @@ paths:
     get:
       operationId: retrieveVideoResult
       summary: Retrieve a bounded saved video or last frame
-      description: Requires current workspace/model and compatible Guardrail access, checked again after retrieval. Uses encrypted references with a fixed 24-hour retention window. URLs may expire sooner. Never returns or redirects to a signed Supplier URL. Supports MP4/WebM up to 64 MiB and PNG/JPEG up to 10 MiB; no Range support or automatic retry. Local transport tests do not qualify a live channel.
+      description: Requires current workspace/model and compatible Guardrail access, checked again after retrieval. Uses encrypted references with a fixed 24-hour retention window. URLs may expire sooner. Never returns or redirects to a signed Provider URL. Supports MP4/WebM up to 64 MiB and PNG/JPEG up to 10 MiB; no Range support or automatic retry. Local transport tests do not qualify a live channel.
       security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -945,7 +625,7 @@ paths:
     delete:
       operationId: deleteVideoResults
       summary: Permanently remove locally saved result references
-      description: Requires current workspace/model access. Removes encrypted URLs and leaves content-free markers preventing later refresh from restoring them, including unfinished jobs. Preserves status and financial records. Does not delete media held by a Supplier or downloaded copies.
+      description: Requires current workspace/model access. Removes encrypted URLs and leaves content-free markers preventing later refresh from restoring them, including unfinished jobs. Preserves status and financial records. Does not delete media held by a Provider or downloaded copies.
       security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1431,7 +1111,7 @@ paths:
   /admin/v1/vendors/{id}/asset-management/listings:
     get:
       summary: List scoped ordinary asset-listing outcomes and timing
-      description: Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Supplier queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.
+      description: Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Provider queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.
       security: [{ adminBearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1523,7 +1203,7 @@ paths:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       summary: List scoped ordinary group-read outcomes and timing
-      description: Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Supplier queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
+      description: Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Provider queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
       security: [{ adminBearerAuth: [] }]
       parameters:
         - { name: organization_id, in: query, required: true, schema: { type: string, format: uuid } }
@@ -1881,7 +1561,7 @@ paths:
         '400': { description: Cascading confirmation missing or validity outside bounds. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-        '404': { description: Original group not found in the specified workspace and Supplier configuration. }
+        '404': { description: Original group not found in the specified workspace and Provider configuration. }
         '409': { description: "Group or qualification unavailable, stale binding, or conflicting/expired/revoked consent." }
         '413': { description: Request exceeds 4096 bytes. }
         '422': { description: Invalid request shape or unknown fields. }
@@ -1924,7 +1604,7 @@ paths:
         '400': { description: Invalid scope. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-        '404': { description: Consent does not belong to this workspace and Supplier configuration. }
+        '404': { description: Consent does not belong to this workspace and Provider configuration. }
         '409': { description: "Ineligible or consumed consent, stale qualification or outstanding mutation hold." }
         '413': { description: Request exceeds 4096 bytes. }
         '422': { description: Invalid shape or unknown fields. }
@@ -1938,7 +1618,7 @@ paths:
     get:
       operationId: getOrdinaryAssetGroupDeletionConsent
       summary: Read safe local consent and outcome status
-      description: Platform administrator only. Scoped to the original workspace and Supplier configuration. Returns no upstream identities, credentials, grant evidence or procurement data. Consent status alone is not current dispatch authorization. Claimed/outcome state takes precedence over later consent revocation or expiry. Does not query upstream. Cache-Control no-store.
+      description: Platform administrator only. Scoped to the original workspace and Provider configuration. Returns no upstream identities, credentials, grant evidence or procurement data. Consent status alone is not current dispatch authorization. Claimed/outcome state takes precedence over later consent revocation or expiry. Does not query upstream. Cache-Control no-store.
       security: [{ adminBearerAuth: [] }]
       responses:
         '200':
@@ -2068,7 +1748,7 @@ paths:
     put:
       operationId: assignPersonalCredentialOwner
       summary: Assign a configured personal credential to its account
-      description: Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Supplier offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.
+      description: Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Provider offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.
       security: [{ adminBearerAuth: [] }]
       requestBody:
         required: true
@@ -2350,34 +2030,6 @@ paths:
                         type: integer
                       completion_tokens:
                         type: integer
-  /admin/v1/benchmarks/compare:
-    post:
-      operationId: analyzePairedBenchmark
-      summary: Analyze a matched, opt-in paired benchmark dataset
-      description: Stateless analysis of imported execution records and settled amounts. Accepts an installation administrator or a scoped operator with read permission. Submitted datasets are not bound to the caller's tenant or checked against stored evidence; this endpoint is not an Enterprise authorization boundary. This operation never dispatches model work, reserves budget, or persists a report.
-      security:
-        - adminBearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PairedExperimentV1'
-      responses:
-        '200':
-          description: Paired outcome, exact cost, coverage and uncertainty report.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    $ref: '#/components/schemas/PairedExperimentReportV1'
-        '400':
-          description: Invalid dataset, mismatched trial, incomplete cost evidence, or budget limit exceeded.
-        '401':
-          description: Invalid or expired administrator/operator credential.
   /admin/v1/workspaces/by-route/{route_slug}:
     get:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces~1by-route~1{route_slug}/get'
@@ -2437,148 +2089,6 @@ paths:
           description: Account registered as unverified, or metadata returned. Registration does not activate inference.
         '401':
           description: Invalid administrator token.
-  /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota:
-    get:
-      operationId: getAccountQuota
-      summary: Read latest quota observations and freshness
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: account
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Latest quota sample for each provider window. Freshness and reset timestamps remain explicit; BIGINT quantities are decimal strings for JavaScript precision.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/QuotaWindowViewV1' }
-        '401':
-          description: Invalid administrator token.
-    post:
-      operationId: importAccountQuotaObservation
-      summary: Import a versioned provider quota window observation
-      description: Records an observation only. It does not call the provider, dispatch inference, or reset provider allowance. Exact replay returns the original ID; a different payload for the same account, window, and observation timestamp returns 409.
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: account
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/QuotaObservationV1' }
-      responses:
-        '201':
-          description: Observation persisted.
-        '400':
-          description: Invalid or future observation.
-        '401':
-          description: Invalid administrator token.
-        '409':
-          description: Duplicate observation for this provider window and timestamp.
-    delete:
-      operationId: deleteAccountQuotaWindowHistory
-      summary: Delete imported samples for one provider quota window
-      description: Permanently removes every imported sample for the selected account window, including its comparison baseline. It does not call the provider, change account state, alter inference attempts, or modify the cost ledger.
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: account
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: window_key
-          in: query
-          required: true
-          schema: { type: string, minLength: 1, maxLength: 200 }
-      responses:
-        '200':
-          description: Window history removed. The response includes the number of samples deleted; repeating the same request deletes zero additional samples.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [window_key, deleted_count]
-                properties:
-                  window_key: { type: string }
-                  deleted_count: { type: integer, minimum: 0 }
-        '400':
-          description: Missing or invalid window key.
-        '401':
-          description: Invalid administrator token.
-        '409':
-          description: Supplier account is not in the requested project.
-  /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/executions:
-    get:
-      operationId: listExecutionsForAccount
-      summary: Find imported tasks linked to an account's assigned attempts
-      description: Returns bounded metadata-only execution summaries whose span charge_ref matches an attempt UUID assigned to this account. Other reference namespaces remain unlinked.
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: account
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Up to 100 metadata-only task links, newest import first.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/ExecutionTaskLinkV1' }
-        '401':
-          description: Invalid administrator token.
-        '409':
-          description: Account is not available in this project.
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1rotate'
   /admin/v1/organizations/{organization}/projects/{project}/budget:
@@ -2675,7 +2185,7 @@ paths:
     get:
       operationId: exportWorkspaceRequests
       summary: Export filtered customer-safe request metadata as CSV
-      description: Requires workspace read access. Uses one database statement for the filtered range, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Supplier costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
+      description: Requires workspace read access. Uses one database statement for the filtered range, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
       security:
         - adminBearerAuth: []
       parameters:
@@ -2714,111 +2224,11 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests'
   /admin/v1/setup/default-workspace:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1setup~1default-workspace'
-  /admin/v1/organizations/{organization}/projects/{project}/collector-keys:
-    get:
-      operationId: listCollectorKeys
-      summary: List scoped collector credential metadata
-      description: Lists collector names, purposes, expiry and status without returning secrets or token hashes.
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: purpose
-          in: query
-          schema: { type: string, enum: [quota, execution] }
-      responses:
-        '200':
-          description: Collector metadata in this project only.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      required: [id, name, purpose, created_at_ms, expires_at_ms, revoked, expired]
-                      properties:
-                        id: { type: string, format: uuid }
-                        name: { type: string, maxLength: 200 }
-                        purpose: { type: string, enum: [quota, execution] }
-                        created_at_ms: { type: integer }
-                        expires_at_ms: { type: integer }
-                        revoked: { type: boolean }
-                        expired: { type: boolean }
-        '401':
-          description: Administrator authentication required.
-        '403':
-          description: Session does not have read access to this project.
-    post:
-      operationId: issueCollectorKey
-      summary: Issue a scoped quota-observation collector credential
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [name, ttl_seconds]
-              properties:
-                name: { type: string, minLength: 1, maxLength: 200 }
-                ttl_seconds: { type: integer, minimum: 60, maximum: 31536000 }
-                purpose: { type: string, enum: [quota], default: quota }
-      responses:
-        '200':
-          description: Collector ID and one-time bearer token. Store the token securely; it is not returned again.
-        '401':
-          description: Administrator authentication required.
-  /admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}:
-    delete:
-      operationId: revokeCollectorKey
-      summary: Revoke a scoped collector credential
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '204':
-          description: Collector credential revoked.
-        '401':
-          description: Administrator authentication required.
   /admin/v1/organizations/{organization}/projects/{project}/asset-group-intents:
     get:
       operationId: listAssetGroupRequests
       summary: Discover saved asset group creation requests
-      description: Workspace-scoped local metadata only; no upstream query or asset-readiness claim. IDs and cursors are internal routing references and must not be displayed as labels. Expired and deleted request names are omitted as null. Supplier bindings, credentials, fingerprints and procurement data are excluded.
+      description: Workspace-scoped local metadata only; no upstream query or asset-readiness claim. IDs and cursors are internal routing references and must not be displayed as labels. Expired and deleted request names are omitted as null. Provider bindings, credentials, fingerprints and procurement data are excluded.
       security:
         - adminBearerAuth: []
       parameters:
@@ -2935,8 +2345,6 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}'
   /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1content'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}/refresh:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results~1{kind}~1refresh'
   /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics:
     get:
       $ref: "./generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1diagnostics/get"
@@ -2944,34 +2352,24 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1refresh'
   /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1results~1{kind}~1refresh'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-groups'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-groups~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1assets'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1assets~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-operations~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}/refresh:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1asset-groups~1{id}~1refresh'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}/refresh:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1assets~1{id}~1refresh'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1capabilities'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/link:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions~1{id}~1link'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/verification-sessions/{id}/refresh:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1media~1verification-sessions~1{id}~1refresh'
   /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1capture'
   /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}~1turns~1{turn}~1intent'
+  /v1/key:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1key'
+  /v1/generations/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1generations~1{id}'
+  /v1/media/capabilities:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1capabilities'
+  /v1/video/jobs/{id}/results/{kind}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs~1{id}~1results~1{kind}~1refresh'
+  /api/v1/workspaces/{workspace}/keys:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys'
+  /api/v1/workspaces/{workspace}/keys/{key}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}'
+  /api/v1/workspaces/{workspace}/keys/{key}/rotate:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1rotate'
 components:
   schemas:
     MediaVerificationSession:

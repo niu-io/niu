@@ -116,17 +116,13 @@ pub async fn capture(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
-    let video = path == "/v1/video/jobs"
-        || path.starts_with("/admin/v1/organizations/")
-            && (path.ends_with("/video/jobs")
-                || path.contains("/video-intents/") && path.ends_with("/submit"));
+    let video = path == "/v1/video/jobs";
     let inference = video
         || matches!(
             path,
             "/v1/chat/completions" | "/v1/responses" | "/v1/messages" | "/v1/embeddings"
         )
-        || path.starts_with("/admin/v1/organizations/") && path.ends_with("/chat/completions");
-    let inference = inference || path.starts_with("/v1beta/models/");
+        || path.starts_with("/v1beta/models/");
     if !inference || request.method() != axum::http::Method::POST {
         return next.run(request).await;
     }

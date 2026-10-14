@@ -33,7 +33,7 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
     setSupplierError('');
     void request<{ data: Array<{ id: string; name: string }> }>(token, '/admin/v1/providers', 'GET', undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setSuppliers(result.data); })
-      .catch(() => { if (!controller.signal.aborted) setSupplierError('Supplier list could not be loaded.'); })
+      .catch(() => { if (!controller.signal.aborted) setSupplierError('Provider list could not be loaded.'); })
       .finally(() => { if (!controller.signal.aborted) setSupplierLoading(false); });
     return () => controller.abort();
   }, [token, vendor?.id, supplierRetry]);
@@ -104,17 +104,17 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
     <form className="vendor-editor-form" onSubmit={submit}>
       <div className="vendor-editor-fields">
         {!vendor && <div className="space-y-2">
-          <Label htmlFor="vendor-supplier">Supplier</Label>
+          <Label htmlFor="vendor-provider">Provider</Label>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button id="vendor-supplier" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(initialSupplierId) || supplierLoading || Boolean(supplierError)}>{supplierLoading ? 'Loading suppliers…' : supplierId ? selectedSupplier?.name ?? 'Supplier unavailable' : 'New supplier'}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button id="vendor-provider" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(initialSupplierId) || supplierLoading || Boolean(supplierError)}>{supplierLoading ? 'Loading providers…' : supplierId ? selectedSupplier?.name ?? 'Provider unavailable' : 'New provider'}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={supplierId} onValueChange={setSupplierId}>
-              <DropdownMenuRadioItem value="">New supplier</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="">New provider</DropdownMenuRadioItem>
               {suppliers.map(supplier => <DropdownMenuRadioItem key={supplier.id} value={supplier.id}>{supplier.name}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
           {supplierError && <div role="alert">{supplierError}<Button type="button" variant="ghost" size="sm" onClick={() => setSupplierRetry(value => value + 1)}>Retry</Button></div>}
         </div>}
-        <Label htmlFor="vendor-name">{supplierId || vendor ? 'API key name' : 'Supplier name'}
+        <Label htmlFor="vendor-name">{supplierId || vendor ? 'API key name' : 'Provider name'}
           <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder="e.g. Primary inference" required disabled={disabled} />
         </Label>
         <Label htmlFor="vendor-adapter">API format
@@ -132,8 +132,8 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
         <Label htmlFor="vendor-api-base">API base URL
           <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
         </Label>
-        <Label htmlFor="vendor-api-key">{vendor ? 'Replace supplier API key (optional)' : 'Supplier API key'}
-          <Input id="vendor-api-key" type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} autoComplete="new-password" spellCheck={false} placeholder={vendor ? 'Leave blank to keep the current credential' : 'Paste a supplier key'} required={!vendor} disabled={disabled} />
+        <Label htmlFor="vendor-api-key">{vendor ? 'Replace provider API key (optional)' : 'Provider API key'}
+          <Input id="vendor-api-key" type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} autoComplete="new-password" spellCheck={false} placeholder={vendor ? 'Leave blank to keep the current credential' : 'Paste a provider key'} required={!vendor} disabled={disabled} />
         </Label>
       </div>
 
@@ -158,7 +158,7 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
       <div className="vendor-editor-footer">
         <p>{vendor ? 'API format cannot be changed after creation.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
         <Button type="submit" disabled={disabled || ownershipUnavailable || !name.trim() || !apiBase.trim() || (!vendor && !apiKey)}>
-          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? supplierId ? 'Add API key' : 'Create supplier' : !vendor.enabled && enabled ? 'Enable API key' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
+          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? supplierId ? 'Add API key' : 'Create provider' : !vendor.enabled && enabled ? 'Enable API key' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
         </Button>
       </div>
     </form>
