@@ -883,6 +883,26 @@ export interface RoutingRegistryStatus {
   local_static_configuration_matches: boolean;
 }
 
+/** Confidential platform comparison. Customer charge is not an external cash receipt. */
+export type CommercialPositionRow = {
+  supplier_id: string; supplier_name: string; model_alias: string; currency: string;
+  offers: Array<{
+    offer_id: string; route_alias: string; revision: string; rate_kind: 'text' | 'media';
+    prompt_rate: string | null; completion_rate: string | null;
+    state: 'paused' | 'unqualified' | 'qualified';
+    media_rates: Array<Pick<SupplierMediaRateRecord['card'], 'revision' | 'tariff' | 'discounts'>>;
+  }>;
+  customer_charge_nanos: string | null; earning_nanos: string | null;
+  settled_earning_nanos: string | null; unsettled_earning_nanos: string | null;
+  cost_nanos: string | null; margin_nanos: string | null;
+  unresolved_attempts: string; matched_attempts: string; cost_known_attempts: string;
+};
+/** All rows share one database snapshot and UTC dispatch interval [from, until). */
+export type CommercialPosition = {
+  currency: string; days: 7 | 30 | 90; from: string; until: string;
+  data: CommercialPositionRow[];
+};
+
 export class NiuAdminClient {
   /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
    * Rejects self changes and protected actors. Never issues a replacement token.
@@ -1599,6 +1619,14 @@ export class NiuAdminClient {
       query.set('limit', String(page.limit));
     }
     return this.request(`/pricing/models${query.size ? '?' + query : ''}`, undefined, options);
+  }
+
+  /** Platform-only read; never changes routes or initiates payment. Unknown amounts remain null. */
+  getCommercialPosition(query: { currency: string; days?: 7 | 30 | 90 }, options?: RequestOptions): Promise<CommercialPosition> {
+    if (!/^[A-Z]{3}$/.test(query.currency)) throw new TypeError('Provide a three-letter uppercase currency');
+    if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
+    const parameters = new URLSearchParams({ currency: query.currency, days: String(query.days ?? 30) });
+    return this.request(`/commercial-position?${parameters}`, undefined, options);
   }
 
   /** Named pricing targets; platform permission does not grant customer data access. */

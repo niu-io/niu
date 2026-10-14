@@ -767,3 +767,5 @@ export type { VideoGenerationsSessionSummary, VideoGenerationsSession, VideoGene
 export type { GenerationArtifactCapture, GenerationArtifactCaptureInput, GenerationArtifactCaptureFailureCode, GenerationArtifactCaptureClient, GenerationArtifactCaptureSender } from './generation-artifact-capture.js';
 export type { GenerationTaskState, GenerationArtifactAvailability, GenerationArtifactKind, GenerationTask, GenerationExecutionContext, GenerationArtifact, GenerationInventoryPage, GenerationInventoryQuery } from './generations-inventory.js';
 export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, PlatformAuditPage, PlatformAuditQuery } from './platform-audit.js';
+
+export type { CommercialPosition, CommercialPositionRow } from './admin.js';

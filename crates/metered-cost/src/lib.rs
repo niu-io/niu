@@ -520,59 +520,6 @@ impl PricingSnapshot {
     }
 }
 
-/// Select the commercial retail policy: one eligible customer promotion wins
-/// over one eligible global promotion, regardless of their numeric priorities.
-/// Promotions have explicit end times and never stack. Multiple eligible rules
-/// in the winning scope are a configuration conflict, not an arbitrary winner.
-/// This is separate from legacy `pin_pricing` so stored snapshots retain their
-/// original calculation semantics. The returned snapshot uses the same durable
-/// format and can be decoded without looking up mutable promotion configuration.
-pub fn pin_customer_retail_pricing(
-    tariffs: &[Tariff],
-    promotions: &[Discount],
-    context: &PricingContext<'_>,
-) -> Result<PricingSnapshot, MeterError> {
-    if promotions.len() > 64 {
-        return Err(MeterError::TooManyDiscounts);
-    }
-    let mut customer = None;
-    let mut global = None;
-    let mut customer_conflict = false;
-    let mut global_conflict = false;
-    for (index, promotion) in promotions.iter().enumerate() {
-        promotion.validate()?;
-        if promotion.effective_until.is_none()
-            || promotion.stacking != Stacking::Exclusive
-            || promotions[..index]
-                .iter()
-                .any(|prior| prior.revision == promotion.revision)
-        {
-            return Err(MeterError::InvalidDiscount);
-        }
-        if !promotion.matches(context) {
-            continue;
-        }
-        if promotion.customer.is_some() {
-            customer_conflict |= customer.replace(promotion).is_some();
-        } else {
-            global_conflict |= global.replace(promotion).is_some();
-        }
-    }
-    let selected = if customer.is_some() {
-        if customer_conflict {
-            return Err(MeterError::AmbiguousDiscount);
-        }
-        customer
-    } else {
-        if global_conflict {
-            return Err(MeterError::AmbiguousDiscount);
-        }
-        global
-    };
-    let selected: Vec<_> = selected.into_iter().cloned().collect();
-    pin_pricing(tariffs, &selected, context)
-}
-
 pub fn pin_pricing(
     tariffs: &[Tariff],
     discounts: &[Discount],

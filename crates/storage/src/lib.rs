@@ -169,6 +169,7 @@ mod workspace_creation;
 pub use workspace_creation::WorkspaceCreationKey;
 mod billing;
 pub use billing::CustomerCategoryRates;
+mod commercial_position;
 mod customer_invoice_history;
 mod customer_tariff_history;
 mod key_concurrency;

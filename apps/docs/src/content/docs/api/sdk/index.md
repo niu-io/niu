@@ -51,6 +51,8 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [ChatToolCall](/docs/api/sdk/chattoolcall/)
 - [ChatToolChoice](/docs/api/sdk/chattoolchoice/)
 - [ChatTurn](/docs/api/sdk/chatturn/)
+- [CommercialPosition](/docs/api/sdk/commercialposition/)
+- [CommercialPositionRow](/docs/api/sdk/commercialpositionrow/)
 - [CompanyCreateOptions](/docs/api/sdk/companycreateoptions/)
 - [CompanyCreationInput](/docs/api/sdk/companycreationinput/)
 - [CompanyMetadata](/docs/api/sdk/companymetadata/)

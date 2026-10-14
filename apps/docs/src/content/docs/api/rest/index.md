@@ -273,6 +273,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 ## Administration APIs
 
 - [`POST /admin/v1/benchmarks/compare` — Analyze a matched, opt-in paired benchmark dataset](/docs/api/rest/analyzepairedbenchmark/)
+- [`GET /admin/v1/commercial-position` — Compare installation commercial Supplier positions](/docs/api/rest/getcommercialposition/)
 - [`GET /admin/v1/guardrails/detectors/{detector}` — Read installation text detector processing declaration](/docs/api/rest/getguardraildetectordescription/)
 - [`POST /admin/v1/guardrails/detectors/{detector}/preview` — Preview installation text detector transport](/docs/api/rest/previewguardraildetector/)
 - [`GET /admin/v1/metrics` — Read in-process request and token counters](/docs/api/rest/admingetmetrics/)

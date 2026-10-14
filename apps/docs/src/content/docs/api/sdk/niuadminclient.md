@@ -1031,6 +1031,16 @@ listPlatformPricingModels(page?: {
 }>;
 ```
 
+### getCommercialPosition
+
+```typescript
+/** Platform-only read; never changes routes or initiates payment. Unknown amounts remain null. */
+getCommercialPosition(query: {
+    currency: string;
+    days?: 7 | 30 | 90;
+}, options?: RequestOptions): Promise<CommercialPosition>;
+```
+
 ### listPlatformPricingTargets
 
 ```typescript

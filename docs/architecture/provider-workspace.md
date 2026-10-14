@@ -1,5 +1,12 @@
 # Supplier business workspace
 
+## Current commercial audience
+
+The platform administrator manages purchasing and settlement and compares Supplier positions through `GET /admin/v1/commercial-position`. This confidential read is unavailable to customers and Supplier members. It aggregates pinned customer charges, Supplier payables, settlement links and independently known upstream costs. Customer charges are not merchant cash receipts. Margin compares matching retail charges and Supplier earnings; missing evidence remains null. Current and historical personal owner-funded routes are excluded. Existing route pools remain manually controlled, without cheapest-offer selection or model substitution.
+
+Supplier-member APIs and authorized historical routes below remain supported compatibility contracts, not a new product entrance. This work neither removes them nor adds membership navigation. Customer views continue to expose only their own selling prices and charges.
+
+
 Niu's public runtime includes supplier businesses, explicit memberships, versioned model payout offers, an earnings ledger and external payment reconciliation. See [billing](billing.md) for calculation rules and limits.
 
 ## Product boundaries
@@ -44,13 +51,13 @@ These features ship in the public Niu repository and work without private source
 
 ## Consumer and supplier isolation
 
-The **Suppliers** rail destination is the supplier interface. Its navigation and account menu contain no customer organizations, workspaces, tasks, application keys or consumer usage links. Suppliers see only their model offers, aggregate consumption, earnings and settlement records. The supplier dashboard API omits raw gateway request identifiers; request-level settlement reconciliation is available only to installation administrators.
+Existing Supplier-member routes isolate authorized business records from customer organizations, workspaces, application keys and consumer usage. They are compatibility surfaces, not a new rail destination for this commercial workflow. Suppliers see only their model offers, aggregate consumption, earnings and settlement records. The supplier dashboard API omits raw gateway request identifiers; request-level settlement reconciliation is available only to installation administrators.
 
 The consumer workspace has **Usage** (request counts, tokens and timing) and **Billing** (customer charges and invoices). Upstream costs and cost budgets remain installation-only accounting APIs, not consumer or supplier navigation. The single Suppliers entry at the bottom of the rail owns provider configuration, model offers, consumption and earnings, access, and settlements. Supplier configuration lives at `/suppliers`; the former workspace vendors route redirects there. Configuration and supplier business share the zone sidebar, while their API permissions remain separate. Consumers cannot call the upstream cost/budget APIs or inspect wholesale cost evidence in request or execution reports. An identity may hold independently granted consumer and supplier permissions; membership in one does not grant the other.
 
 ### Supplier zone navigation
 
-The Suppliers rail opens a dedicated zone with its own persistent, responsive sidebar. Supplier pages have addressable routes: overview at `/suppliers/{provider}`, model offers at `/suppliers/{provider}/models`, consumption and earnings at `/suppliers/{provider}/consumption`, and settlements at `/suppliers/{provider}/settlements`. Navigation is route-based and survives refresh, browser history and direct links. The zone does not use the consumer workspace sidebar.
+Historical Supplier-member pages have addressable routes: overview at `/suppliers/{provider}`, model offers at `/suppliers/{provider}/models`, consumption and earnings at `/suppliers/{provider}/consumption`, and settlements at `/suppliers/{provider}/settlements`. Navigation is route-based and survives refresh, browser history and direct links. The zone does not use the consumer workspace sidebar.
 
 ## Product terminology
 
