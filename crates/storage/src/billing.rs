@@ -21,6 +21,13 @@ pub struct CustomerTariffPublication<'a> {
     pub discount_baseline_revision: Option<Uuid>,
 }
 
+#[derive(sqlx::FromRow)]
+pub(crate) struct PlatformCompanyRecord {
+    pub id: Uuid,
+    pub name: String,
+    pub created_at: String,
+}
+
 impl Store {
     /// Same-snapshot retail charge-to-ledger reconciliation; never mutates money.
     /// Only prepaid-bound attempts participate; legacy invoices are independent.
@@ -492,7 +499,7 @@ SELECT jsonb_build_object(
         snapshot: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         after: Option<Uuid>,
         limit: i64,
-    ) -> Result<(Vec<(Uuid, String)>, Option<Uuid>), StoreError> {
+    ) -> Result<(Vec<PlatformCompanyRecord>, Option<Uuid>), StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidPrice);
         }
@@ -506,12 +513,12 @@ SELECT jsonb_build_object(
                 return Err(StoreError::Conflict);
             }
         }
-        let mut companies: Vec<(Uuid, String)> = sqlx::query_as("SELECT id,name FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
+        let mut companies: Vec<PlatformCompanyRecord> = sqlx::query_as("SELECT id,name,to_jsonb(created_at) #>> '{}' AS created_at FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
             .bind(after).bind(limit+1).fetch_all(&mut **snapshot).await?;
         let more = companies.len() > limit as usize;
         companies.truncate(limit as usize);
         let next = if more {
-            companies.last().map(|(id, _)| *id)
+            companies.last().map(|company| company.id)
         } else {
             None
         };
@@ -533,14 +540,19 @@ SELECT jsonb_build_object(
             Self::platform_company_page_in_tx(&mut snapshot, after, limit).await?;
         let balances: Vec<(Uuid, Value)> =
             sqlx::query_as(include_str!("customer_balance_projection.sql"))
-                .bind(companies.iter().map(|(id, _)| *id).collect::<Vec<_>>())
+                .bind(
+                    companies
+                        .iter()
+                        .map(|company| company.id)
+                        .collect::<Vec<_>>(),
+                )
                 .fetch_all(&mut *snapshot)
                 .await?;
         let mut grouped = std::collections::BTreeMap::<Uuid, Vec<Value>>::new();
         for (organization, balance) in balances {
             grouped.entry(organization).or_default().push(balance);
         }
-        let data: Vec<Value> = companies.into_iter().map(|(id,name)| json!({"organization_id":id,"organization_name":name,"accounts":grouped.remove(&id).unwrap_or_default()})).collect();
+        let data: Vec<Value> = companies.into_iter().map(|company| json!({"organization_id":company.id,"organization_name":company.name,"accounts":grouped.remove(&company.id).unwrap_or_default()})).collect();
         snapshot.commit().await?;
         Ok(json!({"data":data,"next_after":next}))
     }

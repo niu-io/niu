@@ -1678,7 +1678,7 @@ pub async fn registered_models(
 ///   "operation": {
 ///     "operationId": "listRetailCustomerTargets",
 ///     "summary": "List named companies for customer-specific promotions",
-///     "description": "Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names and routing-only company references; no balances, payment details, request content, Supplier costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.",
+///     "description": "Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names, company creation timestamps for distinguishing repeated names, and routing-only company references; no balances, payment details, request content, Supplier costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -1723,7 +1723,8 @@ pub async fn registered_models(
 ///                     "type": "object",
 ///                     "required": [
 ///                       "organization_id",
-///                       "organization_name"
+///                       "organization_name",
+///                       "created_at"
 ///                     ],
 ///                     "properties": {
 ///                       "organization_id": {
@@ -1732,6 +1733,11 @@ pub async fn registered_models(
 ///                       },
 ///                       "organization_name": {
 ///                         "type": "string"
+///                       },
+///                       "created_at": {
+///                         "type": "string",
+///                         "format": "date-time",
+///                         "description": "Company creation time; not a billing or eligibility event."
 ///                       }
 ///                     }
 ///                   }

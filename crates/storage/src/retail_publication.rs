@@ -140,7 +140,7 @@ impl Store {
         snapshot.commit().await?;
         let data: Vec<Value> = companies
             .into_iter()
-            .map(|(id, name)| json!({"organization_id":id,"organization_name":name}))
+            .map(|company| json!({"organization_id":company.id,"organization_name":company.name,"created_at":company.created_at}))
             .collect();
         Ok(json!({"data":data,"next_after":next}))
     }

@@ -1798,7 +1798,7 @@ export class NiuAdminClient {
   }
 
   /** Platform-only named companies, including companies without workspaces or accounts. */
-  listRetailCustomerTargets(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { organization_id: string; organization_name: string }[]; next_after: string | null }> {
+  listRetailCustomerTargets(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { organization_id: string; organization_name: string; created_at: string }[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', uuid(page.after));
     if (page.limit !== undefined) {

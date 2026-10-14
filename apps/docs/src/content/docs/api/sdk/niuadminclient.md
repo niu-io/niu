@@ -1104,6 +1104,7 @@ listRetailCustomerTargets(page?: {
     data: {
         organization_id: string;
         organization_name: string;
+        created_at: string;
     }[];
     next_after: string | null;
 }>;

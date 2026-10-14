@@ -11934,7 +11934,7 @@ HTTP 409: Cursor no longer registered; restart pagination
 
 `GET /admin/v1/pricing/customers`
 
-Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names and routing-only company references; no balances, payment details, request content, Supplier costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.
+Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names, company creation timestamps for distinguishing repeated names, and routing-only company references; no balances, payment details, request content, Supplier costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.
 
 Implementation: `implemented`. Operation: `listRetailCustomerTargets`.
 
@@ -11992,7 +11992,8 @@ Content type: `application/json`.
         "type": "object",
         "required": [
           "organization_id",
-          "organization_name"
+          "organization_name",
+          "created_at"
         ],
         "properties": {
           "organization_id": {
@@ -12001,6 +12002,11 @@ Content type: `application/json`.
           },
           "organization_name": {
             "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Company creation time; not a billing or eligibility event."
           }
         }
       }

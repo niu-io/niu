@@ -9,27 +9,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { request, writeMayHaveCommitted } from '@/features/vendors/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
 import { registeredRetailModels } from './api';
-import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, RetailStandardPublication } from '../../../../../sdks/javascript/src/admin';
+import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '../../../../../sdks/javascript/src/admin';
 
-type TextSchedule = Extract<RetailSchedule, { kind: 'text' }>;
-const categories = [
-  ['prompt_rate', 'Input / 1M tokens'], ['completion_rate', 'Output / 1M tokens'],
-  ['cached_prompt_rate', 'Cache read / 1M tokens'], ['cache_write_prompt_rate', 'Cache write / 1M tokens'], ['reasoning_completion_rate', 'Reasoning / 1M tokens'],
-] as const;
-type RateKey = typeof categories[number][0];
-type Rates = Record<RateKey, string>;
-type Tier = { minimum_input_tokens: string; rates: Rates };
-const ratesFrom = (value?: Partial<TextSchedule>): Rates => Object.fromEntries(categories.map(([key]) => [key, value?.[key] == null ? '' : amountFromNanos(value[key]!)])) as Rates;
-function checkedRates(value: Rates) {
-  const rates = Object.fromEntries(categories.map(([key]) => {
-    const rate = value[key].trim();
-    if (!rate && key !== 'prompt_rate' && key !== 'completion_rate') return [key, null];
-    const nanos = amountToNanos(rate, true);
-    if (BigInt(nanos) > 1_000_000_000_000_000n) throw new Error('Token rates exceed the supported range.');
-    return [key, nanos];
-  }));
-  return rates as Pick<TextSchedule, RateKey>;
-}
+import { categories, ratesFrom, checkedRates, type Rates, type Tier } from './text-terms';
 
 /** Full text selling terms; optional categories stay distinct from explicit zero. */
 export function TextStandardEditor({ token, previous, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; onClose: () => void; onSaved: () => void }) {
