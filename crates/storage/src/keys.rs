@@ -314,7 +314,38 @@ impl Store {
     /// future admissions; it cannot unsend work already admitted upstream.
     pub async fn mark_dispatched(&self, principal: &Principal, id: Uuid) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
-        let allowed = Self::mark_dispatched_using(&mut tx, principal, id).await?;
+        let mut captured = None;
+        let allowed = match Self::mark_dispatched_with_key_capture(
+            &mut tx,
+            principal,
+            id,
+            Some(&mut captured),
+        )
+        .await
+        {
+            Ok(allowed) => allowed,
+            Err(error) => {
+                // Only a definitive checked denial is evidence. Commit/transport
+                // uncertainty never becomes a denied admission observation.
+                let definitive = matches!(&error, StoreError::KeyRequestRateDisabled);
+                let rolled_back = tx.rollback().await.is_ok();
+                if definitive && rolled_back {
+                    if let Some(captured) = captured {
+                        // Diagnostic failure must not change the original rejection
+                        // or authorize another dispatch / audit writer retry.
+                        let _ = self
+                            .record_key_request_rate_denial(
+                                principal.scope,
+                                id,
+                                principal.key_id,
+                                &captured,
+                            )
+                            .await;
+                    }
+                }
+                return Err(error);
+            }
+        };
         tx.commit().await?;
         if allowed {
             Ok(())
@@ -329,18 +360,33 @@ impl Store {
         principal: &Principal,
         id: Uuid,
     ) -> Result<bool, StoreError> {
+        Self::mark_dispatched_with_key_capture(tx, principal, id, None).await
+    }
+
+    async fn mark_dispatched_with_key_capture(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        principal: &Principal,
+        id: Uuid,
+        capture: Option<&mut Option<crate::gateway_admission_denials::CapturedAdmissionKey>>,
+    ) -> Result<bool, StoreError> {
         let scope = principal.scope;
 
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
             .bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
 
-        let key = sqlx::query("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
+        let key = sqlx::query("SELECT k.id,k.name,k.revision FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
             .bind(principal.key_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
         if key.is_none() {
             // The composite key foreign key guarantees that a valid key also
             // has its project. Locking both rows together keeps key revocation
             // and budget creation ordered with dispatch in a single query.
             return Err(StoreError::Unauthorized);
+        }
+        if let (Some(capture), Some(key)) = (capture, key.as_ref()) {
+            *capture = Some(crate::gateway_admission_denials::CapturedAdmissionKey {
+                name: key.try_get("name")?,
+                revision: key.try_get("revision")?,
+            });
         }
         let account_eligible = sqlx::query_scalar::<_, bool>("SELECT a.health='ready' AND a.refresh_owner IS NULL AND a.credential_revision=s.credential_revision FROM account_assignments s JOIN supplier_accounts a ON a.organization_id=s.organization_id AND a.project_id=s.project_id AND a.id=s.account_id WHERE s.organization_id=$1 AND s.project_id=$2 AND s.attempt_id=$3 FOR SHARE OF a")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?;

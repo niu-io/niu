@@ -105,6 +105,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [GatewayActivityPage](/docs/api/sdk/gatewayactivitypage/)
 - [GatewayActivityQuery](/docs/api/sdk/gatewayactivityquery/)
 - [GatewayActivitySummary](/docs/api/sdk/gatewayactivitysummary/)
+- [GatewayAdmissionDenial](/docs/api/sdk/gatewayadmissiondenial/)
 - [GatewayChargeSummary](/docs/api/sdk/gatewaychargesummary/)
 - [GatewayTaskEvidence](/docs/api/sdk/gatewaytaskevidence/)
 - [GatewayUsageSummary](/docs/api/sdk/gatewayusagesummary/)

@@ -51,6 +51,7 @@ pub struct GatewayActivityEntry {
     pub reasoning_output_tokens: Option<String>,
     pub finish_reasons: Option<sqlx::types::Json<Vec<crate::RequestChoiceFinish>>>,
     pub failure: Option<sqlx::types::Json<crate::RequestFailure>>,
+    pub admission_denial: Option<sqlx::types::Json<crate::GatewayAdmissionDenial>>,
     pub customer_charge_currency: Option<String>,
     pub customer_charge_nanos: Option<String>,
     pub customer_charge_status: String,
@@ -484,6 +485,7 @@ impl Store {
              (SELECT reasoning_output_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS reasoning_output_tokens, \
              (SELECT choices FROM request_finish_reasons WHERE attempt_id=a.id) AS finish_reasons, \
              (SELECT jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) FROM request_failures f WHERE f.attempt_id=a.id) AS failure, \
+             (SELECT jsonb_build_object('kind',d.kind,'http_status',d.http_status,'requested_key_name',d.requested_key_name,'key_name_source','captured_at_admission','recorded_at',d.recorded_at) FROM gateway_admission_denials d WHERE d.attempt_id=a.id AND d.organization_id=a.organization_id AND d.project_id=a.project_id AND a.dispatched_at IS NULL AND a.execution='not_sent') AS admission_denial, \
              (SELECT decision.outcome FROM output_guardrail_decisions decision WHERE decision.organization_id=a.organization_id AND decision.project_id=a.project_id AND decision.attempt_id=a.id) AS output_guardrail_outcome, \
              customer_charge.currency AS customer_charge_currency, customer_charge.amount_nanos::text AS customer_charge_nanos, \
              CASE WHEN customer_charge.attempt_id IS NOT NULL THEN 'charged' \

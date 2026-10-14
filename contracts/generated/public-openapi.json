@@ -44830,6 +44830,54 @@
               }
             }
           },
+          "admission_denial": {
+            "description": "Recorded Gateway request-rate rejection for a retained unsent attempt. Null includes historical records and unavailable diagnostics. The captured requested key name is provenance, not dispatch or billing authority. This is independent of upstream failure evidence.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "http_status",
+                  "requested_key_name",
+                  "key_name_source",
+                  "recorded_at"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "key_request_rate_disabled"
+                    ]
+                  },
+                  "http_status": {
+                    "type": "integer",
+                    "enum": [
+                      429
+                    ],
+                    "description": "Gateway admission HTTP status, never an upstream status."
+                  },
+                  "requested_key_name": {
+                    "type": "string",
+                    "description": "Name captured from the authorized key at admission; never inferred from current configuration."
+                  },
+                  "key_name_source": {
+                    "type": "string",
+                    "enum": [
+                      "captured_at_admission"
+                    ]
+                  },
+                  "recorded_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            ]
+          },
           "failure": {
             "type": [
               "object",
@@ -48853,6 +48901,54 @@
             ],
             "pattern": "^[0-9]+$",
             "description": "Explicitly reported subset of completion tokens. Null means unknown."
+          },
+          "admission_denial": {
+            "description": "Recorded Gateway request-rate rejection for a retained unsent attempt. Null includes historical records and unavailable diagnostics. The captured requested key name is provenance, not dispatch or billing authority. This is independent of upstream failure evidence.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "http_status",
+                  "requested_key_name",
+                  "key_name_source",
+                  "recorded_at"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "key_request_rate_disabled"
+                    ]
+                  },
+                  "http_status": {
+                    "type": "integer",
+                    "enum": [
+                      429
+                    ],
+                    "description": "Gateway admission HTTP status, never an upstream status."
+                  },
+                  "requested_key_name": {
+                    "type": "string",
+                    "description": "Name captured from the authorized key at admission; never inferred from current configuration."
+                  },
+                  "key_name_source": {
+                    "type": "string",
+                    "enum": [
+                      "captured_at_admission"
+                    ]
+                  },
+                  "recorded_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            ]
           },
           "failure": {
             "oneOf": [

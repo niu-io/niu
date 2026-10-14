@@ -612,6 +612,7 @@ export type GatewayTaskEvidence = {
   coverage: 'complete' | 'partial' | 'unknown';
   outcomes: GatewayActivityOutcome[];
 };
+export type GatewayAdmissionDenial = { kind: 'key_request_rate_disabled'; http_status: 429; requested_key_name: string; key_name_source: 'captured_at_admission'; recorded_at: string };
 export type GatewayActivityEntry = {
   attempt_id: string;
   operation_id: string;
@@ -619,6 +620,8 @@ export type GatewayActivityEntry = {
   retry?: { ordinal: number; predecessor_attempt_id: string | null; maximum_attempts: number; policy_revision: string } | null;
   api_key_id: string | null;
   key_name: string | null;
+  /** Checked pre-dispatch rejection, separate from upstream failure and billing authority. */
+  admission_denial?: GatewayAdmissionDenial | null;
   provider_model: string | null;
   timing: RequestTiming | null;
   task_id: string | null;

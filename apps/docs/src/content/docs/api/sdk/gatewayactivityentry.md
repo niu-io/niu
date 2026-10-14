@@ -21,6 +21,8 @@ export type GatewayActivityEntry = {
     } | null;
     api_key_id: string | null;
     key_name: string | null;
+    /** Checked pre-dispatch rejection, separate from upstream failure and billing authority. */
+    admission_denial?: GatewayAdmissionDenial | null;
     provider_model: string | null;
     timing: RequestTiming | null;
     task_id: string | null;

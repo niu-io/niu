@@ -25,7 +25,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P09 | Organization management | `/workspaces/:workspace/organization` | Company/workspace ownership and supported actions | In review: actual workspace links and create dialog desktop/narrow; full ownership boundaries pending |
 | P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | In review: rename/reload and guarded empty-workspace deletion verified; actual Owner limit save, API/SDK/database readback, workspace switching and lost-response/read-failure recovery qualified; remaining conflict and role boundaries pending |
 | P11 | Guardrails | `/workspaces/:workspace/guardrails/:section?` | Every supported section, preview, activation, conflicts, roles | In review: all sections/menu states checked; actual save/conflict/reload and independent versions verified; enforcement pending |
-| P12 | Workspace Logs | `/workspaces/:workspace/executions` | Filters, details, exports, timing, unknown usage, customer charges | In review: actual existing Video log, detail, filter and independently parsed export verified; remaining error/role branches pending |
+| P12 | Workspace Logs | `/workspaces/:workspace/executions` | Filters, details, exports, timing, unknown usage, customer charges | In review: actual Video log/export and recorded RPM-zero admission diagnostics qualified at desktop/390px; remaining error/role branches pending |
 | P13 | Global Gateway Activity | `/activity/:section?` and `/workspaces/:workspace/usage` | Global/workspace scope, coverage, drilldowns; excludes external Agent Observability | In review: current global/workspace coverage, pagination, drilldown and narrow workspace menu verified; remaining status/role branches pending |
 | P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | In review: actual workspace list/filter/sort and Video destinations at desktop/narrow; full access/pricing boundaries pending |
 | P15 | Model detail | `/models/*` | Capabilities, qualified access, setup and request examples | In review: actual Video guidance corrected; explicit different-model restoration checked; inference admission pending |
@@ -82,7 +82,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | Candidate | Priority | Page families | Actual gap | State |
 | --- | --- | --- | --- | --- |
 | C21 | P1 | P27 | Newly created/deleted Supplier audit events omit the authenticated actor, while key edits retain it | Installation attribution fixed and qualified by actual GUI/API/SQL; historical unknown actors preserved; platform-member runtime branch unverified |
-| C22 | P1 | P07, P12 | A rejected zero-request-rate invocation retains a not-sent attempt but loses requested-key attribution and admission reason in Logs | Actual SDK 429 and desktop/390px Logs reproduced; persistence design under review; never infer missing evidence from current configuration |
+| C22 | P1 | P07, P12 | A rejected zero-request-rate invocation retains a not-sent attempt but loses requested-key attribution and admission reason in Logs | Fixed for durable prepared RPM-zero rejection: actual SDK/API/SQL and desktop/390px diagnostics qualified; priced/batch and other rejection paths remain pending |
 
 ## Delivery order
 
@@ -511,3 +511,16 @@ On the updated audit runtime, one actual GUI name-only Supplier create/delete cy
 Browser checks compared the new attributed events with historical Not recorded entries at desktop and 390px. All-events and Configuration Load more preserved the first 50 rows while appending the next 50; actual API pages and rendered row identities matched without duplicates. The category menu and narrow readable labels were inspected. No Provider call was made.
 
 The gateway build and formatting check completed. No fixture outcome was used. There was no active platform-administrator member available for a genuine operator-actor run, and no role grant was manufactured; that branch remains unverified. Remaining audit read-failure/retry branches are separate scope.
+
+
+### Persisted request-rate rejection diagnostics
+
+A small immutable admission-denial record now preserves the checked zero-request-rate reason and the authorized key's captured name and revision after the failed dispatch transaction rolls back. It is separate from upstream failures, dispatch-key binding and customer/Supplier accounting. Recording failure preserves the original rejection without retrying or authorizing dispatch. Existing prepared-attempt retry behavior is retained; customer diagnostics expose this observation only while the attempt remains unsent. Historical records are not backfilled.
+
+One actual request through the separately built SDK, using a new short-lived key with independently confirmed RPM zero, returned `429 key_request_rate_disabled` without retries or stream events. PostgreSQL held one immutable denial and an unsent prepared attempt. Actual workspace request-list and detail responses matched the safe captured diagnostic fields, with no requested-key identifier or revision exposed. There was no upstream generation reference, rate admission, reservation, charge or earning. Original attempts, sessions, drafts, configuration and Owner records were retained; the other eleven financial fingerprints remained unchanged.
+
+The existing Logs Overview now shows the recorded failure reason, Gateway HTTP 429 and Requested API key. Desktop and 390px browser checks qualified the new denial, the previous unrecorded denial's unchanged Unknown state, and an existing completed request's unchanged timing, usage and funding display. The new test key and CLI session were revoked; authorized API and browser reads still returned the original captured diagnosis afterward. No Provider generation occurred.
+
+The existing Stitch project and design system reviewed the minimal detail-row addition. OpenRouter Activity redirected to sign-in, so an authenticated reference layout was not claimed. No new layout or controls were introduced. Gateway, SDK, dashboard and documentation builds/checks completed; generated OpenAPI and SDK declarations include the nullable field. The served SDK declaration page was inspected at desktop and 390px. Fixture outcomes were not used.
+
+This qualifies the durable prepared-attempt RPM-zero path. Priced/batch admission, other rejection kinds, diagnostic-storage failure, later successful retry and failure-filter behavior remain unverified. Null diagnostics remain unknown rather than inferred from current key configuration.
