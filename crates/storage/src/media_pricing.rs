@@ -154,8 +154,50 @@ impl Store {
         Ok(amount)
     }
 
+    /// Persist customer pricing and its funded liability together before egress.
+    /// Selection and route qualification must join this transaction in platform
+    /// pricing mode; callers must not treat an earlier preview as a pinned price.
+    pub async fn bind_and_reserve_customer_media_balance(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        snapshot: &PricingSnapshot,
+        bound: &MediaLiabilityBound,
+    ) -> Result<i64, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
+            .bind(scope.organization_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        // Account-before-attempt also matches the existing reservation path.
+        sqlx::query("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE")
+            .bind(scope.organization_id).bind(&snapshot.tariff().currency)
+            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, snapshot).await?;
+        let amount =
+            Self::reserve_customer_media_balance_in_tx(&mut tx, scope, attempt, bound).await?;
+        tx.commit().await?;
+        Ok(amount)
+    }
+
     pub async fn reserve_customer_media_balance(
         &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        bound: &MediaLiabilityBound,
+    ) -> Result<i64, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let amount =
+            Self::reserve_customer_media_balance_in_tx(&mut tx, scope, attempt, bound).await?;
+        tx.commit().await?;
+        Ok(amount)
+    }
+
+    /// Acquire the account before the attempt, matching settlement lock order.
+    /// The caller may bind a snapshot and reserve its liability in one transaction.
+    pub(crate) async fn reserve_customer_media_balance_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: TenantScope,
         attempt: Uuid,
         bound: &MediaLiabilityBound,
@@ -167,15 +209,14 @@ impl Store {
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
         let value: serde_json::Value = sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let snapshot =
             PricingSnapshot::decode(&value.to_string()).map_err(|_| StoreError::InvalidPrice)?;
         let receipt = snapshot
@@ -192,16 +233,16 @@ impl Store {
         }
         let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE")
             .bind(scope.organization_id).bind(&receipt.currency)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         sqlx::query("INSERT INTO customer_attempt_balance_accounts(attempt_id,organization_id,project_id,account_id,currency) VALUES($1,$2,$3,$4,$5) ON CONFLICT(attempt_id) DO NOTHING")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(account)
-            .bind(&receipt.currency).execute(&mut *tx).await?;
+            .bind(&receipt.currency).execute(&mut **tx).await?;
         let matching: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_attempt_balance_accounts WHERE attempt_id=$1 AND organization_id=$2 AND project_id=$3 AND account_id=$4 AND currency=$5)")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(account)
-            .bind(&receipt.currency).fetch_one(&mut *tx).await?;
+            .bind(&receipt.currency).fetch_one(&mut **tx).await?;
         if !matching {
             return Err(StoreError::Conflict);
         }
@@ -211,21 +252,19 @@ impl Store {
             "SELECT bound,maximum_nanos FROM customer_media_liability_bounds WHERE attempt_id=$1",
         )
         .bind(attempt)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?;
         if let Some((prior, amount)) = &previous
             && (*prior != record || *amount != maximum_nanos)
         {
             return Err(StoreError::Conflict);
         }
-        crate::billing::reserve_customer_balance_in_tx(&mut tx, scope, attempt, maximum_nanos)
-            .await?;
+        crate::billing::reserve_customer_balance_in_tx(tx, scope, attempt, maximum_nanos).await?;
         if previous.is_none() {
             sqlx::query("INSERT INTO customer_media_liability_bounds(organization_id,project_id,attempt_id,bound,maximum_nanos) VALUES($1,$2,$3,$4,$5)")
                 .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(record)
-                .bind(maximum_nanos).execute(&mut *tx).await?;
+                .bind(maximum_nanos).execute(&mut **tx).await?;
         }
-        tx.commit().await?;
         Ok(maximum_nanos)
     }
 
@@ -335,16 +374,29 @@ impl Store {
         attempt: Uuid,
         snapshot: &PricingSnapshot,
     ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, snapshot).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// The orchestration transaction must lock its balance account before this
+    /// attempt lock when it also reserves customer funds.
+    pub(crate) async fn bind_customer_media_pricing_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        snapshot: &PricingSnapshot,
+    ) -> Result<(), StoreError> {
         if snapshot.customer() != scope.organization_id.to_string() {
             return Err(StoreError::Conflict);
         }
         let encoded = snapshot.encode().map_err(|_| StoreError::InvalidPrice)?;
         let value: serde_json::Value =
             serde_json::from_str(&encoded).map_err(|_| StoreError::InvalidPrice)?;
-        let mut tx = self.pool.begin().await?;
         let row = sqlx::query("SELECT resource_id,offer_revision,execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         if row.get::<String, _>("resource_id") != snapshot.tariff().dimensions.model
             || row.get::<String, _>("offer_revision") != snapshot.offer()
         {
@@ -352,7 +404,7 @@ impl Store {
         }
         let existing: Option<serde_json::Value> = sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?;
+            .fetch_optional(&mut **tx).await?;
         if let Some(existing) = existing {
             if existing != value {
                 return Err(StoreError::Conflict);
@@ -365,16 +417,15 @@ impl Store {
                 "SELECT EXISTS(SELECT 1 FROM customer_attempt_tariffs WHERE attempt_id=$1)",
             )
             .bind(attempt)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut **tx)
             .await?;
             if text_bound {
                 return Err(StoreError::Conflict);
             }
             sqlx::query("INSERT INTO customer_media_attempt_pricing(organization_id,project_id,attempt_id,snapshot) VALUES($1,$2,$3,$4)")
                 .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(value)
-                .execute(&mut *tx).await?;
+                .execute(&mut **tx).await?;
         }
-        tx.commit().await?;
         Ok(())
     }
 
