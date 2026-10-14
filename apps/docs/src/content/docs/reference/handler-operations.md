@@ -8153,7 +8153,7 @@ HTTP 401: Invalid credentials
 
 `GET /admin/v1/financial-summary`
 
-Explicit platform administrator only; no customer or Supplier access. One database snapshot, configured currency and UTC rolling posting interval [from, until), 7/30/90 days. Confirmed text/media charges use their immutable charge posting time; customer refunds, grants and cash receipts use their own posting times. This differs from the commercial dispatch cohort. Personal-funded operations, durable personal attempt bindings and current personal-owned Supplier offer credentials are excluded from consumption and related refunds. Revenue is nominal consumption minus consumed gift allowance and non-gift refunds; non-gift can be prepaid or credit-backed. Issuing a gift or collecting a credit repayment never creates consumption revenue. Missing or legacy-unknown consumption allocation leaves revenue and total allowance null; known subtotals are partial. Uncovered nominal includes both charge and refund amounts as positive coverage exposure. A zero-charge record is known zero. Net allowance/revenue may be negative when refunds relate to an earlier interval. Verified cash receipt records remain independent; potentially overlapping legacy invoice and funding references leave the combined receipt total null. Funding reversal records do not attest an external cash refund transfer. No procurement prices, customer identifiers, credentials or content. Aggregate read only; does not initiate merchant operations. Cache-Control: no-store. This operational reconciliation report is not a closed general ledger or tax statement.
+Explicit platform administrator only; no customer or Supplier access. One database snapshot, configured currency and UTC rolling posting interval [from, until), 7/30/90 days. Confirmed text/media charges use their immutable charge posting time; customer refunds, grants and cash receipts use their own posting times. This differs from the commercial dispatch cohort. Personal-funded operations, durable personal attempt bindings and current personal-owned Supplier offer credentials are excluded from consumption and related refunds. Revenue is nominal consumption minus consumed gift allowance and non-gift refunds; non-gift can be prepaid or credit-backed. Issuing a gift or collecting a credit repayment never creates consumption revenue. Missing or legacy-unknown consumption allocation leaves revenue and total allowance null; known subtotals are partial. Uncovered nominal includes both charge and refund amounts as positive coverage exposure. A zero-charge record is known zero. Net allowance/revenue may be negative when refunds relate to an earlier interval. Verified cash receipt records remain independent; potentially overlapping legacy invoice and funding references leave the combined receipt total null. Funding reversal records do not attest an external cash refund transfer. No procurement prices, customer identifiers, credentials or content. The balance_credit_sources object is a point-in-time company wallet cash/credit provenance view at as_of, independent of the selected posting interval and external invoice receivables. Verified cash repayments reduce outstanding credit without creating revenue. Missing historical sources, unclassified adjustments or funding reversal ambiguity withhold complete prepaid cash and outstanding credit; known subtotals include only wholly covered accounts. Aggregate read only; does not initiate merchant operations. Cache-Control: no-store. This operational reconciliation report is not a closed general ledger or tax statement.
 
 Implementation: `implemented`. Operation: `getCustomerFinancialSummary`.
 
@@ -8221,9 +8221,53 @@ Content type: `application/json`.
     "issued_gifts_nanos",
     "recognized_revenue_nanos",
     "consumed_gift_allowance_nanos",
+    "balance_credit_sources",
     "verified_cash_receipts_nanos"
   ],
   "properties": {
+    "balance_credit_sources": {
+      "type": "object",
+      "required": [
+        "as_of",
+        "uncovered_accounts",
+        "prepaid_cash_nanos",
+        "outstanding_credit_nanos",
+        "known_prepaid_cash_subtotal_nanos",
+        "known_outstanding_credit_subtotal_nanos"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "uncovered_accounts": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "prepaid_cash_nanos": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
+        },
+        "outstanding_credit_nanos": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
+        },
+        "known_prepaid_cash_subtotal_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "known_outstanding_credit_subtotal_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      }
+    },
     "currency": {
       "type": "string"
     },

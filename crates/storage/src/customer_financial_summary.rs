@@ -18,15 +18,19 @@ impl Store {
         {
             return Err(StoreError::InvalidPrice);
         }
+        // Provenance helpers used by insert triggers are VOLATILE. Keep their
+        // reads and the posting aggregates on the same bounded snapshot.
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
         let (known, summary): (bool, Value) =
             sqlx::query_as(include_str!("customer_financial_summary.sql"))
                 .bind(currency)
                 .bind(days)
-                .fetch_one(&self.pool)
+                .fetch_one(&mut *tx)
                 .await?;
         if !known {
             return Err(StoreError::InvalidPrice);
         }
+        tx.commit().await?;
         Ok(summary)
     }
 }

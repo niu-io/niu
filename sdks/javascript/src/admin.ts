@@ -936,6 +936,13 @@ export type CustomerFinancialSummary = {
   recognized_revenue_nanos: string | null;
   consumed_gift_allowance_nanos: string | null;
   verified_cash_receipts_nanos: string | null;
+  /** Current wallet provenance at as_of, distinct from posting-period revenue. */
+  balance_credit_sources: {
+    as_of: string; uncovered_accounts: string;
+    prepaid_cash_nanos: string | null; outstanding_credit_nanos: string | null;
+    known_prepaid_cash_subtotal_nanos: string;
+    known_outstanding_credit_subtotal_nanos: string;
+  };
 };
 
 /** Explicit maximum billed quantity evidence; independent of prices and output estimates. */

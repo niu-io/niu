@@ -61,6 +61,33 @@ WITH bounds AS MATERIALIZED (
            count(*) FILTER (WHERE covered IS NOT TRUE) AS uncovered_entries,
            COALESCE(sum(nominal) FILTER (WHERE covered IS NOT TRUE),0) AS uncovered_nominal
     FROM consumption
+), credit_account_positions AS (
+    -- Point-in-time wallet provenance, not revenue posted during this interval.
+    SELECT account.id, niu_customer_credit_account_covered(account.id) AS covered,
+        COALESCE((SELECT sum(receipt.amount_nanos::numeric) FROM customer_funding_receipts receipt
+            WHERE receipt.account_id=account.id),0)
+        -COALESCE(source.cash_consumed,0)+COALESCE(source.cash_restored,0)
+        -COALESCE(repaid.amount,0) AS prepaid_cash,
+        COALESCE(source.credit_incurred,0)-COALESCE(source.credit_cancelled,0)
+        -COALESCE(repaid.amount,0) AS outstanding_credit
+    FROM customer_balance_accounts account
+    LEFT JOIN LATERAL (
+        SELECT sum(cash_nanos::numeric) FILTER (WHERE kind='charge') AS cash_consumed,
+            sum(cash_nanos::numeric) FILTER (WHERE kind='refund') AS cash_restored,
+            sum(credit_nanos::numeric) FILTER (WHERE kind='charge') AS credit_incurred,
+            sum(credit_nanos::numeric) FILTER (WHERE kind='refund') AS credit_cancelled
+        FROM customer_credit_sources WHERE account_id=account.id
+    ) source ON true
+    LEFT JOIN LATERAL (
+        SELECT sum(amount_nanos::numeric) AS amount FROM customer_credit_repayments
+        WHERE account_id=account.id
+    ) repaid ON true
+    WHERE account.currency=$1
+), credit_positions AS (
+    SELECT count(*) FILTER (WHERE covered IS NOT TRUE OR prepaid_cash<0 OR outstanding_credit<0) AS uncovered_accounts,
+        COALESCE(sum(prepaid_cash) FILTER (WHERE covered IS TRUE AND prepaid_cash>=0 AND outstanding_credit>=0),0) AS known_prepaid_cash,
+        COALESCE(sum(outstanding_credit) FILTER (WHERE covered IS TRUE AND prepaid_cash>=0 AND outstanding_credit>=0),0) AS known_outstanding_credit
+    FROM credit_account_positions
 ), receipts AS (
     SELECT COALESCE(sum(amount_nanos::numeric),0) AS amount
     FROM customer_funding_receipts CROSS JOIN bounds
@@ -106,5 +133,12 @@ SELECT currency.known,
         'external_invoice_receipts_nanos',invoice_receipts.amount::text,
         'cash_receipt_reference_conflicts',receipt_conflicts.count::text,
         'recorded_funding_reversals_nanos',reversals.amount::text,
-        'issued_gifts_nanos',gifts.amount::text)
-FROM bounds,currency,totals,receipts,invoice_receipts,receipt_conflicts,gifts,reversals;
+        'issued_gifts_nanos',gifts.amount::text,
+        'balance_credit_sources',jsonb_build_object(
+            'as_of',bounds.until,
+            'uncovered_accounts',credit_positions.uncovered_accounts::text,
+            'prepaid_cash_nanos',CASE WHEN credit_positions.uncovered_accounts=0 THEN credit_positions.known_prepaid_cash::text END,
+            'outstanding_credit_nanos',CASE WHEN credit_positions.uncovered_accounts=0 THEN credit_positions.known_outstanding_credit::text END,
+            'known_prepaid_cash_subtotal_nanos',credit_positions.known_prepaid_cash::text,
+            'known_outstanding_credit_subtotal_nanos',credit_positions.known_outstanding_credit::text))
+FROM bounds,currency,totals,credit_positions,receipts,invoice_receipts,receipt_conflicts,gifts,reversals;
