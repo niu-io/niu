@@ -2694,7 +2694,7 @@ pub struct BalancePolicyInput {
 ///   "operation": {
 ///     "operationId": "configureCustomerBalancePolicy",
 ///     "summary": "Configure approved credit and low-balance threshold",
-///     "description": "Installation write access only. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.",
+///     "description": "Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -2803,12 +2803,7 @@ pub async fn balance_policy(
     Path((organization, currency)): Path<(Uuid, String)>,
     Json(input): Json<BalancePolicyInput>,
 ) -> Result<Json<Value>, ApiError> {
-    let auth = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?;
-    if !auth.is_installation() {
-        return Err(ApiError::forbidden());
-    }
+    state.authorize_platform_headers(&headers).await?;
     let parse = exact_nonnegative_integer;
     let credit = parse(&input.credit_limit_nanos)?;
     let warning = input

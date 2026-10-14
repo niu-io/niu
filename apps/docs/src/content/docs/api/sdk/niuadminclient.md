@@ -975,7 +975,7 @@ getCustomerBalancePolicyHistory(organizationId: string, currency: string, page?:
 ### setCustomerBalancePolicy
 
 ```typescript
-/** Installation-only approved credit policy. Changes borrowing capacity, never posts received funds. No automatic retry. */
+/** Platform-only approved credit policy. Changes borrowing capacity, never posts received funds. No automatic retry. */
 setCustomerBalancePolicy(organizationId: string, currency: string, input: CustomerBalancePolicyInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;

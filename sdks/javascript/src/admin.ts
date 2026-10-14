@@ -1687,7 +1687,7 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/policy/history${query.size ? '?' + query : ''}`, undefined, options);
   }
 
-  /** Installation-only approved credit policy. Changes borrowing capacity, never posts received funds. No automatic retry. */
+  /** Platform-only approved credit policy. Changes borrowing capacity, never posts received funds. No automatic retry. */
   setCustomerBalancePolicy(organizationId: string, currency: string, input: CustomerBalancePolicyInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d{1,19}$/.test(value) && BigInt(value) <= maximum;
