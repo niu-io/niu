@@ -250,10 +250,18 @@ export default function AppLayout() {
   const routeWorkspace = routeWorkspaceId && routeWorkspaceId !== 'default'
     ? resolveWorkspacePathSegment(routeWorkspaceId, workspaces)
     : undefined;
+  const requestedWorkspaceId = usesSelectedWorkspace ? new URLSearchParams(location.search).get('workspace') : null;
+  const requestedWorkspace = requestedWorkspaceId ? resolveWorkspacePathSegment(requestedWorkspaceId, workspaces) : undefined;
+  // Explicit routes must not inherit a different workspace during selection effects.
+  const selectedWorkspace = requestedWorkspaceId ? requestedWorkspace ?? null : workspace;
+  const effectiveWorkspaceError: WorkspaceProblem | null = requestedWorkspaceId && !requestedWorkspace
+    && !workspaceLoading && workspacesLoadedFor === token
+    ? { kind: 'missing', workspace: requestedWorkspaceId }
+    : workspaceError?.kind === 'missing' && requestedWorkspace ? null : workspaceError;
   const workspaceNavigation = useRef({routeWorkspace, workspace, workspaces, location});
   useLayoutEffect(() => { workspaceNavigation.current = {routeWorkspace, workspace, workspaces, location}; }, [routeWorkspace, workspace, workspaces, location]);
-  const modelOrganizationId = routeWorkspace?.organization_id ?? selectedOrganizationId ?? workspace?.organization_id;
-  const modelWorkspace = routeWorkspace ?? workspace;
+  const modelOrganizationId = routeWorkspace?.organization_id ?? (requestedWorkspaceId ? requestedWorkspace?.organization_id : selectedOrganizationId ?? workspace?.organization_id);
+  const modelWorkspace = routeWorkspace ?? selectedWorkspace;
   const modelWorkspaceId = modelWorkspace && modelWorkspace.organization_id === modelOrganizationId ? modelWorkspace.id : undefined;
 
   const authenticate = useCallback(async (credential: string, restoring = false) => {
@@ -617,7 +625,7 @@ export default function AppLayout() {
       const requestedWorkspace = new URLSearchParams(location.search).get('workspace');
       preferred = requestedWorkspace ? resolveWorkspacePathSegment(requestedWorkspace, workspaces) : undefined;
     }
-    if (!preferred && (routeWorkspaceId === 'default' || usesSelectedWorkspace)) {
+    if (!preferred && (routeWorkspaceId === 'default' || (usesSelectedWorkspace && !requestedWorkspaceId))) {
       const operatorProjectId = session?.operator?.project_id;
       let storedId: string | null = null;
       try { storedId = window.localStorage.getItem('niu.active-workspace'); } catch { /* Storage is optional. */ }
@@ -639,9 +647,9 @@ export default function AppLayout() {
       }
     } else {
       setWorkspace(null);
-      if (routeWorkspaceId && routeWorkspaceId !== 'default') setWorkspaceError({ kind: 'missing', workspace: routeWorkspaceId });
+      if (requestedWorkspaceId || (routeWorkspaceId && routeWorkspaceId !== 'default')) setWorkspaceError({ kind: 'missing', workspace: requestedWorkspaceId || routeWorkspaceId! });
     }
-  }, [location.pathname, location.search, location.hash, usesSelectedWorkspace, navigate, routeWorkspaceId, session, token, workspaceLoading, workspaces, workspacesLoadedFor, selectedOrganizationId]);
+  }, [location.pathname, location.search, location.hash, usesSelectedWorkspace, requestedWorkspaceId, navigate, routeWorkspaceId, session, token, workspaceLoading, workspaces, workspacesLoadedFor, selectedOrganizationId]);
 
   const gatewayStatus: GatewayStatus = health?.status === 'ok'
     ? 'online'
@@ -675,10 +683,10 @@ export default function AppLayout() {
     organization: organizations.find(item => item.id === (routeWorkspace?.organization_id ?? selectedOrganizationId)) ?? organizations[0] ?? null,
     selectOrganization,
     workspaces,
-    workspace: usesSelectedWorkspace || routeWorkspaceId === 'default' ? workspace : workspace?.id === routeWorkspace?.id ? workspace : null,
+    workspace: usesSelectedWorkspace ? selectedWorkspace : routeWorkspaceId === 'default' ? workspace : workspace?.id === routeWorkspace?.id ? workspace : null,
     workspaceLoading,
     reloadWorkspaces,
-    workspaceError,
+    workspaceError: effectiveWorkspaceError,
     selectWorkspace,
     createWorkspace,
     renameWorkspace,
@@ -699,7 +707,7 @@ export default function AppLayout() {
     modelsError,
     refreshModels,
     refreshWorkspace,
-  }), [appearance, token, session, profileConnectionRevision, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
+  }), [appearance, token, session, profileConnectionRevision, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, selectedWorkspace, effectiveWorkspaceError, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
   const activePath = location.pathname.startsWith('/workspaces/')
     ? location.pathname.split('/').filter(Boolean).slice(2).join('/') || '.'
     : location.pathname.replace(/^\/+|\/+$/g, '');
@@ -840,7 +848,7 @@ export default function AppLayout() {
               {[['overview', 'Overview'], ['configuration', 'API keys & routes'], ['models', 'Models & pricing'], ['consumption', 'Usage'], ['settlements', 'Settlements'], ['members', 'Portal access'], ['settings', 'Settings']].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
             </TabsList></div>
           </Tabs>}
-          {helpArea ? <Outlet context={context} /> : token && !supplierArea && !settingsArea && workspaceError ? <WorkspaceRecovery problem={workspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !supplierArea && !settingsArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}
+          {helpArea ? <Outlet context={context} /> : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !supplierArea && !settingsArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}
         </div>}
       </div>
     </SidebarInset>
