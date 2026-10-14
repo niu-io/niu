@@ -329,19 +329,20 @@ impl Store {
                 // uncertainty never becomes a denied admission observation.
                 let definitive = matches!(&error, StoreError::KeyRequestRateDisabled);
                 let rolled_back = tx.rollback().await.is_ok();
-                if definitive && rolled_back {
-                    if let Some(captured) = captured {
-                        // Diagnostic failure must not change the original rejection
-                        // or authorize another dispatch / audit writer retry.
-                        let _ = self
-                            .record_key_request_rate_denial(
-                                principal.scope,
-                                id,
-                                principal.key_id,
-                                &captured,
-                            )
-                            .await;
-                    }
+                if definitive
+                    && rolled_back
+                    && let Some(captured) = captured
+                {
+                    // Diagnostic failure must not change the original rejection
+                    // or authorize another dispatch / audit writer retry.
+                    let _ = self
+                        .record_key_request_rate_denial(
+                            principal.scope,
+                            id,
+                            principal.key_id,
+                            &captured,
+                        )
+                        .await;
                 }
                 return Err(error);
             }
