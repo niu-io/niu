@@ -21,7 +21,7 @@ function workspaceSuffix(id: string) {
   return compactId.slice(0, 8) || 'project';
 }
 
-export function workspacePathSegment(workspace: Workspace, workspaces: Workspace[]) {
+function legacyWorkspacePathSegment(workspace: Workspace, workspaces: Workspace[]) {
   const slug = workspaceNameSlug(workspace.name);
   const collisions = workspaces.filter(item => item.id !== workspace.id && workspaceNameSlug(item.name) === slug);
   if (!collisions.length) return slug;
@@ -35,9 +35,17 @@ export function workspacePathSegment(workspace: Workspace, workspaces: Workspace
     : `${slug}-${suffix}`;
 }
 
+/** Use the backend's immutable routing reference; names remain display labels. */
+export function workspacePathSegment(workspace: Workspace, workspaces: Workspace[]) {
+  return workspace.route_slug || legacyWorkspacePathSegment(workspace, workspaces);
+}
+
 export function resolveWorkspacePathSegment(segment: string, workspaces: Workspace[]) {
   const slugMatches = workspaces.filter(item => workspacePathSegment(item, workspaces) === segment);
   if (slugMatches.length === 1) return slugMatches[0];
+  // Retain existing name-based bookmarks, but only when they identify one workspace.
+  const legacyMatches = workspaces.filter(item => legacyWorkspacePathSegment(item, workspaces) === segment);
+  if (legacyMatches.length === 1) return legacyMatches[0];
   const idMatches = workspaces.filter(item => item.id === segment);
   return idMatches.length === 1 ? idMatches[0] : undefined;
 }

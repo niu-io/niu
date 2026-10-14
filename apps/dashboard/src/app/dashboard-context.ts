@@ -8,7 +8,7 @@ export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';
 export type Organization = { id: string; name: string };
 export type MemberProfile = {name:string; email:string | null; avatar_data_url:string | null; revision:number};
-export type Workspace = { id: string; is_default?: boolean; created_at_ms?: number; active_key_count?: number; requests_30d?: number; requests_by_day?: Array<{start_ms: number; request_count: number}>; last_request_at_ms?: number | null; name: string; organization_id: string; organization_name: string };
+export type Workspace = { id: string; route_slug?: string; is_default?: boolean; created_at_ms?: number; active_key_count?: number; requests_30d?: number; requests_by_day?: Array<{start_ms: number; request_count: number}>; last_request_at_ms?: number | null; name: string; organization_id: string; organization_name: string };
 export type SessionChatKey = {
   id: string;
   name: string;

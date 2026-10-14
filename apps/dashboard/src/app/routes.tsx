@@ -46,7 +46,12 @@ function WorkspaceChatRedirect() {
   const location = useLocation();
   const search = new URLSearchParams(location.search);
   if (workspace) search.set('workspace', workspace);
-  return <Navigate to={`/generations${search.size ? `?${search.toString()}` : ''}`} replace />;
+  return <Navigate to={`/generations${search.size ? `?${search.toString()}` : ''}${location.hash}`} replace />;
+}
+
+function LegacyPathRedirect({ to }: { to: string }) {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search}${location.hash}`} replace />;
 }
 
 function WorkspaceSectionRedirect({ section }: { section: string }) {
@@ -107,10 +112,10 @@ export const appRoutes: RouteObject[] = [{
         { path: 'workspaces/:workspace', children: [
           { index: true, lazy: async () => ({ Component: (await import('@/features/overview/page')).default }) },
           { path: 'models/*', element: <WorkspaceModelsRedirect /> },
-          { path: 'providers-admin', element: <Navigate to="/admin/suppliers" replace /> },
-          { path: 'vendors', element: <Navigate to="/admin/suppliers" replace /> },
-          { path: 'provider-capabilities/volcengine', element: <Navigate to="../video/volcengine" replace /> },
-          { path: 'video', element: <Navigate to="volcengine" replace /> },
+          { path: 'providers-admin', element: <LegacyPathRedirect to="/admin/suppliers" /> },
+          { path: 'vendors', element: <LegacyPathRedirect to="/admin/suppliers" /> },
+          { path: 'provider-capabilities/volcengine', element: <LegacyPathRedirect to="../video/volcengine" /> },
+          { path: 'video', element: <LegacyPathRedirect to="volcengine" /> },
           { path: 'video/volcengine/:section?', lazy: async () => ({ Component: (await import('@/features/provider-modules/volcengine/page')).default }) },
           { path: 'keys/new', lazy: async () => ({ Component: (await import('@/features/keys/new-page')).default }) },
           { path: 'keys/:keyId', lazy: async () => ({ Component: (await import('@/features/keys/detail-page')).default }) },
