@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { request, writeMayHaveCommitted } from '@/features/vendors/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
+import { registeredRetailModels } from './api';
 import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, RetailStandardPublication } from '../../../../../sdks/javascript/src/admin';
 
 type TextSchedule = Extract<RetailSchedule, { kind: 'text' }>;
@@ -44,16 +45,9 @@ export function TextStandardEditor({ token, previous, onClose, onSaved }: { toke
   useEffect(() => {
     if (previous) return;
     const controller = new AbortController();
-    void (async () => {
-      let after: string | null = null; const names: string[] = [];
-      do {
-        const page: { data: { model_alias: string }[]; next_after: string | null } = await request(token, '/admin/v1/pricing/standard-prices/models?limit=100' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
-        if (controller.signal.aborted) return;
-        if (!Array.isArray(page.data) || (after !== null && page.next_after === after)) throw new Error('Model pagination did not advance. Close and try again.');
-        names.push(...page.data.map(row => row.model_alias)); after = page.next_after;
-      } while (after);
-      setModels([...new Set(names)]);
-    })().catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); });
+    void registeredRetailModels(token, controller.signal)
+      .then(names => { if (!controller.signal.aborted) setModels(names); })
+      .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); });
     return () => controller.abort();
   }, [token, previous]);
   const locked = busy || !!attempt || conflict;
