@@ -1,5 +1,5 @@
 import ProviderAdministration from '@/features/provider-business/admin';
-import { Navigate, useParams, useSearchParams } from 'react-router';
+import { Navigate, useLocation, useParams, useSearchParams } from 'react-router';
 import SupplierList from './SupplierList';
 import SupplierSettings from '@/features/provider-business/SupplierSettings';
 import ConnectGate from '@/app/ConnectGate';
@@ -8,8 +8,13 @@ import SuppliersView from './components/SuppliersView';
 export default function SuppliersRoute() {
   const { supplierId, section } = useParams();
   const [search] = useSearchParams();
+  const location = useLocation();
   if (!supplierId) return <SupplierList />;
-  if (search.get("properties") === "supplier") return <Navigate replace to={`/admin/suppliers/${encodeURIComponent(supplierId)}/settings`} />;
+  if (search.get("properties") === "supplier") {
+    const query = new URLSearchParams(search);
+    query.delete('properties');
+    return <Navigate replace to={`/admin/suppliers/${encodeURIComponent(supplierId)}/settings${query.size ? '?' + query.toString() : ''}${location.hash}`} />;
+  }
   if (section === "settings") return <SupplierSettings key={supplierId} />;
   if (section !== "configuration") return <ProviderAdministration />;
   return <ConnectGate>

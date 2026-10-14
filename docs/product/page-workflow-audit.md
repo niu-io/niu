@@ -83,6 +83,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | --- | --- | --- | --- | --- |
 | C21 | P1 | P27 | Newly created/deleted Supplier audit events omit the authenticated actor, while key edits retain it | Installation attribution fixed and qualified by actual GUI/API/SQL; historical unknown actors preserved; platform-member runtime branch unverified |
 | C22 | P1 | P07, P12 | A rejected zero-request-rate invocation retains a not-sent attempt but loses requested-key attribution and admission reason in Logs | Fixed for durable prepared RPM-zero rejection: actual SDK/API/SQL and desktop/390px diagnostics qualified; priced/batch and other rejection paths remain pending |
+| C23 | P2 | P23, P24, P33 | Legacy Supplier configuration treats the section name as a Supplier identifier; administrative section and properties redirects drop unrelated query/fragment state | Fixed; genuine installation-authorized scoped/fallback/legacy/property redirects qualified at desktop/390px with query/hash preservation and ordinary Owner denial |
 
 ## Delivery order
 
@@ -565,3 +566,14 @@ The existing Stitch project reviewed these minimal inline additions within the i
 
 
 The final statement-detail check reached the complete rate string and fee/minimum labels using real horizontal pointer input at 390px. The customer billing documentation rendered at desktop and narrow widths, and its served HTML matched the built artifact. Independent final PostgreSQL checks confirmed unchanged customer billing/tariff/invoice/balance/offer rows, request/financial fingerprints and original Owner profile/password/preferences. Full navigation discarded the temporary installation token held in memory and restored the original valid Owner cookie; this run did not require a new password sign-in. No financial write or Provider call occurred. These checks complete the current null-data verification scope; positive advanced category and multi-tier receipts remain unverified.
+
+
+### Administrative Supplier alias recovery
+
+Actual installation-authorized navigation reproduced a legacy configuration address treating the word configuration as a Supplier identifier and returning Supplier unavailable. Administrative section redirects lost their fragment; directory fallback and the properties shortcut also dropped unrelated query state.
+
+The configuration section now resolves through the same scoped administrative alias as the other supported sections. Section redirects consume only the Supplier selector, preserving unrelated query parameters and the fragment; missing selectors return to the Supplier directory with that state preserved. The properties shortcut consumes only its properties selector before opening the existing Settings route.
+
+Actual desktop and 390px browser runs covered the scoped section, directory fallback, properties shortcut, legacy configuration and configuration fallback. Destinations and retained URL markers matched the supported routes, and the existing Supplier's configuration rendered without the former unavailable state. Normal navigation restored the original Owner cookie, whose administrative access remained denied. The dashboard build completed. No new layout, Provider request or business mutation was introduced; fixture outcomes were not used.
+
+Independent final reads confirmed unchanged Supplier, vendor, key, model, offer, binding and member records, original Owner profile/password/preferences and request/financial fingerprints. Remaining administrative index aliases and loading transitions are separate unverified scope.

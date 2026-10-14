@@ -21,7 +21,7 @@ function LegacyAdminSupplierSectionRedirect({ section }: { section: string }) {
   const search = new URLSearchParams(location.search);
   const supplier = search.get('supplier');
   search.delete('supplier');
-  return <Navigate to={supplier ? `/admin/suppliers/${encodeURIComponent(supplier)}/${section}${search.size ? '?' + search.toString() : ''}` : '/admin/suppliers'} replace />;
+  return <Navigate to={`${supplier ? `/admin/suppliers/${encodeURIComponent(supplier)}/${section}` : '/admin/suppliers'}${search.size ? '?' + search.toString() : ''}${location.hash}`} replace />;
 }
 
 function LegacySupplierAccountRedirect() {
@@ -92,7 +92,7 @@ export const appRoutes: RouteObject[] = [{
           { path: 'branding', lazy: async () => ({ Component: (await import('@/features/branding/page')).default }) },
           ...['payments'].map(path => ({ path, lazy: async () => ({ Component: (await import('@/features/platform/page')).default }) })),
           { path: 'suppliers', lazy: async () => ({ Component: (await import('@/features/vendors/page')).default }) },
-          ...['overview', 'models', 'consumption', 'settlements', 'members'].map(section => ({ path: 'suppliers/' + section, element: <LegacyAdminSupplierSectionRedirect section={section} /> })),
+          ...['overview', 'models', 'consumption', 'settlements', 'members', 'configuration'].map(section => ({ path: 'suppliers/' + section, element: <LegacyAdminSupplierSectionRedirect section={section} /> })),
           { path: 'suppliers/:supplierId', lazy: async () => ({ Component: (await import('@/features/vendors/page')).default }) },
           { path: 'suppliers/:supplierId/:section', lazy: async () => ({ Component: (await import('@/features/vendors/page')).default }) },
         ] },
