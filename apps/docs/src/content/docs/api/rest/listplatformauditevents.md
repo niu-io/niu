@@ -144,6 +144,7 @@ Content type: `application/json`.
               "retail_media_enrollment",
               "balance_grant",
               "credit_policy",
+              "grant_preparation",
               "media_liability"
             ]
           },

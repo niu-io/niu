@@ -9764,6 +9764,543 @@ HTTP 422: Malformed request body or unsupported application policy
 
 HTTP 409: Unknown company, conflicting idempotency intent or uncovered debt sources for unpaid_credit_first
 
+## Prepare a durable noncash gift intent
+
+`POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare`
+
+Explicit platform administration only. Saves immutable amount, reason, currency, policy, authenticated actor and company-scoped idempotency key. Preparation posts no funds, revenue, receipt, debt application or reservation. Exact retries return the same intent; changed reuse conflicts. Existing matching grants can be recovered as issued. Publish through grantCustomerBalance with this saved input and original key. Prepared is not proof that an in-flight publication failed. Never invent another key because a response was lost. No automatic issuance. Internal references are not product labels.
+
+Implementation: `implemented`. Operation: `prepareCustomerBalanceGrant`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amount_nanos",
+    "reason",
+    "idempotency_key"
+  ],
+  "properties": {
+    "application_policy": {
+      "type": "string",
+      "enum": [
+        "future_only",
+        "unpaid_credit_first"
+      ],
+      "default": "future_only"
+    },
+    "amount_nanos": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Trimmed justification without control characters."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Durable intent state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id",
+        "idempotency_key",
+        "currency",
+        "amount_nanos",
+        "reason",
+        "created_at",
+        "application_policy",
+        "status",
+        "result"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "amount_nanos": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "application_policy": {
+          "type": "string",
+          "enum": [
+            "future_only",
+            "unpaid_credit_first"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "prepared",
+            "issued"
+          ]
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "id",
+            "application_policy",
+            "applied_to_credit_nanos",
+            "retained_for_future_consumption_nanos"
+          ],
+          "properties": {
+            "application_policy": {
+              "type": "string",
+              "enum": [
+                "future_only",
+                "unpaid_credit_first"
+              ]
+            },
+            "applied_to_credit_nanos": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "retained_for_future_consumption_nanos": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "description": "Original grant amount retained for future consumption at issuance, not current spendable balance."
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid amount, currency or page
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 422: Malformed body or unsupported application policy
+
+HTTP 409: Intent conflict, unknown company or invalid cursor
+
+## Recover saved noncash grant publication intents
+
+`GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared`
+
+Explicit platform administration only. Currency-scoped immutable intents newest first by creation time and UUID. Follow next_before as before; limit defaults to 50, maximum 100. A cursor outside this company/currency conflicts. Each page uses a bounded read snapshot; pages are live, not a cross-page snapshot. Issued derives from the committed matching grant; result is original issuance allocation, not current spendable balance. Prepared never proves an in-flight publication failed and never adds capacity. Reasons are platform-only. No cash references, customer content or credentials. Cache-Control no-store. Saved intent survives browser changes.
+
+Implementation: `implemented`. Operation: `listPreparedCustomerBalanceGrants`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Durable intent state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "idempotency_key",
+          "currency",
+          "amount_nanos",
+          "reason",
+          "created_at",
+          "application_policy",
+          "status",
+          "result"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "amount_nanos": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "application_policy": {
+            "type": "string",
+            "enum": [
+              "future_only",
+              "unpaid_credit_first"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "prepared",
+              "issued"
+            ]
+          },
+          "result": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "id",
+              "application_policy",
+              "applied_to_credit_nanos",
+              "retained_for_future_consumption_nanos"
+            ],
+            "properties": {
+              "application_policy": {
+                "type": "string",
+                "enum": [
+                  "future_only",
+                  "unpaid_credit_first"
+                ]
+              },
+              "applied_to_credit_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "retained_for_future_consumption_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Original grant amount retained for future consumption at issuance, not current spendable balance."
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid amount, currency or page
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Intent conflict, unknown company or invalid cursor
+
+## Read original noncash gift intent by idempotency key
+
+`GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}`
+
+Explicit platform administration only. Exact company/currency/key read of saved intent and committed grant. Missing intent returns 404. Issued result contains original allocation; prepared means no matching grant in this snapshot, not proof an in-flight publication failed. Retry saved exact input with original key. Read creates no funds. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `getPreparedCustomerBalanceGrant`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Durable intent state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id",
+        "idempotency_key",
+        "currency",
+        "amount_nanos",
+        "reason",
+        "created_at",
+        "application_policy",
+        "status",
+        "result"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "amount_nanos": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "application_policy": {
+          "type": "string",
+          "enum": [
+            "future_only",
+            "unpaid_credit_first"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "prepared",
+            "issued"
+          ]
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "id",
+            "application_policy",
+            "applied_to_credit_nanos",
+            "retained_for_future_consumption_nanos"
+          ],
+          "properties": {
+            "application_policy": {
+              "type": "string",
+              "enum": [
+                "future_only",
+                "unpaid_credit_first"
+              ]
+            },
+            "applied_to_credit_nanos": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "retained_for_future_consumption_nanos": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "description": "Original grant amount retained for future consumption at issuance, not current spendable balance."
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid amount, currency or page
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Intent conflict, unknown company or invalid cursor
+
+HTTP 404: No saved intent for this company/currency/key
+
 ## Discover named customer accounts for platform financial administration
 
 `GET /admin/v1/platform/customer-accounts`
@@ -37146,6 +37683,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "retail_media_enrollment",
         "balance_grant",
         "credit_policy",
+        "grant_preparation",
         "media_liability"
       ]
     },

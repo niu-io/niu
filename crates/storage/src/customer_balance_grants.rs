@@ -12,7 +12,7 @@ pub enum CustomerBalanceGrantPolicy {
     UnpaidCreditFirst,
 }
 impl CustomerBalanceGrantPolicy {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::FutureOnly => "future_only",
             Self::UnpaidCreditFirst => "unpaid_credit_first",
@@ -26,6 +26,22 @@ pub struct CustomerBalanceGrantPublication<'a> {
     pub amount_nanos: i64,
     pub reason: &'a str,
     pub idempotency_key: Uuid,
+}
+
+impl CustomerBalanceGrantPublication<'_> {
+    pub(crate) fn validate(&self) -> Result<(), StoreError> {
+        if self.amount_nanos <= 0
+            || self.currency.len() != 3
+            || !self.currency.bytes().all(|b| b.is_ascii_uppercase())
+            || self.reason.is_empty()
+            || self.reason != self.reason.trim()
+            || self.reason.chars().count() > 500
+            || self.reason.chars().any(char::is_control)
+        {
+            return Err(StoreError::InvalidPrice);
+        }
+        Ok(())
+    }
 }
 
 impl Store {
@@ -93,22 +109,13 @@ impl Store {
         actor: OperatorAuditActor,
         policy: CustomerBalanceGrantPolicy,
     ) -> Result<Uuid, StoreError> {
+        publication.validate()?;
         let CustomerBalanceGrantPublication {
             currency,
             amount_nanos,
             reason,
             idempotency_key,
         } = publication;
-        if amount_nanos <= 0
-            || currency.len() != 3
-            || !currency.bytes().all(|b| b.is_ascii_uppercase())
-            || reason.is_empty()
-            || reason != reason.trim()
-            || reason.chars().count() > 500
-            || reason.chars().any(char::is_control)
-        {
-            return Err(StoreError::InvalidPrice);
-        }
         let mut tx = self.begin_bounded_recording().await?;
         // Follow existing funding/account-creation lock order. Serialize both
         // exact retries and first publication without competing account inserts.
@@ -117,6 +124,18 @@ impl Store {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        let prepared: Option<(String,i64,String,String)> = sqlx::query_as("SELECT currency,amount_nanos,reason,application_policy FROM prepared_customer_balance_grants WHERE organization_id=$1 AND idempotency_key=$2")
+            .bind(organization).bind(idempotency_key).fetch_optional(&mut *tx).await?;
+        if prepared.is_some_and(
+            |(saved_currency, saved_amount, saved_reason, saved_policy)| {
+                saved_currency != currency
+                    || saved_amount != amount_nanos
+                    || saved_reason != reason
+                    || saved_policy != policy.as_str()
+            },
+        ) {
+            return Err(StoreError::Conflict);
+        }
         let prior: Option<(Uuid, String, i64, String, String)> = sqlx::query_as(
             "SELECT g.id,g.currency,g.amount_nanos,g.reason,COALESCE(p.policy,'future_only') FROM customer_balance_grants g \
              LEFT JOIN customer_grant_policies p ON p.grant_id=g.id WHERE g.organization_id=$1 AND g.idempotency_key=$2",

@@ -24,6 +24,12 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1history'
   /admin/v1/pricing/standard-prices/{price}/preview:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1preview'
+  /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepare'
+  /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared'
+  /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared~1{key}'
   /admin/v1/platform/customer-accounts:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1customer-accounts'
   /admin/v1/financial-summary:

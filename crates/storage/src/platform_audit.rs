@@ -60,6 +60,7 @@ impl Store {
                 "retail_price" => ("platform_retail_price_changes", "id", "uuid"),
                 "retail_text_enrollment" => ("retail_text_enrollment_changes", "id", "uuid"),
                 "retail_media_enrollment" => ("retail_media_enrollment_changes", "id", "uuid"),
+                "grant_preparation" => ("prepared_customer_balance_grants", "id", "uuid"),
                 "credit_policy" => ("customer_credit_policy_events", "id", "uuid"),
                 "balance_grant" => ("customer_balance_grants", "id", "uuid"),
                 "media_liability" => ("media_liability_qualification_changes", "id", "uuid"),

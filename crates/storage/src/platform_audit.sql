@@ -1,6 +1,6 @@
 -- Project only audited operation metadata. Never select configuration payloads,
 -- credentials, purchase prices, or customer request content.
--- Bound each indexed source before the final merge; twelve bounded pages are sorted.
+-- Bound each indexed source before the final merge; thirteen bounded pages are sorted.
 WITH events AS (
  (SELECT * FROM (
  SELECT 'operator'::text AS source, e.id::text AS event_id,
@@ -128,6 +128,16 @@ WITH events AS (
  JOIN customer_balance_policy_revisions p ON p.account_id=e.account_id AND p.revision=e.revision
  JOIN organizations o ON o.id=p.organization_id
  LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
+ ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
+ AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ ORDER BY created_at DESC,event_id DESC LIMIT $5)
+
+ UNION ALL
+ (SELECT * FROM (
+ SELECT 'grant_preparation', e.id::text, 'configuration', 'noncash_grant_prepared', e.actor_kind,
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(a.name,'Unknown actor') END,
+   o.name || ' / ' || e.currency, NULL::bigint, NULL::text, NULL::text, e.created_at
+ FROM prepared_customer_balance_grants e JOIN organizations o ON o.id=e.organization_id LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
  ORDER BY created_at DESC,event_id DESC LIMIT $5)

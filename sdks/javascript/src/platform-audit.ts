@@ -1,6 +1,6 @@
 /** Platform operations only; these records never contain settings or credentials. */
 export type PlatformAuditCategory = 'authentication' | 'configuration' | 'access' | 'supplier';
-export type PlatformAuditSource = 'operator' | 'vendor' | 'supplier' | 'branding' | 'payment_gateway' | 'platform_access' | 'retail_price' | 'retail_text_enrollment' | 'retail_media_enrollment' | 'balance_grant' | 'credit_policy' | 'media_liability';
+export type PlatformAuditSource = 'operator' | 'vendor' | 'supplier' | 'branding' | 'payment_gateway' | 'platform_access' | 'retail_price' | 'retail_text_enrollment' | 'retail_media_enrollment' | 'balance_grant' | 'credit_policy' | 'grant_preparation' | 'media_liability';
 export interface PlatformAuditEvent {
   /** Recorded transitions only; absent/null on older servers and other journal streams. */
   before_role?: 'owner' | 'admin' | 'viewer' | null;

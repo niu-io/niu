@@ -236,6 +236,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [PlatformAuditPage](/docs/api/sdk/platformauditpage/)
 - [PlatformAuditQuery](/docs/api/sdk/platformauditquery/)
 - [PlatformAuditSource](/docs/api/sdk/platformauditsource/)
+- [PreparedCustomerBalanceGrant](/docs/api/sdk/preparedcustomerbalancegrant/)
 - [ProviderAssetVideoInput](/docs/api/sdk/providerassetvideoinput/)
 - [QuotaObservation](/docs/api/sdk/quotaobservation/)
 - [QuotaWindow](/docs/api/sdk/quotawindow/)

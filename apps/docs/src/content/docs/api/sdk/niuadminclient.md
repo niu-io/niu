@@ -1000,6 +1000,37 @@ setCustomerBalancePolicy(organizationId: string, currency: string, input: Custom
 }>;
 ```
 
+### prepareCustomerBalanceGrant
+
+```typescript
+/** Durable intent only; never posts funds. Publish the exact returned input with its original key. */
+prepareCustomerBalanceGrant(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{
+    data: PreparedCustomerBalanceGrant;
+}>;
+```
+
+### getPreparedCustomerBalanceGrant
+
+```typescript
+/** Read original intent; prepared never proves that an in-flight publication failed. */
+getPreparedCustomerBalanceGrant(organizationId: string, currency: string, key: string, options?: RequestOptions): Promise<{
+    data: PreparedCustomerBalanceGrant;
+}>;
+```
+
+### listPreparedCustomerBalanceGrants
+
+```typescript
+/** Durable grant intent history, currency-scoped, newest first; no automatic issuance. */
+listPreparedCustomerBalanceGrants(organizationId: string, currency: string, page?: {
+    before?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: PreparedCustomerBalanceGrant[];
+    next_before: string | null;
+}>;
+```
+
 ### grantCustomerBalance
 
 ```typescript
