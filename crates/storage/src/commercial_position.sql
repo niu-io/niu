@@ -131,6 +131,8 @@ WITH bounds AS MATERIALIZED (
                    AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported' OR charge IS NULL OR earning IS NULL))=0
                THEN sum(net_revenue-earning::numeric) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)::text
                END AS net_contribution_nanos,
+           CASE WHEN count(cost)>0 THEN sum(cost)::text END AS known_upstream_cost_subtotal_nanos,
+           count(cost)::text AS upstream_cost_recorded_attempts,
            sum(earning)::text AS earning_nanos,
            CASE WHEN count(earning)>0 THEN
                COALESCE(sum(earning) FILTER (WHERE supplier_settled),0)::text END AS settled_earning_nanos,
@@ -166,6 +168,8 @@ WITH bounds AS MATERIALIZED (
                'settled_earning_nanos',totals.settled_earning_nanos,
                'unsettled_earning_nanos',totals.unsettled_earning_nanos,
                'cost_nanos',totals.cost_nanos,'margin_nanos',totals.margin_nanos,
+               'known_upstream_cost_subtotal_nanos',totals.known_upstream_cost_subtotal_nanos,
+               'upstream_cost_recorded_attempts',COALESCE(totals.upstream_cost_recorded_attempts,'0'),
                'unresolved_attempts',COALESCE(totals.unresolved_attempts,'0'),
                'matched_attempts',COALESCE(totals.matched_attempts,'0'),
                'cost_known_attempts',COALESCE(totals.cost_known_attempts,'0')) AS document

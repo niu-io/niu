@@ -899,6 +899,9 @@ export type CommercialPositionRow = {
   customer_charge_nanos: string | null; earning_nanos: string | null;
   settled_earning_nanos: string | null; unsettled_earning_nanos: string | null;
   cost_nanos: string | null;
+  /** Recorded cost subtotal in this currency; never a full expense/coverage claim. */
+  known_upstream_cost_subtotal_nanos: string | null;
+  upstream_cost_recorded_attempts: string;
   /** Legacy nominal charge minus earning; not net income or profit. */
   margin_nanos: string | null;
   /** Recorded balance-credit refunds, not external cash refund transfers. */
