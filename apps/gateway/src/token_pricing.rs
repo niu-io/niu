@@ -29,6 +29,7 @@ fn cache_rate_field<'de, D: serde::Deserializer<'de>>(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CustomerTariffInput {
+    pub discount_baseline_revision: Option<Uuid>,
     #[serde(default, deserialize_with = "context_tiers_field")]
     pub context_tiers: Option<Vec<niu_storage::ContextPriceTier>>,
     pub model_alias: String,

@@ -211,7 +211,7 @@ export type ContextPriceTier = {
   minimum_input_tokens: string; prompt_rate: string; completion_rate: string;
   cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null; reasoning_completion_rate?: string | null;
 };
-export type CustomerTariffInput = SupplierRateInput & { minimum_charge_nanos?: string; request_fee_nanos?: string };
+export type CustomerTariffInput = SupplierRateInput & { discount_baseline_revision?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
 export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; is_current: boolean };
 export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
@@ -267,6 +267,7 @@ export type SupplierMediaRateModel = {
 export type CustomerMediaRateModel = SupplierMediaRateModel & { vendor_id: string };
 export type CustomerInvoiceInput = { from_ms: number; to_ms: number; currency: string; idempotency_key: string };
 export type CustomerInvoiceLine = {
+  discount_baseline_revision?: string | null;
   model_alias: string; revision: string; currency: string; requests: string;
   prompt_tokens: string; completion_tokens: string; prompt_rate: string; completion_rate: string; amount_nanos: string;
   cached_prompt_tokens?: string | null; cached_prompt_rate?: string | null;
@@ -1667,6 +1668,7 @@ export class NiuAdminClient {
   /** Explicit platform-administrator retail publication. No retry or Supplier-price fallback. */
   publishCustomerTariff(scope: TenantScope, rates: CustomerTariffInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);
+    if (rates.discount_baseline_revision != null) uuid(rates.discount_baseline_revision);
     const fee = rates.request_fee_nanos;
     if (fee !== undefined && (typeof fee !== 'string' || !/^\d+$/.test(fee) || BigInt(fee) > 9_223_372_036_854_775_807n)) throw new Error('Request fee must be a nonnegative integer string within signed 64-bit range');
     const minimum = rates.minimum_charge_nanos;

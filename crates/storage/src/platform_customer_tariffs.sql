@@ -1,7 +1,7 @@
 WITH target AS MATERIALIZED (
     SELECT id FROM projects WHERE organization_id=$1 AND id=$2
 ), windowed AS MATERIALIZED (
-    SELECT t.model_alias,r.id AS revision,r.currency,r.prompt_rate::text,
+    SELECT t.model_alias,r.id AS revision,r.discount_baseline_revision,r.currency,r.prompt_rate::text,
            r.completion_rate::text,r.cached_prompt_rate::text,r.reasoning_completion_rate::text,r.cache_write_prompt_rate::text,r.context_tiers,
            r.minimum_charge_nanos::text,r.request_fee_nanos::text,r.created_at
     FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision

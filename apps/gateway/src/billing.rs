@@ -246,6 +246,14 @@ async fn authorize(
 ///                               }
 ///                             },
 ///                             "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+///                           },
+///                           "discount_baseline_revision": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "format": "uuid",
+///                             "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
 ///                           }
 ///                         }
 ///                       }
@@ -370,7 +378,7 @@ pub async fn overview(
 ///     ],
 ///     "operationId": "publishCustomerSellingRate",
 ///     "summary": "Publish an immutable customer selling rate revision",
-///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. Personal owner-funded models do not accept customer tariffs, even when callable by their owner. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Supplier procurement rates remain independent.",
+///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. Personal owner-funded models do not accept customer tariffs, even when callable by their owner. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Supplier procurement rates remain independent. Optional discount_baseline_revision publishes explicit discounted rates against an immutable original revision for the same model and currency. Missing or already discounted baselines, increased rates, changed category presence or context thresholds return 409. No runtime multiplier or historical repricing.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -496,6 +504,14 @@ pub async fn overview(
 ///                   }
 ///                 },
 ///                 "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+///               },
+///               "discount_baseline_revision": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "format": "uuid",
+///                 "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
 ///               }
 ///             }
 ///           }
@@ -594,9 +610,29 @@ pub async fn tariff(
         .cached_prompt_rate
         .as_ref()
         .map(|rate| rate.as_deref());
-    Ok(Json(
-        json!({"data":{"revision":state.store.publish_customer_tariff_schedule(scope,&rates,niu_storage::CustomerCategoryRates { cached_prompt: cached, reasoning_completion: input.reasoning_completion_rate.as_ref().map(|rate| rate.as_deref()), cache_write_prompt: input.cache_write_prompt_rate.as_ref().map(|rate| rate.as_deref()) },input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref(),input.context_tiers.as_deref()).await.map_err(ApiError::from_store)?}}),
-    ))
+    let publication = niu_storage::CustomerTariffPublication {
+        categories: niu_storage::CustomerCategoryRates {
+            cached_prompt: cached,
+            reasoning_completion: input
+                .reasoning_completion_rate
+                .as_ref()
+                .map(|rate| rate.as_deref()),
+            cache_write_prompt: input
+                .cache_write_prompt_rate
+                .as_ref()
+                .map(|rate| rate.as_deref()),
+        },
+        minimum_charge_nanos: input.minimum_charge_nanos.as_deref(),
+        request_fee_nanos: input.request_fee_nanos.as_deref(),
+        context_tiers: input.context_tiers.as_deref(),
+        discount_baseline_revision: input.discount_baseline_revision,
+    };
+    let revision = state
+        .store
+        .publish_customer_tariff_revision(scope, &rates, publication)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"revision":revision}})))
 }
 
 /// Platform-owned customer selling configuration, separate from procurement.
@@ -2059,6 +2095,14 @@ pub struct InvoiceLinesQuery {
 ///                               }
 ///                             },
 ///                             "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+///                           },
+///                           "discount_baseline_revision": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "format": "uuid",
+///                             "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
 ///                           }
 ///                         }
 ///                       },

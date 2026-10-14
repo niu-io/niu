@@ -12,6 +12,15 @@ pub struct CustomerCategoryRates<'a> {
     pub reasoning_completion: Option<Option<&'a str>>,
 }
 
+/// Complete publication intent; discount provenance never alters runtime arithmetic.
+pub struct CustomerTariffPublication<'a> {
+    pub categories: CustomerCategoryRates<'a>,
+    pub minimum_charge_nanos: Option<&'a str>,
+    pub request_fee_nanos: Option<&'a str>,
+    pub context_tiers: Option<&'a [crate::ContextPriceTier]>,
+    pub discount_baseline_revision: Option<Uuid>,
+}
+
 impl Store {
     /// Same-snapshot retail charge-to-ledger reconciliation; never mutates money.
     /// Only prepaid-bound attempts participate; legacy invoices are independent.
@@ -480,7 +489,7 @@ SELECT jsonb_build_object(
         &self,
         scope: TenantScope,
     ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
-        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias")
+        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&self.pool).await?;
         Ok(rows.into_iter().collect())
     }
@@ -576,6 +585,35 @@ SELECT jsonb_build_object(
         request_fee_nanos: Option<&str>,
         context_tiers: Option<&[crate::ContextPriceTier]>,
     ) -> Result<Uuid, StoreError> {
+        self.publish_customer_tariff_revision(
+            scope,
+            input,
+            CustomerTariffPublication {
+                categories,
+                minimum_charge_nanos,
+                request_fee_nanos,
+                context_tiers,
+                discount_baseline_revision: None,
+            },
+        )
+        .await
+    }
+
+    /// Atomically publish explicit rates and their original-price provenance.
+    /// Baselines are immutable; existing operation bindings never change.
+    pub async fn publish_customer_tariff_revision(
+        &self,
+        scope: TenantScope,
+        input: &ProviderOfferInput,
+        publication: CustomerTariffPublication<'_>,
+    ) -> Result<Uuid, StoreError> {
+        let CustomerTariffPublication {
+            categories,
+            minimum_charge_nanos,
+            request_fee_nanos,
+            context_tiers,
+            discount_baseline_revision,
+        } = publication;
         let mut tiers = context_tiers.unwrap_or_default().to_vec();
         crate::normalize_context_tiers(&mut tiers)?;
         let tiers_json = serde_json::to_value(&tiers).map_err(|_| StoreError::InvalidPrice)?;
@@ -670,8 +708,24 @@ SELECT jsonb_build_object(
                 id
             }
         };
+        if let Some(baseline) = discount_baseline_revision {
+            let document = json!({"prompt_rate":prompt,"completion_rate":completion,
+                "cached_prompt_rate":cached,"cache_write_prompt_rate":written,
+                "reasoning_completion_rate":reasoning,"minimum_charge_nanos":minimum,
+                "request_fee_nanos":request_fee,"context_tiers":tiers_json});
+            let valid: bool = sqlx::query_scalar("SELECT niu_customer_discount_valid($1,$2,$3,$4)")
+                .bind(baseline)
+                .bind(&input.model_alias)
+                .bind(&input.currency)
+                .bind(document)
+                .fetch_one(&mut *tx)
+                .await?;
+            if !valid {
+                return Err(StoreError::Conflict);
+            }
+        }
         let revision = Uuid::new_v4();
-        sqlx::query("INSERT INTO customer_tariff_revisions(id,tariff_id,currency,prompt_rate,completion_rate,cached_prompt_rate,minimum_charge_nanos,request_fee_nanos,reasoning_completion_rate,cache_write_prompt_rate,context_tiers) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)").bind(revision).bind(tariff).bind(&input.currency).bind(prompt).bind(completion).bind(cached).bind(minimum).bind(request_fee).bind(reasoning).bind(written).bind(tiers_json).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO customer_tariff_revisions(id,tariff_id,currency,prompt_rate,completion_rate,cached_prompt_rate,minimum_charge_nanos,request_fee_nanos,reasoning_completion_rate,cache_write_prompt_rate,context_tiers,discount_baseline_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)").bind(revision).bind(tariff).bind(&input.currency).bind(prompt).bind(completion).bind(cached).bind(minimum).bind(request_fee).bind(reasoning).bind(written).bind(tiers_json).bind(discount_baseline_revision).execute(&mut *tx).await?;
         sqlx::query("UPDATE customer_tariffs SET current_revision=$2 WHERE id=$1")
             .bind(tariff)
             .bind(revision)
@@ -959,7 +1013,7 @@ SELECT jsonb_build_object(
                 .bind(scope.project_id)
                 .fetch_one(&mut *tx)
                 .await?;
-        let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+        let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
 
         tx.commit().await?;
         Ok(

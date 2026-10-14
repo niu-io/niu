@@ -10,6 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type CustomerInvoiceLine = {
+    discount_baseline_revision?: string | null;
     model_alias: string;
     revision: string;
     currency: string;

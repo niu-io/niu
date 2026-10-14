@@ -168,7 +168,7 @@ mod company_write_authorization;
 mod workspace_creation;
 pub use workspace_creation::WorkspaceCreationKey;
 mod billing;
-pub use billing::CustomerCategoryRates;
+pub use billing::{CustomerCategoryRates, CustomerTariffPublication};
 mod commercial_position;
 mod customer_invoice_history;
 mod customer_tariff_history;

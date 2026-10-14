@@ -1,6 +1,7 @@
 SELECT jsonb_build_object(
     'model_alias',t.model_alias,
     'revision',r.id,
+    'discount_baseline_revision',r.discount_baseline_revision,
     'context_minimum_input_tokens',c.context_minimum_input_tokens::text,
     'prompt_rate',CASE WHEN c.context_minimum_input_tokens IS NULL THEN r.prompt_rate::text ELSE tier.value->>'prompt_rate' END,
     'completion_rate',CASE WHEN c.context_minimum_input_tokens IS NULL THEN r.completion_rate::text ELSE tier.value->>'completion_rate' END,

@@ -10,6 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type CustomerTariffInput = SupplierRateInput & {
+    discount_baseline_revision?: string | null;
     minimum_charge_nanos?: string;
     request_fee_nanos?: string;
 };
