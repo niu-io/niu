@@ -48,3 +48,9 @@ Before a customer-funded video request can reserve funds, its maximum billable q
 Platform administrators can publish and read this separate configuration through `publishMediaLiabilityQualification`, `listMediaLiabilityQualifications` and `retireMediaLiabilityQualification` in `NiuAdminClient`. Their REST paths are under `/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`. Publication uses version comparison and an idempotency key; revocation shortens future eligibility and keeps history. Customers and Supplier members cannot use these endpoints.
 
 The registry and its configuration endpoints are implemented. Unified platform-priced video enrollment and admission still require integration; this configuration alone does not establish a working commercial video flow. Existing jobs retain their original price and liability snapshots.
+
+## Workspace media selling configuration
+
+Use `NiuAdminClient.setRetailMediaEnrollment` to enroll a workspace's exact model/channel/resolution/reference-video dimensions and meter in a published media price. Its currency account must already exist. Explicit `price_id: null` restores legacy workspace media-card selection for future operations. Versions, idempotency keys, reasons and administrator attribution retain configuration history.
+
+`getRetailMediaEnrollment` returns the caller's own workspace configuration and advisory effective selling price. An eligible customer promotion takes precedence over an eligible global promotion without stacking; expiry falls back to the next applicable price. These reads contain no Supplier procurement information or other customers' rules. Configuration does not establish a video-capable route or authorization to spend. Platform-priced video admission integration remains pending; existing saved jobs keep their original snapshots.

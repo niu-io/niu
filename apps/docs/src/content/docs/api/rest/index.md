@@ -131,6 +131,8 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`POST /admin/v1/organizations/{organization}/projects/{project}/billing/invoices` — Issue an immutable itemized usage statement](/docs/api/rest/issuecustomerusageinvoice/)
 - [`GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}` — Read invoice lines grouped by model and pinned rate revision](/docs/api/rest/getcustomerinvoicelines/)
 - [`POST /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment` — Record one confirmed full external invoice payment](/docs/api/rest/recordcustomerexternalpayment/)
+- [`GET /admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment` — Read workspace media selling-price enrollment](/docs/api/rest/getretailmediaenrollment/)
+- [`POST /admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment` — Set workspace media selling-price enrollment](/docs/api/rest/setretailmediaenrollment/)
 - [`GET /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment` — Read own workspace retail pricing mode](/docs/api/rest/getretailtextenrollment/)
 - [`POST /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment` — Enroll a workspace model in a platform selling price](/docs/api/rest/setretailtextenrollment/)
 - [`POST /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs` — Publish an immutable customer selling rate revision](/docs/api/rest/publishcustomersellingrate/)

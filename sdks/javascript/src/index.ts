@@ -771,3 +771,5 @@ export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, Pl
 export type { CommercialPosition, CommercialPositionRow } from './admin.js';
 
 export type { MediaLiabilityIdentity, MediaLiabilityPublication, MediaLiabilityRevocation, MediaLiabilityPublicationResult, MediaLiabilityQualificationRecord, MediaLiabilityQualificationPage } from './admin.js';
+
+export type { RetailMediaEnrollmentPublication, RetailMediaEnrollment, RetailMediaEnrollmentResult } from './admin.js';

@@ -9150,6 +9150,374 @@ HTTP 403: Explicit platform administration required
 
 HTTP 409: Stale version, conflicting idempotency/interval or unavailable current qualified offer
 
+## Set workspace media selling-price enrollment
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment`
+
+Exact workspace/media dimensions/meter identity; currency follows the enrolled price. Platform administration is required for changes. Reads require this workspace authority or platform administration and reveal only its own effective selling price. No procurement or other customer promotions are returned. price_id must be explicitly present: null restores legacy media-card selection for future operations. The published media price must exactly match dimensions and meter and have an existing customer currency account. No balance, credit, route, qualification or operation is created. expected_version is zero initially; exact idempotent retries preserve their original outcome, changed reuse and stale versions conflict. Read effective_price is advisory, not a pinned task price or dispatch qualification. UTC epoch times and amounts are exact strings. Cache-Control: no-store for reads. Video platform admission integration is pending; enrolling a price alone does not enable generation.
+
+Implementation: `implemented`. Operation: `setRetailMediaEnrollment`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "reference_video": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model",
+        "channel",
+        "resolution",
+        "reference_video"
+      ]
+    },
+    "meter": {
+      "type": "string"
+    },
+    "price_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "expected_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "dimensions",
+    "meter",
+    "price_id",
+    "expected_version",
+    "idempotency_key",
+    "reason"
+  ]
+}
+```
+
+### Responses
+
+HTTP 200: Committed configuration or own advisory read
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string"
+            },
+            "resolution": {
+              "type": "string"
+            },
+            "reference_video": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "model",
+            "channel",
+            "resolution",
+            "reference_video"
+          ]
+        },
+        "meter": {
+          "type": "string"
+        },
+        "price_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "revision",
+        "version",
+        "dimensions",
+        "meter",
+        "price_id"
+      ]
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid exact identity, reason or version
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required for changes
+
+HTTP 404: Workspace outside authority
+
+HTTP 409: Stale version, conflicting key, mismatched price or absent existing currency account
+
+## Read workspace media selling-price enrollment
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment`
+
+Exact workspace/media dimensions/meter identity; currency follows the enrolled price. Platform administration is required for changes. Reads require this workspace authority or platform administration and reveal only its own effective selling price. No procurement or other customer promotions are returned. price_id must be explicitly present: null restores legacy media-card selection for future operations. The published media price must exactly match dimensions and meter and have an existing customer currency account. No balance, credit, route, qualification or operation is created. expected_version is zero initially; exact idempotent retries preserve their original outcome, changed reuse and stale versions conflict. Read effective_price is advisory, not a pinned task price or dispatch qualification. UTC epoch times and amounts are exact strings. Cache-Control: no-store for reads. Video platform admission integration is pending; enrolling a price alone does not enable generation.
+
+Implementation: `implemented`. Operation: `getRetailMediaEnrollment`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`channel` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`resolution` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`reference_video` (query, required)
+
+```json
+{
+  "type": "boolean"
+}
+```
+
+`meter` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Committed configuration or own advisory read
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string"
+            },
+            "resolution": {
+              "type": "string"
+            },
+            "reference_video": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "model",
+            "channel",
+            "resolution",
+            "reference_video"
+          ]
+        },
+        "meter": {
+          "type": "string"
+        },
+        "price_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "pricing_source": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "platform"
+          ]
+        },
+        "effective_price": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/RetailSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "dimensions",
+        "meter",
+        "price_id",
+        "version",
+        "pricing_source",
+        "effective_price"
+      ]
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid exact identity, reason or version
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required for changes
+
+HTTP 404: Workspace outside authority
+
+HTTP 409: Stale version, conflicting key, mismatched price or absent existing currency account
+
 ## Issue administrator noncash customer credit
 
 `POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants`

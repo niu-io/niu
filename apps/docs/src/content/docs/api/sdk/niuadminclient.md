@@ -1090,6 +1090,24 @@ retireMediaLiabilityQualification(supplier: string, offer: string, revision: str
 }>;
 ```
 
+### setRetailMediaEnrollment
+
+```typescript
+/** Platform configuration only; does not create funding or qualify a video route. */
+setRetailMediaEnrollment(scope: TenantScope, input: RetailMediaEnrollmentPublication, options?: RequestOptions): Promise<{
+    data: RetailMediaEnrollmentResult;
+}>;
+```
+
+### getRetailMediaEnrollment
+
+```typescript
+/** Own customer selection is advisory; immutable task binding happens during admission. */
+getRetailMediaEnrollment(scope: TenantScope, dimensions: MediaBillingDimensions, meter: string, options?: RequestOptions): Promise<{
+    data: RetailMediaEnrollment;
+}>;
+```
+
 ### publishRetailStandard
 
 ```typescript

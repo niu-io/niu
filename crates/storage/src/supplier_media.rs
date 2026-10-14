@@ -218,11 +218,25 @@ impl Store {
         at: i64,
     ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        Self::bind_supplier_media_rate_in_tx(&mut tx, scope, attempt, dimensions, meter, at)
+            .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn bind_supplier_media_rate_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        dimensions: &Dimensions,
+        meter: &str,
+        at: i64,
+    ) -> Result<(), StoreError> {
         let bound:Option<(Uuid,Uuid)>=sqlx::query_as("SELECT b.provider_id,b.revision_id FROM attempts a JOIN provider_attempt_offers b ON b.attempt_id=a.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent' FOR UPDATE OF a")
-            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(&dimensions.model).fetch_optional(&mut *tx).await?;
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(&dimensions.model).fetch_optional(&mut **tx).await?;
         let (supplier, offer) = bound.ok_or(StoreError::Conflict)?;
         let rows:Vec<serde_json::Value>=sqlx::query_scalar("SELECT c.document FROM supplier_media_rate_cards c WHERE c.provider_id=$1 AND c.offer_revision=$2 AND c.model_alias=$3 AND c.channel=$4 AND c.resolution=$5 AND c.reference_video=$6 AND c.effective_from<=$7 AND (c.effective_until IS NULL OR c.effective_until>$7) AND NOT EXISTS(SELECT 1 FROM supplier_media_rate_retirements r WHERE r.provider_id=c.provider_id AND r.revision=c.revision AND r.effective_until<=$7) ORDER BY c.revision LIMIT 2")
-            .bind(supplier).bind(offer).bind(&dimensions.model).bind(&dimensions.channel).bind(&dimensions.resolution).bind(dimensions.reference_video).bind(at).fetch_all(&mut *tx).await?;
+            .bind(supplier).bind(offer).bind(&dimensions.model).bind(&dimensions.channel).bind(&dimensions.resolution).bind(dimensions.reference_video).bind(at).fetch_all(&mut **tx).await?;
         if rows.len() != 1 {
             return Err(StoreError::InvalidPrice);
         }
@@ -234,7 +248,7 @@ impl Store {
             return Err(StoreError::InvalidPrice);
         }
         let current:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM provider_offers o JOIN vendors v ON v.id=o.vendor_id JOIN vendor_models m ON m.alias=o.model_alias AND m.vendor_id=v.id WHERE o.provider_id=$1 AND o.current_revision=$2 AND o.model_alias=$3 AND o.active AND v.enabled AND m.enabled AND v.revision=$4 AND m.revision=$5 AND m.capabilities->'video_schema'->>'revision'=$6 AND m.capabilities->'video_schema'->>'channel'=$7 AND niu_offer_qualification_current(o.provider_id,o.id,o.current_revision) AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=v.id))")
-            .bind(supplier).bind(offer).bind(&dimensions.model).bind(card.vendor_revision).bind(card.model_revision).bind(&card.schema_revision).bind(&dimensions.channel).fetch_one(&mut *tx).await?;
+            .bind(supplier).bind(offer).bind(&dimensions.model).bind(card.vendor_revision).bind(card.model_revision).bind(&card.schema_revision).bind(&dimensions.channel).fetch_one(&mut **tx).await?;
         if !current {
             return Err(StoreError::Conflict);
         }
@@ -246,17 +260,16 @@ impl Store {
         )
         .map_err(|_| StoreError::InvalidPrice)?;
         sqlx::query("INSERT INTO supplier_media_attempt_pricing(attempt_id,provider_id,rate_revision,snapshot) VALUES($1,$2,$3,$4) ON CONFLICT(attempt_id) DO NOTHING")
-            .bind(attempt).bind(supplier).bind(&card.revision).bind(&snapshot).execute(&mut *tx).await?;
+            .bind(attempt).bind(supplier).bind(&card.revision).bind(&snapshot).execute(&mut **tx).await?;
         let prior: serde_json::Value = sqlx::query_scalar(
             "SELECT snapshot FROM supplier_media_attempt_pricing WHERE attempt_id=$1",
         )
         .bind(attempt)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
         if prior != snapshot {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
         Ok(())
     }
     /// Independent Supplier liability; customer funding and charges are not consulted.

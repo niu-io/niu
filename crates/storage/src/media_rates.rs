@@ -91,9 +91,22 @@ impl Store {
         revision: &str,
         vendor: Uuid,
     ) -> Result<(), StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        Self::require_customer_media_offer_in_tx(&mut tx, scope, attempt, revision, vendor).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn require_customer_media_offer_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: crate::TenantScope,
+        attempt: Uuid,
+        revision: &str,
+        vendor: Uuid,
+    ) -> Result<(), StoreError> {
         let matched: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN provider_attempt_offers b ON b.attempt_id=a.id JOIN provider_offers o ON o.id=b.offer_id AND o.provider_id=b.provider_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.execution='not_sent' AND b.revision_id::text=$4 AND o.vendor_id=$5 AND o.model_alias=a.resource_id AND o.active AND o.current_revision=b.revision_id AND niu_offer_qualification_current(b.provider_id,b.offer_id,b.revision_id))")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(revision).bind(vendor)
-            .fetch_one(&self.pool).await?;
+            .fetch_one(&mut **tx).await?;
         if !matched {
             return Err(StoreError::AccountUnavailable);
         }

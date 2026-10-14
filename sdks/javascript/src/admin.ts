@@ -962,6 +962,9 @@ export type RetailSchedule = {
   kind: 'media'; dimensions: MediaBillingDimensions; meter: string; decimal_places: number;
   amount_units: string; per_quantity: ExactMediaQuantity; minimum_quantity: ExactMediaQuantity; rounding: 'Down' | 'Up' | 'HalfEven';
 };
+export type RetailMediaEnrollmentPublication = { dimensions: MediaBillingDimensions; meter: string; price_id: string | null; expected_version: string; idempotency_key: string; reason: string };
+export type RetailMediaEnrollment = { dimensions: MediaBillingDimensions; meter: string; price_id: string | null; version: string; pricing_source: 'platform' | 'workspace'; effective_price: RetailSelection | null };
+export type RetailMediaEnrollmentResult = { revision: string; version: string; dimensions: MediaBillingDimensions; meter: string; price_id: string | null };
 export type RetailTextEnrollmentPublication = { model_alias: string; price_id: string | null; expected_version: string; idempotency_key: string; reason: string };
 export type RetailTextEnrollment = { model_alias: string; price_id: string | null; version: string; pricing_source: 'platform' | 'workspace'; effective_price: RetailSelection | null };
 export type RetailPublicationResult = { price_id: string; revision: string; version: string };
@@ -1756,6 +1759,16 @@ export class NiuAdminClient {
   /** Future admission only; already pinned jobs retain their bound. */
   retireMediaLiabilityQualification(supplier: string, offer: string, revision: string, input: MediaLiabilityRevocation, options?: RequestOptions): Promise<{ data: MediaLiabilityPublicationResult }> {
     return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds/${encodeURIComponent(revision)}/retire`, input, options, 'POST');
+  }
+
+  /** Platform configuration only; does not create funding or qualify a video route. */
+  setRetailMediaEnrollment(scope: TenantScope, input: RetailMediaEnrollmentPublication, options?: RequestOptions): Promise<{ data: RetailMediaEnrollmentResult }> {
+    return this.request(`/organizations/${encodeURIComponent(scope.organizationId)}/projects/${encodeURIComponent(scope.projectId)}/billing/media-retail-price-enrollment`, input, options, 'POST');
+  }
+  /** Own customer selection is advisory; immutable task binding happens during admission. */
+  getRetailMediaEnrollment(scope: TenantScope, dimensions: MediaBillingDimensions, meter: string, options?: RequestOptions): Promise<{ data: RetailMediaEnrollment }> {
+    const query = new URLSearchParams({ model: dimensions.model, channel: dimensions.channel, resolution: dimensions.resolution, reference_video: String(dimensions.reference_video), meter });
+    return this.request(`/organizations/${encodeURIComponent(scope.organizationId)}/projects/${encodeURIComponent(scope.projectId)}/billing/media-retail-price-enrollment?${query}`, undefined, options);
   }
 
   /** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */

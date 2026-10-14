@@ -5,6 +5,7 @@ pub(crate) mod commercial_position;
 pub(crate) mod financial_summary;
 pub(crate) mod invoice_history;
 pub(crate) mod media_liability;
+pub(crate) mod media_retail_enrollment;
 pub(crate) mod noncash_grants;
 pub(crate) mod platform_pricing;
 pub(crate) mod reservations;
