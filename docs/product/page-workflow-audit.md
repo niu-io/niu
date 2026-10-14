@@ -577,3 +577,12 @@ The configuration section now resolves through the same scoped administrative al
 Actual desktop and 390px browser runs covered the scoped section, directory fallback, properties shortcut, legacy configuration and configuration fallback. Destinations and retained URL markers matched the supported routes, and the existing Supplier's configuration rendered without the former unavailable state. Normal navigation restored the original Owner cookie, whose administrative access remained denied. The dashboard build completed. No new layout, Provider request or business mutation was introduced; fixture outcomes were not used.
 
 Independent final reads confirmed unchanged Supplier, vendor, key, model, offer, binding and member records, original Owner profile/password/preferences and request/financial fingerprints. Remaining administrative index aliases and loading transitions are separate unverified scope.
+
+
+### Video capability guidance and retained-output verification boundary
+
+The video guide's installation-specific claim that only one fixed Seedance 2.5 preset was enabled had become stale. It now directs callers to authorized model discovery and the selected video schema for available models, inputs and controls. Asset management does not establish reference-generation support. Current discovery code applies the selected key's grants, enabled Supplier/model mappings and current policy before projecting admitted capabilities; enabled mappings alone do not prove every caller can invoke them.
+
+The documentation build completed, the actual served video guide matched the built HTML, and the changed availability/reference paragraphs were inspected at desktop and 390px. No Provider call or authentication change was made. This corrects capability guidance, without claiming new model execution or commercial qualification.
+
+Current retained-output inspection found stored encrypted copies but no uncaptured live result or failed/preparing capture suitable for first-save or failed-retry verification. Stored-copy reads and downloads are separate scopes; they cannot prove first save, recovery, or current upstream link availability. No new generation or modification of original capture records was used to manufacture those conditions.
