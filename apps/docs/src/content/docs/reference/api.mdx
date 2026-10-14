@@ -383,14 +383,27 @@ requires read access to that workspace and returns 404 when the request is absen
 from that scope. The response uses the same customer-safe fields as the request
 list; Supplier costs are excluded. Payload content is retrieved separately.
 
+For retained unsent attempts, nullable `admission_denial` records checked
+request-rate refusals: `key_request_rate_disabled` for RPM zero and
+`key_request_rate_exceeded` for an exhausted positive limit. Its Gateway HTTP
+429 and captured requested-key name are diagnostic provenance, not upstream
+execution, usage or billing attribution. Missing observations remain unknown;
+historical records are not reconstructed from current key settings. This
+recording scope covers the durable prepared-attempt path; priced and batch
+admission are not implied. Recorded-failure and key filters include this
+saved evidence only while the attempt remains unsent.
+
 `GET /admin/v1/organizations/{organization}/projects/{project}/requests?limit=50`
 returns the newest gateway attempts first. Limits range from 1 to 100. Optional
 `from_ms` and `to_ms` bound creation time (`from_ms` inclusive, `to_ms`
 exclusive); `model_alias`, `key_id`, and `status` narrow the same workspace feed.
 Status values are `not_sent`, `may_have_executed`, `confirmed_completed`,
-`confirmed_not_executed`, `output_withheld`, and `delivery_failed`. The first four filter Provider
+`confirmed_not_executed`, `output_withheld`, `delivery_failed`, and
+`recorded_failure`. The first four filter Provider
 execution state; `output_withheld` selects recorded blocked or indeterminate
-output inspection. `delivery_failed` selects recorded delivery HTTP errors
+output inspection. `recorded_failure` selects saved upstream failure or
+unsent Gateway admission-denial evidence; it does not infer failure from unknown
+usage or execution. `delivery_failed` selects recorded delivery HTTP errors
 (400–599), independently of Provider execution and customer charges.
 `http_status` accepts an exact code from 100 to 599 or `unknown` for absent
 delivery status; it combines with the other filters. Unknown does not mean

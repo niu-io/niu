@@ -10,7 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type GatewayAdmissionDenial = {
-    kind: 'key_request_rate_disabled';
+    kind: 'key_request_rate_disabled' | 'key_request_rate_exceeded';
     http_status: 429;
     requested_key_name: string;
     key_name_source: 'captured_at_admission';

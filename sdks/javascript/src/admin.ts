@@ -612,7 +612,7 @@ export type GatewayTaskEvidence = {
   coverage: 'complete' | 'partial' | 'unknown';
   outcomes: GatewayActivityOutcome[];
 };
-export type GatewayAdmissionDenial = { kind: 'key_request_rate_disabled'; http_status: 429; requested_key_name: string; key_name_source: 'captured_at_admission'; recorded_at: string };
+export type GatewayAdmissionDenial = { kind: 'key_request_rate_disabled' | 'key_request_rate_exceeded'; http_status: 429; requested_key_name: string; key_name_source: 'captured_at_admission'; recorded_at: string };
 export type GatewayActivityEntry = {
   attempt_id: string;
   operation_id: string;

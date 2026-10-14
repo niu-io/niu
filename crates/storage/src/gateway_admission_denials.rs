@@ -1,5 +1,5 @@
 //! Immutable, content-free evidence for a checked pre-dispatch rejection.
-//! Only the durable prepared-attempt RPM-zero path is covered initially.
+//! Covers definitive request-rate denials for durable prepared attempts.
 use crate::{Store, StoreError, TenantScope};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -8,6 +8,16 @@ use uuid::Uuid;
 #[serde(rename_all = "snake_case")]
 pub enum GatewayAdmissionDenialKind {
     KeyRequestRateDisabled,
+    KeyRequestRateExceeded,
+}
+
+impl GatewayAdmissionDenialKind {
+    fn sql_label(self) -> &'static str {
+        match self {
+            Self::KeyRequestRateDisabled => "key_request_rate_disabled",
+            Self::KeyRequestRateExceeded => "key_request_rate_exceeded",
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -33,6 +43,7 @@ impl Store {
         attempt: Uuid,
         key: Uuid,
         captured: &CapturedAdmissionKey,
+        kind: GatewayAdmissionDenialKind,
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         let eligible: Option<bool> = sqlx::query_scalar(
@@ -50,16 +61,16 @@ impl Store {
         let inserted = sqlx::query(
             "INSERT INTO gateway_admission_denials \
              (attempt_id,organization_id,project_id,requested_key_id,requested_key_name,requested_key_revision,kind,http_status) \
-             VALUES($1,$2,$3,$4,$5,$6,'key_request_rate_disabled',429) ON CONFLICT(attempt_id) DO NOTHING",
+             VALUES($1,$2,$3,$4,$5,$6,$7,429) ON CONFLICT(attempt_id) DO NOTHING",
         )
         .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
-        .bind(key).bind(&captured.name).bind(captured.revision)
+        .bind(key).bind(&captured.name).bind(captured.revision).bind(kind.sql_label())
         .execute(&mut *tx).await?.rows_affected();
         if inserted == 0 {
             let exact: bool = sqlx::query_scalar(
                 "SELECT organization_id=$2 AND project_id=$3 AND requested_key_id=$4 \
                  AND requested_key_name=$5 AND requested_key_revision=$6 \
-                 AND kind='key_request_rate_disabled' AND http_status=429 \
+                 AND kind=$7 AND http_status=429 \
                  FROM gateway_admission_denials WHERE attempt_id=$1",
             )
             .bind(attempt)
@@ -68,6 +79,7 @@ impl Store {
             .bind(key)
             .bind(&captured.name)
             .bind(captured.revision)
+            .bind(kind.sql_label())
             .fetch_one(&mut *tx)
             .await?;
             if !exact {

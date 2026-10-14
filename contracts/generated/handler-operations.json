@@ -30681,7 +30681,8 @@
                   "kind": {
                     "type": "string",
                     "enum": [
-                      "key_request_rate_disabled"
+                      "key_request_rate_disabled",
+                      "key_request_rate_exceeded"
                     ]
                   },
                   "http_status": {
@@ -31035,7 +31036,8 @@
                   "kind": {
                     "type": "string",
                     "enum": [
-                      "key_request_rate_disabled"
+                      "key_request_rate_disabled",
+                      "key_request_rate_exceeded"
                     ]
                   },
                   "http_status": {

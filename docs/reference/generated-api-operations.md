@@ -31435,7 +31435,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
             "kind": {
               "type": "string",
               "enum": [
-                "key_request_rate_disabled"
+                "key_request_rate_disabled",
+                "key_request_rate_exceeded"
               ]
             },
             "http_status": {
@@ -31901,7 +31902,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
             "kind": {
               "type": "string",
               "enum": [
-                "key_request_rate_disabled"
+                "key_request_rate_disabled",
+                "key_request_rate_exceeded"
               ]
             },
             "http_status": {

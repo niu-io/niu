@@ -492,7 +492,8 @@ Content type: `application/json`.
                   "kind": {
                     "type": "string",
                     "enum": [
-                      "key_request_rate_disabled"
+                      "key_request_rate_disabled",
+                      "key_request_rate_exceeded"
                     ]
                   },
                   "http_status": {

@@ -3293,7 +3293,8 @@ pub(super) fn gateway_activity_filter(
 ///                 "kind": {
 ///                   "type": "string",
 ///                   "enum": [
-///                     "key_request_rate_disabled"
+///                     "key_request_rate_disabled",
+///                     "key_request_rate_exceeded"
 ///                   ]
 ///                 },
 ///                 "http_status": {
@@ -4337,7 +4338,8 @@ pub async fn gateway_request(
 ///                 "kind": {
 ///                   "type": "string",
 ///                   "enum": [
-///                     "key_request_rate_disabled"
+///                     "key_request_rate_disabled",
+///                     "key_request_rate_exceeded"
 ///                   ]
 ///                 },
 ///                 "http_status": {

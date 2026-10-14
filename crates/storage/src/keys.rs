@@ -327,12 +327,17 @@ impl Store {
             Err(error) => {
                 // Only a definitive checked denial is evidence. Commit/transport
                 // uncertainty never becomes a denied admission observation.
-                let definitive = matches!(&error, StoreError::KeyRequestRateDisabled);
+                let denial_kind = match &error {
+                    StoreError::KeyRequestRateDisabled => {
+                        Some(crate::GatewayAdmissionDenialKind::KeyRequestRateDisabled)
+                    }
+                    StoreError::KeyRequestRateExceeded => {
+                        Some(crate::GatewayAdmissionDenialKind::KeyRequestRateExceeded)
+                    }
+                    _ => None,
+                };
                 let rolled_back = tx.rollback().await.is_ok();
-                if definitive
-                    && rolled_back
-                    && let Some(captured) = captured
-                {
+                if rolled_back && let (Some(kind), Some(captured)) = (denial_kind, captured) {
                     // Diagnostic failure must not change the original rejection
                     // or authorize another dispatch / audit writer retry.
                     let _ = self
@@ -341,6 +346,7 @@ impl Store {
                             id,
                             principal.key_id,
                             &captured,
+                            kind,
                         )
                         .await;
                 }
