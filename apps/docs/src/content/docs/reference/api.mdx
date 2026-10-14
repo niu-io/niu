@@ -116,6 +116,11 @@ replacing the draft. Set `payload` to null to clear it; clearing increments the
 revision so another tab's old write cannot recreate the discarded draft. This
 endpoint does not detect secrets deliberately included in prompt or file content.
 
+The JavaScript SDK exposes [`admin.getChatDraft()` and
+`admin.saveChatDraft()`](/docs/api/sdk/niuadminclient/#getchatdraft). Read the
+current revision before saving or clearing; a conflict requires an explicit
+reload and reconciliation. Saving a draft does not submit a model request.
+
 ## Customer billing
 
 The [customer billing contract](https://github.com/niu-io/niu/blob/main/contracts/billing.openapi.yaml), included by the main OpenAPI document, covers workspace-authorized billing summaries and invoice line reads. Customer charges use explicit selling tariffs, independent from Supplier prices. Unpriced requests are not assumed free; unresolved charges remain unknown. Monetary amounts and aggregate counts are exact decimal integer strings. Workspace billing tariff lists and model-discovery customer prices include every matching saved tariff; they do not silently stop at 1,000 entries. These compatibility responses remain unpaginated, with memory use proportional to their size.
@@ -598,8 +603,11 @@ See the [generated operation schemas](/docs/reference/handler-operations/) and
 [durable Video intent contract](https://github.com/niu-io/niu/blob/main/docs/reference/video-submission-intents.md)
 for request bodies, actor isolation, 30-day content retention, deletion semantics
 and current verification limits. Images/references and customer-funded video
-qualification remain outside this verified subset. Browser restoration still
-requires frontend integration and verification.
+qualification remain outside this verified subset. The Generations dashboard
+integrates saved-intent restoration, including original input, retained preview
+and diagnostics after key expiry. Successful reference submission and the full
+shared-output lifecycle remain separate verification requirements. See
+[Generations](/docs/reference/generations/) for the supported browser workflow.
 
 Video timing responses include a `result` phase for result retrieval. Its elapsed
 time measures the upstream fetch and bounded body read. `received` means the
