@@ -679,14 +679,31 @@ async fn supplier_configuration_counts_do_not_confuse_saved_disabled_and_qualifi
     MIGRATOR.run(&pool).await.unwrap();
     let store = Store::from_pool(pool.clone());
     let supplier = store.create_provider_business("Setup test").await.unwrap();
-    let other = store.create_provider_business("Other supplier").await.unwrap();
+    let other = store
+        .create_provider_business("Other supplier")
+        .await
+        .unwrap();
     let vendor = Uuid::new_v4();
     sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'Setup key','openai','https://example.com/v1',$2)").bind(vendor).bind(vec![1u8;48]).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)").bind(vendor).bind(supplier).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
+        .bind(vendor)
+        .bind(supplier)
+        .execute(&pool)
+        .await
+        .unwrap();
     sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities,enabled) VALUES('setup-enabled',$1,'model-one','{}',true),('setup-disabled',$1,'model-two','{}',false)").bind(vendor).execute(&pool).await.unwrap();
-    sqlx::query("UPDATE provider_businesses SET logo_url='https://example.com/logo.svg' WHERE id=$1").bind(supplier).execute(&pool).await.unwrap();
+    sqlx::query(
+        "UPDATE provider_businesses SET logo_url='https://example.com/logo.svg' WHERE id=$1",
+    )
+    .bind(supplier)
+    .execute(&pool)
+    .await
+    .unwrap();
     let rows = store.provider_businesses().await.unwrap();
-    let setup = rows.iter().find(|row| row["id"] == supplier.to_string()).unwrap();
+    let setup = rows
+        .iter()
+        .find(|row| row["id"] == supplier.to_string())
+        .unwrap();
     assert_eq!(setup["logo_url"], "https://example.com/logo.svg");
     assert_eq!(setup["api_keys"], 1);
     assert_eq!(setup["models"], 2);
@@ -694,26 +711,64 @@ async fn supplier_configuration_counts_do_not_confuse_saved_disabled_and_qualifi
     assert_eq!(setup["enabled_api_keys"], 1);
     assert_eq!(setup["enabled_model_routes"], 1);
     assert_eq!(setup["qualification_status"], "unqualified");
-    let unrelated = rows.iter().find(|row| row["id"] == other.to_string()).unwrap();
+    let unrelated = rows
+        .iter()
+        .find(|row| row["id"] == other.to_string())
+        .unwrap();
     assert_eq!(unrelated["logo_url"], "");
     assert_eq!(unrelated["enabled_model_routes"], 0);
     // An enabled API key and route alone do not make any commercial offer ready.
-    let rate = ProviderOfferInput { model_alias: "setup-enabled".into(), currency: "USD".into(), prompt_rate: "1000000000".into(), completion_rate: "2000000000".into(), expected_revision: None };
+    let rate = ProviderOfferInput {
+        model_alias: "setup-enabled".into(),
+        currency: "USD".into(),
+        prompt_rate: "1000000000".into(),
+        completion_rate: "2000000000".into(),
+        expected_revision: None,
+    };
     let revision = store.publish_provider_offer(supplier, &rate).await.unwrap();
-    let offer: Uuid = sqlx::query_scalar("SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='setup-enabled'").bind(supplier).fetch_one(&pool).await.unwrap();
+    let offer: Uuid = sqlx::query_scalar(
+        "SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='setup-enabled'",
+    )
+    .bind(supplier)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     let rows = store.provider_businesses().await.unwrap();
-    let setup = rows.iter().find(|row| row["id"] == supplier.to_string()).unwrap();
+    let setup = rows
+        .iter()
+        .find(|row| row["id"] == supplier.to_string())
+        .unwrap();
     assert_eq!(setup["offers"], 1);
     assert_eq!(setup["ready_offers"], 0);
-    store.qualify_provider_business(supplier, &supplier_qualification()).await.unwrap();
-    store.qualify_provider_offer(supplier, offer, &offer_qualification(revision)).await.unwrap();
-    sqlx::query("UPDATE provider_offers SET active=true WHERE id=$1").bind(offer).execute(&pool).await.unwrap();
+    store
+        .qualify_provider_business(supplier, &supplier_qualification())
+        .await
+        .unwrap();
+    store
+        .qualify_provider_offer(supplier, offer, &offer_qualification(revision))
+        .await
+        .unwrap();
+    sqlx::query("UPDATE provider_offers SET active=true WHERE id=$1")
+        .bind(offer)
+        .execute(&pool)
+        .await
+        .unwrap();
     let rows = store.provider_businesses().await.unwrap();
-    let setup = rows.iter().find(|row| row["id"] == supplier.to_string()).unwrap();
+    let setup = rows
+        .iter()
+        .find(|row| row["id"] == supplier.to_string())
+        .unwrap();
     assert_eq!(setup["ready_offers"], 1);
-    sqlx::query("UPDATE vendors SET enabled=false WHERE id=$1").bind(vendor).execute(&pool).await.unwrap();
+    sqlx::query("UPDATE vendors SET enabled=false WHERE id=$1")
+        .bind(vendor)
+        .execute(&pool)
+        .await
+        .unwrap();
     let rows = store.provider_businesses().await.unwrap();
-    let setup = rows.iter().find(|row| row["id"] == supplier.to_string()).unwrap();
+    let setup = rows
+        .iter()
+        .find(|row| row["id"] == supplier.to_string())
+        .unwrap();
     assert_eq!(setup["api_keys"], 1);
     assert_eq!(setup["models"], 2);
     assert_eq!(setup["enabled_api_keys"], 0);
