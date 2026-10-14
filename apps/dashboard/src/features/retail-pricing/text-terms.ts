@@ -20,4 +20,3 @@ export function checkedRates(value: Rates) {
   }));
   return rates as Pick<TextSchedule, RateKey>;
 }
-
