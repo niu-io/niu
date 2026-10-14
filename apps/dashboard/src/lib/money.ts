@@ -10,14 +10,20 @@ export function money(nanos: string, currency: string) {
 const NANOS_PER_UNIT = 1_000_000_000n;
 const MAX_NANOS = 9_223_372_036_854_775_807n;
 
-/** Parse a user-entered cash amount without a floating-point round trip. */
-export function amountToNanos(amount: string): string {
+/** Parse currency units exactly; zero is opt-in for approved credit policies. */
+export function amountToNanos(amount: string, allowZero = false): string {
   const match = /^(\d+)(?:\.(\d{1,9}))?$/.exec(amount.trim());
   if (!match) throw new Error('Enter an amount with no more than 9 decimal places.');
   const whole = BigInt(match[1]);
   const fraction = BigInt((match[2] ?? '').padEnd(9, '0') || '0');
   const nanos = whole * NANOS_PER_UNIT + fraction;
-  if (nanos <= 0n) throw new Error('Enter a budget greater than zero.');
+  if (nanos === 0n && !allowZero) throw new Error('Enter a budget greater than zero.');
   if (nanos > MAX_NANOS) throw new Error('Amount exceeds the supported range.');
   return nanos.toString();
+}
+
+/** Editable currency units use the same exact formatting as reported money. */
+export function amountFromNanos(nanos: string): string {
+  if (!/^\d{1,19}$/.test(nanos) || BigInt(nanos) > MAX_NANOS) throw new Error('Invalid currency amount.');
+  return money(nanos, '').trim();
 }
