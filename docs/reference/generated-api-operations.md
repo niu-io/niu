@@ -4074,7 +4074,7 @@ Content type: `application/json`.
 
 `GET /admin/v1/platform/audit-events`
 
-Platform administrators only. Aggregates saved operator, Provider configuration, Supplier, branding, payment gateway and platform-access journals. Metadata only: no credentials, configuration values, request content or procurement prices. password_login_succeeded records verified password login; session_created records session issuance and does not prove login. Historical actor attribution may be unknown, and displayed names are current names. No historical completeness or failed-login coverage is asserted. Source-qualified keyset pagination orders newest first, using source and event ID for ties. Changing category requires restarting without a cursor. Successful responses are not cached.
+Platform administrators only. Aggregates saved operator, Provider configuration, Supplier, branding, payment gateway and platform-access journals. Metadata only: no credentials, configuration values, request content or procurement prices. password_login_succeeded records verified password login; session_created records session issuance and does not prove login. Historical actor attribution may be unknown, and displayed names are current names. No historical completeness or failed-login coverage is asserted. Source-qualified keyset pagination orders newest first, using source and event ID for ties. Changing category requires restarting without a cursor. Successful responses are not cached. Includes immutable standard-price/promotion changes, text/media workspace enrollment, noncash grants and route media-liability qualification. Publishes and exact idempotent retries share the same saved event; no history is fabricated. Freeform reasons, quantities, schedules, balances and monetary values are not returned. New commercial sources remain platform-only; a cursor from another category is rejected.
 
 Implementation: `implemented`. Operation: `listPlatformAuditEvents`.
 
@@ -36890,7 +36890,12 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "supplier",
         "branding",
         "payment_gateway",
-        "platform_access"
+        "platform_access",
+        "retail_price",
+        "retail_text_enrollment",
+        "retail_media_enrollment",
+        "balance_grant",
+        "media_liability"
       ]
     },
     "category": {

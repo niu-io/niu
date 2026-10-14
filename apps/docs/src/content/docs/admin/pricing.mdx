@@ -65,3 +65,9 @@ The [commercial-position API](/docs/api/rest/getcommercialposition/) keeps nomin
 Net contribution subtracts matching Supplier earnings from that net revenue; upstream expense must not be subtracted a second time. Missing source allocation or unresolved charge coverage withholds full revenue. Legacy `margin_nanos` means nominal charge minus earnings and is retained for compatibility; it is not net income or profit. Recorded balance refunds do not prove an external cash transfer. Personal funding is excluded.
 
 These rows use a dispatch cohort and include its recorded refunds. Use the [financial posting summary](/docs/api/rest/getcustomerfinancialsummary/) for posting-period income, verified receipt records and gift issuance. Neither measure alone proves cash profit. Currency rows remain separate; no foreign-exchange conversion is implied. Administrator table wiring and populated financial-flow acceptance remain pending.
+
+## Commercial operation audit
+
+Platform Audit logs include saved standard-price and promotion changes, workspace text/media enrollment, noncash grants and route media-liability qualifications. They use the existing Configuration and Supplier categories and source-qualified pagination. Exact publication retries preserve the original event rather than adding an apparent new change.
+
+This metadata projection shows the action, current target/actor names, recorded system actor, revision and timestamp. It does not expose monetary values, price schedules, balances, quantity limits, freeform reasons or credentials. Detailed protected configuration history remains in its own endpoint. These records do not establish a successful generation, settlement or historical audit completeness.

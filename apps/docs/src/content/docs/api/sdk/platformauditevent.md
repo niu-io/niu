@@ -19,7 +19,7 @@ export interface PlatformAuditEvent {
     category: PlatformAuditCategory;
     action: string;
     actor_kind: string;
-    /** Recorded actor name, recorded system role, or an explicit unknown label. */
+    /** Current linked actor name, recorded system role, or an explicit unknown label. */
     actor_label: string;
     target_label: string;
     revision: string | null;

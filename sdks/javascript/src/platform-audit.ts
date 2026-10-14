@@ -1,6 +1,6 @@
 /** Platform operations only; these records never contain settings or credentials. */
 export type PlatformAuditCategory = 'authentication' | 'configuration' | 'access' | 'supplier';
-export type PlatformAuditSource = 'operator' | 'vendor' | 'supplier' | 'branding' | 'payment_gateway' | 'platform_access';
+export type PlatformAuditSource = 'operator' | 'vendor' | 'supplier' | 'branding' | 'payment_gateway' | 'platform_access' | 'retail_price' | 'retail_text_enrollment' | 'retail_media_enrollment' | 'balance_grant' | 'media_liability';
 export interface PlatformAuditEvent {
   /** Recorded transitions only; absent/null on older servers and other journal streams. */
   before_role?: 'owner' | 'admin' | 'viewer' | null;
@@ -11,7 +11,7 @@ export interface PlatformAuditEvent {
   category: PlatformAuditCategory;
   action: string;
   actor_kind: string;
-  /** Recorded actor name, recorded system role, or an explicit unknown label. */
+  /** Current linked actor name, recorded system role, or an explicit unknown label. */
   actor_label: string;
   target_label: string;
   revision: string | null;

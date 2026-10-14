@@ -28,7 +28,7 @@ pub struct PlatformAuditPage {
 
 impl Store {
     /// List saved platform operations, newest first, with a source-qualified cursor.
-    /// Actor labels reflect recorded metadata, not inferred historical identity.
+    /// Linked actor names are current; system roles are recorded and missing identities remain unknown.
     pub async fn platform_audit_events(
         &self,
         category: Option<&str>,
@@ -57,6 +57,11 @@ impl Store {
                 "branding" => ("branding_configuration_events", "revision", "bigint"),
                 "payment_gateway" => ("payment_gateway_configuration_events", "id", "bigint"),
                 "platform_access" => ("platform_admin_events", "id", "uuid"),
+                "retail_price" => ("platform_retail_price_changes", "id", "uuid"),
+                "retail_text_enrollment" => ("retail_text_enrollment_changes", "id", "uuid"),
+                "retail_media_enrollment" => ("retail_media_enrollment_changes", "id", "uuid"),
+                "balance_grant" => ("customer_balance_grants", "id", "uuid"),
+                "media_liability" => ("media_liability_qualification_changes", "id", "uuid"),
                 _ => return Err(StoreError::InvalidPlatformAuditQuery),
             };
             if (cast == "uuid"
@@ -92,8 +97,14 @@ impl Store {
                 }
             } else {
                 match source {
-                    "vendor" | "branding" | "payment_gateway" => "configuration",
-                    "supplier" => "supplier",
+                    "vendor"
+                    | "branding"
+                    | "payment_gateway"
+                    | "retail_price"
+                    | "retail_text_enrollment"
+                    | "retail_media_enrollment"
+                    | "balance_grant" => "configuration",
+                    "supplier" | "media_liability" => "supplier",
                     _ => "access",
                 }
             };
