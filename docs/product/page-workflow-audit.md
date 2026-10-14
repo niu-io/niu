@@ -19,8 +19,8 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P03 | Workspace directory | `/workspaces` | Create, switch, rename, delete, empty/error states | In review: actual create/rename/reload/delete and independent database checks verified; narrow directory/menu/create plus network-failure retry qualified; broader scope boundaries pending |
 | P04 | Workspace overview | `/workspaces/:workspace` | Real summary and action destinations | In review: actual new empty workspace and action destinations inspected; request details pending |
 | P05 | API key list | `/workspaces/:workspace/keys` | Filter, grants, expiry, status, navigation | Verified scope: current unused-key search/retention/reset, recorded wildcard/exact grants, active/expired/revoked status and detail navigation at desktop/390px; runtime grant admission remains tracked in P06/P07 |
-| P06 | API key creation | `/workspaces/:workspace/keys/new` | Validation, permissions, one-time secret, persistence | In review: actual finite/nonexpiring creation, exact model grants, native guidance and four saved limits qualified; inference admission pending |
-| P07 | API key detail | `/workspaces/:workspace/keys/:key` | Limits, rotation, revocation, history, conflict recovery | In review: actual limits, metadata/rate conflicts, rotation inheritance, expiry and revocation/history qualified; runtime limit admission pending |
+| P06 | API key creation | `/workspaces/:workspace/keys/new` | Validation, permissions, one-time secret, persistence | In review: actual finite/nonexpiring creation, exact model grants, native guidance and four saved limits qualified; zero-request-rate rejection qualified; other runtime admission pending |
+| P07 | API key detail | `/workspaces/:workspace/keys/:key` | Limits, rotation, revocation, history, conflict recovery | In review: actual limits, metadata/rate conflicts, rotation inheritance, expiry and revocation/history qualified; zero-request-rate rejection qualified; remaining runtime limits pending |
 | P08 | Workspace members | `/workspaces/:workspace/users` | Invite/manage roles and scope enforcement | Verified scope: genuine Owner GUI member creation, one-time credential, role changes/conflict recovery and revocation; same-token scope/expiry, current permissions and exact audit independently qualified |
 | P09 | Organization management | `/workspaces/:workspace/organization` | Company/workspace ownership and supported actions | In review: actual workspace links and create dialog desktop/narrow; full ownership boundaries pending |
 | P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | In review: rename/reload and guarded empty-workspace deletion verified; actual Owner limit save, API/SDK/database readback, workspace switching and lost-response/read-failure recovery qualified; remaining conflict and role boundaries pending |
@@ -76,6 +76,13 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C18 | P2 | P30 | Token-only members see a password-change action despite having no current password credential | Fixed; actual credential eligibility at desktop/390px, normal configured-password sign-in, self-service change and old-session/password rejection independently qualified |
 | C19 | P1 | P30 | Profile response loss allows another save and authoritative reload does not update the shared account menu | Fixed; actual successful-response loss, failed recovery read, GET-only retry and shared-menu synchronization qualified at desktop/390px; independent profile/avatar persistence and original-account preservation confirmed |
 | C20 | P1 | P29 | Supplier portal current offers omit saved reasoning, cache-write and context-tier rates | Fixed; actual own Supplier Viewer rendered omission reproduced, then populated/null category and tier-local fallback displays independently qualified at desktop/390px; no pricing mutation |
+
+## Reproduced follow-up defects
+
+| Candidate | Priority | Page families | Actual gap | State |
+| --- | --- | --- | --- | --- |
+| C21 | P1 | P27 | Newly created/deleted Supplier audit events omit the authenticated actor, while key edits retain it | Reproduced by actual API/SQL; attribution fix in progress; historical unknown actors must remain unchanged |
+| C22 | P1 | P07, P12 | A rejected zero-request-rate invocation retains a not-sent attempt but loses requested-key attribution and admission reason in Logs | Actual SDK 429 and desktop/390px Logs reproduced; persistence design under review; never infer missing evidence from current configuration |
 
 ## Delivery order
 
@@ -484,3 +491,12 @@ Two previously created, disabled audit credentials belonging to the same Supplie
 Independent PostgreSQL snapshots at all four saves confirmed each selected key alone advanced its revision twice. Both original names were restored; encrypted credential bytes, API base, adapter, disabled status, other protected fields, model bindings and offer bindings remained unchanged. The other key stayed unchanged during each individual save. Existing production credentials, other Supplier configuration, Owner records and durable financial/request records remained unchanged.
 
 This qualifies independent name configuration for two existing disabled keys. It does not qualify credential replacement, enabled route discovery, live model calls, endpoint changes or all conflict/recovery branches. No upstream call was made.
+
+
+### Zero request-rate admission
+
+A new short-lived own key was restricted to one existing personal free-route alias, then given an explicit zero requests-per-minute policy. API and independent PostgreSQL reads confirmed the policy before one actual built-SDK invocation. The request returned HTTP 429 `key_request_rate_disabled`, with no retry or stream events.
+
+Independent persistence verification found one new prepared `not_sent` attempt with null dispatch time and no bound dispatch key. There was no upstream generation reference, key or Supplier rate admission, customer reservation, debit or Supplier earning for that attempt. The prior four attempts, saved sessions/drafts and original durable financial records remained unchanged. The new key and its fresh CLI session were revoked afterward; the original expired key was not renewed.
+
+The key detail displayed `0 · New requests blocked` at desktop and 390px. Logs honestly showed Not sent, unknown usage and Not charged, but its requested key and admission reason were absent; C22 tracks that diagnostic gap. This scope qualifies zero request-rate rejection, not positive-window exhaustion, concurrency/token limits, budget admission or complete Logs diagnostics. No Provider generation occurred.
