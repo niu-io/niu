@@ -13342,7 +13342,7 @@ HTTP 503: Storage unavailable
 
 `PUT /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy`
 
-Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
+Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history with an authenticated credit-approval actor in the same transaction. Historical revisions remain unattributed. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
 
 Implementation: `implemented`. Operation: `configureCustomerBalancePolicy`.
 
@@ -36997,6 +36997,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "retail_text_enrollment",
         "retail_media_enrollment",
         "balance_grant",
+        "credit_policy",
         "media_liability"
       ]
     },

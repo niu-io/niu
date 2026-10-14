@@ -136,6 +136,7 @@ pub struct PlatformAuditQuery {
 ///             "retail_text_enrollment",
 ///             "retail_media_enrollment",
 ///             "balance_grant",
+///             "credit_policy",
 ///             "media_liability"
 ///           ]
 ///         },

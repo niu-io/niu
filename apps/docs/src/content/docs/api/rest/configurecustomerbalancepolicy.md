@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `PUT /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy`
 
-Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
+Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history with an authenticated credit-approval actor in the same transaction. Historical revisions remain unattributed. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
 
 Operation: `configureCustomerBalancePolicy`.
 
@@ -144,6 +144,6 @@ Stale revision, unknown company or outstanding reservations prevent credit reduc
 
 ## Behavior and supported scope
 
-Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
+Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history with an authenticated credit-approval actor in the same transaction. Historical revisions remain unattributed. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
 
 **Supported scope:** implemented

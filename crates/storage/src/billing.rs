@@ -255,6 +255,26 @@ SELECT jsonb_build_object(
         warning_threshold_nanos: Option<i64>,
         expected_revision: i64,
     ) -> Result<i64, StoreError> {
+        self.configure_customer_balance_policy_recorded(
+            organization,
+            currency,
+            credit_limit_nanos,
+            warning_threshold_nanos,
+            expected_revision,
+            None,
+        )
+        .await
+    }
+
+    pub async fn configure_customer_balance_policy_recorded(
+        &self,
+        organization: Uuid,
+        currency: &str,
+        credit_limit_nanos: i64,
+        warning_threshold_nanos: Option<i64>,
+        expected_revision: i64,
+        actor: Option<crate::OperatorAuditActor>,
+    ) -> Result<i64, StoreError> {
         if currency.len() != 3
             || !currency.bytes().all(|b| b.is_ascii_uppercase())
             || credit_limit_nanos < 0
@@ -287,6 +307,12 @@ SELECT jsonb_build_object(
             .bind(organization).bind(account).bind(currency).bind(next).bind(credit_limit_nanos).bind(warning_threshold_nanos).execute(&mut *tx).await?;
         sqlx::query("UPDATE customer_balance_accounts SET credit_limit_nanos=$2,warning_threshold_nanos=$3,policy_revision=$4 WHERE id=$1")
             .bind(account).bind(credit_limit_nanos).bind(warning_threshold_nanos).bind(next).execute(&mut *tx).await?;
+        if let Some(actor) = actor {
+            let (kind, operator) = actor.kind_and_id();
+            sqlx::query("INSERT INTO customer_credit_policy_events(id,account_id,revision,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5)")
+                .bind(Uuid::new_v4()).bind(account).bind(next).bind(kind).bind(operator)
+                .execute(&mut *tx).await?;
+        }
         tx.commit().await?;
         Ok(next)
     }
