@@ -334,6 +334,9 @@ export type CustomerBalancePolicyHistory = {
   current_revision: string; next_before: string | null;
   data: Array<{ revision: string; credit_limit_nanos: string; warning_threshold_nanos: string | null; created_at: string; is_current: boolean }>;
 };
+/** Noncash gift; issuance is neither a receipt nor revenue. */
+export type CustomerBalanceGrantInput = { amount_nanos: string; reason: string; idempotency_key: string };
+
 /** Exact nonnegative nanounits and optimistic revision for installation credit policy. */
 export type CustomerBalancePolicyInput = {
   credit_limit_nanos: string; warning_threshold_nanos: string | null; expected_revision: string;
@@ -1582,6 +1585,18 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/policy`, {
       credit_limit_nanos: input.credit_limit_nanos, warning_threshold_nanos: input.warning_threshold_nanos, expected_revision: input.expected_revision,
     }, options, 'PUT');
+  }
+
+  /** Platform-only noncash gift. Reuse the same idempotency key for an exact retry; never creates a payment receipt. */
+  grantCustomerBalance(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
+    if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
+    if (typeof input.amount_nanos !== 'string' || !/^[1-9][0-9]{0,18}$/.test(input.amount_nanos)
+      || BigInt(input.amount_nanos) > 9223372036854775807n) throw new TypeError('Use an exact positive amount');
+    if (typeof input.reason !== 'string' || input.reason !== input.reason.trim() || [...input.reason].length < 1
+      || [...input.reason].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Use a trimmed justification without control characters');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants`, {
+      amount_nanos: input.amount_nanos, reason: input.reason, idempotency_key: uuid(input.idempotency_key),
+    }, options, 'POST');
   }
 
   /** Company warning preference only; cannot alter funds or approved credit. */

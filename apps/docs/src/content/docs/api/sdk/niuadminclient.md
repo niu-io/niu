@@ -983,6 +983,17 @@ setCustomerBalancePolicy(organizationId: string, currency: string, input: Custom
 }>;
 ```
 
+### grantCustomerBalance
+
+```typescript
+/** Platform-only noncash gift. Reuse the same idempotency key for an exact retry; never creates a payment receipt. */
+grantCustomerBalance(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{
+    data: {
+        id: string;
+    };
+}>;
+```
+
 ### setCustomerBalanceWarning
 
 ```typescript

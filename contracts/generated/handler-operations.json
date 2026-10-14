@@ -8042,6 +8042,113 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants": {
+      "post": {
+        "operationId": "grantCustomerBalance",
+        "summary": "Issue administrator noncash customer credit",
+        "description": "Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. This is not a payment receipt, debt forgiveness, or revenue. The gift is allocated against future confirmed consumption and reduces recognized revenue when consumed. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount and reason return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "amount_nanos",
+                  "reason",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "amount_nanos": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,18}$",
+                    "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "Trimmed justification without control characters."
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gift issued, or identical previously committed gift returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid exact amount, currency or reason"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Explicit platform administration required"
+          },
+          "409": {
+            "description": "Unknown company or conflicting idempotency key"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/admin/v1/pricing/targets": {
       "get": {
         "operationId": "listPlatformPricingTargets",

@@ -8296,6 +8296,118 @@ HTTP 409: Cursor outside workspace or filters.
 
 HTTP 503: Storage unavailable.
 
+## Issue administrator noncash customer credit
+
+`POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants`
+
+Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. This is not a payment receipt, debt forgiveness, or revenue. The gift is allocated against future confirmed consumption and reduces recognized revenue when consumed. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount and reason return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
+
+Implementation: `implemented`. Operation: `grantCustomerBalance`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amount_nanos",
+    "reason",
+    "idempotency_key"
+  ],
+  "properties": {
+    "amount_nanos": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Trimmed justification without control characters."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Gift issued, or identical previously committed gift returned
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid exact amount, currency or reason
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Unknown company or conflicting idempotency key
+
 ## Discover named platform pricing targets
 
 `GET /admin/v1/pricing/targets`

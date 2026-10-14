@@ -1,0 +1,160 @@
+//! Administrator noncash gifts; never merchant receipts or immediate revenue.
+use super::{ApiError, AppState, HeaderMap, Json, Path, State, Uuid, Value};
+use niu_storage::{CustomerBalanceGrantPublication, OperatorAuditActor};
+use serde::Deserialize;
+use serde_json::json;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GrantInput {
+    amount_nanos: String,
+    reason: String,
+    idempotency_key: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "grantCustomerBalance",
+///     "summary": "Issue administrator noncash customer credit",
+///     "description": "Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. This is not a payment receipt, debt forgiveness, or revenue. The gift is allocated against future confirmed consumption and reduces recognized revenue when consumed. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount and reason return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "currency",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "amount_nanos",
+///               "reason",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "amount_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$",
+///                 "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+///               },
+///               "reason": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 500,
+///                 "description": "Trimmed justification without control characters."
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Gift issued, or identical previously committed gift returned",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "id"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid exact amount, currency or reason"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Explicit platform administration required"
+///       },
+///       "409": {
+///         "description": "Unknown company or conflicting idempotency key"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn issue(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, currency)): Path<(Uuid, String)>,
+    Json(input): Json<GrantInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let actor = match auth {
+        crate::state::AdminAuthorization::Installation => OperatorAuditActor::Installation,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            OperatorAuditActor::Operator(operator.id)
+        }
+    };
+    let amount = super::exact_nonnegative_integer(&input.amount_nanos)?;
+    if amount == 0 || input.amount_nanos.starts_with('0') {
+        return Err(ApiError::invalid_request(
+            "Use a positive exact amount without leading zeroes",
+        ));
+    }
+    let id = state
+        .store
+        .publish_customer_balance_grant(
+            organization,
+            CustomerBalanceGrantPublication {
+                currency: &currency,
+                amount_nanos: amount,
+                reason: &input.reason,
+                idempotency_key: input.idempotency_key,
+            },
+            actor,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data": {"id": id}})))
+}

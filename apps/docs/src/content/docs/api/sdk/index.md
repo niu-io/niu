@@ -61,6 +61,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [ContextPriceTier](/docs/api/sdk/contextpricetier/)
 - [CreatedCompany](/docs/api/sdk/createdcompany/)
 - [CustomerBalance](/docs/api/sdk/customerbalance/)
+- [CustomerBalanceGrantInput](/docs/api/sdk/customerbalancegrantinput/)
 - [CustomerBalancePolicyHistory](/docs/api/sdk/customerbalancepolicyhistory/)
 - [CustomerBalancePolicyInput](/docs/api/sdk/customerbalancepolicyinput/)
 - [CustomerBalanceReservation](/docs/api/sdk/customerbalancereservation/)
