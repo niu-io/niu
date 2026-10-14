@@ -842,10 +842,27 @@ listWorkspaceKeyPage(scope: TenantScope, query?: {
 }, options?: RequestOptions): Promise<WorkspaceKeyPage>;
 ```
 
-### getCustomerBalance
+### listPlatformCustomerAccounts
 
 ```typescript
 /** Shared company funds require organization-wide owner/admin authorization. */
+/** Platform-only named company accounts. Does not grant ordinary tenant access or create funds. */
+listPlatformCustomerAccounts(page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: {
+        organization_id: string;
+        organization_name: string;
+        accounts: CustomerBalance[];
+    }[];
+    next_after: string | null;
+}>;
+```
+
+### getCustomerBalance
+
+```typescript
 getCustomerBalance(organizationId: string, options?: RequestOptions): Promise<{
     data: CustomerBalance[];
 }>;

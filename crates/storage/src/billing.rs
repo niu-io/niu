@@ -478,35 +478,57 @@ SELECT jsonb_build_object(
         // One statement snapshot for every displayed amount. Calling a volatile
         // admission function twice could observe different concurrent commits.
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let balances = sqlx::query_scalar(
-            r#"WITH accounts AS MATERIALIZED (
-                SELECT a.*,
-                    COALESCE((SELECT SUM(e.amount_nanos) FROM customer_balance_entries e
-                        WHERE e.account_id=a.id),0) AS balance,
-                    COALESCE((SELECT SUM(r.amount_nanos) FROM customer_balance_reservations r
-                        WHERE r.account_id=a.id AND r.released_at IS NULL),0) AS reserved,
-                    COALESCE((SELECT SUM(GREATEST(r.amount_nanos, COALESCE(m.amount_nanos,0)))
-                        FROM customer_balance_reservations r
-                        LEFT JOIN customer_media_charges m ON m.attempt_id=r.attempt_id
-                        WHERE r.account_id=a.id AND r.released_at IS NULL
-                          AND NOT EXISTS (SELECT 1 FROM customer_balance_entries e
-                              WHERE e.attempt_id=r.attempt_id AND e.kind='charge')),0) AS outstanding
-                FROM customer_balance_accounts a WHERE a.organization_id=$1
-            )
-            SELECT jsonb_build_object(
-                'currency',currency,'balance_nanos',balance::text,
-                'credit_limit_nanos',credit_limit_nanos::text,
-                'policy_revision',policy_revision::text,
-                'warning_threshold_nanos',warning_threshold_nanos::text,
-                'low_balance',CASE WHEN warning_threshold_nanos IS NULL THEN false
-                    ELSE balance<warning_threshold_nanos END,
-                'posted_credit_exhausted',balance+credit_limit_nanos<=0,
-                'reserved_nanos',reserved::text,'outstanding_nanos',outstanding::text,
-                'available_nanos',(balance+credit_limit_nanos-outstanding)::text
-            ) FROM accounts ORDER BY currency"#,
-        ).bind(organization).fetch_all(&mut *snapshot).await?;
+        let balances: Vec<(Uuid, Value)> =
+            sqlx::query_as(include_str!("customer_balance_projection.sql"))
+                .bind(vec![organization])
+                .fetch_all(&mut *snapshot)
+                .await?;
         snapshot.commit().await?;
-        Ok(balances)
+        Ok(balances.into_iter().map(|(_, balance)| balance).collect())
+    }
+
+    /// Platform-only named account discovery; callers must authorize platform
+    /// administration. Shared arithmetic, one bounded snapshot and no ledger detail.
+    pub async fn platform_customer_accounts(
+        &self,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<Value, StoreError> {
+        if !(1..=100).contains(&limit) {
+            return Err(StoreError::InvalidPrice);
+        }
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        if let Some(cursor) = after {
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM organizations WHERE id=$1)")
+                    .bind(cursor)
+                    .fetch_one(&mut *snapshot)
+                    .await?;
+            if !exists {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let mut companies: Vec<(Uuid, String)> = sqlx::query_as("SELECT id,name FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
+            .bind(after).bind(limit+1).fetch_all(&mut *snapshot).await?;
+        let more = companies.len() > limit as usize;
+        companies.truncate(limit as usize);
+        let next = if more {
+            companies.last().map(|(id, _)| *id)
+        } else {
+            None
+        };
+        let balances: Vec<(Uuid, Value)> =
+            sqlx::query_as(include_str!("customer_balance_projection.sql"))
+                .bind(companies.iter().map(|(id, _)| *id).collect::<Vec<_>>())
+                .fetch_all(&mut *snapshot)
+                .await?;
+        let mut grouped = std::collections::BTreeMap::<Uuid, Vec<Value>>::new();
+        for (organization, balance) in balances {
+            grouped.entry(organization).or_default().push(balance);
+        }
+        let data: Vec<Value> = companies.into_iter().map(|(id,name)| json!({"organization_id":id,"organization_name":name,"accounts":grouped.remove(&id).unwrap_or_default()})).collect();
+        snapshot.commit().await?;
+        Ok(json!({"data":data,"next_after":next}))
     }
 
     /// Complete customer catalog prices; this compatibility map has no cursor.

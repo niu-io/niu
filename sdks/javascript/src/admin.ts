@@ -1571,6 +1571,17 @@ export class NiuAdminClient {
   }
 
   /** Shared company funds require organization-wide owner/admin authorization. */
+  /** Platform-only named company accounts. Does not grant ordinary tenant access or create funds. */
+  listPlatformCustomerAccounts(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { organization_id: string; organization_name: string; accounts: CustomerBalance[] }[]; next_after: string | null }> {
+    const query = new URLSearchParams();
+    if (page.after !== undefined) query.set('after', uuid(page.after));
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/platform/customer-accounts${query.size ? '?' + query : ''}`, undefined, options);
+  }
+
   getCustomerBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerBalance[] }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/balance`, undefined, options);
   }

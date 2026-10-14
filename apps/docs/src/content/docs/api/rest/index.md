@@ -301,6 +301,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /admin/v1/platform/branding` — Read platform branding and theme configuration](/docs/api/rest/getbranding/)
 - [`PUT /admin/v1/platform/branding` — Save platform branding and theme configuration](/docs/api/rest/savebranding/)
 - [`GET /admin/v1/platform/configuration` — Read platform payment configuration presence](/docs/api/rest/getplatformconfiguration/)
+- [`GET /admin/v1/platform/customer-accounts` — Discover named customer accounts for platform financial administration](/docs/api/rest/listplatformcustomeraccounts/)
 - [`GET /admin/v1/platform/financial-recovery` — Read committed financial recovery progress](/docs/api/rest/getfinancialrecoverydiagnostics/)
 - [`GET /admin/v1/platform/payments/epay` — Read EPay configuration with platform administrator read access](/docs/api/rest/getplatformepayconfiguration/)
 - [`PUT /admin/v1/platform/payments/epay` — Save encrypted EPay configuration with platform administrator write access](/docs/api/rest/saveplatformepayconfiguration/)

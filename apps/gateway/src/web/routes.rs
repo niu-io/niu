@@ -132,6 +132,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/billing/funding/settled", axum::routing::post(crate::billing::settled_funding))
         .route("/admin/v1/pricing/models", get(crate::billing::platform_pricing::models))
         .route("/admin/v1/commercial-position", get(crate::billing::commercial_position::read))
+        .route("/admin/v1/platform/customer-accounts", get(crate::billing::platform_accounts::list))
         .route("/admin/v1/financial-summary", get(crate::billing::financial_summary::read))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment", get(crate::billing::media_retail_enrollment::read).post(crate::billing::media_retail_enrollment::publish).layer(axum::extract::DefaultBodyLimit::max(4096)))
         .route("/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds", get(crate::billing::media_liability::list).post(crate::billing::media_liability::publish).layer(axum::extract::DefaultBodyLimit::max(16384)))
