@@ -1,0 +1,24 @@
+---
+title: Customer pricing
+description: Publish customer tariffs independently of Supplier purchase rates.
+---
+
+Open **Admin → Customer pricing** to manage the prices charged to a customer's workspace. Customer tariffs are distinct from confidential Supplier offers and procurement rates.
+
+## Publish a tariff
+
+1. Choose the **company and workspace** in the pricing view.
+2. Select the model and inspect its current customer tariff and publication history.
+3. Set the supported currency, rates and applicable price categories. Use the form's declared billing units; do not substitute a Supplier purchase price.
+4. Publish the change and confirm the saved revision. If publication is unconfirmed, reload its state before attempting another change.
+5. Make a bounded request through that workspace and inspect reported usage and its customer charge.
+
+Rates are versioned. Subsequent price changes must not reprice a completed request. Supported cache, reasoning, context-tier, per-request and minimum-charge fields depend on the pricing contract; fields in a form do not establish every model's usage-category support.
+
+## Pricing is not spending capacity
+
+Company funds or approved credit, workspace spending caps and API-key caps are separate controls. A customer tariff determines a charge; it does not top up a balance or grant credit. Applicable reservations count toward supported spending limits before dispatch.
+
+Missing usage or unresolved customer pricing must stay explicit. Do not label an unknown charge as free or replace it with an upstream expense. Read [usage and billing](/docs/concepts/performance-and-cost/) and the generated [customer tariff operations](/docs/api/rest/listplatformcustomertariffs/) for the contract.
+
+Video/media rate schedules are separate from text token tariffs. Qualify the concrete model and meter before promising a video price or settled charge.

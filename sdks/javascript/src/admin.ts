@@ -67,6 +67,8 @@ export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 /** Platform-only credential configuration metadata. Secret values are never returned. */
 export type SupplierBusiness = {
   id: string; name: string; api_keys: number; models: number; members: number;
+  /** Enabled saved configurations and mappings; not upstream verification. */
+  enabled_api_keys?: number; enabled_model_routes?: number;
   qualification_status: 'qualified' | 'unqualified';
 };
 

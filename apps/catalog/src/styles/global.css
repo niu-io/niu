@@ -2,7 +2,7 @@
 
 :root {
   --brand-orange: #b9775a;
-  --brand-ink: #e0b396;
+  --brand-ink: var(--primary);
   --page-width: 1184px;
   --copy-color: color-mix(in oklab, var(--foreground) 74%, var(--background));
   font-family:
@@ -204,8 +204,7 @@ summary:focus-visible {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: linear-gradient(145deg, color-mix(in oklab, var(--card) 94%, #3b332b), var(--card));
-  box-shadow: 0 24px 64px #0005;
+  background: var(--card);
 }
 .catalog-heading {
   display: flex;

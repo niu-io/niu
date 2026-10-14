@@ -1,0 +1,24 @@
+---
+title: Payment configuration
+description: Configure platform payment gateways separately from customer billing.
+---
+
+**Admin → Payment gateways** configures platform payment integrations. Customer balance, top-ups and transactions are in **Settings → Billing** and **Settings → Payments**; customers should not need merchant credentials to pay.
+
+## Configure EPay
+
+1. Open **Payment gateways** and inspect each integration's configured status.
+2. Choose **Configure** for EPay.
+3. Enter the merchant ID, gateway URL, notification URL and return URL supplied for your deployment. Enter the merchant signing key privately.
+4. Choose the supported Alipay or WeChat Pay methods, and enable the integration when its configuration is ready.
+5. Save, then reopen the configuration to confirm the stored state. Reads indicate whether a key exists rather than returning the saved key.
+
+Configuration saves use a revision. Reload after a stale-revision conflict rather than overwriting another administrator's changes. Keep signing secrets out of source control, public files, screenshots and logs.
+
+The supported gateway inventory can include integrations configured outside this dialog. A listed integration is not a promise that the dashboard can edit it; the current form edits EPay. See the generated [EPay configuration operation](/docs/api/rest/saveplatformepayconfiguration/) for exact fields and authorization.
+
+## Verify payment behavior separately
+
+Configured and enabled status do not establish merchant activation or a successful top-up. Verify the actual deployment's signed checkout, notification handling and funding records before advertising a method as available. A return-page visit is not settlement evidence. Do not grant customer balance from an unverified callback or duplicate an already recorded payment.
+
+External refunds and complete commercial settlement qualification have their own implementation boundaries; do not infer them from a working configuration save.

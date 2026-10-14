@@ -16,6 +16,9 @@ export type SupplierBusiness = {
     api_keys: number;
     models: number;
     members: number;
+    /** Enabled saved configurations and mappings; not upstream verification. */
+    enabled_api_keys?: number;
+    enabled_model_routes?: number;
     qualification_status: 'qualified' | 'unqualified';
 };
 ```

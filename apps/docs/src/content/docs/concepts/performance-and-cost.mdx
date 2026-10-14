@@ -1,14 +1,32 @@
 ---
-title: Performance and cost
-description: Niu's product goals and how the complete path will be measured.
+title: Usage and billing
+description: Understand reported model usage, customer charges and spending limits.
 ---
 
-Niu optimizes two outcomes: performance and cost. Security defines the conditions a configuration must satisfy before it can be compared.
+Niu records requests handled by your gateway. Use request logs and usage reports to see which models, workspace keys and periods account for consumption. A token count is usage evidence; it is not a price by itself.
 
-Performance includes request admission, authentication, route selection, policy execution, provider calls, streaming, and settlement overhead. Report p50 and tail latency, time to first token, throughput, failure rate, memory, and CPU.
+## Read a customer charge
 
-Cost includes provider spend, retry exposure, inference overhead, deployment resources, and operational effort. Customer charges and provider liabilities are separate accounting dimensions. Budget enforcement requires durable admission and recovery, not a response-time estimate alone.
+A priced request uses the effective customer tariff and the usage categories reported for that request. Customer prices are separate from confidential Supplier purchase rates and platform margins. A later tariff change must not rewrite an earlier request's price history.
 
-Compare full configurations with the same protocols, tasks, providers, capabilities, and safety conditions. Record source versions, images, workloads, environment, raw results, and known limits.
+If usage or a charge cannot be established, it stays unresolved. An unknown amount is not zero and does not imply free inference. A failed response or a disconnected client does not by itself prove that an upstream request never ran.
 
-For a repeatable test procedure, see [Gateway load testing](/docs/guides/gateway-load-testing/).
+Read [request logs](/docs/concepts/execution-observation/) for the available status, timing, token and customer-charge evidence. High consumption is a reason to investigate; it does not prove unnecessary work or counterfactual savings.
+
+## Understand spending controls
+
+| Layer | Meaning |
+| --- | --- |
+| Company funds and approved credit | Shared customer spending capacity |
+| Workspace cap | Limits applicable consumption within a workspace |
+| API-key cap | Limits consumption attributed to an application key |
+
+For supported priced requests, outstanding reservations count alongside committed charges. Rotating a key must not silently reset its budget identity. Personal upstream-key use is separate from customer funds; the contract defines which controls apply.
+
+Customer Billing and Payments show customer balances, charges and transactions. Administrators configure [customer tariffs](/docs/admin/pricing/) and [payment integrations](/docs/admin/payments/). A configured gateway or checkout return page is not evidence that funds were received.
+
+## Video and media usage
+
+Video metering and pricing use the supported model's declared units and schedule, rather than assuming text-token prices. A successful job, retained output availability and a settled charge are separate states. Follow the [video guide](/docs/reference/video/) and its model-specific limits.
+
+For operating measurements rather than application billing, see [gateway load testing](/docs/guides/gateway-load-testing/).

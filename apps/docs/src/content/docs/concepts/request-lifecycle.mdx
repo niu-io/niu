@@ -1,12 +1,24 @@
 ---
 title: Request lifecycle
-description: The Niu-owned request coordination boundary.
+description: Follow authorization, upstream execution, delivery and accounting.
 ---
 
-One coordinator owns authorization, model resolution, routing, provider attempts, retry decisions, client delivery, and settlement. Provider adapters translate protocols and perform one upstream attempt; they do not silently add retries.
+A request passes through gateway access checks before it reaches a configured upstream model. Niu's records distinguish upstream execution, client delivery and financial settlement.
 
-Before dispatch, the coordinator validates tenant and key access, resolves an immutable configuration revision, checks revocation and safety policy, and reserves any applicable budget. Every attempt has a stable identity and a bounded deadline.
+## Before dispatch
 
-Execution, response delivery, and financial settlement are tracked separately. After response headers are committed to the client, the initial policy does not replace the upstream attempt. If a provider may have executed but usage is unknown, accounting keeps the exposure pending reconciliation.
+The gateway checks the workspace key, model grants, enabled route and applicable limits. Configured policies apply at their supported boundaries. For supported priced requests, admission reserves the applicable customer spending capacity before dispatch.
 
-This page describes the target contract. Each guarantee becomes a shipped capability only after its implementation and multi-replica failure behavior are tested.
+Keep the public model alias in your application. Provider endpoints and credentials remain in authorized server-side configuration; clients cannot select arbitrary upstream credentials.
+
+## During execution
+
+A selected upstream attempt has its own recorded attribution. A stream can deliver provisional content before terminal usage is known. Retrying a request can create another upstream execution, so retries must follow a documented policy rather than assuming that a timeout means nothing happened.
+
+Niu's currently qualified pool failover is bounded; the [routing guide](/docs/configuration/models/) and [retry policy](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md) explain supported cases. Do not infer general fault recovery or model coverage from one working adapter.
+
+## After the response
+
+[Request logs](/docs/concepts/execution-observation/) retain available status, timing and reported usage. [Customer billing](/docs/concepts/performance-and-cost/) uses the applicable customer-price evidence. Missing or uncertain usage and liabilities remain explicit instead of being discarded after a disconnect or restart.
+
+Video jobs have an asynchronous lifecycle: submission, status, available results and settlement are separate observations. See [video generation](/docs/reference/video/) for supported operations and result retention.

@@ -198,12 +198,12 @@ describe('vendor administration workflow', () => {
     expect(await screen.findByRole('button', { name: 'Add supplier' })).toBeTruthy();
     await user.click((await screen.findAllByRole('button', { name: 'Add supplier' }))[0]);
     await user.type(await screen.findByLabelText('Supplier name'), 'OpenRouter primary');
-    expect(screen.getByLabelText('Upstream API service').textContent).toBe('OpenRouter');
+    expect(screen.getByLabelText('API format').textContent).toBe('OpenRouter API');
     expect((screen.getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://openrouter.ai/api/v1');
     await user.type(screen.getByLabelText('Supplier API key'), 'vendor-secret-once');
     await user.click(screen.getByRole('button', { name: 'Create supplier' }));
 
-    expect(await screen.findByRole('heading', { name: 'OpenRouter primary' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'OpenRouter primary routes' })).toBeTruthy();
     await waitFor(() => expect(api.calls.some(call => call.path === '/admin/v1/vendors/vendor-1/models' && call.method === 'GET')).toBe(true));
     const createVendor = api.calls.find(call => call.path === '/admin/v1/vendors' && call.method === 'POST');
     expect(createVendor?.body).toEqual({
@@ -218,7 +218,7 @@ describe('vendor administration workflow', () => {
     expect(screen.queryByLabelText('Replace supplier API key (optional)')).toBeNull();
     expect(localStorage.length).toBe(0);
 
-    await openModels(user);
+    expect(screen.getByRole('dialog')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Add model' }));
     await user.type(screen.getByLabelText('Niu model alias'), 'team/fast');
     await user.type(screen.getByLabelText('Upstream model ID'), 'openai/gpt-4.1-mini');
@@ -286,6 +286,7 @@ describe('vendor administration workflow', () => {
     await user.type(screen.getByLabelText('API key name'), 'Specialized models');
     await user.type(screen.getByLabelText('Supplier API key'), 'independent-secret');
     await user.click(screen.getByRole('button', { name: 'Add API key' }));
+    await user.click(await screen.findByRole('button', { name: 'Close model management' }));
     expect(await screen.findByRole('heading', { name: 'Specialized models' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Select Supplier API key' }).textContent).toContain('Specialized models');
     const creation = api.calls.find(call => call.method === 'POST' && call.path === '/admin/v1/vendors');
@@ -381,11 +382,12 @@ describe('vendor administration workflow', () => {
     await screen.findByRole('heading', { name: openRouter.name });
     await user.click(screen.getByRole('button', { name: 'Add supplier' }));
     await user.type(screen.getByLabelText('Supplier name'), 'OpenAI fallback');
-    await user.click(screen.getByLabelText('Upstream API service'));
-    await user.click(screen.getByRole('menuitemradio', { name: 'OpenAI' }));
+    await user.click(screen.getByLabelText('API format'));
+    await user.click(screen.getByRole('menuitemradio', { name: 'OpenAI-compatible API' }));
     await user.type(screen.getByLabelText('Supplier API key'), 'second-vendor-key');
     await user.click(screen.getByRole('button', { name: 'Create supplier' }));
 
+    await user.click(await screen.findByRole('button', { name: 'Close model management' }));
     expect(await screen.findByRole('heading', { name: 'OpenAI fallback' })).toBeTruthy();
     expect(screen.getByText('https://api.openai.com/v1')).toBeTruthy();
     expect(api.calls.find(call => call.path === '/admin/v1/vendors' && call.method === 'POST')?.body).toMatchObject({

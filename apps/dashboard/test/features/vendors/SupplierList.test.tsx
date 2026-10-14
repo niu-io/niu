@@ -1,4 +1,4 @@
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
@@ -77,4 +77,37 @@ it('keeps a rejected Supplier name editable without read recovery',async()=>{
   expect(await screen.findByText('Supplier name is already used.')).toBeTruthy();
   expect((screen.getByLabelText('Supplier name') as HTMLInputElement).value).toBe('Existing business');
   expect(writes).toBe(1);
+});
+
+
+it('shows saved logos and default fallbacks without a redundant configuration status column', async () => {
+  const { supplierLogoPresets } = await import('@/features/vendors/supplier-logos');
+  const preset = supplierLogoPresets[0];
+  vi.mocked(request).mockResolvedValue({ data: [
+    { id: 'preset', name: 'Preset supplier', logo_url: preset.url, members: 0 },
+    { id: 'custom', name: 'Custom supplier', logo_url: 'https://example.com/logo.png', members: 0 },
+    { id: 'default', name: 'Default supplier', logo_url: '', members: 0 },
+  ] });
+  render(<MemoryRouter><SupplierList /></MemoryRouter>);
+  const presetLink = await screen.findByRole('link', { name: 'Preset supplier', exact: true });
+  expect(presetLink.closest('td')?.querySelector('img')?.getAttribute('src')).toBe(preset.src);
+  const customCell = screen.getByRole('link', { name: 'Custom supplier', exact: true }).closest('td')!;
+  expect(customCell.querySelector('img')?.getAttribute('src')).toBe('https://example.com/logo.png');
+  fireEvent.error(customCell.querySelector('img')!);
+  expect(customCell.querySelector('img')).toBeNull();
+  expect(customCell.querySelector('svg')).toBeTruthy();
+  const defaultCell = screen.getByRole('link', { name: 'Default supplier', exact: true }).closest('td')!;
+  expect(defaultCell.querySelector('svg')).toBeTruthy();
+  expect(screen.queryByRole('columnheader', { name: 'Configuration', exact: true })).toBeNull();
+  expect(screen.queryByText('Configuration saved')).toBeNull();
+});
+
+
+it('distinguishes commercial supply readiness from simply having an API key', async () => {
+  const { supplierAvailability } = await import('@/features/vendors/supplier-setup');
+  const configured = { api_keys: 1, enabled_api_keys: 1, models: 2, enabled_model_routes: 2, offers: 1, ready_offers: 0 };
+  expect(supplierAvailability({ ...configured, qualification_status: 'unqualified' }).label).toBe('Not qualified');
+  expect(supplierAvailability({ ...configured, qualification_status: 'qualified' }).label).toBe('Not ready');
+  expect(supplierAvailability({ ...configured, qualification_status: 'qualified', ready_offers: 1 }).label).toBe('Ready to supply');
+  expect(supplierAvailability({ ...configured, ready_offers: undefined }).label).toBe('Unknown');
 });

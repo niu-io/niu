@@ -8,7 +8,7 @@ const section = documentationSection(Astro.url.pathname);
 const links = navigation;
 ---
 <div class="docs-header">
-  <a class="docs-brand" href="/" aria-label="Niu home"><img src={brandMark.src} alt="" width="28" height="28" /><span>Niu</span></a>
+  <a class="docs-brand" href="/" aria-label="Niu home"><img src={brandMark.src} alt="" width="28" height="28" /><span class="docs-public-name">Niu</span><span class="docs-embedded-name">Niu Documentation</span></a>
   <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={section === label ? 'page' : undefined}>{label}</a>)}</nav>
   <div class="docs-header-tools"><Search /><ThemeSelect /></div>
 </div>

@@ -36,7 +36,7 @@ For every UI change, run the product and inspect the rendered result in a browse
 
 ## Reference-led UI design
 
-Use Stitch for frontend visual design and iteration. Reuse the existing Niu Stitch project and design system; give Stitch the actual mature-product reference, supported workflow, current screen and Niu constraints before requesting a design. Implement and browser-verify the resulting design with the installed shadcn primitives and existing brand tokens. Do not substitute an independently invented layout or treat generated mock data and unsupported capabilities as product requirements. If Stitch is unavailable, report the blocker before making visual design changes; functional fixes may continue within the established layout.
+Implement visual changes directly with the installed shadcn primitives, existing Niu brand tokens, and inspected mature-product references. Verify the rendered result and interaction states in the browser. Do not introduce a mandatory external design-generation step or treat mock data and unsupported capabilities as product requirements.
 
 This is mandatory for every UI task: do not invent a new UX pattern or visual layout. Borrow an existing, proven pattern from a mature product. For features comparable to OpenRouter, use OpenRouter as the default reference unless the user names another product. Inspect the actual relevant page and interaction states before editing; do not work from memory or call a loosely inspired redesign a faithful implementation.
 
@@ -50,11 +50,17 @@ For a feature that needs two navigation levels, use sidebar items for the first-
 
 ## Surface styling
 
-Dashboard management pages use the full available content width between navigation and canvas padding. Never add a fixed page width, centered bounded canvas, or page-level max-width. Only the Generations chat reading column may retain a readable maximum width. Dialogs and individual form controls may use appropriate bounded widths. Apply this rule to Stitch design briefs and the shared design system.
+Dashboard management pages use the full available content width between navigation and canvas padding. Never add a fixed page width, centered bounded canvas, or page-level max-width. Only the Generations chat reading column may retain a readable maximum width. Dialogs and individual form controls may use appropriate bounded widths. Apply this rule to design briefs and the shared design system.
 
 Model lists use a directly visible filter field in the first toolbar row, alongside list actions; they are exempt from the secondary-search popover rule. Search is a secondary action outside Logs. Show a compact search icon that opens an installed shadcn Popover search panel; do not leave large search fields permanently visible in page or sidebar layouts. Keep active filters apparent on the trigger, preserve the query when closing, and support keyboard focus and dismissal. Logs may retain a directly visible search field. Search fields inside an already opened choice menu or dialog remain appropriate.
 
 Use Manus as the reference for the shared visual treatment of agent-product surfaces. Prefer subtle solid background tones and spacing to separate navigation, content, and sections. Avoid repeated bordered cards and decorative shadows. Reserve elevation for floating panels, menus, and dialogs; retain meaningful input, focus, selection, and data-table affordances. Preserve Niu branding and use shared theme rules rather than page-by-page overrides.
+
+## Status and list information
+
+Design management lists around the decision users need to make. Every column and status must distinguish meaningful outcomes or support a concrete action. Do not expose a backend field merely because it exists, or display universal labels such as “Configuration saved” on lists containing only saved records.
+
+Keep API credential presence, configuration, current Supplier and offer qualification, supply readiness, live upstream verification, and workspace selling eligibility distinct. An API key or enabled route does not establish sellable inventory. Derive supply readiness from current approved, active model/rate offers and their matching enabled routes and credentials. Customer selling prices and authorization remain workspace-specific. Show missing requirements and link to the relevant remedy; never infer a positive state when evidence is unavailable.
 
 ## Supplier terminology
 

@@ -189,9 +189,10 @@ starlight-toc a {
   .comparison-table :is(th, td) { overflow-wrap: normal; }
 }
 
-:root[data-docs-embedded] .docs-brand { display: none; }
-:root[data-docs-embedded] .docs-header nav { margin-inline-start: 0; }
-:root[data-docs-embedded] .docs-header-tools { margin-inline-start: auto; }
+.docs-embedded-name { display: none; }
+:root[data-docs-embedded] .docs-brand img,
+:root[data-docs-embedded] .docs-public-name { display: none; }
+:root[data-docs-embedded] .docs-embedded-name { display: inline; }
 
 :root[data-api-reference] { --sl-content-width: 100%; }
 

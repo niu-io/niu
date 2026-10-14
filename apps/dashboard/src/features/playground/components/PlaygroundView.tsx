@@ -19,7 +19,6 @@ import { useChatDraft } from '../useChatDraft';
 import { IconPaperclip as Paperclip } from "@tabler/icons-react";
 import { IconArrowRight as ArrowRight } from "@tabler/icons-react";
 import { IconArrowUp as ArrowUp } from "@tabler/icons-react";
-import { IconArrowUpRight as ArrowUpRight } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCoin as CircleDollarSign } from "@tabler/icons-react";
@@ -933,7 +932,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
                         </div>
                         <div className="playground-result-actions">
                           {result.content && <Button type="button" variant="ghost" size="sm" aria-label={'Copy ' + result.model + ' response'} onClick={() => void copyResponse(`${turnIndex}:${result.model}`, result.content)}><ClipboardCopy size={14} />{copiedResponse === `${turnIndex}:${result.model}` ? 'Copied' : 'Copy'}</Button>}
-                          {result.attemptId && <Link className="playground-attempt-link" to={workspaceRoot + '/executions?modelAlias=' + encodeURIComponent(result.model) + '#gateway-attempt-' + encodeURIComponent(result.attemptId)}>Inspect request<ArrowUpRight size={13} /></Link>}
+                          {result.attemptId && <Link className="playground-attempt-link" to={workspaceRoot + '/executions?modelAlias=' + encodeURIComponent(result.model) + '#gateway-attempt-' + encodeURIComponent(result.attemptId)}>Inspect request</Link>}
                         </div>
                       </div>
                     </article>)}</div>
@@ -1101,7 +1100,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
           {!selectedKey && !managedKey && <div className="space-y-2"><Label htmlFor="playground-existing-key">Key secret</Label><Input id="playground-existing-key" type="password" autoComplete="off" spellCheck={false} disabled={running || settingsSaving || !draft.ready} value={manualKey} onChange={event => { setManualKey(event.target.value); setError(''); }} placeholder="Paste your API key" /><p className="text-sm text-muted-foreground">Paste a workspace API key to use it in this chat.</p></div>}
           {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="text-sm text-destructive">This key does not allow any available models.</p>}
         </div>
-        <div className="flex justify-between gap-3"><Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>Manage keys<ArrowUpRight size={15} /></Link></Button><Button disabled={!apiKey} onClick={() => setApiSettingsOpen(false)}>Done</Button></div>
+        <div className="flex justify-between gap-3"><Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>Manage keys</Link></Button><Button disabled={!apiKey} onClick={() => setApiSettingsOpen(false)}>Done</Button></div>
     </DialogContent>
     </Dialog>
   </div>;

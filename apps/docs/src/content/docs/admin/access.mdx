@@ -1,0 +1,28 @@
+---
+title: Administrator access
+description: Distinguish installation setup, platform administrators and scoped workspace roles.
+---
+
+## Choose the right authority
+
+| Authority | Purpose |
+| --- | --- |
+| Installation administrator | Initial setup and installation-wide administration using the configured bootstrap credential |
+| Authorized platform administrator | Platform configuration through an authenticated member session with the necessary permissions |
+| Company or workspace operator | Scoped customer resources; ownership does not grant platform-wide Supplier or configuration access |
+| Supplier member | The Supplier's own permitted business records, rather than platform administration |
+
+The dashboard restores a server session and checks its permissions before rendering protected administration routes. APIs check access independently. Do not use a customer workspace key as a platform administrator credential.
+
+## Bootstrap and member sign-in
+
+1. Keep the configured `NIU_ADMIN_TOKENS` credential in your deployment secret store.
+2. Open `/installation` for initial administrator access. Do not distribute the bootstrap credential to application developers or place it in browser storage or a public setup file.
+3. Provision scoped member access through the supported management interfaces. Use `/login` for ordinary configured password sign-in.
+4. Confirm the effective scope and permissions with the [session endpoint](/docs/api/rest/getadminsessionidentity/) before running management automation.
+
+Read the [security overview](/docs/security/overview/) for password sessions, expiry, revocation, cookies and deployment requirements. Self-registration and a complete OIDC/SAML login flow are not implemented; there is no current dashboard OAuth configuration workflow to follow.
+
+## Keep changes scoped
+
+Grant the smallest necessary authority. A workspace owner must not be able to grant company-wide or platform-wide access by changing a URL. Revoke unused sessions and credentials, and use [audit logs](/docs/reference/platform-audit/) to review recorded access changes. A missing audit event does not prove an operation was attempted or rejected.

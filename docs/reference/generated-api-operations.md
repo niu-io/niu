@@ -14476,7 +14476,7 @@ HTTP 503: Storage unavailable.
 
 `GET /admin/v1/providers`
 
-Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Counts retain disabled credential configurations and models. Member counts include active memberships for non-revoked operators. Deleted Suppliers are excluded. Qualification is explicit and never inferred from configuration counts.
+Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Suppliers are excluded. Qualification is explicit and never inferred from configuration counts.
 
 Implementation: `implemented`. Operation: `listProviderBusinesses`.
 
@@ -14512,6 +14512,7 @@ Content type: `application/json`.
         "required": [
           "id",
           "name",
+          "logo_url",
           "api_keys",
           "models",
           "members",
@@ -14525,6 +14526,10 @@ Content type: `application/json`.
           "name": {
             "type": "string"
           },
+          "logo_url": {
+            "type": "string",
+            "description": "Saved Supplier logo URL; empty uses the default logo."
+          },
           "api_keys": {
             "type": "integer",
             "minimum": 0
@@ -14534,6 +14539,24 @@ Content type: `application/json`.
             "minimum": 0
           },
           "members": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offers": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Saved model offers with agreed Supplier rates."
+          },
+          "ready_offers": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Active offers with current Supplier and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+          },
+          "enabled_api_keys": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "enabled_model_routes": {
             "type": "integer",
             "minimum": 0
           },

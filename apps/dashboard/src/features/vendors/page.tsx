@@ -19,7 +19,7 @@ export default function SuppliersRoute() {
   if (section !== "configuration") return <ProviderAdministration />;
   return <ConnectGate>
     {({ token, session, refreshWorkspace }) => session
-      ? <SuppliersView key={token} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath="/models" />
+      ? <SuppliersView key={`${token}:${supplierId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath="/models" />
       : <section className="panel vendor-loading" role="status">Checking session permissions…</section>}
   </ConnectGate>;
 }

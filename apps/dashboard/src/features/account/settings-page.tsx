@@ -13,7 +13,7 @@ import type { DashboardContext } from '@/app/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/app/theme';
 import { useEffect } from 'react';
 import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconWallet, IconInfoCircle } from '@tabler/icons-react';
-import { IconArrowUpRight, IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
+import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
 import logo from '../../../../../branding/assets/niu-mark.png';
 
 function SettingsContent({context, section}: {context: DashboardContext; section: string | undefined}) {
@@ -45,9 +45,9 @@ function SettingsContent({context, section}: {context: DashboardContext; section
       </dl>
       <nav aria-label="Product resources" className="grid gap-1 sm:grid-cols-2">
         <Button asChild variant="ghost" className="justify-start"><NavLink to="/help/"><IconBook aria-hidden="true"/>Documentation<IconChevronRight className="ml-auto text-muted-foreground" aria-hidden="true"/></NavLink></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>Release notes<IconArrowUpRight className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub<IconArrowUpRight className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>Report an issue<IconArrowUpRight className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>Release notes</a></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub</a></Button>
+        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>Report an issue</a></Button>
       </nav>
       <nav aria-label="Legal resources" className="flex flex-wrap gap-x-5 gap-y-3 text-xs text-muted-foreground">
         <a href="https://github.com/niu-io/niu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline underline-offset-4"><IconLicense size={14} aria-hidden="true"/>License</a>

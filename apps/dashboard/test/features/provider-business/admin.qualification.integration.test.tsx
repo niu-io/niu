@@ -147,7 +147,8 @@ describe("installation Supplier qualification workflow", () => {
     expect(screen.getByText("Media offers").parentElement?.textContent).toBe("Media offers1");
     expect(screen.getByText("Text offers").parentElement?.textContent).toBe("Text offers0");
     expect(screen.getByText("Active offers").parentElement?.textContent).toBe("Active offers0");
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Purchase rate" })).toBeNull();
+    expect(screen.queryByText("Configuration saved")).toBeNull();
     await userEvent.setup().click(link);
     expect(await screen.findByRole("tab",{name:"Media rates"})).toBeTruthy();
     expect(screen.getByRole("tab",{name:"Text rates"}).getAttribute("aria-selected")).toBe("true");

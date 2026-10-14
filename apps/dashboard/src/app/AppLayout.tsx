@@ -659,7 +659,7 @@ export default function AppLayout() {
   useLayoutEffect(() => {
     const strip = supplierTabsRef.current;
     if (!strip) return;
-    const revealActiveTab = () => strip.querySelector<HTMLElement>('[role="tab"][data-state="active"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const revealActiveTab = () => strip.querySelector<HTMLElement>('[role="tab"][data-state="active"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     revealActiveTab();
     const observer = new ResizeObserver(revealActiveTab);
     observer.observe(strip);

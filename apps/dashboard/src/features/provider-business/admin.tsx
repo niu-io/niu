@@ -29,7 +29,9 @@ import MediaOfferPublisher from "./MediaOfferPublisher";
 import type { SupplierOffer } from "../../../../../sdks/javascript/src/admin";
 import type { Operator } from "@/features/operators/api";
 
-type Business = { id: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
+import { type SupplierSetup } from '@/features/vendors/supplier-setup';
+
+type Business = SupplierSetup & { id: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
 type SupplierMember = { operator_id: string; name: string; role: string; active: boolean; revoked: boolean };
 type AdminData = {
   balances: { currency: string; earned_nanos: string; unpaid_nanos: string; paid_nanos: string }[];
@@ -498,7 +500,7 @@ function Administration({ token }: { token: string }) {
     }
   }
   const sectionDescription = {
-    overview: 'Supply readiness, qualification, and outstanding payments.',
+    overview: 'Connect API access and model routes, then manage commercial rates and payments.',
     models: 'Agreed purchase rates and qualification for the models this supplier offers.',
     consumption: 'Supplier usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this supplier.',
@@ -535,6 +537,16 @@ function Administration({ token }: { token: string }) {
         </section>
       ) : (
         <section className="provider-admin-panel supplier-admin-surface" data-section={section}>
+          {section === "overview" && selectedBusiness && <div className="provider-admin-block">
+            <div className="provider-block-heading"><h2>API connection</h2></div>
+            <p className="px-6 pb-4 text-sm text-muted-foreground">Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.</p>
+            <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>Setup step</TableHead><TableHead>Status</TableHead><TableHead>Action</TableHead></TableRow></TableHeader><TableBody>
+              <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/suppliers/${selected}/configuration`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/suppliers/${selected}/configuration`}>Configure models</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Managed by workspace</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Customer pricing</Link></Button></TableCell></TableRow>
+            </TableBody></ShadcnTable>
+            <p className="px-6 pt-4 text-sm text-muted-foreground">Supplier portal access is optional. It lets Supplier representatives view their own business records; it does not connect an API key.</p>
+          </div>}
           {section === "members" && members.length > 0 && <div className="provider-members-summary">
             <IconUsers size={20} aria-hidden="true" />
             <strong>{members.length}</strong>

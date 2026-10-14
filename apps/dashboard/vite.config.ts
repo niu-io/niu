@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 
 const gateway = process.env.NIU_DEV_GATEWAY_URL ?? 'http://127.0.0.1:2566';
-const gatewayPaths = ['/auth/callback', '/enterprise', '/v1', '/admin/v1', '/catalog', '/docs', '/healthz', '/readyz', '/models', '/__niu_dev', '/catalog-assets', '/_catalog', '/favicon.ico'];
+const gatewayPaths = ['/auth/callback', '/enterprise', '/v1', '/admin/v1', '/catalog', '/docs', '/compare', '/healthz', '/readyz', '/models', '/__niu_dev', '/catalog-assets', '/_catalog', '/_astro', '/site-assets', '/favicon.ico', '/robots.txt', '/sitemap.xml'];
 
 export default defineConfig(({ command, mode }) => {
   if (command === 'serve') {
@@ -27,9 +27,16 @@ export default defineConfig(({ command, mode }) => {
         const url = new URL(request.url ?? '/', 'http://localhost');
         return url.searchParams.get('workspace') ? request.url : undefined;
       } : undefined,
-      rewrite: (requestPath: string) => requestPath.startsWith(`${basePrefix}/`)
-        ? requestPath.slice(basePrefix.length)
-        : requestPath,
+      rewrite: (requestPath: string) => {
+        const unprefixed = requestPath.startsWith(`${basePrefix}/`)
+          ? requestPath.slice(basePrefix.length)
+          : requestPath;
+        // Community development has no website artifact. Use the docs-owned
+        // comparison directly, including with an older running Gateway binary.
+        return path === '/compare' && !process.env.NIU_SITE_DIR?.trim()
+          ? `/docs${unprefixed}`
+          : unprefixed;
+      },
     };
     return basePrefix
       ? [[path, proxy], [`${basePrefix}${path}`, proxy]]

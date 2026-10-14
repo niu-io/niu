@@ -4,7 +4,6 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, Di
 import ProviderLogo from '@/components/ProviderLogo';
 import { connectionIdentity } from '@/lib/providers';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconArrowUpRight as ArrowUpRight } from "@tabler/icons-react";
 
 import { IconPencil as Pencil } from "@tabler/icons-react";
 import { IconPlugConnected as Router } from "@tabler/icons-react";
@@ -243,6 +242,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
       setAddingVendor(false);
       setEditingVendor(false);
       setSelectedVendorId(result.data.id);
+      setManagingModels(true);
       try {
         await reloadVendors(signal);
       } catch {
@@ -401,7 +401,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
       />}
       {!loadingVendors && selectedVendor ? <section className="supplier-detail-header" aria-labelledby="vendor-detail-title">
         <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedVendor)} size="large" /><div><h2 id="vendor-detail-title">{selectedVendor.name}</h2><p>{vendorAdapterApiLabels[selectedVendor.adapter]}</p></div><span className={'vendor-status-badge' + (selectedVendor.enabled ? ' is-enabled' : '')}>{selectedVendor.enabled ? 'Enabled' : 'Disabled'}</span></div>
-        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedVendor.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>Model routes{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingVendor(true); }}><Pencil size={15} />Edit API key</Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>Model catalog<ArrowUpRight size={14} /></Link></Button></div></div>
+        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedVendor.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>Model routes{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingVendor(true); }}><Pencil size={15} />Edit API key</Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>Model catalog</Link></Button></div></div>
         {!selectedVendor.has_credential && <p className="error-text" role="status">No credential stored. Edit this API key to configure access.</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedVendor.id}`} token={token} vendorId={selectedVendor.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedVendor.id}:cooldown`} token={token} vendorId={selectedVendor.id} />}

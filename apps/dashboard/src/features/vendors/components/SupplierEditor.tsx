@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { request, defaultApiBase, vendorAdapterLabels, type Vendor, type VendorAdapter, type VendorWrite } from '../api';
+import { request, defaultApiBase, vendorAdapterApiLabels, type Vendor, type VendorAdapter, type VendorWrite } from '../api';
 
 export type VendorCreate = { name: string; adapter: VendorAdapter; api_base: string; api_key: string; enabled: true; create_supplier?: true; supplier_id?: string };
 
@@ -96,7 +96,7 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
       <div className="vendor-editor-title-copy">
         <p className="eyebrow">{vendor ? 'API KEY' : 'NEW API KEY'}</p>
         <h2 id="vendor-editor-title">{title}</h2>
-        <p>{vendor ? `Revision ${vendor.revision} · ${vendor.has_credential ? 'Credential stored' : 'No credential stored'}` : 'Supplier identity stays visible; the stored credential is never shown again.'}</p>
+        <p>{vendor ? `Revision ${vendor.revision} · ${vendor.has_credential ? 'Credential stored' : 'No credential stored'}` : 'Save the upstream key, then choose the models it supplies.'}</p>
       </div>
       {vendor && <span className={'vendor-status-badge' + (vendor.enabled ? ' is-enabled' : '')}>{vendor.enabled ? 'Enabled' : 'Disabled'}</span>}
     </div>
@@ -117,15 +117,15 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
         <Label htmlFor="vendor-name">{supplierId || vendor ? 'API key name' : 'Supplier name'}
           <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder="e.g. Primary inference" required disabled={disabled} />
         </Label>
-        <Label htmlFor="vendor-adapter">Upstream API service
+        <Label htmlFor="vendor-adapter">API format
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(vendor)}>{vendorAdapterLabels[adapter]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(vendor)}>{vendorAdapterApiLabels[adapter]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={adapter} onValueChange={value => changeAdapter(value as VendorAdapter)}>
-              <DropdownMenuRadioItem value="openrouter">OpenRouter</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="openai">OpenAI</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="anthropic">Anthropic</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="gemini">Google Gemini</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="ark">Volcengine Ark</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="openrouter">OpenRouter API</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="openai">OpenAI-compatible API</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="anthropic">Anthropic Messages API</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="gemini">Google Gemini API</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="ark">Ark-compatible API</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
         </Label>
@@ -156,9 +156,9 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
       </div>}
 
       <div className="vendor-editor-footer">
-        <p>{vendor ? 'Upstream API service cannot be changed after creation.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
+        <p>{vendor ? 'API format cannot be changed after creation.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
         <Button type="submit" disabled={disabled || ownershipUnavailable || !name.trim() || !apiBase.trim() || (!vendor && !apiKey)}>
-          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? supplierId ? 'Add API key' : 'Create supplier' : !vendor.enabled && enabled ? 'Enable supplier' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
+          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? supplierId ? 'Add API key' : 'Create supplier' : !vendor.enabled && enabled ? 'Enable API key' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
         </Button>
       </div>
     </form>

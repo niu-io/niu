@@ -1,120 +1,26 @@
 ---
-title: Integration notes
-description: Public Niu gateway and management API contracts.
+title: API integration
+description: Choose a tutorial or a generated API reference.
 prev: false
 ---
 
-Read the [implemented API operations](/docs/reference/handler-operations/) for
-handler-generated parameters, request bodies, response schemas and error states.
-This reference currently covers an annotated subset; other interfaces remain in
-the root OpenAPI contract below.
+Start with the [API quickstart](/docs/guides/api-quickstart/) for HTTP requests or the [SDK quickstart](/docs/guides/sdk-quickstart/) for typed JavaScript calls and streaming.
 
-The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml). It describes the implemented inference routes and scoped management workflows. The management surface is still partial; the first-release matrix tracks remaining route editing, audit coverage, policy, and reconciliation work.
+The [REST specification](/docs/api/rest/) is generated from the complete OpenAPI contract. The [SDK reference](/docs/api/sdk/) is generated from public TypeScript declarations. Download the [bundled OpenAPI JSON](/docs/openapi/public.json) for tools that consume the specification. Interface changes are checked against generated output in CI.
 
+## Operator roles and sessions
 
-The public API surface must preserve protocol-specific behavior. Unsupported parameters and event types are rejected or passed through according to the operation contract; they are not silently discarded.
+Management automation uses the authority required by the specific operation; a customer workspace key is not a platform administrator credential. Read [administrator access](/docs/admin/access/) and [security](/docs/security/overview/) for setup, sign-in, session restoration and revocation. Exact authentication and session schemas are in the [REST reference](/docs/api/rest/).
 
-Inference routes accept either `Authorization: Bearer <workspace-key>` or
-`X-Niu-API-Key: <workspace-key>`. Use the latter when a client must keep a
-provider credential in `Authorization`; the Niu key remains scoped to its
-workspace and is consumed at the gateway. This header only separates
-the two credentials. Provider-specific auth forwarding and subscription
-eligibility still depend on the configured route and supported client protocol.
+## Automatic gateway activity and task correlation
 
-## Frontend integration contract
+[Request logs](/docs/concepts/execution-observation/) describe usage and timing recorded for requests handled by Niu. Optional client correlation metadata does not turn these records into an external agent execution trace. Niu does not own task orchestration, external tool logs or outcome evaluation.
 
-Read the [backend business integration index](/docs/reference/backend-business/)
-for Supplier, key limits, billing recovery, video and current measured text paths.
+## Administration
 
-Use the [implemented API operations](/docs/reference/handler-operations/) to inspect
-method, path, authorization, request fields, response schemas and documented
-errors. Download the [generated OpenAPI JSON](/docs/openapi/handler-operations.json)
-for that annotated subset. Use the root contract above for additional interfaces;
-the generated subset is not the complete backend surface.
+[Administration](/docs/admin/) explains Supplier setup, customer tariffs, payment integration and branding. The [NiuAdminClient reference](/docs/api/sdk/niuadminclient/) contains the generated client interfaces; guides do not duplicate their signatures.
 
-Keep HTTP errors distinct from successful empty results. A declared unsupported
-operation must retain its documented error instead of returning fabricated data
-or a successful mutation. Revision conflicts require re-reading current state.
-Preserve the original idempotency identity when recovering an uncertain submission.
-A streaming HTTP 200 is not proof of successful generation: consume the stream's
-terminal state and handle its error event.
-
-### Stable workspace routing
-
-`GET /admin/v1/workspaces` accepts `limit` (1–1000, default 1000) and `after`.
-Follow `next_cursor` until null with the same credentials. Missing, deleted or
-out-of-scope cursors return 409; restart traversal after deletion. The directory
-uses company/workspace creation order, so renaming does not move an entry. Pages
-reflect live data rather than a frozen snapshot. `listWorkspaces()` follows all
-pages; `listWorkspacesPage({ limit, after })` supports incremental loading.
-
-The SDK exposes `listWorkspaces()`, `createWorkspace(input)`,
-`renameWorkspace(scope, name)` and `deleteWorkspace(scope)`. Supply
-`{ idempotencyKey: stableKey }` in the creation options (the HTTP `Idempotency-Key`
-header) and retain that same key and input for uncertain-response recovery.
-Keys contain 1–128 visible ASCII characters. Concurrent/restarted retries return
-the same workspace identity with current metadata; changed input returns 409.
-The key is scoped to the member identity, or to the shared installation namespace.
-Current authorization still applies. Replaying a deleted workspace returns 404
-without recreating it. Calls without the header remain non-idempotent. With installation
-credentials, omitting `organization_id` creates a new zero-funded USD company;
-provide an existing organization when adding another workspace to it. Members
-remain constrained to their authorized organization. Deletion requires an
-eligible empty workspace and appropriate owner permissions.
-
-`GET /admin/v1/workspaces` and `POST /admin/v1/workspaces` return a persisted
-`route_slug` for each workspace. Use it as a URL segment and use `name` as the
-display label. The backend assigns unique references to existing and new
-workspaces, including duplicate names; renaming preserves the reference.
-References cannot be edited and do not grant access. Continue using the workspace
-ID for existing scoped API paths and enforce the caller's normal authorization.
-
-Use `GET /admin/v1/workspaces/by-route/{route_slug}`, or the SDK method
-`admin.resolveWorkspaceRoute(routeSlug)`, to restore a workspace
-without scanning the bounded workspace list. The response contains `id`,
-`organization_id`, `name` and `route_slug`, with `Cache-Control: no-store`.
-Missing references and workspaces outside the caller's scope both return 404.
-
-Historical name-derived URLs are not supported aliases. Frontend migration must
-account for old bookmarks separately.
-
-### Guardrail changes before dispatch
-
-An unpriced request inspected under an earlier Guardrail binding can be rejected
-if the workspace policy or API key assignment changes before dispatch. This
-returns HTTP 409 with `guardrail_admission_conflict`; native Messages retains its
-protocol envelope and exposes the reason in `x-niu-error-code`. The request was
-not dispatched. Submit a new request to inspect it under the current policy;
-do not display this conflict as a storage outage or automatically bypass the
-policy. Preparation refusals remain HTTP 403 `guardrail_denied`.
-
-Zero request-rate policies return HTTP 429 with `key_request_rate_disabled` or
-`upstream_request_rate_disabled`, without `Retry-After`. They require an authorized
-configuration change. Exhausted positive request-rate windows keep their
-`*_request_rate_exceeded` reason and conservative `Retry-After: 60` hint.
-
-## Chat drafts
-
-`GET` and `PUT /admin/v1/organizations/{organization}/projects/{project}/chat-draft`
-read and save the authenticated actor's unsent composer state in PostgreSQL.
-This is separate from sent conversation history. Reads require workspace read
-access; writes require workspace write access. Responses use `Cache-Control:
-no-store` and return `{data: {payload, revision}}`. A missing draft has a null
-payload and revision zero.
-
-PUT accepts `expected_revision` and `payload`. The payload contains `sessionId`
-(null for a new chat), `prompt`, `models`, `attachments`, and `settings` with
-`systemPrompt`, `maxTokens`, `temperature`, and `logPayloads`. Up to four unique
-models and four attachments are supported. Text fields are bounded to 12,000
-characters; each attachment contains `name`, `type` (`image` or `text`), and
-`content`. Unknown fields, including credential fields, are rejected. A referenced
-conversation must belong to the same actor and workspace. The request body is
-limited to 24 MiB. Browser writes require the configured same origin.
-
-Saving requires the last read revision. A stale revision returns HTTP 409 without
-replacing the draft. Set `payload` to null to clear it; clearing increments the
-revision so another tab's old write cannot recreate the discarded draft. This
-endpoint does not detect secrets deliberately included in prompt or file content.
+## Saved generation state
 
 The JavaScript SDK exposes [`admin.getChatDraft()` and
 `admin.saveChatDraft()`](/docs/api/sdk/niuadminclient/#getchatdraft). Read the
@@ -1036,3 +942,8 @@ A new request must be inspected under the current policy.
 Messages keeps its native error envelope; read `x-niu-error-code` for the Niu
 classification. Generic conflicts and unknown database failures retain their
 separate meanings. See [policy-race behavior and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/guardrail-preparation-errors.md).
+The Generations dashboard integrates saved video intent restoration, including
+original input, retained preview and diagnostics after key expiry. Successful
+reference submission and the full shared-output lifecycle remain separate
+verification requirements. See [Generations](/docs/reference/generations/) for
+the supported browser workflow.

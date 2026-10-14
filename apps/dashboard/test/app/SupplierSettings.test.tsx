@@ -66,3 +66,44 @@ it('cancels all profile drafts without submitting an update and restores name fo
   expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
+
+it('persists each preset, restores it after reload, and can return to the default or a custom URL', async () => {
+  const { supplierLogoPresets } = await import('@/features/vendors/supplier-logos');
+  let profile = { name: 'Supplier', description: '', website_url: '', logo_url: '', revision: 1 };
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
+    if (init.method === 'PATCH') {
+      const body = JSON.parse(init.body as string);
+      expect(body.expected_revision).toBe(profile.revision);
+      profile = { ...body, revision: profile.revision + 1 };
+    }
+    return Response.json({ data: profile });
+  }));
+  const mount = () => render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
+  let view = mount();
+  const user = userEvent.setup();
+  await screen.findByLabelText('Name');
+  expect(screen.queryByAltText('Supplier logo')).toBeNull();
+  for (const preset of supplierLogoPresets) {
+    await user.click(screen.getByRole('button', { name: profile.logo_url ? supplierLogoPresets.find(item => item.url === profile.logo_url)!.name : 'Default logo', exact: true }));
+    await user.click(screen.getByRole('menuitemradio', { name: preset.name, exact: true }));
+    expect(screen.getByAltText('Supplier logo').getAttribute('src')).toBe(preset.src);
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Supplier details saved.');
+    expect(profile.logo_url).toBe(preset.url);
+  }
+  view.unmount(); view = mount();
+  await screen.findByLabelText('Name');
+  expect(screen.getByRole('button', { name: 'Google Cloud', exact: true })).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Google Cloud', exact: true }));
+  await user.click(screen.getByRole('menuitemradio', { name: 'Default logo' }));
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await screen.findByText('Supplier details saved.');
+  expect(profile.logo_url).toBe('');
+  expect(screen.queryByAltText('Supplier logo')).toBeNull();
+  await user.type(screen.getByLabelText('Logo URL'), 'https://example.com/custom.png');
+  expect(screen.getByRole('button', { name: 'Custom logo' })).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await screen.findByText('Supplier details saved.');
+  expect(profile.logo_url).toBe('https://example.com/custom.png');
+  view.unmount();
+});

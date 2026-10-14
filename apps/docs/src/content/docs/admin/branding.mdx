@@ -1,0 +1,25 @@
+---
+title: Branding and theme
+description: Set deployment branding and default appearance.
+---
+
+Open **Admin → Branding & theme**. Deployment defaults are saved in the backend and differ from a member's own light/dark preference.
+
+## Branding
+
+In the **Branding** tab, set the display name and upload a logo or favicon. The current form accepts:
+
+| Asset | Format | Limits |
+| --- | --- | --- |
+| Logo | PNG | Up to 1024 × 512 pixels and 256 KB |
+| Favicon | Square PNG | Up to 256 × 256 pixels and 32 KB |
+
+Use **Use default** to remove an uploaded override. The display name is shown on sign-in screens and browser tabs. Niu is the default English product name.
+
+## Theme
+
+In the **Theme** tab, choose the default appearance and set supported light/dark color overrides. Colors use the validated six-digit hexadecimal format. Leave an override empty to use its default. Arbitrary CSS or executable branding content is not accepted.
+
+Use **Preview** to inspect the draft, then save and confirm the persisted configuration. A preview alone does not publish settings. Review both light and dark appearance before changing a deployment default; a member's explicit preference remains separate.
+
+Configuration changes are administrator-only and revisioned. Reload on a conflicting revision. See [branding writes](/docs/api/rest/savebranding/) and [branding reads](/docs/api/rest/getbranding/) for the exact public contract, and [audit logs](/docs/reference/platform-audit/) for recorded changes.
