@@ -41,9 +41,17 @@ the sample to a model.
 enforcement still applies. In observe-only mode, per-pattern action controls
 show **Observe** and cannot be changed.
 
-Output inspection does not support streaming, tools, structured output, or
-Embeddings. Active input rules also block unsupported tools, images, or opaque
-content. Review these limits before enabling rules for an application.
+Local output inspection supports single-choice plain-text Chat and Responses
+streams. Enforced buffered output collects the bounded response before releasing
+inspected text; an output block can occur after inference and does not imply
+that generation was free. Observation-only rules retain delivery and record
+inspection separately. Full-output collection is limited to 1 MiB of text,
+2 MiB of stream bytes, with separate enforced and observation-only pools of
+four concurrent collectors each per process.
+
+Output rules do not support tools, structured output or Embeddings. Active input
+rules also block unsupported tools, images or opaque content. Review the selected
+protocol's coverage before enabling rules for an application.
 
 ## External checks
 
