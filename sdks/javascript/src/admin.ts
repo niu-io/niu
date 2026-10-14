@@ -897,6 +897,11 @@ export type CommercialPositionRow = {
     media_rates: Array<Pick<SupplierMediaRateRecord['card'], 'revision' | 'tariff' | 'discounts'>>;
   }>;
   customer_charge_nanos: string | null; earning_nanos: string | null;
+  /** Verified wallet cash attributed to this cohort, net of cash balance restorations; not period receipts. */
+  customer_cash_applied_nanos: string | null;
+  /** Remaining wallet credit for the cohort after repayments, gifts and credit refunds; not invoice receivables. */
+  customer_outstanding_credit_nanos: string | null;
+  cash_source_uncovered_attempts: string;
   settled_earning_nanos: string | null; unsettled_earning_nanos: string | null;
   cost_nanos: string | null;
   /** Recorded cost subtotal in this currency; never a full expense/coverage claim. */

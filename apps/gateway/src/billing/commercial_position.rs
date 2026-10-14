@@ -154,6 +154,18 @@ pub struct PositionQuery {
 ///                           }
 ///                         }
 ///                       },
+///                       "customer_cash_applied_nanos": {
+///                         "type": ["string", "null"],
+///                         "description": "Verified wallet cash attributed to cohort charges plus repayments minus cash balance restorations. Not posting-period receipts or proof of an external refund transfer. Gifts are excluded."
+///                       },
+///                       "customer_outstanding_credit_nanos": {
+///                         "type": ["string", "null"],
+///                         "description": "Remaining wallet credit attributed to cohort charges after repayment, gift applications and credit refunds. Not external invoice receivables."
+///                       },
+///                       "cash_source_uncovered_attempts": {
+///                         "type": "string",
+///                         "description": "Charged attempts lacking complete current wallet provenance. Full cash and outstanding credit are withheld for uncovered or unresolved traffic."
+///                       },
 ///                       "customer_charge_nanos": {
 ///                         "type": [
 ///                           "string",

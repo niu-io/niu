@@ -18,15 +18,19 @@ impl Store {
         {
             return Err(StoreError::InvalidPrice);
         }
+        // Trigger provenance helpers are VOLATILE; a repeatable read keeps
+        // their account/source reads consistent with all cohort aggregates.
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
         let (known_currency, position): (bool, Value) =
             sqlx::query_as(include_str!("commercial_position.sql"))
                 .bind(currency)
                 .bind(days)
-                .fetch_one(&self.pool)
+                .fetch_one(&mut *tx)
                 .await?;
         if !known_currency {
             return Err(StoreError::InvalidPrice);
         }
+        tx.commit().await?;
         Ok(position)
     }
 }

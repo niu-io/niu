@@ -37,6 +37,12 @@ WITH bounds AS MATERIALIZED (
            e.amount_nanos AS earning, cost.cash_nanos AS cost,
            (c.amount_nanos=0 OR allocation.source_coverage='known')
                AND refunds.covered AS revenue_covered,
+           (c.amount_nanos=0 OR (credit.source_coverage='known'
+               AND niu_customer_credit_account_covered(debit.account_id)))
+               AND cash_refunds.covered AS cash_covered,
+           CASE WHEN c.amount_nanos=0 THEN 0 ELSE credit.cash_nanos::numeric
+               + repayments.amount - cash_refunds.cash END AS cash_applied,
+           CASE WHEN c.amount_nanos=0 THEN 0 ELSE niu_customer_unpaid_credit(debit.id) END AS outstanding_credit,
            refunds.nominal AS refunded,
            CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.nongift_nanos END::numeric
                - refunds.nongift - late_gifts.amount AS net_revenue,
@@ -59,6 +65,18 @@ WITH bounds AS MATERIALIZED (
         AND debit.currency=$1 AND debit.kind='charge'
         AND debit.amount_nanos::numeric=-c.amount_nanos::numeric
     LEFT JOIN customer_balance_consumption_allocations allocation ON allocation.entry_id=debit.id
+    LEFT JOIN customer_credit_sources credit ON credit.entry_id=debit.id AND credit.kind='charge'
+    LEFT JOIN LATERAL (
+        SELECT COALESCE(sum(repayment.amount_nanos::numeric),0) AS amount
+        FROM customer_credit_repayments repayment WHERE repayment.charge_entry_id=debit.id
+    ) repayments ON true
+    LEFT JOIN LATERAL (
+        SELECT COALESCE(bool_and(COALESCE(source.source_coverage='known',false)),true) AS covered,
+               COALESCE(sum(source.cash_nanos::numeric),0) AS cash
+        FROM customer_balance_entries refund
+        LEFT JOIN customer_credit_sources source ON source.entry_id=refund.id AND source.kind='refund'
+        WHERE refund.reverses_entry_id=debit.id AND refund.kind='refund'
+    ) cash_refunds ON true
     LEFT JOIN LATERAL (
         SELECT COALESCE(bool_and(COALESCE(refund_allocation.source_coverage='known',false)),true) AS covered,
                COALESCE(sum(refund.amount_nanos::numeric),0) AS nominal,
@@ -118,6 +136,17 @@ WITH bounds AS MATERIALIZED (
 ), totals AS (
     SELECT provider_id,model_alias,
            sum(charge)::text AS customer_charge_nanos,
+           count(*) FILTER (WHERE charge IS NOT NULL AND cash_covered IS NOT TRUE)::text AS cash_source_uncovered_attempts,
+           CASE WHEN count(charge)>0
+               AND count(*) FILTER (WHERE charge IS NOT NULL AND cash_covered IS NOT TRUE)=0
+               AND count(*) FILTER (WHERE execution<>'confirmed_not_executed'
+                   AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported' OR charge IS NULL))=0
+               THEN sum(cash_applied)::text END AS customer_cash_applied_nanos,
+           CASE WHEN count(charge)>0
+               AND count(*) FILTER (WHERE charge IS NOT NULL AND cash_covered IS NOT TRUE)=0
+               AND count(*) FILTER (WHERE execution<>'confirmed_not_executed'
+                   AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported' OR charge IS NULL))=0
+               THEN sum(outstanding_credit)::text END AS customer_outstanding_credit_nanos,
            CASE WHEN count(charge)>0 THEN sum(refunded)::text END AS customer_refunds_nanos,
            count(*) FILTER (WHERE charge IS NOT NULL AND revenue_covered IS NOT TRUE)::text AS revenue_uncovered_attempts,
            CASE WHEN count(charge)>0
@@ -164,6 +193,9 @@ WITH bounds AS MATERIALIZED (
                'model_alias',inventory.model_alias,'currency',$1,
                'offers',COALESCE(quotes.offers,'[]'::jsonb),
                'customer_charge_nanos',totals.customer_charge_nanos,
+               'customer_cash_applied_nanos',totals.customer_cash_applied_nanos,
+               'customer_outstanding_credit_nanos',totals.customer_outstanding_credit_nanos,
+               'cash_source_uncovered_attempts',COALESCE(totals.cash_source_uncovered_attempts,'0'),
                'customer_refunds_nanos',totals.customer_refunds_nanos,
                'net_customer_revenue_nanos',totals.net_customer_revenue_nanos,
                'consumed_gift_allowance_nanos',totals.consumed_gift_allowance_nanos,
