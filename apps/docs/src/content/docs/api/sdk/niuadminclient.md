@@ -1062,6 +1062,34 @@ getCustomerFinancialSummary(query: {
 }, options?: RequestOptions): Promise<CustomerFinancialSummary>;
 ```
 
+### publishMediaLiabilityQualification
+
+```typescript
+/** Platform-only explicit liability evidence; publication does not authorize dispatch. */
+publishMediaLiabilityQualification(supplier: string, offer: string, input: MediaLiabilityPublication, options?: RequestOptions): Promise<{
+    data: MediaLiabilityPublicationResult;
+}>;
+```
+
+### listMediaLiabilityQualifications
+
+```typescript
+/** Platform-only immutable qualification history. Quantities do not imply an available route. */
+listMediaLiabilityQualifications(supplier: string, offer: string, page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<MediaLiabilityQualificationPage>;
+```
+
+### retireMediaLiabilityQualification
+
+```typescript
+/** Future admission only; already pinned jobs retain their bound. */
+retireMediaLiabilityQualification(supplier: string, offer: string, revision: string, input: MediaLiabilityRevocation, options?: RequestOptions): Promise<{
+    data: MediaLiabilityPublicationResult;
+}>;
+```
+
 ### publishRetailStandard
 
 ```typescript

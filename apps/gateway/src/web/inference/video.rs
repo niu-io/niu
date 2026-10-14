@@ -1905,11 +1905,6 @@ pub(super) async fn create_as(
             )
             .await
             .map_err(ApiError::from_store)?;
-        state
-            .store
-            .bind_customer_media_pricing(scope, attempt, &rate.pricing)
-            .await
-            .map_err(ApiError::from_store)?;
     }
     state
         .store
@@ -1946,7 +1941,7 @@ pub(super) async fn create_as(
     if let Some(rate) = &selling {
         state
             .store
-            .reserve_customer_media_balance(scope, attempt, &rate.liability)
+            .bind_and_reserve_customer_media_balance(scope, attempt, &rate.pricing, &rate.liability)
             .await
             .map_err(ApiError::from_store)?;
     }

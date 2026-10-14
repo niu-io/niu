@@ -769,3 +769,5 @@ export type { GenerationTaskState, GenerationArtifactAvailability, GenerationArt
 export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, PlatformAuditPage, PlatformAuditQuery } from './platform-audit.js';
 
 export type { CommercialPosition, CommercialPositionRow } from './admin.js';
+
+export type { MediaLiabilityIdentity, MediaLiabilityPublication, MediaLiabilityRevocation, MediaLiabilityPublicationResult, MediaLiabilityQualificationRecord, MediaLiabilityQualificationPage } from './admin.js';

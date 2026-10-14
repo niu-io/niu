@@ -204,7 +204,12 @@ mod vendor_request_rate;
 mod workspace_spending;
 pub use topups::{TopupInput, TopupOrder};
 mod keys;
+mod media_liability_qualifications;
 mod media_pricing;
+pub use media_liability_qualifications::{
+    MediaLiabilityIdentity, MediaLiabilityPublication, MediaLiabilityRevocation,
+    SelectedMediaLiabilityQualification,
+};
 mod media_rates;
 mod supplier_media;
 mod supplier_media_offers;

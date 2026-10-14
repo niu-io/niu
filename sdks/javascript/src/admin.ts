@@ -926,6 +926,33 @@ export type CustomerFinancialSummary = {
   verified_cash_receipts_nanos: string | null;
 };
 
+/** Explicit maximum billed quantity evidence; independent of prices and output estimates. */
+export type MediaLiabilityIdentity = {
+  supplier_id: string; offer_id: string; offer_revision: string;
+  vendor_id: string; vendor_revision: string; model_alias: string; model_revision: string;
+  schema_revision: string; dimensions: MediaBillingDimensions; meter: string;
+};
+export type MediaLiabilityPublication = {
+  identity: MediaLiabilityIdentity; maximum_quantity: ExactMediaQuantity;
+  evidence_revision: string; evidence_sha256: string;
+  effective_from: string; effective_until: string; expected_version: string;
+  idempotency_key: string; reason: string;
+};
+export type MediaLiabilityRevocation = {
+  effective_until: string; expected_version: string; idempotency_key: string; reason: string;
+};
+export type MediaLiabilityPublicationResult = { qualification_id: string; revision: string; version: string };
+export type MediaLiabilityQualificationRecord = MediaLiabilityPublicationResult & {
+  current_version: string; identity: MediaLiabilityIdentity; maximum_quantity: ExactMediaQuantity;
+  evidence_revision: string; evidence_sha256: string; effective_from: string; effective_until: string;
+  revocation_effective_until: string | null; revocation_revision: string | null;
+  revocation_reason: string | null; revocation_actor_kind: 'installation' | 'operator' | null;
+  revocation_actor_operator_id: string | null; revocation_created_at: string | null; reason: string;
+  actor_kind: 'installation' | 'operator'; actor_operator_id: string | null; created_at: string;
+};
+export type MediaLiabilityQualificationPage = { data: MediaLiabilityQualificationRecord[]; next_after: string | null };
+
+
 /** Explicit customer selling terms; amounts and quantities remain decimal strings. */
 export type RetailSchedule = {
   kind: 'text'; prompt_rate: string; completion_rate: string;
@@ -1709,6 +1736,26 @@ export class NiuAdminClient {
     if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
     const parameters = new URLSearchParams({ currency: query.currency, days: String(query.days ?? 30) });
     return this.request(`/financial-summary?${parameters}`, undefined, options);
+  }
+
+  /** Platform-only explicit liability evidence; publication does not authorize dispatch. */
+  publishMediaLiabilityQualification(supplier: string, offer: string, input: MediaLiabilityPublication, options?: RequestOptions): Promise<{ data: MediaLiabilityPublicationResult }> {
+    if (input.identity.supplier_id !== supplier || input.identity.offer_id !== offer) throw new TypeError('Route identity must match the requested Supplier offer');
+    return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds`, input, options, 'POST');
+  }
+  /** Platform-only immutable qualification history. Quantities do not imply an available route. */
+  listMediaLiabilityQualifications(supplier: string, offer: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<MediaLiabilityQualificationPage> {
+    const query = new URLSearchParams();
+    if (page.after !== undefined) query.set('after', page.after);
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds${query.size ? '?' + query : ''}`, undefined, options);
+  }
+  /** Future admission only; already pinned jobs retain their bound. */
+  retireMediaLiabilityQualification(supplier: string, offer: string, revision: string, input: MediaLiabilityRevocation, options?: RequestOptions): Promise<{ data: MediaLiabilityPublicationResult }> {
+    return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds/${encodeURIComponent(revision)}/retire`, input, options, 'POST');
   }
 
   /** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */
