@@ -1,10 +1,16 @@
+-- Revenue excludes consumed gifts and recorded refunds; nongift is not proof
+-- of cash collection. These are dispatch-cohort totals, not posting-period income.
+-- Missing source allocation leaves full revenue and net contribution unknown.
 -- One database snapshot; all period membership uses UTC dispatch timestamps.
 -- Monetary ledgers are joined by attempt before aggregation, never by model alone.
 WITH bounds AS MATERIALIZED (
     SELECT statement_timestamp() AS until,
            statement_timestamp() - make_interval(days => $2) AS since
 ), currencies AS (
-    SELECT currency FROM provider_offer_revisions
+    SELECT currency FROM cost_entries
+    UNION SELECT currency FROM provider_earnings
+    UNION SELECT currency FROM customer_charges
+    UNION SELECT currency FROM provider_offer_revisions
     UNION SELECT currency FROM customer_tariff_revisions
     UNION SELECT currency FROM customer_media_charges
     UNION SELECT currency FROM customer_balance_accounts
@@ -29,6 +35,13 @@ WITH bounds AS MATERIALIZED (
     SELECT a.id, b.provider_id, a.resource_id AS model_alias,
            a.execution, a.usage_confidence, c.amount_nanos AS charge,
            e.amount_nanos AS earning, cost.cash_nanos AS cost,
+           (c.amount_nanos=0 OR allocation.source_coverage='known')
+               AND refunds.covered AS revenue_covered,
+           refunds.nominal AS refunded,
+           CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.nongift_nanos END::numeric
+               - refunds.nongift AS net_revenue,
+           CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.gift_nanos END::numeric
+               - refunds.gift AS gift_allowance,
            settled.attempt_id IS NOT NULL AS supplier_settled
     FROM provider_attempt_offers b
     JOIN attempts a ON a.id=b.attempt_id
@@ -41,10 +54,27 @@ WITH bounds AS MATERIALIZED (
         UNION ALL
         SELECT attempt_id,currency,amount_nanos FROM customer_media_charges
     ) c ON c.attempt_id=a.id AND c.currency=$1
+    LEFT JOIN customer_balance_entries debit ON debit.attempt_id=a.id
+        AND debit.organization_id=a.organization_id AND debit.project_id=a.project_id
+        AND debit.currency=$1 AND debit.kind='charge'
+        AND debit.amount_nanos::numeric=-c.amount_nanos::numeric
+    LEFT JOIN customer_balance_consumption_allocations allocation ON allocation.entry_id=debit.id
+    LEFT JOIN LATERAL (
+        SELECT COALESCE(bool_and(COALESCE(refund_allocation.source_coverage='known',false)),true) AS covered,
+               COALESCE(sum(refund.amount_nanos::numeric),0) AS nominal,
+               COALESCE(sum(refund_allocation.nongift_nanos::numeric),0) AS nongift,
+               COALESCE(sum(refund_allocation.gift_nanos::numeric),0) AS gift
+        FROM customer_balance_entries refund
+        LEFT JOIN customer_balance_consumption_allocations refund_allocation ON refund_allocation.entry_id=refund.id
+        WHERE refund.reverses_entry_id=debit.id AND refund.kind='refund'
+    ) refunds ON true
     LEFT JOIN provider_earnings e ON e.attempt_id=a.id AND e.currency=$1
     LEFT JOIN cost_entries cost ON cost.attempt_id=a.id AND cost.currency=$1
     LEFT JOIN provider_settlement_entries settled ON settled.attempt_id=e.attempt_id
-    WHERE COALESCE(rate.currency,media.snapshot->'tariff'->>'currency')=$1
+    WHERE (COALESCE(rate.currency,media.snapshot->'tariff'->>'currency')=$1
+        OR c.attempt_id IS NOT NULL OR e.attempt_id IS NOT NULL OR cost.attempt_id IS NOT NULL)
+      AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id)
+      AND NOT EXISTS (SELECT 1 FROM operation_funding_sources funding WHERE funding.operation_id=a.operation_id AND funding.funding_source='personal')
       AND a.dispatched_at>=bounds.since AND a.dispatched_at<bounds.until
       AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=o.vendor_id)
 ), inventory AS (
@@ -83,6 +113,24 @@ WITH bounds AS MATERIALIZED (
 ), totals AS (
     SELECT provider_id,model_alias,
            sum(charge)::text AS customer_charge_nanos,
+           CASE WHEN count(charge)>0 THEN sum(refunded)::text END AS customer_refunds_nanos,
+           count(*) FILTER (WHERE charge IS NOT NULL AND revenue_covered IS NOT TRUE)::text AS revenue_uncovered_attempts,
+           CASE WHEN count(charge)>0
+               AND count(*) FILTER (WHERE charge IS NOT NULL AND revenue_covered IS NOT TRUE)=0
+               AND count(*) FILTER (WHERE execution<>'confirmed_not_executed'
+                   AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported' OR charge IS NULL))=0
+               THEN sum(net_revenue)::text END AS net_customer_revenue_nanos,
+           CASE WHEN count(charge)>0
+               AND count(*) FILTER (WHERE charge IS NOT NULL AND revenue_covered IS NOT TRUE)=0
+               AND count(*) FILTER (WHERE execution<>'confirmed_not_executed'
+                   AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported' OR charge IS NULL))=0
+               THEN sum(gift_allowance)::text END AS consumed_gift_allowance_nanos,
+           CASE WHEN count(*) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)>0
+               AND count(*) FILTER (WHERE charge IS NOT NULL AND revenue_covered IS NOT TRUE)=0
+               AND count(*) FILTER (WHERE execution<>'confirmed_not_executed'
+                   AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported' OR charge IS NULL OR earning IS NULL))=0
+               THEN sum(net_revenue-earning::numeric) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)::text
+               END AS net_contribution_nanos,
            sum(earning)::text AS earning_nanos,
            CASE WHEN count(earning)>0 THEN
                COALESCE(sum(earning) FILTER (WHERE supplier_settled),0)::text END AS settled_earning_nanos,
@@ -109,6 +157,11 @@ WITH bounds AS MATERIALIZED (
                'model_alias',inventory.model_alias,'currency',$1,
                'offers',COALESCE(quotes.offers,'[]'::jsonb),
                'customer_charge_nanos',totals.customer_charge_nanos,
+               'customer_refunds_nanos',totals.customer_refunds_nanos,
+               'net_customer_revenue_nanos',totals.net_customer_revenue_nanos,
+               'consumed_gift_allowance_nanos',totals.consumed_gift_allowance_nanos,
+               'net_contribution_nanos',totals.net_contribution_nanos,
+               'revenue_uncovered_attempts',COALESCE(totals.revenue_uncovered_attempts,'0'),
                'earning_nanos',totals.earning_nanos,
                'settled_earning_nanos',totals.settled_earning_nanos,
                'unsettled_earning_nanos',totals.unsettled_earning_nanos,

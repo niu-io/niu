@@ -30,7 +30,15 @@ export type CommercialPositionRow = {
     settled_earning_nanos: string | null;
     unsettled_earning_nanos: string | null;
     cost_nanos: string | null;
+    /** Legacy nominal charge minus earning; not net income or profit. */
     margin_nanos: string | null;
+    /** Recorded balance-credit refunds, not external cash refund transfers. */
+    customer_refunds_nanos: string | null;
+    /** Dispatch-cohort revenue net of consumed gifts/refunds, not cash receipts. */
+    net_customer_revenue_nanos: string | null;
+    consumed_gift_allowance_nanos: string | null;
+    net_contribution_nanos: string | null;
+    revenue_uncovered_attempts: string;
     unresolved_attempts: string;
     matched_attempts: string;
     cost_known_attempts: string;
