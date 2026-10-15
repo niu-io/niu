@@ -813,11 +813,37 @@ impl Store {
     /// nor prevent another completed attempt in the batch from being accrued.
     /// Preserve the first error so callers still schedule recovery.
     async fn accrue_gateway_ledgers(&self, attempts: &[Uuid]) -> Result<(), StoreError> {
+        if attempts.is_empty() {
+            return Ok(());
+        }
+        let bindings: Vec<(Uuid, bool, bool)> = sqlx::query_as(
+            "SELECT u.id, \
+                    EXISTS(SELECT 1 FROM provider_attempt_offers p WHERE p.attempt_id = u.id) \
+                        OR EXISTS(SELECT 1 FROM supplier_media_attempt_pricing m WHERE m.attempt_id = u.id) AS has_provider, \
+                    EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id = u.id) \
+                        OR EXISTS(SELECT 1 FROM customer_attempt_balance_accounts b WHERE b.attempt_id = u.id) AS has_customer \
+             FROM unnest($1::uuid[]) WITH ORDINALITY AS u(id, ord) \
+             ORDER BY u.ord",
+        )
+        .bind(attempts)
+        .fetch_all(&self.pool)
+        .await?;
+
         let mut first_error = None;
-        for &attempt in attempts {
-            let supplier = self.accrue_provider_earning(attempt).await;
-            let customer = self.accrue_customer_charge(attempt).await;
-            if let Err(error) = supplier.and(customer) {
+        for (attempt, has_provider, has_customer) in bindings {
+            let outcome = match (has_provider, has_customer) {
+                (false, false) => Ok(()),
+                (true, false) => self.accrue_provider_earning(attempt).await,
+                (false, true) => self.accrue_customer_charge(attempt).await,
+                (true, true) => {
+                    let (supplier, customer) = tokio::join!(
+                        self.accrue_provider_earning(attempt),
+                        self.accrue_customer_charge(attempt),
+                    );
+                    supplier.and(customer)
+                }
+            };
+            if let Err(error) = outcome {
                 first_error.get_or_insert(error);
             }
         }

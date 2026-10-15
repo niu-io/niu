@@ -897,31 +897,44 @@ impl Store {
         let mut upstream_models = Vec::with_capacity(admission_count);
         let mut dispatch_providers = Vec::with_capacity(admission_count);
         let mut api_bases = Vec::with_capacity(admission_count);
-        let mut tx = self.pool.begin().await?;
+        let mut route_gen_attempts = Vec::new();
+        let mut route_generations = Vec::new();
+        let mut managed_attempt_ids = Vec::new();
+        let mut managed_vendor_ids = Vec::new();
+        let mut managed_model_aliases = Vec::new();
+        let mut managed_vendor_revisions = Vec::new();
+        let mut managed_model_revisions = Vec::new();
+        let mut managed_pool_aliases = Vec::new();
+        let mut managed_pool_revisions = Vec::new();
+        let mut token_bound_attempts = Vec::new();
+        let mut token_bounds = Vec::new();
+        let mut guardrail_rows = Vec::new();
+
         for admission in admissions {
-            Self::insert_route_generation(
-                &mut *tx,
-                admission.attempt_id,
-                admission.route_generation,
-            )
-            .await?;
-            if let Some(route) = &admission.managed_route {
-                Self::insert_managed_route(&mut *tx, admission.attempt_id, route).await?;
+            if let Some(generation) = admission.route_generation {
+                route_gen_attempts.push(admission.attempt_id);
+                route_generations.push(generation);
+            }
+            if let Some(route) = admission.managed_route {
+                managed_attempt_ids.push(admission.attempt_id);
+                managed_vendor_ids.push(route.vendor_id);
+                managed_model_aliases.push(route.model_alias);
+                managed_vendor_revisions.push(route.vendor_revision);
+                managed_model_revisions.push(route.model_revision);
+                managed_pool_aliases.push(route.pool_alias);
+                managed_pool_revisions.push(route.pool_revision);
             }
             if let Some(bound) = admission.token_bound {
-                sqlx::query("INSERT INTO key_attempt_token_bounds(attempt_id,token_bound,estimator) VALUES($1,$2,'serialized-utf8-plus-output-v1')")
-                    .bind(admission.attempt_id).bind(bound).execute(&mut *tx).await?;
+                token_bound_attempts.push(admission.attempt_id);
+                token_bounds.push(bound);
             }
-
-            if let Some(snapshot) = &admission.inspected_guardrails {
-                Self::insert_inspected_guardrails(
-                    &mut *tx,
+            if let Some(snapshot) = admission.inspected_guardrails {
+                guardrail_rows.push((
                     admission.scope,
                     admission.attempt_id,
                     admission.key_id,
                     snapshot,
-                )
-                .await?;
+                ));
             }
             operation_ids.push(admission.operation_id);
             attempt_ids.push(admission.attempt_id);
@@ -934,6 +947,83 @@ impl Store {
             dispatch_providers.push(admission.dispatch_provider);
             task_ids.push(admission.task_id);
             revisions.push(admission.revision);
+        }
+
+        let mut tx = self.pool.begin().await?;
+        if !route_gen_attempts.is_empty() {
+            sqlx::query(
+                "INSERT INTO attempt_route_generations(attempt_id, generation) \
+                 SELECT * FROM unnest($1::uuid[], $2::bigint[])",
+            )
+            .bind(&route_gen_attempts)
+            .bind(&route_generations)
+            .execute(&mut *tx)
+            .await?;
+        }
+        if !managed_attempt_ids.is_empty() {
+            let expected_managed = managed_attempt_ids.len() as u64;
+            let inserted = sqlx::query(
+                "INSERT INTO managed_attempt_routes(\
+                    attempt_id,vendor_id,model_alias,vendor_revision,model_revision,\
+                    pool_alias,pool_revision,nonexecution_policy\
+                 ) \
+                 SELECT r.attempt_id,r.vendor_id,r.model_alias,r.vendor_revision,r.model_revision,\
+                        r.pool_alias,r.pool_revision,\
+                        CASE WHEN v.adapter='openrouter' AND rtrim(v.api_base,'/')='https://openrouter.ai/api/v1' \
+                             THEN 'openrouter-text-auth-rejection-v1' END \
+                 FROM unnest($1::uuid[],$2::uuid[],$3::text[],$4::bigint[],$5::bigint[],$6::text[],$7::bigint[]) \
+                      AS r(attempt_id,vendor_id,model_alias,vendor_revision,model_revision,pool_alias,pool_revision) \
+                 JOIN vendors v ON v.id=r.vendor_id AND v.revision=r.vendor_revision",
+            )
+            .bind(&managed_attempt_ids)
+            .bind(&managed_vendor_ids)
+            .bind(&managed_model_aliases)
+            .bind(&managed_vendor_revisions)
+            .bind(&managed_model_revisions)
+            .bind(&managed_pool_aliases)
+            .bind(&managed_pool_revisions)
+            .execute(&mut *tx)
+            .await
+            .map_err(crate::accounting::map_gateway_admission_error)?;
+            if inserted.rows_affected() != expected_managed {
+                return Err(StoreError::ManagedRouteChanged);
+            }
+        }
+        if !token_bound_attempts.is_empty() {
+            sqlx::query(
+                "INSERT INTO key_attempt_token_bounds(attempt_id,token_bound,estimator) \
+                 SELECT attempt_id, token_bound, 'serialized-utf8-plus-output-v1' \
+                 FROM unnest($1::uuid[], $2::bigint[]) AS row(attempt_id, token_bound)",
+            )
+            .bind(&token_bound_attempts)
+            .bind(&token_bounds)
+            .execute(&mut *tx)
+            .await?;
+        }
+        if !guardrail_rows.is_empty() {
+            let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+                "INSERT INTO inspected_guardrail_bindings(\
+                    organization_id,project_id,attempt_id,key_id,workspace_revision,\
+                    key_policy_revision,key_assignment_revision,input_outcome,\
+                    input_elapsed_ms,input_detector_decision_ids\
+                 ) ",
+            );
+            builder.push_values(
+                &guardrail_rows,
+                |mut b, (scope, attempt_id, key_id, snapshot)| {
+                    b.push_bind(scope.organization_id)
+                        .push_bind(scope.project_id)
+                        .push_bind(*attempt_id)
+                        .push_bind(*key_id)
+                        .push_bind(snapshot.workspace_revision)
+                        .push_bind(snapshot.key_policy_revision)
+                        .push_bind(snapshot.key_assignment_revision)
+                        .push_bind(&snapshot.input_outcome)
+                        .push_bind(snapshot.input_elapsed_ms)
+                        .push_bind(&snapshot.input_detector_decision_ids);
+                },
+            );
+            builder.build().execute(&mut *tx).await?;
         }
 
         let result = sqlx::query_as::<_, (Uuid, String)>(
