@@ -669,10 +669,15 @@ pub(super) async fn execute_chat_attempt(
     let upstream_client = if protocol.is_openai_compatible() {
         let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
         let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
+        let client_timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
         Some(
-            crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
-                .await
-                .map_err(ApiError::from_endpoint)?,
+            tokio::time::timeout(
+                timeout,
+                crate::upstream::configured_client_for_endpoint(state, &endpoint, client_timeout),
+            )
+            .await
+            .map_err(|_| ApiError::upstream())?
+            .map_err(ApiError::from_endpoint)?,
         )
     } else {
         None

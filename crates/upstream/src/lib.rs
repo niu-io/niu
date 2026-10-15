@@ -73,7 +73,6 @@ struct ClientKey {
     port: u16,
     timeout_nanos: u128,
     connect_timeout_nanos: u128,
-    resolution_timeout_nanos: u128,
 }
 
 struct Endpoint {
@@ -280,7 +279,6 @@ fn parse_endpoint(endpoint: &str, timeouts: EndpointTimeouts) -> Result<Endpoint
             port,
             timeout_nanos: timeouts.overall.as_nanos(),
             connect_timeout_nanos: timeouts.connect.as_nanos(),
-            resolution_timeout_nanos: timeouts.resolution.as_nanos(),
         },
         host: normalized_host.to_owned(),
         port,
@@ -501,6 +499,53 @@ mod tests {
                     .unwrap();
                 assert_eq!(body, "ok");
             }
+        }
+
+        assert_eq!(peers.lock().await.len(), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn cached_provider_client_reuses_connections_across_resolution_budgets() {
+        let peers = Arc::new(Mutex::new(HashSet::new()));
+        let app = axum::Router::new()
+            .route("/", get(capture_peer))
+            .with_state(peers.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .unwrap();
+        });
+
+        let pool = ClientPool::default();
+        let endpoint = format!("http://{address}/v1/chat/completions");
+        for resolution_ms in [2999_u64, 2750, 2100, 1450] {
+            let timeouts = EndpointTimeouts::new(
+                Duration::from_secs(30),
+                Duration::from_secs(3),
+                Duration::from_millis(resolution_ms),
+            )
+            .unwrap();
+            let client = pool
+                .client_for_endpoint_with_timeouts(&endpoint, timeouts)
+                .await
+                .unwrap();
+            let body = client
+                .get(format!("http://{address}/"))
+                .send()
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+            assert_eq!(body, "ok");
         }
 
         assert_eq!(peers.lock().await.len(), 1);
