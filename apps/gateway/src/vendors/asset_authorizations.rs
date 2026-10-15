@@ -93,13 +93,12 @@ pub async fn create(
         valid_for_seconds: input.valid_for_seconds,
     };
     // Check workspace ownership before insertion, including mismatched org/workspace IDs.
-    if !state
+    if state
         .store
-        .projects(input.organization_id)
+        .workspace_organization_id(Some(input.organization_id), input.project_id)
         .await
         .map_err(ApiError::from_store)?
-        .iter()
-        .any(|p| p.id == input.project_id)
+        .is_none()
     {
         return Err(ApiError::not_found());
     }

@@ -203,12 +203,17 @@ pub(super) async fn resolve(
     crate::vendors::require_selectable_credential(state, route.vendor.id).await?;
     let mut body = prepared.original.clone();
     let mut assets = Vec::with_capacity(prepared.inputs.len());
+    let asset_ids: Vec<Uuid> = prepared.inputs.iter().map(|input| input.id).collect();
+    let resolved_by_id = state
+        .store
+        .resolve_workspace_provider_asset_references(principal, route, snapshot, &asset_ids)
+        .await
+        .map_err(ApiError::from_store)?;
     for input in &prepared.inputs {
-        let reference = state
-            .store
-            .resolve_workspace_provider_asset_reference(principal, route, snapshot, input.id)
-            .await
-            .map_err(ApiError::from_store)?;
+        let reference = resolved_by_id
+            .get(&input.id)
+            .cloned()
+            .ok_or_else(|| ApiError::from_store(niu_storage::StoreError::Conflict))?;
         let kind = wire_kind(reference.kind()).ok_or_else(ApiError::unavailable)?;
         let mut item = json!({"type":kind});
         item[kind] = json!({"url":reference.private_uri()});

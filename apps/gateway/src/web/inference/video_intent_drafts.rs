@@ -104,6 +104,8 @@ pub(super) async fn validate(
     let mut provider_references = false;
     let mut reference_video = false;
     let mut images = false;
+    let mut provider_asset_cache = std::collections::BTreeMap::new();
+    let mut workspace_asset_cache = std::collections::BTreeMap::new();
     for (position, item) in parsed.iter().enumerate() {
         let (wire, uri, input_role) = match item {
             Content::Text { text } => {
@@ -127,12 +129,17 @@ pub(super) async fn validate(
                         "This model does not configure Provider material management",
                     ));
                 }
-                let asset = state
-                    .store
-                    .workspace_provider_asset(principal, reference.id)
-                    .await
-                    .map_err(ApiError::from_store)?
-                    .ok_or_else(ApiError::not_found)?;
+                let asset = if let Some(cached) = provider_asset_cache.get(&reference.id) {
+                    cached
+                } else {
+                    let loaded = state
+                        .store
+                        .workspace_provider_asset(principal, reference.id)
+                        .await
+                        .map_err(ApiError::from_store)?
+                        .ok_or_else(ApiError::not_found)?;
+                    provider_asset_cache.entry(reference.id).or_insert(loaded)
+                };
                 if asset.model != model {
                     return Err(ApiError::not_found());
                 }
@@ -158,12 +165,19 @@ pub(super) async fn validate(
                 if !reference.consent_to_process {
                     return Err(invalid());
                 }
-                let asset = state
-                    .store
-                    .workspace_asset(principal.scope(), reference.asset_id)
-                    .await
-                    .map_err(ApiError::from_store)?
-                    .ok_or_else(ApiError::not_found)?;
+                let asset = if let Some(cached) = workspace_asset_cache.get(&reference.asset_id) {
+                    cached
+                } else {
+                    let loaded = state
+                        .store
+                        .workspace_asset(principal.scope(), reference.asset_id)
+                        .await
+                        .map_err(ApiError::from_store)?
+                        .ok_or_else(ApiError::not_found)?;
+                    workspace_asset_cache
+                        .entry(reference.asset_id)
+                        .or_insert(loaded)
+                };
                 if asset.media_kind != AssetLibraryKind::Image {
                     return Err(ApiError::unsupported_message(
                         "Saved workspace material references support images only",

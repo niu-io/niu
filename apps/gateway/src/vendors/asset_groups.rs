@@ -82,13 +82,12 @@ where
         organization_id: input.organization_id,
         project_id: input.project_id,
     };
-    if !state
+    if state
         .store
-        .projects(scope.organization_id)
+        .workspace_organization_id(Some(scope.organization_id), scope.project_id)
         .await
         .map_err(ApiError::from_store)?
-        .iter()
-        .any(|p| p.id == scope.project_id)
+        .is_none()
     {
         return Err(ApiError::not_found());
     }

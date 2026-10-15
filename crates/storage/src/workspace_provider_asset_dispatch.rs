@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 /// Constructed only by an authenticated scoped database read. Provider identity
 /// and transport URI are deliberately neither Debug nor Serialize.
+#[derive(Clone)]
 pub struct WorkspaceProviderAssetReference {
     scope: TenantScope,
     asset_id: Uuid,
@@ -229,6 +230,33 @@ impl Store {
 
     /// Caller first admits the selected published model and its declared input
     /// contract. This read does not create a job, reserve balance or call upstream.
+    pub async fn resolve_workspace_provider_asset_references(
+        &self,
+        p: &Principal,
+        route: &VendorRoute,
+        snapshot: &GuardrailSnapshot,
+        asset_ids: &[Uuid],
+    ) -> Result<std::collections::BTreeMap<Uuid, WorkspaceProviderAssetReference>, StoreError> {
+        if asset_ids.is_empty() {
+            return Ok(std::collections::BTreeMap::new());
+        }
+        let route_sha256 = route_digest(route)?;
+        let mut tx = self.begin_bounded_recording().await?;
+        let generation =
+            Self::provider_asset_dispatch_route_using(&mut tx, p, route, snapshot).await?;
+        let map = Self::provider_asset_references_using(
+            &mut tx,
+            p,
+            route,
+            route_sha256,
+            asset_ids,
+            generation,
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(map)
+    }
+
     pub async fn resolve_workspace_provider_asset_reference(
         &self,
         p: &Principal,
@@ -236,22 +264,10 @@ impl Store {
         snapshot: &GuardrailSnapshot,
         asset_id: Uuid,
     ) -> Result<WorkspaceProviderAssetReference, StoreError> {
-        let route_sha256 = route_digest(route)?;
-        let mut tx = self.begin_bounded_recording().await?;
-        let generation =
-            Self::provider_asset_dispatch_route_using(&mut tx, p, route, snapshot).await?;
-        let mut map = Self::provider_asset_references_using(
-            &mut tx,
-            p,
-            route,
-            route_sha256,
-            &[asset_id],
-            generation,
-        )
-        .await?;
-        let reference = map.remove(&asset_id).ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
-        Ok(reference)
+        let mut map = self
+            .resolve_workspace_provider_asset_references(p, route, snapshot, &[asset_id])
+            .await?;
+        map.remove(&asset_id).ok_or(StoreError::Conflict)
     }
 
     /// Recheck exact saved input identity and current route/key/policy together
