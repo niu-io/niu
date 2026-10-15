@@ -26,8 +26,20 @@ impl Store {
     /// Release only the outstanding-read admission lock after process loss.
     /// This records failure, never an asset status or reusable-reference grant.
     pub async fn recover_interrupted_ingested_image_reads(&self) -> Result<u64, StoreError> {
-        self.execute_content_retention("WITH stale AS (SELECT claim.id,(EXTRACT(EPOCH FROM statement_timestamp()-claim.created_at)*1000)::bigint AS duration_ms FROM ingested_image_readiness_claims claim WHERE claim.created_at<=statement_timestamp()-interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM ingested_image_readiness_outcomes outcome WHERE outcome.read_id=claim.id) ORDER BY claim.created_at,claim.id LIMIT 16 FOR UPDATE OF claim SKIP LOCKED) INSERT INTO ingested_image_readiness_outcomes(read_id,reason,duration_ms) SELECT id,'timeout',duration_ms FROM stale ON CONFLICT DO NOTHING")
-            .await
+        self.execute_content_retention(
+            "WITH stale AS (\
+                SELECT p.read_id AS id, \
+                       (EXTRACT(EPOCH FROM statement_timestamp() - p.created_at) * 1000)::bigint AS duration_ms \
+                  FROM ingested_image_readiness_pending p \
+                 WHERE p.created_at <= statement_timestamp() - interval '60 seconds' \
+                 ORDER BY p.created_at, p.read_id \
+                 LIMIT 16 \
+                 FOR UPDATE OF p SKIP LOCKED\
+             ) \
+             INSERT INTO ingested_image_readiness_outcomes(read_id,reason,duration_ms) \
+             SELECT id,'timeout',duration_ms FROM stale ON CONFLICT DO NOTHING",
+        )
+        .await
     }
 
     pub async fn claim_ingested_image_readiness(
@@ -38,7 +50,7 @@ impl Store {
         read_id: Uuid,
     ) -> Result<Option<ClaimedIngestedImageReadiness>, StoreError> {
         let scope = principal.scope();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         self.authorize_image_source_using(&mut tx, principal, snapshot)
             .await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT i.vendor_id FROM asset_image_ingestion_consents d JOIN inspected_image_sources s ON s.id=d.source_id JOIN asset_group_create_intents i ON i.id=d.group_intent_id WHERE d.id=$1 AND s.organization_id=$2 AND s.project_id=$3 AND s.key_id=$4")
@@ -46,7 +58,7 @@ impl Store {
         let Some(vendor) = vendor else {
             return Ok(None);
         };
-        sqlx::query("SELECT id FROM vendors WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM vendors WHERE id=$1 FOR SHARE")
             .bind(vendor)
             .execute(&mut *tx)
             .await?;
@@ -54,9 +66,29 @@ impl Store {
             .bind(consent)
             .execute(&mut *tx)
             .await?;
-        let binding: Option<(String,String,String,i64,Uuid)> = sqlx::query_as("SELECT o.upstream_asset_id,i.upstream_group_id,i.upstream_project,i.credential_revision,a.id FROM asset_image_ingestion_outcomes o JOIN asset_image_ingestion_consents d ON d.id=o.consent_id JOIN asset_group_create_intents i ON i.id=d.group_intent_id JOIN vendors v ON v.id=i.vendor_id AND v.revision=i.vendor_revision JOIN vendor_asset_management_credentials c ON c.vendor_id=i.vendor_id AND c.revision=i.credential_revision AND c.upstream_project=i.upstream_project JOIN asset_operation_authorizations a ON a.organization_id=i.organization_id AND a.project_id=i.project_id AND a.vendor_id=i.vendor_id AND a.vendor_revision=i.vendor_revision AND a.credential_revision=i.credential_revision WHERE o.consent_id=$1 AND o.outcome='accepted' AND i.state='succeeded' AND a.operation='GetAsset' AND a.expires_at>clock_timestamp() AND c.credential_ciphertext IS NOT NULL AND NOT EXISTS(SELECT 1 FROM asset_operation_authorization_revocations r WHERE r.authorization_id=a.id) AND NOT EXISTS(SELECT 1 FROM vendor_asset_management_revocations r WHERE r.vendor_id=i.vendor_id AND r.through_revision>=i.credential_revision) AND NOT EXISTS(SELECT 1 FROM asset_group_deletion_claims deletion JOIN asset_group_create_intents original ON original.id=deletion.intent_id WHERE original.vendor_id=i.vendor_id AND original.credential_revision=i.credential_revision AND original.upstream_project=i.upstream_project AND original.upstream_group_id=i.upstream_group_id) AND NOT EXISTS(SELECT 1 FROM ingested_image_readiness_claims pending WHERE pending.consent_id=d.id AND NOT EXISTS(SELECT 1 FROM ingested_image_readiness_outcomes finished WHERE finished.read_id=pending.id)) AND (SELECT count(*) FROM ingested_image_readiness_claims recent WHERE recent.consent_id=d.id AND recent.created_at>statement_timestamp()-interval '1 hour')<60 ORDER BY a.expires_at DESC,a.id LIMIT 1")
-            .bind(consent).fetch_optional(&mut *tx).await?;
-        let Some((asset, group, project, revision, authorization)) = binding else {
+        let binding: Option<(String, String, String, i64, Uuid, Vec<u8>)> = sqlx::query_as(
+            "SELECT o.upstream_asset_id,i.upstream_group_id,i.upstream_project,i.credential_revision,a.id,c.credential_ciphertext \
+             FROM asset_image_ingestion_outcomes o \
+             JOIN asset_image_ingestion_consents d ON d.id=o.consent_id \
+             JOIN asset_group_create_intents i ON i.id=d.group_intent_id \
+             JOIN vendors v ON v.id=i.vendor_id AND v.revision=i.vendor_revision \
+             JOIN vendor_asset_management_credentials c ON c.vendor_id=i.vendor_id AND c.revision=i.credential_revision AND c.upstream_project=i.upstream_project \
+             JOIN asset_operation_authorizations a ON a.organization_id=i.organization_id AND a.project_id=i.project_id AND a.vendor_id=i.vendor_id AND a.vendor_revision=i.vendor_revision AND a.credential_revision=i.credential_revision \
+             WHERE o.consent_id=$1 AND o.outcome='accepted' AND i.state='succeeded' \
+               AND a.operation='GetAsset' AND a.expires_at>clock_timestamp() \
+               AND c.credential_ciphertext IS NOT NULL \
+               AND NOT EXISTS(SELECT 1 FROM asset_operation_authorization_revocations r WHERE r.authorization_id=a.id) \
+               AND NOT EXISTS(SELECT 1 FROM vendor_asset_management_revocations r WHERE r.vendor_id=i.vendor_id AND r.through_revision>=i.credential_revision) \
+               AND NOT EXISTS(SELECT 1 FROM asset_group_deletion_claims deletion JOIN asset_group_create_intents original ON original.id=deletion.intent_id WHERE original.vendor_id=i.vendor_id AND original.credential_revision=i.credential_revision AND original.upstream_project=i.upstream_project AND original.upstream_group_id=i.upstream_group_id) \
+               AND NOT EXISTS(SELECT 1 FROM ingested_image_readiness_pending pending WHERE pending.consent_id=d.id) \
+               AND (SELECT count(*) FROM ingested_image_readiness_claims recent WHERE recent.consent_id=d.id AND recent.created_at>statement_timestamp()-interval '1 hour')<60 \
+             ORDER BY a.expires_at DESC,a.id LIMIT 1",
+        )
+        .bind(consent)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some((asset, group, project, revision, authorization, credential_ciphertext)) = binding
+        else {
             return Ok(None);
         };
         let request = OrdinaryAssetRead::created_image(
@@ -65,13 +97,25 @@ impl Store {
                 .map_err(|_| StoreError::InvalidObservation)?,
         )
         .map_err(|_| StoreError::InvalidObservation)?;
-        let inserted = sqlx::query("INSERT INTO ingested_image_readiness_claims(id,consent_id,authorization_id) SELECT $1,$2,$3 WHERE EXISTS(SELECT 1 FROM asset_operation_authorizations WHERE id=$3 AND expires_at>clock_timestamp() AND NOT EXISTS(SELECT 1 FROM asset_operation_authorization_revocations r WHERE r.authorization_id=$3)) ON CONFLICT DO NOTHING")
-            .bind(read_id).bind(consent).bind(authorization).execute(&mut *tx).await?.rows_affected();
+        let inserted = sqlx::query(
+            "INSERT INTO ingested_image_readiness_claims(id,consent_id,authorization_id) \
+             VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
+        )
+        .bind(read_id)
+        .bind(consent)
+        .bind(authorization)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
         if inserted != 1 {
             return Ok(None);
         }
-        let credential = sqlx::query_as::<_,AssetManagementCredentialRevision>("SELECT vendor_id,revision,upstream_project,credential_ciphertext FROM vendor_asset_management_credentials WHERE vendor_id=$1 AND revision=$2 AND upstream_project=$3 AND credential_ciphertext IS NOT NULL")
-            .bind(vendor).bind(revision).bind(project).fetch_one(&mut *tx).await?;
+        let credential = AssetManagementCredentialRevision {
+            vendor_id: vendor,
+            revision,
+            upstream_project: project,
+            credential_ciphertext,
+        };
         tx.commit().await?;
         Ok(Some(ClaimedIngestedImageReadiness {
             credential,
