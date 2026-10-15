@@ -866,6 +866,14 @@ pub(super) async fn begin_retry_attempt(
         operation,
         attempt,
         priced: model.pricing.is_some(),
+        pending_cancellation: Some(PendingDispatchAttempt {
+            store: state.store.clone(),
+            diagnostic_writes: state.diagnostic_writes.clone(),
+            failures: state.failures.clone(),
+            scope,
+            attempt,
+            disarmed: false,
+        }),
     })
 }
 
@@ -1151,7 +1159,7 @@ async fn inspect_required_output(
 
 pub(super) async fn finalize_response(
     state: &AppState,
-    dispatch: DispatchContext,
+    mut dispatch: DispatchContext,
     result: Result<ProviderResponse, ApiError>,
 ) -> Response {
     let mut response = match result {
@@ -1159,70 +1167,99 @@ pub(super) async fn finalize_response(
             if !dispatch.output_rules.is_empty() || !dispatch.output_observe_rules.is_empty() {
                 result.response = inspect_complete_output(state, &dispatch, result.response).await;
             }
-            if dispatch.priced {
-                if state
-                    .gateway_writes
-                    .complete_priced(crate::admission::PricedGatewayCompletion {
-                        finish_reasons: result.finish_reasons.take(),
-                        token_categories: result.token_categories,
-                        scope: dispatch.scope,
-                        attempt_id: dispatch.attempt,
-                        usage: result.usage,
-                        provider_model: result.provider_model,
-                    })
-                    .await
-                    .is_err()
-                {
-                    tracing::error!(
-                        attempt_id = %dispatch.attempt,
-                        "priced gateway completion writer is unavailable; the durable reservation remains unresolved"
-                    );
-                }
-                result.response
-            } else {
-                let completion = niu_storage::GatewayCompletion {
-                    finish_reasons: result.finish_reasons.take(),
-                    token_categories: result.token_categories,
-                    scope: dispatch.scope,
-                    attempt_id: dispatch.attempt,
-                    usage: result.usage,
-                    provider_model: result.provider_model,
-                };
-                if state
-                    .gateway_writes
-                    .complete_unpriced(completion)
-                    .await
-                    .is_err()
-                {
-                    tracing::error!(
-                        attempt_id = %dispatch.attempt,
-                        "unpriced completion writer is unavailable; the durable request remains unresolved"
-                    );
-                }
-                result.response
+            if let Some(mut guard) = dispatch.pending_cancellation.take() {
+                guard.disarmed = true;
             }
+            let gateway_writes = state.gateway_writes.clone();
+            let scope = dispatch.scope;
+            let attempt_id = dispatch.attempt;
+            let priced = dispatch.priced;
+            let finish_reasons = result.finish_reasons.take();
+            let token_categories = result.token_categories;
+            let usage = result.usage;
+            let provider_model = result.provider_model;
+            let _ = state
+                .diagnostic_writes
+                .spawn(async move {
+                    if priced {
+                        if gateway_writes
+                            .complete_priced(crate::admission::PricedGatewayCompletion {
+                                finish_reasons,
+                                token_categories,
+                                scope,
+                                attempt_id,
+                                usage,
+                                provider_model,
+                            })
+                            .await
+                            .is_err()
+                        {
+                            tracing::error!(
+                                attempt_id = %attempt_id,
+                                "priced gateway completion writer is unavailable; the durable reservation remains unresolved"
+                            );
+                        }
+                    } else if gateway_writes
+                        .complete_unpriced(niu_storage::GatewayCompletion {
+                            finish_reasons,
+                            token_categories,
+                            scope,
+                            attempt_id,
+                            usage,
+                            provider_model,
+                        })
+                        .await
+                        .is_err()
+                    {
+                        tracing::error!(
+                            attempt_id = %attempt_id,
+                            "unpriced completion writer is unavailable; the durable request remains unresolved"
+                        );
+                    }
+                })
+                .await;
+            result.response
         }
-        Ok(result) => result.response,
-        Err(error) => error.into_response(),
+        Ok(result) => {
+            if let Some(mut guard) = dispatch.pending_cancellation.take() {
+                guard.disarmed = true;
+            }
+            result.response
+        }
+        Err(error) => {
+            if let Some(mut guard) = dispatch.pending_cancellation.take() {
+                guard.disarmed = true;
+            }
+            error.into_response()
+        }
     };
     if let Some(failure) = response
         .extensions()
         .get::<niu_storage::RequestFailure>()
         .copied()
-        && state
-            .store
-            .save_request_failure(dispatch.scope, dispatch.attempt, failure)
-            .await
-            .is_err()
     {
-        tracing::error!(
-            attempt_id = %dispatch.attempt,
-            failure_kind = failure.kind.as_str(),
-            upstream_http_status = ?failure.upstream_http_status,
-            "request failure persistence or reservation release requires retry"
-        );
+        let store = state.store.clone();
+        let scope = dispatch.scope;
+        let attempt = dispatch.attempt;
+        let _ = state
+            .diagnostic_writes
+            .spawn(async move {
+                if store
+                    .save_request_failure(scope, attempt, failure)
+                    .await
+                    .is_err()
+                {
+                    tracing::error!(
+                        attempt_id = %attempt,
+                        failure_kind = failure.kind.as_str(),
+                        upstream_http_status = ?failure.upstream_http_status,
+                        "request failure persistence or reservation release requires retry"
+                    );
+                }
+            })
+            .await;
     }
-    if let Some(input) = dispatch.retained_input {
+    if let Some(input) = dispatch.retained_input.take() {
         response
             .extensions_mut()
             .insert(crate::request_payloads::InspectedRequestPayload(input));
@@ -1238,7 +1275,48 @@ pub(super) async fn finalize_response(
     response
 }
 
-#[derive(Clone)]
+pub(super) struct PendingDispatchAttempt {
+    store: niu_storage::Store,
+    diagnostic_writes: tokio_util::task::TaskTracker,
+    failures: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    scope: niu_storage::TenantScope,
+    attempt: Uuid,
+    disarmed: bool,
+}
+
+impl Drop for PendingDispatchAttempt {
+    fn drop(&mut self) {
+        if self.disarmed {
+            return;
+        }
+        let store = self.store.clone();
+        let failures = self.failures.clone();
+        let scope = self.scope;
+        let attempt = self.attempt;
+        self.diagnostic_writes.spawn(async move {
+            failures.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if store
+                .save_request_failure(
+                    scope,
+                    attempt,
+                    niu_storage::RequestFailure {
+                        kind: niu_storage::RequestFailureKind::ResponseStreamCancelled,
+                        upstream_http_status: None,
+                        transport_phase: None,
+                    },
+                )
+                .await
+                .is_err()
+            {
+                tracing::error!(
+                    attempt_id = %attempt,
+                    "cancelled request failure observation could not be saved"
+                );
+            }
+        });
+    }
+}
+
 pub(super) struct DispatchContext {
     pub(super) stream_output_observation:
         Option<crate::streaming::output_policy::StreamOutputObservation>,
@@ -1252,6 +1330,7 @@ pub(super) struct DispatchContext {
     pub(super) operation: Uuid,
     pub(super) attempt: Uuid,
     pub(super) priced: bool,
+    pending_cancellation: Option<PendingDispatchAttempt>,
 }
 
 pub(super) struct ProviderResponse {
