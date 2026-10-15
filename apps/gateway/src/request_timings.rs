@@ -8,6 +8,8 @@ use std::{
 };
 use uuid::Uuid;
 
+static TIMING_WRITE_CONCURRENCY: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+
 #[derive(Clone)]
 pub struct Timing {
     measurements: Arc<Mutex<Measurements>>,
@@ -44,6 +46,7 @@ pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
             };
             let store = store.clone();
             timing.writes.spawn(async move {
+                let _permit = TIMING_WRITE_CONCURRENCY.acquire().await;
                 if store.save_request_timing(record).await.is_err() {
                     tracing::warn!("Superseded attempt timing persistence failed");
                 }
@@ -86,6 +89,7 @@ impl Drop for Finish {
             self.complete,
         );
         self.timing.writes.spawn(async move {
+            let _permit = TIMING_WRITE_CONCURRENCY.acquire().await;
             if store
                 .save_request_timing(niu_storage::RequestTimingRecord {
                     attempt,

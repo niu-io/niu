@@ -17,6 +17,9 @@ const LIMIT: usize = 1_048_576;
 #[derive(Clone)]
 pub(crate) struct InspectedRequestPayload(pub Value);
 
+const MAX_CREDENTIAL_SCRUB_DEPTH: usize = 64;
+static PAYLOAD_WRITE_CONCURRENCY: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+
 struct Capture {
     writes: tokio_util::task::TaskTracker,
     store: niu_storage::Store,
@@ -33,15 +36,21 @@ impl Drop for Capture {
         let store = self.store.clone();
         let attempt = self.attempt;
         let request = std::mem::take(&mut self.request);
-        let valid = match std::str::from_utf8(&self.bytes) {
+        let raw_bytes = std::mem::take(&mut self.bytes);
+        let response = match String::from_utf8(raw_bytes) {
             Ok(value) => value,
-            Err(error) => std::str::from_utf8(&self.bytes[..error.valid_up_to()]).unwrap_or(""),
+            Err(error) => {
+                let valid_len = error.utf8_error().valid_up_to();
+                let mut bytes = error.into_bytes();
+                bytes.truncate(valid_len);
+                String::from_utf8(bytes).unwrap_or_default()
+            }
         };
-        let response = valid.to_owned();
-        let content_type = self.content_type.clone();
+        let content_type = std::mem::take(&mut self.content_type);
         let complete = self.complete;
         let truncated = self.truncated;
         self.writes.spawn(async move {
+            let _permit = PAYLOAD_WRITE_CONCURRENCY.acquire().await;
             if store
                 .save_request_payload(
                     attempt,
@@ -61,30 +70,34 @@ impl Drop for Capture {
 }
 
 pub(crate) fn remove_credentials(value: &mut Value) {
+    remove_credentials_bounded(value, 0);
+}
+
+fn remove_credentials_bounded(value: &mut Value, depth: usize) {
+    if depth >= MAX_CREDENTIAL_SCRUB_DEPTH {
+        return;
+    }
     match value {
         Value::Object(object) => {
             object.retain(|key, _| {
-                !matches!(
-                    key.to_ascii_lowercase().as_str(),
-                    "authorization"
-                        | "proxy-authorization"
-                        | "cookie"
-                        | "set-cookie"
-                        | "api_key"
-                        | "api-key"
-                        | "x-api-key"
-                        | "password"
-                        | "access_token"
-                        | "refresh_token"
-                )
+                !key.eq_ignore_ascii_case("authorization")
+                    && !key.eq_ignore_ascii_case("proxy-authorization")
+                    && !key.eq_ignore_ascii_case("cookie")
+                    && !key.eq_ignore_ascii_case("set-cookie")
+                    && !key.eq_ignore_ascii_case("api_key")
+                    && !key.eq_ignore_ascii_case("api-key")
+                    && !key.eq_ignore_ascii_case("x-api-key")
+                    && !key.eq_ignore_ascii_case("password")
+                    && !key.eq_ignore_ascii_case("access_token")
+                    && !key.eq_ignore_ascii_case("refresh_token")
             });
             for item in object.values_mut() {
-                remove_credentials(item);
+                remove_credentials_bounded(item, depth + 1);
             }
         }
         Value::Array(items) => {
             for item in items {
-                remove_credentials(item);
+                remove_credentials_bounded(item, depth + 1);
             }
         }
         _ => {}
