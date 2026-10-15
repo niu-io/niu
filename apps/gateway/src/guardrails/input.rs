@@ -650,13 +650,10 @@ pub async fn run_bounded<T: Send + 'static>(
 ) -> Result<T, WorkerError> {
     let permit = match slots.clone().try_acquire_owned() {
         Ok(permit) => permit,
-        Err(_) => tokio::time::timeout(
-            std::time::Duration::from_millis(25),
-            slots.acquire_owned(),
-        )
-        .await
-        .map_err(|_| WorkerError::Busy)?
-        .map_err(|_| WorkerError::Busy)?,
+        Err(_) => tokio::time::timeout(std::time::Duration::from_millis(25), slots.acquire_owned())
+            .await
+            .map_err(|_| WorkerError::Busy)?
+            .map_err(|_| WorkerError::Busy)?,
     };
     let job = tokio::task::spawn_blocking(move || {
         let _permit = permit;

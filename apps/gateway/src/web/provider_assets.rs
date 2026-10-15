@@ -133,7 +133,12 @@ pub(super) struct AdmissionContext {
 struct PrincipalAdmissionAuth {
     snapshot: niu_storage::GuardrailSnapshot,
     current_key: Principal,
-    policies: Option<Vec<(crate::guardrails::EffectiveAccess, crate::guardrails::EffectiveAccess)>>,
+    policies: Option<
+        Vec<(
+            crate::guardrails::EffectiveAccess,
+            crate::guardrails::EffectiveAccess,
+        )>,
+    >,
 }
 
 pub(super) async fn admit(
@@ -371,10 +376,10 @@ pub(super) fn client(
     };
     let now = std::time::Instant::now();
     if let Ok(mut guard) = FASTROUTER_ACTION_CLIENTS.lock() {
-        if let Some((cached_at, client)) = guard.get(&cache_key) {
-            if now.duration_since(*cached_at) < FASTROUTER_CLIENT_CACHE_TTL {
-                return Ok(client.clone());
-            }
+        if let Some((cached_at, client)) = guard.get(&cache_key)
+            && now.duration_since(*cached_at) < FASTROUTER_CLIENT_CACHE_TTL
+        {
+            return Ok(client.clone());
         }
         guard.remove(&cache_key);
     }

@@ -274,12 +274,14 @@ mod migration_compatibility;
 
 pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 
+type BrandingCache =
+    std::sync::Arc<std::sync::RwLock<Option<(i64, std::sync::Arc<BrandingSettings>)>>>;
+
 #[derive(Clone)]
 pub struct Store {
     pool: PgPool,
     route_compiler: Option<std::sync::Arc<dyn RouteRegistryCompiler>>,
-    branding_cache:
-        std::sync::Arc<std::sync::RwLock<Option<(i64, std::sync::Arc<BrandingSettings>)>>>,
+    branding_cache: BrandingCache,
 }
 
 #[derive(Clone, Copy)]

@@ -218,8 +218,9 @@ pub async fn transform_request_body<C: BaseOcrConfig, B: Serialize>(
     signer: Option<&dyn RequestSigner>,
     hooks: &dyn CallHooks<Error>,
 ) -> Result<OutboundRequest, Error> {
-    let body_value =
-        serde_json::to_value(&body).map_err(|_| crate::base_llm::ocr::error::Error::Params(litellm_core_utils::params::Error::Body))?;
+    let body_value = serde_json::to_value(&body).map_err(|_| {
+        crate::base_llm::ocr::error::Error::Params(litellm_core_utils::params::Error::Body)
+    })?;
     let transformed_document = body_document(&body_value).ok();
     let protect_document_source = transformed_document
         .as_ref()
@@ -230,10 +231,8 @@ pub async fn transform_request_body<C: BaseOcrConfig, B: Serialize>(
         config.get_supported_ocr_params(&request.model),
     )?;
     if protect_document_source
-        && let (Some(Value::Object(orig_doc)), Some(composed_map)) = (
-            body_value.get("document"),
-            composed.as_object_mut(),
-        )
+        && let (Some(Value::Object(orig_doc)), Some(composed_map)) =
+            (body_value.get("document"), composed.as_object_mut())
     {
         match composed_map.get_mut("document") {
             Some(Value::Object(doc_map)) => {

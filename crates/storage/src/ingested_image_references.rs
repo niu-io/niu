@@ -243,21 +243,29 @@ impl Store {
             .execute(&mut *connection)
             .await?;
 
-        let mut ingestion_ids: Vec<Uuid> = items.iter().map(|(input, _)| input.ingestion_id).collect();
+        let mut ingestion_ids: Vec<Uuid> =
+            items.iter().map(|(input, _)| input.ingestion_id).collect();
         ingestion_ids.sort_unstable();
         ingestion_ids.dedup();
-        sqlx::query("SELECT id FROM asset_image_ingestion_consents WHERE id=ANY($1) ORDER BY id FOR SHARE")
-            .bind(&ingestion_ids)
-            .execute(&mut *connection)
-            .await?;
+        sqlx::query(
+            "SELECT id FROM asset_image_ingestion_consents WHERE id=ANY($1) ORDER BY id FOR SHARE",
+        )
+        .bind(&ingestion_ids)
+        .execute(&mut *connection)
+        .await?;
 
-        let mut source_ids: Vec<Uuid> = items.iter().map(|(_, reference)| reference.source_id).collect();
+        let mut source_ids: Vec<Uuid> = items
+            .iter()
+            .map(|(_, reference)| reference.source_id)
+            .collect();
         source_ids.sort_unstable();
         source_ids.dedup();
-        sqlx::query("SELECT id FROM inspected_image_sources WHERE id=ANY($1) ORDER BY id FOR SHARE")
-            .bind(&source_ids)
-            .execute(&mut *connection)
-            .await?;
+        sqlx::query(
+            "SELECT id FROM inspected_image_sources WHERE id=ANY($1) ORDER BY id FOR SHARE",
+        )
+        .bind(&source_ids)
+        .execute(&mut *connection)
+        .await?;
 
         let mut group_intent_ids: Vec<Uuid> = items
             .iter()
@@ -265,10 +273,12 @@ impl Store {
             .collect();
         group_intent_ids.sort_unstable();
         group_intent_ids.dedup();
-        sqlx::query("SELECT id FROM asset_group_create_intents WHERE id=ANY($1) ORDER BY id FOR SHARE")
-            .bind(&group_intent_ids)
-            .execute(&mut *connection)
-            .await?;
+        sqlx::query(
+            "SELECT id FROM asset_group_create_intents WHERE id=ANY($1) ORDER BY id FOR SHARE",
+        )
+        .bind(&group_intent_ids)
+        .execute(&mut *connection)
+        .await?;
 
         let mut verified_snapshot = false;
         for (input, reference) in items {
@@ -335,9 +345,10 @@ impl Store {
         }
         let scope = principal.scope();
         if !*verified_snapshot {
-            let current = Self::guardrail_snapshot_using(&mut *connection, scope, principal.key_id())
-                .await?
-                .ok_or(StoreError::Unauthorized)?;
+            let current =
+                Self::guardrail_snapshot_using(&mut *connection, scope, principal.key_id())
+                    .await?
+                    .ok_or(StoreError::Unauthorized)?;
             if !crate::image_processing::same_policy(&current, snapshot) {
                 return Err(StoreError::Conflict);
             }

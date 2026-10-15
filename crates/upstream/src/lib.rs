@@ -205,7 +205,8 @@ impl ClientPool {
             }
         };
 
-        let mut normalized_ips: Vec<IpAddr> = addresses.iter().map(std::net::SocketAddr::ip).collect();
+        let mut normalized_ips: Vec<IpAddr> =
+            addresses.iter().map(std::net::SocketAddr::ip).collect();
         normalized_ips.sort_unstable();
         normalized_ips.dedup();
 

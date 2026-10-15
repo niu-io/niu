@@ -171,16 +171,22 @@ pub(crate) async fn dispatch(
 ) -> Result<Json<Value>, ApiError> {
     let principal = state.authorize_api_headers(&headers).await?;
     validate_command_body(&body)?;
-    dispatch_authorized_with_transport(state, headers, principal, id, |signer, request| async move {
-        niu_media::asset_create::create_asset_now(
-            &signer,
-            &request,
-            1024 * 1024,
-            std::time::Duration::from_secs(30),
-        )
-        .await
-        .map(|accepted| accepted.upstream_id().to_owned())
-    })
+    dispatch_authorized_with_transport(
+        state,
+        headers,
+        principal,
+        id,
+        |signer, request| async move {
+            niu_media::asset_create::create_asset_now(
+                &signer,
+                &request,
+                1024 * 1024,
+                std::time::Duration::from_secs(30),
+            )
+            .await
+            .map(|accepted| accepted.upstream_id().to_owned())
+        },
+    )
     .await
 }
 

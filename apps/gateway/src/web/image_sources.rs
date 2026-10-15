@@ -162,12 +162,10 @@ pub(crate) async fn read(
     let bytes = Bytes::from(raw_bytes);
     let length = bytes.len();
     // Retain the slot in the body stream until the chunk is yielded or the response is dropped.
-    let stream = futures_util::stream::unfold(
-        (Some(bytes), Some(permit)),
-        |(bytes, _permit)| async move {
+    let stream =
+        futures_util::stream::unfold((Some(bytes), Some(permit)), |(bytes, _permit)| async move {
             bytes.map(|bytes| (Ok::<_, std::convert::Infallible>(bytes), (None, None)))
-        },
-    );
+        });
     let mut response = Body::from_stream(stream).into_response();
     protect(&mut response);
     response.headers_mut().insert(

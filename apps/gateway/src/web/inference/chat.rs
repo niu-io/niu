@@ -1143,10 +1143,10 @@ async fn stream_openai_compatible(
         Some("json_schema") => Some(crate::structured_stream::StructuredStream::new(Some(
             match route_requirements.schema_validator {
                 Some(validator) => validator,
-                None => structured_schema_validator(
-                    &body["response_format"]["json_schema"]["schema"],
-                )
-                .map_err(|_| ApiError::invalid_request("Invalid structured output schema"))?,
+                None => {
+                    structured_schema_validator(&body["response_format"]["json_schema"]["schema"])
+                        .map_err(|_| ApiError::invalid_request("Invalid structured output schema"))?
+                }
             },
         ))),
         _ if route_requirements.model.tools => {

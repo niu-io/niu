@@ -98,7 +98,12 @@ impl PreparedMedia {
         contract: &MediaInspectionContract,
     ) -> Result<serde_json::Value, MediaInspectionError> {
         self.validate_contract(contract)?;
-        Ok(self.build_inspection_request(&contract.detector_revision, STANDARD.encode(&self.bytes)))
+        Ok(
+            self.build_inspection_request(
+                &contract.detector_revision,
+                STANDARD.encode(&self.bytes),
+            ),
+        )
     }
     fn validate_contract(
         &self,
@@ -178,10 +183,8 @@ pub async fn inspect(
         .await
         .map_err(|_| MediaInspectionError::ServiceFailure)?
     } else {
-        let req = input.build_inspection_request(
-            &contract.detector_revision,
-            STANDARD.encode(&input.bytes),
-        );
+        let req = input
+            .build_inspection_request(&contract.detector_revision, STANDARD.encode(&input.bytes));
         (input, req)
     };
     inspect_exact(

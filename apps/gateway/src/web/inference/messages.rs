@@ -929,9 +929,9 @@ fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
     }
     fn text(value: &Value) -> bool {
         value.is_string()
-            || value
-                .as_array()
-                .is_some_and(|parts| !parts.is_empty() && parts.len() <= 128 && parts.iter().all(text_part))
+            || value.as_array().is_some_and(|parts| {
+                !parts.is_empty() && parts.len() <= 128 && parts.iter().all(text_part)
+            })
     }
     let messages = body
         .get("messages")
@@ -1101,7 +1101,9 @@ fn normalize(
         .and_then(Value::as_str)
         .filter(|s| s.len() <= 512);
     let response = if valid {
-        buffered_json_response(json!({"id":id,"type":"message","role":"assistant","model":public_model,"content":content,"stop_reason":stop,"stop_sequence":stop_sequence,"usage":sanitized_usage}))
+        buffered_json_response(
+            json!({"id":id,"type":"message","role":"assistant","model":public_model,"content":content,"stop_reason":stop,"stop_sequence":stop_sequence,"usage":sanitized_usage}),
+        )
     } else {
         invalid().into_response()
     };

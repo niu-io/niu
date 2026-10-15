@@ -103,7 +103,7 @@ impl Store {
         .bind(scope.project_id)
         .bind(principal.key_id())
         .bind(attempt)
-        .bind(&body_sha256)
+        .bind(body_sha256)
         .bind(dispatch.request.schema_revision())
         .bind(&positions)
         .bind(&ingestion_ids)

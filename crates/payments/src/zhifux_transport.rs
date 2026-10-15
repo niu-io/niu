@@ -139,7 +139,9 @@ fn public_address(address: IpAddr) -> bool {
     }
 }
 impl Client {
-    async fn resolve_public_addresses(base: &Url) -> Result<(String, Vec<std::net::SocketAddr>), Error> {
+    async fn resolve_public_addresses(
+        base: &Url,
+    ) -> Result<(String, Vec<std::net::SocketAddr>), Error> {
         let host = base.host_str().ok_or(Error::Configuration)?.to_owned();
         let port = base.port_or_known_default().ok_or(Error::Configuration)?;
         let mut addresses: Vec<_> =

@@ -16,10 +16,7 @@ const AZURE_KEY_VAULT_URI: &str = "AZURE_KEY_VAULT_URI";
 const API_VERSION: &str = "7.4";
 const CACHE_CAPACITY: u64 = 200;
 const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(600);
-const PATH_SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
-    .remove(b'-')
-    .remove(b'_')
-    .remove(b'~');
+const PATH_SEGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'_').remove(b'~');
 
 #[derive(Clone)]
 pub struct AzureKeyVault {

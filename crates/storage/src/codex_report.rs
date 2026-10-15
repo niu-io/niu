@@ -426,27 +426,24 @@ impl Store {
             let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
                 "INSERT INTO codex_usage_responses(organization_id,project_id,import_id,response_key,occurred_at,model_provider,model,input_tokens,cached_input_tokens,cache_write_input_tokens,output_tokens,reasoning_output_tokens,api_equivalent_usd_nanos,rate_snapshot) ",
             );
-            builder.push_values(
-                &prepared,
-                |mut b, (response, response_key, snapshot)| {
-                    b.push_bind(scope.organization_id)
-                        .push_bind(scope.project_id)
-                        .push_bind(import_id)
-                        .push_bind(response_key)
-                        .push("to_timestamp(")
-                        .push_bind_unseparated(response.occurred_at_ms)
-                        .push_unseparated("::double precision/1000.0)")
-                        .push_bind(&response.model_provider)
-                        .push_bind(&response.model)
-                        .push_bind(response.usage.input_tokens)
-                        .push_bind(response.usage.cached_input_tokens)
-                        .push_bind(response.usage.cache_write_input_tokens)
-                        .push_bind(response.usage.output_tokens)
-                        .push_bind(response.usage.reasoning_output_tokens)
-                        .push_bind(response.estimate_usd_nanos())
-                        .push_bind(snapshot);
-                },
-            );
+            builder.push_values(&prepared, |mut b, (response, response_key, snapshot)| {
+                b.push_bind(scope.organization_id)
+                    .push_bind(scope.project_id)
+                    .push_bind(import_id)
+                    .push_bind(response_key)
+                    .push("to_timestamp(")
+                    .push_bind_unseparated(response.occurred_at_ms)
+                    .push_unseparated("::double precision/1000.0)")
+                    .push_bind(&response.model_provider)
+                    .push_bind(&response.model)
+                    .push_bind(response.usage.input_tokens)
+                    .push_bind(response.usage.cached_input_tokens)
+                    .push_bind(response.usage.cache_write_input_tokens)
+                    .push_bind(response.usage.output_tokens)
+                    .push_bind(response.usage.reasoning_output_tokens)
+                    .push_bind(response.estimate_usd_nanos())
+                    .push_bind(snapshot);
+            });
             builder.push(" ON CONFLICT(organization_id,project_id,response_key) DO NOTHING");
             builder.build().execute(&mut *tx).await?.rows_affected()
         };
@@ -559,10 +556,7 @@ impl Store {
         from_ms: i64,
         to_ms: i64,
     ) -> Result<serde_json::Value, StoreError> {
-        if from_ms < 0
-            || to_ms <= from_ms
-            || to_ms - from_ms > 366 * 24 * 60 * 60 * 1000
-        {
+        if from_ms < 0 || to_ms <= from_ms || to_ms - from_ms > 366 * 24 * 60 * 60 * 1000 {
             return Err(StoreError::InvalidUsage);
         }
         let mut tx = self.begin_bounded_read_snapshot().await?;

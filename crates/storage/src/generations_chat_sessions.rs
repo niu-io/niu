@@ -29,10 +29,7 @@ fn project_generations_chat_session(
 ) -> Result<Value, StoreError> {
     // A saved turns array already represents the entire conversation. Only
     // legacy single-turn payloads without that array use the top-level turn.
-    let saved: Vec<Value> = match payload
-        .as_object_mut()
-        .and_then(|obj| obj.remove("turns"))
-    {
+    let saved: Vec<Value> = match payload.as_object_mut().and_then(|obj| obj.remove("turns")) {
         Some(Value::Array(turns)) => turns,
         Some(other) => {
             if let Some(obj) = payload.as_object_mut() {
@@ -110,7 +107,12 @@ fn project_generations_chat_session(
                 .get("attemptId")
                 .and_then(Value::as_str)
                 .and_then(|value| Uuid::parse_str(value).ok())
-                .zip(branch.get("model").and_then(Value::as_str).map(str::to_owned));
+                .zip(
+                    branch
+                        .get("model")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
+                );
             // Saved comparison phase is client content, never an execution
             // claim. The independent task field requires ledger identity.
             if let Some(branch_obj) = branch.as_object_mut() {

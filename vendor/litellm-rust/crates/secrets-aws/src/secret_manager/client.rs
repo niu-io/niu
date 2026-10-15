@@ -55,7 +55,9 @@ impl AwsSecretsManagerV2 {
 impl ContextClientFactory {
     fn client(&self, context: &AwsOperationContext) -> Result<Client, Error> {
         if let Ok(mut guard) = self.cached_clients.lock()
-            && let Some(pos) = guard.iter().position(|(cached_ctx, _)| cached_ctx == context)
+            && let Some(pos) = guard
+                .iter()
+                .position(|(cached_ctx, _)| cached_ctx == context)
         {
             let entry = guard.remove(pos);
             let client = entry.1.clone();
@@ -125,7 +127,10 @@ impl ContextClientFactory {
         if context != &AwsOperationContext::default()
             && let Ok(mut guard) = self.cached_clients.lock()
         {
-            if let Some(pos) = guard.iter().position(|(cached_ctx, _)| cached_ctx == context) {
+            if let Some(pos) = guard
+                .iter()
+                .position(|(cached_ctx, _)| cached_ctx == context)
+            {
                 guard.remove(pos);
             } else if guard.len() >= CONTEXT_CLIENT_CACHE_CAPACITY {
                 guard.remove(0);

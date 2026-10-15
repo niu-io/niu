@@ -164,11 +164,11 @@ impl Store {
                     .push_bind(&consent)
                     .push_bind(&item.fingerprint);
             });
-            builder.push(" ON CONFLICT(owner_id,source,response_key) DO NOTHING RETURNING response_key");
-            let inserted_keys: Vec<Vec<u8>> = builder
-                .build_query_scalar()
-                .fetch_all(&mut *tx)
-                .await?;
+            builder.push(
+                " ON CONFLICT(owner_id,source,response_key) DO NOTHING RETURNING response_key",
+            );
+            let inserted_keys: Vec<Vec<u8>> =
+                builder.build_query_scalar().fetch_all(&mut *tx).await?;
             if inserted_keys.len() < prepared.len() {
                 let inserted_set: std::collections::HashSet<&[u8]> =
                     inserted_keys.iter().map(Vec::as_slice).collect();

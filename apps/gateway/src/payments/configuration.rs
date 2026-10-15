@@ -131,9 +131,8 @@ pub(super) async fn runtime_snapshot(
             .map_err(|_| {
                 ApiError::upstream_message("Stored payment configuration could not be opened")
             })?;
-        let settings: Settings = serde_json::from_str(&plaintext).map_err(|_| {
-            ApiError::upstream_message("Stored payment configuration is invalid")
-        })?;
+        let settings: Settings = serde_json::from_str(&plaintext)
+            .map_err(|_| ApiError::upstream_message("Stored payment configuration is invalid"))?;
         let runtime = settings
             .runtime()
             .map_err(ApiError::invalid_request)?

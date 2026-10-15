@@ -119,9 +119,9 @@ impl Processor {
             if total_chars > limit.saturating_add(REDACTION_BOUNDARY_MARGIN.saturating_mul(2)) {
                 let window_half = (limit / 2).saturating_add(REDACTION_BOUNDARY_MARGIN);
                 let prefix_end = char_offset(&collapsed, window_half);
-                let suffix_start =
-                    char_offset(&collapsed, total_chars.saturating_sub(window_half));
-                let skipped_middle_chars = total_chars.saturating_sub(window_half.saturating_mul(2));
+                let suffix_start = char_offset(&collapsed, total_chars.saturating_sub(window_half));
+                let skipped_middle_chars =
+                    total_chars.saturating_sub(window_half.saturating_mul(2));
                 let redacted_prefix = self.redact_text(&collapsed[..prefix_end])?;
                 let redacted_suffix = self.redact_text(&collapsed[suffix_start..])?;
                 return Ok(truncate_windowed(

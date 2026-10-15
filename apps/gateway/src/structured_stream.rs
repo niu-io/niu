@@ -63,12 +63,7 @@ struct ToolCall {
     function: bool,
 }
 impl ToolCall {
-    fn observe(
-        &mut self,
-        delta: &Value,
-        bytes: &mut usize,
-        tool_names: &BTreeSet<String>,
-    ) -> bool {
+    fn observe(&mut self, delta: &Value, bytes: &mut usize, tool_names: &BTreeSet<String>) -> bool {
         if let Some(value) = delta.get("type").filter(|v| !v.is_null()) {
             if value != "function" {
                 return false;

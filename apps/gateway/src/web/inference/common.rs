@@ -201,23 +201,22 @@ fn parse_cached_policy_draft(
     stored: &Value,
 ) -> Result<std::sync::Arc<crate::guardrails::PolicyDraft>, ()> {
     use serde::Deserialize;
-    static PARSED_POLICY_DRAFT_CACHE: std::sync::LazyLock<
-        std::sync::Mutex<
-            std::collections::HashMap<
-                (uuid::Uuid, i64, i64),
-                std::sync::Arc<crate::guardrails::PolicyDraft>,
-            >,
+    type ParsedPolicyDraftCache = std::sync::Mutex<
+        std::collections::HashMap<
+            (uuid::Uuid, i64, i64),
+            std::sync::Arc<crate::guardrails::PolicyDraft>,
         >,
-    > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    >;
+    static PARSED_POLICY_DRAFT_CACHE: std::sync::LazyLock<ParsedPolicyDraftCache> =
+        std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
     if let Some(key) = cache_key
         && let Ok(cache) = PARSED_POLICY_DRAFT_CACHE.lock()
         && let Some(cached) = cache.get(&key)
     {
         return Ok(cached.clone());
     }
-    let parsed = std::sync::Arc::new(
-        crate::guardrails::PolicyDraft::deserialize(stored).map_err(|_| ())?,
-    );
+    let parsed =
+        std::sync::Arc::new(crate::guardrails::PolicyDraft::deserialize(stored).map_err(|_| ())?);
     if let Some(key) = cache_key
         && let Ok(mut cache) = PARSED_POLICY_DRAFT_CACHE.lock()
     {
@@ -598,7 +597,8 @@ pub(super) async fn begin_retry_attempt(
         let Some(policy) = policy.as_ref() else {
             continue;
         };
-        let policy = parse_cached_policy_draft(cache_key, policy).map_err(|_| ApiError::forbidden())?;
+        let policy =
+            parse_cached_policy_draft(cache_key, policy).map_err(|_| ApiError::forbidden())?;
         if let Some(output) = &policy.output {
             match output.mode {
                 crate::guardrails::OutputMode::BufferedFull => {
@@ -1221,8 +1221,10 @@ pub(super) async fn finalize_response(
         Ok(mut result) if result.completed => {
             if !dispatch.output_rules.is_empty() || !dispatch.output_observe_rules.is_empty() {
                 result.response = inspect_complete_output(state, &dispatch, result.response).await;
-            } else if let Some(BufferedJsonOutput(value)) =
-                result.response.extensions_mut().remove::<BufferedJsonOutput>()
+            } else if let Some(BufferedJsonOutput(value)) = result
+                .response
+                .extensions_mut()
+                .remove::<BufferedJsonOutput>()
             {
                 let (parts, _) = result.response.into_parts();
                 result.response = materialize_json_response(parts, value);
@@ -1281,8 +1283,10 @@ pub(super) async fn finalize_response(
             result.response
         }
         Ok(mut result) => {
-            if let Some(BufferedJsonOutput(value)) =
-                result.response.extensions_mut().remove::<BufferedJsonOutput>()
+            if let Some(BufferedJsonOutput(value)) = result
+                .response
+                .extensions_mut()
+                .remove::<BufferedJsonOutput>()
             {
                 let (parts, _) = result.response.into_parts();
                 result.response = materialize_json_response(parts, value);

@@ -867,14 +867,17 @@ pub async fn update_key(
         None
     };
 
-    let metadata = metadata_inputs.as_ref().map(
-        |(name, allowed_models, expected_revision, actor_label)| niu_storage::KeyMetadataUpdate {
-            name,
-            models: allowed_models,
-            expected_revision: *expected_revision,
-            actor: actor_label,
-        },
-    );
+    let metadata =
+        metadata_inputs
+            .as_ref()
+            .map(|(name, allowed_models, expected_revision, actor_label)| {
+                niu_storage::KeyMetadataUpdate {
+                    name,
+                    models: allowed_models,
+                    expected_revision: *expected_revision,
+                    actor: actor_label,
+                }
+            });
     let policies = niu_storage::UnifiedKeyPoliciesInput {
         spending_limit,
         request_rate_limit,

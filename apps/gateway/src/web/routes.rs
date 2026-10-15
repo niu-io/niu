@@ -714,19 +714,19 @@ pub(crate) fn router(state: AppState) -> Router {
     };
     app.layer(DefaultBodyLimit::max(1_048_576))
         .layer(middleware::from_fn_with_state(
-        state.clone(),
-        crate::request_timings::collect,
-    ))
-    .layer(middleware::from_fn_with_state(
-        state.clone(),
-        crate::request_payloads::capture,
-    ))
-    .layer(middleware::from_fn(private_api_cache_control))
-    .layer(middleware::from_fn_with_state(
-        state.clone(),
-        crate::request_source::capture,
-    ))
-    .with_state(state)
+            state.clone(),
+            crate::request_timings::collect,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::request_payloads::capture,
+        ))
+        .layer(middleware::from_fn(private_api_cache_control))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::request_source::capture,
+        ))
+        .with_state(state)
 }
 
 async fn private_api_cache_control(request: axum::http::Request<Body>, next: Next) -> Response {

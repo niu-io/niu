@@ -209,9 +209,7 @@ pub(super) fn validate_path_segment(value: &str, field: &'static str) -> Result<
             .bytes()
             .any(|b| b.is_ascii_control() || matches!(b, b'/' | b'\\' | b'?' | b'#'))
     {
-        return Err(Error::RequestField {
-            path: field.into(),
-        });
+        return Err(Error::RequestField { path: field.into() });
     }
     Ok(())
 }

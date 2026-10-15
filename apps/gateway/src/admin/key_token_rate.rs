@@ -530,7 +530,9 @@ pub async fn history(
         Ok(q) => q,
         Err(_) => {
             ensure_key_exists().await?;
-            return Err(ApiError::invalid_request("Invalid token-rate history query"));
+            return Err(ApiError::invalid_request(
+                "Invalid token-rate history query",
+            ));
         }
     };
     let limit = query.limit.unwrap_or(50);

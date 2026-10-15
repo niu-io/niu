@@ -191,7 +191,7 @@ impl Store {
             // The existing prepared-route trigger validates the same policy epoch.
             sqlx::query("INSERT INTO image_request_bindings(organization_id,project_id,key_id,attempt_id,body_sha256,schema_revision,image_positions,workspace_revision,key_policy_revision,key_assignment_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
                 .bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(attempt)
-                .bind(&body_sha256).bind(dispatch.request.schema_revision()).bind(image_positions)
+                .bind(body_sha256).bind(dispatch.request.schema_revision()).bind(image_positions)
                 .bind(dispatch.snapshot.workspace_revision).bind(dispatch.snapshot.key_policy_revision)
                 .bind(dispatch.snapshot.key_assignment_revision).execute(&mut *tx).await?;
         } else {
@@ -269,7 +269,7 @@ impl Store {
         .bind(scope.project_id)
         .bind(principal.key_id())
         .bind(attempt)
-        .bind(&body_sha256)
+        .bind(body_sha256)
         .bind(dispatch.request.schema_revision())
         .bind(&bind_positions)
         .bind(&bind_asset_ids)
@@ -284,4 +284,3 @@ impl Store {
         Ok(())
     }
 }
-

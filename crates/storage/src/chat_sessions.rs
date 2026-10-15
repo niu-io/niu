@@ -357,7 +357,9 @@ impl Store {
         .bind(attempts.into_iter().collect::<Vec<_>>())
         .fetch_all(&mut *connection)
         .await?;
-        let mut charges: std::collections::HashMap<Uuid, Vec<(String, serde_json::Map<String, Value>)>> =
+        type AttemptChargeEntries =
+            std::collections::HashMap<Uuid, Vec<(String, serde_json::Map<String, Value>)>>;
+        let mut charges: AttemptChargeEntries =
             std::collections::HashMap::with_capacity(rows.len());
         let mut executions = std::collections::HashMap::with_capacity(rows.len());
         for (id, model, execution, value) in rows {

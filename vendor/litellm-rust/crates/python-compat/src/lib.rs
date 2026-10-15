@@ -44,4 +44,3 @@ pub const MAX_INT_STRING_DIGITS: usize = 4_300;
 /// Bit-length upper bound corresponding to `MAX_INT_STRING_DIGITS` decimal digits
 /// (`ceil(4300 * log2(10)) = 14285`) before formatting a `BigInt` as base-10 text.
 pub const MAX_DECIMAL_INT_BITS: u64 = 14_285;
-

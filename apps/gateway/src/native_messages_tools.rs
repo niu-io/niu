@@ -67,10 +67,6 @@ pub(crate) fn validate_and_compile(
     }
     Ok((true, Some(defs)))
 }
-#[cfg(test)]
-pub(crate) fn valid(body: &Value) -> bool {
-    validate_and_compile(body).is_ok()
-}
 fn valid_with_definitions(body: &Value, defs: &ToolDefinitions) -> bool {
     if let Some(choice) = body.get("tool_choice") {
         if !fields(choice, &["type", "name", "disable_parallel_tool_use"])
@@ -172,13 +168,6 @@ pub(crate) struct StreamTools {
     choice: Value,
 }
 impl StreamTools {
-    #[cfg(test)]
-    pub(crate) fn new(body: &Value) -> Option<Self> {
-        Some(Self {
-            definitions: std::sync::Arc::new(definitions(body)?),
-            choice: body["tool_choice"].clone(),
-        })
-    }
     pub(crate) fn from_definitions(
         definitions: Option<std::sync::Arc<ToolDefinitions>>,
         body: &Value,

@@ -134,9 +134,10 @@ impl EnterpriseRuntime {
             signer,
             hooks: Arc::new(hooks),
         };
-        let health =
-            futures_util::future::join_all(runtime.modules.iter().map(ModuleRuntime::probe_healthy))
-                .await;
+        let health = futures_util::future::join_all(
+            runtime.modules.iter().map(ModuleRuntime::probe_healthy),
+        )
+        .await;
         for (module, healthy) in runtime.modules.iter().zip(health) {
             if healthy {
                 tracing::info!(module_id = %module.declaration.module_id, "Plugin/Enterprise module health checks passed");

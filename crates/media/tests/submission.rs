@@ -83,7 +83,9 @@ async fn submission_never_replays_uncertain_paid_operations() {
                 Duration::from_millis(30)
             )
             .await,
-            Err(SubmissionError::Uncertain | SubmissionError::UncertainHttpStatus(_))
+            Err(SubmissionError::Uncertain
+                | SubmissionError::UncertainHttpStatus(_)
+                | SubmissionError::UncertainHttpResponse { .. })
         ));
         assert_eq!(calls.load(Ordering::SeqCst), before + 1);
     }

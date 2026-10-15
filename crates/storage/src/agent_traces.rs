@@ -375,4 +375,3 @@ mod tests {
         assert!(!serialized_within_limit(&value, exact - 1).unwrap());
     }
 }
-

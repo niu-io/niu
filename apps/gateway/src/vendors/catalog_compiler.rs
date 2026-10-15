@@ -166,4 +166,3 @@ pub(super) fn compile_published_catalog(
     }
     Ok(models)
 }
-

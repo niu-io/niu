@@ -22,8 +22,7 @@ pub async fn operator_events(
     Query(query): Query<OperatorEventsQuery>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization =
-        super::authorize_operator_management(&state, &headers, operator_id).await?;
+    let authorization = super::authorize_operator_management(&state, &headers, operator_id).await?;
     let page = match state
         .store
         .operator_audit_events(operator_id, query.cursor, query.limit.unwrap_or(50))

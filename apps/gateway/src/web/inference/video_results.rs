@@ -79,25 +79,6 @@ pub(super) async fn retrieve_as(
     )
     .await
 }
-/// Saved result delivery uses current dashboard visibility, not inference-key authority.
-pub(super) async fn retrieve_history(
-    state: &AppState,
-    scope: niu_storage::TenantScope,
-    owner: &str,
-    id: Uuid,
-    result_kind: &str,
-) -> Result<Response, ApiError> {
-    retrieve_authorized(
-        state,
-        scope,
-        None,
-        Some(owner),
-        id,
-        result_kind,
-        DeliveryOptions::default(),
-    )
-    .await
-}
 pub(super) async fn retrieve_verified_history(
     state: &AppState,
     scope: niu_storage::TenantScope,
@@ -155,7 +136,13 @@ async fn retrieve_authorized_media(
     id: Uuid,
     result_kind: &str,
     options: DeliveryOptions,
-) -> Result<(niu_media::result::ResultMedia, tokio::sync::OwnedSemaphorePermit), ApiError> {
+) -> Result<
+    (
+        niu_media::result::ResultMedia,
+        tokio::sync::OwnedSemaphorePermit,
+    ),
+    ApiError,
+> {
     let DeliveryOptions {
         fresh,
         maximum_bytes: capture_limit,
@@ -185,11 +172,14 @@ async fn retrieve_authorized_media(
         .map_err(|_| ApiError::unavailable())?;
     let permit = match DOWNLOADS.clone().try_acquire_owned() {
         Ok(permit) => permit,
-        Err(_) => tokio::time::timeout(Duration::from_millis(250), DOWNLOADS.clone().acquire_owned())
-            .await
-            .ok()
-            .and_then(Result::ok)
-            .ok_or_else(ApiError::media_result_busy)?,
+        Err(_) => tokio::time::timeout(
+            Duration::from_millis(250),
+            DOWNLOADS.clone().acquire_owned(),
+        )
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .ok_or_else(ApiError::media_result_busy)?,
     };
     let (transport_kind, maximum_bytes) = match kind {
         MediaResultKind::Video => (niu_media::result::ResultKind::Video, 64 * 1024 * 1024),
@@ -246,8 +236,8 @@ async fn retrieve_authorized_media(
     // client reads cannot block other upstream fetches.
     drop(permit);
     let media = media.map_err(ApiError::from_media_result)?;
-    let needed_chunks = u32::try_from(media.bytes.len().div_ceil(64 * 1024).max(1))
-        .unwrap_or(u32::MAX);
+    let needed_chunks =
+        u32::try_from(media.bytes.len().div_ceil(64 * 1024).max(1)).unwrap_or(u32::MAX);
     let delivery_permit = DELIVERY_CHUNKS
         .clone()
         .try_acquire_many_owned(needed_chunks)

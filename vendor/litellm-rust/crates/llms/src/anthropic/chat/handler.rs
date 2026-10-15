@@ -527,8 +527,7 @@ impl AnthropicChatCompletionsStreamTransformer {
                     provider_fields.insert("speed".to_string(), Value::String(speed.clone()));
                 }
                 if let Some(container_id) = &self.container_id {
-                    provider_fields
-                        .insert("container".to_string(), json!({ "id": container_id }));
+                    provider_fields.insert("container".to_string(), json!({ "id": container_id }));
                 }
                 let provider_specific = (!provider_fields.is_empty()).then_some(provider_fields);
                 Ok(self.build_chunk(

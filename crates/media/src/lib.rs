@@ -584,8 +584,8 @@ fn valid_data_url(value: &str, rule: &InputRule, kind: &str) -> bool {
         return false;
     }
     let mut tail = [0u8; 3];
-    let Ok(tail_len) = base64::engine::general_purpose::STANDARD
-        .decode_slice(&raw[raw.len() - 4..], &mut tail)
+    let Ok(tail_len) =
+        base64::engine::general_purpose::STANDARD.decode_slice(&raw[raw.len() - 4..], &mut tail)
     else {
         return false;
     };
@@ -595,8 +595,8 @@ fn valid_data_url(value: &str, rule: &InputRule, kind: &str) -> bool {
     }
     let head_encoded_len = raw.len().min(32);
     let mut head = [0u8; 24];
-    let Ok(head_len) = base64::engine::general_purpose::STANDARD
-        .decode_slice(&raw[..head_encoded_len], &mut head)
+    let Ok(head_len) =
+        base64::engine::general_purpose::STANDARD.decode_slice(&raw[..head_encoded_len], &mut head)
     else {
         return false;
     };

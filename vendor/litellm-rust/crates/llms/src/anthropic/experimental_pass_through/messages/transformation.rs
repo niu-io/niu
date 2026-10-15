@@ -191,9 +191,9 @@ pub fn map_openai_context_management_to_anthropic(context_management: &Value) ->
                                 && *threshold >= 0.0
                                 && *threshold <= i64::MAX as f64
                         })
-                        .map(|threshold| {
-                            json!({"type": "input_tokens", "value": threshold as i64})
-                        });
+                        .map(
+                            |threshold| json!({"type": "input_tokens", "value": threshold as i64}),
+                        );
                     let passthrough = entry
                         .iter()
                         .filter(|(key, _)| !matches!(key.as_str(), "type" | "compact_threshold"))

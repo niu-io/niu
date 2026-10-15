@@ -900,11 +900,10 @@ impl Store {
             .into_iter()
             .map(VendorCatalogRow::into_catalog)
             .collect();
-        let pool_rows: Vec<Value> = sqlx::query_scalar(
-            "SELECT to_jsonb(p) FROM model_route_pools p ORDER BY alias",
-        )
-        .fetch_all(&mut **tx)
-        .await?;
+        let pool_rows: Vec<Value> =
+            sqlx::query_scalar("SELECT to_jsonb(p) FROM model_route_pools p ORDER BY alias")
+                .fetch_all(&mut **tx)
+                .await?;
         let mut pools = Vec::with_capacity(pool_rows.len());
         for value in pool_rows {
             let pool: crate::ModelRoutePool =

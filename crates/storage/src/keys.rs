@@ -490,7 +490,11 @@ impl Store {
         let Some(key) = key else {
             return Ok(None);
         };
-        Ok(self.enrich_key_views(scope, vec![key]).await?.into_iter().next())
+        Ok(self
+            .enrich_key_views(scope, vec![key])
+            .await?
+            .into_iter()
+            .next())
     }
 
     async fn enrich_key_views(

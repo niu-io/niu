@@ -175,7 +175,13 @@ pub(super) async fn resolve(
         .collect();
     let resolutions = state
         .store
-        .resolve_ingested_image_references(principal, snapshot, &reuse_inputs, &selected, &detectors)
+        .resolve_ingested_image_references(
+            principal,
+            snapshot,
+            &reuse_inputs,
+            &selected,
+            &detectors,
+        )
         .await
         .map_err(ApiError::from_store)?;
     for (image, resolution) in prepared.images.iter().zip(resolutions) {

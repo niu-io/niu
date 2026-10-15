@@ -486,7 +486,9 @@ impl Drop for PendingStreamAttempt {
 
 async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::RequestFailureKind) {
     let writes = context.diagnostic_writes.clone();
-    let _ = writes.spawn(persist_stream_failure_inner(context, kind)).await;
+    let _ = writes
+        .spawn(persist_stream_failure_inner(context, kind))
+        .await;
 }
 
 async fn persist_stream_failure_inner(

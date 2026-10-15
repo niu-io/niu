@@ -79,7 +79,8 @@ impl Store {
         grant: Uuid,
     ) -> Result<serde_json::Value, StoreError> {
         let mut tx = self.begin_bounded_financial_snapshot().await?;
-        let result = Self::customer_balance_grant_result_in_tx(&mut tx, organization, grant).await?;
+        let result =
+            Self::customer_balance_grant_result_in_tx(&mut tx, organization, grant).await?;
         tx.commit().await?;
         Ok(result)
     }
@@ -186,7 +187,10 @@ impl Store {
                 && saved_policy == policy.as_str()
             {
                 let result = if include_result {
-                    Some(Self::customer_balance_grant_result_in_tx(&mut tx, organization, id).await?)
+                    Some(
+                        Self::customer_balance_grant_result_in_tx(&mut tx, organization, id)
+                            .await?,
+                    )
                 } else {
                     None
                 };

@@ -64,13 +64,12 @@ async fn visible_locked(
     if actor.is_empty() || actor.len() > 200 || actor.chars().any(char::is_control) {
         return Err(StoreError::InvalidObservation);
     }
-    let project_exists: Option<Uuid> = sqlx::query_scalar(
-        "SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE",
-    )
-    .bind(scope.organization_id)
-    .bind(scope.project_id)
-    .fetch_optional(&mut *conn)
-    .await?;
+    let project_exists: Option<Uuid> =
+        sqlx::query_scalar("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .fetch_optional(&mut *conn)
+            .await?;
     if project_exists.is_none() {
         return Err(StoreError::Conflict);
     }

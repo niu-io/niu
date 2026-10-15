@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::{
     base_llm::ocr::{
-        document::{InlineDocument, inline_remote_document},
+        document::inline_remote_document,
         error::Error,
         handler::OcrClient,
         transformation::{

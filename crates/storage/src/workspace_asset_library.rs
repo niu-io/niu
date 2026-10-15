@@ -157,7 +157,9 @@ impl Store {
             Self::prepare_workspace_asset_create(scope, &input, limits, seal)
         })?;
         let mut tx = self.begin_bounded_recording().await?;
-        let asset = Self::insert_prepared_workspace_asset_in_tx(&mut tx, scope, &input, limits, prepared).await?;
+        let asset =
+            Self::insert_prepared_workspace_asset_in_tx(&mut tx, scope, &input, limits, prepared)
+                .await?;
         tx.commit().await?;
         Ok(asset)
     }

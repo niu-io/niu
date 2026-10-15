@@ -923,10 +923,7 @@ fn conversation_export(mut payload: Value) -> Value {
         .get("createdAt")
         .filter(|v| safe_nonnegative_integer(v))
         .cloned();
-    let mut turns = match payload
-        .as_object_mut()
-        .and_then(|obj| obj.remove("turns"))
-    {
+    let mut turns = match payload.as_object_mut().and_then(|obj| obj.remove("turns")) {
         Some(Value::Array(turns)) if !turns.is_empty() => turns,
         Some(other) => {
             if let Some(obj) = payload.as_object_mut() {

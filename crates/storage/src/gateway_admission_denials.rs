@@ -17,4 +17,3 @@ pub struct GatewayAdmissionDenial {
     pub key_name_source: String,
     pub recorded_at: String,
 }
-

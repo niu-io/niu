@@ -255,9 +255,7 @@ impl Store {
                 }
                 satisfied.insert((position, detector.clone()));
             }
-            if !positions.contains(&position)
-                || !detector_positions.insert((position, detector))
-            {
+            if !positions.contains(&position) || !detector_positions.insert((position, detector)) {
                 return Err(StoreError::Conflict);
             }
             let url = content[position as usize]["image_url"]["url"]

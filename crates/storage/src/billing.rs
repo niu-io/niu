@@ -1229,14 +1229,8 @@ pub(crate) async fn reserve_customer_balance_in_tx(
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
     let state: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut **tx).await?;
-    reserve_customer_balance_for_locked_account_in_tx(
-        tx,
-        attempt,
-        account,
-        &state,
-        maximum_nanos,
-    )
-    .await
+    reserve_customer_balance_for_locked_account_in_tx(tx, attempt, account, &state, maximum_nanos)
+        .await
 }
 
 pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
@@ -1286,4 +1280,3 @@ pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
         })?;
     Ok(())
 }
-

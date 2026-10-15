@@ -7,13 +7,13 @@
       "name": "core",
       "path": "vendor/litellm-rust/crates/core",
       "files": 42,
-      "sha256": "8e90c9d9ecf08731a29dfcc85ead6cfcf51fe476b6b6c164b5ca479efbeab3c4"
+      "sha256": "ea67a790fa71206ea57d3d20bad9441ee277d0610befd16bce397e43e48e52ea"
     },
     {
       "name": "core-utils",
       "path": "vendor/litellm-rust/crates/core-utils",
       "files": 22,
-      "sha256": "9f19d575a234c31079a1860e31106061ab738470acdc057b5d6d5243a7895920"
+      "sha256": "4d483e366e364a0c39c2e40b680488326cd39d0a30b8d16f8c4b6b44fa7000d9"
     },
     {
       "name": "types",
@@ -37,7 +37,7 @@
       "name": "llms",
       "path": "vendor/litellm-rust/crates/llms",
       "files": 73,
-      "sha256": "5836bcb8b8804cac4aa516c929d525294910fb9e71bdf0a29a0eb17e23047d9a"
+      "sha256": "34549467295529490f026dd96919a5b8f67496a2c9449d0aa30edf5329d6c17c"
     },
     {
       "name": "framer",
@@ -61,7 +61,7 @@
       "name": "auth-aws",
       "path": "vendor/litellm-rust/crates/auth-aws",
       "files": 6,
-      "sha256": "87f5b325d7831c1bfdd22a921908c0b7e909e02b2a666bb5a71ec30e00e31b3e"
+      "sha256": "ffacc834ae3d5fd9ec28c1cbc0bf7bf30173d5bbf6783967710225441a95433b"
     },
     {
       "name": "auth-azure",
@@ -73,49 +73,49 @@
       "name": "auth-gcp",
       "path": "vendor/litellm-rust/crates/auth-gcp",
       "files": 3,
-      "sha256": "8168175847b14e0fd37d920f4a1753fe0ecccff29382646a6b63d5fb8fc7a968"
+      "sha256": "c6230c7c9c64c8293583107f403e3ed80ea8847d080f3d0629139c2d6397609f"
     },
     {
       "name": "secrets",
       "path": "vendor/litellm-rust/crates/secrets",
       "files": 21,
-      "sha256": "a8010a95d08622786b64487a8460b8262fd24b729b88f1bf36d98c4a93cb2240"
+      "sha256": "0abb554071a7bb9abc69335b28706dcb4d30237b458b3760ed011a4c1d29e4f8"
     },
     {
       "name": "secrets-types",
       "path": "vendor/litellm-rust/crates/secrets-types",
       "files": 12,
-      "sha256": "227f2ced5e0c9ece398a2439d16a2458fc5e499a642bea853d9eb6811a3f6fcc"
+      "sha256": "9e281d35a423c907032870ce38bc50bb8e3b910744443ba393b511880c9775f8"
     },
     {
       "name": "secrets-aws",
       "path": "vendor/litellm-rust/crates/secrets-aws",
       "files": 16,
-      "sha256": "792abe2df38f3aad8112ebb354f0783f2789d67a06d71ccaebfdc3315d65f61b"
+      "sha256": "2cee6b031eebc75fbc9bcd88de35252680739a5a4c8891e18b2d5d8b9a7c4cd2"
     },
     {
       "name": "secrets-azure",
       "path": "vendor/litellm-rust/crates/secrets-azure",
       "files": 8,
-      "sha256": "ac5b900d38dd561b8e05db7e8ae81518c2ca7c1ed3ed984227e697c2abfbf03b"
+      "sha256": "dbd741902387f0922ac2683aad91e74eab14ed1700bb433cbcc0ec19e36177c8"
     },
     {
       "name": "secrets-cyberark",
       "path": "vendor/litellm-rust/crates/secrets-cyberark",
       "files": 14,
-      "sha256": "ea674b28b6927a1cffde917e24f0fde5728e0a8946b8008fb83e2a58476e40f4"
+      "sha256": "83b6add69ff19a08d4d00337d0240594767443f299a00c7372b0612126e9574d"
     },
     {
       "name": "secrets-google",
       "path": "vendor/litellm-rust/crates/secrets-google",
       "files": 9,
-      "sha256": "283af9742fb69eea708d6a35f36231517107f742f4763651a58c63647487abec"
+      "sha256": "9355e79034a224429c95134a0ea1b8eb660f8959f389a88f1f63da431092367d"
     },
     {
       "name": "secrets-hashicorp",
       "path": "vendor/litellm-rust/crates/secrets-hashicorp",
       "files": 16,
-      "sha256": "d2a04e08cb945667d18c94a819099c2bce642e61e3382c1bbef689fffaaf0e2c"
+      "sha256": "f5dd61e858b5af22a17f47279faaf752534ff910c492be8a743cfac544c1054d"
     },
     {
       "name": "coroutine",
@@ -127,13 +127,13 @@
       "name": "tracing",
       "path": "vendor/litellm-rust/crates/tracing",
       "files": 6,
-      "sha256": "f8c10aa0e5c38ae8835ced5096b46c206f695c5bba2cbd21b77ac98ac1fd10ec"
+      "sha256": "0ac5df0ab6895af3d9a6f08828a66b753535cb65f279f328b51e39dab285e3d7"
     },
     {
       "name": "python-compat",
       "path": "vendor/litellm-rust/crates/python-compat",
       "files": 18,
-      "sha256": "d3ace6f3ca8cbd15bcbaffab0df3020ee37cf270b477fb712c5c36f237f9c69c"
+      "sha256": "5b70da7e4516917be1f64f2abe4adbd1c0e7db121fe0a96683011551a5b3ef14"
     }
   ]
 }

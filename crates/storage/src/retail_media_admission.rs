@@ -168,10 +168,12 @@ async fn platform_rate(
             .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        sqlx::query("SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE")
-            .bind(&encoded)
-            .fetch_optional(&mut **tx)
-            .await?;
+        sqlx::query(
+            "SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE",
+        )
+        .bind(&encoded)
+        .fetch_optional(&mut **tx)
+        .await?;
         let _ = &mut canonical;
         clock(tx).await?
     };
@@ -333,11 +335,13 @@ impl Store {
         }
         if head.is_some() {
             let encoded = serde_json::to_value(&identity).map_err(|_| StoreError::InvalidPrice)?;
-            sqlx::query("SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE")
-                .bind(&encoded)
-                .fetch_optional(&mut *tx)
-                .await?
-                .ok_or(StoreError::AccountUnavailable)?;
+            sqlx::query(
+                "SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE",
+            )
+            .bind(&encoded)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::AccountUnavailable)?;
         }
         // Stabilize any existing Supplier card against retirement before account
         // locks; its independent purchase price is selected by the same DB time.

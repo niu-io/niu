@@ -37,9 +37,11 @@ pub(super) async fn execute_chat_completions_provider_call(
         )));
     }
     let mut raw_body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|err| {
-        Error::Transport(litellm_http::transport::Error::Network(err.to_string()))
-    })? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|err| Error::Transport(litellm_http::transport::Error::Network(err.to_string())))?
+    {
         if chunk.len() > MAX_CHAT_COMPLETIONS_RESPONSE_BYTES.saturating_sub(raw_body.len()) {
             return Err(Error::InvalidResponse(format!(
                 "chat completions response exceeds {MAX_CHAT_COMPLETIONS_RESPONSE_BYTES} byte limit"
