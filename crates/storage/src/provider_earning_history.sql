@@ -19,17 +19,20 @@ WITH cursor_row AS (
 SELECT ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM cursor_row)),
     jsonb_build_object(
         'data',COALESCE((SELECT jsonb_agg(jsonb_build_object(
-            'id',attempt_id,'currency',currency,'amount_nanos',amount_nanos::text,
-            'created_at',created_at,'billing_meter',billing_meter,
-            'revision',revision_id,
-            'offer_id',(SELECT offer_id FROM provider_offer_revisions WHERE id=page.revision_id),
-            'context_minimum_input_tokens',context_minimum_input_tokens::text,
-            'prompt_tokens',prompt_tokens::text,'completion_tokens',completion_tokens::text,
-            'cached_prompt_tokens',cached_prompt_tokens::text,'cache_write_prompt_tokens',cache_write_prompt_tokens::text,
-            'reasoning_completion_tokens',reasoning_completion_tokens::text,
-            'model_alias',(SELECT o.model_alias FROM provider_offer_revisions r JOIN provider_offers o ON o.id=r.offer_id WHERE r.id=page.revision_id),
+            'id',page.attempt_id,'currency',page.currency,'amount_nanos',page.amount_nanos::text,
+            'created_at',page.created_at,'billing_meter',page.billing_meter,
+            'revision',page.revision_id,
+            'offer_id',r.offer_id,
+            'context_minimum_input_tokens',page.context_minimum_input_tokens::text,
+            'prompt_tokens',page.prompt_tokens::text,'completion_tokens',page.completion_tokens::text,
+            'cached_prompt_tokens',page.cached_prompt_tokens::text,'cache_write_prompt_tokens',page.cache_write_prompt_tokens::text,
+            'reasoning_completion_tokens',page.reasoning_completion_tokens::text,
+            'model_alias',o.model_alias,
             'status',CASE WHEN EXISTS(SELECT 1 FROM provider_settlement_entries paid WHERE paid.attempt_id=page.attempt_id) THEN 'paid' ELSE 'accrued' END
-        ) ORDER BY created_at DESC,attempt_id ASC) FROM page),'[]'::jsonb),
+        ) ORDER BY page.created_at DESC,page.attempt_id ASC)
+        FROM page
+        LEFT JOIN provider_offer_revisions r ON r.id=page.revision_id
+        LEFT JOIN provider_offers o ON o.id=r.offer_id),'[]'::jsonb),
         'next_cursor',CASE WHEN (SELECT count(*) FROM selected)>$6
             THEN (SELECT attempt_id FROM page ORDER BY created_at ASC,attempt_id DESC LIMIT 1) ELSE NULL END)
 FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL

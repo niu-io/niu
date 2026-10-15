@@ -68,7 +68,8 @@ impl Store {
                FROM collector_keys
                WHERE organization_id=$1 AND project_id=$2
                  AND ($3::TEXT IS NULL OR purpose=$3)
-               ORDER BY created_at DESC, id DESC"#,
+               ORDER BY created_at DESC, id DESC
+               LIMIT 1000"#,
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)

@@ -284,14 +284,16 @@ impl Store {
         dimensions: &Dimensions,
         at: i64,
     ) -> Result<Option<SelectedCustomerMediaRate>, StoreError> {
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT c.document FROM customer_media_rate_cards c WHERE c.organization_id=$1 AND c.model_alias=$2 AND c.channel=$3 AND c.resolution=$4 AND c.reference_video=$5 AND c.effective_from<=$6 AND (c.effective_until IS NULL OR c.effective_until>$6) AND NOT EXISTS(SELECT 1 FROM customer_media_rate_retirements r WHERE r.organization_id=c.organization_id AND r.revision=c.revision AND r.effective_until<=$6) ORDER BY c.revision LIMIT 2")
             .bind(organization).bind(&dimensions.model).bind(&dimensions.channel)
             .bind(&dimensions.resolution).bind(dimensions.reference_video).bind(at)
-            .fetch_all(&self.pool).await?;
+            .fetch_all(&mut *tx).await?;
         if rows.len() > 1 {
             return Err(StoreError::InvalidPrice);
         }
         let Some(document) = rows.into_iter().next() else {
+            tx.commit().await?;
             return Ok(None);
         };
         let card: CustomerMediaRateCard =
@@ -300,7 +302,8 @@ impl Store {
         let current: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM vendors v JOIN vendor_models m ON m.vendor_id=v.id WHERE v.id=$1 AND m.alias=$2 AND v.enabled AND m.enabled AND v.revision=$3 AND m.revision=$4 AND m.capabilities->'video_schema'->>'revision'=$5 AND m.capabilities->'video_schema'->>'channel'=$6 AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id))")
             .bind(card.vendor_id).bind(&dimensions.model).bind(card.vendor_revision)
             .bind(card.model_revision).bind(&card.schema_revision).bind(&dimensions.channel)
-            .fetch_one(&self.pool).await?;
+            .fetch_one(&mut *tx).await?;
+        tx.commit().await?;
         if !current {
             return Err(StoreError::Conflict);
         }

@@ -13,16 +13,17 @@ SELECT ($2::text IS NULL OR EXISTS(SELECT 1 FROM anchor)),
     jsonb_build_object(
         'data',COALESCE((SELECT jsonb_agg(jsonb_build_object(
             'id',o.id,'model_alias',o.model_alias,'active',o.active,
-            'qualified',niu_offer_qualification_current(o.provider_id,o.id,o.current_revision),
+            'qualified',q.qualified,
             'revision',r.id,'rate_kind',r.rate_kind,'currency',r.currency,
             'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,
             'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,
             'route_ready',m.enabled AND v.enabled AND m.vendor_id=o.vendor_id
-                AND niu_offer_qualification_current(o.provider_id,o.id,o.current_revision)
+                AND q.qualified
         ) ORDER BY o.model_alias) FROM page o
         JOIN provider_offer_revisions r ON r.id=o.current_revision
         JOIN vendor_models m ON m.alias=o.model_alias
-        JOIN vendors v ON v.id=m.vendor_id),'[]'::jsonb),
+        JOIN vendors v ON v.id=m.vendor_id
+        CROSS JOIN LATERAL (SELECT niu_offer_qualification_current(o.provider_id,o.id,o.current_revision) AS qualified) q),'[]'::jsonb),
         'next_after',CASE WHEN (SELECT count(*) FROM windowed)>$3
             THEN (SELECT model_alias FROM page ORDER BY model_alias DESC LIMIT 1) ELSE NULL END
     ) FROM supplier;

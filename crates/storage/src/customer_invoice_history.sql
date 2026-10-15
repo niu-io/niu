@@ -18,20 +18,19 @@ WITH cursor_row AS (
     SELECT i.id,i.from_ms,i.to_ms,i.currency,i.amount_nanos::text AS amount_nanos,i.created_at,
       -- Match the overview: posted customer debits settle prepaid invoices,
       -- including credit-backed debits. Refunds do not reopen that obligation.
-      CASE WHEN p.invoice_id IS NOT NULL OR (
-        EXISTS(SELECT 1 FROM customer_invoice_entries e
-          JOIN customer_invoice_charge_sources c ON c.attempt_id=e.attempt_id
-          WHERE e.invoice_id=i.id)
-        AND NOT EXISTS(SELECT 1 FROM customer_invoice_entries e
-          JOIN customer_invoice_charge_sources c ON c.attempt_id=e.attempt_id
-          WHERE e.invoice_id=i.id AND c.amount_nanos<>0 AND NOT EXISTS(
+      CASE WHEN p.invoice_id IS NOT NULL OR COALESCE((
+        SELECT bool_and(
+          c.amount_nanos=0 OR EXISTS(
             SELECT 1 FROM customer_attempt_balance_accounts b
             JOIN customer_balance_entries d ON d.account_id=b.account_id
               AND d.organization_id=b.organization_id AND d.project_id=b.project_id
               AND d.currency=b.currency AND d.attempt_id=b.attempt_id
             WHERE b.attempt_id=c.attempt_id AND b.organization_id=c.organization_id
               AND b.project_id=c.project_id AND b.currency=c.currency
-              AND d.kind='charge' AND d.amount_nanos=-c.amount_nanos)))
+              AND d.kind='charge' AND d.amount_nanos=-c.amount_nanos))
+        FROM customer_invoice_entries e
+        JOIN customer_invoice_charge_sources c ON c.attempt_id=e.attempt_id
+        WHERE e.invoice_id=i.id), false)
         THEN 'paid' ELSE 'issued' END AS status,p.payment_reference
     FROM page i LEFT JOIN customer_invoice_payments p ON p.invoice_id=i.id
 )
