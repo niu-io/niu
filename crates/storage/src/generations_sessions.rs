@@ -126,11 +126,20 @@ impl Store {
         if archived || current != revision {
             return Err(StoreError::Conflict);
         }
-        let count:i64=sqlx::query_scalar("SELECT count(*) FROM generations_turns WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).fetch_one(&mut *tx).await?;
-        if count >= 100 {
+        let (active_count, next_sequence): (i64, i64) = sqlx::query_as(
+            "SELECT COUNT(*) FILTER (WHERE instruction IS NOT NULL AND content_deleted_at IS NULL), COALESCE(MAX(sequence), 0) + 1 \
+             FROM generations_turns WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(owner)
+        .bind(session)
+        .fetch_one(&mut *tx)
+        .await?;
+        if active_count >= 100 {
             return Err(StoreError::InvalidGenerationsInput);
         }
-        sqlx::query("INSERT INTO generations_turns(organization_id,project_id,owner,session_id,id,sequence,instruction,instruction_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).bind(count+1).bind(instruction).bind(digest).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO generations_turns(organization_id,project_id,owner,session_id,id,sequence,instruction,instruction_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).bind(next_sequence).bind(instruction).bind(digest).execute(&mut *tx).await?;
         sqlx::query("UPDATE generations_sessions SET revision=revision+1,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
