@@ -532,12 +532,11 @@ pub async fn save_draft(
             return Err(ApiError::invalid_request("Invalid chat draft"));
         }
         if let Some(id) = payload.session_id
-            && state
+            && !state
                 .store
-                .chat_session(scope, &owner, id)
+                .chat_session_exists(scope, &owner, id)
                 .await
                 .map_err(ApiError::from_store)?
-                .is_none()
         {
             return Err(ApiError::invalid_request(
                 "The draft conversation is unavailable",
@@ -924,12 +923,19 @@ fn conversation_export(mut payload: Value) -> Value {
         .get("createdAt")
         .filter(|v| safe_nonnegative_integer(v))
         .cloned();
-    let mut turns = payload
-        .get_mut("turns")
-        .and_then(Value::as_array_mut)
-        .filter(|turns| !turns.is_empty())
-        .cloned()
-        .unwrap_or_else(|| vec![payload]);
+    let mut turns = match payload
+        .as_object_mut()
+        .and_then(|obj| obj.remove("turns"))
+    {
+        Some(Value::Array(turns)) if !turns.is_empty() => turns,
+        Some(other) => {
+            if let Some(obj) = payload.as_object_mut() {
+                obj.insert("turns".into(), other);
+            }
+            vec![payload]
+        }
+        None => vec![payload],
+    };
     for value in &mut turns {
         turn(value);
     }

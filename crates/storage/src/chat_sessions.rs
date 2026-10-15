@@ -59,6 +59,24 @@ impl Store {
             .fetch_optional(&self.pool).await?;
         revision.ok_or(StoreError::Conflict)
     }
+    /// Check whether an owned conversation exists without loading its JSONB payload.
+    pub async fn chat_session_exists(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        id: Uuid,
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4)",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(owner)
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?)
+    }
+
     /// Fetch one durable conversation within its workspace and personal owner.
     pub async fn chat_session(
         &self,
@@ -325,11 +343,14 @@ impl Store {
         .bind(attempts.into_iter().collect::<Vec<_>>())
         .fetch_all(&mut *connection)
         .await?;
-        let mut charges = std::collections::HashMap::with_capacity(rows.len());
+        let mut charges: std::collections::HashMap<Uuid, Vec<(String, serde_json::Map<String, Value>)>> =
+            std::collections::HashMap::with_capacity(rows.len());
         let mut executions = std::collections::HashMap::with_capacity(rows.len());
         for (id, model, execution, value) in rows {
             executions.insert((id, model.clone()), execution);
-            charges.insert((id, model), value);
+            if let Value::Object(fields) = value {
+                charges.entry(id).or_default().push((model, fields));
+            }
         }
         for session in &mut sessions {
             visit_results(session, |result| {
@@ -339,11 +360,12 @@ impl Store {
                     .and_then(|id| Uuid::parse_str(id).ok());
                 let model = result.get("model").and_then(Value::as_str);
                 if let (Some(id), Some(model)) = (id, model)
-                    && let Some(charge) = charges.get(&(id, model.to_owned()))
+                    && let Some(entries) = charges.get(&id)
+                    && let Some((_, fields)) = entries.iter().find(|(m, _)| m == model)
                 {
-                    let fields = charge.as_object().unwrap().clone();
+                    let cloned = fields.clone();
                     if let Some(object) = result.as_object_mut() {
-                        object.extend(fields);
+                        object.extend(cloned);
                     }
                 }
             });
