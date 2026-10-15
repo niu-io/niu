@@ -33,9 +33,9 @@ pub(crate) fn requested(body: &Value) -> bool {
             })
         })
 }
-pub(crate) fn definitions(
-    body: &Value,
-) -> Option<BTreeMap<String, std::sync::Arc<jsonschema::Validator>>> {
+pub(crate) type ToolDefinitions = BTreeMap<String, std::sync::Arc<jsonschema::Validator>>;
+
+pub(crate) fn definitions(body: &Value) -> Option<ToolDefinitions> {
     let tools = body["tools"]
         .as_array()
         .filter(|t| !t.is_empty() && t.len() <= 64)?;
@@ -55,13 +55,23 @@ pub(crate) fn definitions(
     }
     Some(result)
 }
-pub(crate) fn valid(body: &Value) -> bool {
+pub(crate) fn validate_and_compile(
+    body: &Value,
+) -> Result<(bool, Option<std::sync::Arc<ToolDefinitions>>), ()> {
     if !requested(body) {
-        return true;
+        return Ok((false, None));
     }
-    let Some(defs) = definitions(body) else {
-        return false;
-    };
+    let defs = std::sync::Arc::new(definitions(body).ok_or(())?);
+    if !valid_with_definitions(body, &defs) {
+        return Err(());
+    }
+    Ok((true, Some(defs)))
+}
+#[cfg(test)]
+pub(crate) fn valid(body: &Value) -> bool {
+    validate_and_compile(body).is_ok()
+}
+fn valid_with_definitions(body: &Value, defs: &ToolDefinitions) -> bool {
     if let Some(choice) = body.get("tool_choice") {
         if !fields(choice, &["type", "name", "disable_parallel_tool_use"])
             || choice
@@ -134,10 +144,7 @@ pub(crate) fn valid(body: &Value) -> bool {
     pending.is_empty()
 }
 /// Only called after the complete request has passed `valid`.
-pub(crate) fn project(
-    part: &Value,
-    defs: &BTreeMap<String, std::sync::Arc<jsonschema::Validator>>,
-) -> Option<Value> {
+pub(crate) fn project(part: &Value, defs: &ToolDefinitions) -> Option<Value> {
     if !fields(part, &["type", "id", "name", "input", "caller"])
         || part["type"] != "tool_use"
         || !part["input"].is_object()
@@ -161,13 +168,23 @@ pub(crate) fn project(
 
 /// Owned compiled schemas and selection constraints for one dispatched stream.
 pub(crate) struct StreamTools {
-    definitions: BTreeMap<String, std::sync::Arc<jsonschema::Validator>>,
+    definitions: std::sync::Arc<ToolDefinitions>,
     choice: Value,
 }
 impl StreamTools {
+    #[cfg(test)]
     pub(crate) fn new(body: &Value) -> Option<Self> {
         Some(Self {
-            definitions: definitions(body)?,
+            definitions: std::sync::Arc::new(definitions(body)?),
+            choice: body["tool_choice"].clone(),
+        })
+    }
+    pub(crate) fn from_definitions(
+        definitions: Option<std::sync::Arc<ToolDefinitions>>,
+        body: &Value,
+    ) -> Option<Self> {
+        Some(Self {
+            definitions: definitions?,
             choice: body["tool_choice"].clone(),
         })
     }

@@ -683,7 +683,8 @@ async fn execute(
             "Only Messages version 2023-06-01 without beta features is supported",
         ));
     }
-    let bound = validate(&body)?;
+    let mut validated = validate(&body)?;
+    let bound = validated.bound;
     let streaming = body.get("stream").and_then(Value::as_bool) == Some(true);
     let public_model = body["model"].as_str().unwrap().to_owned();
     if !principal.allows_model(&public_model) {
@@ -693,8 +694,8 @@ async fn execute(
     // routes. Filter pool candidates before applying their priority/weight.
     let requirements = crate::config::ModelRequirements {
         messages_streaming: streaming,
-        messages_tools: crate::native_messages_tools::requested(&body),
-        messages_streaming_tools: streaming && crate::native_messages_tools::requested(&body),
+        messages_tools: validated.tools_requested,
+        messages_streaming_tools: streaming && validated.tools_requested,
         ..Default::default()
     };
     let resolved = crate::vendors::resolve_scoped_model(
@@ -711,15 +712,12 @@ async fn execute(
             "This route does not declare native Messages support",
         ));
     }
-    if crate::native_messages_tools::requested(&body) && !model.supports_messages_tools {
+    if validated.tools_requested && !model.supports_messages_tools {
         return Err(ApiError::unsupported_message(
             "This route does not declare native Messages tools support",
         ));
     }
-    if streaming
-        && crate::native_messages_tools::requested(&body)
-        && !model.supports_messages_streaming_tools
-    {
+    if streaming && validated.tools_requested && !model.supports_messages_streaming_tools {
         return Err(ApiError::unsupported_message(
             "This route does not declare streaming Messages tools support",
         ));
@@ -739,13 +737,11 @@ async fn execute(
     )
     .await?;
     if snapshot.input_outcome.as_deref() == Some("redacted") {
-        validate(&body)?;
+        validated = validate(&body)?;
     }
     if let Some(price) = &model.pricing
         && (bound > price.max_output_tokens
-            || crate::inference_schema::json_serialized_len(&body)
-                .map_err(|_| ApiError::invalid_request("Invalid Messages request"))?
-                > price.max_input_tokens as usize)
+            || validated.serialized_len > price.max_input_tokens as usize)
     {
         return Err(ApiError::invalid_request(
             "Messages request exceeds the priced route's conservative input or output bound",
@@ -799,6 +795,7 @@ async fn execute(
     } else {
         request.bearer_auth(&resolved.api_key)
     };
+    let tool_definitions = validated.tool_definitions;
     let usage_attempt = state.usage.begin();
     let result = async {
         let response = request
@@ -841,7 +838,10 @@ async fn execute(
                     failures: state.failures.clone(),
                 },
                 public_model.clone(),
-                crate::native_messages_tools::StreamTools::new(&body),
+                crate::native_messages_tools::StreamTools::from_definitions(
+                    tool_definitions,
+                    &body,
+                ),
             ));
             response
                 .headers_mut()
@@ -861,7 +861,7 @@ async fn execute(
         let value = provider_json(response)
             .await
             .map_err(|_| ApiError::upstream_invalid_response())?;
-        let response = normalize(value, &public_model, &body)?;
+        let response = normalize(value, &public_model, &body, tool_definitions.as_deref())?;
         if let Some((prompt, completion)) = response.usage {
             usage_attempt.report(&json!({"prompt_tokens":prompt,"completion_tokens":completion}));
         }
@@ -874,7 +874,14 @@ async fn execute(
     Ok(finalize_response(state, dispatch, result).await)
 }
 
-fn validate(body: &Value) -> Result<i64, ApiError> {
+struct ValidatedMessagesRequest {
+    bound: i64,
+    serialized_len: usize,
+    tools_requested: bool,
+    tool_definitions: Option<std::sync::Arc<crate::native_messages_tools::ToolDefinitions>>,
+}
+
+fn validate(body: &Value) -> Result<ValidatedMessagesRequest, ApiError> {
     let invalid = || ApiError::invalid_request("Unsupported or invalid Messages text request");
     let object = body.as_object().ok_or_else(invalid)?;
     if object.keys().any(|key| {
@@ -910,23 +917,21 @@ fn validate(body: &Value) -> Result<i64, ApiError> {
         .and_then(Value::as_i64)
         .filter(|v| (1..=1_000_000).contains(v))
         .ok_or_else(invalid)?;
+    fn text_part(p: &Value) -> bool {
+        p.as_object().is_some_and(|p| {
+            p.keys()
+                .all(|key| ["type", "text", "cache_control"].contains(&key.as_str()))
+        }) && p
+            .get("cache_control")
+            .is_none_or(crate::guardrails::input::valid_message_cache_control)
+            && p["type"] == "text"
+            && p["text"].is_string()
+    }
     fn text(value: &Value) -> bool {
         value.is_string()
-            || value.as_array().is_some_and(|parts| {
-                !parts.is_empty()
-                    && parts.len() <= 128
-                    && parts.iter().all(|p| {
-                        p.as_object().is_some_and(|p| {
-                            p.keys().all(|key| {
-                                ["type", "text", "cache_control"].contains(&key.as_str())
-                            })
-                        }) && p
-                            .get("cache_control")
-                            .is_none_or(crate::guardrails::input::valid_message_cache_control)
-                            && p["type"] == "text"
-                            && p["text"].is_string()
-                    })
-            })
+            || value
+                .as_array()
+                .is_some_and(|parts| !parts.is_empty() && parts.len() <= 128 && parts.iter().all(text_part))
     }
     let messages = body
         .get("messages")
@@ -936,12 +941,12 @@ fn validate(body: &Value) -> Result<i64, ApiError> {
     if !messages.iter().all(|m| {
         m.as_object().is_some_and(|m| m.len() == 2)
             && matches!(m["role"].as_str(), Some("user" | "assistant"))
-            && (text(&m["content"])
+            && (m["content"].is_string()
                 || m["content"].as_array().is_some_and(|parts| {
                     !parts.is_empty()
                         && parts.len() <= 128
                         && parts.iter().all(|p| {
-                            text(&json!([p]))
+                            text_part(p)
                                 || matches!(p["type"].as_str(), Some("tool_use" | "tool_result"))
                         })
                 }))
@@ -966,19 +971,28 @@ fn validate(body: &Value) -> Result<i64, ApiError> {
     }) {
         return Err(invalid());
     }
-    if crate::inference_schema::json_serialized_len_within(body, 1_048_576).is_err() {
+    let Ok(serialized_len) = crate::inference_schema::json_serialized_len_within(body, 1_048_576)
+    else {
         return Err(invalid());
-    }
-    if !crate::native_messages_tools::valid(body) {
+    };
+    let Ok((tools_requested, tool_definitions)) =
+        crate::native_messages_tools::validate_and_compile(body)
+    else {
         return Err(invalid());
-    }
-    Ok(bound)
+    };
+    Ok(ValidatedMessagesRequest {
+        bound,
+        serialized_len,
+        tools_requested,
+        tool_definitions,
+    })
 }
 
 fn normalize(
     value: Value,
     public_model: &str,
     request: &Value,
+    tool_definitions: Option<&crate::native_messages_tools::ToolDefinitions>,
 ) -> Result<ProviderResponse, ApiError> {
     let invalid = ApiError::upstream_invalid_response;
     if value["type"] != "message"
@@ -998,7 +1012,6 @@ fn normalize(
     // OpenRouter emits citations: null on ordinary native text blocks. Accept
     // only absent/empty citations; project text explicitly so no nested metadata
     // can cross the customer boundary or bypass output inspection.
-    let tool_definitions = crate::native_messages_tools::definitions(request);
     let content = value["content"].as_array().and_then(|parts| {
         if parts.is_empty() || parts.len() > 128 {
             return None;
@@ -1007,7 +1020,7 @@ fn normalize(
             .iter()
             .map(|part| {
                 if part["type"] == "tool_use" {
-                    return crate::native_messages_tools::project(part, tool_definitions.as_ref()?);
+                    return crate::native_messages_tools::project(part, tool_definitions?);
                 }
                 let object = part.as_object()?;
                 if object
