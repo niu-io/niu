@@ -63,7 +63,12 @@ struct ToolCall {
     function: bool,
 }
 impl ToolCall {
-    fn observe(&mut self, delta: &Value, bytes: &mut usize) -> bool {
+    fn observe(
+        &mut self,
+        delta: &Value,
+        bytes: &mut usize,
+        tool_names: &BTreeSet<String>,
+    ) -> bool {
         if let Some(value) = delta.get("type").filter(|v| !v.is_null()) {
             if value != "function" {
                 return false;
@@ -99,7 +104,10 @@ impl ToolCall {
                     return false;
                 }
                 if field == "name" {
-                    if self.name == text {
+                    if self.name == text
+                        && tool_names.contains(&self.name)
+                        && !tool_names.contains(&format!("{}{text}", self.name))
+                    {
                         continue;
                     }
                     if self.name.len().saturating_add(text.len()) > 64 {
@@ -235,12 +243,11 @@ impl StructuredStream {
                         }
                         self.tool_count += 1;
                     }
-                    if !choice
-                        .tools
-                        .entry(index)
-                        .or_default()
-                        .observe(call, &mut self.bytes)
-                    {
+                    if !choice.tools.entry(index).or_default().observe(
+                        call,
+                        &mut self.bytes,
+                        &self.tool_names,
+                    ) {
                         self.invalid = true;
                         return;
                     }
@@ -295,9 +302,10 @@ impl StructuredStream {
                                 )
                         });
                 }
-                // Refusals are explicit model output, not malformed JSON.
+                // Refusals are explicit model output, not malformed JSON, provided no
+                // unvalidated content was streamed alongside the refusal when JSON is required.
                 if choice.refused {
-                    return true;
+                    return !self.json_required || choice.content.is_empty();
                 }
                 if !self.selection.valid(&[]) {
                     return false;
@@ -312,5 +320,66 @@ impl StructuredStream {
                     .as_ref()
                     .map_or_else(|| value.is_object(), |schema| schema.is_valid(&value))
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn repeated_half_tool_names_stream_without_truncation() {
+        let request = json!({
+            "tools": [
+                {"type": "function", "function": {"name": "aa"}},
+                {"type": "function", "function": {"name": "lookup"}}
+            ]
+        });
+        let mut stream = StructuredStream::text().with_tools(&request);
+        stream.observe(&json!({
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "a", "arguments": "{"}
+                    }]
+                }
+            }]
+        }));
+        stream.observe(&json!({
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "function": {"name": "a", "arguments": "}"}
+                    }]
+                },
+                "finish_reason": "tool_calls"
+            }]
+        }));
+        assert!(stream.valid());
+    }
+
+    #[test]
+    fn refusal_after_non_json_content_does_not_bypass_json_requirement() {
+        let mut stream = StructuredStream::new(None);
+        stream.observe(&json!({
+            "choices": [{"index": 0, "delta": {"content": "not json"}}]
+        }));
+        stream.observe(&json!({
+            "choices": [{"index": 0, "delta": {"refusal": "refused"}, "finish_reason": "stop"}]
+        }));
+        assert!(!stream.valid());
+
+        let mut pure_refusal = StructuredStream::new(None);
+        pure_refusal.observe(&json!({
+            "choices": [{"index": 0, "delta": {"refusal": "refused"}, "finish_reason": "stop"}]
+        }));
+        assert!(pure_refusal.valid());
     }
 }
