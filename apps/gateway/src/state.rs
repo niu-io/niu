@@ -285,12 +285,10 @@ impl AppState {
         let token = header
             .and_then(|h| h.strip_prefix("Bearer "))
             .ok_or_else(ApiError::unauthorized)?;
-        let principal = self
-            .store
-            .authenticate(token)
+        self.store
+            .authenticate_with_ip(token, crate::request_source::current_ip())
             .await
-            .map_err(ApiError::from_store)?;
-        self.authorize_key_source(principal).await
+            .map_err(ApiError::from_store)
     }
 
     /// Authorize an inference request using Niu's separate credential header
@@ -318,12 +316,11 @@ impl AppState {
             if token.is_empty() || token.trim() != token {
                 return Err(ApiError::unauthorized());
             }
-            let principal = self
+            return self
                 .store
-                .authenticate(token)
+                .authenticate_with_ip(token, crate::request_source::current_ip())
                 .await
-                .map_err(ApiError::from_store)?;
-            return self.authorize_key_source(principal).await;
+                .map_err(ApiError::from_store);
         }
         let key_ids = headers.get_all("x-niu-key-id").iter().collect::<Vec<_>>();
         if key_ids.len() > 1 {
@@ -336,15 +333,18 @@ impl AppState {
             let authorization = self
                 .authorize_admin_headers(headers, dashboard_permission)
                 .await?;
-            let principal = self
+            let (principal, ip_allowed) = self
                 .store
-                .dashboard_key_by_id(key_id)
+                .dashboard_key_by_id_with_ip(key_id, crate::request_source::current_ip())
                 .await
                 .map_err(ApiError::from_store)?;
             if !authorization.permits_project(principal.scope()) {
                 return Err(ApiError::forbidden());
             }
-            return self.authorize_key_source(principal).await;
+            if !ip_allowed {
+                return Err(ApiError::from_store(niu_storage::StoreError::KeyIpDenied));
+            }
+            return Ok(principal);
         }
         self.authorize_api(
             headers
@@ -368,14 +368,13 @@ impl AppState {
         if !authorization.permits_project(scope) {
             return Err(ApiError::forbidden());
         }
-        let principal = self
-            .store
-            .dashboard_key(scope, key)
+        self.store
+            .dashboard_key_with_ip(scope, key, crate::request_source::current_ip())
             .await
-            .map_err(ApiError::from_store)?;
-        self.authorize_key_source(principal).await
+            .map_err(ApiError::from_store)
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn authorize_key_source(
         &self,
         principal: niu_storage::Principal,

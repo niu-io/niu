@@ -118,6 +118,46 @@ impl Store {
         })
     }
 
+    pub async fn authenticate_with_ip(
+        &self,
+        token: &str,
+        source: Option<std::net::IpAddr>,
+    ) -> Result<Principal, StoreError> {
+        if token.len() != 68 || !token.starts_with("niu_") {
+            return Err(StoreError::Unauthorized);
+        }
+        let hash = Sha256::digest(token.as_bytes()).to_vec();
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let row = sqlx::query(
+            "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, \
+             CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
+                  WHEN $2::text IS NULL THEN false \
+                  ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
+             END AS ip_allowed \
+             FROM api_keys k \
+             LEFT JOIN key_ip_policies p ON p.spending_root_id = k.spending_root_id \
+             WHERE k.token_hash = $1 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp()",
+        )
+        .bind(hash)
+        .bind(source.map(|ip| ip.to_string()))
+        .fetch_optional(&mut *snapshot)
+        .await?;
+        snapshot.commit().await?;
+        let row = row.ok_or(StoreError::Unauthorized)?;
+        let ip_allowed: bool = row.get("ip_allowed");
+        if !ip_allowed {
+            return Err(StoreError::KeyIpDenied);
+        }
+        Ok(Principal {
+            allowed_models: row.get("allowed_models"),
+            key_id: row.get("id"),
+            scope: TenantScope {
+                organization_id: row.get("organization_id"),
+                project_id: row.get("project_id"),
+            },
+        })
+    }
+
     /// Resolve a selected key only after the caller authorizes administrative
     /// access to this exact tenant. Write access is required for inference; reads
     /// may use read access. Inference still revalidates at dispatch.
@@ -139,23 +179,83 @@ impl Store {
         })
     }
 
+    pub async fn dashboard_key_with_ip(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+        source: Option<std::net::IpAddr>,
+    ) -> Result<Principal, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let row = sqlx::query(
+            "SELECT k.allowed_models, \
+             CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
+                  WHEN $4::text IS NULL THEN false \
+                  ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $4::text::inet <<= n::cidr) \
+             END AS ip_allowed \
+             FROM api_keys k \
+             LEFT JOIN key_ip_policies p ON p.spending_root_id = k.spending_root_id \
+             WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp()",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(id)
+        .bind(source.map(|ip| ip.to_string()))
+        .fetch_optional(&mut *snapshot)
+        .await?;
+        snapshot.commit().await?;
+        let row = row.ok_or(StoreError::Unauthorized)?;
+        let ip_allowed: bool = row.get("ip_allowed");
+        if !ip_allowed {
+            return Err(StoreError::KeyIpDenied);
+        }
+        Ok(Principal {
+            key_id: id,
+            scope,
+            allowed_models: row.get("allowed_models"),
+        })
+    }
+
     /// Look up an active key by its ID so a console session passing `X-Niu-Key-Id`
     /// on `/v1/*` can resolve the key's workspace scope before checking operator permissions.
     pub async fn dashboard_key_by_id(&self, id: Uuid) -> Result<Principal, StoreError> {
+        let (principal, _) = self.dashboard_key_by_id_with_ip(id, None).await?;
+        Ok(principal)
+    }
+
+    pub async fn dashboard_key_by_id_with_ip(
+        &self,
+        id: Uuid,
+        source: Option<std::net::IpAddr>,
+    ) -> Result<(Principal, bool), StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let row = sqlx::query("SELECT organization_id, project_id, allowed_models FROM api_keys WHERE id=$1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
-            .bind(id)
-            .fetch_optional(&mut *snapshot).await?;
+        let row = sqlx::query(
+            "SELECT k.organization_id, k.project_id, k.allowed_models, \
+             CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
+                  WHEN $2::text IS NULL THEN false \
+                  ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $2::text::inet <<= n::cidr) \
+             END AS ip_allowed \
+             FROM api_keys k \
+             LEFT JOIN key_ip_policies p ON p.spending_root_id = k.spending_root_id \
+             WHERE k.id=$1 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp()",
+        )
+        .bind(id)
+        .bind(source.map(|ip| ip.to_string()))
+        .fetch_optional(&mut *snapshot)
+        .await?;
         snapshot.commit().await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
-        Ok(Principal {
-            key_id: id,
-            scope: TenantScope {
-                organization_id: row.get("organization_id"),
-                project_id: row.get("project_id"),
+        let ip_allowed: bool = row.get("ip_allowed");
+        Ok((
+            Principal {
+                key_id: id,
+                scope: TenantScope {
+                    organization_id: row.get("organization_id"),
+                    project_id: row.get("project_id"),
+                },
+                allowed_models: row.get("allowed_models"),
             },
-            allowed_models: row.get("allowed_models"),
-        })
+            ip_allowed,
+        ))
     }
 
     /// Self-introspection for `GET /v1/key`. Exposes key label, model grants,
