@@ -1,7 +1,10 @@
 //! Opt-in direct-channel polling and settlement. Never resubmits generation.
 use crate::state::AppState;
 
-pub(crate) fn spawn(state: &AppState) -> Result<Option<tokio::task::JoinHandle<()>>, &'static str> {
+pub(crate) fn spawn(
+    state: &AppState,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
+) -> Result<Option<tokio::task::JoinHandle<()>>, &'static str> {
     match std::env::var("NIU_VIDEO_POLLING").as_deref() {
         Err(std::env::VarError::NotPresent) | Ok("false") => return Ok(None),
         Ok("true") => (),
@@ -12,8 +15,17 @@ pub(crate) fn spawn(state: &AppState) -> Result<Option<tokio::task::JoinHandle<(
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {}
+                _ = shutdown.changed() => break,
+            }
+            if *shutdown.borrow() {
+                break;
+            }
             for _ in 0..8 {
+                if *shutdown.borrow() {
+                    break;
+                }
                 match run_once(&state).await {
                     Ok(true) => continue,
                     Ok(false) => break,

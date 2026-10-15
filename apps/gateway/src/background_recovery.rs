@@ -3,18 +3,32 @@
 use niu_storage::Store;
 use tokio::task::JoinHandle;
 
-pub(crate) fn spawn(store: Store, content_store: Store) -> [JoinHandle<()>; 2] {
+pub(crate) fn spawn(
+    store: Store,
+    content_store: Store,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+) -> [JoinHandle<()>; 2] {
     let recovery_store = content_store;
+    let mut cleanup_shutdown = shutdown.clone();
     let cleanup = tokio::spawn(async move {
         let mut interval = interval();
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {}
+                _ = cleanup_shutdown.changed() => break,
+            }
+            if *cleanup_shutdown.borrow() {
+                break;
+            }
             if recovery_store
                 .purge_expired_generations_instructions()
                 .await
                 .is_err()
             {
                 tracing::warn!("Expired generations instruction cleanup requires retry");
+            }
+            if *cleanup_shutdown.borrow() {
+                break;
             }
             if recovery_store
                 .purge_expired_video_composer_drafts()
@@ -23,8 +37,14 @@ pub(crate) fn spawn(store: Store, content_store: Store) -> [JoinHandle<()>; 2] {
             {
                 tracing::warn!("Expired video composer draft cleanup requires retry");
             }
+            if *cleanup_shutdown.borrow() {
+                break;
+            }
             if recovery_store.purge_expired_video_intents().await.is_err() {
                 tracing::warn!("Expired video intent cleanup requires retry");
+            }
+            if *cleanup_shutdown.borrow() {
+                break;
             }
             if recovery_store
                 .purge_expired_request_payloads()
@@ -33,12 +53,18 @@ pub(crate) fn spawn(store: Store, content_store: Store) -> [JoinHandle<()>; 2] {
             {
                 tracing::warn!("Expired request payload cleanup requires retry");
             }
+            if *cleanup_shutdown.borrow() {
+                break;
+            }
             if recovery_store
                 .purge_expired_media_result_references()
                 .await
                 .is_err()
             {
                 tracing::warn!("Expired media result cleanup requires retry");
+            }
+            if *cleanup_shutdown.borrow() {
+                break;
             }
             if recovery_store
                 .purge_expired_inspected_image_sources()
@@ -47,12 +73,18 @@ pub(crate) fn spawn(store: Store, content_store: Store) -> [JoinHandle<()>; 2] {
             {
                 tracing::warn!("Expired inspected image source cleanup requires retry");
             }
+            if *cleanup_shutdown.borrow() {
+                break;
+            }
             if recovery_store
                 .recover_interrupted_asset_image_ingestions()
                 .await
                 .is_err()
             {
                 tracing::warn!("Interrupted image ingestion recovery requires retry");
+            }
+            if *cleanup_shutdown.borrow() {
+                break;
             }
             if recovery_store
                 .recover_interrupted_ingested_image_reads()
@@ -64,10 +96,17 @@ pub(crate) fn spawn(store: Store, content_store: Store) -> [JoinHandle<()>; 2] {
         }
     });
     let recovery_store = store;
+    let mut financial_shutdown = shutdown;
     let financial = tokio::spawn(async move {
         let mut interval = interval();
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {}
+                _ = financial_shutdown.changed() => break,
+            }
+            if *financial_shutdown.borrow() {
+                break;
+            }
             for failure in recovery_store.recover_financial_work().await {
                 match failure {
                     niu_storage::FinancialRecoveryFailure::Attempts { stage, count } => {

@@ -91,19 +91,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(address).await?;
     let gateway_writes = state.gateway_writes.clone();
     let diagnostic_writes = state.diagnostic_writes.clone();
-    let recovery = background_recovery::spawn(state.store.clone(), content_store);
+    let (bg_shutdown_tx, bg_shutdown_rx) = tokio::sync::watch::channel(false);
+    let recovery =
+        background_recovery::spawn(state.store.clone(), content_store, bg_shutdown_rx.clone());
     let payment_recovery = state
         .payments
         .clone()
         .filter(|_| payment_polling_enabled)
         .map(|payments| {
             let payment_state = state.clone();
+            let mut payment_shutdown = bg_shutdown_rx.clone();
             tokio::spawn(async move {
                 let mut cursor = None;
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
                 loop {
-                    interval.tick().await;
+                    tokio::select! {
+                        _ = interval.tick() => {}
+                        _ = payment_shutdown.changed() => break,
+                    }
+                    if *payment_shutdown.borrow() {
+                        break;
+                    }
                     match payments.recover_next(&payment_state, cursor).await {
                         Ok(next) => cursor = next,
                         Err(_) => tracing::warn!("Payment recovery storage requires retry"),
@@ -111,7 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             })
         });
-    let video_recovery = video_recovery::spawn(&state)?;
+    let video_recovery = video_recovery::spawn(&state, bg_shutdown_rx)?;
     // OAuth callbacks contain authorization codes: trace paths, never queries.
     let app = web::router(state).layer(TraceLayer::new_for_http().make_span_with(
         |request: &axum::http::Request<axum::body::Body>| {
@@ -131,6 +140,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .with_graceful_shutdown(shutdown_signal())
     .await?;
+    let _ = bg_shutdown_tx.send(true);
+    let mut bg_tasks: Vec<_> = recovery.into_iter().collect();
+    if let Some(video_recovery) = video_recovery {
+        bg_tasks.push(video_recovery);
+    }
+    if let Some(payment_recovery) = payment_recovery {
+        bg_tasks.push(payment_recovery);
+    }
+    let abort_handles: Vec<_> = bg_tasks.iter().map(|t| t.abort_handle()).collect();
+    if tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        futures_util::future::join_all(bg_tasks),
+    )
+    .await
+    .is_err()
+    {
+        for handle in abort_handles {
+            handle.abort();
+        }
+    }
     gateway_writes.shutdown().await;
     // HTTP bodies have drained, so their drop handlers have registered timing
     // and payload writes. Give those tasks a bounded opportunity to commit.
@@ -144,15 +173,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             pending = diagnostic_writes.len(),
             "Request diagnostic writes exceeded the shutdown deadline"
         );
-    }
-    for task in recovery {
-        task.abort();
-    }
-    if let Some(video_recovery) = video_recovery {
-        video_recovery.abort();
-    }
-    if let Some(payment_recovery) = payment_recovery {
-        payment_recovery.abort();
     }
     Ok(())
 }
