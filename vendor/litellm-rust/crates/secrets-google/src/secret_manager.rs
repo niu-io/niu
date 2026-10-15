@@ -96,18 +96,23 @@ impl GoogleSecretManager {
         let project = environment
             .get(GOOGLE_SECRET_MANAGER_PROJECT_ID)
             .ok_or(Error::MissingEnvironment(GOOGLE_SECRET_MANAGER_PROJECT_ID))?;
-        let ttl = environment
+        let ttl = match environment
             .get(GOOGLE_SECRET_MANAGER_REFRESH_INTERVAL)
             .filter(|v| !v.is_empty())
-            .map(|v| v.parse::<i64>().map_err(|_| Error::RefreshInterval))
-            .transpose()?
-            .unwrap_or(
+            .or_else(|| {
                 environment
                     .get(SECRET_MANAGER_REFRESH_INTERVAL)
-                    .map(|v| v.parse::<i64>().map_err(|_| Error::RefreshInterval))
-                    .transpose()?
-                    .unwrap_or(DEFAULT_REFRESH_INTERVAL.as_secs() as i64),
-            );
+                    .filter(|v| !v.is_empty())
+            }) {
+            Some(v) => {
+                let parsed = v.parse::<i64>().map_err(|_| Error::RefreshInterval)?;
+                if parsed <= 0 {
+                    return Err(Error::RefreshInterval);
+                }
+                parsed as u64
+            }
+            None => DEFAULT_REFRESH_INTERVAL.as_secs(),
+        };
         let always_read = environment
             .get(GOOGLE_SECRET_MANAGER_ALWAYS_READ_SECRET_MANAGER)
             .is_some_and(|v| v.eq_ignore_ascii_case("true"));
@@ -121,11 +126,7 @@ impl GoogleSecretManager {
             reqwest::Url::parse("https://secretmanager.googleapis.com").expect("static URL"),
             project,
             environment,
-            Some(if ttl < 0 {
-                Duration::from_nanos(1)
-            } else {
-                Duration::from_secs(ttl as u64)
-            }),
+            Some(Duration::from_secs(ttl)),
             always_read,
         )
     }
