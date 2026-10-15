@@ -234,3 +234,28 @@ async fn workspace_catalog_context_uses_dashboard_without_shadowing_public_catal
         "public catalog"
     );
 }
+
+#[tokio::test]
+async fn static_asset_prefixes_emit_public_cache_control() {
+    let fixture = Fixture::new();
+    let app = fixture.router(true);
+    for path in [
+        "/assets/app.js",
+        "/_astro/style.css",
+        "/_catalog/style.css",
+        "/catalog-assets/models.js",
+        "/site-assets/brand.png",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        assert_eq!(
+            response.headers()["cache-control"],
+            "public, max-age=3600",
+            "{path}"
+        );
+    }
+}

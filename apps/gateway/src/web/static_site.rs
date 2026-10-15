@@ -104,7 +104,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
 
     // Public catalog remains public; explicit workspace context enters the
     // authenticated dashboard. All data access still uses the normal API guards.
-    let model_dashboard = dashboard_index.clone();
+    let model_dashboard = ServeFile::new(dashboard_index.clone());
     let app = app.layer(middleware::from_fn(
         move |request: axum::extract::Request, next: axum::middleware::Next| {
             let entry = model_dashboard.clone();
@@ -116,7 +116,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                             .any(|(key, value)| key == "workspace" && !value.is_empty())
                     });
                 if scoped_models {
-                    match ServeFile::new(entry).oneshot(request).await {
+                    match entry.oneshot(request).await {
                         Ok(response) => response.into_response(),
                         Err(never) => match never {},
                     }
@@ -200,10 +200,20 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                 ServeFile::new(format!("{catalog_dir}/favicon.ico")),
             ),
     };
-    app.layer(middleware::map_response(revalidate_html))
+    app.layer(middleware::from_fn(static_cache_headers))
 }
 
-async fn revalidate_html(mut response: Response) -> Response {
+async fn static_cache_headers(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let path = request.uri().path();
+    let is_static_asset = path.starts_with("/_astro/")
+        || path.starts_with("/assets/")
+        || path.starts_with("/_catalog/")
+        || path.starts_with("/catalog-assets/")
+        || path.starts_with("/site-assets/");
+    let mut response = next.run(request).await;
     if response
         .headers()
         .get(axum::http::header::CONTENT_TYPE)
@@ -215,6 +225,11 @@ async fn revalidate_html(mut response: Response) -> Response {
             axum::http::header::CACHE_CONTROL,
             axum::http::HeaderValue::from_static("no-cache"),
         );
+    } else if is_static_asset && response.status().is_success() {
+        response
+            .headers_mut()
+            .entry(axum::http::header::CACHE_CONTROL)
+            .or_insert(axum::http::HeaderValue::from_static("public, max-age=3600"));
     }
     response
 }

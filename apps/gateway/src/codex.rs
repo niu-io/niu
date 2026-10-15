@@ -27,6 +27,7 @@ const TOKEN_ENDPOINT: &str = "https://auth.openai.com/api/accounts/oauth/token";
 #[derive(Default)]
 pub(crate) struct Runtime {
     pending: Mutex<HashMap<String, PendingLogin>>,
+    jwks_cache: Mutex<Option<(String, Instant, Value)>>,
     #[cfg(test)]
     pub(crate) inference_base: Option<String>,
     #[cfg(test)]
@@ -120,10 +121,17 @@ fn random() -> Result<String, ApiError> {
     Ok(URL_SAFE_NO_PAD.encode(bytes))
 }
 pub(crate) fn client() -> Result<reqwest::Client, ApiError> {
-    reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .timeout(Duration::from_secs(30))
-        .build()
+    static CLIENT: std::sync::OnceLock<Result<reqwest::Client, ()>> = std::sync::OnceLock::new();
+    CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .connect_timeout(Duration::from_secs(5))
+                .timeout(Duration::from_secs(30))
+                .build()
+                .map_err(|_| ())
+        })
+        .clone()
         .map_err(|_| ApiError::unavailable())
 }
 pub(crate) async fn bounded_json(mut response: reqwest::Response) -> Result<Value, ApiError> {
@@ -274,7 +282,14 @@ pub(crate) async fn start(
     }
     let mut pending = state.codex.pending.lock().await;
     pending.retain(|_, p| p.created.elapsed() < Duration::from_secs(600));
-    if pending.len() >= 64 {
+    let workspace_pending = pending
+        .values()
+        .filter(|p| {
+            p.scope.organization_id == scope.organization_id
+                && p.scope.project_id == scope.project_id
+        })
+        .count();
+    if workspace_pending >= 8 || pending.len() >= 256 {
         return Err(ApiError::unavailable());
     }
     pending.insert(
@@ -478,11 +493,23 @@ async fn validate_identity(
     audience: &str,
     nonce: &str,
 ) -> Result<Value, ApiError> {
+    let base = auth_base(state);
+    let cached_jwks = {
+        let guard = state.codex.jwks_cache.lock().await;
+        guard
+            .as_ref()
+            .filter(|(cached_base, fetched_at, _)| {
+                cached_base == base && fetched_at.elapsed() < Duration::from_secs(300)
+            })
+            .map(|(_, _, jwks)| jwks.clone())
+    };
+    if let Some(jwks) = cached_jwks
+        && let Ok(claims) = verify_identity(token, &jwks, audience, nonce)
+    {
+        return Ok(claims);
+    }
     let discovery = client
-        .get(format!(
-            "{}/.well-known/openid-configuration",
-            auth_base(state)
-        ))
+        .get(format!("{base}/.well-known/openid-configuration"))
         .send()
         .await
         .map_err(|_| ApiError::upstream())?;
@@ -495,7 +522,7 @@ async fn validate_identity(
         .and_then(Value::as_str)
         .ok_or_else(ApiError::upstream)?;
     let url = url::Url::parse(jwks_uri).map_err(|_| ApiError::upstream())?;
-    if url.origin().ascii_serialization() != auth_base(state)
+    if url.origin().ascii_serialization() != base
         || !url.username().is_empty()
         || url.password().is_some()
     {
@@ -509,7 +536,10 @@ async fn validate_identity(
     if !response.status().is_success() {
         return Err(ApiError::upstream());
     }
-    verify_identity(token, &bounded_json(response).await?, audience, nonce)
+    let jwks = bounded_json(response).await?;
+    let claims = verify_identity(token, &jwks, audience, nonce)?;
+    *state.codex.jwks_cache.lock().await = Some((base.to_owned(), Instant::now(), jwks));
+    Ok(claims)
 }
 fn verify_identity(
     token: &str,
@@ -874,6 +904,7 @@ mod tests {
         ));
         let runtime = Runtime {
             pending: Mutex::new(HashMap::new()),
+            jwks_cache: Mutex::new(None),
             inference_base: Some(format!("{base}/v1")),
             auth_base: Some(base),
         };
