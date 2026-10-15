@@ -70,7 +70,7 @@ async fn visible_locked(
     if exists.is_none() {
         return Err(StoreError::Conflict);
     }
-    let visible:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE task_id=$3 AND owner<>$4) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=$3 AND vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner<>$4)")
+    let visible:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE task_id=$3 AND owner<>$4) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=niu_submission_key_digest(vi.submission_key) WHERE sk.attempt_id=$3 AND vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner<>$4)")
  .bind(scope.organization_id).bind(scope.project_id).bind(task).bind(actor).fetch_one(&mut *conn).await?;
     if !visible {
         return Err(StoreError::Conflict);
@@ -90,7 +90,7 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         let mut tx = self.begin_bounded_read_snapshot().await?;
-        let visible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes WHERE attempt_id=$3) AND NOT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE task_id=$3 AND owner<>$4) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=$3 AND vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner<>$4))")
+        let visible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes WHERE attempt_id=$3) AND NOT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE task_id=$3 AND owner<>$4) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=niu_submission_key_digest(vi.submission_key) WHERE sk.attempt_id=$3 AND vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner<>$4))")
             .bind(scope.organization_id).bind(scope.project_id).bind(task).bind(actor).fetch_one(&mut *tx).await?;
         if !visible {
             tx.commit().await?;

@@ -68,7 +68,7 @@ LEFT JOIN video_submission_intents intent
     AND intent.owner=binding.owner AND intent.id=binding.intent_id
 LEFT JOIN media_submission_keys submitted
     ON submitted.organization_id=intent.organization_id AND submitted.project_id=intent.project_id
-    AND submitted.key_digest=sha256(convert_to(intent.submission_key::text,'UTF8'))
+    AND submitted.key_digest=niu_submission_key_digest(intent.submission_key)
 LEFT JOIN attempts attempt ON attempt.id = COALESCE(association.task_id,submitted.attempt_id)
 LEFT JOIN media_jobs job ON job.attempt_id = attempt.id
 LEFT JOIN LATERAL (

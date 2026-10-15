@@ -21,7 +21,7 @@ WITH inventory AS (
  -- an explicit association and this immutable intent binding agree.
  coalesce(t.session_id,intent_binding.session_id) AS session_id,
  coalesce(t.turn_id,intent_binding.turn_id) AS turn_id,
- CASE WHEN t.task_id IS NULL AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) AND sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id) THEN 'unknown' ELSE 'generations' END AS source,
+ CASE WHEN t.task_id IS NULL AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.key_digest=niu_submission_key_digest(vi.submission_key) AND sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id) THEN 'unknown' ELSE 'generations' END AS source,
  CASE WHEN j.attempt_id IS NULL THEN 'submission_unknown'
  WHEN 'succeeded'=ANY(o.statuses) AND 'failed'=ANY(o.statuses) THEN 'reconciliation_required'
  WHEN 'succeeded'=ANY(o.statuses) THEN 'succeeded'
@@ -51,7 +51,7 @@ WITH inventory AS (
   JOIN video_submission_intents intent
    ON intent.organization_id=submitted.organization_id
     AND intent.project_id=submitted.project_id
-    AND submitted.key_digest=sha256(convert_to(intent.submission_key::text,'UTF8'))
+    AND submitted.key_digest=niu_submission_key_digest(intent.submission_key)
   JOIN generations_turn_intents binding
    ON binding.organization_id=intent.organization_id
     AND binding.project_id=intent.project_id AND binding.owner=intent.owner
@@ -63,7 +63,7 @@ WITH inventory AS (
  WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL
  AND (t.task_id IS NULL OR t.owner=$3)
  AND (intent_binding.intent_id IS NULL OR intent_binding.owner=$3)
- AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) AND sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id AND vi.owner<>$3)
+ AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.key_digest=niu_submission_key_digest(vi.submission_key) AND sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id AND vi.owner<>$3)
 ), filtered AS (
  SELECT * FROM inventory WHERE ($4::text IS NULL OR state=$4)
  AND ($5::uuid IS NULL OR session_id=$5)

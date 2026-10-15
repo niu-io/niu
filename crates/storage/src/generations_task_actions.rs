@@ -19,7 +19,7 @@ impl Store {
              AND NOT EXISTS(SELECT 1 FROM generations_turn_tasks t WHERE t.task_id=a.id AND t.owner<>$4) \
              AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk \
              ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id \
-             AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) \
+             AND sk.key_digest=niu_submission_key_digest(vi.submission_key) \
              WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id \
              AND vi.project_id=a.project_id AND vi.owner<>$4)",
         )

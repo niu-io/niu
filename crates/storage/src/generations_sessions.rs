@@ -155,7 +155,7 @@ impl Store {
         let bound:Option<Uuid>=sqlx::query_scalar("SELECT intent_id FROM generations_turn_intents WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4 AND turn_id=$5").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_optional(&mut *tx).await?;
         if let Some(intent) = bound {
             sqlx::query("SELECT id FROM video_submission_intents WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4 FOR UPDATE").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_one(&mut *tx).await?;
-            let actual:Option<Uuid>=sqlx::query_scalar("SELECT sk.attempt_id FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner=$3 AND vi.id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_optional(&mut *tx).await?;
+            let actual:Option<Uuid>=sqlx::query_scalar("SELECT sk.attempt_id FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=niu_submission_key_digest(vi.submission_key) WHERE vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner=$3 AND vi.id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_optional(&mut *tx).await?;
             if actual != Some(task) {
                 return Err(StoreError::Conflict);
             }
@@ -168,7 +168,7 @@ impl Store {
         if locked.is_none() {
             return Err(StoreError::Unauthorized);
         }
-        let bound_elsewhere:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM generations_turn_intents binding JOIN video_submission_intents vi ON vi.organization_id=binding.organization_id AND vi.project_id=binding.project_id AND vi.owner=binding.owner AND vi.id=binding.intent_id JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=$1 AND (binding.organization_id<>$2 OR binding.project_id<>$3 OR binding.owner<>$4 OR binding.session_id<>$5 OR binding.turn_id<>$6))").bind(task).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_one(&mut *tx).await?;
+        let bound_elsewhere:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM generations_turn_intents binding JOIN video_submission_intents vi ON vi.organization_id=binding.organization_id AND vi.project_id=binding.project_id AND vi.owner=binding.owner AND vi.id=binding.intent_id JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=niu_submission_key_digest(vi.submission_key) WHERE sk.attempt_id=$1 AND (binding.organization_id<>$2 OR binding.project_id<>$3 OR binding.owner<>$4 OR binding.session_id<>$5 OR binding.turn_id<>$6))").bind(task).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_one(&mut *tx).await?;
         if bound_elsewhere {
             return Err(StoreError::Conflict);
         }
@@ -193,7 +193,7 @@ impl Store {
         if archived || current != revision {
             return Err(StoreError::Conflict);
         }
-        let allowed:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$4 AND a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes r WHERE r.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=a.id AND vi.owner<>$3))").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(task).fetch_one(&mut *tx).await?;
+        let allowed:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$4 AND a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes r WHERE r.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=niu_submission_key_digest(vi.submission_key) WHERE sk.attempt_id=a.id AND vi.owner<>$3))").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(task).fetch_one(&mut *tx).await?;
         if !allowed {
             return Err(StoreError::Unauthorized);
         }
@@ -246,7 +246,7 @@ impl Store {
         if allowed != Some(true) {
             return Err(StoreError::Unauthorized);
         }
-        let actual:Option<Uuid>=sqlx::query_scalar("SELECT sk.attempt_id FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner=$3 AND vi.id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_optional(&mut *tx).await?;
+        let actual:Option<Uuid>=sqlx::query_scalar("SELECT sk.attempt_id FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=niu_submission_key_digest(vi.submission_key) WHERE vi.organization_id=$1 AND vi.project_id=$2 AND vi.owner=$3 AND vi.id=$4").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent).fetch_optional(&mut *tx).await?;
         let attached:Option<Uuid>=sqlx::query_scalar("SELECT task_id FROM generations_turn_tasks WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND session_id=$4 AND turn_id=$5").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(session).bind(turn).fetch_optional(&mut *tx).await?;
         if attached.is_some() && actual != attached {
             return Err(StoreError::Conflict);
