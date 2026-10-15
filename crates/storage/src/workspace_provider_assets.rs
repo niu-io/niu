@@ -308,15 +308,25 @@ impl Store {
     ) -> Result<WorkspaceProviderAssetRoute, StoreError> {
         // Shared access to the existing publication writer lock; no network work
         // holds it. Configuration/qualification cannot change during admission.
-        sqlx::query("SELECT pg_advisory_xact_lock_shared(716554)")
+        let scope = p.scope();
+        sqlx::query("SELECT pg_advisory_xact_lock_shared(716554), pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
             .execute(&mut **tx)
             .await?;
-        let scope = p.scope();
+        let active: Option<Uuid> = sqlx::query_scalar("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() AND ('*'=ANY(k.allowed_models) OR $4=ANY(k.allowed_models)) FOR SHARE OF k,p")
+            .bind(p.key_id())
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(model)
+            .fetch_optional(&mut **tx)
+            .await?;
+        if active.is_none() {
+            return Err(StoreError::Unauthorized);
+        }
         let snapshot = Self::guardrail_snapshot_using(&mut **tx, scope, p.key_id())
             .await?
             .ok_or(StoreError::Unauthorized)?;
-        Self::authorize_media_processing_using(tx, p, &snapshot).await?;
-        Self::provider_asset_key_using(tx, p, model, true).await?;
         let row=sqlx::query("SELECT v.id,v.revision AS vendor_revision,v.adapter,v.api_base,v.credential_ciphertext,m.revision AS model_revision,m.alias,m.upstream_model,m.capabilities FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id WHERE m.alias=$1 AND m.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND m.capabilities#>>'{provider_assets,channel}'='fastrouter-actions-v1' AND (EXISTS(SELECT 1 FROM personal_vendor_ownership own WHERE own.vendor_id=v.id AND own.organization_id=$2) OR (NOT EXISTS(SELECT 1 FROM personal_vendor_ownership own WHERE own.vendor_id=v.id) AND niu_supplier_model_route_available(m.alias))) FOR SHARE OF v,m")
             .bind(model).bind(scope.organization_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let generation =
@@ -362,10 +372,11 @@ impl Store {
             || live.credential_ciphertext != expected.credential_ciphertext
             || live.capabilities != expected.capabilities
             || live.generation != expected.generation
+            || !crate::image_processing::same_policy(&live.snapshot, &expected.snapshot)
         {
             return Err(StoreError::Conflict);
         }
-        Self::authorize_media_processing_using(tx, p, &expected.snapshot).await
+        Ok(())
     }
     async fn provider_group_using(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,

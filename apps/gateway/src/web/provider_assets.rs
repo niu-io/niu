@@ -330,6 +330,17 @@ async fn mutate(
     action: FastRouterAction,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let route = admit(state, &principal, model).await?;
+    mutate_with_route(state, headers, principal, route, mutation, action).await
+}
+
+async fn mutate_with_route(
+    state: &AppState,
+    headers: &HeaderMap,
+    principal: Principal,
+    route: WorkspaceProviderAssetRoute,
+    mutation: WorkspaceProviderAssetMutation,
+    action: FastRouterAction,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
     let client = client(state, &route)?;
     let prepared = state
         .store
@@ -342,19 +353,9 @@ async fn mutate(
         .await
         .map_err(ApiError::from_store)?;
     let operation_id = prepared.operation().id;
-    let dispatch = admit(state, &principal, model).await?;
-    if dispatch.vendor_id() != route.vendor_id()
-        || dispatch.vendor_revision() != route.vendor_revision()
-        || dispatch.model_revision() != route.model_revision()
-        || dispatch.credential_ciphertext() != route.credential_ciphertext()
-    {
-        return Err(ApiError::from_store(
-            niu_storage::StoreError::ManagedRouteChanged,
-        ));
-    }
     if state
         .store
-        .claim_workspace_provider_asset_operation(&principal, operation_id, &dispatch)
+        .claim_workspace_provider_asset_operation(&principal, operation_id, &route)
         .await
         .map_err(ApiError::from_store)?
     {
@@ -3289,7 +3290,7 @@ pub(super) async fn dispatch_operation(
     let identity = required_idempotency(&headers)?;
     let (model, mutation, action) = body(input)?.mutation()?;
     // Existing identity is mandatory: dispatch must never create an absent preparation.
-    admit(&state, &principal, &model).await?;
+    let route = admit(&state, &principal, &model).await?;
     let existing = state
         .store
         .workspace_provider_asset_operation_by_idempotency(&principal, identity)
@@ -3299,7 +3300,8 @@ pub(super) async fn dispatch_operation(
     if existing.id != id || existing.model != model {
         return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
     }
-    let (status, result) = mutate(&state, &headers, principal, &model, mutation, action).await?;
+    let (status, result) =
+        mutate_with_route(&state, &headers, principal, route, mutation, action).await?;
     Ok((status, operation_read_headers(), result))
 }
 

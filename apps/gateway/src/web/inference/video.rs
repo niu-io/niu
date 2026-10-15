@@ -2183,7 +2183,7 @@ pub(super) async fn refresh_with_results(
     id: Uuid,
 ) -> Result<(Value, Vec<(niu_storage::MediaResultKind, Vec<u8>)>), ApiError> {
     let scope = principal.scope();
-    state
+    let saved = state
         .store
         .media_job_state_for_key(principal, id)
         .await
@@ -2216,12 +2216,6 @@ pub(super) async fn refresh_with_results(
             "This video recovery channel is not implemented",
         ));
     }
-    let saved = state
-        .store
-        .media_job_state_for_key(principal, id)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
     let snapshot = state
         .store
         .guardrail_snapshot(scope, principal.key_id())
