@@ -407,16 +407,16 @@ impl Store {
                 prepared.push((response, hash, snapshot));
             }
         }
-        let mut tx = self.pool.begin().await?;
-        let import_exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM codex_usage_imports WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND state='receiving')",
+        let mut tx = self.begin_bounded_recording().await?;
+        let import_exists: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM codex_usage_imports WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND state='receiving' FOR NO KEY UPDATE",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
         .bind(import_id)
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await?;
-        if !import_exists {
+        if import_exists.is_none() {
             return Err(StoreError::Conflict);
         }
 

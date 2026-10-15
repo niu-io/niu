@@ -79,13 +79,16 @@ impl Store {
         if inputs.len() > 200 {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
-        // Lock consent while receiving a batch so pause/delete cannot race ingestion.
-        let source = sqlx::query("SELECT client_version,consent_version FROM agent_observation_sources WHERE owner_id=$1 AND source='codex' AND NOT paused FOR UPDATE")
-            .bind(owner).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
-        let client: String = source.try_get("client_version")?;
-        let consent: String = source.try_get("consent_version")?;
-        let mut inserted = 0;
+        struct PreparedObservation<'a> {
+            input: &'a AgentObservationInput,
+            response_key: Vec<u8>,
+            snapshot: Option<serde_json::Value>,
+            fingerprint: Vec<u8>,
+            estimate_nanos: Option<i64>,
+        }
+        let mut prepared = Vec::with_capacity(inputs.len());
+        let mut seen: std::collections::HashMap<Vec<u8>, Vec<u8>> =
+            std::collections::HashMap::with_capacity(inputs.len());
         for input in inputs {
             if !matches!(
                 input.billing_mode.as_str(),
@@ -108,19 +111,90 @@ impl Store {
                 .map_err(|_| StoreError::InvalidObservation)?,
             )
             .to_vec();
-            let changed = sqlx::query("INSERT INTO agent_observations(owner_id,source,response_key,occurred_at,model_provider,model,billing_mode,input_tokens,cached_input_tokens,cache_write_input_tokens,output_tokens,reasoning_output_tokens,api_equivalent_usd_nanos,rate_snapshot,client_version,consent_version,response_fingerprint) VALUES($1,'codex',$2,to_timestamp($3::double precision/1000),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT(owner_id,source,response_key) DO NOTHING")
-                .bind(owner).bind(r.response_hash()).bind(r.occurred_at_ms).bind(&r.model_provider).bind(&r.model).bind(&input.billing_mode)
-                .bind(r.usage.input_tokens).bind(r.usage.cached_input_tokens).bind(r.usage.cache_write_input_tokens).bind(r.usage.output_tokens).bind(r.usage.reasoning_output_tokens)
-                .bind(r.estimate_usd_nanos()).bind(snapshot).bind(&client).bind(&consent).bind(&fingerprint).execute(&mut *tx).await?.rows_affected();
-            if changed == 0 {
-                let previous: Vec<u8> = sqlx::query_scalar("SELECT response_fingerprint FROM agent_observations WHERE owner_id=$1 AND source='codex' AND response_key=$2")
-                    .bind(owner).bind(r.response_hash()).fetch_one(&mut *tx).await?;
-                if previous != fingerprint {
-                    return Err(StoreError::Conflict);
+            let response_key = r.response_hash();
+            match seen.entry(response_key.clone()) {
+                std::collections::hash_map::Entry::Occupied(existing) => {
+                    if existing.get() != &fingerprint {
+                        return Err(StoreError::Conflict);
+                    }
+                }
+                std::collections::hash_map::Entry::Vacant(vacant) => {
+                    vacant.insert(fingerprint.clone());
+                    prepared.push(PreparedObservation {
+                        input,
+                        response_key,
+                        snapshot,
+                        fingerprint,
+                        estimate_nanos: r.estimate_usd_nanos(),
+                    });
                 }
             }
-            inserted += changed;
         }
+        let mut tx = self.begin_bounded_recording().await?;
+        // Lock consent while receiving a batch so pause/delete cannot race ingestion.
+        let source = sqlx::query("SELECT client_version,consent_version FROM agent_observation_sources WHERE owner_id=$1 AND source='codex' AND NOT paused FOR UPDATE")
+            .bind(owner).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        let client: String = source.try_get("client_version")?;
+        let consent: String = source.try_get("consent_version")?;
+        let inserted = if prepared.is_empty() {
+            0u64
+        } else {
+            let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+                "INSERT INTO agent_observations(owner_id,source,response_key,occurred_at,model_provider,model,billing_mode,input_tokens,cached_input_tokens,cache_write_input_tokens,output_tokens,reasoning_output_tokens,api_equivalent_usd_nanos,rate_snapshot,client_version,consent_version,response_fingerprint) ",
+            );
+            builder.push_values(&prepared, |mut b, item| {
+                let r = &item.input.response;
+                b.push_bind(owner)
+                    .push("'codex'")
+                    .push_bind(&item.response_key)
+                    .push("to_timestamp(")
+                    .push_bind_unseparated(r.occurred_at_ms)
+                    .push_unseparated("::double precision/1000)")
+                    .push_bind(&r.model_provider)
+                    .push_bind(&r.model)
+                    .push_bind(&item.input.billing_mode)
+                    .push_bind(r.usage.input_tokens)
+                    .push_bind(r.usage.cached_input_tokens)
+                    .push_bind(r.usage.cache_write_input_tokens)
+                    .push_bind(r.usage.output_tokens)
+                    .push_bind(r.usage.reasoning_output_tokens)
+                    .push_bind(item.estimate_nanos)
+                    .push_bind(&item.snapshot)
+                    .push_bind(&client)
+                    .push_bind(&consent)
+                    .push_bind(&item.fingerprint);
+            });
+            builder.push(" ON CONFLICT(owner_id,source,response_key) DO NOTHING RETURNING response_key");
+            let inserted_keys: Vec<Vec<u8>> = builder
+                .build_query_scalar()
+                .fetch_all(&mut *tx)
+                .await?;
+            if inserted_keys.len() < prepared.len() {
+                let inserted_set: std::collections::HashSet<&[u8]> =
+                    inserted_keys.iter().map(Vec::as_slice).collect();
+                let conflict_keys: Vec<Vec<u8>> = prepared
+                    .iter()
+                    .filter(|item| !inserted_set.contains(item.response_key.as_slice()))
+                    .map(|item| item.response_key.clone())
+                    .collect();
+                let existing_rows: Vec<(Vec<u8>, Vec<u8>)> = sqlx::query_as(
+                    "SELECT response_key,response_fingerprint FROM agent_observations WHERE owner_id=$1 AND source='codex' AND response_key = ANY($2)",
+                )
+                .bind(owner)
+                .bind(&conflict_keys)
+                .fetch_all(&mut *tx)
+                .await?;
+                if existing_rows.len() != conflict_keys.len() {
+                    return Err(StoreError::Conflict);
+                }
+                for (key, previous) in existing_rows {
+                    if seen.get(&key) != Some(&previous) {
+                        return Err(StoreError::Conflict);
+                    }
+                }
+            }
+            inserted_keys.len() as u64
+        };
         tx.commit().await?;
         Ok((inserted, inputs.len() as u64 - inserted))
     }
