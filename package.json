@@ -24,6 +24,7 @@
     "generate:api": "python3 scripts/extract-handler-openapi.py && pnpm --filter @niu-io/docs generate:api",
     "check:api": "python3 scripts/extract-handler-openapi.py --check && pnpm --filter @niu-io/docs check:api",
     "version:check": "python3 scripts/release-version.py check",
-    "version:set": "python3 scripts/release-version.py set"
+    "version:set": "python3 scripts/release-version.py set",
+    "version:notes": "python3 scripts/release-version.py notes"
   }
 }

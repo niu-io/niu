@@ -1,0 +1,39 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: "🚀 Gateway & API Features"
+      labels:
+        - enhancement
+        - feature
+        - gateway
+        - api
+    - title: "🖥️ Dashboard & Catalog"
+      labels:
+        - dashboard
+        - catalog
+        - ui
+    - title: "🔌 Plugins & SDKs"
+      labels:
+        - plugin
+        - sdk
+    - title: "🐛 Bug Fixes"
+      labels:
+        - bug
+        - fix
+    - title: "📚 Documentation & Governance"
+      labels:
+        - documentation
+        - docs
+    - title: "⚙️ Packaging, CI & Operations"
+      labels:
+        - ci
+        - packaging
+        - release
+    - title: "Other Changes"
+      labels:
+        - "*"

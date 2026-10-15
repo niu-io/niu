@@ -10,15 +10,51 @@ permissions:
   packages: write
 
 jobs:
-  release:
-    name: Build & Publish Release
+  github-release:
+    name: Publish GitHub Release & Notes
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with full history and tags
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Verify release tag matches VERSION, Cargo.toml, and package.json
         run: python3 scripts/release-version.py check --tag "${GITHUB_REF_NAME}"
+
+      - name: Generate structured Release Notes
+        run: python3 scripts/release-version.py notes --tag "${GITHUB_REF_NAME}" --output /tmp/release-notes.md
+
+      - name: Create or update GitHub Release with installer assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "Niu ${GITHUB_REF_NAME}" \
+              --notes-file /tmp/release-notes.md
+            gh release upload "${GITHUB_REF_NAME}" \
+              compose.yaml \
+              scripts/install.sh \
+              config/niu.example.toml \
+              --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              compose.yaml \
+              scripts/install.sh \
+              config/niu.example.toml \
+              --title "Niu ${GITHUB_REF_NAME}" \
+              --notes-file /tmp/release-notes.md
+          fi
+
+  container-image:
+    name: Build & Push GHCR Image
+    runs-on: ubuntu-24.04
+    needs: github-release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -40,14 +76,3 @@ jobs:
             ghcr.io/niu-io/niu:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Create GitHub Release with installer assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            compose.yaml \
-            scripts/install.sh \
-            config/niu.example.toml \
-            --title "Niu ${GITHUB_REF_NAME}" \
-            --generate-notes

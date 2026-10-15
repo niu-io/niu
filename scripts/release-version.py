@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Verify or update the Niu release version across VERSION, Cargo.toml, package.json, and compose.yaml."""
+"""Verify or update the Niu release version and auto-generate release notes & CHANGELOG entries."""
 
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import re
 import subprocess
@@ -15,6 +16,8 @@ VERSION_FILE = ROOT / "VERSION"
 CARGO_TOML = ROOT / "Cargo.toml"
 PACKAGE_JSON = ROOT / "package.json"
 COMPOSE_YAML = ROOT / "compose.yaml"
+CHANGELOG_MD = ROOT / "CHANGELOG.md"
+REPO_URL = "https://github.com/niu-io/niu"
 
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 CARGO_WS_VERSION_PATTERN = re.compile(
@@ -22,6 +25,9 @@ CARGO_WS_VERSION_PATTERN = re.compile(
 )
 COMPOSE_IMAGE_PATTERN = re.compile(
     r"(image:\s*\$\{NIU_IMAGE:-ghcr\.io/niu-io/niu:v)([^}]+)(\})"
+)
+CONVENTIONAL_COMMIT_PATTERN = re.compile(
+    r"^(?P<type>[a-zA-Z]+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
 )
 
 
@@ -86,7 +92,214 @@ def check_versions(expected_tag: str | None) -> int:
     return 0
 
 
-def set_version(raw_version: str, create_tag: bool) -> int:
+def list_semver_tags() -> list[str]:
+    result = subprocess.run(
+        ["git", "tag", "--list", "v*.*.*", "--sort=version:refname"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    tags: list[str] = []
+    for line in result.stdout.splitlines():
+        candidate = line.strip()
+        if not candidate:
+            continue
+        try:
+            parse_version(candidate)
+            tags.append(candidate)
+        except ValueError:
+            continue
+    return tags
+
+
+def resolve_previous_tag(target_tag: str) -> str | None:
+    tags = list_semver_tags()
+    if target_tag in tags:
+        idx = tags.index(target_tag)
+        return tags[idx - 1] if idx > 0 else None
+    return tags[-1] if tags else None
+
+
+def collect_commits(rev_range: str) -> list[tuple[str, str]]:
+    result = subprocess.run(
+        ["git", "log", "--no-merges", "--pretty=format:%h%x09%s", rev_range],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    commits: list[tuple[str, str]] = []
+    for line in result.stdout.splitlines():
+        if "\t" not in line:
+            continue
+        sha, subject = line.split("\t", 1)
+        commits.append((sha.strip(), subject.strip()))
+    return commits
+
+
+def categorize_commits(commits: list[tuple[str, str]]) -> dict[str, list[tuple[str, str, str | None]]]:
+    groups: dict[str, list[tuple[str, str, str | None]]] = {
+        "Added": [],
+        "Changed": [],
+        "Fixed": [],
+        "Documentation & Governance": [],
+    }
+    for sha, subject in commits:
+        match = CONVENTIONAL_COMMIT_PATTERN.match(subject)
+        if match:
+            ctype = match.group("type").lower()
+            scope = match.group("scope")
+            clean_subject = match.group("subject").strip()
+            if ctype in ("feat", "add"):
+                groups["Added"].append((sha, clean_subject, scope))
+            elif ctype in ("fix", "bugfix", "hotfix", "security"):
+                groups["Fixed"].append((sha, clean_subject, scope))
+            elif ctype in ("docs", "doc"):
+                groups["Documentation & Governance"].append((sha, clean_subject, scope))
+            else:
+                groups["Changed"].append((sha, clean_subject, scope))
+        else:
+            lower = subject.lower()
+            if lower.startswith(("add ", "introduce ", "implement ", "create ")):
+                groups["Added"].append((sha, subject, None))
+            elif lower.startswith(("fix ", "resolve ", "repair ")):
+                groups["Fixed"].append((sha, subject, None))
+            elif lower.startswith(("doc", "readme", "changelog", "contributing")):
+                groups["Documentation & Governance"].append((sha, subject, None))
+            else:
+                groups["Changed"].append((sha, subject, None))
+    return groups
+
+
+def format_categorized_markdown(commits: list[tuple[str, str]], include_sha: bool = True) -> str:
+    groups = categorize_commits(commits)
+    sections: list[str] = []
+    for heading, items in groups.items():
+        if not items:
+            continue
+        lines = [f"### {heading}"]
+        for sha, text, scope in items:
+            prefix = f"**{scope}**: " if scope else ""
+            suffix = f" (`{sha}`)" if include_sha else ""
+            lines.append(f"- {prefix}{text}{suffix}")
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def extract_changelog_section(version: str) -> str | None:
+    if not CHANGELOG_MD.exists():
+        return None
+    text = CHANGELOG_MD.read_text(encoding="utf-8")
+    pattern = re.compile(
+        rf"^## \[{re.escape(version)}\](?: - [^\n]+)?\n(?P<body>.*?)(?=^## \[|^\[Unreleased\]:|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    match = pattern.search(text)
+    if not match:
+        return None
+    body = match.group("body").strip()
+    return body if body else None
+
+
+def update_changelog_for_version(version: str) -> bool:
+    if not CHANGELOG_MD.exists():
+        return False
+    if extract_changelog_section(version) is not None:
+        return False
+
+    text = CHANGELOG_MD.read_text(encoding="utf-8")
+    unreleased_pattern = re.compile(
+        r"(^## \[Unreleased\]\n)(?P<unreleased>.*?)(?=^## \[)",
+        re.MULTILINE | re.DOTALL,
+    )
+    match = unreleased_pattern.search(text)
+    if not match:
+        return False
+
+    unreleased_body = match.group("unreleased").strip()
+    target_tag = f"v{version}"
+    prev_tag = resolve_previous_tag(target_tag)
+    if not unreleased_body:
+        rev_range = f"{prev_tag}..HEAD" if prev_tag else "HEAD"
+        commits = collect_commits(rev_range)
+        unreleased_body = format_categorized_markdown(commits, include_sha=False) or "### Changed\n- Maintenance and stability updates."
+
+    today = date.today().isoformat()
+    new_section = f"## [Unreleased]\n\n## [{version}] - {today}\n\n{unreleased_body}\n\n"
+    updated = text[: match.start()] + new_section + text[match.end() :]
+
+    # Update bottom reference links if present
+    unreleased_link_pattern = re.compile(r"^\[Unreleased\]:\s*.+$", re.MULTILINE)
+    if unreleased_link_pattern.search(updated):
+        new_links = f"[Unreleased]: {REPO_URL}/compare/v{version}...HEAD"
+        if prev_tag and f"[{version}]:" not in updated:
+            new_links += f"\n[{version}]: {REPO_URL}/compare/{prev_tag}...v{version}"
+        updated = unreleased_link_pattern.sub(new_links, updated, count=1)
+
+    CHANGELOG_MD.write_text(updated, encoding="utf-8")
+    return True
+
+
+def build_release_notes(raw_tag: str | None) -> str:
+    versions = read_versions()
+    version = parse_version(raw_tag) if raw_tag else versions["VERSION"]
+    tag = f"v{version}"
+    prev_tag = resolve_previous_tag(tag)
+
+    tag_exists = tag in list_semver_tags()
+    end_ref = tag if tag_exists else "HEAD"
+    rev_range = f"{prev_tag}..{end_ref}" if prev_tag else end_ref
+    commits = collect_commits(rev_range)
+
+    changelog_body = extract_changelog_section(version)
+    auto_commits_body = format_categorized_markdown(commits, include_sha=True)
+
+    parts: list[str] = []
+    if changelog_body:
+        parts.append("## Highlights\n\n" + changelog_body)
+        if commits:
+            commit_lines = [f"- `{sha}` {subj}" for sha, subj in commits]
+            parts.append("## Commits in this Release\n\n" + "\n".join(commit_lines))
+    elif auto_commits_body:
+        parts.append("## What's Changed\n\n" + auto_commits_body)
+    else:
+        parts.append(f"## Niu {tag}\n\nRelease `{tag}` of the Niu open-source AI model gateway.")
+
+    install_section = f"""## Self-Hosted Installation & Upgrade
+
+### Fresh Installation (Docker Compose)
+
+```sh
+curl -fsSL {REPO_URL}/releases/download/{tag}/install.sh -o install.sh
+chmod +x install.sh
+./install.sh install --version {tag} --dir /opt/niu
+```
+
+### Upgrade an Existing Installation
+
+The upgrade command automatically backs up PostgreSQL (`pg_dump`), verifies `NIU_VENDOR_ENCRYPTION_KEY` compatibility (`niu-gateway --check-encryption`), and rolls back on failure:
+
+```sh
+./scripts/install.sh upgrade --version {tag} --dir /opt/niu
+```
+
+### Container Image
+
+```text
+ghcr.io/niu-io/niu:{tag}
+```"""
+    parts.append(install_section)
+
+    if prev_tag:
+        parts.append(f"**Full Changelog**: {REPO_URL}/compare/{prev_tag}...{tag}")
+    else:
+        parts.append(f"**Release Tag**: {REPO_URL}/releases/tag/{tag}")
+
+    return "\n\n---\n\n".join(parts) + "\n"
+
+
+def set_version(raw_version: str, create_tag: bool, update_changelog: bool) -> int:
     version = parse_version(raw_version)
     VERSION_FILE.write_text(f"{version}\n", encoding="utf-8")
 
@@ -113,6 +326,9 @@ def set_version(raw_version: str, create_tag: bool) -> int:
         check=True,
     )
 
+    if update_changelog and update_changelog_for_version(version):
+        print(f"Updated CHANGELOG.md with section [{version}]")
+
     print(f"Updated VERSION, Cargo.toml, Cargo.lock, package.json, and compose.yaml to v{version}")
     if create_tag:
         tag = f"v{version}"
@@ -128,15 +344,32 @@ def main() -> int:
     check_parser = subparsers.add_parser("check", help="verify version consistency")
     check_parser.add_argument("--tag", help="optional Git tag (e.g. v0.2.0) to verify against VERSION")
 
-    set_parser = subparsers.add_parser("set", help="update version across repository files")
+    set_parser = subparsers.add_parser("set", help="update version across repository files and CHANGELOG.md")
     set_parser.add_argument("version", help="new semantic version (e.g. 0.2.0 or v0.2.0)")
     set_parser.add_argument("--tag", action="store_true", help="also create annotated git tag v<version>")
+    set_parser.add_argument(
+        "--no-changelog",
+        action="store_true",
+        help="skip automatic CHANGELOG.md section generation",
+    )
+
+    notes_parser = subparsers.add_parser("notes", help="generate Markdown release notes for a version/tag")
+    notes_parser.add_argument("--tag", help="version or Git tag (defaults to VERSION)")
+    notes_parser.add_argument("--output", type=Path, help="write release notes to file instead of stdout")
 
     args = parser.parse_args()
     try:
         if args.command == "check":
             return check_versions(args.tag)
-        return set_version(args.version, args.tag)
+        if args.command == "notes":
+            notes = build_release_notes(args.tag)
+            if args.output:
+                args.output.write_text(notes, encoding="utf-8")
+                print(f"Wrote release notes to {args.output}")
+            else:
+                sys.stdout.write(notes)
+            return 0
+        return set_version(args.version, args.tag, not args.no_changelog)
     except (ValueError, RuntimeError, subprocess.CalledProcessError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
