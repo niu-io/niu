@@ -175,8 +175,10 @@ impl Store {
             .bind(scope.organization_id).bind(&snapshot.tariff().currency)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, snapshot).await?;
-        let amount =
-            Self::reserve_customer_media_balance_in_tx(&mut tx, scope, attempt, bound).await?;
+        let amount = Self::reserve_customer_media_balance_with_snapshot_in_tx(
+            &mut tx, scope, attempt, snapshot, bound,
+        )
+        .await?;
         tx.commit().await?;
         Ok(amount)
     }
@@ -202,13 +204,6 @@ impl Store {
         attempt: Uuid,
         bound: &MediaLiabilityBound,
     ) -> Result<i64, StoreError> {
-        if bound.qualification_revision.is_empty()
-            || bound.qualification_revision.len() > 256
-            || bound.qualification_revision.trim() != bound.qualification_revision
-            || bound.qualification_revision.chars().any(char::is_control)
-        {
-            return Err(StoreError::InvalidPrice);
-        }
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
             .fetch_optional(&mut **tx)
@@ -219,6 +214,26 @@ impl Store {
             .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let snapshot =
             PricingSnapshot::decode(&value.to_string()).map_err(|_| StoreError::InvalidPrice)?;
+        Self::reserve_customer_media_balance_with_snapshot_in_tx(
+            tx, scope, attempt, &snapshot, bound,
+        )
+        .await
+    }
+
+    pub(crate) async fn reserve_customer_media_balance_with_snapshot_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        snapshot: &PricingSnapshot,
+        bound: &MediaLiabilityBound,
+    ) -> Result<i64, StoreError> {
+        if bound.qualification_revision.is_empty()
+            || bound.qualification_revision.len() > 256
+            || bound.qualification_revision.trim() != bound.qualification_revision
+            || bound.qualification_revision.chars().any(char::is_control)
+        {
+            return Err(StoreError::InvalidPrice);
+        }
         let receipt = snapshot
             .calculate(&Usage::Known {
                 meter: bound.meter.clone(),

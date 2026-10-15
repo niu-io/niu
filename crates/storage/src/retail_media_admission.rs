@@ -62,10 +62,21 @@ async fn lock_route(
         .fetch_optional(&mut **tx)
         .await?
         .ok_or(StoreError::Conflict)?;
-    let revision:Uuid=sqlx::query_scalar("SELECT current_revision FROM provider_offers WHERE provider_id=$1 AND id=$2 AND active AND vendor_id=$3 AND model_alias=$4 FOR SHARE")
-        .bind(supplier).bind(offer).bind(route.vendor.id).bind(&dimensions.model).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
-    let current:bool=sqlx::query_scalar("SELECT niu_offer_qualification_current($1,$2,$3) AND niu_media_offer_binding_current($1,$2,$3)")
-        .bind(supplier).bind(offer).bind(revision).fetch_one(&mut **tx).await?;
+    let (revision, current): (Uuid, bool) = sqlx::query_as(
+        "SELECT current_revision, \
+                niu_offer_qualification_current(provider_id, id, current_revision) \
+                AND niu_media_offer_binding_current(provider_id, id, current_revision) \
+         FROM provider_offers \
+         WHERE provider_id=$1 AND id=$2 AND active AND vendor_id=$3 AND model_alias=$4 \
+         FOR SHARE",
+    )
+    .bind(supplier)
+    .bind(offer)
+    .bind(route.vendor.id)
+    .bind(&dimensions.model)
+    .fetch_optional(&mut **tx)
+    .await?
+    .ok_or(StoreError::Conflict)?;
     if !current {
         return Err(StoreError::AccountUnavailable);
     }
@@ -147,32 +158,34 @@ async fn platform_rate(
     identity: &MediaLiabilityIdentity,
     at: Option<i64>,
 ) -> Result<Prepared, StoreError> {
-    let selected = Store::select_retail_price_at_in_tx(tx, head, scope.organization_id, at).await?;
+    let at = if let Some(at) = at {
+        at
+    } else {
+        let mut canonical = identity.clone();
+        let encoded = serde_json::to_value(&canonical).map_err(|_| StoreError::InvalidPrice)?;
+        sqlx::query("SELECT id FROM platform_retail_price_heads WHERE id=$1 FOR SHARE")
+            .bind(head)
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        sqlx::query("SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE")
+            .bind(&encoded)
+            .fetch_optional(&mut **tx)
+            .await?;
+        let _ = &mut canonical;
+        clock(tx).await?
+    };
+    let selected =
+        Store::select_retail_price_at_in_tx(tx, head, scope.organization_id, Some(at)).await?;
     let RetailSchedule::Media(ref media) = selected.schedule else {
         return Err(StoreError::InvalidPrice);
     };
     if media.dimensions != identity.dimensions || media.meter != identity.meter {
         return Err(StoreError::Conflict);
     }
-    let qualified = Store::select_media_liability_qualification_at_in_tx(tx, identity, at)
+    let qualified = Store::select_media_liability_qualification_at_in_tx(tx, identity, Some(at))
         .await?
         .ok_or(StoreError::AccountUnavailable)?;
-    // Obtain one time after both sets of locks even in advisory selection.
-    let (at, selected, qualified) = if let Some(at) = at {
-        (at, selected, qualified)
-    } else {
-        let at = clock(tx).await?;
-        let selected =
-            Store::select_retail_price_at_in_tx(tx, head, scope.organization_id, Some(at)).await?;
-        let qualified =
-            Store::select_media_liability_qualification_at_in_tx(tx, identity, Some(at))
-                .await?
-                .ok_or(StoreError::AccountUnavailable)?;
-        (at, selected, qualified)
-    };
-    let RetailSchedule::Media(ref media) = selected.schedule else {
-        return Err(StoreError::InvalidPrice);
-    };
     let revision = selected
         .promotion_revision
         .unwrap_or(selected.baseline_revision)
@@ -244,7 +257,11 @@ impl Store {
                 .select_customer_media_rate(scope.organization_id, dimensions, legacy_at)
                 .await;
         };
-        Self::select_retail_price_in_tx(&mut tx, head, scope.organization_id).await?;
+        sqlx::query("SELECT id FROM platform_retail_price_heads WHERE id=$1 FOR SHARE")
+            .bind(head)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
         let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
         let prepared = platform_rate(&mut tx, scope, head, &identity, None).await?;
         tx.commit().await?;
@@ -302,11 +319,23 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         if let Some(head) = head {
-            Self::select_retail_price_in_tx(&mut tx, head, scope.organization_id).await?;
+            sqlx::query("SELECT id FROM platform_retail_price_heads WHERE id=$1 FOR SHARE")
+                .bind(head)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(StoreError::Conflict)?;
         }
         let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
         if preview.pricing.offer() != identity.offer_revision.to_string() {
             return Err(StoreError::Conflict);
+        }
+        if head.is_some() {
+            let encoded = serde_json::to_value(&identity).map_err(|_| StoreError::InvalidPrice)?;
+            sqlx::query("SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE")
+                .bind(&encoded)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(StoreError::AccountUnavailable)?;
         }
         // Stabilize any existing Supplier card against retirement before account
         // locks; its independent purchase price is selected by the same DB time.
@@ -314,19 +343,13 @@ impl Store {
         sqlx::query("SELECT revision FROM supplier_media_rate_cards WHERE provider_id=$1 AND offer_revision=$2 AND model_alias=$3 AND channel=$4 AND resolution=$5 AND reference_video=$6 AND (effective_until IS NULL OR effective_until>$7) AND NOT EXISTS(SELECT 1 FROM supplier_media_rate_retirements r WHERE r.provider_id=supplier_media_rate_cards.provider_id AND r.revision=supplier_media_rate_cards.revision AND r.effective_until<=$7) FOR SHARE")
             .bind(identity.supplier_id).bind(identity.offer_revision).bind(&dimensions.model).bind(&dimensions.channel)
             .bind(&dimensions.resolution).bind(dimensions.reference_video).bind(initial_at).fetch_all(&mut *tx).await?;
-        let initial = if let Some(head) = head {
-            platform_rate(&mut tx, scope, head, &identity, None).await?
-        } else {
-            Prepared {
-                rate: legacy_rate(&mut tx, scope, route, dimensions, initial_at)
-                    .await?
-                    .ok_or(StoreError::AccountUnavailable)?,
-                selection: None,
-                qualification: None,
-            }
-        };
+        if head.is_none() {
+            legacy_rate(&mut tx, scope, route, dimensions, initial_at)
+                .await?
+                .ok_or(StoreError::AccountUnavailable)?;
+        }
         sqlx::query("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
-            .bind(scope.organization_id).bind(&initial.rate.pricing.tariff().currency)
+            .bind(scope.organization_id).bind(&preview.pricing.tariff().currency)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND execution='not_sent' FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
@@ -346,7 +369,7 @@ impl Store {
                 qualification: None,
             }
         };
-        if prepared.rate.pricing.tariff().currency != initial.rate.pricing.tariff().currency {
+        if prepared.rate.pricing.tariff().currency != preview.pricing.tariff().currency {
             return Err(StoreError::Conflict);
         }
         Self::require_customer_media_offer_in_tx(
@@ -368,10 +391,11 @@ impl Store {
         .await?;
         Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, &prepared.rate.pricing)
             .await?;
-        let amount = Self::reserve_customer_media_balance_in_tx(
+        let amount = Self::reserve_customer_media_balance_with_snapshot_in_tx(
             &mut tx,
             scope,
             attempt,
+            &prepared.rate.pricing,
             &prepared.rate.liability,
         )
         .await?;
