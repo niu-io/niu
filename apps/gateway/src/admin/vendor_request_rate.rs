@@ -402,16 +402,29 @@ pub async fn history(
     authorize(&state, &headers).await?;
     let Query(page) =
         page.map_err(|_| ApiError::invalid_request("Invalid request-limit history query"))?;
-    state
-        .store
-        .vendor_request_rate_policy(vendor)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
-    let data = state
+    let data = match state
         .store
         .vendor_request_rate_history(vendor, page.before_revision, page.limit.unwrap_or(50))
         .await
-        .map_err(ApiError::from_store)?;
+    {
+        Ok(data) => data,
+        Err(err) => {
+            state
+                .store
+                .vendor_request_rate_policy(vendor)
+                .await
+                .map_err(ApiError::from_store)?
+                .ok_or_else(ApiError::not_found)?;
+            return Err(ApiError::from_store(err));
+        }
+    };
+    if data.is_empty() {
+        state
+            .store
+            .vendor_request_rate_policy(vendor)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?;
+    }
     Ok(Json(json!({"data":data})))
 }

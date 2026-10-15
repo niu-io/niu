@@ -173,17 +173,21 @@ pub async fn list(
         organization_id: organization,
         project_id: workspace,
     };
-    if !state
+    let data = state
         .store
-        .key_spending_scope_exists(scope, key)
+        .customer_key_spending_limits(scope, key)
         .await
-        .map_err(ApiError::from_store)?
+        .map_err(ApiError::from_store)?;
+    if data.is_empty()
+        && !state
+            .store
+            .key_spending_scope_exists(scope, key)
+            .await
+            .map_err(ApiError::from_store)?
     {
         return Err(ApiError::not_found());
     }
-    Ok(Json(
-        json!({"data":state.store.customer_key_spending_limits(scope,key).await.map_err(ApiError::from_store)?}),
-    ))
+    Ok(Json(json!({"data":data})))
 }
 /// ```openapi
 /// {
@@ -337,26 +341,50 @@ pub async fn write(
         organization_id: organization,
         project_id: workspace,
     };
-    if !state
-        .store
-        .key_spending_scope_exists(scope, key)
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::not_found());
-    }
-    let revision = state
+    let ensure_key_exists = || async {
+        if !state
+            .store
+            .key_spending_scope_exists(scope, key)
+            .await
+            .map_err(ApiError::from_store)?
+        {
+            Err(ApiError::not_found())
+        } else {
+            Ok(())
+        }
+    };
+    let amount = match input.limit_nanos.as_deref().map(decimal).transpose() {
+        Ok(amount) => amount,
+        Err(err) => {
+            ensure_key_exists().await?;
+            return Err(err);
+        }
+    };
+    let expected = match decimal(&input.expected_revision) {
+        Ok(expected) => expected,
+        Err(err) => {
+            ensure_key_exists().await?;
+            return Err(err);
+        }
+    };
+    let revision = match state
         .store
         .set_customer_key_spending_limit(
             scope,
             key,
             &unit,
-            input.limit_nanos.as_deref().map(decimal).transpose()?,
-            decimal(&input.expected_revision)?,
+            amount,
+            expected,
             super::audit_actor(auth),
         )
         .await
-        .map_err(ApiError::from_store)?;
+    {
+        Ok(revision) => revision,
+        Err(err) => {
+            ensure_key_exists().await?;
+            return Err(ApiError::from_store(err));
+        }
+    };
     Ok(Json(json!({"data":{"revision":revision.to_string()}})))
 }
 /// ```openapi
@@ -533,15 +561,19 @@ pub async fn history(
         organization_id: organization,
         project_id: workspace,
     };
-    if !state
+    let data = state
         .store
-        .key_spending_scope_exists(scope, key)
+        .customer_key_limit_history(scope, key, &unit, query.before_revision, limit)
         .await
-        .map_err(ApiError::from_store)?
+        .map_err(ApiError::from_store)?;
+    if data.is_empty()
+        && !state
+            .store
+            .key_spending_scope_exists(scope, key)
+            .await
+            .map_err(ApiError::from_store)?
     {
         return Err(ApiError::not_found());
     }
-    Ok(Json(
-        json!({"data":state.store.customer_key_limit_history(scope,key,&unit,query.before_revision,limit).await.map_err(ApiError::from_store)?}),
-    ))
+    Ok(Json(json!({"data":data})))
 }

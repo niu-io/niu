@@ -83,19 +83,6 @@ impl Store {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidOperatorAuditQuery);
         }
-        if let Some(cursor) = cursor {
-            let belongs: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM operator_audit_events WHERE id=$1 AND target_operator_id=$2)",
-            )
-            .bind(cursor)
-            .bind(target_operator_id)
-            .fetch_one(&self.pool)
-            .await?;
-            if !belongs {
-                return Err(StoreError::InvalidOperatorAuditQuery);
-            }
-        }
-
         let rows: Vec<AuditEventRow> = sqlx::query_as(
             "SELECT e.id, e.action, e.actor_kind, e.actor_operator_id, e.target_operator_id, \
              e.target_session_id, e.organization_id, e.project_id, e.before_role, e.after_role, \
@@ -111,6 +98,20 @@ impl Store {
         .bind(limit + 1)
         .fetch_all(&self.pool)
         .await?;
+        if rows.is_empty()
+            && let Some(cursor) = cursor
+        {
+            let belongs: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM operator_audit_events WHERE id=$1 AND target_operator_id=$2)",
+            )
+            .bind(cursor)
+            .bind(target_operator_id)
+            .fetch_one(&self.pool)
+            .await?;
+            if !belongs {
+                return Err(StoreError::InvalidOperatorAuditQuery);
+            }
+        }
         let mut data = rows
             .into_iter()
             .map(OperatorAuditEvent::from)

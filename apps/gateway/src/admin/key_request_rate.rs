@@ -422,26 +422,36 @@ pub async fn write(
         organization_id: organization,
         project_id: workspace,
     };
-    if !state
-        .store
-        .key_spending_scope_exists(scope, key)
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::not_found());
-    }
+    let ensure_key_exists = || async {
+        if !state
+            .store
+            .key_spending_scope_exists(scope, key)
+            .await
+            .map_err(ApiError::from_store)?
+        {
+            Err(ApiError::not_found())
+        } else {
+            Ok(())
+        }
+    };
     if input.expected_revision.is_empty()
         || !input.expected_revision.bytes().all(|b| b.is_ascii_digit())
     {
+        ensure_key_exists().await?;
         return Err(ApiError::invalid_request(
             "Use a nonnegative revision string",
         ));
     }
-    let expected = input
-        .expected_revision
-        .parse()
-        .map_err(|_| ApiError::invalid_request("Revision exceeds the supported range"))?;
-    let revision = state
+    let expected = match input.expected_revision.parse() {
+        Ok(expected) => expected,
+        Err(_) => {
+            ensure_key_exists().await?;
+            return Err(ApiError::invalid_request(
+                "Revision exceeds the supported range",
+            ));
+        }
+    };
+    let revision = match state
         .store
         .set_key_request_rate_policy(
             scope,
@@ -451,7 +461,13 @@ pub async fn write(
             super::audit_actor(auth),
         )
         .await
-        .map_err(ApiError::from_store)?;
+    {
+        Ok(revision) => revision,
+        Err(err) => {
+            ensure_key_exists().await?;
+            return Err(ApiError::from_store(err));
+        }
+    };
     Ok(Json(json!({"data":{"revision":revision.to_string()}})))
 }
 /// ```openapi
@@ -601,23 +617,41 @@ pub async fn history(
         organization_id: organization,
         project_id: workspace,
     };
-    if !state
-        .store
-        .key_spending_scope_exists(scope, key)
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::not_found());
-    }
-    let Query(query) =
-        query.map_err(|_| ApiError::invalid_request("Invalid request-rate history query"))?;
+    let ensure_key_exists = || async {
+        if !state
+            .store
+            .key_spending_scope_exists(scope, key)
+            .await
+            .map_err(ApiError::from_store)?
+        {
+            Err(ApiError::not_found())
+        } else {
+            Ok(())
+        }
+    };
+    let Query(query) = match query {
+        Ok(q) => q,
+        Err(_) => {
+            ensure_key_exists().await?;
+            return Err(ApiError::invalid_request(
+                "Invalid request-rate history query",
+            ));
+        }
+    };
     let limit = query.limit.unwrap_or(50);
     if !(1..=100).contains(&limit) || query.before_revision.is_some_and(|v| v <= 0) {
+        ensure_key_exists().await?;
         return Err(ApiError::invalid_request(
             "Invalid history cursor or page size",
         ));
     }
-    Ok(Json(
-        json!({"data":state.store.key_request_rate_history(scope,key,query.before_revision,limit).await.map_err(ApiError::from_store)?}),
-    ))
+    let data = state
+        .store
+        .key_request_rate_history(scope, key, query.before_revision, limit)
+        .await
+        .map_err(ApiError::from_store)?;
+    if data.is_empty() {
+        ensure_key_exists().await?;
+    }
+    Ok(Json(json!({"data":data})))
 }
