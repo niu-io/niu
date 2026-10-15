@@ -142,6 +142,14 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                 "/compare",
                 Router::new().fallback_service(ServeDir::new(format!("{directory}/compare"))),
             )
+            .route_service(
+                "/blog/",
+                ServeFile::new(format!("{directory}/blog/index.html")),
+            )
+            .nest(
+                "/blog",
+                Router::new().fallback_service(ServeDir::new(format!("{directory}/blog"))),
+            )
             .route_service("/", ServeFile::new(format!("{directory}/index.html")))
             .route_service(
                 "/favicon.ico",
