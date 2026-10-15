@@ -228,7 +228,7 @@ impl Store {
         // Cleanup/erasure can only reduce the usage measured under this lock.
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-inspected-image-source-capacity',0))")
             .execute(&mut *tx).await?;
-        let usage = sqlx::query("SELECT count(*) AS total_count,COALESCE(sum(octet_length(c.ciphertext)),0)::bigint AS total_bytes,count(*) FILTER(WHERE s.organization_id=$1 AND s.project_id=$2) AS workspace_count,COALESCE(sum(octet_length(c.ciphertext)) FILTER(WHERE s.organization_id=$1 AND s.project_id=$2),0)::bigint AS workspace_bytes FROM inspected_image_source_content c JOIN inspected_image_sources s ON s.id=c.source_id")
+        let usage = sqlx::query("SELECT count(*) AS total_count,COALESCE(sum(octet_length(c.ciphertext)),0)::bigint AS total_bytes,count(*) FILTER(WHERE s.organization_id=$1 AND s.project_id=$2) AS workspace_count,COALESCE(sum(octet_length(c.ciphertext)) FILTER(WHERE s.organization_id=$1 AND s.project_id=$2),0)::bigint AS workspace_bytes FROM inspected_image_source_content c JOIN inspected_image_sources s ON s.id=c.source_id WHERE s.expires_at>clock_timestamp()")
             .bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
         if source_capacity_exceeded(
             usage.get("workspace_count"),
@@ -245,7 +245,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         sqlx::query(
-            "INSERT INTO inspected_image_source_content(source_id,ciphertext) VALUES($1,$2)",
+            "INSERT INTO inspected_image_source_content(source_id,ciphertext,expires_at) SELECT $1,$2,s.expires_at FROM inspected_image_sources s WHERE s.id=$1",
         )
         .bind(input.id)
         .bind(ciphertext)
@@ -648,30 +648,39 @@ impl Store {
     /// Preserve its one-shot claim and deletion fence; never redispatch it.
     /// The fixed minute exceeds the bounded 30-second upload transport.
     pub async fn recover_interrupted_asset_image_ingestions(&self) -> Result<u64, StoreError> {
-        self.execute_content_retention("WITH stale AS (SELECT claim.consent_id,(EXTRACT(EPOCH FROM statement_timestamp()-claim.created_at)*1000)::bigint AS duration_ms FROM asset_image_ingestion_claims claim WHERE claim.created_at<=statement_timestamp()-interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM asset_image_ingestion_outcomes outcome WHERE outcome.consent_id=claim.consent_id) ORDER BY claim.created_at,claim.consent_id LIMIT 16 FOR UPDATE OF claim SKIP LOCKED) INSERT INTO asset_image_ingestion_outcomes(consent_id,outcome,reason,duration_ms) SELECT consent_id,'uncertain','timeout',duration_ms FROM stale ON CONFLICT DO NOTHING")
+        self.execute_content_retention("WITH stale AS (SELECT claim.consent_id,(EXTRACT(EPOCH FROM statement_timestamp()-claim.created_at)*1000)::bigint AS duration_ms FROM asset_image_ingestion_claims claim WHERE NOT claim.resolved AND claim.created_at<=statement_timestamp()-interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM asset_image_ingestion_outcomes outcome WHERE outcome.consent_id=claim.consent_id) ORDER BY claim.created_at,claim.consent_id LIMIT 16 FOR UPDATE OF claim SKIP LOCKED) INSERT INTO asset_image_ingestion_outcomes(consent_id,outcome,reason,duration_ms) SELECT consent_id,'uncertain','timeout',duration_ms FROM stale ON CONFLICT DO NOTHING")
             .await
     }
 
-    /// Remove at most sixteen expired encrypted payloads per maintenance tick.
+    /// Remove expired encrypted payloads in bounded 16-row pages (up to 16 pages per tick).
     /// Immutable source metadata and approval provenance remain. Locked sources
     /// are skipped so explicit erasure and concurrent workers cannot stall a batch.
     /// Row data failures defer that source durably without rolling back neighbors;
     /// erasure provenance and ciphertext deletion remain atomic for each source.
     pub async fn purge_expired_inspected_image_sources(&self) -> Result<u64, StoreError> {
-        self.run_background_work(
-            crate::background_work::BackgroundWork::ContentRetention,
-            |tx| {
-                Box::pin(async move {
-                    let removed: i64 =
-                        sqlx::query_scalar("SELECT niu_purge_inspected_image_page()")
-                            .fetch_one(&mut **tx)
-                            .await?;
-                    Ok(removed as u64)
-                })
-            },
-        )
-        .await
-        .map(|removed| removed.unwrap_or(0))
+        let mut total_removed = 0u64;
+        for _ in 0..16 {
+            let page_removed = self
+                .run_background_work(
+                    crate::background_work::BackgroundWork::ContentRetention,
+                    |tx| {
+                        Box::pin(async move {
+                            let removed: i64 =
+                                sqlx::query_scalar("SELECT niu_purge_inspected_image_page()")
+                                    .fetch_one(&mut **tx)
+                                    .await?;
+                            Ok(removed as u64)
+                        })
+                    },
+                )
+                .await?
+                .unwrap_or(0);
+            total_removed += page_removed;
+            if page_removed < 16 {
+                break;
+            }
+        }
+        Ok(total_removed)
     }
 
     /// Erase only this key's scoped ciphertext. Immutable provenance remains.
