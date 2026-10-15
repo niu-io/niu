@@ -1,12 +1,12 @@
 ---
 title: "Rename a saved workspace material"
-description: "PATCH /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}"
+description: "PATCH /api/v1/organizations/{organization}/projects/{project}/assets/{asset}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PATCH /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}`
+`PATCH /api/v1/organizations/{organization}/projects/{project}/assets/{asset}`
 
 Member Write permission required. Requires the exact current revision as a canonical positive decimal string. Renaming changes display metadata and increments revision, never bytes, content hash or Provider authorization. Stale revision returns 409. A missing scoped asset is 404; a concurrent deletion may conflict.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/assets/{asset}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -1,12 +1,12 @@
 ---
 title: "Read retained request content in an authorized workspace"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`
+`GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`
 
 Content is separate from accounting, expires 24 hours after the original request creation time and is retained by default unless the inference request opts out. Missing or expired content returns null. Headers and known confidential Provider cost fields are excluded, including historical response usage metadata sanitized on read. Truncated SSE captures expose only complete sanitized events. Truncated JSON that cannot be safely parsed is withheld as an empty response string with response_omitted true, while authorized request content stays readable. Other malformed or incomplete structured responses fail closed with 503. Known credential fields in historical request objects are removed on read. Arbitrary secrets embedded in prompts are not automatically redacted.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsTaskDiagnostics",

@@ -1,12 +1,12 @@
 ---
 title: "Page complete workspace customer invoice history"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/invoices"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices`
+`GET /api/v1/organizations/{organization}/projects/{project}/billing/invoices`
 
 Requires administrative read permission for this workspace. Returns customer billing only, with exact amount strings. Records are ordered by creation time then id descending. Posted customer balance debits, including approved-credit debits, settle the invoice; they are not a new unpaid invoice debt. Refunds do not reopen the original invoice obligation. Reads do not create payment receipts, move funds or disclose Provider purchase prices. A cursor missing from this workspace or filter scope returns 409. Newer inserts do not shift later pages; separate reads are not a frozen snapshot. Cache-Control is no-store. Existing invoice issuance and line reads are unchanged.
 
@@ -32,8 +32,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/invoices" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/invoices" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

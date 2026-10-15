@@ -1,12 +1,12 @@
 ---
 title: "Publish an immutable customer video selling schedule"
-description: "POST /admin/v1/organizations/{organization}/billing/media-rates"
+description: "POST /api/v1/organizations/{organization}/billing/media-rates"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/billing/media-rates`
+`POST /api/v1/organizations/{organization}/billing/media-rates`
 
 Platform administrator with write access required. Ordinary company members and inference keys cannot publish prices or liability limits. Pins exact credential/model/schema revisions and a configured qualification reference; registration does not qualify commercial supply or enable video dispatch. Rejects personal credentials and stale routes. Replaying identical current configuration is idempotent; changed content under the same revision conflicts. Procurement terms never belong in this body. Maximum JSON body is 128 KiB.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/media-rates" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/media-rates" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

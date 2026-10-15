@@ -49,7 +49,7 @@ fn kind(value: &str) -> Result<(), ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "retrieveGenerationsArtifactCapture",
@@ -245,7 +245,7 @@ pub(in crate::web) async fn retrieve(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "captureGenerationsArtifact",

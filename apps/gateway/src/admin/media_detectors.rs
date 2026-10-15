@@ -6,7 +6,7 @@ use super::{
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceMediaDetectors",

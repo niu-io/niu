@@ -1,12 +1,12 @@
 ---
 title: "List saved workspace materials"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/assets"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/assets"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/assets`
+`GET /api/v1/organizations/{organization}/projects/{project}/assets`
 
 Member Read permission required. Scope is the selected workspace, not the creating actor. Lists active objects with metadata only, ordered by creation time then identity. limit defaults to 50 and must be 1–100. after must be an active asset in the same workspace and kind filter or conflicts. Follow next_cursor; separate pages are not a frozen snapshot. No ciphertext, actor identifier, Provider URI, procurement or dispatch approval is returned.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/assets" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/assets" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

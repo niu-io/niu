@@ -1,12 +1,12 @@
 ---
 title: "Compare customer charge records with prepaid ledger debits"
-description: "GET /admin/v1/organizations/{organization}/billing/charge-reconciliation"
+description: "GET /api/v1/organizations/{organization}/billing/charge-reconciliation"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/charge-reconciliation`
+`GET /api/v1/organizations/{organization}/billing/charge-reconciliation`
 
 Organization-wide owner/admin or installation read access required. One database snapshot compares prepaid-bound text and media charges against original charge entries per currency. Refunds do not reduce original charge matching. Reports counts and exact decimal amounts only, with no internal identifiers or Provider prices. Zero counts on an empty account do not establish financial readiness. This is read-only and does not verify external payment settlement, recalculate prices, reconcile legacy invoices or repair discrepancies. Pending settlement can appear as a discrepancy; use a later observation to distinguish an in-flight write from a persistent mismatch.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/charge-reconciliation" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/charge-reconciliation" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

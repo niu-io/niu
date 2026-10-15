@@ -85,7 +85,7 @@ pub(crate) struct ListQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/assets",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceAssets",
@@ -300,7 +300,7 @@ pub(crate) struct UploadQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/assets",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "uploadWorkspaceAsset",
@@ -604,7 +604,7 @@ pub(crate) async fn upload(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getWorkspaceAsset",
@@ -779,7 +779,7 @@ pub(crate) struct RenameInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "renameWorkspaceAsset",
@@ -991,7 +991,7 @@ pub(crate) struct DeleteQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "deleteWorkspaceAsset",
@@ -1095,7 +1095,7 @@ pub(crate) async fn delete(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "downloadWorkspaceAsset",

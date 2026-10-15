@@ -41,7 +41,7 @@ fn currency(value: &str) -> Result<(), ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -187,7 +187,7 @@ pub async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}",
 ///   "method": "put",
 ///   "operation": {
 ///     "security": [
@@ -361,7 +361,7 @@ pub async fn write(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [

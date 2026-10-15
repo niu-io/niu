@@ -17,7 +17,7 @@ pub(crate) struct ReconcileInput {}
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "reconcileRequestUsage",
@@ -317,7 +317,7 @@ pub(crate) async fn reconcile(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRequestUsageReconciliation",

@@ -1,12 +1,12 @@
 ---
 title: "Enroll a workspace model in a platform selling price"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
+`POST /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
 
 Explicit platform administration required. price_id chooses a published text identity with the same model and an existing company/currency balance account; no account, credit, funds, Provider qualification or selling permission is created. Explicit null restores legacy workspace tariff selection for future operations. expected_version zero creates the configuration; updates use immutable version history and an exact company/workspace-scoped idempotency key. Existing operation prices, charges and legacy current tariff pointers are unchanged. Missing price_id is rejected rather than silently disabling enrollment. No automatic retry.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

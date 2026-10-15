@@ -1,12 +1,12 @@
 ---
 title: "Read original noncash gift intent by idempotency key"
-description: "GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}"
+description: "GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}`
+`GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}`
 
 Explicit platform administration only. Exact company/currency/key read of saved intent and committed grant. Missing intent returns 404. Issued result contains original allocation; prepared means no matching grant in this snapshot, not proof an in-flight publication failed. Retry saved exact input with original key. Read creates no funds. Cache-Control no-store.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

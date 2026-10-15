@@ -500,7 +500,7 @@ pub(crate) async fn notify(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/topups",
+///   "path": "/api/v1/organizations/{organization}/billing/topups",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createCustomerTopup",
@@ -886,7 +886,7 @@ pub(crate) struct TopupHistoryQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/topups",
+///   "path": "/api/v1/organizations/{organization}/billing/topups",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerTopups",
@@ -1046,7 +1046,7 @@ pub(crate) struct PaymentMethodsQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/payment-methods",
+///   "path": "/api/v1/organizations/{organization}/billing/payment-methods",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerPaymentMethods",
@@ -1281,7 +1281,7 @@ pub(crate) async fn payment_methods(
 /// Company-scoped status recovery reads durable records without upstream calls.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/topups/{order}",
+///   "path": "/api/v1/organizations/{organization}/billing/topups/{order}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerTopup",
@@ -1412,7 +1412,7 @@ pub(crate) async fn topup_status(
 /// an upstream merchant; authorization and organization scope still apply.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/topups/{order}/reconcile",
+///   "path": "/api/v1/organizations/{organization}/billing/topups/{order}/reconcile",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "reconcileCustomerTopup",

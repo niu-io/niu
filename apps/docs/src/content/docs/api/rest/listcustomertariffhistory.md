@@ -1,12 +1,12 @@
 ---
 title: "Read immutable customer text price history"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history`
+`GET /api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history`
 
 Same scoped management read permission as workspace billing. Newest first by created_at and revision UUID, with exclusive keyset pagination. A single database statement observes the current revision and page coherently. All prices are exact decimal strings: token rates are nanounits per million tokens, minimum and fixed fees are currency nanounits per known completed request. Includes no Provider procurement prices or upstream credentials. Unknown model returns 404; an unknown or foreign cursor returns 409. A newer publication can appear on a fresh first page but does not duplicate earlier entries when following an existing cursor. This read does not publish or reprice anything. Revision identifiers are API references, not display labels.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

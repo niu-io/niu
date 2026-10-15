@@ -1,12 +1,12 @@
 ---
 title: "Read named qualified commercial video configuration choices"
-description: "GET /admin/v1/organizations/{organization}/billing/media-rate-models"
+description: "GET /api/v1/organizations/{organization}/billing/media-rate-models"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/media-rate-models`
+`GET /api/v1/organizations/{organization}/billing/media-rate-models`
 
 Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/media-rate-models" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/media-rate-models" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

@@ -1,12 +1,12 @@
 ---
 title: "List workspace-authorized media inspection configurations"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors`
+`GET /api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors`
 
 Returns only deployment-authorized audio/video configuration metadata for the requested workspace. Declared conditions and a fingerprint do not establish successful inspection or consent; policy activation and media task references remain unavailable. No service endpoint, credential, environment variable or foreign workspace configuration is exposed. This operation performs no external inspection.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

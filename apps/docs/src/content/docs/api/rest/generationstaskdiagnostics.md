@@ -1,12 +1,12 @@
 ---
 title: "Read saved customer billing and transport diagnostics"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics`
+`GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics`
 
 Current dashboard workspace Read authorizes persisted diagnostics independently of the original inference key expiry, revocation or model grants. Actor-private tasks belonging to another actor are 404. Billing is customer-only; owner-funded jobs retain null customer charges and never expose procurement costs. Billing and measured transport/lifecycle observations share one bounded read-only snapshot. This GET never contacts a Provider, polls, refreshes, retries, submits or settles a task. Errors are explicit; no successful empty result hides a storage failure.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

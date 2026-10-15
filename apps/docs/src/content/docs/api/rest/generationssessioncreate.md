@@ -1,12 +1,12 @@
 ---
 title: "Create a private video generations session"
-description: "PUT /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}"
+description: "PUT /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}`
+`PUT /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. Client chooses stable UUID; expected_revision must be zero. Identical initial retry returns same session; changed title or an already advanced session conflicts.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

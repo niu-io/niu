@@ -1,12 +1,12 @@
 ---
 title: "Explicitly save a generated output into workspace materials"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture`
+`POST /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture`
 
 Current dashboard workspace Write permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Explicit bounded copy into the existing encrypted workspace material library, not Provider registration or generation. Cached mode uses unexpired saved references under historical access; fresh mode explicitly queries the original task then retrieves output, using optional selected current workspace key or original-key fallback. The selected key cannot replace the immutable Provider/account/model/channel. Original expired keys without explicit current authority refuse fresh actions. Upstream operations never retry automatically. Two process capture slots; transport and format validation limited to8MiB; existing256asset/256MiB workspace quotas remain. A durable2minute preparing lease is committed before retrieval. Only an explicit repeated POST recovers failed/expired claims. Same requestid with changed fields409; a NEW requestid may change mode after failure; source identity prevents duplicate active/stored captures. Stored source replay returns canonical retained/deleted outcome without network; deleted retained bytes are never resurrected. Asset bytes, source provenance, quota and audit commit atomically after rechecking visibility under the source task lock. Failed delivery returns its error and retains a safe failed claim when storage is available; ambiguous failure-record writes leave preparing, not false availability. Cached expiry/deletion and original task/pricing identity are not rewritten. Fresh status queries may append diagnosis and settle an original pending liability through existing recovery, never create a new generation or reprice it. Saving shares copied bytes with authorized workspace members through the existing library; Provider readiness and verified identity remain separate.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

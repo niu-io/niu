@@ -1232,7 +1232,7 @@ pub struct EnrollmentQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "setRetailTextEnrollment",
@@ -1401,7 +1401,7 @@ pub async fn enroll_text(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRetailTextEnrollment",

@@ -17,7 +17,7 @@ pub struct GrantInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants",
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "grantCustomerBalance",
@@ -194,7 +194,7 @@ pub struct PreparedPage {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare",
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "prepareCustomerBalanceGrant",
@@ -436,7 +436,7 @@ pub async fn prepare(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared",
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPreparedCustomerBalanceGrants",
@@ -637,7 +637,7 @@ pub async fn prepared(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}",
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPreparedCustomerBalanceGrant",

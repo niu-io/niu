@@ -1,16 +1,16 @@
 ---
 title: "Assign a preserved workspace policy revision to an active key"
-description: "PUT /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail"
+description: "PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail`
+`PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail`
 
 Key restrictions intersect mandatory workspace restrictions and cannot weaken them. Revision zero creates an assignment; subsequent updates require its current assignment revision. An explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omission is rejected. Rotation preserves assigned policies; mandatory workspace restrictions remain enforced.
 
-Operation: `put--admin-v1-organizations--organization--projects--project--keys--key--guardrail`.
+Operation: `put--api-v1-organizations--organization--projects--project--keys--key--guardrail`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

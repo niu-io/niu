@@ -1,12 +1,12 @@
 ---
 title: "Use an existing user access token in the browser"
-description: "POST /admin/v1/auth/browser/token"
+description: "POST /api/v1/auth/browser/token"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/auth/browser/token`
+`POST /api/v1/auth/browser/token`
 
 Requires an explicit trusted same-origin Origin and a valid durable Operator session token. Installation credentials, inference keys, revoked sessions and expired sessions are refused. Sets the existing HttpOnly SameSite cookie to the original token without creating an identity or session, extending expiry, changing role/scope, or returning the token in JSON. Cookie lifetime is capped at the original remaining lifetime and eight hours; every subsequent request rechecks the original durable session. Requires configured browser authentication origin. Responses are not cached.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path and required-header placeholders with the values required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/auth/browser/token" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/auth/browser/token" \
   -H 'Origin: <ORIGIN>' \
   -H 'Content-Type: application/json' \
   --data @request.json

@@ -3,7 +3,7 @@ title: Generations sessions, tasks and artifacts
 description: Persist private video timelines and inspect saved tasks and outputs across workspace API keys.
 ---
 
-Niu provides an additive dashboard API for durable video sessions, existing-task association, task history and generated-output history. Use a current dashboard session, not an inference key. All paths below share the prefix `/admin/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
+Niu provides an additive dashboard API for durable video sessions, existing-task association, task history and generated-output history. Use a current dashboard session, not an inference key. All paths below share the prefix `/api/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
 
 The JavaScript SDK exposes `admin.generations(scope).sessions`, `.tasks` and `.artifacts`. Existing Chat sessions, comparison branches, Video job APIs, dashboard key-scoped bridges and submission intents remain compatible. Session reads provide a discriminated `chat`/`video` timeline projection. Use `sessions.listChat` / `sessions.retrieveChat` for the read-only Chat bridge (`category=chat`); the default reads and new mutations use `video`. Chat writes continue through the existing guarded save methods. Storage remains compatible, categories remain separate, and Tasks/Artifacts inventory currently covers video rather than all text executions.
 
@@ -84,7 +84,7 @@ Video and last frame are separate artifacts identified by `(task_id, kind)`, whe
 
 Downloads use the saved encrypted reference, transport restrictions and current actor visibility. Expired/deleted/missing references return 404. If delivery still requires an original Provider binding that has become invalid, it explicitly refuses with 409; transport failures return an error rather than fabricate output. No active inference key secret is required for historical reads. Existing Video result deletion preserves task evidence, original dispatch identity, billing and diagnostics.
 
-Historical billing and transport diagnostics are available through `GET /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics`, or `admin.generations(scope).tasks.diagnostics(task)`. This read uses current workspace Read permission and actor-private task visibility, independently of the original inference key. It returns persisted customer billing and transport evidence without contacting the Provider or restoring generation authority. Unknown charges and usage remain null; personal upstream expenses are not customer charges. The legacy key-scoped billing and timing routes retain their current-key requirements.
+Historical billing and transport diagnostics are available through `GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics`, or `admin.generations(scope).tasks.diagnostics(task)`. This read uses current workspace Read permission and actor-private task visibility, independently of the original inference key. It returns persisted customer billing and transport evidence without contacting the Provider or restoring generation authority. Unknown charges and usage remain null; personal upstream expenses are not customer charges. The legacy key-scoped billing and timing routes retain their current-key requirements.
 
 ## Pagination and retention
 

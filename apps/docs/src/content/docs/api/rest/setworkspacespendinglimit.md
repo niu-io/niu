@@ -1,12 +1,12 @@
 ---
 title: "Set a workspace spending limit"
-description: "PUT /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}"
+description: "PUT /api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}`
+`PUT /api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}`
 
 Scoped owner or installation administrator required. Both input fields are nonnegative decimal strings, not null. expected_revision 0 creates the first limit; later writes require the saved revision. Zero denies new paid liability; there is no null reset on this endpoint. A limit below existing commitment is rejected. Writes append actor history and never change company funds.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

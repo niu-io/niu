@@ -1,12 +1,12 @@
 ---
 title: "Create a workspace with retry-safe identity"
-description: "POST /admin/v1/workspaces"
+description: "POST /api/v1/workspaces"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/workspaces`
+`POST /api/v1/workspaces`
 
 Requires installation write access or a company-scoped member allowed to create workspaces. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/workspaces" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/workspaces" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

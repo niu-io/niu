@@ -45,7 +45,7 @@ fn scope(organization_id: Uuid, project_id: Uuid, currency: &str) -> Result<Tena
 /// Discover usable currencies without granting company-balance access.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceSpendingLimits",
@@ -246,7 +246,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getWorkspaceSpendingLimit",
@@ -350,7 +350,7 @@ pub async fn read(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setWorkspaceSpendingLimit",
@@ -490,7 +490,7 @@ pub async fn write(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceSpendingLimitHistory",

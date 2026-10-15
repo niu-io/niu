@@ -1,12 +1,12 @@
 ---
 title: "Independently reconcile a saved payment"
-description: "POST /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile"
+description: "POST /api/v1/organizations/{organization}/billing/topups/{order}/reconcile"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile`
+`POST /api/v1/organizations/{organization}/billing/topups/{order}/reconcile`
 
 Installation administrator only. Queries the original configured merchant under bounded query admission. Exact verified paid evidence funds atomically once; verified closed evidence records closure without funding. Never creates a checkout or automatically retries. Already paid or closed orders return their durable status without requiring merchant configuration or an upstream query. A successful response reports durable status, not necessarily paid. EPay query recovery is unsupported (501); signed notifications remain available. Merchant activation and received-cash funding require separate deployment evidence.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/topups/{order}/reconcile" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/topups/{order}/reconcile" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

@@ -5,14 +5,14 @@ info:
 security:
   - bearerAuth: []
 paths:
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit:
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/get'
     put:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/put'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/put'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit~1history/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit~1history/get'
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }

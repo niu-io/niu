@@ -1,12 +1,12 @@
 ---
 title: "Atomically replace a customer media selling schedule"
-description: "POST /admin/v1/organizations/{organization}/billing/media-rates/replace"
+description: "POST /api/v1/organizations/{organization}/billing/media-rates/replace"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/billing/media-rates/replace`
+`POST /api/v1/organizations/{organization}/billing/media-rates/replace`
 
 Platform-administrator write permission required. Installation credentials and explicitly granted member administrators are supported. Publishes the immutable replacement and retires the previous scoped schedule at the new effective start in one transaction. Dimensions and meter must match; competing effective schedules conflict. Identical replay is accepted while route bindings remain current. Any publication or retirement failure rolls back both changes. Historical cards and pinned jobs are unchanged. No procurement fallback or automatic submission retry.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/media-rates/replace" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/media-rates/replace" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

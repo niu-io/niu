@@ -5,7 +5,7 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/admin/v1/auth/browser/token": {
+    "/api/v1/auth/browser/token": {
       "post": {
         "operationId": "exchangeOperatorTokenForBrowserSession",
         "summary": "Use an existing user access token in the browser",
@@ -81,7 +81,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/chat-draft": {
+    "/api/v1/organizations/{organization}/projects/{project}/chat-draft": {
       "get": {
         "operationId": "getChatDraft",
         "x-niu-implementation": "implemented",
@@ -209,7 +209,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions": {
+    "/api/v1/organizations/{organization}/projects/{project}/chat-sessions": {
       "get": {
         "operationId": "listChatSessions",
         "x-niu-implementation": "implemented",
@@ -317,7 +317,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}": {
+    "/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}": {
       "get": {
         "operationId": "getChatSession",
         "x-niu-implementation": "implemented",
@@ -688,7 +688,7 @@
         ]
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/guardrails/denials": {
+    "/api/v1/organizations/{organization}/projects/{project}/guardrails/denials": {
       "get": {
         "operationId": "listGuardrailPreparationDenials",
         "summary": "Read latest 100 workspace preparation refusals",
@@ -859,7 +859,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials": {
+    "/api/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials": {
       "get": {
         "operationId": "listGuardrailDispatchDenials",
         "summary": "Read latest 100 workspace dispatch policy exceptions",
@@ -1022,7 +1022,7 @@
         }
       }
     },
-    "/admin/v1/guardrails/detectors/{detector}/preview": {
+    "/api/v1/guardrails/detectors/{detector}/preview": {
       "post": {
         "operationId": "previewGuardrailDetector",
         "summary": "Preview installation text detector transport",
@@ -1141,7 +1141,7 @@
         }
       }
     },
-    "/admin/v1/guardrails/detectors/{detector}": {
+    "/api/v1/guardrails/detectors/{detector}": {
       "get": {
         "operationId": "getGuardrailDetectorDescription",
         "summary": "Read installation text detector processing declaration",
@@ -1289,7 +1289,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions": {
+    "/api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions": {
       "get": {
         "operationId": "listInputDetectorDecisions",
         "summary": "Read latest 100 workspace input detector decisions",
@@ -1452,7 +1452,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors": {
+    "/api/v1/organizations/{organization}/projects/{project}/guardrails/detectors": {
       "get": {
         "operationId": "listWorkspaceDetectors",
         "summary": "List authorized workspace text detector declarations",
@@ -1625,7 +1625,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors": {
+    "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors": {
       "get": {
         "operationId": "listWorkspaceImageDetectors",
         "summary": "List authorized workspace image detector declarations",
@@ -1788,7 +1788,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview": {
+    "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview": {
       "post": {
         "operationId": "previewWorkspaceImageDetector",
         "summary": "Preview explicitly consented workspace image processing",
@@ -1947,7 +1947,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit": {
       "get": {
         "security": [
           {
@@ -2130,7 +2130,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history": {
       "get": {
         "security": [
           {
@@ -2255,7 +2255,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy": {
       "get": {
         "security": [
           {
@@ -2475,7 +2475,7 @@
         "summary": "Set API key source policy"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history": {
       "get": {
         "security": [
           {
@@ -2612,7 +2612,7 @@
         "summary": "List API key source policy history"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit": {
       "get": {
         "security": [
           {
@@ -2795,7 +2795,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window": {
       "get": {
         "security": [
           {
@@ -2905,7 +2905,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history": {
       "get": {
         "security": [
           {
@@ -3030,7 +3030,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit": {
       "get": {
         "security": [
           {
@@ -3143,7 +3143,7 @@
         "summary": "List API key spending limits"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}": {
       "put": {
         "security": [
           {
@@ -3268,7 +3268,7 @@
         "summary": "Set API key spending limit"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history": {
       "get": {
         "security": [
           {
@@ -3411,7 +3411,7 @@
         "summary": "List API key spending history"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit": {
       "get": {
         "security": [
           {
@@ -3594,7 +3594,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history": {
       "get": {
         "security": [
           {
@@ -3719,7 +3719,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors": {
+    "/api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors": {
       "get": {
         "operationId": "listWorkspaceMediaDetectors",
         "summary": "List workspace-authorized media inspection configurations",
@@ -3880,7 +3880,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/auth/config": {
+    "/api/v1/auth/config": {
       "get": {
         "operationId": "getMemberAuthenticationConfiguration",
         "summary": "Discover member sign-in availability",
@@ -4000,7 +4000,7 @@
         }
       }
     },
-    "/admin/v1/auth/preferences": {
+    "/api/v1/auth/preferences": {
       "get": {
         "operationId": "getMemberPreferences",
         "summary": "Read current member appearance preference",
@@ -4151,7 +4151,7 @@
         }
       }
     },
-    "/admin/v1/auth/profile": {
+    "/api/v1/auth/profile": {
       "get": {
         "operationId": "getMemberProfile",
         "summary": "Read current member profile",
@@ -4687,7 +4687,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/video-draft": {
+    "/api/v1/organizations/{organization}/projects/{project}/video-draft": {
       "get": {
         "operationId": "getVideoComposerDraft",
         "x-niu-implementation": "implemented",
@@ -4818,7 +4818,7 @@
         }
       }
     },
-    "/admin/v1/workspaces/{workspace}": {
+    "/api/v1/workspaces/{workspace}": {
       "patch": {
         "operationId": "renameWorkspaceById",
         "summary": "Rename a workspace by identity",
@@ -5349,7 +5349,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/spending-limit": {
+    "/api/v1/organizations/{organization}/projects/{project}/spending-limit": {
       "get": {
         "operationId": "listWorkspaceSpendingLimits",
         "summary": "List workspace spending currencies",
@@ -5417,7 +5417,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}": {
+    "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}": {
       "get": {
         "operationId": "getWorkspaceSpendingLimit",
         "summary": "Read a workspace spending limit",
@@ -5599,7 +5599,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history": {
+    "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history": {
       "get": {
         "operationId": "listWorkspaceSpendingLimitHistory",
         "summary": "List workspace spending revisions",
@@ -5704,7 +5704,7 @@
         }
       }
     },
-    "/admin/v1/setup/default-workspace": {
+    "/api/v1/setup/default-workspace": {
       "post": {
         "operationId": "getOrCreateDefaultWorkspace",
         "x-niu-implementation": "implemented",
@@ -5751,7 +5751,7 @@
         }
       }
     },
-    "/admin/v1/workspaces/by-route/{route_slug}": {
+    "/api/v1/workspaces/by-route/{route_slug}": {
       "get": {
         "operationId": "resolveWorkspaceRoute",
         "summary": "Resolve an authorized canonical workspace route",
@@ -5828,7 +5828,7 @@
         }
       }
     },
-    "/admin/v1/workspaces": {
+    "/api/v1/workspaces": {
       "get": {
         "operationId": "listWorkspaces",
         "summary": "List an authorized page of workspaces",
@@ -5973,7 +5973,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}": {
+    "/api/v1/organizations/{organization}/projects/{project}": {
       "patch": {
         "security": [
           {
@@ -6122,7 +6122,7 @@
         }
       }
     },
-    "/admin/v1/organizations": {
+    "/api/v1/organizations": {
       "post": {
         "operationId": "createOrganization",
         "summary": "Create a company and its initial zero-funded account",
@@ -6301,7 +6301,7 @@
         ]
       }
     },
-    "/admin/v1/organizations/{organization}/projects": {
+    "/api/v1/organizations/{organization}/projects": {
       "post": {
         "operationId": "createOrganizationWorkspace",
         "summary": "Create a workspace in the selected company",
@@ -6472,7 +6472,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys": {
       "post": {
         "operationId": "issueKey",
         "summary": "Issue a workspace API key and return its secret once",
@@ -6691,7 +6691,7 @@
         "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels. Supplying limit or after selects a bounded keyset page and adds next_cursor; without either, the complete compatibility response is unchanged."
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}": {
       "delete": {
         "operationId": "revokeKey",
         "summary": "Revoke a workspace API key",
@@ -6944,7 +6944,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate": {
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate": {
       "post": {
         "operationId": "rotateKey",
         "summary": "Atomically replace a key while preserving its grants and expiry",
@@ -7047,7 +7047,7 @@
         "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Revokes the old secret atomically. The replacement preserves grants, expiry, spending identity and configured key policies; rotation does not reset consumed allowance."
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}": {
+    "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}": {
       "get": {
         "operationId": "getGatewayRequest",
         "summary": "Read a recorded gateway request",
@@ -7126,7 +7126,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/requests": {
+    "/api/v1/organizations/{organization}/projects/{project}/requests": {
       "get": {
         "operationId": "listProjectGatewayActivity",
         "summary": "Read automatically retained gateway request activity",
@@ -7782,7 +7782,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history": {
+    "/api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history": {
       "get": {
         "operationId": "getCustomerBalancePolicyHistory",
         "summary": "Read immutable company credit and warning policy revisions",
@@ -8413,7 +8413,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices": {
+    "/api/v1/organizations/{organization}/projects/{project}/billing/invoices": {
       "get": {
         "operationId": "listCustomerInvoices",
         "summary": "Page complete workspace customer invoice history",
@@ -9376,7 +9376,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment": {
+    "/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment": {
       "post": {
         "operationId": "setRetailMediaEnrollment",
         "summary": "Set workspace media selling-price enrollment",
@@ -9736,7 +9736,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants": {
+    "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants": {
       "post": {
         "operationId": "grantCustomerBalance",
         "summary": "Issue administrator noncash customer credit",
@@ -9873,7 +9873,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare": {
+    "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare": {
       "post": {
         "operationId": "prepareCustomerBalanceGrant",
         "summary": "Prepare a durable noncash gift intent",
@@ -10064,7 +10064,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared": {
+    "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared": {
       "get": {
         "operationId": "listPreparedCustomerBalanceGrants",
         "summary": "Recover saved noncash grant publication intents",
@@ -10240,7 +10240,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}": {
+    "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}": {
       "get": {
         "operationId": "getPreparedCustomerBalanceGrant",
         "summary": "Read original noncash gift intent by idempotency key",
@@ -10967,7 +10967,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/billing/reservations": {
+    "/api/v1/organizations/{organization}/billing/reservations": {
       "get": {
         "operationId": "listCustomerBalanceReservations",
         "summary": "Inspect open customer balance reservations",
@@ -11827,7 +11827,7 @@
         ]
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment": {
+    "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment": {
       "post": {
         "operationId": "setRetailTextEnrollment",
         "summary": "Enroll a workspace model in a platform selling price",
@@ -12268,7 +12268,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation": {
+    "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation": {
       "post": {
         "operationId": "reconcileRequestUsage",
         "summary": "Supplement missing native request usage from captured OpenRouter evidence",
@@ -12597,7 +12597,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/billing": {
+    "/api/v1/organizations/{organization}/projects/{project}/billing": {
       "get": {
         "security": [
           {
@@ -12911,7 +12911,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs": {
+    "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs": {
       "post": {
         "security": [
           {
@@ -13127,7 +13127,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/media-rates": {
+    "/api/v1/organizations/{organization}/billing/media-rates": {
       "post": {
         "operationId": "publishCustomerMediaRate",
         "summary": "Publish an immutable customer video selling schedule",
@@ -13323,7 +13323,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/media-rate-models": {
+    "/api/v1/organizations/{organization}/billing/media-rate-models": {
       "get": {
         "operationId": "listCustomerMediaRateModels",
         "summary": "Read named qualified commercial video configuration choices",
@@ -13464,7 +13464,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/media-rates/replace": {
+    "/api/v1/organizations/{organization}/billing/media-rates/replace": {
       "post": {
         "operationId": "replaceCustomerMediaRate",
         "summary": "Atomically replace a customer media selling schedule",
@@ -13567,7 +13567,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire": {
+    "/api/v1/organizations/{organization}/billing/media-rates/{revision}/retire": {
       "post": {
         "operationId": "retireCustomerMediaRate",
         "summary": "End a published customer media rate's eligibility",
@@ -13677,7 +13677,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}": {
+    "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}": {
       "get": {
         "security": [
           {
@@ -14064,7 +14064,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/balance": {
+    "/api/v1/organizations/{organization}/billing/balance": {
       "get": {
         "operationId": "getCustomerBalance",
         "summary": "Read shared company account balances",
@@ -14174,7 +14174,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/charge-reconciliation": {
+    "/api/v1/organizations/{organization}/billing/charge-reconciliation": {
       "get": {
         "operationId": "getCustomerChargeReconciliation",
         "summary": "Compare customer charge records with prepaid ledger debits",
@@ -14290,7 +14290,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy": {
+    "/api/v1/organizations/{organization}/billing/accounts/{currency}/policy": {
       "put": {
         "operationId": "configureCustomerBalancePolicy",
         "summary": "Configure approved credit and low-balance threshold",
@@ -14396,7 +14396,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold": {
+    "/api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold": {
       "put": {
         "operationId": "setCustomerBalanceWarning",
         "summary": "Set company low-balance warning threshold",
@@ -14505,7 +14505,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/entries/{entry}/reversal": {
+    "/api/v1/organizations/{organization}/billing/entries/{entry}/reversal": {
       "post": {
         "operationId": "reverseCustomerBalanceEntry",
         "summary": "Record a balance refund or settled-funding reversal",
@@ -14605,7 +14605,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/billing/transactions": {
+    "/api/v1/organizations/{organization}/billing/transactions": {
       "get": {
         "operationId": "getCustomerBalanceTransactions",
         "summary": "Read a company balance transaction page",
@@ -14739,7 +14739,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history": {
+    "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history": {
       "get": {
         "operationId": "listCustomerTariffHistory",
         "summary": "Read immutable customer text price history",
@@ -15469,7 +15469,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/billing/topups": {
+    "/api/v1/organizations/{organization}/billing/topups": {
       "post": {
         "operationId": "createCustomerTopup",
         "summary": "Create or recover a company prepaid top-up",
@@ -15757,7 +15757,7 @@
         ]
       }
     },
-    "/admin/v1/organizations/{organization}/billing/payment-methods": {
+    "/api/v1/organizations/{organization}/billing/payment-methods": {
       "get": {
         "operationId": "getCustomerPaymentMethods",
         "summary": "Read company checkout availability",
@@ -15884,7 +15884,7 @@
         ]
       }
     },
-    "/admin/v1/organizations/{organization}/billing/topups/{order}": {
+    "/api/v1/organizations/{organization}/billing/topups/{order}": {
       "get": {
         "operationId": "getCustomerTopup",
         "summary": "Read saved company top-up status",
@@ -15994,7 +15994,7 @@
         ]
       }
     },
-    "/admin/v1/organizations/{organization}/billing/topups/{order}/reconcile": {
+    "/api/v1/organizations/{organization}/billing/topups/{order}/reconcile": {
       "post": {
         "operationId": "reconcileCustomerTopup",
         "summary": "Independently reconcile a saved payment",
@@ -21327,7 +21327,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture": {
       "get": {
         "operationId": "retrieveGenerationsArtifactCapture",
         "summary": "Read saved artifact capture status",
@@ -21708,7 +21708,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/tasks": {
       "get": {
         "operationId": "generationsInventoryTasks",
         "summary": "List saved Video tasks across workspace keys",
@@ -22060,7 +22060,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts": {
       "get": {
         "operationId": "generationsInventoryArtifacts",
         "summary": "List actual saved output references",
@@ -22279,7 +22279,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}": {
       "get": {
         "operationId": "generationsInventoryTask",
         "summary": "Read a saved Video task",
@@ -22566,7 +22566,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}": {
       "get": {
         "operationId": "generationsInventoryArtifact",
         "summary": "Read an output availability record",
@@ -22732,7 +22732,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content": {
       "get": {
         "operationId": "generationsInventoryContent",
         "summary": "Download an authorized retained output",
@@ -22817,7 +22817,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}": {
       "put": {
         "operationId": "generationsSessionCreate",
         "summary": "Create a private video generations session",
@@ -23123,7 +23123,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions": {
       "get": {
         "operationId": "generationsSessionList",
         "summary": "List private generations sessions",
@@ -23252,7 +23252,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}": {
       "put": {
         "operationId": "generationsSessionAppend",
         "summary": "Append one retained video instruction",
@@ -23468,7 +23468,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task": {
       "put": {
         "operationId": "generationsSessionAttach",
         "summary": "Attach an existing authorized video task",
@@ -23580,7 +23580,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent": {
       "put": {
         "operationId": "generationsSessionBindIntent",
         "summary": "Bind a saved Video intent to a private turn",
@@ -23692,7 +23692,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh": {
       "post": {
         "operationId": "refreshGenerationsTask",
         "x-niu-implementation": "implemented",
@@ -23801,7 +23801,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh": {
       "post": {
         "operationId": "retrieveFreshGenerationsTaskResult",
         "x-niu-implementation": "implemented",
@@ -23910,7 +23910,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics": {
       "get": {
         "operationId": "generationsTaskDiagnostics",
         "x-niu-implementation": "implemented",
@@ -25507,7 +25507,7 @@
         "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence."
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}": {
+    "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}": {
       "put": {
         "operationId": "saveVideoSubmissionIntent",
         "summary": "Save an immutable video submission intent with typed Niu references",
@@ -25850,7 +25850,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/video-intents": {
+    "/api/v1/organizations/{organization}/projects/{project}/video-intents": {
       "get": {
         "operationId": "listVideoSubmissionIntents",
         "summary": "List the current actor video intent index",
@@ -25968,7 +25968,7 @@
         "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate."
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit": {
+    "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit": {
       "post": {
         "operationId": "submitVideoSubmissionIntent",
         "summary": "Explicitly submit or replay an immutable saved video intent",
@@ -28046,7 +28046,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel": {
       "post": {
         "operationId": "cancelPreparedWorkspaceProviderAssetOperation",
         "summary": "Abandon an unclaimed native operation after key expiry",
@@ -28151,7 +28151,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations": {
       "get": {
         "operationId": "listHistoricalWorkspaceProviderAssetOperations",
         "summary": "List historical native material operations",
@@ -28296,7 +28296,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}": {
       "get": {
         "operationId": "getHistoricalWorkspaceProviderAssetOperation",
         "summary": "Read historical native material operations",
@@ -28418,7 +28418,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}": {
       "get": {
         "operationId": "getHistoricalWorkspaceProviderAssetOperationByIdempotency",
         "summary": "Read historical native material operations",
@@ -29615,7 +29615,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/assets": {
+    "/api/v1/organizations/{organization}/projects/{project}/assets": {
       "get": {
         "operationId": "listWorkspaceAssets",
         "summary": "List saved workspace materials",
@@ -30018,7 +30018,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}": {
+    "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}": {
       "get": {
         "operationId": "getWorkspaceAsset",
         "summary": "Read workspace material metadata",
@@ -30414,7 +30414,7 @@
         }
       }
     },
-    "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content": {
+    "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content": {
       "get": {
         "operationId": "downloadWorkspaceAsset",
         "summary": "Download saved workspace material bytes",

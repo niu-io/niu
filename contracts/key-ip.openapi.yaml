@@ -5,14 +5,14 @@ info:
 security:
   - bearerAuth: []
 paths:
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy:
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/get'
     put:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/put'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/put'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy~1history/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy~1history/get'
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }

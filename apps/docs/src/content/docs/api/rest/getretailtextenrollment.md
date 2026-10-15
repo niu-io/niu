@@ -1,12 +1,12 @@
 ---
 title: "Read own workspace retail pricing mode"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
+`GET /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
 
 Requires workspace read authority or platform administration. Current configuration only, no other-customer rules, procurement or usage. Absent saved enrollment means workspace pricing, version zero and null price_id. This does not establish an available route or spending permission. Internal references are API values, never display names. Cache-Control: no-store. Effective price is an advisory own-customer selection at server time under the workspace and price locks; null in workspace pricing mode. No other-customer rules are returned.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

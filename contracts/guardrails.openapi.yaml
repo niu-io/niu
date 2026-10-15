@@ -2,7 +2,7 @@ openapi: 3.1.0
 info: { title: Niu Workspace Guardrails API, version: 0.1.0 }
 servers: [{ url: / }]
 paths:
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -29,7 +29,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
         '404': { description: No such organization/workspace pair. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -71,7 +71,7 @@ paths:
                         recorded_at: { type: string, format: date-time }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
-  /admin/v1/guardrails/detectors/{detector}:
+  /api/v1/guardrails/detectors/{detector}:
     parameters:
       - { name: detector, in: path, required: true, schema: { type: string } }
     get:
@@ -88,7 +88,7 @@ paths:
         '401': { description: Installation authentication required. }
         '403': { description: Workspace identities cannot access installation detectors. }
         '404': { description: Detector is not configured. }
-  /admin/v1/guardrails/detectors/{detector}/preview:
+  /api/v1/guardrails/detectors/{detector}/preview:
     parameters:
       - { name: detector, in: path, required: true, schema: { type: string } }
     post:
@@ -126,7 +126,7 @@ paths:
         '401': { description: Installation authentication required. }
         '403': { description: Workspace identities cannot test installation detectors. }
         '404': { description: Detector is not configured. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -155,7 +155,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
         '404': { description: No such version in this workspace. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/history:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/history:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -193,9 +193,9 @@ paths:
         '400': { description: Invalid history cursor. Errors do not echo submitted values. }
         '401': { description: "Authentication required, including malformed query requests." }
         '403': { description: Workspace read access required. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials'
-  /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/denials:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials'
+  /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -275,7 +275,7 @@ paths:
 
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/input-preview:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/input-preview:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -330,7 +330,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
         '503': { description: "Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched." }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -389,7 +389,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
         '503': { description: "Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched." }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history:
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -405,7 +405,7 @@ paths:
         '400': { description: Invalid cursor. }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail:
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -440,7 +440,7 @@ paths:
         '404': { description: Policy revision absent in this workspace. }
         '409': { description: "Stale assignment revision or inactive, expired or foreign key." }
         '422': { description: Missing required assignment fields or malformed JSON shape. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/rollback:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/rollback:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -466,7 +466,7 @@ paths:
         '403': { description: Workspace write access required. }
         '404': { description: Target revision absent in this workspace. }
         '409': { description: Active revision changed. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -497,7 +497,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Workspace write access required. }
         '409': { description: Revision conflict; active policy remains unchanged. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/preview:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/preview:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -522,7 +522,7 @@ paths:
         '400': { description: Invalid policy or candidate. }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }

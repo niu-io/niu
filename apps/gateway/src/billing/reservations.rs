@@ -21,7 +21,7 @@ pub(crate) struct Page {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/reservations",
+///   "path": "/api/v1/organizations/{organization}/billing/reservations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerBalanceReservations",

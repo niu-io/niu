@@ -1,12 +1,12 @@
 ---
 title: "Read immutable policy attribution for an allowed dispatch"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails`
+`GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails`
 
 Requires workspace read access. Returns data null for attempts without recorded attribution, including historical attempts and denied transitions. Does not reconstruct denial records or claim content inspection. Policy names and revisions are historical; current policy changes do not rewrite them. Responses use Cache-Control no-store and exclude content, credentials, internal identifiers and commercial data.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

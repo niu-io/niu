@@ -1,12 +1,12 @@
 ---
 title: "Create a workspace in the selected company"
-description: "POST /admin/v1/organizations/{organization}/projects"
+description: "POST /api/v1/organizations/{organization}/projects"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects`
+`POST /api/v1/organizations/{organization}/projects`
 
 Legacy workspace-compatible endpoint. Uses the same company creation authorization and actor-scoped durable Idempotency-Key identity as canonical workspace creation. Returns only id, organization_id and name. Identical retries preserve one workspace; changed retry documents conflict. Workspace members cannot create sibling workspaces. New workspaces do not create funding or credit. Request fields other than name are ignored by the legacy parser.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

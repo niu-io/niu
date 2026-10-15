@@ -5,7 +5,7 @@ use super::{
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerInvoices",

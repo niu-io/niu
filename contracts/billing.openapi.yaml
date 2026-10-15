@@ -5,28 +5,28 @@ info:
 security:
   - adminBearerAuth: []
 paths:
-  /admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
-  /admin/v1/organizations/{organization}/billing/media-rate-models:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rate-models'
-  /admin/v1/organizations/{organization}/billing/media-rates/replace:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
-  /admin/v1/organizations/{organization}/billing/media-rates:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates'
-  /admin/v1/organizations/{organization}/billing/payment-methods:
+  /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
+  /api/v1/organizations/{organization}/billing/media-rate-models:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rate-models'
+  /api/v1/organizations/{organization}/billing/media-rates/replace:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
+  /api/v1/organizations/{organization}/billing/media-rates:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rates'
+  /api/v1/organizations/{organization}/billing/payment-methods:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1payment-methods/get'
-  /admin/v1/organizations/{organization}/billing/topups:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1payment-methods/get'
+  /api/v1/organizations/{organization}/billing/topups:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1topups/get'
     post:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups/post'
-  /admin/v1/organizations/{organization}/billing/topups/{order}:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1topups/post'
+  /api/v1/organizations/{organization}/billing/topups/{order}:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}/get'
-  /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1topups~1{order}/get'
+  /api/v1/organizations/{organization}/billing/topups/{order}/reconcile:
     post:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}~1reconcile/post'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1topups~1{order}~1reconcile/post'
   /payments/epay/notify:
     $ref: './generated/handler-operations.json#/paths/~1payments~1epay~1notify'
   /payments/zhifux/notify:
@@ -61,19 +61,19 @@ paths:
         '422': { description: Required form field missing }
         '502': { description: Integration unavailable or receipt processing timed out; retry notification }
         '503': { description: Durable receipt storage unavailable; retry notification }
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1warning-threshold'
-  /admin/v1/organizations/{organization}/billing/transactions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1transactions'
-  /admin/v1/organizations/{organization}/billing/entries/{entry}/reversal:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1entries~1{entry}~1reversal'
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy'
-  /admin/v1/organizations/{organization}/billing/charge-reconciliation:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
-  /admin/v1/organizations/{organization}/billing/balance:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1balance'
-  /admin/v1/organizations/{organization}/billing/funding/settled:
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1warning-threshold'
+  /api/v1/organizations/{organization}/billing/transactions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1transactions'
+  /api/v1/organizations/{organization}/billing/entries/{entry}/reversal:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1entries~1{entry}~1reversal'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/policy:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy'
+  /api/v1/organizations/{organization}/billing/charge-reconciliation:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
+  /api/v1/organizations/{organization}/billing/balance:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1balance'
+  /api/v1/organizations/{organization}/billing/funding/settled:
     parameters:
       - $ref: '#/components/parameters/Organization'
     post:
@@ -109,15 +109,15 @@ paths:
         '401': { description: Authentication required }
         '403': { description: Installation write access required }
         '409': { description: Unknown organization or conflicting payment reference }
-  /admin/v1/organizations/{organization}/projects/{project}/billing:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
+  /api/v1/organizations/{organization}/projects/{project}/billing:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing'
+  /api/v1/organizations/{organization}/projects/{project}/billing/tariffs:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs'
+  /api/v1/organizations/{organization}/projects/{project}/billing/invoices:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices'
+  /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}'
+  /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
     parameters:
       - $ref: '#/components/parameters/Organization'
       - $ref: '#/components/parameters/Project'

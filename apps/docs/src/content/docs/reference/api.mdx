@@ -157,7 +157,7 @@ the last returned revision and revoke all prior sessions atomically. Passwords
 require at least 15 characters and at most 1,024 UTF-8 bytes; spaces and Unicode
 are preserved. The response contains the new revision, never the hash.
 
-`POST /admin/v1/auth/login` accepts `email` and `password` and returns a scoped
+`POST /api/v1/auth/login` accepts `email` and `password` and returns a scoped
 eight-hour bearer `token` and session metadata. It grants the member's existing
 role and workspace access, never installation access. Wrong passwords and
 unknown identities return the same HTTP 401 response. Durable admission limits
@@ -167,7 +167,7 @@ limit JSON bodies to 4 KiB and mark success/error responses `Cache-Control:
 no-store`. A supplied browser Origin must match the configured origin. These
 routes do not set browser cookies; the dashboard uses the separate browser
 endpoints below. Without configuration, password login returns HTTP 501.
-For same-origin browser clients, `POST /admin/v1/auth/browser/login` uses the
+For same-origin browser clients, `POST /api/v1/auth/browser/login` uses the
 same credentials and limits, requires the configured HTTPS Origin and sets an
 eight-hour Secure, HttpOnly, SameSite=Lax host-only cookie. Its JSON contains
 session metadata without the bearer token. Shared member authorization validates
@@ -176,14 +176,14 @@ the saved session on every request and requires a matching Origin or browser
 Duplicate Authorization headers are rejected. When supplied, Fetch Metadata
 must contain exactly one `same-origin` value even with a matching Origin.
 Installation tokens are never accepted through this cookie path.
-`POST /admin/v1/auth/browser/logout` requires the matching Origin, revokes the
+`POST /api/v1/auth/browser/logout` requires the matching Origin, revokes the
 current session and expires the cookie. Already unusable sessions still clear
 successfully; storage failures do not claim sign-out or clear the cookie.
-The dashboard discovers this mode through `GET /admin/v1/auth/config`, signs in
+The dashboard discovers this mode through `GET /api/v1/auth/config`, signs in
 with the browser endpoint, and restores the server session without saving a
 bearer token in browser storage. Real HTTPS browser acceptance remains unfinished.
 
-`PUT /admin/v1/auth/password` lets every signed-in member role change its own
+`PUT /api/v1/auth/password` lets every signed-in member role change its own
 password with `current_password` and `password`. It accepts no member target or
 email; installation credentials cannot use it. Current-password checks share
 sign-in throttling, new passwords follow the same creation policy, and a
@@ -194,8 +194,8 @@ requests require the matching Origin and expire the cookie on success. Failed
 changes preserve sessions. The dashboard provides password changes in account
 settings; rendered review and HTTPS browser qualification remain open.
 
-`GET /admin/v1/auth/preferences` reads the signed-in member's saved color mode.
-`PUT /admin/v1/auth/preferences` accepts `{"color_mode":"system"}`, `"light"`,
+`GET /api/v1/auth/preferences` reads the signed-in member's saved color mode.
+`PUT /api/v1/auth/preferences` accepts `{"color_mode":"system"}`, `"light"`,
 or `"dark"` as the value of `color_mode`. Every member role can change its own
 preference; installation tokens and caller-supplied member targets are rejected.
 The default is `system`. Preferences are stored in PostgreSQL separately from
@@ -205,7 +205,7 @@ the same Origin checks as profile changes; responses are non-cacheable and
 request bodies are limited to 1 KiB. Installation-only display choices have no
 personal account to save to and remain local.
 
-`POST /admin/v1/auth/logout` revokes the member bearer session in the
+`POST /api/v1/auth/logout` revokes the member bearer session in the
 Authorization header. Every member role can sign out; other sessions remain
 active. Revocation and its audit record are atomic, responses are non-cacheable,
 and missing, expired or previously revoked credentials return HTTP 401.
@@ -220,9 +220,9 @@ documents request fields, role restrictions, session responses and failure statu
 
 Operator and session creation/revocation also append immutable, metadata-only audit events in the same database transaction. Events record whether the actor was an installation bootstrap credential or a scoped operator, the actor operator ID when present, target operator/session IDs, tenant scope and timestamp. They never store bearer tokens, token hashes or request bodies. A scoped owner can page through one operator's events with `GET /admin/v1/operators/{operator}/events`; pages are ordered by timestamp and event ID, limited to 1–100 items, and use `next_cursor` for stable continuation.
 
-Owners can manage members. Admins can read and write management resources but cannot manage members. Viewers have read access only. Every member has an `organization_id` and may have a legacy `project_id` that restricts access to a single workspace. Owners cannot create or manage members outside their own scope. Workspace IDs in dashboard URLs do not grant authority. `GET /admin/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials.
+Owners can manage members. Admins can read and write management resources but cannot manage members. Viewers have read access only. Every member has an `organization_id` and may have a legacy `project_id` that restricts access to a single workspace. Owners cannot create or manage members outside their own scope. Workspace IDs in dashboard URLs do not grant authority. `GET /api/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials.
 
-The dashboard's `GET /admin/v1/workspaces` lists workspaces visible to the current administrator, with each workspace's parent organization. `POST /admin/v1/workspaces` creates one in the requested organization. Organization administrators can create workspaces only inside their organization; installation administrators can select any organization. If an installation has no organization yet, omitting `organization_id` creates a `Personal workspace` organization first. API keys, requests, budgets, and usage belong to a workspace; `project` names remain only in legacy API and storage contracts.
+The dashboard's `GET /api/v1/workspaces` lists workspaces visible to the current administrator, with each workspace's parent organization. `POST /api/v1/workspaces` creates one in the requested organization. Organization administrators can create workspaces only inside their organization; installation administrators can select any organization. If an installation has no organization yet, omitting `organization_id` creates a `Personal workspace` organization first. API keys, requests, budgets, and usage belong to a workspace; `project` names remain only in legacy API and storage contracts.
 
 ## Provider capability matrix
 
@@ -283,7 +283,7 @@ for 24 hours unless explicitly disabled with `x-niu-log-payloads: false`; see
 unknown. This is the default source for request activity; a user does not need
 to export or import gateway logs.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}`
+`GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}`
 returns one request's metadata independently of list pagination and filters. It
 requires read access to that workspace and returns 404 when the request is absent
 from that scope. The response uses the same customer-safe fields as the request
@@ -299,7 +299,7 @@ recording scope covers the durable prepared-attempt path; priced and batch
 admission are not implied. Recorded-failure and key filters include this
 saved evidence only while the attempt remains unsent.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/requests?limit=50`
+`GET /api/v1/organizations/{organization}/projects/{project}/requests?limit=50`
 returns the newest gateway attempts first. Limits range from 1 to 100. Optional
 `from_ms` and `to_ms` bound creation time (`from_ms` inclusive, `to_ms`
 exclusive); `model_alias`, `key_id`, and `status` narrow the same workspace feed.
@@ -335,7 +335,7 @@ quantities are exact decimal strings. `task_evidence` is the latest supplemental
 execution record for the same task ID in this workspace; it includes its scoped
 execution ID, source, record ID, coverage assertion and authority/result pairs,
 but no imported spans. Fetch metadata-only spans and causal links from
-`/admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`
+`/api/v1/organizations/{organization}/projects/{project}/executions/{execution}`
 when an operator opens the trace.
 Unsettled or unpriced requests can have unknown cost; their absence from a cost
 ledger does not mean zero spend.
@@ -415,7 +415,7 @@ inside prompts are not automatically redacted. Response capture excludes
 confidential Provider cost metadata. Historical JSON and SSE responses are also sanitized when read. If a malformed or incomplete structured response cannot be safely serialized, the read returns HTTP 503 without its raw body; accounting and timing metadata remain available independently.
 
 An authorized workspace reader can fetch retained content with
-`GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`.
+`GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`.
 The response contains `data` with `request`, `response`, `content_type`,
 `complete`, `truncated` and `expires_at`, or `null` when content was not captured
 or has expired. Workspace write permission is required to delete it using
@@ -455,8 +455,8 @@ The current gateway milestone is limited. This reference grows with tested endpo
 
 Installation administrators can read persisted platform upstream accounting for a workspace. These compatibility endpoints are procurement controls, not customer billing APIs. Ordinary workspace sessions and Provider memberships do not grant access.
 
-- `GET /admin/v1/organizations/{organization}/projects/{project}/budget` returns `data` with currency, lifetime limit, reserved exposure and settled cash spend, or `null` when no budget exists.
-- `GET /admin/v1/organizations/{organization}/projects/{project}/costs?limit=50` returns settled entries and a nullable `next_cursor`. Pass that UUID as `after` to continue; limits range from 1 to 100.
+- `GET /api/v1/organizations/{organization}/projects/{project}/budget` returns `data` with currency, lifetime limit, reserved exposure and settled cash spend, or `null` when no budget exists.
+- `GET /api/v1/organizations/{organization}/projects/{project}/costs?limit=50` returns settled entries and a nullable `next_cursor`. Pass that UUID as `after` to continue; limits range from 1 to 100.
 
 All monetary and token values in these responses are decimal strings to preserve 64-bit integer precision in browser clients. Monetary amounts use billionths of the named currency. Each entry retains its attempt and price revision, separate API-equivalent and cash costs, token evidence, and a flag for usage exceeding reserved bounds.
 
@@ -466,7 +466,7 @@ Reporting requires installation administration even when the caller has workspac
 
 ### Create a platform upstream budget
 
-Send `POST /admin/v1/organizations/{organization}/projects/{project}/budget` with an administrator token and a body such as:
+Send `POST /api/v1/organizations/{organization}/projects/{project}/budget` with an administrator token and a body such as:
 
 ```json
 {"currency": "USD", "limit_nanos": "100000000000"}
@@ -546,7 +546,7 @@ the same job reference. See the [generated create contract](/docs/reference/hand
 
 ## Operation-scoped request diagnostics
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/requests` and
+`GET /api/v1/organizations/{organization}/projects/{project}/requests` and
 its `/export` CSV endpoint accept optional `operation_id` (UUID). The filter
 selects execution attempts belonging to that operation within the authorized
 workspace; list summaries use the same filter. An unknown operation or one in
@@ -628,7 +628,7 @@ Model discovery does not guarantee admission or upstream availability. See the
 
 ## Customer price history
 
-Use `GET /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history`
+Use `GET /api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history`
 or SDK `getCustomerTariffHistory` to read immutable customer text prices. The
 response includes the current revision and newest-first pages with `next_before`;
 all monetary fields remain strings. Follow the cursor to continue and refresh the
@@ -796,7 +796,7 @@ content is not permission to retry an uncertain upstream operation. See the
 
 ## Complete customer invoice history
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices`
+`GET /api/v1/organizations/{organization}/projects/{project}/billing/invoices`
 continues beyond the overview's latest 100 invoices. Use `limit` (1–100),
 `before`, `currency`, `from_ms` and `to_ms`, then follow `next_cursor` until null.
 These time filters describe invoice **creation time**; each returned invoice's
@@ -894,7 +894,7 @@ settlement remains unverified. See the [native protocol scope](https://github.co
 ## Open balance reservations
 
 Company owners/admins and installation administrators can inspect outstanding
-holds at `GET /admin/v1/organizations/{organization}/billing/reservations`.
+holds at `GET /api/v1/organizations/{organization}/billing/reservations`.
 Use `limit` (1–100), optional `currency`, and `before` from `next_before`.
 Released reservations disappear from results but remain valid cursors. Responses
 include workspace/key names, model, current execution/usage state, and exact

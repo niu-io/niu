@@ -1,12 +1,12 @@
 ---
 title: "Read one complete owned saved Chat conversation"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
+`GET /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
 
 Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

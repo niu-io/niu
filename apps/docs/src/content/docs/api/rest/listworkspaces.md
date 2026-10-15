@@ -1,12 +1,12 @@
 ---
 title: "List an authorized page of workspaces"
-description: "GET /admin/v1/workspaces"
+description: "GET /api/v1/workspaces"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/workspaces`
+`GET /api/v1/workspaces`
 
 Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/workspaces" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

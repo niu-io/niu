@@ -33,14 +33,14 @@ info:
 servers:
   - url: /
 paths:
-  /admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1media-retail-price-enrollment'
+  /api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1media-retail-price-enrollment'
   /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{supplier}~1offers~1{offer}~1media-liability-bounds'
   /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{supplier}~1offers~1{offer}~1media-liability-bounds~1{revision}~1retire'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1retail-price-enrollment'
+  /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1retail-price-enrollment'
   /admin/v1/pricing/customers:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1customers'
   /admin/v1/pricing/standard-prices/models:
@@ -55,40 +55,40 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1history'
   /admin/v1/pricing/standard-prices/{price}/preview:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1preview'
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepare'
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared'
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared~1{key}'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepare'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared~1{key}'
   /admin/v1/platform/customer-accounts:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1customer-accounts'
   /admin/v1/financial-summary:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1financial-summary'
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/grants:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants'
   /admin/v1/commercial-position:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1commercial-position'
-  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations'
-  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1by-idempotency~1{id}'
+  /api/v1/organizations/{organization}/projects/{project}/media/asset-operations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations'
+  /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1{id}'
+  /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1by-idempotency~1{id}'
   /v1/media/asset-operations/prepare:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1prepare'
   /v1/media/asset-operations/{id}/dispatch:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}~1dispatch'
   /v1/media/asset-operations/{id}/cancel:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}~1cancel'
-  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1{id}~1cancel'
+  /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1{id}~1cancel'
   /v1/media/asset-operations:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations'
   /v1/media/asset-operations/by-idempotency/{id}:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1by-idempotency~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/video-draft:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-draft'
+  /api/v1/organizations/{organization}/projects/{project}/video-draft:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1video-draft'
   /v1/media/verification-sessions:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1verification-sessions'
   /v1/media/verification-sessions/{id}:
@@ -111,30 +111,30 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1assets~1{id}~1refresh'
   /v1/media/asset-operations/{id}:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1media-detectors'
-  /admin/v1/organizations/{organization}/projects/{project}/assets:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1assets'
-  /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1assets~1{asset}'
-  /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1assets~1{asset}~1content'
-  /admin/v1/workspaces/{workspace}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces~1{workspace}'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1dispatch-denials'
-  /admin/v1/guardrails/detectors/{detector}/preview:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1guardrails~1detectors~1{detector}~1preview'
-  /admin/v1/guardrails/detectors/{detector}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1guardrails~1detectors~1{detector}'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detector-decisions'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors~1{detector}~1preview'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detectors'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1media-detectors'
+  /api/v1/organizations/{organization}/projects/{project}/assets:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1assets'
+  /api/v1/organizations/{organization}/projects/{project}/assets/{asset}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1assets~1{asset}'
+  /api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1assets~1{asset}~1content'
+  /api/v1/workspaces/{workspace}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1dispatch-denials'
+  /api/v1/guardrails/detectors/{detector}/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1guardrails~1detectors~1{detector}~1preview'
+  /api/v1/guardrails/detectors/{detector}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1guardrails~1detectors~1{detector}'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detector-decisions'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors~1{detector}~1preview'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detectors'
   /admin/v1/providers/{provider}/offers/{offer}/qualification/revoke:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1qualification~1revoke'
   /admin/v1/providers/{provider}/offers/{offer}/qualification:
@@ -143,16 +143,16 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1qualification~1revoke'
   /admin/v1/providers/{provider}/qualification:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1qualification'
-  /admin/v1/auth/preferences:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1auth~1preferences'
-  /admin/v1/auth/profile:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1auth~1profile'
-  /admin/v1/organizations/{organization}/projects:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects'
+  /api/v1/auth/preferences:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1preferences'
+  /api/v1/auth/profile:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1profile'
+  /api/v1/organizations/{organization}/projects:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects'
   /admin/v1/providers/{provider}/configuration-usage:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1configuration-usage'
-  /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1usage-reconciliation'
+  /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1usage-reconciliation'
   /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs'
   /admin/v1/pricing/models:
@@ -169,62 +169,62 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit'
   /admin/v1/providers/{provider}/offers/{offer}/revisions:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs~1{model}~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/video-intents:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents'
-  /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}'
-  /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}~1submit'
+  /api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs~1{model}~1history'
+  /api/v1/organizations/{organization}/projects/{project}/video-intents:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents'
+  /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}'
+  /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}~1submit'
   /payments/stripe/notify:
     $ref: './generated/handler-operations.json#/paths/~1payments~1stripe~1notify'
   /admin/v1/providers/{provider}/members:
     $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1members'
-  /admin/v1/organizations/{organization}/projects/{project}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}'
+  /api/v1/organizations/{organization}/projects/{project}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}'
   /admin/v1/platform/financial-recovery:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1financial-recovery'
   /admin/v1/platform/audit-events:
     $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1audit-events'
   /admin/v1/platform/configuration:
     $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1configuration'
-  /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}:
-    $ref: './request-observability.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}'
-  /admin/v1/organizations/{organization}/projects/{project}/spending-limit:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit'
-  /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}'
-  /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}~1history'
-  /admin/v1/auth/password:
-    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1password'
-  /admin/v1/auth/config:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1auth~1config'
-  /admin/v1/auth/browser/login:
-    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1browser~1login'
-  /admin/v1/auth/browser/token:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1auth~1browser~1token'
-  /admin/v1/auth/browser/logout:
-    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1browser~1logout'
-  /admin/v1/auth/logout:
-    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1logout'
-  /admin/v1/auth/login:
-    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1login'
+  /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}:
+    $ref: './request-observability.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}'
+  /api/v1/organizations/{organization}/projects/{project}/spending-limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit'
+  /api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}'
+  /api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}~1history'
+  /api/v1/auth/password:
+    $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1password'
+  /api/v1/auth/config:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1config'
+  /api/v1/auth/browser/login:
+    $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1browser~1login'
+  /api/v1/auth/browser/token:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1browser~1token'
+  /api/v1/auth/browser/logout:
+    $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1browser~1logout'
+  /api/v1/auth/logout:
+    $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1logout'
+  /api/v1/auth/login:
+    $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1login'
   /admin/v1/operators/{operator}/password:
     $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1operators~1{operator}~1password'
-  /admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
-  /admin/v1/organizations/{organization}/billing/media-rate-models:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rate-models'
-  /admin/v1/organizations/{organization}/billing/media-rates/replace:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
-  /admin/v1/organizations/{organization}/billing/media-rates:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates'
-  /admin/v1/organizations/{organization}/billing/reservations:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1reservations'
-  /admin/v1/organizations/{organization}/billing/charge-reconciliation:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
+  /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
+  /api/v1/organizations/{organization}/billing/media-rate-models:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rate-models'
+  /api/v1/organizations/{organization}/billing/media-rates/replace:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
+  /api/v1/organizations/{organization}/billing/media-rates:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rates'
+  /api/v1/organizations/{organization}/billing/reservations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1reservations'
+  /api/v1/organizations/{organization}/billing/charge-reconciliation:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
   /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
   /admin/v1/platform/payments/integrations:
@@ -235,30 +235,30 @@ paths:
     $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools~1index'
   /admin/v1/model-route-pools/history:
     $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit:
-    $ref: './key-token-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history:
-    $ref: './key-token-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window:
-    $ref: './key-request-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-usage-window'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit:
-    $ref: './key-spending.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}:
-    $ref: './key-spending.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history:
-    $ref: './key-spending.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy:
-    $ref: './key-ip.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history:
-    $ref: './key-ip.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit:
-    $ref: './key-request-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history:
-    $ref: './key-request-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit:
-    $ref: './key-concurrency.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history:
-    $ref: './key-concurrency.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit:
+    $ref: './key-token-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history:
+    $ref: './key-token-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window:
+    $ref: './key-request-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-usage-window'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit:
+    $ref: './key-spending.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}:
+    $ref: './key-spending.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history:
+    $ref: './key-spending.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy:
+    $ref: './key-ip.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history:
+    $ref: './key-ip.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit:
+    $ref: './key-request-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history:
+    $ref: './key-request-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit:
+    $ref: './key-concurrency.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history:
+    $ref: './key-concurrency.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit~1history'
   /v1/media/image-ingestions:
     get:
       operationId: listImageIngestions
@@ -640,9 +640,9 @@ paths:
   /v1/video/jobs/{id}:
     get:
       $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs~1{id}/get'
-  /admin/v1/organizations/{organization}/projects/{project}/chat-draft:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-draft'
-  /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export:
+  /api/v1/organizations/{organization}/projects/{project}/chat-draft:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chat-draft'
+  /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -700,17 +700,17 @@ paths:
         '403': { description: Workspace read access required }
         '404': { description: No saved conversation for this workspace and owner }
         '503': { description: Durable storage unavailable }
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials'
-  /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}:
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/denials:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials'
+  /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/get'
     put:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/put'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/put'
     delete:
       operationId: deleteChatSession
       summary: Delete an owned Chat session in a workspace
@@ -720,9 +720,9 @@ paths:
         '204': { description: Session deleted or absent. }
         '401': { description: Authentication required. }
         '403': { description: Workspace write access required. }
-  /admin/v1/organizations/{organization}/projects/{project}/chat-sessions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions'
-  /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive:
+  /api/v1/organizations/{organization}/projects/{project}/chat-sessions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions'
+  /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
@@ -750,62 +750,62 @@ paths:
         '404': { description: No session in the caller's owner and workspace scope. }
   /admin/v1/vendors/{id}/supplier:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1supplier'
-  /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1guardrails'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1output-preview'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/input-preview:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1input-preview'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1revisions~1{revision}'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/history:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1history'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/rollback:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1rollback'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails'
-  /admin/v1/organizations/{organization}/projects/{project}/guardrails/preview:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1preview'
-  /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads:
-    $ref: './request-observability.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1payloads'
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1warning-threshold'
-  /admin/v1/organizations/{organization}/billing/topups:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups'
-  /admin/v1/organizations/{organization}/billing/payment-methods:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1payment-methods'
-  /admin/v1/organizations/{organization}/billing/topups/{order}:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}'
-  /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}~1reconcile'
+  /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1guardrails'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1output-preview'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/input-preview:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1input-preview'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1revisions~1{revision}'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/history:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1history'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/rollback:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1rollback'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails'
+  /api/v1/organizations/{organization}/projects/{project}/guardrails/preview:
+    $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1preview'
+  /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads:
+    $ref: './request-observability.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1payloads'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1warning-threshold'
+  /api/v1/organizations/{organization}/billing/topups:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1topups'
+  /api/v1/organizations/{organization}/billing/payment-methods:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1payment-methods'
+  /api/v1/organizations/{organization}/billing/topups/{order}:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1topups~1{order}'
+  /api/v1/organizations/{organization}/billing/topups/{order}/reconcile:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1topups~1{order}~1reconcile'
   /payments/epay/notify:
     $ref: './billing.openapi.yaml#/paths/~1payments~1epay~1notify'
   /payments/zhifux/notify:
     $ref: './billing.openapi.yaml#/paths/~1payments~1zhifux~1notify'
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy'
-  /admin/v1/organizations/{organization}/billing/transactions:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1transactions'
-  /admin/v1/organizations/{organization}/billing/entries/{entry}/reversal:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1entries~1{entry}~1reversal'
-  /admin/v1/organizations/{organization}/billing/balance:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1balance'
-  /admin/v1/organizations/{organization}/billing/funding/settled:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1funding~1settled'
-  /admin/v1/organizations/{organization}/projects/{project}/billing:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}'
-  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}~1payment'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/policy:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy'
+  /api/v1/organizations/{organization}/billing/transactions:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1transactions'
+  /api/v1/organizations/{organization}/billing/entries/{entry}/reversal:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1entries~1{entry}~1reversal'
+  /api/v1/organizations/{organization}/billing/balance:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1balance'
+  /api/v1/organizations/{organization}/billing/funding/settled:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1funding~1settled'
+  /api/v1/organizations/{organization}/projects/{project}/billing:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing'
+  /api/v1/organizations/{organization}/projects/{project}/billing/tariffs:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs'
+  /api/v1/organizations/{organization}/projects/{project}/billing/invoices:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices'
+  /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}'
+  /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
+    $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}~1payment'
   /admin/v1/provider-memberships:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1provider-memberships'
   /admin/v1/platform/payments/epay:
@@ -885,7 +885,7 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1messages'
   /v1/responses:
     $ref: './generated/handler-operations.json#/paths/~1v1~1responses'
-  /admin/v1/models:
+  /api/v1/models:
     get:
       operationId: adminListModels
       summary: List configured model routes
@@ -1782,7 +1782,7 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1catalog'
   /admin/v1/vendors/{id}/check:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1check'
-  /admin/v1/session:
+  /api/v1/session:
     get:
       operationId: getAdminSessionIdentity
       summary: Read the current administrator's scope and permissions
@@ -1995,7 +1995,7 @@ paths:
           description: The authenticated operator is not an owner.
         '404':
           description: Target operator is absent or outside the caller's scope.
-  /admin/v1/metrics:
+  /api/v1/metrics:
     get:
       operationId: adminGetMetrics
       summary: Read in-process request and token counters
@@ -2030,21 +2030,21 @@ paths:
                         type: integer
                       completion_tokens:
                         type: integer
-  /admin/v1/workspaces/by-route/{route_slug}:
+  /api/v1/workspaces/by-route/{route_slug}:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces~1by-route~1{route_slug}/get'
-  /admin/v1/workspaces:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1by-route~1{route_slug}/get'
+  /api/v1/workspaces:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces/get'
     post:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces/post'
-  /admin/v1/organizations:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations'
-  /admin/v1/organizations/{organization}/projects/{project}/keys:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys'
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}'
-  /admin/v1/organizations/{organization}/projects/{project}/accounts:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces/post'
+  /api/v1/organizations:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations'
+  /api/v1/organizations/{organization}/projects/{project}/keys:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}'
+  /api/v1/organizations/{organization}/projects/{project}/accounts:
     get:
       operationId: listAccounts
       summary: List account metadata without credential references
@@ -2089,9 +2089,9 @@ paths:
           description: Account registered as unverified, or metadata returned. Registration does not activate inference.
         '401':
           description: Invalid administrator token.
-  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1rotate'
-  /admin/v1/organizations/{organization}/projects/{project}/budget:
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1rotate'
+  /api/v1/organizations/{organization}/projects/{project}/budget:
     post:
       operationId: createProjectBudget
       summary: Create a platform upstream cost budget (installation only)
@@ -2153,7 +2153,7 @@ paths:
           description: Administrator authentication required.
         '400':
           description: Invalid path or query parameter.
-  /admin/v1/organizations/{organization}/projects/{project}/costs:
+  /api/v1/organizations/{organization}/projects/{project}/costs:
     get:
       operationId: listProjectCosts
       summary: Read platform upstream cost entries (installation only)
@@ -2181,7 +2181,7 @@ paths:
           description: Administrator authentication required.
         '400':
           description: Invalid path or query parameter.
-  /admin/v1/organizations/{organization}/projects/{project}/requests/export:
+  /api/v1/organizations/{organization}/projects/{project}/requests/export:
     get:
       operationId: exportWorkspaceRequests
       summary: Export filtered customer-safe request metadata as CSV
@@ -2220,11 +2220,11 @@ paths:
         '401': { description: "Missing, invalid or inference-only credentials." }
         '403': { description: Administration credential cannot read this workspace. }
         '413': { description: More than 10000 requests match; narrow the filters. }
-  /admin/v1/organizations/{organization}/projects/{project}/requests:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests'
-  /admin/v1/setup/default-workspace:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1setup~1default-workspace'
-  /admin/v1/organizations/{organization}/projects/{project}/asset-group-intents:
+  /api/v1/organizations/{organization}/projects/{project}/requests:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests'
+  /api/v1/setup/default-workspace:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1setup~1default-workspace'
+  /api/v1/organizations/{organization}/projects/{project}/asset-group-intents:
     get:
       operationId: listAssetGroupRequests
       summary: Discover saved asset group creation requests
@@ -2263,7 +2263,7 @@ paths:
         '401': {description: Member or installation session required.}
         '403': {description: Workspace read permission required.}
         '404': {description: Workspace unavailable to this caller.}
-  /admin/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request:
+  /api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request:
     get:
       operationId: getAssetGroupRequest
       summary: Read customer-safe asset request content and retention status
@@ -2324,38 +2324,38 @@ paths:
         '401': {description: Member or installation session required; inference keys are not accepted.}
         '403': {description: Workspace write permission required.}
         '404': {description: Workspace outside the authorized scope.}
-  /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy~1history'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy~1history'
 
-  /admin/v1/organizations/{organization}/projects/{project}/generations-sessions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions'
-  /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}'
-  /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}~1turns~1{turn}'
-  /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}~1turns~1{turn}~1task'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/tasks:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1content'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics:
+  /api/v1/organizations/{organization}/projects/{project}/generations-sessions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions'
+  /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}'
+  /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}~1turns~1{turn}'
+  /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}~1turns~1{turn}~1task'
+  /api/v1/organizations/{organization}/projects/{project}/generations/tasks:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks'
+  /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}'
+  /api/v1/organizations/{organization}/projects/{project}/generations/artifacts:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts'
+  /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}'
+  /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1content'
+  /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics:
     get:
-      $ref: "./generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1diagnostics/get"
-  /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1refresh'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1results~1{kind}~1refresh'
-  /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1capture'
-  /admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}~1turns~1{turn}~1intent'
+      $ref: "./generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1diagnostics/get"
+  /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1refresh'
+  /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1tasks~1{task}~1results~1{kind}~1refresh'
+  /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations~1artifacts~1{task}~1{kind}~1capture'
+  /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1generations-sessions~1{session}~1turns~1{turn}~1intent'
   /v1/key:
     $ref: './generated/handler-operations.json#/paths/~1v1~1key'
   /v1/generations/{id}:

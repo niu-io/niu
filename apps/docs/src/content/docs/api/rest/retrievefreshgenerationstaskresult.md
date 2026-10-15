@@ -1,12 +1,12 @@
 ---
 title: "Retrieve fresh output from the original Video task"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh`
+`POST /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh`
 
 Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries the original task once, then performs bounded authorized binary retrieval. Does not rewrite expired/deleted cached references. A fresh URL does not prove durable media availability; missing result404, supplier gone/unavailable502 and timeout504 remain explicit.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

@@ -1,12 +1,12 @@
 ---
 title: "List the current actor video intent index"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/video-intents"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/video-intents"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/video-intents`
+`GET /api/v1/organizations/{organization}/projects/{project}/video-intents`
 
 Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Newest-first creation order with UUID tie-breaker. The index contains only intent identity, revision, expiry and retention state; it intentionally exposes no request, model or key content. Index access remains available for deleting retained content after key revocation. Read each intent separately under current key authorization. A cursor must belong to this actor and workspace.
 
@@ -32,8 +32,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/video-intents" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/video-intents" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

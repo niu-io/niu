@@ -543,7 +543,7 @@ pub async fn dispatch_decision(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/denials",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/denials",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listGuardrailPreparationDenials",
@@ -739,7 +739,7 @@ pub async fn preparation_denials(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listGuardrailDispatchDenials",
@@ -936,7 +936,7 @@ pub struct DetectorPreview {
 /// Installation-only synthetic transport check; does not activate a detector.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/guardrails/detectors/{detector}/preview",
+///   "path": "/api/v1/guardrails/detectors/{detector}/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "previewGuardrailDetector",
@@ -1096,7 +1096,7 @@ pub async fn detector_preview(
 /// Declared processing conditions for explicit synthetic-test consent.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/guardrails/detectors/{detector}",
+///   "path": "/api/v1/guardrails/detectors/{detector}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getGuardrailDetectorDescription",
@@ -1267,7 +1267,7 @@ pub async fn detector_description(
 /// Metadata-only audit for authorized workspace readers, including pre-admission denials.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listInputDetectorDecisions",
@@ -1456,7 +1456,7 @@ pub async fn detector_decisions(
 /// Processing declarations visible only within explicitly authorized workspaces.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/detectors",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceDetectors",
@@ -1668,7 +1668,7 @@ pub async fn workspace_detectors(
 /// Separate image-processing discovery; no policy activation or content dispatch.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceImageDetectors",
@@ -1876,7 +1876,7 @@ pub struct ImageDetectorPreview {
 /// Explicitly consented synthetic image processing. Never grants dispatch access.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "previewWorkspaceImageDetector",

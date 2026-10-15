@@ -13,7 +13,7 @@ company and workspace from your own installation.
 
 ```sh
 python3 scripts/verify-reporting-load.py \
-  'https://niu.example/admin/v1/organizations/<company-id>/projects/<workspace-id>/requests' \
+  'https://niu.example/api/v1/organizations/<company-id>/projects/<workspace-id>/requests' \
   --requests 100 --workers 4 --limit 100 \
   --out reporting-run.json
 ```

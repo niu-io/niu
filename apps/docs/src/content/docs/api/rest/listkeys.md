@@ -1,12 +1,12 @@
 ---
 title: "List saved workspace API-key metadata"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/keys"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/keys"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/keys`
+`GET /api/v1/organizations/{organization}/projects/{project}/keys`
 
 Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels. Supplying limit or after selects a bounded keyset page and adds next_cursor; without either, the complete compatibility response is unchanged.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/keys" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

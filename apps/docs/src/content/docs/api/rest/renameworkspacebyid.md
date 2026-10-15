@@ -1,12 +1,12 @@
 ---
 title: "Rename a workspace by identity"
-description: "PATCH /admin/v1/workspaces/{workspace}"
+description: "PATCH /api/v1/workspaces/{workspace}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PATCH /admin/v1/workspaces/{workspace}`
+`PATCH /api/v1/workspaces/{workspace}`
 
 Compatibility alias for the existing organization/workspace endpoint, which remains supported. Authorization is checked before resolving the stored workspace organization; member scope filters the lookup and foreign or missing workspaces return 404. The existing handler rechecks authorization before mutation. Requires scoped workspace write access. Trims the saved name; no optimistic revision is accepted. Response matches the legacy rename endpoint. Unknown body properties retain legacy parser behavior.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/admin/v1/workspaces/{workspace}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/workspaces/{workspace}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

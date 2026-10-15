@@ -19,7 +19,7 @@ pub(crate) struct Page {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history",
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerBalancePolicyHistory",

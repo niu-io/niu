@@ -1,12 +1,12 @@
 ---
 title: "Delete an empty workspace by identity"
-description: "DELETE /admin/v1/workspaces/{workspace}"
+description: "DELETE /api/v1/workspaces/{workspace}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /admin/v1/workspaces/{workspace}`
+`DELETE /api/v1/workspaces/{workspace}`
 
 Compatibility alias for the existing organization/workspace endpoint, which remains supported. Authorization is checked before resolving the stored workspace organization; member scope filters the lookup and foreign or missing workspaces return 404. The existing handler rechecks authorization before mutation. Requires installation authority or company-level owner/member-management permission. Workspace-scoped owners are refused with 403 before lookup for their own scope; another workspace remains concealed with 404. Dependent business records prevent deletion with 409; no business history cascade is requested. Response is the same empty 204 as the legacy endpoint.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/admin/v1/workspaces/{workspace}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/workspaces/{workspace}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

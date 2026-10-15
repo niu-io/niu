@@ -1,12 +1,12 @@
 ---
 title: "Create a platform upstream cost budget (installation only)"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/budget"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/budget"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/budget`
+`POST /api/v1/organizations/{organization}/projects/{project}/budget`
 
 Fails with conflict if a budget exists. Previously dispatched work is not retroactively reserved. Further dispatch requires a trusted held reservation; configure pricing separately in the model route.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/budget" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/budget" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

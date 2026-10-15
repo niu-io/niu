@@ -17,7 +17,7 @@ pub struct TokenInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/auth/browser/token",
+///   "path": "/api/v1/auth/browser/token",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "exchangeOperatorTokenForBrowserSession",

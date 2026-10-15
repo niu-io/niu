@@ -1,12 +1,12 @@
 ---
 title: "Change the signed-in member's password with current-password proof"
-description: "PUT /admin/v1/auth/password"
+description: "PUT /api/v1/auth/password"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/auth/password`
+`PUT /api/v1/auth/password`
 
 All member roles may change their own password; installation credentials cannot. No target member or email is accepted. Verification uses shared sign-in throttling and bounded workers. Credential revision checks prevent concurrent resets from being overwritten. Success revokes all of this member's sessions atomically with audit records and requires fresh sign-in. Browser-cookie requests require the configured Origin and clear the cookie on success. Failed changes preserve sessions and do not clear the cookie. JSON bodies are limited to 4096 bytes. All responses are non-cacheable.
 
@@ -32,8 +32,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/auth/password" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/auth/password" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -1,12 +1,12 @@
 ---
 title: "List API key spending limits"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit`
+`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit`
 
 Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Provider costs or company balance are exposed.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

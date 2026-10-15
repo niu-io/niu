@@ -62,7 +62,7 @@ async fn principal(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "refreshGenerationsTask",
@@ -198,7 +198,7 @@ pub(in crate::web) async fn refresh(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retrieveFreshGenerationsTaskResult",

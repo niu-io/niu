@@ -84,8 +84,8 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   operations++;
   const group = /^\/v1\/(video|media|images)/.test(route) ? 'Video and media APIs'
     : /^\/v1(?:\/|$)|^\/v1beta\//.test(route) ? 'Model APIs'
-    : route.startsWith('/admin/v1/auth') ? 'Authentication and sessions'
-    : /^\/admin\/v1\/(organizations|workspaces)/.test(route) ? 'Workspace and company APIs'
+    : /^\/(?:admin|api)\/v1\/(?:auth\/|session$)/.test(route) ? 'Authentication and sessions'
+    : /^\/(?:admin|api)\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|metrics|models)/.test(route) ? 'Workspace and company APIs'
     : route.startsWith('/admin/') ? 'Administration APIs' : 'Service endpoints';
   if (!restGroups.has(group)) restGroups.set(group, []);
   restGroups.get(group).push({route, method, link:`- [\`${method.toUpperCase()} ${route}\` — ${operation.summary || operation.operationId}](/docs/api/rest/${slug}/)`});
@@ -95,7 +95,7 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   lines.push('## Authentication','', security.length ? 'Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.' : 'No OpenAPI security scheme is required. Other request validation still applies.', '', ...block('json', JSON.stringify(security,null,2)));
   const body = operation.requestBody?.$ref ? pointer(spec, operation.requestBody.$ref.slice(1)) : operation.requestBody;
   const mediaType = Object.keys(body?.content || {})[0];
-  const authName = route.startsWith('/admin/') ? 'NIU_ADMIN_TOKEN' : 'NIU_API_KEY';
+  const authName = route.startsWith('/admin/') ? 'NIU_ADMIN_TOKEN' : route.startsWith('/api/') ? 'NIU_SESSION_TOKEN' : 'NIU_API_KEY';
   const parameters = new Map();
   for (const raw of [...(item.parameters || []), ...(operation.parameters || [])]) {
     const parameter = raw.$ref ? pointer(spec, raw.$ref.slice(1)) : raw;

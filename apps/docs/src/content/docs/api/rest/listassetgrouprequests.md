@@ -1,12 +1,12 @@
 ---
 title: "Discover saved asset group creation requests"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/asset-group-intents"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/asset-group-intents"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/asset-group-intents`
+`GET /api/v1/organizations/{organization}/projects/{project}/asset-group-intents`
 
 Workspace-scoped local metadata only; no upstream query or asset-readiness claim. IDs and cursors are internal routing references and must not be displayed as labels. Expired and deleted request names are omitted as null. Provider bindings, credentials, fingerprints and procurement data are excluded.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/asset-group-intents" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

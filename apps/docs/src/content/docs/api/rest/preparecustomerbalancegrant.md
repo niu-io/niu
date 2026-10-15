@@ -1,12 +1,12 @@
 ---
 title: "Prepare a durable noncash gift intent"
-description: "POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare"
+description: "POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare`
+`POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare`
 
 Explicit platform administration only. Saves immutable amount, reason, currency, policy, authenticated actor and company-scoped idempotency key. Preparation posts no funds, revenue, receipt, debt application or reservation. Exact retries return the same intent; changed reuse conflicts. Existing matching grants can be recovered as issued. Publish through grantCustomerBalance with this saved input and original key. Prepared is not proof that an in-flight publication failed. Never invent another key because a response was lost. No automatic issuance. Internal references are not product labels.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

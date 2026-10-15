@@ -136,7 +136,7 @@ pub struct DraftInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-draft",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chat-draft",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getChatDraft",
@@ -384,7 +384,7 @@ pub async fn draft(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-draft",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chat-draft",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveChatDraft",
@@ -575,7 +575,7 @@ pub async fn archive(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chat-sessions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listChatSessions",
@@ -733,7 +733,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getChatSession",
@@ -940,7 +940,7 @@ pub async fn export(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveChatSession",

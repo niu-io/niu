@@ -1,12 +1,12 @@
 ---
 title: "End a published customer media rate's eligibility"
-description: "POST /admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire"
+description: "POST /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire`
+`POST /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire`
 
 Platform-administrator write permission required. Installation credentials and explicitly granted member administrators are supported. Appends an immutable cutoff without modifying the original card or historical job snapshots. Cutoff is inclusive for retirement and must be within the original effective interval, including its start/end boundaries. Exact replay is idempotent; changed cutoff or unknown customer/revision conflicts. Publish the replacement with an effective start matching the cutoff. No rate or procurement fallback occurs if no eligible replacement exists; remaining overlaps are rejected as ambiguous.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/media-rates/{revision}/retire" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

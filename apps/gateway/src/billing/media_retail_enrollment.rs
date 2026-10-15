@@ -17,7 +17,7 @@ pub struct IdentityQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "setRetailMediaEnrollment",
@@ -232,7 +232,7 @@ pub async fn publish(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRetailMediaEnrollment",

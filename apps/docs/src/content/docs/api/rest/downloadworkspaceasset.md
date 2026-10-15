@@ -1,12 +1,12 @@
 ---
 title: "Download saved workspace material bytes"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content`
+`GET /api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content`
 
 Member Read permission required. Authenticates encrypted identity binding and checks byte length and SHA-256 before returning the original bytes. Safe fixed attachment filename, exact supported Content-Type, Cache-Control:no-store and X-Content-Type-Options:nosniff. Unknown/deleted/foreign asset is 404; decryption/integrity failure is a safe unavailable response. Does not make content approved for Provider processing.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

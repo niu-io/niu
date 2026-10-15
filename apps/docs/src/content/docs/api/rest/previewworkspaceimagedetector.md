@@ -1,12 +1,12 @@
 ---
 title: "Preview explicitly consented workspace image processing"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview`
+`POST /api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview`
 
 Workspace write access required. Sends the supplied inline PNG, JPEG or WebP image to a deployment-configured image detector only after workspace authorization, current explicit consent and declared-unmetered checks. Route request body limit is 2 MiB. Decode errors are 400; decode-worker busy/failure is 503. Inspection unavailability is a 200 indeterminate outcome. Does not save or activate a policy, grant dispatch access or integrate customer billing. Cache-Control: no-store.
 
@@ -32,8 +32,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

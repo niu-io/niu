@@ -208,7 +208,7 @@ fn validate_name(name: &str) -> Result<(), ApiError> {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/setup/default-workspace",
+///   "path": "/api/v1/setup/default-workspace",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "getOrCreateDefaultWorkspace",
@@ -279,7 +279,7 @@ pub async fn default_workspace(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/workspaces/by-route/{route_slug}",
+///   "path": "/api/v1/workspaces/by-route/{route_slug}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "resolveWorkspaceRoute",
@@ -410,7 +410,7 @@ pub struct WorkspacePageQuery {
 /// Concurrent deletion of the cursor requires restarting directory traversal.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/workspaces",
+///   "path": "/api/v1/workspaces",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaces",
@@ -618,7 +618,7 @@ pub async fn workspaces(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "security": [
@@ -749,7 +749,7 @@ pub async fn rename_workspace(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "security": [
@@ -848,7 +848,7 @@ pub async fn delete_workspace(
 /// stale authorization is rejected with 401 before creation or receipt replay.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/workspaces",
+///   "path": "/api/v1/workspaces",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createWorkspace",
@@ -997,7 +997,7 @@ pub async fn create_workspace(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations",
+///   "path": "/api/v1/organizations",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createOrganization",
@@ -1143,7 +1143,7 @@ pub async fn organization(
 /// retry identity while preserving the legacy response fields.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects",
+///   "path": "/api/v1/organizations/{organization}/projects",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createOrganizationWorkspace",
@@ -1276,7 +1276,7 @@ pub async fn project(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "issueKey",
@@ -1446,7 +1446,7 @@ pub async fn issue_key(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "revokeKey",
@@ -1564,7 +1564,7 @@ pub async fn revoke_key(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "updateKeyMetadata",
@@ -1836,7 +1836,7 @@ pub async fn accounts(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations",
+///   "path": "/api/v1/organizations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listOrganizations",
@@ -2087,7 +2087,7 @@ pub async fn revoke_operator(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects",
+///   "path": "/api/v1/organizations/{organization}/projects",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listOrganizationWorkspaces",
@@ -2185,7 +2185,7 @@ pub struct KeyListQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listKeys",
@@ -2485,7 +2485,7 @@ pub async fn keys(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "rotateKey",
@@ -2804,7 +2804,7 @@ pub(super) fn gateway_activity_filter(
 /// prompts and model responses are never included.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getGatewayRequest",
@@ -3264,7 +3264,7 @@ pub async fn gateway_request(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/requests",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/requests",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProjectGatewayActivity",

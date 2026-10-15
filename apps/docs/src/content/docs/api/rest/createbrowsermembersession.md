@@ -1,12 +1,12 @@
 ---
 title: "Sign in with a secure HttpOnly member cookie"
-description: "POST /admin/v1/auth/browser/login"
+description: "POST /api/v1/auth/browser/login"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/auth/browser/login`
+`POST /api/v1/auth/browser/login`
 
 Requires the configured HTTPS Origin header. Uses the same password limits and durable throttling as bearer login. Sets __Host-niu_member_session with Secure, HttpOnly, SameSite=Lax, Path=/ and Max-Age=28800; no Domain. The response contains session metadata only, never the bearer token. When supplied, Sec-Fetch-Site must be a single same-origin value. All responses use Cache-Control no-store.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path and required-header placeholders with the values required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/auth/browser/login" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/auth/browser/login" \
   -H 'Origin: <ORIGIN>' \
   -H 'Content-Type: application/json' \
   --data @request.json

@@ -1,12 +1,12 @@
 ---
 title: "Read bounded immutable customer selling history"
-description: "GET /admin/v1/organizations/{organization}/billing/media-rates"
+description: "GET /api/v1/organizations/{organization}/billing/media-rates"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/media-rates`
+`GET /api/v1/organizations/{organization}/billing/media-rates`
 
 Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Provider purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/media-rates" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/media-rates" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

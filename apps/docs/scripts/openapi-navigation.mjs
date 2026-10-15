@@ -2,7 +2,7 @@
 // Ordered rules classify the existing API; they do not rename wire contracts.
 const groups = [
   ['Model APIs', [
-    ['Model discovery', 'Discover models and their published capabilities.', '^/(?:v1/models|catalog/v1/models|admin/v1/models)$'],
+    ['Model discovery', 'Discover models and their published capabilities.', '^/(?:v1/models|catalog/v1/models|(?:admin|api)/v1/models)$'],
     ['Chat completions', 'OpenAI-compatible Chat requests, including dashboard-key invocation.', '/chat/completions$'],
     ['Responses', 'Responses API requests.', '^/v1/responses$'],
     ['Messages and GenerateContent', 'Native protocol compatibility. Read each operation’s supported subset.', '^/(?:v1/messages|v1beta/)'],

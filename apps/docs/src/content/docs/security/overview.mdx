@@ -13,7 +13,7 @@ Provider credentials remain server-side. Managed Provider credentials are encryp
 
 Inference API keys have explicit model grants, workspace ownership, expiry and revocation. Administration accepts the configured `NIU_ADMIN_TOKENS` bootstrap secret and persistent operator session tokens. Bootstrap tokens have installation authority. Each operator belongs to one organization and may be limited to one workspace. Within that scope, `owner` manages operators and can read or write management resources, `admin` can read and write those resources, and `viewer` can read them. A workspace owner cannot grant organization-wide access or access to another workspace. A workspace slug in a URL is presentation state; the server enforces the credential's actual scope.
 
-`GET /admin/v1/session` returns the authenticated operator's scope and role permissions, or identifies an installation bootstrap credential. The dashboard uses this response to present available actions. Every API call checks authorization again, so hiding or enabling a control does not grant authority. Private API responses are marked `Cache-Control: no-store`.
+`GET /api/v1/session` returns the authenticated operator's scope and role permissions, or identifies an installation bootstrap credential. The dashboard uses this response to present available actions. Every API call checks authorization again, so hiding or enabling a control does not grant authority. Private API responses are marked `Cache-Control: no-store`.
 
 Upgrading from unscoped operator credentials revokes those legacy operators and sessions. Use an installation bootstrap credential to create replacement operators with explicit organization or workspace scope.
 

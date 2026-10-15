@@ -1,12 +1,12 @@
 ---
 title: "Read immutable company credit and warning policy revisions"
-description: "GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history"
+description: "GET /api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history`
+`GET /api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history`
 
 Organization-wide owner/admin or installation administration required, using the same authorization as company balance reads. Workspace-only sessions and company viewers cannot read shared financial policy. No account IDs, payment references or Provider prices. Exact amounts and revisions are decimal strings. Revision-descending keyset pages use one database snapshot per request; separate pages do not share a snapshot. Missing currency account returns 404; missing revision cursor returns 409. Revision zero with empty history denotes an account with no policy writes. This read does not change funds or credit. Cache-Control no-store.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

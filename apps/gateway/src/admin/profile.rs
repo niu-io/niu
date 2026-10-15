@@ -34,7 +34,7 @@ pub(super) async fn current_member(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/auth/profile",
+///   "path": "/api/v1/auth/profile",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getMemberProfile",
@@ -164,7 +164,7 @@ fn normalize_avatar(value: &str) -> Result<String, ApiError> {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/auth/profile",
+///   "path": "/api/v1/auth/profile",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "updateMemberProfile",

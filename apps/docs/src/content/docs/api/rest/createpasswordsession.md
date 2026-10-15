@@ -1,12 +1,12 @@
 ---
 title: "Exchange member credentials for a scoped eight-hour session"
-description: "POST /admin/v1/auth/login"
+description: "POST /api/v1/auth/login"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/auth/login`
+`POST /api/v1/auth/login`
 
 JSON bodies are limited to 4096 bytes. Unknown identities and incorrect passwords return the same 401 response. Durable limits allow five attempts per normalized email and 120 per installation in windows expiring 60 seconds after their first attempt. A supplied Origin must match the configured HTTPS origin. All success and error responses are non-cacheable.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/auth/login" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/auth/login" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

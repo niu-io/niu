@@ -1,12 +1,12 @@
 ---
 title: "Record an externally verified settled customer payment"
-description: "POST /admin/v1/organizations/{organization}/billing/funding/settled"
+description: "POST /api/v1/organizations/{organization}/billing/funding/settled"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/billing/funding/settled`
+`POST /api/v1/organizations/{organization}/billing/funding/settled`
 
 Installation write access only. Trusted administration must verify external payment settlement before calling. This is not a customer self-credit endpoint or a payment-channel callback integration. The channel/payment reference credits funds once; changed organization, currency or amount is a conflict. Pending payments must not be submitted. No commercial payment channel is implied by this administrative record API.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/funding/settled" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/funding/settled" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

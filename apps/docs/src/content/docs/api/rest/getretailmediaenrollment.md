@@ -1,12 +1,12 @@
 ---
 title: "Read workspace media selling-price enrollment"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment`
+`GET /api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment`
 
 Exact workspace/media dimensions/meter identity; currency follows the enrolled price. Platform administration is required for changes. Reads require this workspace authority or platform administration and reveal only its own effective selling price. No procurement or other customer promotions are returned. price_id must be explicitly present: null restores legacy media-card selection for future operations. The published media price must exactly match dimensions and meter and have an existing customer currency account. No balance, credit, route, qualification or operation is created. expected_version is zero initially; exact idempotent retries preserve their original outcome, changed reuse and stale versions conflict. Read effective_price is advisory, not a pinned task price or dispatch qualification. UTC epoch times and amounts are exact strings. Cache-Control: no-store for reads. Video admission reselects at a shared database time and atomically pins customer/Provider prices, independently qualified quantity, provenance and funds. Enrolling a price alone does not enable generation; exact current qualified supply and a supported route remain required. Existing task prices are not reselected after admission.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

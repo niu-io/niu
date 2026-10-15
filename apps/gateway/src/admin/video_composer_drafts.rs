@@ -145,7 +145,7 @@ fn validate(payload: &Payload) -> Result<(), ApiError> {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/video-draft",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-draft",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVideoComposerDraft",
@@ -499,7 +499,7 @@ pub async fn draft(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/video-draft",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-draft",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveVideoComposerDraft",

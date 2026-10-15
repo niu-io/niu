@@ -1,12 +1,12 @@
 ---
 title: "Issue administrator noncash customer credit"
-description: "POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants"
+description: "POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/billing/accounts/{currency}/grants`
+`POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants`
 
 Explicit platform administration required. Atomically records a positive gift and its immutable noncash memorandum, reason and authenticated actor. Issuance is not a payment receipt or revenue. application_policy defaults to future_only for compatibility. Explicit unpaid_credit_first applies the new gift against exact known unpaid credit charges as sales allowance, reducing revenue and receivable without repricing the charge or changing Provider payable. Remaining gift funds future consumption. Unknown debt provenance rejects the complete publication. Refunds restore the corresponding gift before credit or cash, without evidence of an external cash transfer. Credit policy is unchanged. Exact retries using the same company-scoped idempotency key, currency, amount, reason and application policy return the original grant; differing reuse conflicts. Historical financial entries are never reclassified. No automatic retry.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/accounts/{currency}/grants" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

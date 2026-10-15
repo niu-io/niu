@@ -1,12 +1,12 @@
 ---
 title: "Erase saved intent content without cancelling its job"
-description: "DELETE /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}"
+description: "DELETE /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+`DELETE /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
 
 Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission and the expected revision. Replaying the same successful deletion is idempotent. Does not require an active selected key. Deleted identities cannot be saved or submitted again.
 
@@ -32,8 +32,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

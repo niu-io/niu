@@ -392,7 +392,7 @@ pub async fn logout(
 /// Public capability discovery; never disclose configured identities or credentials.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/auth/config",
+///   "path": "/api/v1/auth/config",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getMemberAuthenticationConfiguration",

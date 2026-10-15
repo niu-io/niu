@@ -16,7 +16,7 @@ pub struct PreferencesInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/auth/preferences",
+///   "path": "/api/v1/auth/preferences",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getMemberPreferences",
@@ -96,7 +96,7 @@ pub async fn preferences(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/auth/preferences",
+///   "path": "/api/v1/auth/preferences",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "updateMemberPreferences",

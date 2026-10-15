@@ -1,12 +1,12 @@
 ---
 title: "Read invoice lines grouped by model and pinned rate revision"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}`
+`GET /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}`
 
 Requires workspace read access and an existing invoice in that workspace. Unknown or out-of-scope invoice IDs return 404. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Empty text or media arrays describe an existing invoice with no entries of that kind. Provider expenses are never included. Cache-Control no-store.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

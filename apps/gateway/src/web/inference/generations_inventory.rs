@@ -78,7 +78,7 @@ async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryTasks",
@@ -516,7 +516,7 @@ pub(in crate::web) async fn tasks(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryArtifacts",
@@ -748,7 +748,7 @@ pub(in crate::web) async fn artifacts(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryTask",
@@ -1060,7 +1060,7 @@ pub(in crate::web) async fn task(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryArtifact",
@@ -1251,7 +1251,7 @@ pub(in crate::web) async fn artifact(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryContent",

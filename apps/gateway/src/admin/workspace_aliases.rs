@@ -55,7 +55,7 @@ async fn organization_for_workspace(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/workspaces/{workspace}",
+///   "path": "/api/v1/workspaces/{workspace}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "renameWorkspaceById",
@@ -165,7 +165,7 @@ pub async fn rename(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/workspaces/{workspace}",
+///   "path": "/api/v1/workspaces/{workspace}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "deleteWorkspaceById",

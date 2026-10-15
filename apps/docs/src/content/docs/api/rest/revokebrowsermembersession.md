@@ -1,12 +1,12 @@
 ---
 title: "Revoke and clear the current browser member session"
-description: "POST /admin/v1/auth/browser/logout"
+description: "POST /api/v1/auth/browser/logout"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/auth/browser/logout`
+`POST /api/v1/auth/browser/logout`
 
 Requires the configured HTTPS Origin; supplied Sec-Fetch-Site must be a single same-origin value. Revokes the supplied member session and clears the cookie. Already expired or revoked sessions also clear the cookie successfully. Storage failure does not claim successful revocation or clear the cookie. Responses use Cache-Control no-store.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path and required-header placeholders with the values required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/auth/browser/logout" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/auth/browser/logout" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Origin: <ORIGIN>'
 ```
 

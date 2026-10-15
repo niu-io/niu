@@ -41,7 +41,7 @@ async fn authorize(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -374,7 +374,7 @@ pub async fn overview(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs",
 ///   "method": "post",
 ///   "operation": {
 ///     "security": [
@@ -644,7 +644,7 @@ pub async fn tariff(
 /// Platform-owned customer selling configuration, separate from procurement.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/media-rates",
+///   "path": "/api/v1/organizations/{organization}/billing/media-rates",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishCustomerMediaRate",
@@ -1011,7 +1011,7 @@ pub struct MediaRatePage {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/media-rate-models",
+///   "path": "/api/v1/organizations/{organization}/billing/media-rate-models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerMediaRateModels",
@@ -1172,7 +1172,7 @@ pub async fn media_rate_models(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/media-rates",
+///   "path": "/api/v1/organizations/{organization}/billing/media-rates",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerMediaRates",
@@ -1505,7 +1505,7 @@ pub struct MediaRateReplacementInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/media-rates/replace",
+///   "path": "/api/v1/organizations/{organization}/billing/media-rates/replace",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "replaceCustomerMediaRate",
@@ -1635,7 +1635,7 @@ pub struct MediaRateRetirementInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire",
+///   "path": "/api/v1/organizations/{organization}/billing/media-rates/{revision}/retire",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retireCustomerMediaRate",
@@ -1774,7 +1774,7 @@ pub struct InvoiceInput {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices",
 ///   "method": "post",
 ///   "operation": {
 ///     "security": [
@@ -1920,7 +1920,7 @@ pub struct InvoiceLinesQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -2367,7 +2367,7 @@ pub async fn payment(
 /// Shared-account read, deliberately separate from workspace billing readers.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/balance",
+///   "path": "/api/v1/organizations/{organization}/billing/balance",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerBalance",
@@ -2497,7 +2497,7 @@ pub async fn account_balance(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/charge-reconciliation",
+///   "path": "/api/v1/organizations/{organization}/billing/charge-reconciliation",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerChargeReconciliation",
@@ -2690,7 +2690,7 @@ pub struct BalancePolicyInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy",
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/policy",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "configureCustomerBalancePolicy",
@@ -2844,7 +2844,7 @@ pub struct BalanceWarningInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold",
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setCustomerBalanceWarning",
@@ -2991,7 +2991,7 @@ pub struct BalanceReversalInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/entries/{entry}/reversal",
+///   "path": "/api/v1/organizations/{organization}/billing/entries/{entry}/reversal",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "reverseCustomerBalanceEntry",
@@ -3124,7 +3124,7 @@ pub struct BalanceTransactionsQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/billing/transactions",
+///   "path": "/api/v1/organizations/{organization}/billing/transactions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerBalanceTransactions",
@@ -3295,7 +3295,7 @@ pub struct CustomerTariffHistoryQuery {
 /// Read immutable customer prices with the same workspace permission as billing.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerTariffHistory",

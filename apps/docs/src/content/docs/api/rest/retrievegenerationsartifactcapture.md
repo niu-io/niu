@@ -1,12 +1,12 @@
 ---
 title: "Read saved artifact capture status"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture`
+`GET /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture`
 
 Current dashboard workspace Read permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Saved claim metadata only; no download, refresh, retry, generation or ledger mutation. Source lookup returns the stored/active outcome or newest failed request; missing/private task or missing capture404.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

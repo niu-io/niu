@@ -1,12 +1,12 @@
 ---
 title: "Publish an immutable customer selling rate revision"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/tariffs"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs`
+`POST /api/v1/organizations/{organization}/projects/{project}/billing/tariffs`
 
 Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. Personal owner-funded models do not accept customer tariffs, even when callable by their owner. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Provider procurement rates remain independent. Optional discount_baseline_revision publishes explicit discounted rates against an immutable original revision for the same model and currency. Missing or already discounted baselines, increased rates, changed category presence or context thresholds return 409. No runtime multiplier or historical repricing.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/tariffs" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

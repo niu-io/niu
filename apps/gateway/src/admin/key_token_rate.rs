@@ -23,7 +23,7 @@ pub struct History {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -181,7 +181,7 @@ pub async fn read(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
 ///   "method": "put",
 ///   "operation": {
 ///     "security": [
@@ -353,7 +353,7 @@ pub async fn write(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [

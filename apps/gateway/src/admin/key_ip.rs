@@ -21,7 +21,7 @@ pub struct History {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -145,7 +145,7 @@ pub async fn read(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
 ///   "method": "put",
 ///   "operation": {
 ///     "security": [
@@ -326,7 +326,7 @@ pub async fn write(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [

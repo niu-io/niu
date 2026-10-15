@@ -1,12 +1,12 @@
 ---
 title: "Inspect open customer balance reservations"
-description: "GET /admin/v1/organizations/{organization}/billing/reservations"
+description: "GET /api/v1/organizations/{organization}/billing/reservations"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/reservations`
+`GET /api/v1/organizations/{organization}/billing/reservations`
 
 Organization-wide owner/admin or installation read access required, matching company balance permissions. Newest-first keyset pages observe one statement snapshot; pages do not share a snapshot. Released reservations are omitted, but a released cursor remains usable. Unknown or foreign cursors and currency-mismatched cursors return 409. Exact nanounit strings distinguish the original reservation from outstanding liability, including known media overrun and excluding posted charge debits. This is a read-only diagnostic; states do not prove nonexecution or authorize releasing funds or retrying inference. No Provider prices, upstream endpoints, credentials or payment references are exposed. Names are current display metadata; IDs are internal links only. Cache-Control no-store. missing_usage_categories lists the absent token categories required by the request-bound customer tariff and selected context tier. Null means classification is unavailable (including unknown aggregate usage, incomplete execution or non-text pricing); an empty list means no required category is missing, not that settlement succeeded. Later price publication does not change this diagnostic.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/reservations" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/reservations" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

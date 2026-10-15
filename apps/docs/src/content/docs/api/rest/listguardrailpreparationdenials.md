@@ -1,12 +1,12 @@
 ---
 title: "Read latest 100 workspace preparation refusals"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/guardrails/denials"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials`
+`GET /api/v1/organizations/{organization}/projects/{project}/guardrails/denials`
 
 Workspace read access required. Safe immutable metadata for pre-dispatch model/Provider access, local input inspection, output configuration and external input detector refusals. No request content, matched patterns, detector responses, credentials or internal event/key identifiers. Does not cover dispatch-time races or post-dispatch output inspection. Latest 100 only, newest first; not a complete audit export. Policy names and revisions identify the saved decision. Cache-Control no-store. Inference credentials cannot read these diagnostics.
 
@@ -32,8 +32,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/guardrails/denials" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/guardrails/denials" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

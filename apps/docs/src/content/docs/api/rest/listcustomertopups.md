@@ -1,12 +1,12 @@
 ---
 title: "Recover company checkout history"
-description: "GET /admin/v1/organizations/{organization}/billing/topups"
+description: "GET /api/v1/organizations/{organization}/billing/topups"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/topups`
+`GET /api/v1/organizations/{organization}/billing/topups`
 
 Organization-wide owner/admin with read access or installation administrator only. Backend-owned history survives browser changes. At most 100 saved intents per page, ordered by descending creation time and internal routing reference. No upstream calls, merchant credentials or procurement data. Paid/closed entries withhold checkout URLs. Traversal is a live view, not a fixed snapshot; refresh to see newly created orders. Internal IDs are routing/cursor references, never product labels. Storage reads use transaction-local 250 ms lock and 2 s statement limits; pool admission and the complete HTTP deadline are separate. Timeout returns sanitized 503, never empty or partial success. Cursor and history rows share one read-only snapshot.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/topups" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/topups" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

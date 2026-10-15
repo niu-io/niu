@@ -1,12 +1,12 @@
 ---
 title: "Read the persistent personal Chat draft"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/chat-draft"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/chat-draft"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/chat-draft`
+`GET /api/v1/organizations/{organization}/projects/{project}/chat-draft`
 
 The draft is isolated by authenticated personal owner and workspace. Operators have distinct drafts; installation credentials share the installation owner. Read authorization and workspace scope are required. An absent draft returns null payload and revision zero.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/chat-draft" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chat-draft" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

@@ -1,12 +1,12 @@
 ---
 title: "Update workspace API key name and model grants"
-description: "PATCH /admin/v1/organizations/{organization}/projects/{project}/keys/{key}"
+description: "PATCH /api/v1/organizations/{organization}/projects/{project}/keys/{key}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PATCH /admin/v1/organizations/{organization}/projects/{project}/keys/{key}`
+`PATCH /api/v1/organizations/{organization}/projects/{project}/keys/{key}`
 
 Requires workspace write access. Changes the saved name and model grants without returning or rotating the secret or extending expiry. Subsequent requests use the current grants; this does not cancel already dispatched requests. expected_revision is an integer, unlike decimal-string policy revisions. A no-op edit retains its revision; a changed edit increments it. Model aliases must exist in the authorized scope. The wildcard must be the sole grant.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/keys/{key}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -1,12 +1,12 @@
 ---
 title: "Set company low-balance warning threshold"
-description: "PUT /admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold"
+description: "PUT /api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold`
+`PUT /api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold`
 
 Organization-wide owner/admin with write access or installation administrator only. Updates an existing account warning preference with revision checking; never changes funds or approved credit. Null or omitted threshold disables the warning. This does not configure external notifications.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -1,16 +1,16 @@
 ---
 title: "Read immutable key policy assignment history"
-description: "GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history`
+`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history`
 
 Returns at most 100 newest events with assignment/policy revisions, nullable policy name, readable actor name and creation time. Removal events have a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
 
-Operation: `get--admin-v1-organizations--organization--projects--project--keys--key--guardrail-history`.
+Operation: `get--api-v1-organizations--organization--projects--project--keys--key--guardrail-history`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

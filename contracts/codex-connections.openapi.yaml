@@ -6,7 +6,7 @@ info:
 security:
   - adminBearer: []
 paths:
-  /admin/v1/organizations/{organization}/projects/{project}/codex-connections:
+  /api/v1/organizations/{organization}/projects/{project}/codex-connections:
     parameters:
       - $ref: '#/components/parameters/organization'
       - $ref: '#/components/parameters/project'
@@ -30,7 +30,7 @@ paths:
           description: Administrator authentication required.
         '404':
           description: Workspace is outside the administrator's scope.
-  /admin/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in:
+  /api/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in:
     parameters:
       - $ref: '#/components/parameters/organization'
       - $ref: '#/components/parameters/project'
@@ -84,7 +84,7 @@ paths:
           description: Workspace is outside the administrator's scope.
         '503':
           description: Encryption or sign-in attempt capacity is unavailable.
-  /admin/v1/organizations/{organization}/projects/{project}/codex-connections/{id}:
+  /api/v1/organizations/{organization}/projects/{project}/codex-connections/{id}:
     parameters:
       - $ref: '#/components/parameters/organization'
       - $ref: '#/components/parameters/project'

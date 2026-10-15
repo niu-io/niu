@@ -1,12 +1,12 @@
 ---
 title: "Delete retained content without deleting accounting records"
-description: "DELETE /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads"
+description: "DELETE /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`
+`DELETE /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`
 
 Requires workspace write permission. A durable content-free deletion marker prevents concurrent or late capture from recreating deleted payloads, including deletion before capture. Accounting records remain unchanged. Cross-workspace or absent attempts do not create markers.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

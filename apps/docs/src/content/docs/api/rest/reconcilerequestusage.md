@@ -1,12 +1,12 @@
 ---
 title: "Supplement missing native request usage from captured OpenRouter evidence"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
+`POST /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
 
 Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while its vendor revision remains current and enabled. New captured references pin the dispatched upstream model independently of later mapping edits; legacy references without that binding still require the unchanged enabled model revision. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Eligible requests have unknown aggregate usage, or confirmed provider-reported totals with missing cache-read/reasoning quantities and no posted customer charge. For known totals, metadata must match both totals and every reported known category, and add at least one previously missing category. Cache-write quantities are not supplied by this lookup; existing quantities are preserved. Canonical metadata must confirm not-cancelled execution with stop/length/tool_calls and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage/category state and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

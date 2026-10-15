@@ -30,7 +30,7 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path place
 
 ```sh
 curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys/{key}" \
-  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -3418,7 +3418,7 @@ pub(super) async fn cancel_operation(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "cancelPreparedWorkspaceProviderAssetOperation",
@@ -3584,7 +3584,7 @@ async fn authorize_historical_operations(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listHistoricalWorkspaceProviderAssetOperations",
@@ -3783,7 +3783,7 @@ async fn historical_operation(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getHistoricalWorkspaceProviderAssetOperation",
@@ -3928,7 +3928,7 @@ pub(super) async fn get_historical_operation(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getHistoricalWorkspaceProviderAssetOperationByIdempotency",

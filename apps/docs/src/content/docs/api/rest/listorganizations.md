@@ -1,12 +1,12 @@
 ---
 title: "List authorized company metadata"
-description: "GET /admin/v1/organizations"
+description: "GET /api/v1/organizations"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations`
+`GET /api/v1/organizations`
 
 Requires management read authorization. Member company scope is applied before paging, including workspace-scoped members. Stable creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live data, not a frozen snapshot; deletion of a cursor requires restarting traversal. Returns only identity/name metadata, never financial data or credentials.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

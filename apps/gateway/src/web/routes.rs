@@ -33,11 +33,17 @@ pub(crate) fn router(state: AppState) -> Router {
     let enterprise_enabled = state.enterprise.is_some();
     let app = Router::new()
         .route("/admin/v1/organizations/{organization}/projects/{project}/assets", get(super::workspace_assets::list).post(super::workspace_assets::upload).layer(DefaultBodyLimit::max(8 * 1024 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/assets", get(super::workspace_assets::list).post(super::workspace_assets::upload).layer(DefaultBodyLimit::max(8 * 1024 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}", get(super::workspace_assets::get).patch(super::workspace_assets::rename).delete(super::workspace_assets::delete).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/assets/{asset}", get(super::workspace_assets::get).patch(super::workspace_assets::rename).delete(super::workspace_assets::delete).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content", get(super::workspace_assets::content))
+        .route("/api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content", get(super::workspace_assets::content))
         .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents", get(super::inference::video_intents::list))
+        .route("/api/v1/organizations/{organization}/projects/{project}/video-intents", get(super::inference::video_intents::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}", get(super::inference::video_intents::get).put(super::inference::video_intents::save).delete(super::inference::video_intents::delete).layer(DefaultBodyLimit::max(64 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}", get(super::inference::video_intents::get).put(super::inference::video_intents::save).delete(super::inference::video_intents::delete).layer(DefaultBodyLimit::max(64 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit", post(super::inference::video_intents::submit))
+        .route("/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit", post(super::inference::video_intents::submit))
         .route("/v1/media/image-ingestions", get(super::image_ingestions::list))
         .route("/v1/media/image-ingestions/{id}/readiness/{read_id}", get(super::image_readiness::status).post(super::image_readiness::refresh))
         .route("/v1/media/image-sources", axum::routing::post(super::image_source_uploads::prepare).layer(DefaultBodyLimit::max(12*1024*1024+1024)))
@@ -46,67 +52,125 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/media/image-ingestions/{id}", get(super::image_ingestions::read).put(super::image_ingestions::prepare).delete(super::image_ingestions::revoke))
         .route("/v1/media/sources/{token}", get(super::image_sources::read).head(super::image_sources::reject_head))
         .route("/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents", get(crate::admin::asset_requests::list))
+        .route("/api/v1/organizations/{organization}/projects/{project}/asset-group-intents", get(crate::admin::asset_requests::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request", get(crate::admin::asset_requests::get).delete(crate::admin::asset_requests::delete))
+        .route("/api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request", get(crate::admin::asset_requests::get).delete(crate::admin::asset_requests::delete))
         .route("/auth/callback", get(crate::codex::callback))
         .route("/payments/zhifux/notify", axum::routing::post(crate::payments::notify).layer(DefaultBodyLimit::max(8192)))
         .route("/payments/epay/notify", get(crate::payments::epay_notify_get).post(crate::payments::epay_notify_post).layer(DefaultBodyLimit::max(8192)))
         .route("/payments/stripe/notify", axum::routing::post(crate::payments::stripe_notify).layer(DefaultBodyLimit::max(262144)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/codex-connections", get(crate::codex::list))
+        .route("/api/v1/organizations/{organization}/projects/{project}/codex-connections", get(crate::codex::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in", axum::routing::post(crate::codex::start))
+        .route("/api/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in", axum::routing::post(crate::codex::start))
         .route("/admin/v1/organizations/{organization}/projects/{project}/codex-connections/{id}", axum::routing::patch(crate::codex::set_enabled))
+        .route("/api/v1/organizations/{organization}/projects/{project}/codex-connections/{id}", axum::routing::patch(crate::codex::set_enabled))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors", get(crate::admin::guardrails::workspace_detectors))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/detectors", get(crate::admin::guardrails::workspace_detectors))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors", get(crate::admin::media_detectors::list))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors", get(crate::admin::media_detectors::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors", get(crate::admin::guardrails::workspace_image_detectors))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors", get(crate::admin::guardrails::workspace_image_detectors))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview", axum::routing::post(crate::admin::guardrails::image_detector_preview).layer(DefaultBodyLimit::max(2 * 1024 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview", axum::routing::post(crate::admin::guardrails::image_detector_preview).layer(DefaultBodyLimit::max(2 * 1024 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions", get(crate::admin::guardrails::detector_decisions))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions", get(crate::admin::guardrails::detector_decisions))
         .route("/admin/v1/guardrails/detectors/{detector}", get(crate::admin::guardrails::detector_description))
+        .route("/api/v1/guardrails/detectors/{detector}", get(crate::admin::guardrails::detector_description))
         .route("/admin/v1/guardrails/detectors/{detector}/preview", axum::routing::post(crate::admin::guardrails::detector_preview))
+        .route("/api/v1/guardrails/detectors/{detector}/preview", axum::routing::post(crate::admin::guardrails::detector_preview))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview", axum::routing::post(crate::admin::guardrails::output_preview))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview", axum::routing::post(crate::admin::guardrails::output_preview))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}", get(crate::admin::guardrails::read_revision))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}", get(crate::admin::guardrails::read_revision))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/history", get(crate::admin::guardrails::history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/history", get(crate::admin::guardrails::history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history", get(crate::admin::guardrails::key_history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history", get(crate::admin::guardrails::key_history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail", get(crate::admin::guardrails::read_key_assignment).put(crate::admin::guardrails::assign_key))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail", get(crate::admin::guardrails::read_key_assignment).put(crate::admin::guardrails::assign_key))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails", get(crate::admin::guardrails::read).put(crate::admin::guardrails::activate))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails", get(crate::admin::guardrails::read).put(crate::admin::guardrails::activate))
         .route("/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails", get(crate::admin::guardrails::dispatch_decision))
+        .route("/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails", get(crate::admin::guardrails::dispatch_decision))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/denials", get(crate::admin::guardrails::preparation_denials))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/denials", get(crate::admin::guardrails::preparation_denials))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials", get(crate::admin::guardrails::dispatch_denials))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials", get(crate::admin::guardrails::dispatch_denials))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/input-preview", axum::routing::post(crate::admin::guardrails::input_preview))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/input-preview", axum::routing::post(crate::admin::guardrails::input_preview))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/preview", axum::routing::post(crate::admin::guardrails::preview))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/preview", axum::routing::post(crate::admin::guardrails::preview))
         .route("/admin/v1/organizations/{organization}/projects/{project}/guardrails/rollback", axum::routing::post(crate::admin::guardrails::rollback))
+        .route("/api/v1/organizations/{organization}/projects/{project}/guardrails/rollback", axum::routing::post(crate::admin::guardrails::rollback))
         .route("/admin/v1/organizations/{organization}/projects/{project}/video-draft", get(crate::admin::video_composer_drafts::draft).put(crate::admin::video_composer_drafts::save_draft).layer(DefaultBodyLimit::max(64 * 1024)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/video-draft", get(crate::admin::video_composer_drafts::draft).put(crate::admin::video_composer_drafts::save_draft).layer(DefaultBodyLimit::max(64 * 1024)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-draft", get(crate::admin::chat_sessions::draft).put(crate::admin::chat_sessions::save_draft).layer(DefaultBodyLimit::max(24 * 1024 * 1024)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/chat-draft", get(crate::admin::chat_sessions::draft).put(crate::admin::chat_sessions::save_draft).layer(DefaultBodyLimit::max(24 * 1024 * 1024)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions", get(crate::admin::chat_sessions::list))
+        .route("/api/v1/organizations/{organization}/projects/{project}/chat-sessions", get(crate::admin::chat_sessions::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive", axum::routing::put(crate::admin::chat_sessions::archive).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive", axum::routing::put(crate::admin::chat_sessions::archive).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export", get(crate::admin::chat_sessions::export))
+        .route("/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export", get(crate::admin::chat_sessions::export))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}", get(crate::admin::chat_sessions::get).put(crate::admin::chat_sessions::save).delete(crate::admin::chat_sessions::delete).layer(DefaultBodyLimit::max(24 * 1024 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}", get(crate::admin::chat_sessions::get).put(crate::admin::chat_sessions::save).delete(crate::admin::chat_sessions::delete).layer(DefaultBodyLimit::max(24 * 1024 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh", axum::routing::post(super::inference::generations_task_actions::refresh).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh", axum::routing::post(super::inference::generations_task_actions::refresh).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh", axum::routing::post(super::inference::generations_task_actions::fresh_result).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh", axum::routing::post(super::inference::generations_task_actions::fresh_result).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture", get(super::inference::generations_artifact_captures::retrieve).post(super::inference::generations_artifact_captures::capture).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture", get(super::inference::generations_artifact_captures::retrieve).post(super::inference::generations_artifact_captures::capture).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks", get(super::inference::generations_inventory::tasks))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/tasks", get(super::inference::generations_inventory::tasks))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}", get(super::inference::generations_inventory::task))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}", get(super::inference::generations_inventory::task))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics", get(super::inference::generations_task_diagnostics::retrieve))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics", get(super::inference::generations_task_diagnostics::retrieve))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts", get(super::inference::generations_inventory::artifacts))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/artifacts", get(super::inference::generations_inventory::artifacts))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}", get(super::inference::generations_inventory::artifact))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}", get(super::inference::generations_inventory::artifact))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content", get(super::inference::generations_inventory::content))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content", get(super::inference::generations_inventory::content))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions", get(super::inference::generations_sessions::list).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations-sessions", get(super::inference::generations_sessions::list).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}", get(super::inference::generations_sessions::get).put(super::inference::generations_sessions::create).patch(super::inference::generations_sessions::update).layer(DefaultBodyLimit::max(65536)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}", get(super::inference::generations_sessions::get).put(super::inference::generations_sessions::create).patch(super::inference::generations_sessions::update).layer(DefaultBodyLimit::max(65536)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}", axum::routing::put(super::inference::generations_sessions::append).delete(super::inference::generations_sessions::delete_instruction).layer(DefaultBodyLimit::max(65536)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}", axum::routing::put(super::inference::generations_sessions::append).delete(super::inference::generations_sessions::delete_instruction).layer(DefaultBodyLimit::max(65536)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task", axum::routing::put(super::inference::generations_sessions::attach).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task", axum::routing::put(super::inference::generations_sessions::attach).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent", axum::routing::put(super::inference::generations_sessions::bind_intent).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent", axum::routing::put(super::inference::generations_sessions::bind_intent).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/billing/transactions", get(crate::billing::balance_transactions))
+        .route("/api/v1/organizations/{organization}/billing/transactions", get(crate::billing::balance_transactions))
         .route("/admin/v1/organizations/{organization}/billing/topups/{order}/reconcile", axum::routing::post(crate::payments::reconcile))
+        .route("/api/v1/organizations/{organization}/billing/topups/{order}/reconcile", axum::routing::post(crate::payments::reconcile))
         .route("/admin/v1/organizations/{organization}/billing/topups", get(crate::payments::topup_history).post(crate::payments::create_topup))
+        .route("/api/v1/organizations/{organization}/billing/topups", get(crate::payments::topup_history).post(crate::payments::create_topup))
         .route("/admin/v1/organizations/{organization}/billing/payment-methods", get(crate::payments::payment_methods))
+        .route("/api/v1/organizations/{organization}/billing/payment-methods", get(crate::payments::payment_methods))
         .route("/admin/v1/organizations/{organization}/billing/topups/{order}", get(crate::payments::topup_status))
+        .route("/api/v1/organizations/{organization}/billing/topups/{order}", get(crate::payments::topup_status))
         .route("/admin/v1/organizations/{organization}/billing/entries/{entry}/reversal", axum::routing::post(crate::billing::balance_reversal))
+        .route("/api/v1/organizations/{organization}/billing/entries/{entry}/reversal", axum::routing::post(crate::billing::balance_reversal))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold", axum::routing::put(crate::billing::balance_warning))
+        .route("/api/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold", axum::routing::put(crate::billing::balance_warning))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history", get(crate::billing::balance_policy_history::history))
+        .route("/api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history", get(crate::billing::balance_policy_history::history))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy", axum::routing::put(crate::billing::balance_policy))
+        .route("/api/v1/organizations/{organization}/billing/accounts/{currency}/policy", axum::routing::put(crate::billing::balance_policy))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants", axum::routing::post(crate::billing::noncash_grants::issue).layer(axum::extract::DefaultBodyLimit::max(4096)))
+        .route("/api/v1/organizations/{organization}/billing/accounts/{currency}/grants", axum::routing::post(crate::billing::noncash_grants::issue).layer(axum::extract::DefaultBodyLimit::max(4096)))
         .route("/admin/v1/organizations/{organization}/billing/balance", get(crate::billing::account_balance))
+        .route("/api/v1/organizations/{organization}/billing/balance", get(crate::billing::account_balance))
         .route("/admin/v1/organizations/{organization}/billing/charge-reconciliation", get(crate::billing::charge_reconciliation))
+        .route("/api/v1/organizations/{organization}/billing/charge-reconciliation", get(crate::billing::charge_reconciliation))
         .route("/admin/v1/organizations/{organization}/billing/reservations", get(crate::billing::reservations::list))
+        .route("/api/v1/organizations/{organization}/billing/reservations", get(crate::billing::reservations::list))
         .route("/admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire", axum::routing::post(crate::billing::retire_media_rate).layer(axum::extract::DefaultBodyLimit::max(1024)))
+        .route("/api/v1/organizations/{organization}/billing/media-rates/{revision}/retire", axum::routing::post(crate::billing::retire_media_rate).layer(axum::extract::DefaultBodyLimit::max(1024)))
         .route("/admin/v1/providers/{provider}/media-rates/{revision}/retire", axum::routing::post(crate::providers::retire_media_rate).layer(axum::extract::DefaultBodyLimit::max(1024)))
         .route("/admin/v1/providers/{provider}/media-offer-models", get(crate::providers::media_offer_models))
         .route("/admin/v1/providers/{provider}/media-offers", axum::routing::post(crate::providers::publish_media_offer).layer(axum::extract::DefaultBodyLimit::max(4096)))
@@ -114,20 +178,29 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/providers/{provider}/media-rates/replace", axum::routing::post(crate::providers::replace_media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
         .route("/admin/v1/providers/{provider}/media-rates", get(crate::providers::media_rates).post(crate::providers::media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
         .route("/admin/v1/organizations/{organization}/billing/media-rate-models", get(crate::billing::media_rate_models))
+        .route("/api/v1/organizations/{organization}/billing/media-rate-models", get(crate::billing::media_rate_models))
         .route("/admin/v1/organizations/{organization}/billing/media-rates/replace", axum::routing::post(crate::billing::replace_media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
+        .route("/api/v1/organizations/{organization}/billing/media-rates/replace", axum::routing::post(crate::billing::replace_media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
         .route("/admin/v1/organizations/{organization}/billing/media-rates", get(crate::billing::media_rates).post(crate::billing::media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
+        .route("/api/v1/organizations/{organization}/billing/media-rates", get(crate::billing::media_rates).post(crate::billing::media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
         .route("/admin/v1/organizations/{organization}/billing/funding/settled", axum::routing::post(crate::billing::settled_funding))
+        .route("/api/v1/organizations/{organization}/billing/funding/settled", axum::routing::post(crate::billing::settled_funding))
         .route("/admin/v1/pricing/models", get(crate::billing::platform_pricing::models))
         .route("/admin/v1/commercial-position", get(crate::billing::commercial_position::read))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare", axum::routing::post(crate::billing::noncash_grants::prepare).layer(axum::extract::DefaultBodyLimit::max(4096)))
+        .route("/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare", axum::routing::post(crate::billing::noncash_grants::prepare).layer(axum::extract::DefaultBodyLimit::max(4096)))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared", get(crate::billing::noncash_grants::prepared))
+        .route("/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared", get(crate::billing::noncash_grants::prepared))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}", get(crate::billing::noncash_grants::prepared_by_key))
+        .route("/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}", get(crate::billing::noncash_grants::prepared_by_key))
         .route("/admin/v1/platform/customer-accounts", get(crate::billing::platform_accounts::list))
         .route("/admin/v1/financial-summary", get(crate::billing::financial_summary::read))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment", get(crate::billing::media_retail_enrollment::read).post(crate::billing::media_retail_enrollment::publish).layer(axum::extract::DefaultBodyLimit::max(4096)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment", get(crate::billing::media_retail_enrollment::read).post(crate::billing::media_retail_enrollment::publish).layer(axum::extract::DefaultBodyLimit::max(4096)))
         .route("/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds", get(crate::billing::media_liability::list).post(crate::billing::media_liability::publish).layer(axum::extract::DefaultBodyLimit::max(16384)))
         .route("/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire", axum::routing::post(crate::billing::media_liability::retire).layer(axum::extract::DefaultBodyLimit::max(4096)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment", get(crate::billing::retail_pricing::enrollment).post(crate::billing::retail_pricing::enroll_text).layer(axum::extract::DefaultBodyLimit::max(4096)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment", get(crate::billing::retail_pricing::enrollment).post(crate::billing::retail_pricing::enroll_text).layer(axum::extract::DefaultBodyLimit::max(4096)))
         .route("/admin/v1/pricing/customers", get(crate::billing::retail_pricing::customers))
         .route("/admin/v1/pricing/standard-prices/models", get(crate::billing::retail_pricing::registered_models))
         .route("/admin/v1/pricing/standard-prices", get(crate::billing::retail_pricing::list).post(crate::billing::retail_pricing::publish_standard).layer(axum::extract::DefaultBodyLimit::max(65536)))
@@ -138,12 +211,18 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/pricing/targets", get(crate::billing::platform_pricing::targets))
         .route("/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs", get(crate::billing::platform_pricing::tariffs))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing", get(crate::billing::overview))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing", get(crate::billing::overview))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history", get(crate::billing::tariff_history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history", get(crate::billing::tariff_history))
         .route("/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history", get(crate::billing::platform_tariff_history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs", axum::routing::post(crate::billing::tariff))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing/tariffs", axum::routing::post(crate::billing::tariff))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices", get(crate::billing::invoice_history::list).post(crate::billing::issue))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing/invoices", get(crate::billing::invoice_history::list).post(crate::billing::issue))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}", get(crate::billing::lines))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}", get(crate::billing::lines))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment", axum::routing::post(crate::billing::payment))
+        .route("/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment", axum::routing::post(crate::billing::payment))
         .route("/admin/v1/provider-memberships", get(crate::providers::memberships))
         .route("/v1/branding", get(crate::branding::public))
         .route("/admin/v1/platform/branding", get(crate::branding::read).put(crate::branding::save).layer(DefaultBodyLimit::max(450000)))
@@ -196,12 +275,20 @@ pub(crate) fn router(state: AppState) -> Router {
             "/admin/v1/setup/default-workspace",
             axum::routing::post(crate::admin::default_workspace),
         )
+        .route(
+            "/api/v1/setup/default-workspace",
+            axum::routing::post(crate::admin::default_workspace),
+        )
         .merge(super::static_site::router())
         .route("/healthz", get(health))
         .route("/readyz", get(ready))
         .route("/enterprise/readyz", get(enterprise_ready))
         .route(
             "/admin/v1/organizations",
+            get(crate::admin::organizations).post(crate::admin::organization),
+        )
+        .route(
+            "/api/v1/organizations",
             get(crate::admin::organizations).post(crate::admin::organization),
         )
         .route(
@@ -245,7 +332,15 @@ pub(crate) fn router(state: AppState) -> Router {
             axum::routing::patch(crate::admin::rename_workspace).delete(crate::admin::delete_workspace),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}",
+            axum::routing::patch(crate::admin::rename_workspace).delete(crate::admin::delete_workspace),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects",
+            get(crate::admin::projects).post(crate::admin::project),
+        )
+        .route(
+            "/api/v1/organizations/{organization}/projects",
             get(crate::admin::projects).post(crate::admin::project),
         )
         .route(
@@ -253,11 +348,23 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::keys).post(crate::admin::issue_key),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}/keys",
+            get(crate::admin::keys).post(crate::admin::issue_key),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}",
             axum::routing::delete(crate::admin::revoke_key).patch(crate::admin::update_key_metadata),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}/keys/{key}",
+            axum::routing::delete(crate::admin::revoke_key).patch(crate::admin::update_key_metadata),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate",
+            axum::routing::post(crate::admin::rotate_key),
+        )
+        .route(
+            "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate",
             axum::routing::post(crate::admin::rotate_key),
         )
         .route(
@@ -291,9 +398,13 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/key", get(inspect_key))
         .route("/v1/generations/{id}", get(get_generation))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations", get(super::provider_assets::list_historical_operations).layer(DefaultBodyLimit::max(16 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/media/asset-operations", get(super::provider_assets::list_historical_operations).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}", get(super::provider_assets::get_historical_operation).layer(DefaultBodyLimit::max(16 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}", get(super::provider_assets::get_historical_operation).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}", get(super::provider_assets::get_historical_operation_by_idempotency).layer(DefaultBodyLimit::max(16 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}", get(super::provider_assets::get_historical_operation_by_idempotency).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel", post(super::provider_assets::cancel_historical_operation).layer(DefaultBodyLimit::max(16 * 1024)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel", post(super::provider_assets::cancel_historical_operation).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/v1/media/capabilities", get(super::provider_capabilities::discover))
         .route("/v1/media/verification-sessions", get(super::provider_verification::list).post(super::provider_verification::create).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/v1/media/verification-sessions/{id}", get(super::provider_verification::get).layer(DefaultBodyLimit::max(16 * 1024)))
@@ -328,6 +439,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/responses", axum::routing::post(responses))
         .route("/v1/embeddings", axum::routing::post(embeddings))
         .route("/admin/v1/models", get(admin_models))
+        .route("/api/v1/models", get(admin_models))
         .route("/admin/v1/vendors/{vendor}/cooldown", get(crate::admin::vendor_cooldown::read))
         .route("/admin/v1/vendors/{vendor}/request-rate-limit", get(crate::admin::vendor_request_rate::read).put(crate::admin::vendor_request_rate::write))
         .route("/admin/v1/vendors/{vendor}/request-rate-limit/history", get(crate::admin::vendor_request_rate::history))
@@ -364,7 +476,15 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::accounts).post(crate::admin::create_account),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}/accounts",
+            get(crate::admin::accounts).post(crate::admin::create_account),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/budget",
+            get(crate::admin::budget).post(crate::admin::create_budget),
+        )
+        .route(
+            "/api/v1/organizations/{organization}/projects/{project}/budget",
             get(crate::admin::budget).post(crate::admin::create_budget),
         )
         .route(
@@ -372,7 +492,15 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::workspace_spending::list),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}/spending-limit",
+            get(crate::admin::workspace_spending::list),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+            get(crate::admin::workspace_spending::read).put(crate::admin::workspace_spending::write),
+        )
+        .route(
+            "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
             get(crate::admin::workspace_spending::read).put(crate::admin::workspace_spending::write),
         )
         .route(
@@ -380,7 +508,15 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::workspace_spending::history),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
+            get(crate::admin::workspace_spending::history),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/costs",
+            get(crate::admin::costs),
+        )
+        .route(
+            "/api/v1/organizations/{organization}/projects/{project}/costs",
             get(crate::admin::costs),
         )
         .route(
@@ -388,7 +524,15 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::billing::usage_reconciliation::get).post(crate::billing::usage_reconciliation::reconcile),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+            get(crate::billing::usage_reconciliation::get).post(crate::billing::usage_reconciliation::reconcile),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads",
+            get(crate::admin::request_payloads::get).delete(crate::admin::request_payloads::delete),
+        )
+        .route(
+            "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads",
             get(crate::admin::request_payloads::get).delete(crate::admin::request_payloads::delete),
         )
         .route(
@@ -396,26 +540,51 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::gateway_request),
         )
         .route(
+            "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}",
+            get(crate::admin::gateway_request),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/requests",
+            get(crate::admin::gateway_activity),
+        )
+        .route(
+            "/api/v1/organizations/{organization}/projects/{project}/requests",
             get(crate::admin::gateway_activity),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/requests/export",
             get(crate::admin::request_exports::csv),
         )
+        .route(
+            "/api/v1/organizations/{organization}/projects/{project}/requests/export",
+            get(crate::admin::request_exports::csv),
+        )
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit", get(crate::admin::key_spending::list))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit", get(crate::admin::key_spending::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}", axum::routing::put(crate::admin::key_spending::write).layer(DefaultBodyLimit::max(4096)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}", axum::routing::put(crate::admin::key_spending::write).layer(DefaultBodyLimit::max(4096)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history", get(crate::admin::key_spending::history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history", get(crate::admin::key_spending::history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy", get(crate::admin::key_ip::read).put(crate::admin::key_ip::write).layer(DefaultBodyLimit::max(8192)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy", get(crate::admin::key_ip::read).put(crate::admin::key_ip::write).layer(DefaultBodyLimit::max(8192)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history", get(crate::admin::key_ip::history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history", get(crate::admin::key_ip::history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit", get(crate::admin::key_request_rate::read).put(crate::admin::key_request_rate::write).layer(DefaultBodyLimit::max(8192)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit", get(crate::admin::key_request_rate::read).put(crate::admin::key_request_rate::write).layer(DefaultBodyLimit::max(8192)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history", get(crate::admin::key_request_rate::history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history", get(crate::admin::key_request_rate::history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window", get(crate::admin::key_request_rate::usage))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window", get(crate::admin::key_request_rate::usage))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit", get(crate::admin::key_concurrency::read).put(crate::admin::key_concurrency::write).layer(DefaultBodyLimit::max(8192)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit", get(crate::admin::key_concurrency::read).put(crate::admin::key_concurrency::write).layer(DefaultBodyLimit::max(8192)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history", get(crate::admin::key_concurrency::history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history", get(crate::admin::key_concurrency::history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit", get(crate::admin::key_token_rate::read).put(crate::admin::key_token_rate::write).layer(DefaultBodyLimit::max(8192)))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit", get(crate::admin::key_token_rate::read).put(crate::admin::key_token_rate::write).layer(DefaultBodyLimit::max(8192)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history", get(crate::admin::key_token_rate::history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history", get(crate::admin::key_token_rate::history))
         .route("/admin/v1/metrics", get(admin_metrics))
+        .route("/api/v1/metrics", get(admin_metrics))
         .route("/v1", any(api_not_found))
         .route("/v1/{*path}", any(api_not_found))
         .route("/v1beta", any(api_not_found))

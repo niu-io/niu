@@ -1,12 +1,12 @@
 ---
 title: "Read saved company top-up status"
-description: "GET /admin/v1/organizations/{organization}/billing/topups/{order}"
+description: "GET /api/v1/organizations/{organization}/billing/topups/{order}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/organizations/{organization}/billing/topups/{order}`
+`GET /api/v1/organizations/{organization}/billing/topups/{order}`
 
 Organization-wide owner/admin with read access or installation administrator only. Reads durable records without querying the payment service. Paid and closed orders withhold checkout URLs. Internal routing references must not become product labels. No merchant, platform receipt, ledger identity, Provider cost or margin is returned. Storage reads use transaction-local 250 ms lock and 2 s statement limits; pool admission and the complete HTTP deadline are separate. Timeout returns sanitized 503, never empty or partial success.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/topups/{order}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/topups/{order}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

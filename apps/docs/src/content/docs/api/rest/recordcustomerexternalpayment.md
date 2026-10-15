@@ -1,12 +1,12 @@
 ---
 title: "Record one confirmed full external invoice payment"
-description: "POST /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment"
+description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment`
+`POST /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment`
 
 Installation only. Records a full external payment only for a positive invoice with no balance-bound charges. Mixed invoices, balance-backed invoices and zero-value invoices conflict. Does not top up an account or accept partial payments. Existing exact retries remain idempotent. Does not charge any payment method. References cannot be reused on another invoice. Cache-Control is no-store.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```
