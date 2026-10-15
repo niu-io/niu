@@ -147,23 +147,27 @@ pub(crate) async fn read(
     let source = match state
         .store
         .deliver_asset_image_source(&token, &detectors, |aad, bytes| {
-            cipher
-                .open_bytes_with_aad(aad, bytes)
-                .map_err(|_| niu_storage::StoreError::InvalidObservation)
+            tokio::task::block_in_place(|| {
+                cipher
+                    .open_bytes_with_aad(aad, bytes)
+                    .map_err(|_| niu_storage::StoreError::InvalidObservation)
+            })
         })
         .await
     {
         Ok(Some(source)) => source,
         Ok(None) | Err(_) => return status(StatusCode::NOT_FOUND),
     };
-    let content_type = source.content_type().to_owned();
-    let bytes = Bytes::copy_from_slice(source.bytes());
+    let (content_type, raw_bytes) = source.into_parts();
+    let bytes = Bytes::from(raw_bytes);
     let length = bytes.len();
-    // Retain the slot in the body stream until it is consumed or dropped.
-    let stream =
-        futures_util::stream::unfold((Some(bytes), permit), |(bytes, permit)| async move {
-            bytes.map(|bytes| (Ok::<_, std::convert::Infallible>(bytes), (None, permit)))
-        });
+    // Retain the slot in the body stream until the chunk is yielded or the response is dropped.
+    let stream = futures_util::stream::unfold(
+        (Some(bytes), Some(permit)),
+        |(bytes, _permit)| async move {
+            bytes.map(|bytes| (Ok::<_, std::convert::Infallible>(bytes), (None, None)))
+        },
+    );
     let mut response = Body::from_stream(stream).into_response();
     protect(&mut response);
     response.headers_mut().insert(

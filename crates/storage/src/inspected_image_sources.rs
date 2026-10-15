@@ -89,6 +89,9 @@ impl VerifiedImageSource {
     pub fn content_type(&self) -> &str {
         &self.content_type
     }
+    pub fn into_parts(self) -> (String, Vec<u8>) {
+        (self.content_type, self.bytes)
+    }
 }
 impl InspectedImageSource {
     fn open_verified<F>(self, aad: &[u8], open: F) -> Result<VerifiedImageSource, StoreError>
