@@ -129,17 +129,19 @@ pub(crate) async fn revoke(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     let principal = state.authorize_api_headers(&headers).await?;
-    state
-        .store
-        .asset_image_ingestion_status(&principal, id)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
-    state
+    let changed = state
         .store
         .revoke_asset_image_ingestion_consent(&principal, id)
         .await
         .map_err(ApiError::from_store)?;
+    if !changed {
+        state
+            .store
+            .asset_image_ingestion_status(&principal, id)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -251,9 +253,18 @@ where
     let claimed = state
         .store
         .claim_asset_image_ingestion(&principal, &snapshot, id, &detectors, |aad, bytes| {
-            cipher
-                .open_bytes_with_aad(aad, bytes)
-                .map_err(|_| niu_storage::StoreError::InvalidObservation)
+            let decrypt = || {
+                cipher
+                    .open_bytes_with_aad(aad, bytes)
+                    .map_err(|_| niu_storage::StoreError::InvalidObservation)
+            };
+            if tokio::runtime::Handle::try_current()
+                .is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+            {
+                tokio::task::block_in_place(decrypt)
+            } else {
+                decrypt()
+            }
         })
         .await
         .map_err(ApiError::from_store)?
