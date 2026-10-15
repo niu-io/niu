@@ -116,9 +116,20 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        for alias in aliases {
-            let row=sqlx::query("SELECT m.capabilities,m.pricing,o.organization_id FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id LEFT JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE m.alias=$1 FOR SHARE OF v,m")
-                .bind(&alias).fetch_optional(&mut *tx).await?.ok_or(StoreError::InvalidVendor)?;
+        let alias_list: Vec<String> = aliases.into_iter().collect();
+        let rows = sqlx::query(
+            "SELECT m.capabilities,m.pricing,o.organization_id \
+             FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
+             LEFT JOIN personal_vendor_ownership o ON o.vendor_id=v.id \
+             WHERE m.alias = ANY($1) ORDER BY v.id, m.alias FOR SHARE OF v,m",
+        )
+        .bind(&alias_list)
+        .fetch_all(&mut *tx)
+        .await?;
+        if rows.len() != alias_list.len() {
+            return Err(StoreError::InvalidVendor);
+        }
+        for row in rows {
             let owner: Option<Uuid> = row.get("organization_id");
             let caps: serde_json::Value = row.get("capabilities");
             let pricing: Option<serde_json::Value> = row.get("pricing");
