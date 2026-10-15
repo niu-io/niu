@@ -28,6 +28,8 @@ const commonLicenses = new Set([
   "ISC",
   "MIT",
   "MIT-0",
+  "(MIT OR CC0-1.0)",
+  "(AFL-2.1 OR BSD-3-Clause)",
   // Recharts uses victory-vendor; both parts require permissive attribution.
   "MIT AND ISC",
   "OFL-1.1",
