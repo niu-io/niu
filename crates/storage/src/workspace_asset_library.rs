@@ -196,21 +196,6 @@ impl Store {
         })
     }
 
-    /// Reuse the asset quota, encryption and audit write in an owning transaction.
-    pub(crate) async fn create_workspace_asset_in_tx<F>(
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-        scope: TenantScope,
-        input: AssetLibraryCreate<'_>,
-        limits: AssetLibraryLimits,
-        seal: F,
-    ) -> Result<AssetLibraryAsset, StoreError>
-    where
-        F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
-    {
-        let prepared = Self::prepare_workspace_asset_create(scope, &input, limits, seal)?;
-        Self::insert_prepared_workspace_asset_in_tx(tx, scope, &input, limits, prepared).await
-    }
-
     pub(crate) async fn insert_prepared_workspace_asset_in_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: TenantScope,

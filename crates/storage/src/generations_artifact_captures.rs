@@ -64,6 +64,16 @@ async fn visible_locked(
     if actor.is_empty() || actor.len() > 200 || actor.chars().any(char::is_control) {
         return Err(StoreError::InvalidObservation);
     }
+    let project_exists: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE",
+    )
+    .bind(scope.organization_id)
+    .bind(scope.project_id)
+    .fetch_optional(&mut *conn)
+    .await?;
+    if project_exists.is_none() {
+        return Err(StoreError::Conflict);
+    }
     // Association writers take this same row lock: no ownership check/commit race.
     let exists:Option<Uuid>=sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes WHERE attempt_id=$3) FOR UPDATE")
  .bind(scope.organization_id).bind(scope.project_id).bind(task).fetch_optional(&mut *conn).await?;
@@ -239,12 +249,19 @@ impl Store {
         }
         Self::insert_prepared_workspace_asset_in_tx(&mut tx, scope, &input, limits, prepared)
             .await?;
-        let changed = sqlx::query("UPDATE generations_artifact_captures c SET state='stored',asset_id=id,lease_token=NULL,lease_expires_at=NULL,updated_at=clock_timestamp() WHERE c.id=$1 AND c.lease_token=$2 AND c.state='preparing' AND c.lease_expires_at>clock_timestamp() AND ((c.mode='fresh' AND EXISTS(SELECT 1 FROM attempts a JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=COALESCE(c.key_id,a.api_key_id) WHERE a.organization_id=c.organization_id AND a.project_id=c.project_id AND a.id=c.task_id AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND ('*'=ANY(k.allowed_models) OR a.resource_id=ANY(k.allowed_models)))) OR (c.mode='cached' AND EXISTS(SELECT 1 FROM media_result_references r WHERE r.organization_id=c.organization_id AND r.project_id=c.project_id AND r.attempt_id=c.task_id AND r.kind=c.kind AND r.ciphertext IS NOT NULL AND r.deleted_at IS NULL AND r.expires_at>clock_timestamp())))")
-            .bind(id).bind(token).execute(&mut *tx).await?.rows_affected();
-        if changed != 1 {
-            return Err(StoreError::Conflict);
-        }
-        let capture = capture_on(&mut tx, scope, id).await?;
+        let updated = sqlx::query("UPDATE generations_artifact_captures c SET state='stored',asset_id=id,lease_token=NULL,lease_expires_at=NULL,updated_at=clock_timestamp() WHERE c.id=$1 AND c.lease_token=$2 AND c.state='preparing' AND c.lease_expires_at>clock_timestamp() AND ((c.mode='fresh' AND EXISTS(SELECT 1 FROM attempts a JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=COALESCE(c.key_id,a.api_key_id) WHERE a.organization_id=c.organization_id AND a.project_id=c.project_id AND a.id=c.task_id AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND ('*'=ANY(k.allowed_models) OR a.resource_id=ANY(k.allowed_models)))) OR (c.mode='cached' AND EXISTS(SELECT 1 FROM media_result_references r WHERE r.organization_id=c.organization_id AND r.project_id=c.project_id AND r.attempt_id=c.task_id AND r.kind=c.kind AND r.ciphertext IS NOT NULL AND r.deleted_at IS NULL AND r.expires_at>clock_timestamp()))) RETURNING c.id,c.task_id,c.kind,c.state,c.asset_id,c.failure_category,to_jsonb(c.created_at)#>>'{}' AS created_at,to_jsonb(c.updated_at)#>>'{}' AS updated_at,'retained'::text AS availability")
+            .bind(id).bind(token).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        let capture = GenerationArtifactCapture {
+            id: updated.try_get("id")?,
+            task_id: updated.try_get("task_id")?,
+            kind: updated.try_get("kind")?,
+            status: updated.try_get("state")?,
+            asset_id: updated.try_get("asset_id")?,
+            availability: updated.try_get("availability")?,
+            failure_code: updated.try_get("failure_category")?,
+            created_at: updated.try_get("created_at")?,
+            updated_at: updated.try_get("updated_at")?,
+        };
         tx.commit().await?;
         Ok(capture)
     }
@@ -271,11 +288,18 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         let task:Uuid=sqlx::query_scalar("SELECT task_id FROM generations_artifact_captures WHERE organization_id=$1 AND project_id=$2 AND id=$3").bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         visible_locked(&mut tx, scope, actor, task).await?;
-        let count=sqlx::query("UPDATE generations_artifact_captures SET state='failed',failure_category=$5,lease_token=NULL,lease_expires_at=NULL,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND lease_token=$4 AND state='preparing' AND owner=$6").bind(scope.organization_id).bind(scope.project_id).bind(id).bind(token).bind(category).bind(actor).execute(&mut *tx).await?.rows_affected();
-        if count != 1 {
-            return Err(StoreError::Conflict);
-        }
-        let capture = capture_on(&mut tx, scope, id).await?;
+        let updated=sqlx::query("UPDATE generations_artifact_captures c SET state='failed',failure_category=$5,lease_token=NULL,lease_expires_at=NULL,updated_at=clock_timestamp() WHERE c.organization_id=$1 AND c.project_id=$2 AND c.id=$3 AND c.lease_token=$4 AND c.state='preparing' AND c.owner=$6 RETURNING c.id,c.task_id,c.kind,c.state,c.asset_id,c.failure_category,to_jsonb(c.created_at)#>>'{}' AS created_at,to_jsonb(c.updated_at)#>>'{}' AS updated_at,'not_stored'::text AS availability").bind(scope.organization_id).bind(scope.project_id).bind(id).bind(token).bind(category).bind(actor).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        let capture = GenerationArtifactCapture {
+            id: updated.try_get("id")?,
+            task_id: updated.try_get("task_id")?,
+            kind: updated.try_get("kind")?,
+            status: updated.try_get("state")?,
+            asset_id: updated.try_get("asset_id")?,
+            availability: updated.try_get("availability")?,
+            failure_code: updated.try_get("failure_category")?,
+            created_at: updated.try_get("created_at")?,
+            updated_at: updated.try_get("updated_at")?,
+        };
         tx.commit().await?;
         Ok(capture)
     }
