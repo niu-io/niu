@@ -3,7 +3,9 @@ use std::sync::Arc;
 use litellm_auth_azure::{AzureAuthInputs, AzureAuthService, ConfigValue};
 use litellm_auth_types::{InputSource, Sourced};
 use litellm_core_utils::settings::Lookup;
-use litellm_secrets_types::{AzureOperationContext, BaseSecretManager, Secret, SecretValue};
+use litellm_secrets_types::{
+    AzureOperationContext, BaseSecretManager, Secret, SecretValue, validate_secret_name,
+};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde::Deserialize;
 
@@ -13,7 +15,6 @@ const AZURE_KEY_VAULT_URI: &str = "AZURE_KEY_VAULT_URI";
 const API_VERSION: &str = "7.4";
 const PATH_SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
-    .remove(b'.')
     .remove(b'_')
     .remove(b'~');
 
@@ -34,11 +35,14 @@ struct SecretResponse {
 impl AzureKeyVault {
     pub fn with_client(
         client: reqwest::Client,
-        vault: reqwest::Url,
+        mut vault: reqwest::Url,
         environment: Arc<dyn Lookup + Send + Sync>,
     ) -> Result<Self, Error> {
         if vault.host_str().is_none() {
             return Err(Error::VaultUri);
+        }
+        if !vault.path().ends_with('/') {
+            vault.set_path(&format!("{}/", vault.path()));
         }
         let inputs = AzureAuthInputs {
             azure_scope: ConfigValue::Value(Sourced::new(
@@ -88,6 +92,7 @@ impl AzureKeyVault {
     }
 
     async fn read(&self, name: &str) -> Result<Option<SecretValue>, Error> {
+        validate_secret_name(name)?;
         let token = self
             .auth
             .get_azure_ad_token(&self.inputs, &|key| self.environment.get(key))

@@ -4,6 +4,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use litellm_core_utils::settings::Lookup;
 use litellm_secrets_types::{
     BaseSecretManager, GoogleOperationContext, Secret, SecretCache, SecretValue,
+    validate_secret_name,
 };
 use serde::Deserialize;
 
@@ -47,12 +48,19 @@ struct Payload {
 impl GoogleSecretManager {
     pub fn with_client(
         client: reqwest::Client,
-        endpoint: reqwest::Url,
+        mut endpoint: reqwest::Url,
         project: String,
         environment: Arc<dyn Lookup + Send + Sync>,
         refresh_interval: Option<Duration>,
         always_read: bool,
     ) -> Result<Self, Error> {
+        if endpoint.host_str().is_none() {
+            return Err(Error::Endpoint);
+        }
+        validate_secret_name(&project)?;
+        if !endpoint.path().ends_with('/') {
+            endpoint.set_path(&format!("{}/", endpoint.path()));
+        }
         let credentials = auth::credentials(
             Some(project.clone()),
             environment
@@ -131,6 +139,7 @@ impl GoogleSecretManager {
     }
 
     pub async fn get_secret_for_python(&self, name: &str) -> Result<Option<Secret>, Error> {
+        validate_secret_name(name)?;
         if !self.always_read && self.python_misses.get(name).await.is_some() {
             return Ok(None);
         }
@@ -148,6 +157,7 @@ impl GoogleSecretManager {
     }
 
     async fn read(&self, name: &str) -> Result<Option<SecretValue>, Error> {
+        validate_secret_name(name)?;
         if self.always_read {
             return self.read_uncached(name).await;
         }
@@ -157,10 +167,11 @@ impl GoogleSecretManager {
     }
 
     async fn read_uncached(&self, name: &str) -> Result<Option<SecretValue>, Error> {
+        validate_secret_name(name)?;
         let url = self
             .endpoint
             .join(&format!(
-                "/v1/projects/{}/secrets/{}/versions/latest:access",
+                "v1/projects/{}/secrets/{}/versions/latest:access",
                 percent_encoding::utf8_percent_encode(
                     &self.project,
                     percent_encoding::NON_ALPHANUMERIC

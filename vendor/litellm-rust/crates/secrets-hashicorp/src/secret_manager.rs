@@ -107,31 +107,38 @@ impl HashicorpVault {
         secret_name: &str,
         context: &HashicorpOperationContext,
     ) -> Result<SecretLocation, Error> {
-        validate_secret_name(secret_name).map_err(Error::InvalidSecretName)?;
-        let path: String = [
-            context
-                .path_prefix
-                .as_deref()
-                .or(self.config.path_prefix.as_deref())
-                .and_then(path_component),
-            Some(secret_name.to_owned()),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<String>>()
-        .join("/");
+        validate_vault_path_segment(secret_name)?;
+        let prefix = context
+            .path_prefix
+            .as_deref()
+            .or(self.config.path_prefix.as_deref())
+            .and_then(path_component);
+        if let Some(ref prefix) = prefix {
+            validate_vault_path_segment(prefix)?;
+        }
+        let namespace = context
+            .namespace
+            .as_deref()
+            .or(self.config.secret_namespace())
+            .and_then(path_component);
+        if let Some(ref namespace) = namespace {
+            validate_vault_path_segment(namespace)?;
+        }
+        let mount = context
+            .mount
+            .as_deref()
+            .or(Some(self.config.mount.as_str()))
+            .and_then(path_component)
+            .unwrap_or_else(|| "secret".to_owned());
+        validate_vault_path_segment(&mount)?;
+        let path: String = [prefix, Some(secret_name.trim_matches('/').to_owned())]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<String>>()
+            .join("/");
         Ok(SecretLocation {
-            namespace: context
-                .namespace
-                .as_deref()
-                .or(self.config.secret_namespace())
-                .and_then(path_component),
-            mount: context
-                .mount
-                .as_deref()
-                .or(Some(self.config.mount.as_str()))
-                .and_then(path_component)
-                .unwrap_or_else(|| "secret".to_owned()),
+            namespace,
+            mount,
             path,
         })
     }
@@ -146,6 +153,16 @@ enum ErrorContext {
     Login,
     Read,
     Secret,
+}
+
+fn validate_vault_path_segment(value: &str) -> Result<(), Error> {
+    validate_secret_name(value).map_err(Error::InvalidSecretName)?;
+    if value.chars().any(|c| matches!(c, '?' | '#' | '\\')) {
+        return Err(Error::InvalidSecretName(
+            litellm_secrets_types::Error::UnsafeSecretName,
+        ));
+    }
+    Ok(())
 }
 
 fn path_component(value: &str) -> Option<String> {

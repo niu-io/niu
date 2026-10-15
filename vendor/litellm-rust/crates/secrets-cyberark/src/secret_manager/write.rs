@@ -88,9 +88,14 @@ impl CyberArkSecretManager {
         name: &str,
         context: &CyberarkOperationContext,
     ) {
+        if validate_secret_name(&self.account).is_err() {
+            litellm_tracing::warn!("Could not build CyberArk policy endpoint: invalid account");
+            return;
+        }
+        let encoded_account = utf8_percent_encode(&self.account, SECRET_NAME_SAFE);
         let policy_url = self
             .endpoint
-            .join(&format!("policies/{}/policy/root", self.account));
+            .join(&format!("policies/{encoded_account}/policy/root"));
         let Ok(policy_url) = policy_url else {
             litellm_tracing::warn!("Could not build CyberArk policy endpoint");
             return;

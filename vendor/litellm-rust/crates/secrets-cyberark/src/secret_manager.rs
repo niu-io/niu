@@ -86,9 +86,11 @@ impl WriteFailure {
 
 impl CyberArkSecretManager {
     fn secret_url(&self, name: &str) -> Result<reqwest::Url, Error> {
+        validate_secret_name(&self.account)?;
+        let encoded_account = utf8_percent_encode(&self.account, SECRET_NAME_SAFE);
         let encoded = utf8_percent_encode(name, SECRET_NAME_SAFE);
         self.endpoint
-            .join(&format!("secrets/{}/variable/{}", self.account, encoded))
+            .join(&format!("secrets/{encoded_account}/variable/{encoded}"))
             .map_err(|_| Error::Endpoint)
     }
 }

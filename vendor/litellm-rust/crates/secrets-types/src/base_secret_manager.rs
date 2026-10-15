@@ -1,7 +1,7 @@
 use crate::{Error, SecretValue, SecretWriteContext};
 
 pub fn validate_secret_name(name: &str) -> Result<(), Error> {
-    if name.split('/').any(|segment| segment == "..")
+    if name.split('/').any(|segment| matches!(segment, "." | ".."))
         || name
             .chars()
             .any(|c| c.is_control() || matches!(c, '\u{2028}' | '\u{2029}'))

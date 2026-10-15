@@ -95,10 +95,12 @@ impl CyberArkSecretManager {
     }
 
     pub(super) fn authentication_url(&self) -> Result<reqwest::Url, Error> {
+        validate_secret_name(&self.account)?;
+        validate_secret_name(&self.username)?;
         self.endpoint
             .join(&format!(
                 "authn/{}/{}/authenticate",
-                self.account,
+                utf8_percent_encode(&self.account, SECRET_NAME_SAFE),
                 utf8_percent_encode(&self.username, SECRET_NAME_SAFE)
             ))
             .map_err(|_| Error::Endpoint)
