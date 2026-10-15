@@ -181,7 +181,7 @@ impl Store {
         if !(28..=bytes.len() + 128).contains(&ciphertext.len()) {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         self.authorize_image_source_using(&mut tx, principal, snapshot)
             .await?;
         let required = crate::image_processing::required_image_detectors(snapshot)?;
@@ -267,7 +267,7 @@ impl Store {
         snapshot: &GuardrailSnapshot,
         id: Uuid,
     ) -> Result<Option<InspectedImageSource>, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         self.authorize_image_source_using(&mut tx, principal, snapshot)
             .await?;
         let scope = principal.scope();
@@ -314,7 +314,7 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         let scope = principal.scope();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         self.authorize_image_source_using(&mut tx, principal, snapshot)
             .await?;
         let vendor: Option<Uuid> = sqlx::query_scalar("SELECT vendor_id FROM asset_group_create_intents WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND state='succeeded' AND upstream_group_id IS NOT NULL")

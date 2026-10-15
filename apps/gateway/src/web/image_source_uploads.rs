@@ -174,9 +174,11 @@ pub(crate) async fn prepare(
                 additional_approvals: &proofs[1..],
             },
             |bytes, aad| {
-                cipher
-                    .seal_bytes_with_aad(aad, bytes)
-                    .map_err(|_| niu_storage::StoreError::InvalidObservation)
+                tokio::task::block_in_place(|| {
+                    cipher
+                        .seal_bytes_with_aad(aad, bytes)
+                        .map_err(|_| niu_storage::StoreError::InvalidObservation)
+                })
             },
         )
         .await
