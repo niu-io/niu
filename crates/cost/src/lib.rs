@@ -133,6 +133,22 @@ pub struct Cost {
 }
 
 impl Cost {
+    pub fn uncached_input_cost(self) -> f64 {
+        self.uncached_input * self.multiplier
+    }
+
+    pub fn cache_read_cost(self) -> f64 {
+        self.cache_read * self.multiplier
+    }
+
+    pub fn cache_write_5m_cost(self) -> f64 {
+        self.cache_write_5m * self.multiplier
+    }
+
+    pub fn cache_write_1h_cost(self) -> f64 {
+        self.cache_write_1h * self.multiplier
+    }
+
     pub fn input(self) -> f64 {
         (self.uncached_input + self.cache_read + self.cache_write_5m + self.cache_write_1h)
             * self.multiplier

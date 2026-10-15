@@ -198,11 +198,13 @@ impl AnthropicBatchesConfig for AnthropicBatchesTransformation {
             _ => BatchStatus::InProgress,
         };
         let request_counts = BatchRequestCounts {
-            total: response.request_counts.processing
-                + response.request_counts.succeeded
-                + response.request_counts.errored
-                + response.request_counts.canceled
-                + response.request_counts.expired,
+            total: response
+                .request_counts
+                .processing
+                .saturating_add(response.request_counts.succeeded)
+                .saturating_add(response.request_counts.errored)
+                .saturating_add(response.request_counts.canceled)
+                .saturating_add(response.request_counts.expired),
             completed: response.request_counts.succeeded,
             failed: response.request_counts.errored,
         };
@@ -238,8 +240,13 @@ impl AnthropicBatchesConfig for AnthropicBatchesTransformation {
         body.lines()
             .filter(|line| !line.trim().is_empty())
             .filter_map(|line| serde_json::from_str::<Value>(line.trim()).ok())
-            .map(|record| {
-                serde_json::from_value(record["result"]["message"].clone()).map_err(|error| {
+            .map(|mut record| {
+                let message = record
+                    .get_mut("result")
+                    .and_then(|res| res.get_mut("message"))
+                    .map(Value::take)
+                    .unwrap_or(Value::Null);
+                serde_json::from_value(message).map_err(|error| {
                     Error::InvalidResponse(format!("invalid Anthropic batch result: {error}"))
                 })
             })

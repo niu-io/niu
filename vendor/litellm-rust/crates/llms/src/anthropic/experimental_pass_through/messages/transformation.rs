@@ -183,9 +183,17 @@ pub fn map_openai_context_management_to_anthropic(context_management: &Value) ->
                 .filter_map(Value::as_object)
                 .filter(|entry| entry.get("type").and_then(Value::as_str) == Some("compaction"))
                 .map(|entry| {
-                    let trigger = entry.get("compact_threshold").and_then(Value::as_f64).map(
-                        |threshold| json!({"type": "input_tokens", "value": threshold as i64}),
-                    );
+                    let trigger = entry
+                        .get("compact_threshold")
+                        .and_then(Value::as_f64)
+                        .filter(|threshold| {
+                            threshold.is_finite()
+                                && *threshold >= 0.0
+                                && *threshold <= i64::MAX as f64
+                        })
+                        .map(|threshold| {
+                            json!({"type": "input_tokens", "value": threshold as i64})
+                        });
                     let passthrough = entry
                         .iter()
                         .filter(|(key, _)| !matches!(key.as_str(), "type" | "compact_threshold"))
