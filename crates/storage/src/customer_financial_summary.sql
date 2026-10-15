@@ -8,15 +8,17 @@ WITH raw_bounds AS MATERIALIZED (
            raw_bounds.since AS since
     FROM raw_bounds
 ), currency AS (
-    SELECT EXISTS(SELECT 1 FROM customer_balance_accounts WHERE currency=$1
-        UNION ALL SELECT 1 FROM customer_tariff_revisions WHERE currency=$1
-        UNION ALL SELECT 1 FROM customer_media_charges WHERE currency=$1) AS known
+    SELECT EXISTS(SELECT 1 FROM customer_balance_accounts WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_tariff_revisions WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_media_charges WHERE currency=$1) AS known
 ), retail AS (
-    SELECT attempt_id,organization_id,project_id,currency,amount_nanos,created_at
-        FROM customer_charges
+    SELECT c.attempt_id,c.organization_id,c.project_id,c.currency,c.amount_nanos,c.created_at
+        FROM customer_charges c CROSS JOIN bounds
+        WHERE c.currency=$1 AND c.created_at>=bounds.since AND c.created_at<bounds.until
     UNION ALL
-    SELECT attempt_id,organization_id,project_id,currency,amount_nanos,created_at
-        FROM customer_media_charges
+    SELECT c.attempt_id,c.organization_id,c.project_id,c.currency,c.amount_nanos,c.created_at
+        FROM customer_media_charges c CROSS JOIN bounds
+        WHERE c.currency=$1 AND c.created_at>=bounds.since AND c.created_at<bounds.until
 ), consumption AS (
     SELECT c.amount_nanos::numeric AS nominal, 'charge'::text AS kind,
            c.amount_nanos=0 OR allocation.source_coverage='known' AS covered,

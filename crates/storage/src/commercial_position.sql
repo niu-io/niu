@@ -10,15 +10,19 @@ WITH raw_bounds AS MATERIALIZED (
     SELECT GREATEST(raw_bounds.since, raw_bounds.until) AS until,
            raw_bounds.since AS since
     FROM raw_bounds
-), currencies AS (
-    SELECT currency FROM cost_entries
-    UNION SELECT currency FROM provider_earnings
-    UNION SELECT currency FROM customer_charges
-    UNION SELECT currency FROM provider_offer_revisions
-    UNION SELECT currency FROM customer_tariff_revisions
-    UNION SELECT currency FROM customer_media_charges
-    UNION SELECT currency FROM customer_balance_accounts
-    UNION SELECT document->'tariff'->>'currency' FROM supplier_media_rate_cards
+), currency_known AS (
+    SELECT EXISTS(SELECT 1 FROM cost_entries WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM provider_earnings WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_charges WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM provider_offer_revisions WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_tariff_revisions WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_media_charges WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_balance_accounts WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM supplier_media_rate_cards WHERE document->'tariff'->>'currency'=$1) AS known
+), covered_accounts AS MATERIALIZED (
+    SELECT a.id AS account_id, niu_customer_credit_account_covered(a.id) AS covered
+    FROM customer_balance_accounts a
+    WHERE a.currency=$1
 ), mappings AS (
     SELECT own.provider_id, m.alias AS model_alias, m.alias AS route_alias,
            m.vendor_id, m.enabled AND v.enabled AS route_enabled
@@ -42,11 +46,19 @@ WITH raw_bounds AS MATERIALIZED (
            (c.amount_nanos=0 OR allocation.source_coverage='known')
                AND refunds.covered AS revenue_covered,
            (c.amount_nanos=0 OR (credit.source_coverage='known'
-               AND niu_customer_credit_account_covered(debit.account_id)))
-               AND cash_refunds.covered AS cash_covered,
+               AND COALESCE(account_cov.covered, false)))
+               AND refunds.cash_covered AS cash_covered,
            CASE WHEN c.amount_nanos=0 THEN 0 ELSE credit.cash_nanos::numeric
-               + repayments.amount - cash_refunds.cash END AS cash_applied,
-           CASE WHEN c.amount_nanos=0 THEN 0 ELSE niu_customer_unpaid_credit(debit.id) END AS outstanding_credit,
+               + repayments.amount - refunds.cash END AS cash_applied,
+           CASE
+               WHEN c.amount_nanos=0 THEN 0
+               WHEN credit.source_coverage='known' THEN
+                   credit.credit_nanos::numeric
+                   - COALESCE((SELECT sum(r.credit_nanos::numeric) FROM customer_credit_sources r
+                       WHERE r.kind='refund' AND r.source_charge_entry_id=credit.entry_id), 0)
+                   - repayments.amount
+                   - late_gifts.amount
+           END AS outstanding_credit,
            refunds.nominal AS refunded,
            CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.nongift_nanos END::numeric
                - refunds.nongift - late_gifts.amount AS net_revenue,
@@ -68,6 +80,7 @@ WITH raw_bounds AS MATERIALIZED (
         AND debit.organization_id=a.organization_id AND debit.project_id=a.project_id
         AND debit.currency=$1 AND debit.kind='charge'
         AND debit.amount_nanos::numeric=-c.amount_nanos::numeric
+    LEFT JOIN covered_accounts account_cov ON account_cov.account_id=debit.account_id
     LEFT JOIN customer_balance_consumption_allocations allocation ON allocation.entry_id=debit.id
     LEFT JOIN customer_credit_sources credit ON credit.entry_id=debit.id AND credit.kind='charge'
     LEFT JOIN LATERAL (
@@ -75,18 +88,14 @@ WITH raw_bounds AS MATERIALIZED (
         FROM customer_credit_repayments repayment WHERE repayment.charge_entry_id=debit.id
     ) repayments ON true
     LEFT JOIN LATERAL (
-        SELECT COALESCE(bool_and(COALESCE(source.source_coverage='known',false)),true) AS covered,
-               COALESCE(sum(source.cash_nanos::numeric),0) AS cash
-        FROM customer_balance_entries refund
-        LEFT JOIN customer_credit_sources source ON source.entry_id=refund.id AND source.kind='refund'
-        WHERE refund.reverses_entry_id=debit.id AND refund.kind='refund'
-    ) cash_refunds ON true
-    LEFT JOIN LATERAL (
-        SELECT COALESCE(bool_and(COALESCE(refund_allocation.source_coverage='known',false)),true) AS covered,
+        SELECT COALESCE(bool_and(COALESCE(source.source_coverage='known',false)),true) AS cash_covered,
+               COALESCE(sum(source.cash_nanos::numeric),0) AS cash,
+               COALESCE(bool_and(COALESCE(refund_allocation.source_coverage='known',false)),true) AS covered,
                COALESCE(sum(refund.amount_nanos::numeric),0) AS nominal,
                COALESCE(sum(refund_allocation.nongift_nanos::numeric),0) AS nongift,
                COALESCE(sum(refund_allocation.gift_nanos::numeric),0) AS gift
         FROM customer_balance_entries refund
+        LEFT JOIN customer_credit_sources source ON source.entry_id=refund.id AND source.kind='refund'
         LEFT JOIN customer_balance_consumption_allocations refund_allocation ON refund_allocation.entry_id=refund.id
         WHERE refund.reverses_entry_id=debit.id AND refund.kind='refund'
     ) refunds ON true
@@ -218,7 +227,7 @@ WITH raw_bounds AS MATERIALIZED (
     LEFT JOIN quotes USING(provider_id,model_alias)
     LEFT JOIN totals USING(provider_id,model_alias)
 )
-SELECT EXISTS(SELECT 1 FROM currencies WHERE currency=$1),
+SELECT currency_known.known,
        jsonb_build_object('currency',$1,'days',COALESCE($2, GREATEST(1, ceil(extract(epoch FROM (bounds.until - bounds.since)) / 86400.0)::int)),'from',bounds.since,'until',bounds.until,
            'data',COALESCE((SELECT jsonb_agg(document ORDER BY model_alias,provider_id) FROM rows),'[]'::jsonb))
-FROM bounds;
+FROM bounds, currency_known;

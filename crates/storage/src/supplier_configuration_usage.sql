@@ -1,17 +1,15 @@
 WITH owned AS MATERIALIZED (
     SELECT vendor_id FROM vendor_supplier_ownership WHERE provider_id=$1
-), bound AS (
-    SELECT r.attempt_id FROM managed_attempt_routes r JOIN owned o ON o.vendor_id=r.vendor_id
-    UNION
-    SELECT r.attempt_id FROM media_recovery_routes r JOIN owned o ON o.vendor_id=r.vendor_id
 ), scoped AS (
     SELECT a.resource_id,a.execution,a.usage_confidence,a.prompt_tokens,a.completion_tokens,
         f.attempt_id AS failure,t.total_ms,t.complete
-    FROM bound b JOIN attempts a ON a.id=b.attempt_id
+    FROM attempts a
     LEFT JOIN request_failures f ON f.attempt_id=a.id
     LEFT JOIN request_timings t ON t.attempt_id=a.id
     WHERE a.dispatched_at>=to_timestamp($2::double precision/1000)
       AND a.dispatched_at<to_timestamp($3::double precision/1000)
+      AND (EXISTS (SELECT 1 FROM managed_attempt_routes r JOIN owned o ON o.vendor_id=r.vendor_id WHERE r.attempt_id=a.id)
+        OR EXISTS (SELECT 1 FROM media_recovery_routes r JOIN owned o ON o.vendor_id=r.vendor_id WHERE r.attempt_id=a.id))
 ), grouped AS (
     SELECT resource_id AS model,GROUPING(resource_id) AS summary,
         COUNT(*)::text AS requests,
