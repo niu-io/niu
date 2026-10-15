@@ -92,6 +92,24 @@ const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, CO
  AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>a.organization_id)";
 
 impl Store {
+    async fn openrouter_usage_receipt_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<Option<Value>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT jsonb_build_object('status','recorded','prompt_tokens',r.prompt_tokens::text, \
+             'completion_tokens',r.completion_tokens::text,'cached_input_tokens',r.cached_input_tokens::text, \
+             'reasoning_output_tokens',r.reasoning_output_tokens::text,'cache_write_input_tokens',NULL, \
+             'recorded_at',r.recorded_at,'source_version',r.source_version, \
+             'original_execution',r.original_state->>'execution','upstream_finish_reason',r.upstream_finish_reason, \
+             'upstream_cancelled',r.upstream_cancelled) \
+             FROM openrouter_usage_reconciliations r JOIN attempts a ON a.id=r.attempt_id \
+             WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3")
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
+            .fetch_optional(&mut **tx).await?)
+    }
+
     /// No upstream reference, credential, Provider price or raw response leaves this projection.
     pub async fn openrouter_usage_receipt(
         &self,
@@ -140,7 +158,7 @@ impl Store {
         attempt: Uuid,
         context: &OpenRouterReconciliationContext,
         usage: &OpenRouterUsageObservation,
-    ) -> Result<(), StoreError> {
+    ) -> Result<Value, StoreError> {
         // A metadata lookup must not wait indefinitely behind configuration or
         // accounting writers. These settings are local to this transaction.
         let mut tx = self.begin_bounded_recording().await?;
@@ -166,8 +184,11 @@ impl Store {
                 || row.try_get::<Option<String>,_>("upstream_finish_reason")?.is_some_and(|reason| reason != usage.finish_reason) {
                 return Err(StoreError::Conflict);
             }
+            let receipt = Self::openrouter_usage_receipt_in_tx(&mut tx, scope, attempt)
+                .await?
+                .ok_or(StoreError::Conflict)?;
             tx.commit().await?;
-            return Ok(());
+            return Ok(receipt);
         }
         let row = sqlx::query(CONTEXT)
             .bind(attempt)
@@ -223,7 +244,10 @@ impl Store {
             )
             .await?;
         }
+        let receipt = Self::openrouter_usage_receipt_in_tx(&mut tx, scope, attempt)
+            .await?
+            .ok_or(StoreError::Conflict)?;
         tx.commit().await?;
-        Ok(())
+        Ok(receipt)
     }
 }

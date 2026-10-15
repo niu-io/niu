@@ -45,15 +45,12 @@ impl CustomerBalanceGrantPublication<'_> {
 }
 
 impl Store {
-    /// Return immutable issuance intent and its original allocation, not current
-    /// spendable capacity. Scoped read; callers retain platform authorization.
-    pub async fn customer_balance_grant_result(
-        &self,
+    async fn customer_balance_grant_result_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         organization: Uuid,
         grant: Uuid,
     ) -> Result<serde_json::Value, StoreError> {
-        let mut tx = self.begin_bounded_financial_snapshot().await?;
-        let result = sqlx::query_scalar(
+        sqlx::query_scalar(
             r#"SELECT jsonb_build_object(
                 'id',g.id,'application_policy',COALESCE(p.policy,'future_only'),
                 'applied_to_credit_nanos',allocation.amount::text,
@@ -69,9 +66,20 @@ impl Store {
         )
         .bind(organization)
         .bind(grant)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?
-        .ok_or(StoreError::Conflict)?;
+        .ok_or(StoreError::Conflict)
+    }
+
+    /// Return immutable issuance intent and its original allocation, not current
+    /// spendable capacity. Scoped read; callers retain platform authorization.
+    pub async fn customer_balance_grant_result(
+        &self,
+        organization: Uuid,
+        grant: Uuid,
+    ) -> Result<serde_json::Value, StoreError> {
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
+        let result = Self::customer_balance_grant_result_in_tx(&mut tx, organization, grant).await?;
         tx.commit().await?;
         Ok(result)
     }
@@ -109,6 +117,33 @@ impl Store {
         actor: OperatorAuditActor,
         policy: CustomerBalanceGrantPolicy,
     ) -> Result<Uuid, StoreError> {
+        let (id, _) = self
+            .publish_customer_balance_grant_inner(organization, publication, actor, policy, false)
+            .await?;
+        Ok(id)
+    }
+
+    pub async fn publish_customer_balance_grant_result_with_policy(
+        &self,
+        organization: Uuid,
+        publication: CustomerBalanceGrantPublication<'_>,
+        actor: OperatorAuditActor,
+        policy: CustomerBalanceGrantPolicy,
+    ) -> Result<serde_json::Value, StoreError> {
+        let (_, result) = self
+            .publish_customer_balance_grant_inner(organization, publication, actor, policy, true)
+            .await?;
+        result.ok_or(StoreError::Conflict)
+    }
+
+    async fn publish_customer_balance_grant_inner(
+        &self,
+        organization: Uuid,
+        publication: CustomerBalanceGrantPublication<'_>,
+        actor: OperatorAuditActor,
+        policy: CustomerBalanceGrantPolicy,
+        include_result: bool,
+    ) -> Result<(Uuid, Option<serde_json::Value>), StoreError> {
         publication.validate()?;
         let CustomerBalanceGrantPublication {
             currency,
@@ -150,8 +185,13 @@ impl Store {
                 && saved_reason == reason
                 && saved_policy == policy.as_str()
             {
+                let result = if include_result {
+                    Some(Self::customer_balance_grant_result_in_tx(&mut tx, organization, id).await?)
+                } else {
+                    None
+                };
                 tx.commit().await?;
-                Ok(id)
+                Ok((id, result))
             } else {
                 Err(StoreError::Conflict)
             };
@@ -236,7 +276,12 @@ impl Store {
             .bind(policy.as_str())
             .execute(&mut *tx)
             .await?;
+        let result = if include_result {
+            Some(Self::customer_balance_grant_result_in_tx(&mut tx, organization, id).await?)
+        } else {
+            None
+        };
         tx.commit().await?;
-        Ok(id)
+        Ok((id, result))
     }
 }

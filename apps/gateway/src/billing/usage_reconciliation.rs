@@ -301,17 +301,11 @@ pub(crate) async fn reconcile(
                 other => ApiError::from_store(other),
             },
         )?;
-    state
+    let receipt = state
         .store
         .record_openrouter_usage(scope, attempt, &context, &usage)
         .await
         .map_err(ApiError::from_store)?;
-    let receipt = state
-        .store
-        .openrouter_usage_receipt(scope, attempt)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::unavailable)?;
     Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response())
 }
 

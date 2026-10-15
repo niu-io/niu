@@ -162,9 +162,9 @@ pub async fn issue(
             "Use a positive exact amount without leading zeroes",
         ));
     }
-    let id = state
+    let result = state
         .store
-        .publish_customer_balance_grant_with_policy(
+        .publish_customer_balance_grant_result_with_policy(
             organization,
             CustomerBalanceGrantPublication {
                 currency: &currency,
@@ -175,11 +175,6 @@ pub async fn issue(
             actor,
             input.application_policy,
         )
-        .await
-        .map_err(ApiError::from_store)?;
-    let result = state
-        .store
-        .customer_balance_grant_result(organization, id)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(serde_json::json!({"data": result})))
@@ -405,9 +400,9 @@ pub async fn prepare(
             "Use a positive exact amount without leading zeroes",
         ));
     }
-    state
+    let record = state
         .store
-        .prepare_customer_balance_grant(
+        .prepare_customer_balance_grant_record(
             organization,
             CustomerBalanceGrantPublication {
                 currency: &currency,
@@ -420,18 +415,7 @@ pub async fn prepare(
         )
         .await
         .map_err(ApiError::from_store)?;
-    let page = state
-        .store
-        .prepared_customer_balance_grants(
-            organization,
-            &currency,
-            None,
-            1,
-            Some(input.idempotency_key),
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(serde_json::json!({"data":page["data"][0]})))
+    Ok(Json(serde_json::json!({"data":record})))
 }
 
 /// ```openapi
