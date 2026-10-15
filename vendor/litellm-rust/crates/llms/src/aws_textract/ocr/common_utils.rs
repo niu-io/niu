@@ -243,6 +243,11 @@ pub(super) async fn environment(
                     .into(),
             )
         })?;
+    if !litellm_auth_aws::is_valid_aws_region(&region) {
+        return Err(Error::InvalidRequest(format!(
+            "Invalid AWS region: {region:?}"
+        )));
+    }
     let signer = SigV4Signer::resolve(
         region.clone(),
         TEXTRACT_SERVICE,

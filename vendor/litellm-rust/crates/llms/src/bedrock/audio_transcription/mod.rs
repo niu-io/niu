@@ -117,16 +117,34 @@ impl BaseAudioTranscriptionConfig for BedrockAudioTranscriptionConfig {
     ) -> Result<String, Error> {
         let (model_id, model_region) = bedrock_model_id_and_region(model);
         let region = resolve_bedrock_region(model_region.as_deref(), optional_params, env_lookup);
-        let endpoint = optional_params
+        let custom_endpoint = optional_params
             .get("aws_bedrock_runtime_endpoint")
             .and_then(Value::as_str)
             .or(api_base)
             .map(str::trim)
-            .filter(|value| !value.is_empty())
+            .filter(|value| !value.is_empty());
+        if custom_endpoint.is_none() && !litellm_auth_aws::is_valid_aws_region(&region) {
+            return Err(Error::InvalidRequest(format!(
+                "invalid AWS region: {region}"
+            )));
+        }
+        if model_id.is_empty()
+            || model_id == "."
+            || model_id.contains("..")
+            || model_id
+                .bytes()
+                .any(|b| b.is_ascii_control() || matches!(b, b'?' | b'#' | b'\\'))
+        {
+            return Err(Error::InvalidRequest(format!(
+                "invalid Bedrock model id: {model_id}"
+            )));
+        }
+        let endpoint = custom_endpoint
             .map(str::to_string)
             .unwrap_or_else(|| BEDROCK_RUNTIME_ENDPOINT_TEMPLATE.replace("{region}", &region));
+        let encoded_model_id = model_id.replace('/', "%2F");
         Ok(format!(
-            "{}/model/{model_id}/converse",
+            "{}/model/{encoded_model_id}/converse",
             endpoint.trim_end_matches('/')
         ))
     }

@@ -526,12 +526,16 @@ pub fn bedrock_model_id_and_region(model: &str) -> (String, Option<String>) {
     (stripped.to_string(), region)
 }
 
-fn is_bedrock_region(value: &str) -> bool {
-    value.len() > 3
-        && value.contains('-')
+pub fn is_valid_aws_region(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
         && value
-            .chars()
-            .all(|char| char.is_ascii_alphanumeric() || char == '-')
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+}
+
+fn is_bedrock_region(value: &str) -> bool {
+    value.len() > 3 && value.contains('-') && is_valid_aws_region(value)
 }
 
 /// The region a caller configured: `aws_region_name`, then the model's own
