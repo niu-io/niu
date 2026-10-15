@@ -65,7 +65,12 @@ impl AzureKeyVault {
         if vault.scheme() != "https" || vault.host_str().is_none() {
             return Err(Error::VaultUri);
         }
-        Self::with_client(reqwest::Client::new(), vault, environment)
+        let client = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(Error::Http)?;
+        Self::with_client(client, vault, environment)
     }
 
     pub fn scope(&self) -> &str {

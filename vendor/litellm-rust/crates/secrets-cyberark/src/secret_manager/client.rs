@@ -46,7 +46,9 @@ impl CyberArkSecretManager {
             .get(CYBERARK_SSL_VERIFY)
             .map(|value| !value.trim().eq_ignore_ascii_case("false"))
             .unwrap_or(true);
-        let mut builder = reqwest::Client::builder();
+        let mut builder = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30));
         if !verify {
             litellm_tracing::warn!(
                 "CyberArk SSL verification is disabled. This is insecure and should only be used for testing with self-signed certificates."

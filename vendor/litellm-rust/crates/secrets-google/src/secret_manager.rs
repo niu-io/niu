@@ -103,8 +103,12 @@ impl GoogleSecretManager {
         let always_read = environment
             .get(GOOGLE_SECRET_MANAGER_ALWAYS_READ_SECRET_MANAGER)
             .is_some_and(|v| v.eq_ignore_ascii_case("true"));
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()?;
         Self::with_client(
-            reqwest::Client::new(),
+            client,
             reqwest::Url::parse("https://secretmanager.googleapis.com").expect("static URL"),
             project,
             environment,

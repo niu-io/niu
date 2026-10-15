@@ -112,6 +112,26 @@ impl Processor {
         } else {
             text.to_owned()
         };
+        if policy.redact && policy.text_limit > 0 {
+            const REDACTION_BOUNDARY_MARGIN: usize = 8192;
+            let limit = policy.text_limit as usize;
+            let total_chars = collapsed.chars().count();
+            if total_chars > limit.saturating_add(REDACTION_BOUNDARY_MARGIN.saturating_mul(2)) {
+                let window_half = (limit / 2).saturating_add(REDACTION_BOUNDARY_MARGIN);
+                let prefix_end = char_offset(&collapsed, window_half);
+                let suffix_start =
+                    char_offset(&collapsed, total_chars.saturating_sub(window_half));
+                let skipped_middle_chars = total_chars.saturating_sub(window_half.saturating_mul(2));
+                let redacted_prefix = self.redact_text(&collapsed[..prefix_end])?;
+                let redacted_suffix = self.redact_text(&collapsed[suffix_start..])?;
+                return Ok(truncate_windowed(
+                    &redacted_prefix,
+                    &redacted_suffix,
+                    skipped_middle_chars,
+                    limit,
+                ));
+            }
+        }
         let redacted = if policy.redact {
             self.redact_text(&collapsed)?
         } else {
@@ -195,6 +215,29 @@ fn truncate_text(text: &str, limit: usize) -> String {
         &text[..char_offset(text, head)],
         marker(length - kept),
         &text[char_offset(text, length - tail)..]
+    )
+}
+
+fn truncate_windowed(
+    prefix: &str,
+    suffix: &str,
+    skipped_middle_chars: usize,
+    limit: usize,
+) -> String {
+    let prefix_chars = prefix.chars().count();
+    let suffix_chars = suffix.chars().count();
+    let length = prefix_chars + skipped_middle_chars + suffix_chars;
+    let kept = limit.saturating_sub(marker(length).len());
+    if kept == 0 {
+        return prefix[..char_offset(prefix, limit)].to_owned();
+    }
+    let head = kept / 2;
+    let tail = kept - head;
+    format!(
+        "{}{}{}",
+        &prefix[..char_offset(prefix, head)],
+        marker(length - kept),
+        &suffix[char_offset(suffix, suffix_chars.saturating_sub(tail))..]
     )
 }
 

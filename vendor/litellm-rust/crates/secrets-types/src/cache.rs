@@ -30,16 +30,30 @@ where
     ) -> Result<Option<V>, E> {
         let entry = self
             .entries
-            .get_with(key, async { Arc::new(Mutex::new(None)) })
+            .get_with(key.clone(), async { Arc::new(Mutex::new(None)) })
             .await;
         let mut value = entry.lock().await;
         if value.is_some() {
             return Ok(value.clone());
         }
         // Invalidated loads only populate their detached entry, never the cache's replacement.
-        let loaded = load.await?;
-        *value = loaded.clone();
-        Ok(loaded)
+        match load.await {
+            Ok(Some(loaded)) => {
+                *value = Some(loaded.clone());
+                Ok(Some(loaded))
+            }
+            result => {
+                if self
+                    .entries
+                    .get(&key)
+                    .await
+                    .is_some_and(|current| Arc::ptr_eq(&current, &entry))
+                {
+                    self.entries.invalidate(&key).await;
+                }
+                result
+            }
+        }
     }
 
     pub async fn invalidate(&self, key: &K) {
@@ -53,10 +67,24 @@ where
     ) -> Result<Option<V>, E> {
         let entry = Arc::new(Mutex::new(None));
         let mut value = entry.lock().await;
-        self.entries.insert(key, entry.clone()).await;
-        let loaded = load.await?;
-        *value = loaded.clone();
-        Ok(loaded)
+        self.entries.insert(key.clone(), entry.clone()).await;
+        match load.await {
+            Ok(Some(loaded)) => {
+                *value = Some(loaded.clone());
+                Ok(Some(loaded))
+            }
+            result => {
+                if self
+                    .entries
+                    .get(&key)
+                    .await
+                    .is_some_and(|current| Arc::ptr_eq(&current, &entry))
+                {
+                    self.entries.invalidate(&key).await;
+                }
+                result
+            }
+        }
     }
 
     pub async fn insert(&self, key: K, value: V) {

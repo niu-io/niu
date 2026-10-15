@@ -38,6 +38,7 @@ const CACHE_CAPACITY: u64 = 200;
 #[derive(Clone)]
 struct CachedClient {
     client: Arc<VaultClient>,
+    namespace_clients: HashMap<Option<String>, Arc<VaultClient>>,
     expires_at: Option<Instant>,
 }
 
@@ -59,6 +60,7 @@ pub struct HashicorpVault {
     config: HashicorpVaultConfig,
     cache: SecretCache<CacheKey, SecretValue>,
     auth_client: Arc<Mutex<Option<CachedClient>>>,
+    tls_identity: Arc<tokio::sync::OnceCell<Option<Identity>>>,
 }
 
 impl fmt::Debug for HashicorpVault {
@@ -92,6 +94,7 @@ impl HashicorpVault {
             config,
             cache,
             auth_client: Arc::new(Mutex::new(None)),
+            tls_identity: Arc::new(tokio::sync::OnceCell::new()),
         })
     }
 

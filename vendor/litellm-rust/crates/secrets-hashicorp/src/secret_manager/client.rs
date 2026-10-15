@@ -9,11 +9,47 @@ impl HashicorpVault {
         if client.settings.namespace == location.namespace {
             return Ok(client);
         }
-        self.build_client(location.namespace.as_deref(), &client.settings.token)
-            .map(Arc::new)
+        let identity = self.tls_identity().await?;
+        let mut cached = self.auth_client.lock().await;
+        if let Some(entry) = cached.as_mut()
+            && entry
+                .expires_at
+                .is_none_or(|expires_at| expires_at > Instant::now())
+        {
+            if let Some(existing) = entry.namespace_clients.get(&location.namespace) {
+                return Ok(existing.clone());
+            }
+            let ns_client = Arc::new(self.build_client_with_identity(
+                location.namespace.as_deref(),
+                &entry.client.settings.token,
+                identity,
+            )?);
+            entry
+                .namespace_clients
+                .insert(location.namespace.clone(), ns_client.clone());
+            return Ok(ns_client);
+        }
+        drop(cached);
+        self.build_client_with_identity(
+            location.namespace.as_deref(),
+            &client.settings.token,
+            identity,
+        )
+        .map(Arc::new)
     }
 
     pub(super) async fn vault_client(&self) -> Result<Arc<VaultClient>, Error> {
+        {
+            let cached = self.auth_client.lock().await;
+            if let Some(entry) = cached.as_ref()
+                && entry
+                    .expires_at
+                    .is_none_or(|expires_at| expires_at > Instant::now())
+            {
+                return Ok(entry.client.clone());
+            }
+        }
+        let identity = self.tls_identity().await?;
         let mut cached = self.auth_client.lock().await;
         if let Some(entry) = cached.as_ref()
             && entry
@@ -26,8 +62,11 @@ impl HashicorpVault {
         let (client, expires_at): (VaultClient, Option<Instant>) =
             match (self.config.approle.as_ref(), self.config.tls_cert.as_ref()) {
                 (Some(approle), _) => {
-                    let login_client: VaultClient =
-                        self.build_client(self.config.login_namespace(), "")?;
+                    let login_client: VaultClient = self.build_client_with_identity(
+                        self.config.login_namespace(),
+                        "",
+                        identity.clone(),
+                    )?;
                     let auth = approle::login(
                         &login_client,
                         &approle.mount_path,
@@ -37,19 +76,30 @@ impl HashicorpVault {
                     .await
                     .map_err(|error| map_api_error(error, ErrorContext::Login))?;
                     (
-                        self.build_client(self.config.secret_namespace(), &auth.client_token)?,
+                        self.build_client_with_identity(
+                            self.config.secret_namespace(),
+                            &auth.client_token,
+                            identity,
+                        )?,
                         token_expiry(auth.lease_duration),
                     )
                 }
                 (None, Some(tls)) => {
-                    let login_client: VaultClient =
-                        self.build_client(self.config.login_namespace(), "")?;
+                    let login_client: VaultClient = self.build_client_with_identity(
+                        self.config.login_namespace(),
+                        "",
+                        identity.clone(),
+                    )?;
                     let endpoint: CertLoginRequest = CertLoginRequest::new(tls.role.as_deref());
                     let auth = api::auth(&login_client, endpoint)
                         .await
                         .map_err(|error| map_api_error(error, ErrorContext::Login))?;
                     (
-                        self.build_client(self.config.secret_namespace(), &auth.client_token)?,
+                        self.build_client_with_identity(
+                            self.config.secret_namespace(),
+                            &auth.client_token,
+                            identity,
+                        )?,
                         token_expiry(auth.lease_duration),
                     )
                 }
@@ -57,7 +107,11 @@ impl HashicorpVault {
                     let token: SecretValue =
                         self.config.token.clone().ok_or(Error::NoAuthConfigured)?;
                     (
-                        self.build_client(self.config.secret_namespace(), token.expose())?,
+                        self.build_client_with_identity(
+                            self.config.secret_namespace(),
+                            token.expose(),
+                            identity,
+                        )?,
                         None,
                     )
                 }
@@ -65,21 +119,39 @@ impl HashicorpVault {
         let client: Arc<VaultClient> = Arc::new(client);
         *cached = Some(CachedClient {
             client: client.clone(),
+            namespace_clients: HashMap::new(),
             expires_at,
         });
         Ok(client)
     }
 
-    pub(super) fn build_client(
+    async fn tls_identity(&self) -> Result<Option<Identity>, Error> {
+        let Some(tls) = self.config.tls_cert.clone() else {
+            return Ok(None);
+        };
+        self.tls_identity
+            .get_or_try_init(|| async move {
+                tokio::task::spawn_blocking(move || identity_for(Some(&tls)))
+                    .await
+                    .map_err(|err| Error::ClientSettings {
+                        message: err.to_string(),
+                    })?
+            })
+            .await
+            .cloned()
+    }
+
+    fn build_client_with_identity(
         &self,
         namespace: Option<&str>,
         token: &str,
+        identity: Option<Identity>,
     ) -> Result<VaultClient, Error> {
         let settings = VaultClientSettingsBuilder::default()
             .address(&self.config.address)
             .token(token.to_owned())
             .namespace(namespace.map(str::to_owned))
-            .identity(identity_for(self.config.tls_cert.as_ref())?)
+            .identity(identity)
             .ca_certs(Vec::new())
             .verify(true)
             .build()
