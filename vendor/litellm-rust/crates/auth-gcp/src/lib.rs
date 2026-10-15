@@ -268,17 +268,31 @@ impl VertexProviderLoader for GcpProviderLoader {
                     .map_err(auth_acquisition_error)?,
                 ),
                 CredentialSource::Trusted(configured) => {
-                    let configured = configured.expose();
-                    let service_account = if Path::new(configured).is_file() {
-                        CustomServiceAccount::from_file(configured)
+                    let trimmed = configured.expose().trim_start();
+                    let service_account = if trimmed.starts_with('{') {
+                        CustomServiceAccount::from_json(trimmed).map_err(auth_acquisition_error)?
                     } else {
-                        CustomServiceAccount::from_json(configured)
-                    }
-                    .map_err(auth_acquisition_error)?;
+                        tokio::task::spawn_blocking(move || {
+                            let raw = configured.expose();
+                            if Path::new(raw).is_file() {
+                                CustomServiceAccount::from_file(raw)
+                            } else {
+                                CustomServiceAccount::from_json(raw)
+                            }
+                        })
+                        .await
+                        .map_err(|err| Error::VertexTokenAcquisition(err.to_string()))?
+                        .map_err(auth_acquisition_error)?
+                    };
                     Arc::new(service_account)
                 }
                 CredentialSource::ApplicationCredentials(path) => {
-                    Arc::new(CustomServiceAccount::from_file(path).map_err(auth_acquisition_error)?)
+                    let service_account =
+                        tokio::task::spawn_blocking(move || CustomServiceAccount::from_file(path))
+                            .await
+                            .map_err(|err| Error::VertexTokenAcquisition(err.to_string()))?
+                            .map_err(auth_acquisition_error)?;
+                    Arc::new(service_account)
                 }
                 CredentialSource::Adc => {
                     gcp_auth::provider().await.map_err(auth_acquisition_error)?

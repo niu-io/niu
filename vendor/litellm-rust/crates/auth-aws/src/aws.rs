@@ -270,7 +270,11 @@ pub async fn resolve_credentials(
                 .map_err(|error| Error::AwsProfile(error.to_string()))
         }
         AwsAuthFlow::AssumeRole { role, session_name } => {
-            if is_already_running_as_role(&role, &resolved).await? {
+            let has_explicit_keys =
+                resolved.access_key_id.is_some() && resolved.secret_access_key.is_some();
+            if !has_explicit_keys
+                && is_already_running_as_role(&role, &resolved, env_lookup).await?
+            {
                 let ambient_flow = AwsAuthFlow::DefaultChain;
                 let key = cache_key(&resolved, &ambient_flow);
                 if let Some(credentials) = get_cached_credentials(&key) {
@@ -383,13 +387,17 @@ pub async fn resolve_credentials(
     }
 }
 
-async fn is_already_running_as_role(role: &str, config: &AwsAuthConfig) -> Result<bool, Error> {
+async fn is_already_running_as_role(
+    role: &str,
+    config: &AwsAuthConfig,
+    env_lookup: &(dyn Fn(&str) -> Option<String> + Sync),
+) -> Result<bool, Error> {
     if role_identity(role).is_none() {
         return Ok(false);
     }
-    if let (Ok(current_role), Ok(token_file)) = (
-        std::env::var(AWS_ROLE_ARN),
-        std::env::var(AWS_WEB_IDENTITY_TOKEN_FILE),
+    if let (Some(current_role), Some(token_file)) = (
+        env_lookup(AWS_ROLE_ARN),
+        env_lookup(AWS_WEB_IDENTITY_TOKEN_FILE),
     ) && !token_file.is_empty()
     {
         return Ok(same_role_arns(role, &current_role));
