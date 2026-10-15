@@ -644,7 +644,16 @@ pub async fn run_bounded<T: Send + 'static>(
     slots: std::sync::Arc<tokio::sync::Semaphore>,
     work: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, WorkerError> {
-    let permit = slots.try_acquire_owned().map_err(|_| WorkerError::Busy)?;
+    let permit = match slots.clone().try_acquire_owned() {
+        Ok(permit) => permit,
+        Err(_) => tokio::time::timeout(
+            std::time::Duration::from_millis(25),
+            slots.acquire_owned(),
+        )
+        .await
+        .map_err(|_| WorkerError::Busy)?
+        .map_err(|_| WorkerError::Busy)?,
+    };
     let job = tokio::task::spawn_blocking(move || {
         let _permit = permit;
         work()

@@ -130,17 +130,31 @@ pub(super) fn provider_reported_model(value: &Value) -> Option<String> {
 }
 
 static LIVE_INPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
-    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+    std::sync::LazyLock::new(|| {
+        let slots = std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(4)
+            .saturating_mul(2)
+            .max(16);
+        std::sync::Arc::new(tokio::sync::Semaphore::new(slots))
+    });
 
 static BUFFERED_OUTPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
-    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(64)));
 
 static OBSERVED_OUTPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
-    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(64)));
 
 // Optional inspection cannot consume mandatory inspection capacity.
 static OBSERVED_INSPECTION_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
-    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+    std::sync::LazyLock::new(|| {
+        let slots = std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(4)
+            .saturating_mul(2)
+            .max(16);
+        std::sync::Arc::new(tokio::sync::Semaphore::new(slots))
+    });
 
 pub(super) async fn inspect_request_input(
     state: &AppState,
