@@ -908,7 +908,23 @@ pub fn validate_policy_decision(
     decision: &BoundPolicyDecision,
     evaluated_at_unix_ms: i64,
 ) -> Result<(), ContractError> {
+    validate_policy_decision_with_digest(input, decision, evaluated_at_unix_ms, None)
+}
+
+fn validate_policy_decision_with_digest(
+    input: &PolicyInput,
+    decision: &BoundPolicyDecision,
+    evaluated_at_unix_ms: i64,
+    precomputed_digest: Option<&str>,
+) -> Result<(), ContractError> {
     let binding = &input.binding;
+    let digest_matches = match precomputed_digest {
+        Some(digest) => digest == binding.input_sha256,
+        None => {
+            policy_input_digest(input.protocol, &input.model_alias, input.content.as_ref())?
+                == binding.input_sha256
+        }
+    };
     if !valid_identifier(&input.model_alias)
         || !valid_identifier(&binding.policy_id)
         || !valid_identifier(&binding.revision)
@@ -916,8 +932,7 @@ pub fn validate_policy_decision(
         || binding.expires_at_unix_ms <= binding.issued_at_unix_ms
         || evaluated_at_unix_ms < binding.issued_at_unix_ms
         || evaluated_at_unix_ms >= binding.expires_at_unix_ms
-        || policy_input_digest(input.protocol, &input.model_alias, input.content.as_ref())?
-            != binding.input_sha256
+        || !digest_matches
         || decision.binding != *binding
     {
         return Err(ContractError::PolicyDecision);
@@ -1317,13 +1332,23 @@ impl PluginHookRegistry {
         input: &PolicyInput,
         evaluated_at_unix_ms: i64,
     ) -> Result<Vec<BoundPolicyDecision>, ContractError> {
+        if self.policy_hooks.is_empty() {
+            return Ok(Vec::new());
+        }
+        let expected_digest =
+            policy_input_digest(input.protocol, &input.model_alias, input.content.as_ref())?;
         let mut decisions = Vec::with_capacity(self.policy_hooks.len());
         for hook in &self.policy_hooks {
             let bound = hook
                 .evaluate(input.clone(), ctx)
                 .await
                 .map_err(|_| ContractError::PolicyDecision)?;
-            validate_policy_decision(input, &bound, evaluated_at_unix_ms)?;
+            validate_policy_decision_with_digest(
+                input,
+                &bound,
+                evaluated_at_unix_ms,
+                Some(&expected_digest),
+            )?;
             let rejected = matches!(bound.decision, PolicyDecision::Deny { .. });
             decisions.push(bound);
             if rejected {

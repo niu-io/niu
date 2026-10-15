@@ -246,13 +246,17 @@ async fn forward_with_principal(
     let response = match tokio::time::timeout_at(deadline, upstream.send()).await {
         Ok(Ok(response)) => response,
         Ok(Err(error)) => {
+            module.invalidate_health_cache();
             tracing::warn!(module_id = %module.declaration.module_id, error = %error, "Plugin/Enterprise module request failed");
             if error.is_timeout() {
                 return gateway_error(StatusCode::GATEWAY_TIMEOUT, "module_timeout");
             }
             return gateway_error(StatusCode::SERVICE_UNAVAILABLE, "module_unavailable");
         }
-        Err(_) => return gateway_error(StatusCode::GATEWAY_TIMEOUT, "module_timeout"),
+        Err(_) => {
+            module.invalidate_health_cache();
+            return gateway_error(StatusCode::GATEWAY_TIMEOUT, "module_timeout");
+        }
     };
     let status = response.status();
     let response_headers = response.headers().clone();

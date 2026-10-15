@@ -16,10 +16,12 @@ const PLUGIN_MANIFEST_ENV: &str = "NIU_PLUGIN_MANIFEST_PATH";
 const MANIFEST_ENV: &str = "NIU_ENTERPRISE_MANIFEST_PATH";
 const OUTBOX_DELIVERY_PATH: &str = "/_niu/plugins/v1/outbox/events";
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(2);
+const HEALTH_CACHE_TTL: Duration = Duration::from_secs(2);
 
 pub(super) struct ModuleRuntime {
     pub(super) declaration: ModuleDeclaration,
     pub(super) http: reqwest::Client,
+    healthy_until: std::sync::Mutex<Option<std::time::Instant>>,
 }
 
 pub(super) struct RegisteredRoute {
@@ -120,7 +122,11 @@ impl EnterpriseRuntime {
                         declaration.module_id
                     ))
                 })?;
-            modules.push(ModuleRuntime { declaration, http });
+            modules.push(ModuleRuntime {
+                declaration,
+                http,
+                healthy_until: std::sync::Mutex::new(None),
+            });
         }
         let runtime = Self {
             routes: build_route_registry(&modules),
@@ -129,7 +135,7 @@ impl EnterpriseRuntime {
             hooks: Arc::new(hooks),
         };
         let health =
-            futures_util::future::join_all(runtime.modules.iter().map(ModuleRuntime::is_healthy))
+            futures_util::future::join_all(runtime.modules.iter().map(ModuleRuntime::probe_healthy))
                 .await;
         for (module, healthy) in runtime.modules.iter().zip(health) {
             if healthy {
@@ -148,7 +154,7 @@ impl EnterpriseRuntime {
             .modules
             .iter()
             .filter(|module| module.declaration.required);
-        futures_util::future::join_all(required.map(ModuleRuntime::is_healthy))
+        futures_util::future::join_all(required.map(ModuleRuntime::probe_healthy))
             .await
             .into_iter()
             .all(|healthy| healthy)
@@ -173,65 +179,74 @@ impl EnterpriseRuntime {
                 )))];
             }
         };
-        let mut results = Vec::with_capacity(self.modules.len());
-        for module in &self.modules {
-            if !module.is_healthy().await {
-                results.push(Err(EnterpriseError(format!(
-                    "plugin {} is unavailable for outbox delivery",
-                    module.declaration.module_id
-                ))));
-                continue;
-            }
-            let request_id = Uuid::new_v4().to_string();
-            let Ok(token) = self.signer.sign_plugin(SignedPluginRequestContext {
-                audience: &module.declaration.module_id,
-                principal: ContextPrincipal::OutboxSystem {
-                    organization_id: event.organization_id,
-                    project_id: event.project_id,
-                },
-                permission: RoutePermission::Write,
-                auth_mode: RouteAuthMode::Operator,
-                method: &Method::POST,
-                path: OUTBOX_DELIVERY_PATH,
-                request_id: &request_id,
-                body: &body,
-            }) else {
-                results.push(Err(EnterpriseError("outbox context signing failed".into())));
-                continue;
-            };
-            let url = format!("http://niu-module{OUTBOX_DELIVERY_PATH}");
-            let res = module
-                .http
-                .post(url)
-                .timeout(HEALTH_TIMEOUT)
-                .header(header::AUTHORIZATION, format!("Bearer {token}"))
-                .header(header::CONTENT_TYPE, "application/json")
-                .header("x-request-id", &request_id)
-                .body(body.clone())
-                .send()
-                .await;
-            match res {
-                Ok(resp) if resp.status() == StatusCode::OK => {
-                    match resp.json::<OutboxDeliveryReceipt>().await {
-                        Ok(receipt) => results.push(Ok(receipt)),
-                        Err(err) => results.push(Err(EnterpriseError(format!(
-                            "invalid outbox receipt from {}: {err}",
+        let body = Arc::new(body);
+        futures_util::future::join_all(self.modules.iter().map(|module| {
+            let body = body.clone();
+            async move {
+                if !module.is_healthy().await {
+                    return Err(EnterpriseError(format!(
+                        "plugin {} is unavailable for outbox delivery",
+                        module.declaration.module_id
+                    )));
+                }
+                let request_id = Uuid::new_v4().to_string();
+                let Ok(token) = self.signer.sign_plugin(SignedPluginRequestContext {
+                    audience: &module.declaration.module_id,
+                    principal: ContextPrincipal::OutboxSystem {
+                        organization_id: event.organization_id,
+                        project_id: event.project_id,
+                    },
+                    permission: RoutePermission::Write,
+                    auth_mode: RouteAuthMode::Operator,
+                    method: &Method::POST,
+                    path: OUTBOX_DELIVERY_PATH,
+                    request_id: &request_id,
+                    body: &body,
+                }) else {
+                    return Err(EnterpriseError("outbox context signing failed".into()));
+                };
+                let url = format!("http://niu-module{OUTBOX_DELIVERY_PATH}");
+                let res = module
+                    .http
+                    .post(url)
+                    .timeout(HEALTH_TIMEOUT)
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header("x-request-id", &request_id)
+                    .body((*body).clone())
+                    .send()
+                    .await;
+                match res {
+                    Ok(resp) if resp.status() == StatusCode::OK => {
+                        match resp.json::<OutboxDeliveryReceipt>().await {
+                            Ok(receipt) => Ok(receipt),
+                            Err(err) => Err(EnterpriseError(format!(
+                                "invalid outbox receipt from {}: {err}",
+                                module.declaration.module_id
+                            ))),
+                        }
+                    }
+                    Ok(resp) => {
+                        if resp.status().is_server_error() {
+                            module.invalidate_health_cache();
+                        }
+                        Err(EnterpriseError(format!(
+                            "plugin {} rejected outbox event with status {}",
+                            module.declaration.module_id,
+                            resp.status()
+                        )))
+                    }
+                    Err(err) => {
+                        module.invalidate_health_cache();
+                        Err(EnterpriseError(format!(
+                            "outbox delivery to {} failed: {err}",
                             module.declaration.module_id
-                        )))),
+                        )))
                     }
                 }
-                Ok(resp) => results.push(Err(EnterpriseError(format!(
-                    "plugin {} rejected outbox event with status {}",
-                    module.declaration.module_id,
-                    resp.status()
-                )))),
-                Err(err) => results.push(Err(EnterpriseError(format!(
-                    "outbox delivery to {} failed: {err}",
-                    module.declaration.module_id
-                )))),
             }
-        }
-        results
+        }))
+        .await
     }
 
     #[cfg(test)]
@@ -247,13 +262,38 @@ impl EnterpriseRuntime {
 
 impl ModuleRuntime {
     pub(super) async fn is_healthy(&self) -> bool {
+        if let Some(until) = *self
+            .healthy_until
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            && std::time::Instant::now() < until
+        {
+            return true;
+        }
+        self.probe_healthy().await
+    }
+
+    pub(super) async fn probe_healthy(&self) -> bool {
         let live_url = format!("http://niu-module{}", self.declaration.health.live_path);
         let ready_url = format!("http://niu-module{}", self.declaration.health.ready_path);
         let live = self.http.get(live_url).timeout(HEALTH_TIMEOUT).send();
         let ready = self.http.get(ready_url).timeout(HEALTH_TIMEOUT).send();
         let (live, ready) = tokio::join!(live, ready);
-        matches!(live, Ok(response) if response.status() == StatusCode::OK)
-            && matches!(ready, Ok(response) if response.status() == StatusCode::OK)
+        let healthy = matches!(live, Ok(response) if response.status() == StatusCode::OK)
+            && matches!(ready, Ok(response) if response.status() == StatusCode::OK);
+        *self
+            .healthy_until
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+            healthy.then(|| std::time::Instant::now() + HEALTH_CACHE_TTL);
+        healthy
+    }
+
+    pub(super) fn invalidate_health_cache(&self) {
+        *self
+            .healthy_until
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
     }
 }
 
