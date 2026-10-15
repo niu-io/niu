@@ -134,12 +134,12 @@ use serde_json::{Value, json};
 pub(crate) async fn public(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
     let (revision, settings) = state
         .store
-        .branding_configuration()
+        .branding_configuration_snapshot()
         .await
         .map_err(ApiError::from_store)?;
     // Explicit projection: never include audit actors, credentials or commercial settings.
     Ok(Json(
-        json!({"data":{"revision":revision.to_string(),"settings":settings}}),
+        json!({"data":{"revision":revision.to_string(),"settings":settings.as_ref()}}),
     ))
 }
 /// ```openapi

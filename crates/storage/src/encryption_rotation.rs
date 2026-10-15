@@ -144,10 +144,7 @@ impl Store {
             .max_connections(2)
             .connect(url)
             .await?;
-        let store = Self {
-            pool,
-            route_compiler: None,
-        };
+        let store = Self::from_pool(pool);
         store.require_current_inspection_schema().await?;
         Ok(store)
     }

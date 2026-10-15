@@ -278,6 +278,8 @@ pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 pub struct Store {
     pool: PgPool,
     route_compiler: Option<std::sync::Arc<dyn RouteRegistryCompiler>>,
+    branding_cache:
+        std::sync::Arc<std::sync::RwLock<Option<(i64, std::sync::Arc<BrandingSettings>)>>>,
 }
 
 #[derive(Clone, Copy)]
@@ -501,10 +503,7 @@ impl Store {
             .connect(url)
             .await?;
         migration_compatibility::run(&pool).await?;
-        Ok(Self {
-            pool,
-            route_compiler: None,
-        })
+        Ok(Self::from_pool(pool))
     }
 
     /// Offline inspection of an existing schema. Never runs migrations; every
@@ -522,10 +521,7 @@ impl Store {
             })
             .connect(url)
             .await?;
-        Ok(Self {
-            pool,
-            route_compiler: None,
-        })
+        Ok(Self::from_pool(pool))
     }
 
     /// A maintenance inspector must not silently skip domains introduced by a
@@ -567,16 +563,14 @@ impl Store {
             .min_connections(0)
             .connect_with(options)
             .await?;
-        Ok(Self {
-            pool,
-            route_compiler: None,
-        })
+        Ok(Self::from_pool(pool))
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
         Self {
             pool,
             route_compiler: None,
+            branding_cache: std::sync::Arc::new(std::sync::RwLock::new(None)),
         }
     }
 

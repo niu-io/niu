@@ -73,21 +73,47 @@ impl BrandingSettings {
         Ok(())
     }
 }
+const BRANDING_PUBLICATION_LOCK: i64 = 716_555;
+
 impl Store {
-    pub async fn branding_configuration(&self) -> Result<(i64, BrandingSettings), StoreError> {
+    pub async fn branding_configuration_snapshot(
+        &self,
+    ) -> Result<(i64, std::sync::Arc<BrandingSettings>), StoreError> {
+        let current_revision: Option<i64> =
+            sqlx::query_scalar("SELECT revision FROM branding_configuration WHERE singleton")
+                .fetch_optional(&self.pool)
+                .await?;
+        let Some(current_revision) = current_revision else {
+            return Ok((0, std::sync::Arc::new(BrandingSettings::default())));
+        };
+        if let Ok(guard) = self.branding_cache.read()
+            && let Some((cached_revision, cached_settings)) = guard.as_ref()
+            && *cached_revision == current_revision
+        {
+            return Ok((current_revision, cached_settings.clone()));
+        }
         let saved: Option<(i64, serde_json::Value)> =
             sqlx::query_as("SELECT revision,settings FROM branding_configuration WHERE singleton")
                 .fetch_optional(&self.pool)
                 .await?;
         match saved {
-            None => Ok((0, BrandingSettings::default())),
+            None => Ok((0, std::sync::Arc::new(BrandingSettings::default()))),
             Some((revision, value)) => {
                 let settings: BrandingSettings =
                     serde_json::from_value(value).map_err(|_| StoreError::InvalidObservation)?;
                 settings.validate()?;
-                Ok((revision, settings))
+                let shared = std::sync::Arc::new(settings);
+                if let Ok(mut guard) = self.branding_cache.write() {
+                    *guard = Some((revision, shared.clone()));
+                }
+                Ok((revision, shared))
             }
         }
+    }
+
+    pub async fn branding_configuration(&self) -> Result<(i64, BrandingSettings), StoreError> {
+        let (revision, settings) = self.branding_configuration_snapshot().await?;
+        Ok((revision, (*settings).clone()))
     }
     /// Save/reset deployment defaults with atomic audit and optimistic concurrency.
     /// Empty palettes inherit the shared Niu tokens; no CSS text is accepted.
@@ -148,8 +174,9 @@ impl Store {
             .filter(|n| *n > 0)
             .ok_or(StoreError::Conflict)?;
         let value = serde_json::to_value(&settings).map_err(|_| StoreError::InvalidObservation)?;
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT pg_advisory_xact_lock(716554)")
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT pg_advisory_xact_lock($1)")
+            .bind(BRANDING_PUBLICATION_LOCK)
             .execute(&mut *tx)
             .await?;
         let current: Option<i64> = sqlx::query_scalar(
@@ -165,6 +192,9 @@ impl Store {
         sqlx::query("INSERT INTO branding_configuration_events(revision,settings,actor_operator_id,actor_kind) VALUES($1,$2,$3,$4)")
             .bind(revision).bind(value).bind(actor_id).bind(actor_kind).execute(&mut *tx).await?;
         tx.commit().await?;
+        if let Ok(mut guard) = self.branding_cache.write() {
+            *guard = Some((revision, std::sync::Arc::new(settings.clone())));
+        }
         Ok((revision, settings))
     }
 }

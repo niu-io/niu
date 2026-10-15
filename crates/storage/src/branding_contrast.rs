@@ -55,6 +55,25 @@ fn luminance(rgb: [f64; 3]) -> f64 {
 }
 
 fn default_luminance(token: &str, dark: bool) -> Option<f64> {
+    static DEFAULT_LUMINANCES: std::sync::LazyLock<BTreeMap<(&'static str, bool), Option<f64>>> =
+        std::sync::LazyLock::new(|| {
+            let mut map = BTreeMap::new();
+            for (background, foreground) in PAIRS {
+                for token in [background, foreground] {
+                    for dark in [false, true] {
+                        map.insert((token, dark), compute_default_luminance(token, dark));
+                    }
+                }
+            }
+            map
+        });
+    DEFAULT_LUMINANCES
+        .get(&(token, dark))
+        .copied()
+        .unwrap_or_else(|| compute_default_luminance(token, dark))
+}
+
+fn compute_default_luminance(token: &str, dark: bool) -> Option<f64> {
     // Read the checked-in opaque OKLCH defaults, rather than copying values
     // that can silently diverge from CSS. Unsupported source syntax fails closed.
     let (light, dark_block) = TOKENS.split_once(".dark,")?;
