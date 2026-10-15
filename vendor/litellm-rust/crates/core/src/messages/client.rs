@@ -8,6 +8,7 @@ pub(super) fn http_client() -> &'static reqwest::Client {
         reqwest::Client::builder()
             .timeout(Duration::from_secs(MESSAGES_TIMEOUT_SECS))
             .connect_timeout(Duration::from_secs(MESSAGES_CONNECT_TIMEOUT_SECS))
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .unwrap_or_else(|_| reqwest::Client::new())
     })

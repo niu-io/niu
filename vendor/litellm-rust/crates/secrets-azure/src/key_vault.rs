@@ -77,6 +77,7 @@ impl AzureKeyVault {
         let client = reqwest::Client::builder()
             .connect_timeout(std::time::Duration::from_secs(10))
             .timeout(std::time::Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(Error::Http)?;
         Self::with_client(client, vault, environment)

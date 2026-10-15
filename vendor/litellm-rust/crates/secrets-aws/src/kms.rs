@@ -51,6 +51,12 @@ pub fn load_aws_kms(
         .behavior_version(BehaviorVersion::latest())
         .region(Region::new(auth::region(settings, environment.as_ref())?))
         .credentials_provider(auth::Credentials::new(settings, environment))
+        .timeout_config(
+            aws_sdk_kms::config::timeout::TimeoutConfig::builder()
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .operation_timeout(std::time::Duration::from_secs(30))
+                .build(),
+        )
         .build();
     Ok(Some(AwsKms::new(Client::from_conf(config))))
 }

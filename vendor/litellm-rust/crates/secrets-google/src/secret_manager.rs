@@ -114,6 +114,7 @@ impl GoogleSecretManager {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none())
             .build()?;
         Self::with_client(
             client,

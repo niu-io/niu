@@ -93,8 +93,9 @@ pub struct OidcResolver {
 impl Default for OidcResolver {
     fn default() -> Self {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(600))
+            .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(5))
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("HTTP client configuration");
         Self::new(
