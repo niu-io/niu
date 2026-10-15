@@ -140,19 +140,33 @@ it('renders a structured financial statement with period comparisons, active mod
     </MemoryRouter>,
   );
 
-  // Executive KPI cards and Statement of Operations load
-  expect(await screen.findByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
+  // Executive KPI cards and Statement of Operations load under Financial statements
+  expect(await screen.findByRole('region', { name: 'Financial statements' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Statement of operations (P&L)' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Cash receipts, payables & wallet position' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Unit economics by Provider & model' })).toBeTruthy();
   expect(screen.getByText('25.0% margin')).toBeTruthy();
 
-  // Active model is shown by default while inactive model is filtered out until requested
+  // Financial figures are formatted to 4 decimal places with $ symbol
+  expect(screen.getAllByText('$0.8000').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('$100.0000').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('$99.2000').length).toBeGreaterThan(0);
+
+  // Active model is shown by default with full-precision offer quote (In $0.003 · Out $2.40 / 1M)
   const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
   expect(within(unitTable).getByText('deepseek/deepseek-v4.1-flash')).toBeTruthy();
+  expect(within(unitTable).getByText('In $0.003 · Out $2.40 / 1M')).toBeTruthy();
   expect(within(unitTable).queryByText('anthropic/claude-fable-5')).toBeNull();
 
   await user.click(screen.getByRole('button', { name: 'All configured (2)' }));
   expect(within(unitTable).getByText('anthropic/claude-fable-5')).toBeTruthy();
+
+  // Currency selector only offers $ USD and ¥ CNY
+  await user.click(screen.getByRole('button', { name: 'Statement currency' }));
+  expect(screen.getByRole('menuitemradio', { name: '$ USD' })).toBeTruthy();
+  expect(screen.getByRole('menuitemradio', { name: '¥ CNY' })).toBeTruthy();
+  expect(screen.queryByRole('menuitemradio', { name: /EUR/i })).toBeNull();
+  await user.keyboard('{Escape}');
 
   // Export PDF button triggers window.print()
   await user.click(screen.getByRole('button', { name: 'Export PDF statement' }));

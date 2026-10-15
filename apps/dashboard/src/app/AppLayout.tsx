@@ -129,7 +129,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     { to: `/suppliers/${supplier}/settlements`, label: 'Settlements', end: false },
   ] : [
     { to: '/admin/suppliers', label: 'Providers', end: false },
-    { to: '/admin/commercial', label: 'Commercial overview', end: false },
+    { to: '/admin/commercial', label: 'Financial statements', end: false },
     { to: '/admin/customer-accounts', label: 'Customer accounts', end: false },
     { to: '/admin/pricing', label: 'Customer pricing', end: false },
     { to: '/admin/payments', label: 'Payment gateways', end: false },
@@ -725,7 +725,7 @@ export default function AppLayout() {
     : helpArea
       ? 'Documentation'
     : supplierArea
-      ? ({ commercial: 'Commercial overview', 'customer-accounts': 'Customer accounts', oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
+      ? ({ commercial: 'Financial statements', 'customer-accounts': 'Customer accounts', oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
       : activePath === 'keys/new'
         ? 'New API key'
         : activePath.startsWith('keys/')

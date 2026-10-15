@@ -11,7 +11,6 @@ import {
 } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { request } from '@/features/vendors/api';
-import { money } from '@/lib/money';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +57,44 @@ type ResolvedInterval = {
   priorUntil: string;
 };
 
-const SUPPORTED_CURRENCIES = ['USD', 'CNY', 'EUR'] as const;
+const SUPPORTED_CURRENCIES = ['USD', 'CNY'] as const;
+
+function currencySymbol(currency: string): string {
+  return currency.toUpperCase() === 'CNY' ? '¥' : '$';
+}
+
+/**
+ * Formats financial statement figures (revenue, costs, payables, cash receipts, balances)
+ * to standard 4 decimal places (.0000) with $ or ¥ currency symbols.
+ */
+function formatFinancialMoney(nanos: bigint | string, currency: string): string {
+  const val = typeof nanos === 'bigint' ? nanos : BigInt(nanos || '0');
+  const negative = val < 0n;
+  const abs = negative ? -val : val;
+  const scaled4 = (abs + 50_000n) / 100_000n;
+  const whole = scaled4 / 10_000n;
+  const frac = (scaled4 % 10_000n).toString().padStart(4, '0');
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const sym = currencySymbol(currency);
+  return `${negative && scaled4 > 0n ? '-' : ''}${sym}${wholeFormatted}.${frac}`;
+}
+
+/**
+ * Formats model unit prices / offer quotes with $ or ¥ and preserves full significant
+ * decimal precision (up to 9 decimal places, minimum 2 decimal places).
+ */
+function formatRateMoney(nanos: bigint | string, currency: string): string {
+  const val = typeof nanos === 'bigint' ? nanos : BigInt(nanos || '0');
+  const negative = val < 0n;
+  const abs = negative ? -val : val;
+  const scale = 1_000_000_000n;
+  const whole = abs / scale;
+  const rawFrac = (abs % scale).toString().padStart(9, '0').replace(/0+$/, '');
+  const frac = rawFrac.length < 2 ? rawFrac.padEnd(2, '0') : rawFrac;
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const sym = currencySymbol(currency);
+  return `${negative && abs > 0n ? '-' : ''}${sym}${wholeFormatted}.${frac}`;
+}
 
 function buildRecentMonths(count = 12, now = new Date()): MonthOption[] {
   const curYear = now.getUTCFullYear();
@@ -376,7 +412,9 @@ function formatDeltaBadge(
     return <span className="whitespace-nowrap shrink-0 text-xs text-muted-foreground">No prior baseline</span>;
   }
   const diff = current - prior;
-  if (diff === 0n) {
+  const absDiff = diff < 0n ? -diff : diff;
+  const roundedDiff4 = (absDiff + 50_000n) / 100_000n;
+  if (diff === 0n || roundedDiff4 === 0n) {
     return (
       <span className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
         <IconMinus size={13} /> No change
@@ -385,12 +423,12 @@ function formatDeltaBadge(
   }
   const isPositive = diff > 0n;
   const pct =
-    prior > 0n
+    prior >= 50_000n
       ? `${isPositive ? '+' : ''}${(Number((diff * 10000n) / prior) / 100).toFixed(1)}%`
       : isPositive
         ? 'New'
         : '—';
-  const absMoney = money(diff < 0n ? (-diff).toString() : diff.toString(), currency);
+  const absMoney = formatFinancialMoney(absDiff, currency);
   const signedMoney = `${isPositive ? '+' : '-'}${absMoney}`;
   const good = invertSentiment ? !isPositive : isPositive;
   return (
@@ -416,7 +454,7 @@ function CommercialStatement({ token }: { token: string }) {
   const [search, setSearch] = useSearchParams();
   const months = useMemo(() => buildRecentMonths(12), []);
   const rawCurrency = (search.get('currency') ?? 'USD').toUpperCase();
-  const currency = /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : 'USD';
+  const currency = rawCurrency === 'CNY' ? 'CNY' : 'USD';
   const interval = useMemo(() => resolveInterval(search, months), [search, months]);
 
   const [position, setPosition] = useState<CommercialPosition | null>(null);
@@ -610,15 +648,16 @@ function CommercialStatement({ token }: { token: string }) {
   };
 
   return (
-    <section className="commercial-statement min-w-0 space-y-6" aria-label="Commercial overview">
+    <section className="commercial-statement min-w-0 space-y-6" aria-label="Financial statements">
       {/* Print-only executive header */}
       <header className="commercial-print-only hidden border-b pb-4">
         <div className="flex items-baseline justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Niu Commercial &amp; Financial Statement</h1>
+            <h1 className="text-xl font-semibold">Niu Financial Statements</h1>
             <p className="text-sm text-muted-foreground">
               Period: {interval.label} ({formatInstant(position?.from ?? interval.from)} to{' '}
-              {formatInstant(position?.until ?? interval.until)} UTC) · Currency: {currency}
+              {formatInstant(position?.until ?? interval.until)} UTC) · Currency:{' '}
+              {currencySymbol(currency)} {currency}
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -765,7 +804,7 @@ function CommercialStatement({ token }: { token: string }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" aria-label="Statement currency" className="gap-2 font-normal">
-                <span>Currency: {currency}</span>
+                <span>Currency: {currencySymbol(currency)} {currency}</span>
                 <IconChevronDown size={15} />
               </Button>
             </DropdownMenuTrigger>
@@ -776,7 +815,7 @@ function CommercialStatement({ token }: { token: string }) {
               >
                 {SUPPORTED_CURRENCIES.map(curr => (
                   <DropdownMenuRadioItem key={curr} value={curr}>
-                    {curr}
+                    {currencySymbol(curr)} {curr}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
@@ -839,15 +878,16 @@ function CommercialStatement({ token }: { token: string }) {
                 <Badge variant="outline">Income</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {recognizedRevenue === null ? 'Unavailable' : money(recognizedRevenue.toString(), currency)}
+                {recognizedRevenue === null ? 'Unavailable' : formatFinancialMoney(recognizedRevenue, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(recognizedRevenue, priorRecognizedRevenue, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                Gross usage {money(nominalConsumption.toString(), currency)} · Gifts &amp; refunds -
-                {money((consumedGifts + customerRefunds).toString(), currency)}
+                Gross usage {formatFinancialMoney(nominalConsumption, currency)} · Gifts &amp; refunds{' '}
+                {consumedGifts + customerRefunds >= 50_000n ? '-' : ''}
+                {formatFinancialMoney(consumedGifts + customerRefunds, currency)}
               </p>
             </article>
 
@@ -857,7 +897,7 @@ function CommercialStatement({ token }: { token: string }) {
                 <Badge variant="outline">COGS</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {money(currentCohort.providerPayable.toString(), currency)}
+                {formatFinancialMoney(currentCohort.providerPayable, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(
@@ -869,8 +909,8 @@ function CommercialStatement({ token }: { token: string }) {
                 <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
-                Settled {money(currentCohort.settledPayable.toString(), currency)} · Unpaid{' '}
-                {money(currentCohort.unpaidPayable.toString(), currency)}
+                Settled {formatFinancialMoney(currentCohort.settledPayable, currency)} · Unpaid{' '}
+                {formatFinancialMoney(currentCohort.unpaidPayable, currency)}
               </p>
             </article>
 
@@ -882,7 +922,7 @@ function CommercialStatement({ token }: { token: string }) {
                 </Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {netContribution === null ? 'Unavailable' : money(netContribution.toString(), currency)}
+                {netContribution === null ? 'Unavailable' : formatFinancialMoney(netContribution, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(netContribution, priorNetContribution, currency)}
@@ -903,7 +943,7 @@ function CommercialStatement({ token }: { token: string }) {
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {verifiedCashReceipts === null
                   ? 'Unavailable'
-                  : money(verifiedCashReceipts.toString(), currency)}
+                  : formatFinancialMoney(verifiedCashReceipts, currency)}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(verifiedCashReceipts, priorVerifiedCashReceipts, currency)}
@@ -911,7 +951,7 @@ function CommercialStatement({ token }: { token: string }) {
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
                 Unused prepaid wallet:{' '}
-                {prepaidCash === null ? '—' : money(prepaidCash.toString(), currency)}
+                {prepaidCash === null ? '—' : formatFinancialMoney(prepaidCash, currency)}
               </p>
             </article>
           </div>
@@ -927,7 +967,9 @@ function CommercialStatement({ token }: { token: string }) {
                     Accrual operating revenue, promotional allowances, and supply cost
                   </p>
                 </div>
-                <span className="text-xs font-medium text-muted-foreground">Amounts in {currency}</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Amounts in {currency} ({currencySymbol(currency)})
+                </span>
               </div>
               <Table aria-label="Statement of operations" className="table-fixed">
                 <TableHeader>
@@ -1022,7 +1064,9 @@ function CommercialStatement({ token }: { token: string }) {
                     Verified cash inflows, Provider settlement status, and customer balances
                   </p>
                 </div>
-                <span className="text-xs font-medium text-muted-foreground">Amounts in {currency}</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Amounts in {currency} ({currencySymbol(currency)})
+                </span>
               </div>
               <Table aria-label="Customer financial posting summary" className="table-fixed">
                 <TableHeader>
@@ -1091,7 +1135,7 @@ function CommercialStatement({ token }: { token: string }) {
                       Unused verified prepaid cash (Wallet liability)
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
-                      {prepaidCash === null ? 'Unavailable' : money(prepaidCash.toString(), currency)}
+                      {prepaidCash === null ? 'Unavailable' : formatFinancialMoney(prepaidCash, currency)}
                     </TableCell>
                     <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
                       Point-in-time
@@ -1107,7 +1151,7 @@ function CommercialStatement({ token }: { token: string }) {
                     <TableCell className="text-right tabular-nums">
                       {outstandingCredit === null
                         ? 'Unavailable'
-                        : money(outstandingCredit.toString(), currency)}
+                        : formatFinancialMoney(outstandingCredit, currency)}
                     </TableCell>
                     <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
                       Point-in-time
@@ -1226,18 +1270,18 @@ function CommercialStatement({ token }: { token: string }) {
                                     ? `In ${
                                         offer.prompt_rate == null
                                           ? '—'
-                                          : money(offer.prompt_rate, row.currency)
+                                          : formatRateMoney(offer.prompt_rate, row.currency)
                                       } · Out ${
                                         offer.completion_rate == null
                                           ? '—'
-                                          : money(offer.completion_rate, row.currency)
+                                          : formatRateMoney(offer.completion_rate, row.currency)
                                       } / 1M`
                                     : offer.media_rates.length === 0
                                       ? 'Media rate'
                                       : offer.media_rates
                                           .map(
                                             rate =>
-                                              `${rate.tariff.dimensions.resolution} · ${rate.tariff.currency} ${formatUnits(
+                                              `${rate.tariff.dimensions.resolution} · ${currencySymbol(rate.tariff.currency)}${formatUnits(
                                                 rate.tariff.amount_units,
                                                 rate.tariff.decimal_places,
                                               )}`,
@@ -1254,14 +1298,14 @@ function CommercialStatement({ token }: { token: string }) {
                             {rowCharge === null ? (
                               <span className="text-muted-foreground">—</span>
                             ) : (
-                              money(rowCharge.toString(), row.currency)
+                              formatFinancialMoney(rowCharge, row.currency)
                             )}
                           </div>
-                          {(rowGifts > 0n || rowRefunds > 0n) && (
+                          {(rowGifts >= 50_000n || rowRefunds >= 50_000n) && (
                             <div className="text-xs text-muted-foreground">
-                              {rowGifts > 0n ? `Gift -${money(rowGifts.toString(), row.currency)}` : ''}
-                              {rowRefunds > 0n
-                                ? ` Refund -${money(rowRefunds.toString(), row.currency)}`
+                              {rowGifts >= 50_000n ? `Gift -${formatFinancialMoney(rowGifts, row.currency)}` : ''}
+                              {rowRefunds >= 50_000n
+                                ? ` Refund -${formatFinancialMoney(rowRefunds, row.currency)}`
                                 : ''}
                             </div>
                           )}
@@ -1274,7 +1318,7 @@ function CommercialStatement({ token }: { token: string }) {
                                 {unresolved > 0n ? 'Pending' : '—'}
                               </span>
                             ) : (
-                              money(rowNetRev.toString(), row.currency)
+                              formatFinancialMoney(rowNetRev, row.currency)
                             )}
                           </div>
                           {rowNetRev !== null && priorNetRev !== null && (
@@ -1289,19 +1333,19 @@ function CommercialStatement({ token }: { token: string }) {
                             <span className="text-muted-foreground">—</span>
                           ) : (
                             <div>
-                              <div>{money(rowPayable.toString(), row.currency)}</div>
+                              <div>{formatFinancialMoney(rowPayable, row.currency)}</div>
                               <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                                 <div>
                                   Settled{' '}
                                   {row.settled_earning_nanos
-                                    ? money(row.settled_earning_nanos, row.currency)
-                                    : money('0', row.currency)}
+                                    ? formatFinancialMoney(row.settled_earning_nanos, row.currency)
+                                    : formatFinancialMoney(0n, row.currency)}
                                 </div>
                                 <div>
                                   Unpaid{' '}
                                   {row.unsettled_earning_nanos
-                                    ? money(row.unsettled_earning_nanos, row.currency)
-                                    : money('0', row.currency)}
+                                    ? formatFinancialMoney(row.unsettled_earning_nanos, row.currency)
+                                    : formatFinancialMoney(0n, row.currency)}
                                 </div>
                               </div>
                             </div>
@@ -1312,7 +1356,7 @@ function CommercialStatement({ token }: { token: string }) {
                           {rowContrib !== null ? (
                             <div>
                               <div className="font-medium">
-                                {money(rowContrib.toString(), row.currency)}
+                                {formatFinancialMoney(rowContrib, row.currency)}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {formatMarginPercent(rowContrib, rowNetRev)}
@@ -1360,8 +1404,8 @@ function StatementRow({
 }) {
   const formatVal = (val: bigint | null) => {
     if (val === null) return 'Unavailable';
-    if (negateDisplay && val > 0n) return `-${money(val.toString(), currency)}`;
-    return money(val.toString(), currency);
+    if (negateDisplay && val >= 50_000n) return `-${formatFinancialMoney(val, currency)}`;
+    return formatFinancialMoney(val, currency);
   };
   return (
     <TableRow className={strong ? 'bg-muted/30 font-semibold' : muted ? 'text-muted-foreground text-xs' : undefined}>

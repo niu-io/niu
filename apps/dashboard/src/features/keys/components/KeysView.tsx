@@ -358,7 +358,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
                     <DropdownMenuRadioGroup value={spendingCurrency} onValueChange={setSpendingCurrency}>
-                      {['USD', 'CNY', 'EUR'].map(curr => <DropdownMenuRadioItem key={curr} value={curr}>{curr}</DropdownMenuRadioItem>)}
+                      {['USD', 'CNY'].map(curr => <DropdownMenuRadioItem key={curr} value={curr}>{curr === 'CNY' ? '¥ CNY' : '$ USD'}</DropdownMenuRadioItem>)}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
