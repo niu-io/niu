@@ -294,7 +294,7 @@ fn box_list(b: &[u8], absolute: usize) -> Result<Vec<BoxRef<'_>>> {
     let mut o = 0;
     let mut result = Vec::new();
     while o < b.len() {
-        if result.len() >= 65536 {
+        if result.len() >= 1024 {
             return Err(Unsupported);
         }
         let n = be32(b, o)?;
@@ -397,6 +397,13 @@ fn samples_in_file(
     all_ranges: &mut Vec<(usize, usize)>,
 ) -> Result<usize> {
     let sizes = sample_sizes(one(stbl, b"stsz")?.body)?;
+    if all_ranges
+        .len()
+        .checked_add(sizes.len())
+        .is_none_or(|total| total > 200000)
+    {
+        return Err(Incomplete);
+    }
     let stsc = table(one(stbl, b"stsc")?.body, 12)?;
     let stco = optional(stbl, b"stco")?;
     let co64 = optional(stbl, b"co64")?;
@@ -421,6 +428,7 @@ fn samples_in_file(
     {
         return Err(InvalidMedia);
     }
+    all_ranges.reserve(sizes.len());
     let mut index = 0;
     let mut mapping = 0;
     for (i, entry) in offsets.chunks_exact(width).enumerate() {
@@ -436,7 +444,8 @@ fn samples_in_file(
         for _ in 0..mappings[mapping].1 {
             let size = *sizes.get(index).ok_or(InvalidMedia)? as usize;
             let end = o.checked_add(size).ok_or(InvalidMedia)?;
-            if !mdat.iter().any(|(start, stop)| o >= *start && end <= *stop) {
+            let mdat_idx = mdat.partition_point(|(start, _)| *start <= o);
+            if mdat_idx == 0 || end > mdat[mdat_idx - 1].1 {
                 return Err(InvalidMedia);
             }
             all_ranges.push((o, end));
@@ -605,6 +614,9 @@ fn mp4_facts(b: &[u8]) -> Result<MediaReferenceFacts> {
         .filter(|x| x.kind == b"mdat")
         .map(|x| (x.start, x.start + x.body.len()))
         .collect();
+    if mdat.len() > 64 {
+        return Err(Unsupported);
+    }
     let movie = children(one(&top, b"moov")?)?;
     if movie.iter().any(|x| x.kind == b"mvex") {
         return Err(Unsupported);
