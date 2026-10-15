@@ -98,8 +98,8 @@ impl Store {
         order: Uuid,
         platform_reference: &str,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?
@@ -208,7 +208,7 @@ impl Store {
         // Keep pre-contact contention bounded while preserving the durable
         // claim that prevents repeating an uncertain remote creation.
         let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?
@@ -358,7 +358,7 @@ impl Store {
             }
         }
 
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?
@@ -449,8 +449,8 @@ impl Store {
         order: Uuid,
         checkout_url: &str,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?
@@ -526,8 +526,8 @@ impl Store {
         platform_reference: &str,
         checkout_url: Option<&str>,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?
@@ -614,9 +614,9 @@ impl Store {
         platform_reference: &str,
         verified_amount_nanos: i64,
     ) -> Result<Uuid, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         // Same lock order as funding/policy writes: company, order, then account.
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?

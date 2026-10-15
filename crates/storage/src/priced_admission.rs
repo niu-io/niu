@@ -34,6 +34,17 @@ impl Store {
         }
         let attempt = admission.attempt_id;
         let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
+            .bind(scope.organization_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
         Self::insert_gateway_retry_attempt(&mut tx, &admission, retry).await?;
         Self::insert_route_generation(&mut *tx, attempt, admission.route_generation).await?;
         if let Some(route) = &admission.managed_route {
