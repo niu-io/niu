@@ -19,7 +19,7 @@ impl Store {
         principal: &Principal,
         snapshot: &GuardrailSnapshot,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::authorize_media_processing_using(&mut tx, principal, snapshot).await?;
         tx.commit().await?;
         Ok(())
@@ -78,7 +78,7 @@ impl Store {
         ) {
             return Err(StoreError::Unauthorized);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
             .bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await?;
         let key:Option<Uuid>=sqlx::query_scalar("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k,p")
@@ -134,7 +134,7 @@ impl Store {
         request: &niu_media::ValidatedVideoRequest,
         approvals: &[ImageRequestApproval<'_>],
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::bind_image_request_using(
             &mut tx, principal, attempt, snapshot, request, approvals, true,
         )
@@ -154,7 +154,7 @@ impl Store {
         request: &niu_media::ValidatedVideoRequest,
         approvals: &[ImageRequestApproval<'_>],
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::bind_image_request_using(
             &mut tx, principal, attempt, snapshot, request, approvals, false,
         )
@@ -204,14 +204,13 @@ impl Store {
         if positions.is_empty() {
             return Err(StoreError::InvalidObservation);
         }
+        let project_id_str = scope.project_id.to_string();
         let mut ids = std::collections::BTreeSet::new();
         for entry in approvals {
             if !ids.insert(entry.receipt_id)
-                || !entry.runtime.approval_current(
-                    &scope.project_id.to_string(),
-                    entry.consent,
-                    entry.approval,
-                )
+                || !entry
+                    .runtime
+                    .approval_current(&project_id_str, entry.consent, entry.approval)
             {
                 return Err(StoreError::Unauthorized);
             }
@@ -219,12 +218,35 @@ impl Store {
         let body_hash = request.body_sha256().to_owned();
         let required =
             Self::authorize_image_request_using(tx, principal, attempt, snapshot, request).await?;
+        let receipt_ids: Vec<Uuid> = ids.iter().copied().collect();
+        let rows = sqlx::query(
+            "SELECT id,detector_name,content_position,content_sha256,configuration_fingerprint,\
+                    detector_revision,workspace_revision,key_policy_revision,key_assignment_revision \
+             FROM image_processing_approvals \
+             WHERE id=ANY($1) AND organization_id=$2 AND project_id=$3 AND key_id=$4",
+        )
+        .bind(&receipt_ids)
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(principal.key_id())
+        .fetch_all(&mut **tx)
+        .await?;
+        if rows.len() != receipt_ids.len() {
+            return Err(StoreError::Conflict);
+        }
+        let rows_by_id: std::collections::BTreeMap<Uuid, sqlx::postgres::PgRow> = rows
+            .into_iter()
+            .map(|row| (row.get::<Uuid, _>("id"), row))
+            .collect();
         let mut satisfied = std::collections::BTreeSet::new();
         let mut covered = std::collections::BTreeSet::new();
         let mut detector_positions = std::collections::BTreeSet::new();
+        let mut verified_position_hashes: std::collections::BTreeMap<i32, &str> =
+            std::collections::BTreeMap::new();
         for entry in approvals {
-            let row=sqlx::query("SELECT detector_name,content_position,content_sha256,configuration_fingerprint,detector_revision,workspace_revision,key_policy_revision,key_assignment_revision FROM image_processing_approvals WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND key_id=$4")
-                .bind(entry.receipt_id).bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+            let row = rows_by_id
+                .get(&entry.receipt_id)
+                .ok_or(StoreError::Conflict)?;
             let position: i32 = row.get("content_position");
             let detector: String = row.get("detector_name");
             if let Some(fingerprint) = required.get(&detector) {
@@ -234,19 +256,30 @@ impl Store {
                 satisfied.insert((position, detector.clone()));
             }
             if !positions.contains(&position)
-                || !detector_positions.insert((position, row.get::<String, _>("detector_name")))
+                || !detector_positions.insert((position, detector))
             {
                 return Err(StoreError::Conflict);
             }
             let url = content[position as usize]["image_url"]["url"]
                 .as_str()
                 .ok_or(StoreError::Conflict)?;
-            if entry
-                .approval
-                .inline_reference_str(url.len())
-                .map_err(|_| StoreError::Conflict)?
-                != url
-                || row.get::<String, _>("content_sha256") != entry.approval.content_sha256()
+            let approval_sha256 = entry.approval.content_sha256();
+            let inline_matches = match verified_position_hashes.get(&position) {
+                Some(verified_sha) => *verified_sha == approval_sha256,
+                None => {
+                    let matches = entry
+                        .approval
+                        .inline_reference_str(url.len())
+                        .map_err(|_| StoreError::Conflict)?
+                        == url;
+                    if matches {
+                        verified_position_hashes.insert(position, approval_sha256);
+                    }
+                    matches
+                }
+            };
+            if !inline_matches
+                || row.get::<String, _>("content_sha256") != approval_sha256
                 || row.get::<String, _>("configuration_fingerprint")
                     != entry.approval.configuration_fingerprint()
                 || row.get::<String, _>("detector_revision") != entry.approval.detector_revision()
@@ -289,7 +322,7 @@ impl Store {
                     snapshot.key_policy_revision,
                     snapshot.key_assignment_revision,
                 )
-                || saved != ids.into_iter().collect::<Vec<_>>()
+                || saved != receipt_ids
             {
                 return Err(StoreError::Conflict);
             }
@@ -300,12 +333,21 @@ impl Store {
         }
         sqlx::query("INSERT INTO image_request_bindings(organization_id,project_id,key_id,attempt_id,body_sha256,schema_revision,image_positions,workspace_revision,key_policy_revision,key_assignment_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(attempt).bind(body_hash).bind(request.schema_revision()).bind(positions).bind(snapshot.workspace_revision).bind(snapshot.key_policy_revision).bind(snapshot.key_assignment_revision).execute(&mut **tx).await?;
-        for id in ids {
-            let bound:Option<Uuid>=sqlx::query_scalar("INSERT INTO image_request_approval_bindings(organization_id,project_id,key_id,attempt_id,approval_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(approval_id) DO NOTHING RETURNING approval_id")
-                .bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(attempt).bind(id).fetch_optional(&mut **tx).await?;
-            if bound.is_none() {
-                return Err(StoreError::Conflict);
-            }
+        let inserted = sqlx::query(
+            "INSERT INTO image_request_approval_bindings(organization_id,project_id,key_id,attempt_id,approval_id) \
+             SELECT $1,$2,$3,$4,UNNEST($5::uuid[]) \
+             ON CONFLICT(approval_id) DO NOTHING",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(principal.key_id())
+        .bind(attempt)
+        .bind(&receipt_ids)
+        .execute(&mut **tx)
+        .await?
+        .rows_affected();
+        if inserted != receipt_ids.len() as u64 {
+            return Err(StoreError::Conflict);
         }
         Ok(())
     }
