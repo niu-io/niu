@@ -392,6 +392,21 @@ impl Store {
         if responses.len() > 200 {
             return Err(StoreError::InvalidObservation);
         }
+        let mut prepared = Vec::with_capacity(responses.len());
+        let mut seen_hashes = std::collections::HashSet::with_capacity(responses.len());
+        for response in responses {
+            response.validate()?;
+            let snapshot = response
+                .rate_snapshot
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()
+                .map_err(|_| StoreError::InvalidObservation)?;
+            let hash = response.response_hash();
+            if seen_hashes.insert(hash.clone()) {
+                prepared.push((response, hash, snapshot));
+            }
+        }
         let mut tx = self.pool.begin().await?;
         let import_exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM codex_usage_imports WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND state='receiving')",
@@ -405,36 +420,36 @@ impl Store {
             return Err(StoreError::Conflict);
         }
 
-        let mut inserted = 0u64;
-        for response in responses {
-            response.validate()?;
-            let snapshot = response
-                .rate_snapshot
-                .as_ref()
-                .map(serde_json::to_value)
-                .transpose()
-                .map_err(|_| StoreError::InvalidObservation)?;
-            let result = sqlx::query(
-                "INSERT INTO codex_usage_responses(organization_id,project_id,import_id,response_key,occurred_at,model_provider,model,input_tokens,cached_input_tokens,cache_write_input_tokens,output_tokens,reasoning_output_tokens,api_equivalent_usd_nanos,rate_snapshot) VALUES($1,$2,$3,$4,to_timestamp($5::double precision/1000.0),$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(organization_id,project_id,response_key) DO NOTHING",
-            )
-            .bind(scope.organization_id)
-            .bind(scope.project_id)
-            .bind(import_id)
-            .bind(response.response_hash())
-            .bind(response.occurred_at_ms)
-            .bind(&response.model_provider)
-            .bind(&response.model)
-            .bind(response.usage.input_tokens)
-            .bind(response.usage.cached_input_tokens)
-            .bind(response.usage.cache_write_input_tokens)
-            .bind(response.usage.output_tokens)
-            .bind(response.usage.reasoning_output_tokens)
-            .bind(response.estimate_usd_nanos())
-            .bind(snapshot)
-            .execute(&mut *tx)
-            .await?;
-            inserted += result.rows_affected();
-        }
+        let inserted = if prepared.is_empty() {
+            0u64
+        } else {
+            let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+                "INSERT INTO codex_usage_responses(organization_id,project_id,import_id,response_key,occurred_at,model_provider,model,input_tokens,cached_input_tokens,cache_write_input_tokens,output_tokens,reasoning_output_tokens,api_equivalent_usd_nanos,rate_snapshot) ",
+            );
+            builder.push_values(
+                &prepared,
+                |mut b, (response, response_key, snapshot)| {
+                    b.push_bind(scope.organization_id)
+                        .push_bind(scope.project_id)
+                        .push_bind(import_id)
+                        .push_bind(response_key)
+                        .push("to_timestamp(")
+                        .push_bind_unseparated(response.occurred_at_ms)
+                        .push_unseparated("::double precision/1000.0)")
+                        .push_bind(&response.model_provider)
+                        .push_bind(&response.model)
+                        .push_bind(response.usage.input_tokens)
+                        .push_bind(response.usage.cached_input_tokens)
+                        .push_bind(response.usage.cache_write_input_tokens)
+                        .push_bind(response.usage.output_tokens)
+                        .push_bind(response.usage.reasoning_output_tokens)
+                        .push_bind(response.estimate_usd_nanos())
+                        .push_bind(snapshot);
+                },
+            );
+            builder.push(" ON CONFLICT(organization_id,project_id,response_key) DO NOTHING");
+            builder.build().execute(&mut *tx).await?.rows_affected()
+        };
         tx.commit().await?;
         Ok((inserted, responses.len() as u64 - inserted))
     }
@@ -622,7 +637,7 @@ impl Store {
             .collect::<Result<Vec<_>, _>>()?;
 
         let imports = sqlx::query(
-            "SELECT i.state,i.collector_version,i.codex_versions,i.selected_file_count,i.consent_version,floor(extract(epoch FROM i.consented_at)*1000)::bigint AS consented_at_ms,i.scanned_line_count,i.malformed_line_count,i.skipped_usage_count,i.unconfirmed_response_count,floor(extract(epoch FROM i.started_at)*1000)::bigint AS started_at_ms,floor(extract(epoch FROM i.completed_at)*1000)::bigint AS completed_at_ms,count(r.response_key)::text AS stored_response_count FROM codex_usage_imports i LEFT JOIN codex_usage_responses r ON r.organization_id=i.organization_id AND r.project_id=i.project_id AND r.import_id=i.id WHERE i.organization_id=$1 AND i.project_id=$2 GROUP BY i.id ORDER BY i.started_at DESC LIMIT 20",
+            "WITH recent_imports AS (SELECT id,organization_id,project_id,state,collector_version,codex_versions,selected_file_count,consent_version,consented_at,scanned_line_count,malformed_line_count,skipped_usage_count,unconfirmed_response_count,started_at,completed_at FROM codex_usage_imports WHERE organization_id=$1 AND project_id=$2 ORDER BY started_at DESC LIMIT 20) SELECT i.state,i.collector_version,i.codex_versions,i.selected_file_count,i.consent_version,floor(extract(epoch FROM i.consented_at)*1000)::bigint AS consented_at_ms,i.scanned_line_count,i.malformed_line_count,i.skipped_usage_count,i.unconfirmed_response_count,floor(extract(epoch FROM i.started_at)*1000)::bigint AS started_at_ms,floor(extract(epoch FROM i.completed_at)*1000)::bigint AS completed_at_ms,count(r.response_key)::text AS stored_response_count FROM recent_imports i LEFT JOIN codex_usage_responses r ON r.organization_id=i.organization_id AND r.project_id=i.project_id AND r.import_id=i.id GROUP BY i.id,i.state,i.collector_version,i.codex_versions,i.selected_file_count,i.consent_version,i.consented_at,i.scanned_line_count,i.malformed_line_count,i.skipped_usage_count,i.unconfirmed_response_count,i.started_at,i.completed_at ORDER BY i.started_at DESC,i.id",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)

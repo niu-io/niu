@@ -1054,6 +1054,25 @@ impl Store {
     }
 
     pub async fn provider_dashboard(&self, provider: Uuid, days: i32) -> Result<Value, StoreError> {
+        self.provider_dashboard_with_earnings(provider, days, true)
+            .await
+    }
+
+    pub async fn provider_member_dashboard(
+        &self,
+        provider: Uuid,
+        days: i32,
+    ) -> Result<Value, StoreError> {
+        self.provider_dashboard_with_earnings(provider, days, false)
+            .await
+    }
+
+    async fn provider_dashboard_with_earnings(
+        &self,
+        provider: Uuid,
+        days: i32,
+        include_earnings: bool,
+    ) -> Result<Value, StoreError> {
         if ![7, 30, 90].contains(&days) {
             return Err(StoreError::InvalidPrice);
         }
@@ -1075,7 +1094,11 @@ impl Store {
                 .ok_or(StoreError::Conflict)?;
         let offers = &offer_page["data"];
         let offers_has_more = !offer_page["next_after"].is_null();
-        let earnings:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',e.attempt_id,'model_alias',o.model_alias,'revision',e.revision_id,'offer_id',o.id,'context_minimum_input_tokens',e.context_minimum_input_tokens::text,'cached_prompt_tokens',e.cached_prompt_tokens::text,'cache_write_prompt_tokens',e.cache_write_prompt_tokens::text,'reasoning_completion_tokens',e.reasoning_completion_tokens::text,'currency',e.currency,'amount_nanos',e.amount_nanos::text,'prompt_tokens',e.prompt_tokens::text,'completion_tokens',e.completion_tokens::text,'billing_meter',e.billing_meter,'meter_quantity',e.meter_quantity,'created_at',e.created_at,'status',CASE WHEN s.attempt_id IS NULL THEN 'accrued' ELSE 'paid' END) FROM provider_earnings e JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.created_at>=now()-make_interval(days=>$2) ORDER BY e.created_at DESC,e.attempt_id LIMIT 100").bind(provider).bind(days).fetch_all(&mut *tx).await?;
+        let earnings: Option<Vec<Value>> = if include_earnings {
+            Some(sqlx::query_scalar("SELECT jsonb_build_object('id',e.attempt_id,'model_alias',o.model_alias,'revision',e.revision_id,'offer_id',o.id,'context_minimum_input_tokens',e.context_minimum_input_tokens::text,'cached_prompt_tokens',e.cached_prompt_tokens::text,'cache_write_prompt_tokens',e.cache_write_prompt_tokens::text,'reasoning_completion_tokens',e.reasoning_completion_tokens::text,'currency',e.currency,'amount_nanos',e.amount_nanos::text,'prompt_tokens',e.prompt_tokens::text,'completion_tokens',e.completion_tokens::text,'billing_meter',e.billing_meter,'meter_quantity',e.meter_quantity,'created_at',e.created_at,'status',CASE WHEN s.attempt_id IS NULL THEN 'accrued' ELSE 'paid' END) FROM provider_earnings e JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.created_at>=now()-make_interval(days=>$2) ORDER BY e.created_at DESC,e.attempt_id LIMIT 100").bind(provider).bind(days).fetch_all(&mut *tx).await?)
+        } else {
+            None
+        };
         let settlements:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'currency',currency,'amount_nanos',amount_nanos::text,'payment_reference',payment_reference,'created_at',created_at) FROM provider_settlements WHERE provider_id=$1 ORDER BY created_at DESC,id LIMIT 100").bind(provider).fetch_all(&mut *tx).await?;
         let consumption: Vec<Value> = sqlx::query_scalar(include_str!("provider_consumption.sql"))
             .bind(provider)
@@ -1084,8 +1107,12 @@ impl Store {
             .await?;
         let media_consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'meter',e.billing_meter,'currency',e.currency,'rate_revision',p.rate_revision,'resolution',p.snapshot->'tariff'->'dimensions'->>'resolution','reference_video',p.snapshot->'tariff'->'dimensions'->'reference_video','amount_units',p.snapshot->'tariff'->>'amount_units','decimal_places',p.snapshot->'tariff'->'decimal_places','per_quantity',p.snapshot->'tariff'->'per_quantity','requests',COUNT(*)::text,'quantity',SUM((e.meter_quantity->>'numerator')::numeric)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN supplier_media_attempt_pricing p ON p.attempt_id=e.attempt_id JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter<>'text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,e.billing_meter,e.currency,p.rate_revision,p.snapshot ORDER BY o.model_alias,p.rate_revision").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         tx.commit().await?;
-        Ok(
-            json!({"id":provider,"name":name,"days":days,"balances":balances,"traffic":traffic,"daily":daily,"offers":offers,"offers_has_more":offers_has_more,"earnings":earnings,"consumption":consumption,"media_consumption":media_consumption,"settlements":settlements}),
-        )
+        let mut response = json!({"id":provider,"name":name,"days":days,"balances":balances,"traffic":traffic,"daily":daily,"offers":offers,"offers_has_more":offers_has_more,"consumption":consumption,"media_consumption":media_consumption,"settlements":settlements});
+        if let Some(earnings) = earnings
+            && let Some(obj) = response.as_object_mut()
+        {
+            obj.insert("earnings".to_owned(), json!(earnings));
+        }
+        Ok(response)
     }
 }

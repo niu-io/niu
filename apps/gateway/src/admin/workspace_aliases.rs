@@ -27,12 +27,9 @@ pub(crate) async fn authorize_workspace(
     };
     let organization_id = state
         .store
-        .workspace_page(organization, Some(workspace), None, 1)
+        .workspace_organization_id(organization, workspace)
         .await
         .map_err(ApiError::from_store)?
-        .into_iter()
-        .next()
-        .map(|workspace| workspace.organization_id)
         .ok_or_else(ApiError::not_found)?;
     Ok((
         authorization,

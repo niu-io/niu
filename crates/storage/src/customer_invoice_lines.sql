@@ -30,3 +30,4 @@ LEFT JOIN LATERAL (
 WHERE e.organization_id=$1 AND e.project_id=$2 AND e.invoice_id=$3
 GROUP BY t.model_alias,r.id,c.currency,c.context_minimum_input_tokens,tier.value
 ORDER BY t.model_alias,r.id,c.context_minimum_input_tokens NULLS FIRST
+LIMIT 1000

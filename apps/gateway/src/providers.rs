@@ -163,16 +163,13 @@ pub async fn dashboard(
     Query(period): Query<Period>,
 ) -> Result<Json<Value>, ApiError> {
     member(&state, &headers, provider, false).await?;
-    let mut data = state
-        .store
-        .provider_dashboard(provider, period.days)
-        .await
-        .map_err(ApiError::from_store)?;
     // Suppliers see consumption grouped by their models and agreed rates.
     // Request-level identifiers belong exclusively to platform reconciliation.
-    data.as_object_mut()
-        .expect("dashboard object")
-        .remove("earnings");
+    let data = state
+        .store
+        .provider_member_dashboard(provider, period.days)
+        .await
+        .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":data})))
 }
 #[derive(Deserialize)]

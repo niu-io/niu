@@ -34,7 +34,115 @@ struct Promotion {
     customer_organization_id: Option<Uuid>,
     schedule: Value,
 }
+#[derive(sqlx::FromRow)]
+struct BatchHead {
+    id: Uuid,
+    model_alias: String,
+    currency: String,
+    version: i64,
+    current_revision: Uuid,
+    schedule: Value,
+}
+#[derive(sqlx::FromRow)]
+struct BatchPromotion {
+    head_id: Uuid,
+    id: Uuid,
+    baseline_revision: Uuid,
+    customer_organization_id: Option<Uuid>,
+    schedule: Value,
+}
 impl Store {
+    pub(crate) async fn select_retail_prices_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        heads: &[Uuid],
+        customer: Uuid,
+    ) -> Result<std::collections::HashMap<Uuid, RetailSelection>, StoreError> {
+        if heads.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let mut unique_heads: Vec<Uuid> = heads.to_vec();
+        unique_heads.sort_unstable();
+        unique_heads.dedup();
+        let price_rows: Vec<BatchHead> = sqlx::query_as(
+            "SELECT h.id,h.model_alias,h.currency,h.version,h.current_revision,s.schedule FROM platform_retail_price_heads h JOIN platform_retail_standard_revisions s ON s.id=h.current_revision WHERE h.id=ANY($1::uuid[]) ORDER BY h.id FOR SHARE OF h",
+        )
+        .bind(&unique_heads)
+        .fetch_all(&mut **tx)
+        .await?;
+        if price_rows.len() != unique_heads.len() {
+            return Err(StoreError::Conflict);
+        }
+        let at: i64 =
+            sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
+                .fetch_one(&mut **tx)
+                .await?;
+        let promo_rows: Vec<BatchPromotion> = sqlx::query_as(
+            "SELECT p.head_id,p.id,p.baseline_revision,p.customer_organization_id,p.schedule FROM platform_retail_promotions p LEFT JOIN platform_retail_promotion_retirements r ON r.promotion_id=p.id WHERE p.head_id=ANY($1::uuid[]) AND (p.customer_organization_id IS NULL OR p.customer_organization_id=$2) AND p.effective_from<=$3 AND LEAST(p.effective_until,COALESCE(r.effective_until,p.effective_until))>$3 ORDER BY p.head_id,(p.customer_organization_id IS NOT NULL) DESC",
+        )
+        .bind(&unique_heads)
+        .bind(customer)
+        .bind(at)
+        .fetch_all(&mut **tx)
+        .await?;
+        let mut promos_by_head: std::collections::HashMap<Uuid, Vec<BatchPromotion>> =
+            std::collections::HashMap::with_capacity(unique_heads.len());
+        for promo in promo_rows {
+            promos_by_head.entry(promo.head_id).or_default().push(promo);
+        }
+        let selected_at = at.to_string();
+        let mut selected_map = std::collections::HashMap::with_capacity(price_rows.len());
+        for price in price_rows {
+            let promotions = promos_by_head.remove(&price.id).unwrap_or_default();
+            if promotions
+                .iter()
+                .filter(|p| p.customer_organization_id.is_some())
+                .count()
+                > 1
+                || promotions
+                    .iter()
+                    .filter(|p| p.customer_organization_id.is_none())
+                    .count()
+                    > 1
+            {
+                return Err(StoreError::Conflict);
+            }
+            let (baseline, promotion, scope, schedule) =
+                if let Some(selected) = promotions.into_iter().next() {
+                    (
+                        selected.baseline_revision,
+                        Some(selected.id),
+                        Some(if selected.customer_organization_id.is_some() {
+                            "customer"
+                        } else {
+                            "global"
+                        }),
+                        selected.schedule,
+                    )
+                } else {
+                    (price.current_revision, None, None, price.schedule)
+                };
+            let schedule: RetailSchedule =
+                serde_json::from_value(schedule).map_err(|_| StoreError::InvalidPrice)?;
+            schedule.validate()?;
+            selected_map.insert(
+                price.id,
+                RetailSelection {
+                    price_id: price.id,
+                    model_alias: price.model_alias,
+                    currency: price.currency,
+                    version: price.version.to_string(),
+                    current_standard_revision: price.current_revision,
+                    baseline_revision: baseline,
+                    promotion_revision: promotion,
+                    promotion_scope: scope,
+                    selected_at: selected_at.clone(),
+                    schedule,
+                },
+            );
+        }
+        Ok(selected_map)
+    }
+
     pub(crate) async fn select_retail_price_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         head: Uuid,

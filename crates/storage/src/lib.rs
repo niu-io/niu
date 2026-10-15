@@ -622,6 +622,21 @@ impl Store {
             .await?)
     }
 
+    /// Resolve the owning organization of a workspace by ID with optional member scope.
+    pub async fn workspace_organization_id(
+        &self,
+        organization_id: Option<Uuid>,
+        project_id: Uuid,
+    ) -> Result<Option<Uuid>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT organization_id FROM projects WHERE id=$1 AND ($2::uuid IS NULL OR organization_id=$2)",
+        )
+        .bind(project_id)
+        .bind(organization_id)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     pub async fn workspaces(
         &self,
         organization_id: Option<Uuid>,

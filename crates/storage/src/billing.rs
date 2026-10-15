@@ -575,33 +575,38 @@ SELECT jsonb_build_object(
         let mut prices: std::collections::BTreeMap<String, Value> = rows.into_iter().collect();
         let enrollments:Vec<(String,Uuid)>=sqlx::query_as("SELECT model_alias,price_id FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND price_id IS NOT NULL ORDER BY price_id")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
-        for (alias, head) in enrollments {
-            let selected =
-                Self::select_retail_price_in_tx(&mut tx, head, scope.organization_id).await?;
-            let crate::RetailSchedule::Text(schedule) = &selected.schedule else {
-                return Err(StoreError::InvalidPrice);
-            };
-            let mut price = serde_json::to_value(schedule).map_err(|_| StoreError::InvalidPrice)?;
-            price["revision"] = json!(
-                selected
-                    .promotion_revision
-                    .unwrap_or(selected.baseline_revision)
-            );
-            price["discount_baseline_revision"] = json!(
-                selected
-                    .promotion_revision
-                    .map(|_| selected.baseline_revision)
-            );
-            price["currency"] = json!(selected.currency);
-            price["unit"] = json!("nanounits_per_million_tokens");
-            price["pricing_source"] = json!("platform");
-            price["price_id"] = json!(selected.price_id);
-            price["standard_revision"] = json!(selected.baseline_revision);
-            price["promotion_revision"] = json!(selected.promotion_revision);
-            price["promotion_scope"] = json!(selected.promotion_scope);
-            price["selected_at"] = json!(selected.selected_at);
-            price["price_version"] = json!(selected.version);
-            prices.insert(alias, price);
+        if !enrollments.is_empty() {
+            let head_ids: Vec<Uuid> = enrollments.iter().map(|(_, head)| *head).collect();
+            let selected_by_head =
+                Self::select_retail_prices_in_tx(&mut tx, &head_ids, scope.organization_id).await?;
+            for (alias, head) in enrollments {
+                let selected = selected_by_head.get(&head).ok_or(StoreError::Conflict)?;
+                let crate::RetailSchedule::Text(schedule) = &selected.schedule else {
+                    return Err(StoreError::InvalidPrice);
+                };
+                let mut price =
+                    serde_json::to_value(schedule).map_err(|_| StoreError::InvalidPrice)?;
+                price["revision"] = json!(
+                    selected
+                        .promotion_revision
+                        .unwrap_or(selected.baseline_revision)
+                );
+                price["discount_baseline_revision"] = json!(
+                    selected
+                        .promotion_revision
+                        .map(|_| selected.baseline_revision)
+                );
+                price["currency"] = json!(selected.currency);
+                price["unit"] = json!("nanounits_per_million_tokens");
+                price["pricing_source"] = json!("platform");
+                price["price_id"] = json!(selected.price_id);
+                price["standard_revision"] = json!(selected.baseline_revision);
+                price["promotion_revision"] = json!(selected.promotion_revision);
+                price["promotion_scope"] = json!(selected.promotion_scope);
+                price["selected_at"] = json!(selected.selected_at);
+                price["price_version"] = json!(selected.version);
+                prices.insert(alias, price);
+            }
         }
         tx.commit().await?;
         Ok(prices)

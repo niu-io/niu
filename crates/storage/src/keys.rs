@@ -266,39 +266,54 @@ impl Store {
     ) -> Result<serde_json::Value, StoreError> {
         let scope = principal.scope;
         let id = principal.key_id;
-        let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let row = sqlx::query(
-            "SELECT k.name, k.allowed_models, CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms, (SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms, k.revoked_at IS NOT NULL AS revoked, k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+        let key: KeyView = sqlx::query_as(
+            "SELECT k.id,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
         .bind(id)
-        .fetch_optional(&mut *snapshot)
-        .await?;
-        snapshot.commit().await?;
-        let row = row.ok_or(StoreError::Unauthorized)?;
-        let name: String = row.get("name");
-        let allowed_models: Vec<String> = row.get("allowed_models");
-        let expires_at_ms: Option<i64> = row.get("expires_at_ms");
-        let last_used_at_ms: Option<i64> = row.get("last_used_at_ms");
-        let revoked: bool = row.get("revoked");
-        let expired: bool = row.get("expired");
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(StoreError::Unauthorized)?;
 
-        let raw_spending = self.customer_key_spending_limits(scope, id).await?;
-        let spending_limits: Vec<serde_json::Value> = raw_spending
+        let mut enriched = self
+            .enrich_key_views(scope, vec![key])
+            .await?
+            .into_iter()
+            .next()
+            .ok_or(StoreError::Unauthorized)?;
+        let obj = enriched.as_object_mut().ok_or(StoreError::Unauthorized)?;
+        let name = obj.remove("name").unwrap_or(serde_json::Value::Null);
+        let allowed_models = obj
+            .remove("allowed_models")
+            .unwrap_or(serde_json::Value::Null);
+        let expires_at_ms = obj
+            .remove("expires_at_ms")
+            .unwrap_or(serde_json::Value::Null);
+        let last_used_at_ms = obj
+            .remove("last_used_at_ms")
+            .unwrap_or(serde_json::Value::Null);
+        let revoked = obj.remove("revoked").unwrap_or(serde_json::Value::Null);
+        let expired = obj.remove("expired").unwrap_or(serde_json::Value::Null);
+        let spending_limits: Vec<serde_json::Value> = obj
+            .remove("spending_limits")
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default()
             .into_iter()
             .map(|mut item| {
-                if let Some(obj) = item.as_object_mut() {
-                    obj.remove("revision");
+                if let Some(item_obj) = item.as_object_mut() {
+                    item_obj.remove("revision");
                 }
                 item
             })
             .collect();
-        let rpm_policy = self.key_request_rate_policy(scope, id).await?;
-        let tpm_policy = self.key_token_rate_policy(scope, id).await?;
-        let concurrency_policy = self.key_concurrency_policy(scope, id).await?;
-        let usage_window = self.key_token_usage_window(scope, id).await?;
-        let ip_policy = self.key_ip_policy(scope, id).await?;
+        let rpm_policy = obj.remove("request_rate_limit");
+        let tpm_policy = obj.remove("token_rate_limit");
+        let concurrency_policy = obj.remove("concurrency_limit");
+        let usage_window = obj
+            .remove("token_usage_window")
+            .unwrap_or(serde_json::Value::Null);
+        let ip_policy = obj.remove("ip_policy");
 
         let requests_per_minute = rpm_policy
             .as_ref()
@@ -353,65 +368,178 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
-        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let key: Option<KeyView> = sqlx::query_as(
             "SELECT k.id,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
         .bind(id)
-        .fetch_optional(&mut *snapshot)
+        .fetch_optional(&self.pool)
         .await?;
-        snapshot.commit().await?;
         let Some(key) = key else {
             return Ok(None);
         };
-        self.enrich_key_view(scope, key).await.map(Some)
+        Ok(self.enrich_key_views(scope, vec![key]).await?.into_iter().next())
     }
 
-    async fn enrich_key_view(
+    async fn enrich_key_views(
         &self,
         scope: TenantScope,
-        key: KeyView,
-    ) -> Result<serde_json::Value, StoreError> {
-        let id = key.id;
-        let spending_limits = self.customer_key_spending_limits(scope, id).await?;
-        let ip_policy = self
-            .key_ip_policy(scope, id)
-            .await?
-            .unwrap_or_else(|| serde_json::json!({"allowed_cidrs": null, "revision": null}));
-        let request_rate_limit = self
-            .key_request_rate_policy(scope, id)
-            .await?
-            .unwrap_or_else(|| serde_json::json!({"requests_per_minute": null, "revision": null}));
-        let concurrency_limit = self
-            .key_concurrency_policy(scope, id)
-            .await?
-            .unwrap_or_else(|| {
-                serde_json::json!({"max_concurrent_requests": null, "revision": null, "active_requests": 0})
-            });
-        let token_rate_limit = self
-            .key_token_rate_policy(scope, id)
-            .await?
-            .unwrap_or_else(|| serde_json::json!({"tokens_per_minute": null, "revision": null}));
-        let token_usage_window = self.key_token_usage_window(scope, id).await?;
+        keys: Vec<KeyView>,
+    ) -> Result<Vec<serde_json::Value>, StoreError> {
+        if keys.is_empty() {
+            return Ok(Vec::new());
+        }
+        let key_ids: Vec<Uuid> = keys.iter().map(|k| k.id).collect();
+        let mut snapshot = self.begin_bounded_financial_snapshot().await?;
+        let rows = sqlx::query(
+            "WITH selected_keys AS (
+                SELECT sel.ord, k.id, k.spending_root_id, k.organization_id
+                FROM unnest($3::uuid[]) WITH ORDINALITY AS sel(id, ord)
+                JOIN api_keys k ON k.organization_id=$1 AND k.project_id=$2 AND k.id=sel.id
+            ),
+            distinct_roots AS MATERIALIZED (
+                SELECT DISTINCT spending_root_id, organization_id
+                FROM selected_keys
+            ),
+            root_policies AS MATERIALIZED (
+                SELECT
+                    r.spending_root_id,
+                    COALESCE((
+                        SELECT jsonb_agg(
+                            jsonb_build_object(
+                                'currency', amounts.currency,
+                                'limit_nanos', amounts.limit_nanos::text,
+                                'revision', amounts.revision::text,
+                                'committed_nanos', amounts.committed::text,
+                                'remaining_nanos', CASE WHEN amounts.limit_nanos IS NULL THEN NULL ELSE GREATEST(amounts.limit_nanos::numeric-amounts.committed,0)::text END
+                            )
+                            ORDER BY amounts.currency
+                        )
+                        FROM (
+                            SELECT a.currency, l.limit_nanos, l.revision, niu_customer_key_committed(r.spending_root_id, a.id) AS committed
+                            FROM customer_balance_accounts a
+                            LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=r.spending_root_id AND l.account_id=a.id
+                            WHERE a.organization_id=r.organization_id
+                        ) amounts
+                    ), '[]'::jsonb) AS spending_limits,
+                    jsonb_build_object('allowed_cidrs', ip.allowed_cidrs, 'revision', ip.revision::text) AS ip_policy,
+                    jsonb_build_object('requests_per_minute', rpm.requests_per_minute, 'revision', rpm.revision::text) AS request_rate_limit,
+                    jsonb_build_object(
+                        'max_concurrent_requests', conc.max_concurrent_requests,
+                        'revision', conc.revision::text,
+                        'active_requests', (
+                            SELECT count(*)
+                            FROM attempts a
+                            JOIN api_keys lineage ON lineage.id=a.api_key_id
+                            WHERE lineage.spending_root_id=r.spending_root_id
+                              AND a.dispatched_at IS NOT NULL
+                              AND a.execution='may_have_executed'
+                        )
+                    ) AS concurrency_limit,
+                    jsonb_build_object(
+                        'tokens_per_minute', tpm.tokens_per_minute,
+                        'revision', tpm.revision::text,
+                        'snapshot_at', statement_timestamp(),
+                        'known_tokens', b.known_tokens::text,
+                        'reserved_tokens', b.reserved_tokens::text,
+                        'unbounded_requests', b.unbounded_requests,
+                        'committed_tokens', CASE WHEN b.unbounded_requests=0 THEN (b.known_tokens+b.reserved_tokens)::text END
+                    ) AS token_rate_limit,
+                    (
+                        SELECT jsonb_build_object(
+                            'window_seconds', 60,
+                            'window_end', statement_timestamp(),
+                            'requests', count(a.id),
+                            'known_usage_requests', count(a.id) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),
+                            'unknown_usage_requests', count(a.id) FILTER(WHERE a.usage_confidence IS DISTINCT FROM 'provider_reported' OR a.prompt_tokens IS NULL OR a.completion_tokens IS NULL),
+                            'known_prompt_tokens', COALESCE(sum(a.prompt_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text,
+                            'known_completion_tokens', COALESCE(sum(a.completion_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text
+                        )
+                        FROM api_keys lineage
+                        LEFT JOIN attempts a ON a.api_key_id=lineage.id
+                            AND a.dispatched_at>statement_timestamp()-interval '60 seconds'
+                            AND a.dispatched_at<=statement_timestamp()
+                        WHERE lineage.spending_root_id=r.spending_root_id
+                    ) AS token_usage_window
+                FROM distinct_roots r
+                LEFT JOIN key_ip_policies ip ON ip.spending_root_id=r.spending_root_id
+                LEFT JOIN key_request_rate_limits rpm ON rpm.spending_root_id=r.spending_root_id
+                LEFT JOIN key_concurrency_limits conc ON conc.spending_root_id=r.spending_root_id
+                LEFT JOIN key_token_rate_limits tpm ON tpm.spending_root_id=r.spending_root_id
+                CROSS JOIN LATERAL niu_key_token_budget(r.spending_root_id, NULL, statement_timestamp()) b
+            )
+            SELECT
+                sk.id,
+                rp.spending_limits,
+                rp.ip_policy,
+                rp.request_rate_limit,
+                rp.concurrency_limit,
+                rp.token_rate_limit,
+                rp.token_usage_window
+            FROM selected_keys sk
+            JOIN root_policies rp ON rp.spending_root_id=sk.spending_root_id
+            ORDER BY sk.ord",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(&key_ids)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        snapshot.commit().await?;
 
-        Ok(serde_json::json!({
-            "id": key.id,
-            "revision": key.revision,
-            "name": key.name,
-            "allowed_models": key.allowed_models,
-            "expires_at_ms": key.expires_at_ms,
-            "last_used_at_ms": key.last_used_at_ms,
-            "revoked": key.revoked,
-            "expired": key.expired,
-            "spending_limits": spending_limits,
-            "ip_policy": ip_policy,
-            "request_rate_limit": request_rate_limit,
-            "concurrency_limit": concurrency_limit,
-            "token_rate_limit": token_rate_limit,
-            "token_usage_window": token_usage_window,
-        }))
+        let mut by_id: std::collections::HashMap<Uuid, sqlx::postgres::PgRow> = rows
+            .into_iter()
+            .map(|row| (row.get::<Uuid, _>("id"), row))
+            .collect();
+
+        let mut details = Vec::with_capacity(keys.len());
+        for key in keys {
+            let (
+                spending_limits,
+                ip_policy,
+                request_rate_limit,
+                concurrency_limit,
+                token_rate_limit,
+                token_usage_window,
+            ) = if let Some(row) = by_id.remove(&key.id) {
+                (
+                    row.try_get::<serde_json::Value, _>("spending_limits")?,
+                    row.try_get::<serde_json::Value, _>("ip_policy")?,
+                    row.try_get::<serde_json::Value, _>("request_rate_limit")?,
+                    row.try_get::<serde_json::Value, _>("concurrency_limit")?,
+                    row.try_get::<serde_json::Value, _>("token_rate_limit")?,
+                    row.try_get::<Option<serde_json::Value>, _>("token_usage_window")?
+                        .unwrap_or(serde_json::Value::Null),
+                )
+            } else {
+                (
+                    serde_json::json!([]),
+                    serde_json::json!({"allowed_cidrs": null, "revision": null}),
+                    serde_json::json!({"requests_per_minute": null, "revision": null}),
+                    serde_json::json!({"max_concurrent_requests": null, "revision": null, "active_requests": 0}),
+                    serde_json::json!({"tokens_per_minute": null, "revision": null}),
+                    serde_json::Value::Null,
+                )
+            };
+            details.push(serde_json::json!({
+                "id": key.id,
+                "revision": key.revision,
+                "name": key.name,
+                "allowed_models": key.allowed_models,
+                "expires_at_ms": key.expires_at_ms,
+                "last_used_at_ms": key.last_used_at_ms,
+                "revoked": key.revoked,
+                "expired": key.expired,
+                "spending_limits": spending_limits,
+                "ip_policy": ip_policy,
+                "request_rate_limit": request_rate_limit,
+                "concurrency_limit": concurrency_limit,
+                "token_rate_limit": token_rate_limit,
+                "token_usage_window": token_usage_window,
+            }));
+        }
+        Ok(details)
     }
 
     /// Resolve current access for a saved video query without reusing a revoked secret.
@@ -435,11 +563,7 @@ impl Store {
         scope: TenantScope,
     ) -> Result<Vec<serde_json::Value>, StoreError> {
         let keys = self.list_keys(scope).await?;
-        let mut details = Vec::with_capacity(keys.len());
-        for key in keys {
-            details.push(self.enrich_key_view(scope, key).await?);
-        }
-        Ok(details)
+        self.enrich_key_views(scope, keys).await
     }
 
     pub async fn key_detail_directory_page(
@@ -449,10 +573,7 @@ impl Store {
         limit: u16,
     ) -> Result<(Vec<serde_json::Value>, Option<Uuid>), StoreError> {
         let (keys, next) = self.key_directory_page(scope, after, limit).await?;
-        let mut details = Vec::with_capacity(keys.len());
-        for key in keys {
-            details.push(self.enrich_key_view(scope, key).await?);
-        }
+        let details = self.enrich_key_views(scope, keys).await?;
         Ok((details, next))
     }
 
