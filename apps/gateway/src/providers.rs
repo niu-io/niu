@@ -35,13 +35,13 @@ fn supplier_audit_actor(authorization: AdminAuthorization) -> OperatorAuditActor
     }
 }
 
-async fn member(
+async fn member_for_auth(
     state: &AppState,
-    headers: &HeaderMap,
+    authorization: &AdminAuthorization,
     provider: Uuid,
     write: bool,
 ) -> Result<Uuid, ApiError> {
-    let AdminAuthorization::Operator(operator) = auth(state, headers).await? else {
+    let AdminAuthorization::Operator(operator) = authorization else {
         return Err(ApiError::forbidden());
     };
     if state
@@ -54,6 +54,28 @@ async fn member(
     } else {
         Err(ApiError::not_found())
     }
+}
+
+async fn member(
+    state: &AppState,
+    headers: &HeaderMap,
+    provider: Uuid,
+    write: bool,
+) -> Result<Uuid, ApiError> {
+    let authorization = auth(state, headers).await?;
+    member_for_auth(state, &authorization, provider, write).await
+}
+
+async fn platform_or_member(
+    state: &AppState,
+    headers: &HeaderMap,
+    provider: Uuid,
+) -> Result<(), ApiError> {
+    let authorization = auth(state, headers).await?;
+    if !authorization.can_manage_platform() {
+        member_for_auth(state, &authorization, provider, false).await?;
+    }
+    Ok(())
 }
 
 /// ```openapi
@@ -1274,10 +1296,7 @@ pub async fn offer_revision(
     headers: HeaderMap,
     Path((provider, offer, revision)): Path<(Uuid, Uuid, Uuid)>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = auth(&state, &headers).await?;
-    if !authorization.can_manage_platform() {
-        member(&state, &headers, provider, false).await?;
-    }
+    platform_or_member(&state, &headers, provider).await?;
     let data = state
         .store
         .provider_offer_revision(provider, offer, revision)
@@ -2249,10 +2268,7 @@ pub async fn media_rates(
     Path(provider): Path<Uuid>,
     Query(page): Query<MediaRatePage>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = auth(&state, &headers).await?;
-    if !authorization.can_manage_platform() {
-        member(&state, &headers, provider, false).await?;
-    }
+    platform_or_member(&state, &headers, provider).await?;
     Ok(Json(
         state
             .store
@@ -2737,10 +2753,7 @@ pub async fn offer_history(
     Path((provider, offer)): Path<(Uuid, Uuid)>,
     Query(page): Query<OfferHistoryQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = auth(&state, &headers).await?;
-    if !authorization.can_manage_platform() {
-        member(&state, &headers, provider, false).await?;
-    }
+    platform_or_member(&state, &headers, provider).await?;
     state
         .store
         .provider_offer_history(provider, offer, page.before, page.limit.unwrap_or(50))
@@ -2922,10 +2935,7 @@ pub async fn settlement_history(
     Path(provider): Path<Uuid>,
     Query(query): Query<niu_storage::ProviderSettlementQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = auth(&state, &headers).await?;
-    if !authorization.can_manage_platform() {
-        member(&state, &headers, provider, false).await?;
-    }
+    platform_or_member(&state, &headers, provider).await?;
     state
         .store
         .provider_settlement_history(provider, &query)
@@ -3443,10 +3453,7 @@ pub async fn offers(
     Path(provider): Path<Uuid>,
     Query(page): Query<CurrentOfferPage>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = auth(&state, &headers).await?;
-    if !authorization.can_manage_platform() {
-        member(&state, &headers, provider, false).await?;
-    }
+    platform_or_member(&state, &headers, provider).await?;
     state
         .store
         .provider_offer_page(provider, page.after.as_deref(), page.limit.unwrap_or(100))
