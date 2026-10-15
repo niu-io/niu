@@ -24,6 +24,10 @@ pub enum Error {
     Endpoint,
     #[error("CyberArk secret manager requires an enterprise license")]
     EnterpriseRequired,
+    #[error("CyberArk Conjur response exceeded maximum size")]
+    ResponseTooLarge,
+    #[error("CyberArk Conjur response is not valid UTF-8")]
+    Utf8,
     #[error(transparent)]
     Operation(#[from] litellm_secrets_types::Error),
 }

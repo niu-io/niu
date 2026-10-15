@@ -193,7 +193,9 @@ impl OidcResolver {
                 struct Token {
                     value: Option<SecretValue>,
                 }
-                let token: Token = response.json().await.map_err(|_| Error::OidcResponse)?;
+                let raw_body = read_oidc_response_bytes(response).await?;
+                let token: Token =
+                    serde_json::from_slice(&raw_body).map_err(|_| Error::OidcResponse)?;
                 if let Some(value) = &token.value {
                     self.cache
                         .insert(
@@ -222,7 +224,8 @@ impl OidcResolver {
                 if response.status() != reqwest::StatusCode::OK {
                     return Err(Error::OidcStatus(response.status().as_u16()));
                 }
-                let token = response.text().await.map_err(|_| Error::OidcResponse)?;
+                let raw_body = read_oidc_response_bytes(response).await?;
+                let token = String::from_utf8(raw_body).map_err(|_| Error::OidcResponse)?;
                 let now = (self.clock)();
                 let ttl = oidc_token_cache_ttl(&token, now, GOOGLE_TOKEN_MAX_TTL);
                 let value = SecretValue::new(token);
@@ -242,6 +245,23 @@ impl OidcResolver {
             .await
             .and_then(|(value, expires)| ((self.clock)() < expires).then_some(value))
     }
+}
+
+async fn read_oidc_response_bytes(mut response: reqwest::Response) -> Result<Vec<u8>, Error> {
+    if response
+        .content_length()
+        .is_some_and(|len| len > MAX_OIDC_FILE_BYTES as u64)
+    {
+        return Err(Error::OidcResponse);
+    }
+    let mut raw_body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| Error::OidcResponse)? {
+        if chunk.len() > MAX_OIDC_FILE_BYTES.saturating_sub(raw_body.len()) {
+            return Err(Error::OidcResponse);
+        }
+        raw_body.extend_from_slice(&chunk);
+    }
+    Ok(raw_body)
 }
 
 fn required_env(environment: &dyn Lookup, name: &str) -> Result<String, Error> {

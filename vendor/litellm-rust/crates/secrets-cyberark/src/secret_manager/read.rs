@@ -99,7 +99,7 @@ impl CyberArkSecretManager {
         if !response.status().is_success() {
             return Err(Error::Status(response.status().as_u16()));
         }
-        let value = SecretValue::new(response.text().await?);
+        let value = SecretValue::new(read_response_text(response).await?);
         Ok(Some(value))
     }
 }

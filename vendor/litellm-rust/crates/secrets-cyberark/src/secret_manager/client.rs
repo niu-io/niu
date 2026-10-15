@@ -127,7 +127,7 @@ impl CyberArkSecretManager {
         if !response.status().is_success() {
             return Err(Error::AuthStatus(response.status().as_u16()));
         }
-        let token = SecretValue::new(STANDARD.encode(response.text().await?));
+        let token = SecretValue::new(STANDARD.encode(read_response_text(response).await?));
         self.token.insert((), token.clone()).await;
         Ok(token)
     }

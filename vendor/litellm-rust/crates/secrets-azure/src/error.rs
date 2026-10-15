@@ -26,4 +26,12 @@ pub enum Error {
     Status(u16),
     #[error("Azure Key Vault response is missing the secret value")]
     MissingValue,
+    #[error("Azure Key Vault response exceeded maximum size")]
+    ResponseTooLarge,
+    #[error("Azure Key Vault response is not valid JSON")]
+    Json(
+        #[source]
+        #[redact]
+        serde_json::Error,
+    ),
 }

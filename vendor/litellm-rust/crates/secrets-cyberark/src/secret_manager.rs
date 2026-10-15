@@ -104,3 +104,22 @@ fn with_timeout(
         None => request,
     }
 }
+
+const MAX_SECRET_RESPONSE_BYTES: usize = 1024 * 1024;
+
+pub(super) async fn read_response_text(mut response: reqwest::Response) -> Result<String, Error> {
+    if response
+        .content_length()
+        .is_some_and(|len| len > MAX_SECRET_RESPONSE_BYTES as u64)
+    {
+        return Err(Error::ResponseTooLarge);
+    }
+    let mut raw_body = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if chunk.len() > MAX_SECRET_RESPONSE_BYTES.saturating_sub(raw_body.len()) {
+            return Err(Error::ResponseTooLarge);
+        }
+        raw_body.extend_from_slice(&chunk);
+    }
+    String::from_utf8(raw_body).map_err(|_| Error::Utf8)
+}

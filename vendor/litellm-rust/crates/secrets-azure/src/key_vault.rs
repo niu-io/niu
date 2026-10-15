@@ -117,10 +117,30 @@ impl AzureKeyVault {
         if response.status() != reqwest::StatusCode::OK {
             return Err(Error::Status(response.status().as_u16()));
         }
-        let payload: SecretResponse = response.json().await.map_err(Error::Http)?;
+        let raw_body = read_response_bytes(response).await?;
+        let payload: SecretResponse = serde_json::from_slice(&raw_body).map_err(Error::Json)?;
         let value = payload.value.ok_or(Error::MissingValue)?;
         Ok(Some(SecretValue::new(value)))
     }
+}
+
+const MAX_SECRET_RESPONSE_BYTES: usize = 1024 * 1024;
+
+async fn read_response_bytes(mut response: reqwest::Response) -> Result<Vec<u8>, Error> {
+    if response
+        .content_length()
+        .is_some_and(|len| len > MAX_SECRET_RESPONSE_BYTES as u64)
+    {
+        return Err(Error::ResponseTooLarge);
+    }
+    let mut raw_body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(Error::Http)? {
+        if chunk.len() > MAX_SECRET_RESPONSE_BYTES.saturating_sub(raw_body.len()) {
+            return Err(Error::ResponseTooLarge);
+        }
+        raw_body.extend_from_slice(&chunk);
+    }
+    Ok(raw_body)
 }
 
 fn scope_for(vault: &reqwest::Url) -> String {

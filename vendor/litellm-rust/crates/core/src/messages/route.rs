@@ -23,7 +23,7 @@ use serde_json::{Map, Value};
 use super::{
     Error,
     common_utils::messages_provider_config,
-    handler::{decode_response, network, provider_error, send},
+    handler::{decode_response, network, provider_error, read_response_text, send},
     prepare::{prepare_provider_request, resolve_provider},
     types::{MessagesRequest, MessagesShaping},
 };
@@ -178,13 +178,13 @@ async fn execute(
     if stream {
         return relay(&host, response).await;
     }
-    let text = response.text().await.map_err(network)?;
+    let text = read_response_text(response).await?;
+    let decoded = decode_response(request.config, &request.model, &text);
     host.emit(MachineEvent::ResponseReceived {
-        raw: RawResponse { body: text.clone() },
+        raw: RawResponse { body: text },
     })
     .await?;
-    decode_response(request.config, &request.model, &text)
-        .map(|message| MessagesOutput::Message(Box::new(message)))
+    decoded.map(|message| MessagesOutput::Message(Box::new(message)))
 }
 
 /// Hands each upstream chunk to the caller as it arrives. A caller that stops reading

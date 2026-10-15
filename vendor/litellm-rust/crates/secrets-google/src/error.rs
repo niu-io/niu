@@ -46,4 +46,12 @@ pub enum Error {
     Endpoint,
     #[error("Google Secret Manager requires an enterprise license")]
     EnterpriseRequired,
+    #[error("Google Secret Manager response exceeded maximum size")]
+    ResponseTooLarge,
+    #[error("Google Secret Manager response is not valid JSON")]
+    Json(
+        #[from]
+        #[redact]
+        serde_json::Error,
+    ),
 }
