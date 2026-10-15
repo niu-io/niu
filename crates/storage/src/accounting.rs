@@ -173,6 +173,8 @@ struct GatewayActivitySummaryCounts {
     unresolved_customer_charge_count: i64,
     unpriced_request_count: i64,
     owner_funded_request_count: i64,
+    latency_percentiles: serde_json::Value,
+    token_categories: serde_json::Value,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -344,14 +346,12 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
 impl Store {
     /// Bound reporting contention without changing later work on the pooled connection.
     async fn begin_activity_read(&self) -> Result<sqlx::Transaction<'_, Postgres>, StoreError> {
-        let mut snapshot = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-            .execute(&mut *snapshot)
-            .await?;
-        sqlx::query("SELECT set_config('lock_timeout','1s',true), set_config('statement_timeout','5s',true)")
-            .execute(&mut *snapshot)
-            .await?;
-        Ok(snapshot)
+        Ok(self
+            .pool
+            .begin_with(
+                "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL lock_timeout = '1s'; SET LOCAL statement_timeout = '5s'",
+            )
+            .await?)
     }
 
     /// One statement provides a consistent view of the filtered range. Fetch
@@ -374,15 +374,18 @@ impl Store {
                ELSE 'unpriced' END AS customer_charge_status, \
              c.currency AS customer_charge_currency, c.amount_nanos::text AS customer_charge_nanos, \
              t.total_ms, t.complete AS timing_complete, \
-             (SELECT cache_write_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cache_write_input_tokens, \
-             (SELECT cached_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cached_input_tokens, \
-             (SELECT reasoning_output_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS reasoning_output_tokens, \
-             (SELECT choices FROM request_finish_reasons WHERE attempt_id=a.id) AS finish_reasons, \
-             (SELECT jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) FROM request_failures f WHERE f.attempt_id=a.id) AS failure \
+             rtc.cache_write_input_tokens::text AS cache_write_input_tokens, \
+             rtc.cached_input_tokens::text AS cached_input_tokens, \
+             rtc.reasoning_output_tokens::text AS reasoning_output_tokens, \
+             rfr.choices AS finish_reasons, \
+             CASE WHEN f.attempt_id IS NULL THEN NULL ELSE jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) END AS failure \
              FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
-             LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id",
+             LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
+             LEFT JOIN request_token_categories rtc ON rtc.attempt_id=a.id \
+             LEFT JOIN request_finish_reasons rfr ON rfr.attempt_id=a.id \
+             LEFT JOIN request_failures f ON f.attempt_id=a.id",
         );
         push_activity_scope_and_filters(&mut query, scope, filter);
         push_activity_order(&mut query, filter.sort);
@@ -480,13 +483,13 @@ impl Store {
              CASE WHEN a.dispatched_at IS NULL THEN NULL ELSE to_char(a.dispatched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS dispatched_at, \
              CASE WHEN a.completed_at IS NULL THEN NULL ELSE to_char(a.completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS completed_at, \
              CASE WHEN a.dispatched_at IS NULL OR a.completed_at IS NULL OR EXISTS(SELECT 1 FROM openrouter_usage_reconciliations recovered WHERE recovered.attempt_id=a.id AND recovered.original_state->>'completed_at' IS NULL) THEN NULL ELSE GREATEST(0, round(extract(epoch FROM (a.completed_at - a.dispatched_at)) * 1000))::bigint END AS duration_ms, \
-             (SELECT jsonb_build_object('dispatch_ms',t.dispatch_ms,'headers_ms',t.headers_ms,'first_output_ms',t.first_output_ms,'total_ms',t.total_ms,'complete',t.complete,'http_status',t.http_status) FROM request_timings t WHERE t.attempt_id=a.id) AS timing, \
+             CASE WHEN t.attempt_id IS NULL THEN NULL ELSE jsonb_build_object('dispatch_ms',t.dispatch_ms,'headers_ms',t.headers_ms,'first_output_ms',t.first_output_ms,'total_ms',t.total_ms,'complete',t.complete,'http_status',t.http_status) END AS timing, \
              a.execution, a.usage_confidence, a.prompt_tokens::text AS prompt_tokens, a.completion_tokens::text AS completion_tokens, \
-             (SELECT cache_write_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cache_write_input_tokens, \
-             (SELECT cached_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cached_input_tokens, \
-             (SELECT reasoning_output_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS reasoning_output_tokens, \
-             (SELECT choices FROM request_finish_reasons WHERE attempt_id=a.id) AS finish_reasons, \
-             (SELECT jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) FROM request_failures f WHERE f.attempt_id=a.id) AS failure, \
+             rtc.cache_write_input_tokens::text AS cache_write_input_tokens, \
+             rtc.cached_input_tokens::text AS cached_input_tokens, \
+             rtc.reasoning_output_tokens::text AS reasoning_output_tokens, \
+             rfr.choices AS finish_reasons, \
+             CASE WHEN f.attempt_id IS NULL THEN NULL ELSE jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) END AS failure, \
              (SELECT jsonb_build_object('kind',d.kind,'http_status',d.http_status,'requested_key_name',d.requested_key_name,'key_name_source','captured_at_admission','recorded_at',d.recorded_at) FROM gateway_admission_denials d WHERE d.attempt_id=a.id AND d.organization_id=a.organization_id AND d.project_id=a.project_id AND a.dispatched_at IS NULL AND a.execution='not_sent') AS admission_denial, \
              (SELECT decision.outcome FROM output_guardrail_decisions decision WHERE decision.organization_id=a.organization_id AND decision.project_id=a.project_id AND decision.attempt_id=a.id) AS output_guardrail_outcome, \
              customer_charge.currency AS customer_charge_currency, customer_charge.amount_nanos::text AS customer_charge_nanos, \
@@ -499,6 +502,9 @@ impl Store {
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_charges customer_charge ON customer_charge.organization_id=a.organization_id AND customer_charge.project_id=a.project_id AND customer_charge.attempt_id=a.id \
+             LEFT JOIN request_token_categories rtc ON rtc.attempt_id=a.id \
+             LEFT JOIN request_finish_reasons rfr ON rfr.attempt_id=a.id \
+             LEFT JOIN request_failures f ON f.attempt_id=a.id \
              LEFT JOIN LATERAL (SELECT jsonb_build_object( \
                'execution_id', e.id, 'source', e.source, 'record_id', e.record_id, 'coverage', e.payload->>'coverage', \
                'outcomes', (SELECT COALESCE(jsonb_agg(jsonb_build_object('authority', outcome->>'authority', 'result', outcome->>'result')), '[]'::jsonb) FROM jsonb_array_elements(e.payload->'outcomes') AS items(outcome)) \
@@ -574,11 +580,23 @@ impl Store {
              ROUND(AVG(t.total_ms::numeric) FILTER (WHERE t.complete))::bigint AS average_duration_ms, \
              COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NOT NULL AND c.attempt_id IS NULL)::bigint AS unresolved_customer_charge_count, \
              COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND c.attempt_id IS NULL AND EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS owner_funded_request_count, \
-             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS unpriced_request_count \
+             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS unpriced_request_count, \
+             jsonb_build_object('boundary','gateway_body_ms','sample_count',COUNT(*) FILTER (WHERE t.complete),'p50_ms',percentile_disc(0.50) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete),'p95_ms',percentile_disc(0.95) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete),'p99_ms',percentile_disc(0.99) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete)) AS latency_percentiles, \
+             jsonb_build_object( \
+              'cache_write_input_tokens',SUM(details.cache_write_input_tokens::numeric)::text, \
+              'cache_write_input_requests',COUNT(details.cache_write_input_tokens), \
+              'cache_write_input_unknown_requests',COUNT(*)-COUNT(details.cache_write_input_tokens), \
+              'cached_input_tokens',SUM(details.cached_input_tokens::numeric)::text, \
+              'cached_input_requests',COUNT(details.cached_input_tokens), \
+              'cached_input_unknown_requests',COUNT(*)-COUNT(details.cached_input_tokens), \
+              'reasoning_output_tokens',SUM(details.reasoning_output_tokens::numeric)::text, \
+              'reasoning_output_requests',COUNT(details.reasoning_output_tokens), \
+              'reasoning_output_unknown_requests',COUNT(*)-COUNT(details.reasoning_output_tokens)) AS token_categories \
              FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_priced_attempts tariff ON tariff.attempt_id=a.id \
-             LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id",
+             LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
+             LEFT JOIN request_token_categories details ON details.attempt_id=a.id",
         );
         push_activity_scope_and_filters(&mut counts, scope, filter);
         let counts: GatewayActivitySummaryCounts =
@@ -667,40 +685,12 @@ impl Store {
             .fetch_all(&mut *snapshot)
             .await?;
 
-        let mut latency = QueryBuilder::new(
-            "SELECT jsonb_build_object('boundary','gateway_body_ms','sample_count',COUNT(*),'p50_ms',percentile_disc(0.50) WITHIN GROUP (ORDER BY t.total_ms),'p95_ms',percentile_disc(0.95) WITHIN GROUP (ORDER BY t.total_ms),'p99_ms',percentile_disc(0.99) WITHIN GROUP (ORDER BY t.total_ms)) FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id JOIN request_timings t ON t.attempt_id=a.id",
-        );
-        push_activity_scope_and_filters(&mut latency, scope, filter);
-        latency.push(" AND t.complete=TRUE");
-        let latency_percentiles = latency
-            .build_query_scalar()
-            .fetch_one(&mut *snapshot)
-            .await?;
         let mut delivery = QueryBuilder::new(
             "SELECT t.http_status, COUNT(*)::bigint AS request_count FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id LEFT JOIN request_timings t ON t.attempt_id=a.id",
         );
         push_activity_scope_and_filters(&mut delivery, scope, filter);
         delivery.push(" GROUP BY t.http_status ORDER BY t.http_status NULLS LAST");
         let delivery_statuses = delivery.build_query_as().fetch_all(&mut *snapshot).await?;
-        let mut categories = QueryBuilder::new(
-            "SELECT jsonb_build_object( \
-             'cache_write_input_tokens',SUM(details.cache_write_input_tokens::numeric)::text, \
-             'cache_write_input_requests',COUNT(details.cache_write_input_tokens), \
-             'cache_write_input_unknown_requests',COUNT(*)-COUNT(details.cache_write_input_tokens), \
-             'cached_input_tokens',SUM(details.cached_input_tokens::numeric)::text, \
-             'cached_input_requests',COUNT(details.cached_input_tokens), \
-             'cached_input_unknown_requests',COUNT(*)-COUNT(details.cached_input_tokens), \
-             'reasoning_output_tokens',SUM(details.reasoning_output_tokens::numeric)::text, \
-             'reasoning_output_requests',COUNT(details.reasoning_output_tokens), \
-             'reasoning_output_unknown_requests',COUNT(*)-COUNT(details.reasoning_output_tokens)) \
-             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
-             LEFT JOIN request_token_categories details ON details.attempt_id=a.id",
-        );
-        push_activity_scope_and_filters(&mut categories, scope, filter);
-        let token_categories = categories
-            .build_query_scalar()
-            .fetch_one(&mut *snapshot)
-            .await?;
         Ok(GatewayActivitySummary {
             request_count: counts.request_count,
             usage_count: counts.usage_count,
@@ -717,9 +707,9 @@ impl Store {
             usage_by_model,
             usage_by_key,
             request_histogram,
-            latency_percentiles,
+            latency_percentiles: counts.latency_percentiles,
             delivery_statuses,
-            token_categories,
+            token_categories: counts.token_categories,
         })
     }
 
