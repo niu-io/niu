@@ -68,7 +68,16 @@ fn validate_environment(
     model: &str,
     config: &dyn BaseConfig,
 ) -> Result<(Vec<(String, String)>, RequestAuth), Error> {
-    let env_lookup = |key: &str| std::env::var(key).ok();
+    let env_credential_used = std::cell::Cell::new(false);
+    let env_lookup = |key: &str| {
+        let val = std::env::var(key).ok();
+        if !matches!(key, "AWS_REGION_NAME" | "AWS_REGION" | "AWS_DEFAULT_REGION")
+            && val.as_deref().is_some_and(|v| !v.trim().is_empty())
+        {
+            env_credential_used.set(true);
+        }
+        val
+    };
     let mut headers = string_headers(request.extra_headers.clone())?;
     let auth = config.auth(
         request.api_key,
@@ -76,6 +85,21 @@ fn validate_environment(
         &request.optional_params,
         &env_lookup,
     )?;
+    let custom_endpoint = request
+        .api_base
+        .or_else(|| {
+            request
+                .optional_params
+                .get("aws_bedrock_runtime_endpoint")
+                .and_then(Value::as_str)
+        })
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
+    if custom_endpoint.is_some() && env_credential_used.get() {
+        return Err(Error::Auth(litellm_auth::Error::ProviderAuthentication(
+            "invalid authentication configuration: host credentials cannot be sent to a request-controlled endpoint".into(),
+        )));
+    }
     match &auth {
         RequestAuth::Header { name, value } => {
             // The deployment's credential replaces whatever the caller forwarded

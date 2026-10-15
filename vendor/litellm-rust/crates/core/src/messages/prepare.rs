@@ -91,7 +91,20 @@ pub(super) fn prepare_provider_request(
             .chain(scoped)
             .collect(),
     ))?;
-    let authenticated = config.authenticate(forwarded, request.api_key, &env_lookup)?;
+    let env_credential_used = std::cell::Cell::new(false);
+    let auth_env_lookup = |key: &str| {
+        let val = secrets.get(key);
+        if val.as_deref().is_some_and(|v| !v.trim().is_empty()) {
+            env_credential_used.set(true);
+        }
+        val
+    };
+    let authenticated = config.authenticate(forwarded, request.api_key, &auth_env_lookup)?;
+    if request.api_base.is_some_and(|base| !base.trim().is_empty()) && env_credential_used.get() {
+        return Err(Error::Auth(litellm_auth::Error::ProviderAuthentication(
+            "invalid authentication configuration: host credentials cannot be sent to a request-controlled endpoint".into(),
+        )));
+    }
     let headers = config.request_headers(
         with_default_headers(authenticated, config.default_headers()),
         &transformed,

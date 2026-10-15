@@ -79,7 +79,7 @@ impl BaseConfig for AmazonConverseConfig {
             .or(api_base)
             .map(str::trim)
             .filter(|value| !value.is_empty());
-        if custom_endpoint.is_none() && !litellm_auth_aws::is_valid_aws_region(&region) {
+        if !litellm_auth_aws::is_valid_aws_region(&region) {
             return Err(Error::InvalidResponse(format!(
                 "invalid AWS region: {region}"
             )));
@@ -222,8 +222,14 @@ impl BaseConfig for AmazonConverseConfig {
             return Ok(RequestAuth::Bearer { token });
         }
         let (_, model_region) = bedrock_model_id_and_region(model);
+        let region = resolve_bedrock_region(model_region.as_deref(), optional_params, env_lookup);
+        if !litellm_auth_aws::is_valid_aws_region(&region) {
+            return Err(Error::InvalidResponse(format!(
+                "invalid AWS region: {region}"
+            )));
+        }
         Ok(RequestAuth::AwsSigV4 {
-            region: resolve_bedrock_region(model_region.as_deref(), optional_params, env_lookup),
+            region,
             service: BEDROCK_SERVICE,
         })
     }

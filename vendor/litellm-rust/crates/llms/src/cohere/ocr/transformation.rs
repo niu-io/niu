@@ -178,24 +178,27 @@ impl CohereParseConfig {
         env_lookup: &(dyn Fn(&str) -> Option<String> + Sync),
     ) -> Result<Vec<(String, String)>, Error> {
         if litellm_http::request::has_header(&connection.extra_headers, "authorization") {
+            validate_destination(connection, connection.extra_headers_source)?;
             return Ok(connection.extra_headers.clone());
         }
-        let key = connection
+        let (key, credential_source) = connection
             .api_key
             .as_ref()
             .map(|key| key.expose().trim())
             .filter(|key| !key.is_empty())
-            .map(str::to_string)
+            .map(|key| (key.to_string(), connection.api_key_source))
             .or_else(|| {
                 self.get_api_key_env_var()
                     .and_then(env_lookup)
                     .filter(|key| !key.trim().is_empty())
+                    .map(|key| (key, litellm_auth::InputSource::Environment))
             })
             .ok_or_else(|| {
                 Error::Auth(litellm_auth::Error::ProviderAuthentication(
                     "Missing COHERE_API_KEY - set it in the environment or pass api_key".into(),
                 ))
             })?;
+        validate_destination(connection, credential_source)?;
         Ok(
             std::iter::once(("Authorization".into(), format!("Bearer {key}")))
                 .chain(connection.extra_headers.clone())
@@ -213,6 +216,22 @@ impl CohereParseConfig {
             .map(|url| url.into_string())
             .map_err(|_| invalid_api_base())
     }
+}
+
+fn validate_destination(
+    connection: &OcrConnection,
+    credential_source: litellm_auth::InputSource,
+) -> Result<(), Error> {
+    if connection.api_base.is_some()
+        && connection.api_base_source == litellm_auth::InputSource::Request
+        && credential_source != litellm_auth::InputSource::Request
+    {
+        return Err(litellm_auth::Error::ProviderAuthentication(
+            "invalid authentication configuration: host credentials cannot be sent to a request-controlled Cohere endpoint".into(),
+        )
+        .into());
+    }
+    Ok(())
 }
 
 pub fn validate_document(document: &OcrDocument) -> Result<(), Error> {

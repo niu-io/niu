@@ -235,6 +235,51 @@ pub(super) async fn environment(
     request: &PreparedOcrRequest,
     operation: TextractOperation,
 ) -> Result<TextractEnvironment, Error> {
+    if request.connection.api_base.is_some()
+        && request.connection.api_base_source == litellm_auth::InputSource::Request
+    {
+        let has_request_keys = request
+            .optional_params
+            .get("aws_access_key_id")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|v| !v.trim().is_empty())
+            && request
+                .optional_params
+                .get("aws_secret_access_key")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|v| !v.trim().is_empty())
+            && request
+                .input_sources
+                .get("aws_access_key_id")
+                .copied()
+                .unwrap_or_default()
+                == litellm_auth::InputSource::Request
+            && request
+                .input_sources
+                .get("aws_secret_access_key")
+                .copied()
+                .unwrap_or_default()
+                == litellm_auth::InputSource::Request
+            && request
+                .optional_params
+                .get("aws_session_token")
+                .and_then(serde_json::Value::as_str)
+                .filter(|v| !v.trim().is_empty())
+                .is_none_or(|_| {
+                    request
+                        .input_sources
+                        .get("aws_session_token")
+                        .copied()
+                        .unwrap_or_default()
+                        == litellm_auth::InputSource::Request
+                });
+        if !has_request_keys {
+            return Err(litellm_auth::Error::ProviderAuthentication(
+                "invalid authentication configuration: host AWS credentials cannot be sent to a request-controlled endpoint".into(),
+            )
+            .into());
+        }
+    }
     let env_lookup = |name: &str| request.connection.secret(name);
     let region =
         resolve_aws_region(None, &request.optional_params, &env_lookup).ok_or_else(|| {

@@ -461,25 +461,44 @@ fn resolve_headers(
     env_lookup: &(dyn Fn(&str) -> Option<String> + Sync),
 ) -> Result<Vec<(String, String)>, Error> {
     if litellm_http::request::has_header(&connection.extra_headers, "authorization") {
+        validate_destination(connection, connection.extra_headers_source)?;
         return Ok(connection.extra_headers.clone());
     }
-    let api_key = connection
+    let (api_key, credential_source) = connection
         .api_key
         .as_ref()
         .map(|key| key.expose().trim())
         .filter(|key| !key.is_empty())
-        .map(str::to_string)
+        .map(|key| (key.to_string(), connection.api_key_source))
         .or_else(|| {
             env_lookup(REDUCTO_API_KEY_ENV)
                 .map(|key| key.trim().to_string())
                 .filter(|key| !key.is_empty())
+                .map(|key| (key, litellm_auth::InputSource::Environment))
         })
         .ok_or(Error::MissingReductoApiKey)?;
+    validate_destination(connection, credential_source)?;
     Ok(
         std::iter::once(("Authorization".into(), format!("Bearer {api_key}")))
             .chain(connection.extra_headers.clone())
             .collect(),
     )
+}
+
+fn validate_destination(
+    connection: &OcrConnection,
+    credential_source: litellm_auth::InputSource,
+) -> Result<(), Error> {
+    if connection.api_base.is_some()
+        && connection.api_base_source == litellm_auth::InputSource::Request
+        && credential_source != litellm_auth::InputSource::Request
+    {
+        return Err(litellm_auth::Error::ProviderAuthentication(
+            "invalid authentication configuration: host credentials cannot be sent to a request-controlled Reducto endpoint".into(),
+        )
+        .into());
+    }
+    Ok(())
 }
 
 fn build_legacy_body(
