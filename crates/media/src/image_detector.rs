@@ -49,6 +49,9 @@ pub struct ProcessingApproval {
     workspace: String,
 }
 impl ProcessingApproval {
+    pub fn content_type(&self) -> &'static str {
+        self.image.content_type()
+    }
     pub fn content_sha256(&self) -> &str {
         self.image.content_sha256()
     }
@@ -60,6 +63,15 @@ impl ProcessingApproval {
     }
     pub fn workspace(&self) -> &str {
         &self.workspace
+    }
+    pub fn encoded_bytes(&self) -> &[u8] {
+        self.image.encoded_bytes()
+    }
+    pub fn inline_reference_str(
+        &self,
+        maximum_bytes: usize,
+    ) -> Result<&str, crate::image_input::DecodeError> {
+        self.image.inline_reference_str(maximum_bytes)
     }
     pub fn inline_reference(
         &self,

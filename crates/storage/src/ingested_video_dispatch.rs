@@ -4,7 +4,6 @@ use crate::{
     Store, StoreError,
 };
 use niu_media::{ValidatedVideoRequest, image_detector::Runtime};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 pub struct IngestedVideoImage<'a> {
@@ -54,9 +53,7 @@ impl Store {
         {
             return Err(StoreError::InvalidObservation);
         }
-        let body = serde_json::to_vec(dispatch.request.body())
-            .map_err(|_| StoreError::InvalidObservation)?;
-        let body_sha256 = format!("{:x}", Sha256::digest(&body));
+        let body_sha256 = dispatch.request.body_sha256();
         let scope = principal.scope();
         let mut tx = self.begin_bounded_recording().await?;
         // A deterministic order keeps multiple source/group locks consistent.

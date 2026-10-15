@@ -177,7 +177,6 @@ impl Store {
         approvals: &[ImageRequestApproval<'_>],
         allow_insert: bool,
     ) -> Result<(), StoreError> {
-        use sha2::{Digest, Sha256};
         use sqlx::Row;
         let scope = principal.scope();
         let content = request.body()["content"]
@@ -217,12 +216,7 @@ impl Store {
                 return Err(StoreError::Unauthorized);
             }
         }
-        let body_hash = format!(
-            "{:x}",
-            Sha256::digest(
-                serde_json::to_vec(request.body()).map_err(|_| StoreError::InvalidObservation)?
-            )
-        );
+        let body_hash = request.body_sha256().to_owned();
         let required =
             Self::authorize_image_request_using(tx, principal, attempt, snapshot, request).await?;
         let mut satisfied = std::collections::BTreeSet::new();
@@ -249,7 +243,7 @@ impl Store {
                 .ok_or(StoreError::Conflict)?;
             if entry
                 .approval
-                .inline_reference(url.len())
+                .inline_reference_str(url.len())
                 .map_err(|_| StoreError::Conflict)?
                 != url
                 || row.get::<String, _>("content_sha256") != entry.approval.content_sha256()

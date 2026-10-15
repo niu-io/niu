@@ -185,19 +185,6 @@ pub(super) async fn resolve(
         if retained.asset.id != input.asset_id || retained.aad != aad {
             return Err(ApiError::unavailable());
         }
-        let bytes = state
-            .vendor_cipher
-            .as_ref()
-            .ok_or_else(ApiError::unavailable)?
-            .open_bytes_with_aad(&aad, &retained.ciphertext)
-            .map_err(|_| ApiError::unavailable())?;
-        if bytes.is_empty()
-            || bytes.len() > niu_media::workspace_asset_validation::MAX_ASSET_BYTES
-            || i64::try_from(bytes.len()).ok() != Some(retained.asset.byte_length)
-            || format!("{:x}", Sha256::digest(&bytes)) != retained.asset.content_sha256
-        {
-            return Err(ApiError::unavailable());
-        }
         let revision = retained
             .asset
             .revision
@@ -206,11 +193,33 @@ pub(super) async fn resolve(
         if revision <= 0 || revision.to_string() != retained.asset.revision {
             return Err(ApiError::unavailable());
         }
-        let url = format!(
-            "data:{};base64,{}",
-            retained.asset.content_type,
-            STANDARD.encode(&bytes)
-        );
+        let cipher = state
+            .vendor_cipher
+            .as_ref()
+            .ok_or_else(ApiError::unavailable)?
+            .clone();
+        let ciphertext = retained.ciphertext;
+        let expected_len = retained.asset.byte_length;
+        let expected_sha256 = retained.asset.content_sha256.clone();
+        let content_type = retained.asset.content_type;
+        let url = tokio::task::spawn_blocking(move || -> Result<String, ApiError> {
+            let bytes = cipher
+                .open_bytes_with_aad(&aad, &ciphertext)
+                .map_err(|_| ApiError::unavailable())?;
+            if bytes.is_empty()
+                || bytes.len() > niu_media::workspace_asset_validation::MAX_ASSET_BYTES
+                || i64::try_from(bytes.len()).ok() != Some(expected_len)
+                || format!("{:x}", Sha256::digest(&bytes)) != expected_sha256
+            {
+                return Err(ApiError::unavailable());
+            }
+            Ok(format!(
+                "data:{content_type};base64,{}",
+                STANDARD.encode(&bytes)
+            ))
+        })
+        .await
+        .map_err(|_| ApiError::unavailable())??;
         let mut replacement = json!({"type":"image_url","image_url":{"url":url}});
         if let Some(role) = &input.role {
             replacement["role"] = json!(role);

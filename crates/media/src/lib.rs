@@ -357,6 +357,13 @@ impl VideoSchema {
         self.validate_request_with_trusted_asset_references(bytes, references)
     }
 
+    pub fn validate_request_value(
+        &self,
+        value: Value,
+    ) -> Result<ValidatedVideoRequest, ValidationError> {
+        self.validate_value_with_trusted_asset_references(value, &[])
+    }
+
     // Share parsing, schema roles/counts, ordinary URL rules and effective
     // controls. Only the closed, exact trusted tuple check permits asset URIs.
     fn validate_request_with_trusted_asset_references(
@@ -369,6 +376,14 @@ impl VideoSchema {
         }
         let value: Value =
             serde_json::from_slice(bytes).map_err(|_| ValidationError::InvalidJson)?;
+        self.validate_value_with_trusted_asset_references(value, references)
+    }
+
+    fn validate_value_with_trusted_asset_references(
+        &self,
+        value: Value,
+        references: &[(usize, &str, &str)],
+    ) -> Result<ValidatedVideoRequest, ValidationError> {
         let Value::Object(mut body) = value else {
             return Err(ValidationError::InvalidJson);
         };
@@ -484,26 +499,68 @@ impl VideoSchema {
             return Err(ValidationError::IncompatibleControls);
         }
         body.insert("model".into(), self.upstream_model.clone().into());
-        if serde_json::to_vec(&body)
-            .map_err(|_| ValidationError::InvalidJson)?
-            .len()
-            > self.maximum_body_bytes
-        {
-            return Err(ValidationError::BodyTooLarge);
-        }
+        let body = Value::Object(body);
+        let body_sha256 = hash_and_bound_json(&body, self.maximum_body_bytes)?;
         let effective_output = self
             .output
             .as_ref()
             .map(|output| output.resolve(&effective, &self.revision))
             .transpose()?;
         Ok(ValidatedVideoRequest {
-            body: Value::Object(body),
+            body,
+            body_sha256,
             model_alias: self.model_alias.clone(),
             effective_controls: effective,
             effective_output,
             schema_revision: self.revision.clone(),
         })
     }
+}
+
+fn hash_and_bound_json(value: &Value, max_bytes: usize) -> Result<String, ValidationError> {
+    use sha2::{Digest, Sha256};
+
+    struct BoundedHasher {
+        len: usize,
+        limit: usize,
+        hasher: Sha256,
+    }
+
+    impl std::io::Write for BoundedHasher {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            let next = self
+                .len
+                .checked_add(buf.len())
+                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "overflow"))?;
+            if next > self.limit {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "limit exceeded",
+                ));
+            }
+            self.len = next;
+            self.hasher.update(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let mut writer = BoundedHasher {
+        len: 0,
+        limit: max_bytes,
+        hasher: Sha256::new(),
+    };
+    if let Err(err) = serde_json::to_writer(&mut writer, value) {
+        return if err.is_io() {
+            Err(ValidationError::BodyTooLarge)
+        } else {
+            Err(ValidationError::InvalidJson)
+        };
+    }
+    Ok(format!("{:x}", writer.hasher.finalize()))
 }
 
 fn valid_data_url(value: &str, rule: &InputRule, kind: &str) -> bool {
@@ -562,6 +619,7 @@ pub(crate) fn inline_image_format(mime: &str, bytes: &[u8]) -> bool {
 /// Contains user content; deliberately has no Debug implementation.
 pub struct ValidatedVideoRequest {
     body: Value,
+    body_sha256: String,
     model_alias: String,
     effective_controls: Map<String, Value>,
     effective_output: Option<output::EffectiveVideoOutput>,
@@ -574,6 +632,9 @@ impl ValidatedVideoRequest {
     }
     pub fn body(&self) -> &Value {
         &self.body
+    }
+    pub fn body_sha256(&self) -> &str {
+        &self.body_sha256
     }
     pub fn effective_controls(&self) -> &Map<String, Value> {
         &self.effective_controls

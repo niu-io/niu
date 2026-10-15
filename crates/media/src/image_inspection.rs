@@ -2,7 +2,6 @@
 //! explicit processing consent and a qualified unmetered detector before use.
 //! No configuration declaration establishes these permissions or live coverage.
 use crate::image_input::{DecodeError, DecodedImage};
-use sha2::{Digest, Sha256};
 use std::time::Duration;
 
 pub struct ImageInspectionContract {
@@ -28,11 +27,20 @@ pub struct ApprovedImage {
     detector_revision: String,
 }
 impl ApprovedImage {
+    pub fn content_type(&self) -> &'static str {
+        self.image.content_type()
+    }
     pub fn content_sha256(&self) -> &str {
         &self.content_sha256
     }
     pub fn detector_revision(&self) -> &str {
         &self.detector_revision
+    }
+    pub fn encoded_bytes(&self) -> &[u8] {
+        self.image.encoded_bytes()
+    }
+    pub fn inline_reference_str(&self, maximum_bytes: usize) -> Result<&str, DecodeError> {
+        self.image.inline_reference_str(maximum_bytes)
     }
     pub fn inline_reference(&self, maximum_bytes: usize) -> Result<String, DecodeError> {
         self.image.inline_reference(maximum_bytes)
@@ -61,9 +69,9 @@ pub async fn inspect(
         return Err(InspectionError::InvalidConfiguration);
     }
     let reference = image
-        .inline_reference(contract.maximum_inline_bytes)
+        .inline_reference_str(contract.maximum_inline_bytes)
         .map_err(InspectionError::Image)?;
-    let content_sha256 = format!("{:x}", Sha256::digest(image.encoded_bytes()));
+    let content_sha256 = image.content_sha256().to_owned();
     crate::media_inspection::inspect_exact(
         endpoint, credential,
         serde_json::json!({"schema_version":2,"detector_revision":contract.detector_revision,"content_sha256":content_sha256,"image":reference}),

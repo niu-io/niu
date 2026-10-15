@@ -972,9 +972,7 @@ impl Store {
         let mut client_body = request.body().clone();
         client_body["model"] = serde_json::Value::String(schema.model_alias.clone());
         let validated = schema
-            .validate_request(
-                &serde_json::to_vec(&client_body).map_err(|_| StoreError::InvalidUsage)?,
-            )
+            .validate_request_value(client_body)
             .map_err(|_| StoreError::Conflict)?;
         if validated.effective_output() != Some(output)
             || validated.effective_controls() != request.effective_controls()

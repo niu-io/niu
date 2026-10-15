@@ -72,13 +72,7 @@ impl Store {
             }
             decoded.push((asset, mime, bytes.len() as i64));
         }
-        let body_sha256 = format!(
-            "{:x}",
-            Sha256::digest(
-                serde_json::to_vec(dispatch.request.body())
-                    .map_err(|_| StoreError::InvalidObservation)?
-            )
-        );
+        let body_sha256 = dispatch.request.body_sha256();
         let scope = principal.scope();
         let mut tx = self.begin_bounded_recording().await?;
         // Match existing policy/key/attempt lock order before library locks.

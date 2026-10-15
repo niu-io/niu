@@ -39,6 +39,8 @@ pub struct DecodedImage {
     pixels: DynamicImage,
     encoded: Vec<u8>,
     content_type: &'static str,
+    content_sha256: String,
+    inline_reference: Arc<str>,
     // Retained pixels consume capacity until their consumer drops them.
     _permit: Option<OwnedSemaphorePermit>,
 }
@@ -56,26 +58,23 @@ impl DecodedImage {
     pub fn encoded_bytes(&self) -> &[u8] {
         &self.encoded
     }
+    pub fn content_type(&self) -> &'static str {
+        self.content_type
+    }
+    pub fn content_sha256(&self) -> &str {
+        &self.content_sha256
+    }
+    pub fn inline_reference_str(&self, maximum_bytes: usize) -> Result<&str, DecodeError> {
+        if maximum_bytes == 0 || self.inline_reference.len() > maximum_bytes {
+            return Err(DecodeError::TooLarge);
+        }
+        Ok(&self.inline_reference)
+    }
     /// For a qualified inline-input contract after inspection approval. Never
     /// forward a mutable remote URL as a substitute for the inspected bytes.
     /// Callers must revalidate body limits, roles and current authorization.
     pub fn inline_reference(&self, maximum_bytes: usize) -> Result<String, DecodeError> {
-        let encoded_length = self
-            .encoded
-            .len()
-            .checked_add(2)
-            .map(|value| value / 3)
-            .and_then(|value| value.checked_mul(4))
-            .and_then(|value| value.checked_add(self.content_type.len() + 13))
-            .ok_or(DecodeError::TooLarge)?;
-        if maximum_bytes == 0 || encoded_length > maximum_bytes {
-            return Err(DecodeError::TooLarge);
-        }
-        Ok(format!(
-            "data:{};base64,{}",
-            self.content_type,
-            base64::engine::general_purpose::STANDARD.encode(&self.encoded)
-        ))
+        self.inline_reference_str(maximum_bytes).map(str::to_owned)
     }
 }
 
@@ -270,15 +269,25 @@ pub fn decode(bytes: &[u8], mime: &str, limits: DecodeLimits) -> Result<DecodedI
         return Err(DecodeError::TooLarge);
     }
     let pixels = DynamicImage::from_decoder(decoder).map_err(safe_error)?;
+    let content_type = match format {
+        ImageFormat::Png => "image/png",
+        ImageFormat::Jpeg => "image/jpeg",
+        ImageFormat::WebP => "image/webp",
+        _ => return Err(DecodeError::UnsupportedType),
+    };
+    use sha2::{Digest, Sha256};
+    let content_sha256 = format!("{:x}", Sha256::digest(bytes));
+    let inline_reference: Arc<str> = format!(
+        "data:{content_type};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    )
+    .into();
     Ok(DecodedImage {
         pixels,
         encoded: bytes.to_vec(),
-        content_type: match format {
-            ImageFormat::Png => "image/png",
-            ImageFormat::Jpeg => "image/jpeg",
-            ImageFormat::WebP => "image/webp",
-            _ => return Err(DecodeError::UnsupportedType),
-        },
+        content_type,
+        content_sha256,
+        inline_reference,
         _permit: None,
     })
 }
