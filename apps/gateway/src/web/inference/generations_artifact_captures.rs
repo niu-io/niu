@@ -583,9 +583,10 @@ async fn copy_using(
         };
         Some(
             state
-                .authorize_dashboard_key(headers, scope, key, AdminPermission::Write)
+                .store
+                .dashboard_key_with_ip(scope, key, crate::request_source::current_ip())
                 .await
-                .map_err(|e| ("authorization_changed", e))?,
+                .map_err(|e| ("authorization_changed", ApiError::from_store(e)))?,
         )
     } else {
         None
@@ -618,9 +619,14 @@ async fn copy_using(
         .map_err(|e| ("authorization_changed", e))?;
     if let Some(principal) = &principal {
         state
-            .authorize_dashboard_key(headers, scope, principal.key_id(), AdminPermission::Write)
+            .store
+            .dashboard_key_with_ip(
+                scope,
+                principal.key_id(),
+                crate::request_source::current_ip(),
+            )
             .await
-            .map_err(|e| ("authorization_changed", e))?;
+            .map_err(|e| ("authorization_changed", ApiError::from_store(e)))?;
     }
     super::video_results::authorize_delivery(state, scope, principal.as_ref(), Some(actor), task)
         .await
@@ -629,10 +635,16 @@ async fn copy_using(
     let cipher = state
         .vendor_cipher
         .as_ref()
-        .ok_or_else(|| ("encryption_unavailable", ApiError::unavailable()))?;
-    let encrypted = cipher
-        .seal_bytes_with_aad(&aad, &bytes)
-        .map_err(|_| ("encryption_unavailable", ApiError::unavailable()))?;
+        .ok_or_else(|| ("encryption_unavailable", ApiError::unavailable()))?
+        .clone();
+    let aad_for_seal = aad.clone();
+    let bytes_for_seal = bytes.clone();
+    let encrypted = tokio::task::spawn_blocking(move || {
+        cipher.seal_bytes_with_aad(&aad_for_seal, &bytes_for_seal)
+    })
+    .await
+    .map_err(|_| ("encryption_unavailable", ApiError::unavailable()))?
+    .map_err(|_| ("encryption_unavailable", ApiError::unavailable()))?;
     state
         .store
         .complete_generation_artifact_capture(

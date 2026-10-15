@@ -56,8 +56,10 @@ async fn principal(
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
     state
-        .authorize_dashboard_key(headers, scope, key, AdminPermission::Write)
+        .store
+        .dashboard_key_with_ip(scope, key, crate::request_source::current_ip())
         .await
+        .map_err(ApiError::from_store)
 }
 
 /// ```openapi
