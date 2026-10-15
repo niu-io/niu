@@ -45,7 +45,7 @@ it.each(['transport','server','timeout'])('reconciles uncertain Provider creatio
       if (failure==='transport') throw new TypeError('Connection lost');
       throw new VendorRequestError('Unavailable',failure==='timeout'?408:503);
     }
-    expect(path).toBe('/admin/v1/providers');
+    expect(path).toBe('/api/v1/providers');
     return {data:saved?[{id:'created',name:'Saved business',members:0,api_keys:0,models:0}]:[]};
   });
   const user=userEvent.setup();

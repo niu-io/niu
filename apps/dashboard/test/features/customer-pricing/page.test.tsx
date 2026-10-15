@@ -7,10 +7,10 @@ import CustomerPricingRoute from '../../../src/features/customer-pricing/page';
 vi.mock('../../../src/app/dashboard-context', () => ({useDashboardContext: () => ({token:'test-session',models:[{id:'example/model'}]})}));
 const target = {organization_id:'internal-company',organization_name:'Example company',workspace_id:'internal-workspace',workspace_name:'Application'};
 const price = {model_alias:'example/model',revision:'internal-revision',currency:'USD',prompt_rate:'1',completion_rate:'1600000000',cached_prompt_rate:'0',reasoning_completion_rate:'2500000000',request_fee_nanos:'7',minimum_charge_nanos:'9',created_at:'2026-10-11T00:00:00Z'};
-const base='/admin/v1/pricing/organizations/internal-company/workspaces/internal-workspace/tariffs';
+const base='/api/v1/pricing/organizations/internal-company/workspaces/internal-workspace/tariffs';
 function setup(handle: (path:string, init?:RequestInit)=>Response|Promise<Response>, selected=true) {
   const requests:{path:string;init?:RequestInit}[]=[];
-  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,init?:RequestInit)=>{const path=String(input);requests.push({path,init});return Promise.resolve(path==='/admin/v1/vendors'?Response.json({data:[{id:'route',enabled:true}]}):path==='/admin/v1/vendors/route/models'?Response.json({data:[{alias:'example/model',enabled:true,capabilities:{}}]}):handle(path,init));}));
+  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,init?:RequestInit)=>{const path=String(input);requests.push({path,init});return Promise.resolve(path==='/api/v1/vendors'?Response.json({data:[{id:'route',enabled:true}]}):path==='/api/v1/vendors/route/models'?Response.json({data:[{alias:'example/model',enabled:true,capabilities:{}}]}):handle(path,init));}));
   render(<MemoryRouter initialEntries={[selected?'/admin/pricing?target=internal-workspace':'/admin/pricing']}><CustomerPricingRoute/></MemoryRouter>);
   return requests;
 }
@@ -94,7 +94,7 @@ describe('platform customer price workflow',()=>{
     await user.click(screen.getByRole('button',{name:'Refresh pricing targets'}));
     await user.click(await screen.findByRole('button',{name:'Retry targets'}));
     await waitFor(()=>expect(reads).toBe(3));
-    expect(requests.filter(row=>row.path.includes('/targets?')).map(row=>row.path)).toEqual(Array(3).fill('/admin/v1/pricing/targets?limit=50'));
+    expect(requests.filter(row=>row.path.includes('/targets?')).map(row=>row.path)).toEqual(Array(3).fill('/api/v1/pricing/targets?limit=50'));
   });
   it('retains current prices when continuation fails and retries the same cursor',async()=>{
     let continuations=0;

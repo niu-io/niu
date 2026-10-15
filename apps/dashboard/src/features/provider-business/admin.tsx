@@ -140,7 +140,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     setAccounts([]);
     setAccountsLoading(true);
-    void request<{ data: Operator[] }>(token, "/admin/v1/operators", "GET", undefined, controller.signal)
+    void request<{ data: Operator[] }>(token, "/api/v1/operators", "GET", undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setAccounts(result.data.filter(account => !account.revoked)); })
       .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
       .finally(() => { if (!controller.signal.aborted) setAccountsLoading(false); });
@@ -151,7 +151,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     setMembers([]);
     setMembersLoading(true);
-    void request<{ data: SupplierMember[] }>(token, `/admin/v1/providers/${selected}/members`, "GET", undefined, controller.signal)
+    void request<{ data: SupplierMember[] }>(token, `/api/v1/providers/${selected}/members`, "GET", undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setMembers(result.data); })
       .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
       .finally(() => { if (!controller.signal.aborted) setMembersLoading(false); });
@@ -180,7 +180,7 @@ function Administration({ token }: { token: string }) {
     setEarningError("");
     try {
       const page = await request<{ data: AdminData["earnings"]; next_cursor: string | null }>(token,
-        `/admin/v1/providers/${selected}/earnings?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+        `/api/v1/providers/${selected}/earnings?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`,
         "GET", undefined, controller.signal);
       if (controller.signal.aborted) return;
       if (!Array.isArray(page.data) || !(page.next_cursor === null || (typeof page.next_cursor === "string" && page.next_cursor.length > 0)) ||
@@ -232,7 +232,7 @@ function Administration({ token }: { token: string }) {
     setLoading(true);
     void request<{ data: Business[] }>(
       token,
-      "/admin/v1/providers",
+      "/api/v1/providers",
       "GET",
       undefined,
       controller.signal,
@@ -253,7 +253,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     void request<{ data: AdminData }>(
       token,
-      `/admin/v1/providers/${selected}/administration?days=90`,
+      `/api/v1/providers/${selected}/administration?days=90`,
       "GET",
       undefined,
       controller.signal,
@@ -273,7 +273,7 @@ function Administration({ token }: { token: string }) {
     setOfferLoad(previous => ({ token, supplier: selected, scope, offers: previous?.offers ?? [], ready: false, loading: true, conflict: previous?.conflict ?? false }));
     setError("");
     try {
-      const result = await request<{ data: AdminData }>(token, `/admin/v1/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
+      const result = await request<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
       if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
       const offer = result.data.offers.find(item => targetId ? item.id === targetId : item.model_alias === targetAlias);
       if ((targetId || targetAlias) && (!offer || offer.rate_kind === "media")) throw new Error("The current text rates could not be found. Reload before saving.");
@@ -380,13 +380,13 @@ function Administration({ token }: { token: string }) {
       if (dialog === "membership")
         await request(
           token,
-          `/admin/v1/providers/${selected}/members/${operator}`,
+          `/api/v1/providers/${selected}/members/${operator}`,
           "PUT",
           { role, active: active === "true" },
         );
       if (dialog === "offer") {
         const currentOffer = offerLoad?.offers.find((offer) => offer.model_alias === alias);
-        await request(token, `/admin/v1/providers/${selected}/offers`, "POST", {
+        await request(token, `/api/v1/providers/${selected}/offers`, "POST", {
           model_alias: alias,
           currency,
           prompt_rate: nanos(inputRate),
@@ -401,7 +401,7 @@ function Administration({ token }: { token: string }) {
         });
       }
       if (dialog === "supplier-qualification")
-        await request(token, `/admin/v1/providers/${selected}/qualification`, "PUT", {
+        await request(token, `/api/v1/providers/${selected}/qualification`, "PUT", {
           supply_rights_sha256: supplyRightsHash,
           supply_capability_sha256: supplyCapabilityHash,
           data_handling_sha256: supplierDataHandlingHash,
@@ -410,7 +410,7 @@ function Administration({ token }: { token: string }) {
       if (dialog === "offer-qualification") {
         const offer = data?.offers.find((item) => item.id === offerId);
         if (!offer) throw new Error("This offer is no longer available. Refresh and try again.");
-        await request(token, `/admin/v1/providers/${selected}/offers/${offerId}/qualification`, "PUT", {
+        await request(token, `/api/v1/providers/${selected}/offers/${offerId}/qualification`, "PUT", {
           rate_revision: offer.revision,
           model_identity_sha256: modelIdentityHash,
           protocol_matrix_sha256: protocolMatrixHash,
@@ -422,11 +422,11 @@ function Administration({ token }: { token: string }) {
         });
       }
       if (dialog === "supplier-revocation")
-        await request(token, `/admin/v1/providers/${selected}/qualification/revoke`, "POST", {
+        await request(token, `/api/v1/providers/${selected}/qualification/revoke`, "POST", {
           reason_sha256: revocationReasonHash,
         });
       if (dialog === "offer-revocation")
-        await request(token, `/admin/v1/providers/${selected}/offers/${offerId}/qualification/revoke`, "POST", {
+        await request(token, `/api/v1/providers/${selected}/offers/${offerId}/qualification/revoke`, "POST", {
           reason_sha256: revocationReasonHash,
         });
       if (dialog === "settlement") {
@@ -442,7 +442,7 @@ function Administration({ token }: { token: string }) {
         setPaymentSubmitted(true);
         await request(
           token,
-          `/admin/v1/providers/${selected}/settlements`,
+          `/api/v1/providers/${selected}/settlements`,
           "POST",
           {
             idempotency_key: paymentKey,
@@ -477,7 +477,7 @@ function Administration({ token }: { token: string }) {
     setError("");
     let committed = false;
     try {
-      const created = await request<{ data: { id: string } }>(token, "/admin/v1/vendors", "POST", input);
+      const created = await request<{ data: { id: string } }>(token, "/api/v1/vendors", "POST", input);
       if (!created?.data?.id || typeof created.data.id !== 'string') throw new Error('Invalid creation response.');
       committed = true;
       // Close immediately after commit: a discovery failure must never invite
@@ -485,7 +485,7 @@ function Administration({ token }: { token: string }) {
       setDialog("");
       setSearch(current => { current.delete("create"); return current; }, { replace: true });
       setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
-      const ownership = await request<{ data: { id: string } }>(token, `/admin/v1/vendors/${encodeURIComponent(created.data.id)}/provider`, "GET");
+      const ownership = await request<{ data: { id: string } }>(token, `/api/v1/vendors/${encodeURIComponent(created.data.id)}/provider`, "GET");
       setSelected(ownership.data.id);
     } catch (reason) {
       setError(committed ? "API key saved, but Provider details could not be opened. Refresh the Provider list." : reason instanceof Error ? reason.message : "Provider could not be created.");

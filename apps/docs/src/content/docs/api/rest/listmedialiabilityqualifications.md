@@ -1,12 +1,12 @@
 ---
 title: "List immutable route media liability qualifications"
-description: "GET /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds"
+description: "GET /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`
+`GET /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`
 
 Explicit platform administration only. Ordinary customer and Provider memberships do not grant access. Liability qualifications are finite, immutable maximum billed quantities tied to exact currently approved Provider offer, credential/model/schema revisions, dimensions and meter; they contain no purchase or selling price and must be supported by explicit evidence. Video output estimates are not liability evidence. Publication alone does not authorize dispatch. UUIDs are API references, never display labels. Exact epoch times and versions are decimal integer strings. Identical idempotent retries preserve the original result; changed intent or stale versions conflict. Revocation affects future admission, never rewrites already pinned jobs. Reads use no-store.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

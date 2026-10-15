@@ -67,7 +67,7 @@ export default function MediaRateHistory({ token, supplier, organization, canCon
   const [publishing, setPublishing] = useState(false);
   const [replacement, setReplacement] = useState<RateRecord | undefined>();
   const [now, setNow] = useState(() => BigInt(Math.floor(Date.now() / 1000)));
-  const endpoint = customer ? `/admin/v1/organizations/${encodeURIComponent(organization)}/billing/media-rates` : `/admin/v1/providers/${encodeURIComponent(supplier!)}/media-rates`;
+  const endpoint = customer ? `/api/v1/organizations/${encodeURIComponent(organization)}/billing/media-rates` : `/api/v1/providers/${encodeURIComponent(supplier!)}/media-rates`;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(BigInt(Math.floor(Date.now() / 1000))), 30_000);

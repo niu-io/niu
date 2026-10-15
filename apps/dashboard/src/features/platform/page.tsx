@@ -29,7 +29,7 @@ function PaymentConfiguration({token}: {token: string}) {
   useEffect(() => {
     const controller = new AbortController(); setError('');setLoading(true);
     setConfiguration(null);setSettings(null);setSavedSettings(null);setKey('');
-    void Promise.all([request<{data: Configuration}>(token, '/admin/v1/platform/configuration', 'GET', undefined, controller.signal),request<{data: Settings}>(token, '/admin/v1/platform/payments/epay', 'GET', undefined, controller.signal)])
+    void Promise.all([request<{data: Configuration}>(token, '/api/v1/platform/configuration', 'GET', undefined, controller.signal),request<{data: Settings}>(token, '/api/v1/platform/payments/epay', 'GET', undefined, controller.signal)])
       .then(([status, payment]) => { if (!controller.signal.aborted) {setConfiguration(status.data); setSettings(payment.data);setSavedSettings(payment.data);setKey('');} }).catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Payment gateways could not be loaded.'); }).finally(() => {if (!controller.signal.aborted) setLoading(false);});
     return () => controller.abort();
   }, [token, revision]);
@@ -39,7 +39,7 @@ function PaymentConfiguration({token}: {token: string}) {
     setBusy(true); setError('');
     const {revision: expected_revision, has_key: _hasKey, ...input} = settings;
     try {
-      const result = await request<{data: Settings}>(token, '/admin/v1/platform/payments/epay', 'PUT', {...input, key, expected_revision}, controller.signal);
+      const result = await request<{data: Settings}>(token, '/api/v1/platform/payments/epay', 'PUT', {...input, key, expected_revision}, controller.signal);
       if (controller.signal.aborted) return;
       setSettings(result.data);setSavedSettings(result.data);setKey('');setOpen(false);setRevision(value => value + 1);
     } catch (reason) {if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Payment configuration could not be saved.');}

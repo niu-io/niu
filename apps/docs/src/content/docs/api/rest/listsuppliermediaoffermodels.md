@@ -1,12 +1,12 @@
 ---
 title: "List named draft media offer bindings"
-description: "GET /admin/v1/providers/{provider}/media-offer-models"
+description: "GET /api/v1/providers/{provider}/media-offer-models"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/providers/{provider}/media-offer-models`
+`GET /api/v1/providers/{provider}/media-offer-models`
 
 Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or qualification. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/providers/{provider}/media-offer-models"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-offer-models"
 ```
 
 ## Parameters

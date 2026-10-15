@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import GatewayActivity, { taskOutcome } from '../../../../src/features/executions/components/GatewayActivity';
 
-const base = '/admin/v1/organizations/org-1/projects/project-1';
+const base = '/api/v1/organizations/org-1/projects/project-1';
 
 function makeRequest(attemptId: string, taskId: string | null, model: string, taskEvidence = null, customerCharge: { customer_charge_currency: string | null; customer_charge_nanos: string | null; customer_charge_status: string } = { customer_charge_currency: null, customer_charge_nanos: null, customer_charge_status: 'unpriced' }) {
   return {

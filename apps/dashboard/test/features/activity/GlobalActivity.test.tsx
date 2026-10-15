@@ -11,7 +11,7 @@ const request={attempt_id:'request-reference',created_at:'2026-10-07T12:00:00Z',
 function mockData(fail=false){vi.stubGlobal('fetch',vi.fn(async (input:unknown,init:RequestInit)=>{
  expect((init.headers as Record<string,string>).authorization).toBe('Bearer authorized-token');
  const path=String(input);
- if(path==='/admin/v1/workspaces')return Response.json({data:workspaces});
+ if(path==='/api/v1/workspaces')return Response.json({data:workspaces});
  if(fail && path.includes('/projects/b/'))return new Response('',{status:403});
  return Response.json({data:[request],summary:summary(),next_cursor:null});
 }));}
@@ -73,7 +73,7 @@ describe('Global Activity',()=>{
  });
  it.each(['tokens','count','date','duplicate','cursor'])('shows recoverable errors for malformed %s data without partial totals',async kind=>{
   vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
-    if(String(input)==='/admin/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    if(String(input)==='/api/v1/workspaces')return Response.json({data:[workspaces[0]]});
     const page={data:[request],summary:summary(),next_cursor:null as string|null};
     if(kind==='tokens')page.summary.prompt_tokens='not a number';
     if(kind==='count')page.summary.request_count=-1;
@@ -92,7 +92,7 @@ describe('Global Activity',()=>{
  it('deduplicates overlapping pages within each workspace',async()=>{
   vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
     const path=String(input);
-    if(path==='/admin/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    if(path==='/api/v1/workspaces')return Response.json({data:[workspaces[0]]});
     return Response.json({data:path.includes('after=')?[request,{...request,attempt_id:'older',model:'older-model'}]:[request],summary:summary(),next_cursor:path.includes('after=')?null:'older-page'});
   }));
   open('/activity/logs');const user=userEvent.setup();
@@ -106,7 +106,7 @@ describe('Global Activity',()=>{
   let olderReads=0;
   vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
     const path=String(input);
-    if(path==='/admin/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    if(path==='/api/v1/workspaces')return Response.json({data:[workspaces[0]]});
     if(path.includes('after='))olderReads+=1;
     const cursor=path.includes('after=second')?'first':path.includes('after=first')?'second':'first';
     return Response.json({data:[{...request,attempt_id:`request-${olderReads}`}],summary:summary(),next_cursor:cursor});

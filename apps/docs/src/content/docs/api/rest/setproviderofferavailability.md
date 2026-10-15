@@ -1,12 +1,12 @@
 ---
 title: "A supplier manager can pause or resume an owned offer"
-description: "PATCH /admin/v1/providers/{provider}/offers/{offer}"
+description: "PATCH /api/v1/providers/{provider}/offers/{offer}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PATCH /admin/v1/providers/{provider}/offers/{offer}`
+`PATCH /api/v1/providers/{provider}/offers/{offer}`
 
 Pausing prevents new admissions. Already dispatched requests may complete and accrue earnings. Viewers and unrelated operators cannot mutate offers.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/admin/v1/providers/{provider}/offers/{offer}" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/providers/{provider}/offers/{offer}" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

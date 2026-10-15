@@ -143,7 +143,7 @@ describe("provider business access and earnings", () => {
       expect(
         fetch.mock.calls.some(
           ([url, init]) =>
-            url === "/admin/v1/providers/supplier/offers/offer" &&
+            url === "/api/v1/providers/supplier/offers/offer" &&
             init?.method === "PATCH" &&
             init.body === '{"active":false}',
         ),

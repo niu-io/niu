@@ -19,7 +19,7 @@ function checked(result: {data: SpendingAccount[]}): SpendingAccount[] {
 export default function WorkspaceSpendingLimits({token, organization, project, canConfigure, refresh}: {
   token: string; organization: string; project: string; canConfigure: boolean; refresh: number;
 }) {
-  const base = `/admin/v1/organizations/${organization}/projects/${project}/spending-limit`;
+  const base = `/api/v1/organizations/${organization}/projects/${project}/spending-limit`;
   const [accounts, setAccounts] = useState<SpendingAccount[] | null>(null);
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);

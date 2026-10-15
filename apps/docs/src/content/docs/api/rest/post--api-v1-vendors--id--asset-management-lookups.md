@@ -1,16 +1,16 @@
 ---
 title: "Look up one asset from a retained original-group listing"
-description: "POST /admin/v1/vendors/{id}/asset-management/lookups"
+description: "POST /api/v1/vendors/{id}/asset-management/lookups"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/vendors/{id}/asset-management/lookups`
+`POST /api/v1/vendors/{id}/asset-management/lookups`
 
 Platform administrator only. Requires current original ListAssets and separate GetAsset grants. Accepts a retained listing and zero-based item position, never an upstream identity or URL. Claims lookup_id once before egress. Four lookups execute concurrently without a queue; claimed work persists after caller disconnect. Fixed signed transport is bounded to 1 MiB and 30 seconds, with a 35-second outer deadline. No retries or billing mutation. Returns operational status only; a validated snapshot is separately encrypted for 24 hours and recovered through the saved-result endpoint. Successful transport may observe a Failed or Processing asset and never grants readiness or reuse rights.
 
-Operation: `post--admin-v1-vendors--id--asset-management-lookups`.
+Operation: `post--api-v1-vendors--id--asset-management-lookups`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/lookups" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/lookups" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

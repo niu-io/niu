@@ -84,9 +84,10 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   operations++;
   const group = /^\/v1\/(video|media|images)/.test(route) ? 'Video and media APIs'
     : /^\/v1(?:\/|$)|^\/v1beta\//.test(route) ? 'Model APIs'
-    : /^\/(?:admin|api)\/v1\/(?:auth\/|session$)/.test(route) ? 'Authentication and sessions'
-    : /^\/(?:admin|api)\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|metrics|models)/.test(route) ? 'Workspace and company APIs'
-    : route.startsWith('/admin/') ? 'Administration APIs' : 'Service endpoints';
+    : /^\/api\/v1\/(providers|provider-memberships|vendors|routing-registry|model-route-pools)/.test(route) ? 'Providers and routing APIs'
+    : /^\/api\/v1\/(auth\/|session$|operators)/.test(route) ? 'Authentication and sessions'
+    : /^\/api\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|metrics|models|pricing|financial-summary|commercial-position)/.test(route) ? 'Workspace and company APIs'
+    : 'Service endpoints';
   if (!restGroups.has(group)) restGroups.set(group, []);
   restGroups.get(group).push({route, method, link:`- [\`${method.toUpperCase()} ${route}\` — ${operation.summary || operation.operationId}](/docs/api/rest/${slug}/)`});
   const lines = [`\`${method.toUpperCase()} ${route}\``, '', operation.description || '', '', `Operation: \`${operation.operationId || slug}\`.`, ''];
@@ -95,7 +96,7 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   lines.push('## Authentication','', security.length ? 'Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.' : 'No OpenAPI security scheme is required. Other request validation still applies.', '', ...block('json', JSON.stringify(security,null,2)));
   const body = operation.requestBody?.$ref ? pointer(spec, operation.requestBody.$ref.slice(1)) : operation.requestBody;
   const mediaType = Object.keys(body?.content || {})[0];
-  const authName = route.startsWith('/admin/') ? 'NIU_ADMIN_TOKEN' : route.startsWith('/api/') ? 'NIU_SESSION_TOKEN' : 'NIU_API_KEY';
+  const authName = route.startsWith('/api/') ? 'NIU_SESSION_TOKEN' : 'NIU_API_KEY';
   const parameters = new Map();
   for (const raw of [...(item.parameters || []), ...(operation.parameters || [])]) {
     const parameter = raw.$ref ? pointer(spec, raw.$ref.slice(1)) : raw;
@@ -134,7 +135,7 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   for (const key of ['x-niu-implementation','x-niu-status']) if (operation[key]) lines.push('**Supported scope:** '+operation[key], '');
   outputs.set(`apps/docs/src/content/docs/api/rest/${slug}.md`,page(operation.summary || method.toUpperCase()+' '+route, method.toUpperCase()+' '+route, lines));
 }
-for (const group of ['Model APIs','Video and media APIs','Authentication and sessions','Workspace and company APIs','Administration APIs','Service endpoints']) if (restGroups.has(group)) {
+for (const group of ['Model APIs','Video and media APIs','Providers and routing APIs','Authentication and sessions','Workspace and company APIs','Service endpoints']) if (restGroups.has(group)) {
   restIndex.push('## '+group, '', ...restGroups.get(group).sort((a,b)=>a.route.localeCompare(b.route)||a.method.localeCompare(b.method)).map(row=>row.link), '');
 }
 outputs.set('apps/docs/src/content/docs/api/rest/index.md',page('REST API specification','Generated endpoint reference from the complete Niu OpenAPI contract.', restIndex));

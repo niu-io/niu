@@ -32,7 +32,7 @@ describe('customer selling configuration transport', () => {
     await expect(publishCustomerPrice('test',target,{...price,expected_revision:price.revision})).rejects.toThrow('Publication could not be confirmed');
   });
   it('discovers platform token models across enabled credentials without including video routes', async () => {
-    const fetch = vi.fn(async (input: RequestInfo | URL) => Response.json({data:String(input)==='/admin/v1/vendors'?[{id:'one',enabled:true},{id:'two',enabled:true},{id:'disabled',enabled:false}]:String(input).includes('/one/')?[{alias:'text',enabled:true,capabilities:{}},{alias:'video',enabled:true,capabilities:{video_schema:{}}}]:[{alias:'text',enabled:true,capabilities:{}},{alias:'other',enabled:true,capabilities:{}},{alias:'disabled-model',enabled:false,capabilities:{}}]}));
+    const fetch = vi.fn(async (input: RequestInfo | URL) => Response.json({data:String(input)==='/api/v1/vendors'?[{id:'one',enabled:true},{id:'two',enabled:true},{id:'disabled',enabled:false}]:String(input).includes('/one/')?[{alias:'text',enabled:true,capabilities:{}},{alias:'video',enabled:true,capabilities:{video_schema:{}}}]:[{alias:'text',enabled:true,capabilities:{}},{alias:'other',enabled:true,capabilities:{}},{alias:'disabled-model',enabled:false,capabilities:{}}]}));
     vi.stubGlobal('fetch',fetch);
     expect(await listPricingModels('test')).toEqual(['other','text']);
     expect(fetch.mock.calls.some(([path])=>String(path).includes('/disabled/'))).toBe(false);
@@ -50,7 +50,7 @@ describe('customer selling configuration transport', () => {
     const fetch = vi.fn(async () => Response.json({data:[target],next_after:null}));
     vi.stubGlobal('fetch',fetch);
     expect((await listPricingTargets('test')).data).toEqual([target]);
-    expect(fetch.mock.calls[0][0]).toBe('/admin/v1/pricing/targets?limit=50');
+    expect(fetch.mock.calls[0][0]).toBe('/api/v1/pricing/targets?limit=50');
   });
   it('rejects a continuation cursor that does not advance', async () => {
     vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[price],next_after:'unchanged'})));
@@ -65,6 +65,6 @@ describe('customer selling configuration transport', () => {
     const fetch = vi.fn(async () => Response.json({data:[{...price,is_current:true}],current_revision:'revision',has_more:true,next_before:null}));
     vi.stubGlobal('fetch',fetch);
     await expect(readPriceHistory('test',target,'example/model')).rejects.toThrow('could not be read');
-    expect(fetch.mock.calls[0][0]).toBe('/admin/v1/pricing/organizations/company/workspaces/workspace/tariffs/example%2Fmodel/history?limit=50');
+    expect(fetch.mock.calls[0][0]).toBe('/api/v1/pricing/organizations/company/workspaces/workspace/tariffs/example%2Fmodel/history?limit=50');
   });
 });

@@ -15,7 +15,7 @@ import type { Editor } from './page';
 
 type Intent = PreparedCustomerBalanceGrant;
 const policyLabel = (policy: Intent['application_policy']) => policy === 'future_only' ? 'Future consumption only' : 'Unpaid credit first';
-const base = (organization: string, currency: string) => `/admin/v1/organizations/${encodeURIComponent(organization)}/billing/accounts/${currency}/grants`;
+const base = (organization: string, currency: string) => `/api/v1/organizations/${encodeURIComponent(organization)}/billing/accounts/${currency}/grants`;
 function checkedIntent(value: Intent, expected?: CustomerBalanceGrantInput, currency?: string): Intent {
   if (!value || !['prepared', 'issued'].includes(value.status) || !['future_only', 'unpaid_credit_first'].includes(value.application_policy)
     || !/^[A-Z]{3}$/.test(value.currency) || !/^[1-9][0-9]*$/.test(value.amount_nanos) || !value.idempotency_key

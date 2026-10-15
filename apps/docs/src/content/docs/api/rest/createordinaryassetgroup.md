@@ -1,12 +1,12 @@
 ---
 title: "Create an ordinary asset group through platform administration"
-description: "POST /admin/v1/vendors/{id}/asset-management/groups"
+description: "POST /api/v1/vendors/{id}/asset-management/groups"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/vendors/{id}/asset-management/groups`
+`POST /api/v1/vendors/{id}/asset-management/groups`
 
 Platform administrator only. Persists the ordinary AIGC request and requires exact, unexpired workspace/account qualification before releasing credentials. Uses the fixed direct Beijing Ark CreateAssetGroup operation once, with a fresh UTC signature and a 30-second transport deadline. Four sends may run concurrently. Accepted work continues independently of the HTTP response and participates in graceful drain. Exact saved dispatching, uncertain and succeeded requests return status without acquiring dispatch capacity or decrypting keys, including after credential erasure. They never replay automatically; inspect the workspace asset-group request instead. Customer asset routing, CRUD/readiness, live entitlement and free-operation qualification remain pending. The legacy dispatch_available metadata flag describes the complete customer asset workflow and remains false. Request body is limited to 16 KiB.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/groups" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/groups" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -17,7 +17,7 @@ async function run(t, mode, status, result) {
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   t.after(()=>server.close());
   const identifier='12345678-1234-1234-1234-123456789abc';
-  const child=spawn(process.execPath,[new URL('../examples/test-output-rules.mjs',import.meta.url).pathname],{env:{...process.env,NIU_ADMIN_TOKEN:'output-example-private',NIU_ADMIN_BASE_URL:`http://127.0.0.1:${server.address().port}/admin/v1`,NIU_ORGANIZATION_ID:identifier,NIU_WORKSPACE_ID:identifier,NIU_OUTPUT_MODE:mode}});
+  const child=spawn(process.execPath,[new URL('../examples/test-output-rules.mjs',import.meta.url).pathname],{env:{...process.env,NIU_ADMIN_TOKEN:'output-example-private',NIU_ADMIN_BASE_URL:`http://127.0.0.1:${server.address().port}/api/v1`,NIU_ORGANIZATION_ID:identifier,NIU_WORKSPACE_ID:identifier,NIU_OUTPUT_MODE:mode}});
   let stdout='',stderr='';
   child.stdout.on('data',chunk=>{stdout+=chunk;});child.stderr.on('data',chunk=>{stderr+=chunk;});
   const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);});

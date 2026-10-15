@@ -133,7 +133,7 @@ function ProviderBusiness({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
-  const path = `/admin/v1/providers/${encodeURIComponent(provider)}`;
+  const path = `/api/v1/providers/${encodeURIComponent(provider)}`;
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);

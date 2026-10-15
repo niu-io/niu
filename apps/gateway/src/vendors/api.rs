@@ -179,7 +179,7 @@ pub struct VendorFilter {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors",
+///   "path": "/api/v1/vendors",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendors",
@@ -423,7 +423,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors",
+///   "path": "/api/v1/vendors",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createVendor",
@@ -536,7 +536,7 @@ pub async fn create(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}",
+///   "path": "/api/v1/vendors/{id}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "updateVendor",
@@ -669,7 +669,7 @@ pub async fn update(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}/models",
+///   "path": "/api/v1/vendors/{id}/models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendorModels",
@@ -1425,7 +1425,7 @@ pub async fn list_models(
 /// credential. Only a small allowlist of model metadata reaches the dashboard.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}/catalog",
+///   "path": "/api/v1/vendors/{id}/catalog",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
@@ -1673,7 +1673,7 @@ pub struct CheckModelInput {
 /// listed. This is a bounded catalog read, not a billable inference request.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}/check",
+///   "path": "/api/v1/vendors/{id}/check",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "checkVendorModel",
@@ -1992,7 +1992,7 @@ fn check_response(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}/models",
+///   "path": "/api/v1/vendors/{id}/models",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "upsertVendorModel",
@@ -2110,7 +2110,7 @@ pub async fn upsert_model(
 /// Explicit metadata refresh; discovery GET stays read-only.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}/catalog",
+///   "path": "/api/v1/vendors/{id}/catalog",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "refreshProviderCatalogMetadata",
@@ -2201,7 +2201,7 @@ pub struct SupplierAssociation {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}/supplier",
+///   "path": "/api/v1/vendors/{id}/supplier",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getConfigurationProvider",
@@ -2292,7 +2292,7 @@ pub async fn supplier(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{id}/supplier",
+///   "path": "/api/v1/vendors/{id}/supplier",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "associateConfigurationProvider",

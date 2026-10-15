@@ -1,16 +1,16 @@
 ---
-title: "Retrieve scoped metadata-update audit history"
-description: "GET /admin/v1/vendors/{id}/asset-management/group-updates"
+title: "List scoped ordinary group-read outcomes and timing"
+description: "GET /api/v1/vendors/{id}/asset-management/group-reads"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/vendors/{id}/asset-management/group-updates`
+`GET /api/v1/vendors/{id}/asset-management/group-reads`
 
-Platform administrator only. No patch metadata, upstream identities, credentials or commercial amounts. Newest prepared identity first with stable cursor pagination. Audit survives erasure and revocation. Unresolved is missing completion evidence, not proof of active work. Responses are no-store.
+Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Provider queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
 
-Operation: `get--admin-v1-vendors--id--asset-management-group-updates`.
+Operation: `get--api-v1-vendors--id--asset-management-group-reads`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/group-updates" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-reads" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters
@@ -70,7 +70,7 @@ Location: **query**. **Required.**
 
 ### after
 
-Location: **query**. Optional.
+Location: **query**. Optional. Previous page next_cursor; missing or out-of-scope cursors produce an empty page.
 
 ```json
 {
@@ -100,7 +100,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Safe history and next_cursor; out-of-scope cursors return an empty page.
+Bounded outcome history.
 
 Content type: `application/json`.
 
@@ -124,36 +124,27 @@ Content type: `application/json`.
       "items": {
         "type": "object",
         "required": [
-          "update_id",
-          "intent_id",
+          "read_id",
           "status",
-          "created_at",
+          "started_at",
           "completed_at",
           "duration_ms",
-          "reason",
-          "patch_status",
-          "reconciliation_required"
+          "reason"
         ],
         "properties": {
-          "update_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "intent_id": {
+          "read_id": {
             "type": "string",
             "format": "uuid"
           },
           "status": {
             "type": "string",
             "enum": [
-              "prepared",
               "unresolved",
-              "acknowledged",
-              "uncertain",
-              "reconciled"
+              "succeeded",
+              "failed"
             ]
           },
-          "created_at": {
+          "started_at": {
             "type": "string",
             "format": "date-time"
           },
@@ -175,18 +166,17 @@ Content type: `application/json`.
             "type": [
               "string",
               "null"
-            ]
-          },
-          "patch_status": {
-            "type": "string",
+            ],
             "enum": [
-              "retained",
-              "erased",
-              "expired"
+              null,
+              "invalid_configuration",
+              "destination_rejected",
+              "unavailable",
+              "transport",
+              "timeout",
+              "response_limit",
+              "invalid_response"
             ]
-          },
-          "reconciliation_required": {
-            "type": "boolean"
           }
         }
       }
@@ -209,4 +199,4 @@ Platform administrator required.
 
 ## Behavior and supported scope
 
-Platform administrator only. No patch metadata, upstream identities, credentials or commercial amounts. Newest prepared identity first with stable cursor pagination. Audit survives erasure and revocation. Unresolved is missing completion evidence, not proof of active work. Responses are no-store.
+Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Provider queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.

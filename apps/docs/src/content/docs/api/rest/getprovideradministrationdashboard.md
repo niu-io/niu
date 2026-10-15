@@ -1,12 +1,12 @@
 ---
 title: "Explicit installation oversight of the supplier dashboard"
-description: "GET /admin/v1/providers/{provider}/administration"
+description: "GET /api/v1/providers/{provider}/administration"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/providers/{provider}/administration`
+`GET /api/v1/providers/{provider}/administration`
 
 Only an active Provider is readable. Soft-deleted and missing Providers return the existing unavailable-resource conflict; audit history is retained.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/providers/{provider}/administration"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/administration"
 ```
 
 ## Parameters

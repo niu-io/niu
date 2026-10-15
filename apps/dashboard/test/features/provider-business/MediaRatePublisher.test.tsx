@@ -5,7 +5,7 @@ import MediaRatePublisher from '../../../src/features/provider-business/MediaRat
 import type { SupplierMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
 
 const offer = '9c9d4c10-710e-447f-a37b-ae4894a606d4';
-const endpoint = '/admin/v1/providers/supplier-a';
+const endpoint = '/api/v1/providers/supplier-a';
 const model = {model_alias:'fixture-video',api_key_name:'Video credential',offer_revision:offer,vendor_revision:'4',model_revision:'2',schema_revision:'schema-2',channel:'ark-direct-v1',resolutions:['720p'],reference_video:false};
 async function fillNew(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByLabelText('Model'));

@@ -1,12 +1,12 @@
 ---
 title: "Save an inactive versioned media offer without text-token prices"
-description: "POST /admin/v1/providers/{provider}/media-offers"
+description: "POST /api/v1/providers/{provider}/media-offers"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/providers/{provider}/media-offers`
+`POST /api/v1/providers/{provider}/media-offers`
 
 Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer qualification. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor reviewed digests establish live protocol qualification.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/providers/{provider}/media-offers" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/media-offers" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

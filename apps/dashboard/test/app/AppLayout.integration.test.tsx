@@ -8,12 +8,12 @@ function renderAt(path: string, requiresLogin = false) {
   const applicationFetch = globalThis.fetch;
   let signedIn = !requiresLogin;
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
-    if (String(input) === '/admin/v1/auth/config') return Response.json({ password_login: true });
-    if (String(input) === '/admin/v1/auth/browser/login' && init?.method === 'POST') {
+    if (String(input) === '/api/v1/auth/config') return Response.json({ password_login: true });
+    if (String(input) === '/api/v1/auth/browser/login' && init?.method === 'POST') {
       signedIn = true;
       return Response.json({ session: {} });
     }
-    if (String(input) === '/admin/v1/session' && !signedIn) return Response.json({ error: { message: 'Unauthorized' } }, { status: 401 });
+    if (String(input) === '/api/v1/session' && !signedIn) return Response.json({ error: { message: 'Unauthorized' } }, { status: 401 });
     return applicationFetch(input, init);
   }));
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] });
@@ -33,9 +33,9 @@ function mockHealth() {
     const path = String(input);
     const data = path === '/healthz' ? { status: 'ok', model_count: 0 }
 
-      : path === '/admin/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
-      : path === '/admin/v1/workspaces' ? { data: [{ id: 'default', name: 'Default', organization_id: 'org', organization_name: 'Demo' }, { id: 'production', name: 'Production', organization_id: 'org', organization_name: 'Demo' }] }
-      : path === '/admin/v1/organizations' ? { data: [{ id: 'org', name: 'Demo' }] }
+      : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
+      : path === '/api/v1/workspaces' ? { data: [{ id: 'default', name: 'Default', organization_id: 'org', organization_name: 'Demo' }, { id: 'production', name: 'Production', organization_id: 'org', organization_name: 'Demo' }] }
+      : path === '/api/v1/organizations' ? { data: [{ id: 'org', name: 'Demo' }] }
       : path.endsWith('/billing') ? { data: { balances: [], unresolved: '0', unpriced: '0', tariffs: [], invoices: [] } }
       : { data: [], summary: { request_count: 0, usage_count: 0, prompt_tokens: '0', completion_tokens: '0', failures: 0, customer_charges: [], usage_by_model: [], usage_by_key: [] } };
     return new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } });
@@ -56,7 +56,7 @@ describe('dashboard route layout', () => {
     mockHealth();
     const originalFetch = globalThis.fetch;
     let offline = false;
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/admin/v1/session' && offline
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/api/v1/session' && offline
       ? Promise.reject(new TypeError('Network unavailable')) : originalFetch(input, init)));
     renderAt('/workspaces/default/keys');
     await screen.findByRole('navigation', { name: 'Product navigation' });
@@ -69,7 +69,7 @@ describe('dashboard route layout', () => {
     mockHealth();
     const originalFetch = globalThis.fetch;
     let revoked = false;
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/admin/v1/session' && revoked
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/api/v1/session' && revoked
       ? Promise.resolve(Response.json({}, { status: 401 })) : originalFetch(input, init)));
     const router = renderAt('/workspaces/default/keys?filter=active');
     await screen.findByRole('navigation', { name: 'Product navigation' });
@@ -103,7 +103,7 @@ describe('dashboard route layout', () => {
   it('uses the shared loading page while checking the browser session', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;
     let finishSession!: (response: Response) => void;
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/admin/v1/session'
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/api/v1/session'
       ? new Promise<Response>(resolve => { finishSession = resolve; }) : originalFetch(input, init)));
     renderAt('/workspaces/default');
     await waitFor(() => expect(finishSession).toBeTypeOf('function'), {timeout: 10000});
@@ -119,8 +119,8 @@ describe('dashboard route layout', () => {
   it('keeps the selected workspace when an earlier rename finishes', async () => {
     mockHealth(); const originalFetch=globalThis.fetch;
     let finishRename!: (response:Response)=>void;
-    vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/admin/v1/organizations/org/projects/production' && init?.method==='PATCH'
-      ? new Promise<Response>(resolve=>{finishRename=resolve;}) : String(input)==='/admin/v1/workspaces' ? Promise.resolve(Response.json({data:[{id:'default',name:'Default workspace',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})) : originalFetch(input,init)));
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/api/v1/organizations/org/projects/production' && init?.method==='PATCH'
+      ? new Promise<Response>(resolve=>{finishRename=resolve;}) : String(input)==='/api/v1/workspaces' ? Promise.resolve(Response.json({data:[{id:'default',name:'Default workspace',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})) : originalFetch(input,init)));
     const router=renderAt('/workspaces/production/settings'); const user=userEvent.setup();
     await user.clear(await screen.findByLabelText('Workspace name'));
     await user.type(screen.getByLabelText('Workspace name'),'Customer support');
@@ -138,7 +138,7 @@ describe('dashboard route layout', () => {
   it('drops workspace-owned key details and request filters when switching workspaces', async () => {
     mockHealth();
     const originalFetch=globalThis.fetch;
-    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>String(input)==='/admin/v1/workspaces'
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>String(input)==='/api/v1/workspaces'
       ? Response.json({data:[{id:'default',name:'Default workspace',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})
       : originalFetch(input,init)));
     const router=renderAt('/workspaces/default-workspace/keys/key-fixture?keyId=key-fixture&period=month#gateway-attempt-fixture');
@@ -171,7 +171,7 @@ describe('dashboard route layout', () => {
     const scopedRequests:string[]=[];
     vi.stubGlobal('fetch',vi.fn<typeof fetch>(async (input,init) => {
       const path=String(input);
-      if (path.startsWith('/admin/v1/models')) {
+      if (path.startsWith('/api/v1/models')) {
         const query=new URL(path,'http://localhost').searchParams;
         const project=query.get('project_id');
         if(project) scopedRequests.push(project);
@@ -253,14 +253,14 @@ describe('dashboard route layout', () => {
     let listCalls = 0;
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
       const path = String(input);
-      if (path === '/admin/v1/workspaces') {
+      if (path === '/api/v1/workspaces') {
         listCalls += 1;
         if (listCalls > 1) return Response.json({error:{message:'List temporarily unavailable'}}, {status:503});
       }
-      if (path === '/admin/v1/organizations/org/projects/production' && init?.method === 'PATCH') {
+      if (path === '/api/v1/organizations/org/projects/production' && init?.method === 'PATCH') {
         return Response.json({id:'production',name:JSON.parse(String(init.body)).name});
       }
-      if (path === '/admin/v1/organizations/org/projects/production' && init?.method === 'DELETE') return new Response(null,{status:204});
+      if (path === '/api/v1/organizations/org/projects/production' && init?.method === 'DELETE') return new Response(null,{status:204});
       return originalFetch(input, init);
     }));
     const router = renderAt('/workspaces/production/settings');
@@ -285,7 +285,7 @@ describe('dashboard route layout', () => {
     mockHealth();
     const originalFetch = globalThis.fetch;
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
-      if (String(input) === '/admin/v1/workspaces' && init?.method === 'POST') return Response.json({id:'created-fixture',name:'New workspace',organization_id:'org',organization_name:'Demo'}, {status:201});
+      if (String(input) === '/api/v1/workspaces' && init?.method === 'POST') return Response.json({id:'created-fixture',name:'New workspace',organization_id:'org',organization_name:'Demo'}, {status:201});
       return originalFetch(input, init);
     }));
     const router = renderAt('/workspaces/production');
@@ -396,21 +396,21 @@ describe('dashboard route layout', () => {
       const path = String(input);
       calls.push(path);
       if (path === '/healthz') return new Response(JSON.stringify({ status: 'ok' }));
-      if (path === '/admin/v1/session') return new Response(JSON.stringify({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }));
-      if (path.startsWith('/admin/v1/models')) return new Response(JSON.stringify({ data: [] }));
-      if (path === '/admin/v1/organizations') return new Response(JSON.stringify({ data: [] }));
-      if (path === '/admin/v1/workspaces') return new Response(JSON.stringify({ error: { message: 'Not found' } }), { status: 404 });
+      if (path === '/api/v1/session') return new Response(JSON.stringify({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }));
+      if (path.startsWith('/api/v1/models')) return new Response(JSON.stringify({ data: [] }));
+      if (path === '/api/v1/organizations') return new Response(JSON.stringify({ data: [] }));
+      if (path === '/api/v1/workspaces') return new Response(JSON.stringify({ error: { message: 'Not found' } }), { status: 404 });
       throw new Error(`Unexpected request: ${path}`);
     }));
     renderAt('/workspaces/default/', true);
     await signIn(user);
 
     expect(await screen.findByRole('heading', { name: 'This dashboard and gateway are out of sync' })).toBeTruthy();
-    expect(screen.getByText('GET /admin/v1/workspaces')).toBeTruthy();
+    expect(screen.getByText('GET /api/v1/workspaces')).toBeTruthy();
     expect(screen.getByText('HTTP 404')).toBeTruthy();
-    const callsBeforeRetry = calls.filter(path => path === '/admin/v1/workspaces').length;
+    const callsBeforeRetry = calls.filter(path => path === '/api/v1/workspaces').length;
     await user.click(screen.getByRole('button', { name: 'Retry workspace access' }));
-    await waitFor(() => expect(calls.filter(path => path === '/admin/v1/workspaces').length).toBe(callsBeforeRetry + 1));
+    await waitFor(() => expect(calls.filter(path => path === '/api/v1/workspaces').length).toBe(callsBeforeRetry + 1));
   });
   it('renders the workspace overview and connects the sidebar to real routes', async () => {
     mockHealth();
@@ -552,10 +552,10 @@ describe('dashboard route layout', () => {
       const path = String(input);
       calls.push(path);
       if (path === '/healthz') return json({ status: 'ok' });
-      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
-      if (path.startsWith('/admin/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
-      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
-      if (path === '/admin/v1/workspaces') return workspaceResponse;
+      if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/api/v1/workspaces') return workspaceResponse;
       if (path.endsWith('/keys')) return json({ data: [] });
       throw new Error(`Unexpected request: ${path}`);
     }));
@@ -563,7 +563,7 @@ describe('dashboard route layout', () => {
     const originalPath = `/workspaces/${workspaceId}/keys`;
     const router = renderAt(`${originalPath}?tab=active#list`, true);
     await signIn(user);
-    await waitFor(() => expect(calls).toContain('/admin/v1/workspaces'));
+    await waitFor(() => expect(calls).toContain('/api/v1/workspaces'));
     expect(router.state.location.pathname).toBe(originalPath);
     expect(calls.filter(path => path.endsWith('/keys'))).toEqual([]);
 
@@ -592,10 +592,10 @@ describe('dashboard route layout', () => {
       const path = String(input);
       calls.push(path);
       if (path === '/healthz') return json({ status: 'ok' });
-      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
-      if (path.startsWith('/admin/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
-      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
-      if (path === '/admin/v1/workspaces') return json({ data: [
+      if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/api/v1/workspaces') return json({ data: [
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
@@ -625,10 +625,10 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/healthz') return json({ status: 'ok' });
-      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
-      if (path.startsWith('/admin/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
-      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
-      if (path === '/admin/v1/workspaces') return json({ data: [
+      if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/api/v1/workspaces') return json({ data: [
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
@@ -658,10 +658,10 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
       if (path === '/healthz') return json({ status: 'ok' });
-      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
-      if (path.startsWith('/admin/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
-      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
-      if (path === '/admin/v1/workspaces') return json({ data: [
+      if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/api/v1/workspaces') return json({ data: [
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
         { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
@@ -698,13 +698,13 @@ describe('dashboard route layout', () => {
       const method = init?.method ?? 'GET';
       calls.push({ path, method, body: typeof init?.body === 'string' ? init.body : undefined });
       if (path === '/healthz') return json({ status: 'ok' });
-      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
-      if (path.startsWith('/admin/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
-      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
-      if (path === '/admin/v1/workspaces' && method === 'GET') return json({ data: [
+      if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/api/v1/workspaces' && method === 'GET') return json({ data: [
         { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
       ] });
-      if (path === '/admin/v1/workspaces' && method === 'POST') return json({
+      if (path === '/api/v1/workspaces' && method === 'POST') return json({
         id: 'project-2', name: 'Research project', organization_id: 'org-1', organization_name: 'Acme',
       });
       if (path.endsWith('/keys')) return json({ data: [] });
@@ -726,7 +726,7 @@ describe('dashboard route layout', () => {
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
-    expect(calls.find(call => call.path === '/admin/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', organization_id: 'org-1' }));
+    expect(calls.find(call => call.path === '/api/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', organization_id: 'org-1' }));
     const keyRequests = calls.filter(call => call.path.endsWith('/keys')).map(call => call.path);
     expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys');
     expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys');
@@ -743,15 +743,15 @@ describe('dashboard route layout', () => {
       const authorization = new Headers(init?.headers).get('authorization') ?? undefined;
       calls.push({ path, authorization });
       if (path === '/healthz') return json({ status: 'ok', model_count: 1 });
-      if (path === '/admin/v1/session') return json({ data: {
+      if (path === '/api/v1/session') return json({ data: {
         kind: 'operator',
         operator: { id: 'owner-1', role: 'owner', organization_id: 'org-1', project_id: null },
         permissions: { read: true, write: true, manage_operators: true },
       } });
-      if (path.startsWith('/admin/v1/models')) return json({ data: [] });
-      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
-      if (path === '/admin/v1/operators') return json({ data: [] });
-      if (path === '/admin/v1/organizations/org-1/projects') return json({ data: [] });
+      if (path.startsWith('/api/v1/models')) return json({ data: [] });
+      if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
+      if (path === '/api/v1/operators') return json({ data: [] });
+      if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
       return json({ data: [] });
     }));
 
@@ -761,11 +761,11 @@ describe('dashboard route layout', () => {
 
     expect(await screen.findByText('No users yet')).toBeTruthy();
     expect(calls[0]).toEqual({ path: '/healthz', authorization: undefined });
-    expect(calls.find(call => call.path === '/admin/v1/session')).toEqual({
-      path: '/admin/v1/session',
+    expect(calls.find(call => call.path === '/api/v1/session')).toEqual({
+      path: '/api/v1/session',
       authorization: 'Bearer niu-browser-member-session',
     });
-    expect(calls.some(call => call.path === '/admin/v1/operators')).toBe(true);
+    expect(calls.some(call => call.path === '/api/v1/operators')).toBe(true);
     expect(screen.queryByText('Organization owner')).toBeNull();
   });
 
@@ -778,7 +778,7 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
       if (path === '/healthz') return json({ status: 'ok', model_count: 1 });
-      if (path === '/admin/v1/session') {
+      if (path === '/api/v1/session') {
         return currentSessionRevoked
           ? json({ error: { message: 'Unauthorized' } }, 401)
           : json({ data: {
@@ -787,19 +787,19 @@ describe('dashboard route layout', () => {
             permissions: { read: true, write: true, manage_operators: true },
           } });
       }
-      if (path.startsWith('/admin/v1/models')) return json({ data: [] });
-      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
-      if (path === '/admin/v1/operators') return json({ data: [{
+      if (path.startsWith('/api/v1/models')) return json({ data: [] });
+      if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
+      if (path === '/api/v1/operators') return json({ data: [{
         id: 'owner-1', name: 'Current owner', role: 'owner', organization_id: 'org-1', project_id: null, revoked: false,
       }] });
-      if (path === '/admin/v1/organizations/org-1/projects') return json({ data: [] });
-      if (path === '/admin/v1/operators/owner-1/sessions') return json({ data: [{
+      if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
+      if (path === '/api/v1/operators/owner-1/sessions') return json({ data: [{
         id: 'active-session', operator_id: 'owner-1', expires_at_unix: 2_000_000_000, revoked: false,
       }] });
       if (path.includes('/events?')) return currentSessionRevoked
         ? json({ error: { message: 'Unauthorized' } }, 401)
         : json({ data: [], next_cursor: null });
-      if (path === '/admin/v1/operators/owner-1/sessions/active-session' && init?.method === 'DELETE') {
+      if (path === '/api/v1/operators/owner-1/sessions/active-session' && init?.method === 'DELETE') {
         currentSessionRevoked = true;
         return new Response(null, { status: 204 });
       }
@@ -820,7 +820,7 @@ describe('dashboard route layout', () => {
   it('preserves customer navigation when provider administration is denied', async () => {
     mockHealth();
     const previousFetch = globalThis.fetch;
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/admin/v1/session'
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/api/v1/session'
       ? Response.json({ data: { kind: 'operator', operator: { role: 'owner', organization_id: 'org', project_id: null }, provider_memberships: [], permissions: { read: true, write: true, manage_operators: true } } })
       : previousFetch(input, init)));
     renderAt('/admin/suppliers');
@@ -835,7 +835,7 @@ describe('dashboard route layout', () => {
   it('adds Admin without removing customer areas for a platform administrator', async () => {
     mockHealth();
     const previousFetch = globalThis.fetch;
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/admin/v1/session'
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/api/v1/session'
       ? Response.json({ data: { kind: 'operator', operator: { role: 'owner', organization_id: 'org', project_id: null }, provider_memberships: [], permissions: { read: true, write: true, manage_operators: true, platform_admin: true } } })
       : previousFetch(input, init)));
     renderAt('/admin/suppliers');

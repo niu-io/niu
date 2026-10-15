@@ -96,7 +96,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const intentId=search.get('intent') ?? '';
   const routeIntent=useRef(intentId);
   routeIntent.current=intentId;
-  const intentClient=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/admin/v1',window.location.origin).href}):null,[token]);
+  const intentClient=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
   const [toolsRevision,setToolsRevision]=useState(0);
   const [nativeTools,setNativeTools]=useState<{identity:string;state:'loading'|'supported'|'unsupported'|'error';module?:NativeProviderModule;error?:string}>({identity:'',state:'loading'});
   const toolsIdentity=JSON.stringify([token,workspace?.organization_id,workspace?.id,keyId,modelId]);

@@ -18,7 +18,7 @@ export class NiuAuthClient {
   readonly #fetch: typeof globalThis.fetch;
 
   constructor(options: NiuAuthOptions = {}) {
-    this.#base = (options.baseURL ?? 'http://localhost:2555/admin/v1').replace(/\/+$/, '');
+    this.#base = (options.baseURL ?? 'http://localhost:2555/api/v1').replace(/\/+$/, '');
     const url = new URL(this.#base);
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
       throw new TypeError('baseURL must be an HTTP(S) API base without credentials, query or fragment');

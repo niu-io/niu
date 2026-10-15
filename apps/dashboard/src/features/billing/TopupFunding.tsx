@@ -69,8 +69,8 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     const controller = new AbortController();
     setLoadError(''); setLoadFailure(null); setLoading(true);
     void Promise.allSettled([
-      request<{ data: Availability }>(token, `/admin/v1/organizations/${organization}/billing/payment-methods${currency ? '?currency=' + encodeURIComponent(currency) : ''}`, 'GET', undefined, controller.signal),
-      request<{ data: Topup[]; next_cursor: string | null }>(token, `/admin/v1/organizations/${organization}/billing/topups`, 'GET', undefined, controller.signal),
+      request<{ data: Availability }>(token, `/api/v1/organizations/${organization}/billing/payment-methods${currency ? '?currency=' + encodeURIComponent(currency) : ''}`, 'GET', undefined, controller.signal),
+      request<{ data: Topup[]; next_cursor: string | null }>(token, `/api/v1/organizations/${organization}/billing/topups`, 'GET', undefined, controller.signal),
     ]).then(([methodsResult, historyResult]) => {
       if (controller.signal.aborted) return;
       let failed = false;
@@ -106,7 +106,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     } catch { setError(`Enter a positive ${availability.currency} amount with at most two decimal places and choose a payment method.`); return; }
     const controller = new AbortController(); mutation.current = controller; setBusy(true);
     try {
-      const response = await request<{ data: Topup }>(token, `/admin/v1/organizations/${organization}/billing/topups`, 'POST', intent.current, controller.signal);
+      const response = await request<{ data: Topup }>(token, `/api/v1/organizations/${organization}/billing/topups`, 'POST', intent.current, controller.signal);
       checkedTopup(response.data);
       if (response.data.currency !== intent.current.currency || response.data.amount_nanos !== intent.current.amount_nanos || response.data.payment_method !== intent.current.payment_method) throw new Error('Mismatched checkout intent');
       if (!controller.signal.aborted) { setResult(response.data); setRevision(value => value + 1); }
@@ -118,7 +118,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     if (!next || busy) return;
     const controller = new AbortController(); older.current = controller; setBusy(true); setLoadError(''); setLoadFailure(null);
     try {
-      const page = await request<{ data: Topup[]; next_cursor: string | null }>(token, `/admin/v1/organizations/${organization}/billing/topups?before=${encodeURIComponent(next)}`, 'GET', undefined, controller.signal);
+      const page = await request<{ data: Topup[]; next_cursor: string | null }>(token, `/api/v1/organizations/${organization}/billing/topups?before=${encodeURIComponent(next)}`, 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
       checkedHistory(page);
       if (!Array.isArray(page.data) || page.next_cursor === undefined || page.next_cursor === next) throw new Error('Invalid payment history');
@@ -131,7 +131,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     if (!result || busy) return;
     const controller = new AbortController(); mutation.current = controller; setBusy(true); setError('');
     try {
-      const response = await request<{ data: Topup }>(token, `/admin/v1/organizations/${organization}/billing/topups/${result.id}`, 'GET', undefined, controller.signal);
+      const response = await request<{ data: Topup }>(token, `/api/v1/organizations/${organization}/billing/topups/${result.id}`, 'GET', undefined, controller.signal);
       checkedTopup(response.data);
       if (response.data.id !== result.id || response.data.currency !== result.currency || response.data.amount_nanos !== result.amount_nanos) throw new Error('Mismatched saved top-up');
       if (!controller.signal.aborted) { setResult(response.data); setRevision(value => value + 1); if (response.data.status === 'paid') onPaid(); }

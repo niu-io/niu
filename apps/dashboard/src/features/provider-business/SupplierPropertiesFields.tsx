@@ -19,7 +19,7 @@ export default function SupplierPropertiesFields({ supplierId, supplierName, tok
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError(''); setNotice(''); setVendor(null); setKey('');
-    void request<{ data: Vendor[] }>(token, `/admin/v1/vendors?supplier=${encodeURIComponent(supplierId)}`, 'GET', undefined, controller.signal)
+    void request<{ data: Vendor[] }>(token, `/api/v1/vendors?supplier=${encodeURIComponent(supplierId)}`, 'GET', undefined, controller.signal)
       .then(result => {
         if (controller.signal.aborted) return;
         if (result.data.length !== 1) {
@@ -38,7 +38,7 @@ export default function SupplierPropertiesFields({ supplierId, supplierName, tok
     if (!vendor || busy) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const result = await request<{ data: Vendor }>(token, `/admin/v1/vendors/${vendor.id}`, 'PUT', {
+      const result = await request<{ data: Vendor }>(token, `/api/v1/vendors/${vendor.id}`, 'PUT', {
         name: vendor.name, enabled: vendor.enabled, api_base: endpoint.trim(),
         expected_revision: vendor.revision, ...(key ? { api_key: key } : {}),
       });

@@ -11,7 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type NiuAdminOptions = {
     adminToken: string;
-    /** Administration API base; defaults to http://localhost:2555/admin/v1. */
+    /** Administration API base; defaults to http://localhost:2555/api/v1. */
     baseURL?: string;
     fetch?: typeof globalThis.fetch;
 };

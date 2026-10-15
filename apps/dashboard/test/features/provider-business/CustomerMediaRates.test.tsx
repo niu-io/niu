@@ -5,7 +5,7 @@ import MediaRatePublisher from '../../../src/features/provider-business/MediaRat
 import MediaRateHistory from '../../../src/features/provider-business/MediaRateHistory';
 const organization = '11111111-1111-4111-8111-111111111111';
 const vendor = '22222222-2222-4222-8222-222222222222';
-const endpoint = `/admin/v1/organizations/${organization}/billing`;
+const endpoint = `/api/v1/organizations/${organization}/billing`;
 const model = {model_alias:'Video model',api_key_name:'Video credential',vendor_id:vendor,offer_revision:'33333333-3333-4333-8333-333333333333',vendor_revision:'4',model_revision:'2',schema_revision:'schema-2',channel:'ark-direct-v1',resolutions:['720p'],reference_video:false};
 async function fill(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByLabelText('Model'));

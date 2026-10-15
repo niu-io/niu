@@ -20,7 +20,7 @@ Historical journals have different actor coverage. The API returns an explicit u
 
 ## Read API and SDK
 
-`GET /admin/v1/platform/audit-events` returns `{ data, next_cursor }`. Each event contains `source`, `category`, `action`, `actor_kind`, `actor_label`, `target_label`, nullable decimal-string `revision`, UTC `created_at`, and an internal source-qualified `id`. Use that ID for reconciliation, never as a product display label.
+`GET /api/v1/platform/audit-events` returns `{ data, next_cursor }`. Each event contains `source`, `category`, `action`, `actor_kind`, `actor_label`, `target_label`, nullable decimal-string `revision`, UTC `created_at`, and an internal source-qualified `id`. Use that ID for reconciliation, never as a product display label.
 
 | Query | Contract |
 | --- | --- |

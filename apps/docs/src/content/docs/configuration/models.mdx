@@ -20,7 +20,7 @@ api_key_env = "OPENROUTER_API_KEY"
 
 ## Managed providers
 
-Platform administrators manage shared Providers and their model routes in the dashboard or through the compatibility endpoint `/admin/v1/vendors`. A Provider is the business supplying model access; a Provider identifies the upstream API adapter. OpenRouter can be a Provider using the `openrouter` Provider adapter. Model developers offered through that Provider do not require separate Niu credentials. Provider records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Providers.
+Platform administrators manage shared Providers and their model routes in the dashboard or through the compatibility endpoint `/api/v1/vendors`. A Provider is the business supplying model access; a Provider identifies the upstream API adapter. OpenRouter can be a Provider using the `openrouter` Provider adapter. Model developers offered through that Provider do not require separate Niu credentials. Provider records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Providers.
 
 Managed configurations accept `openai`, `openrouter` and `anthropic` adapters.
 For native Anthropic Messages, set `api_base` to `https://api.anthropic.com/v1`
@@ -133,7 +133,7 @@ route. Authorization, qualification expiry and credential cooldowns are checked
 live. Initial Provider imports and their publication commit together, and a normal
 restart preserves saved administrator edits.
 
-Platform administrators can call `GET /admin/v1/routing-registry`, or
+Platform administrators can call `GET /api/v1/routing-registry`, or
 `NiuAdminClient.getRoutingRegistryStatus()`, to read the current generation and
 whether the Gateway's static configuration matches it. The response contains no
 route definitions, endpoints, secrets or purchase prices.

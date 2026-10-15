@@ -35,7 +35,7 @@ function Accounts({ token }: { token: string }) {
     active.current?.abort(); const controller = new AbortController(); active.current = controller;
     setLoading(true); setError(''); setFailedCursor(undefined);
     try {
-      const page = await request<AccountPage>(token, '/admin/v1/platform/customer-accounts?limit=50' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
+      const page = await request<AccountPage>(token, '/api/v1/platform/customer-accounts?limit=50' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
       if (!Array.isArray(page.data) || page.next_after === after) throw new Error('Account page did not advance. Refresh accounts.');
       setCompanies(current => after ? [...current, ...page.data.filter(row => !current.some(saved => saved.organization_id === row.organization_id))] : page.data);
@@ -79,7 +79,7 @@ function CreditEditor({ token, editor, onClose, onSaved }: { token: string; edit
     catch { setError('Enter an uppercase currency and a nonnegative credit amount with at most nine decimal places, within the supported range.'); return; }
     setPending(true); setError('');
     try {
-      const result = await request<{ data: { revision: string } }>(token, `/admin/v1/organizations/${encodeURIComponent(company.organization_id)}/billing/accounts/${currency}/policy`, 'PUT', {
+      const result = await request<{ data: { revision: string } }>(token, `/api/v1/organizations/${encodeURIComponent(company.organization_id)}/billing/accounts/${currency}/policy`, 'PUT', {
         credit_limit_nanos: nanos, warning_threshold_nanos: account?.warning_threshold_nanos ?? null, expected_revision: account?.policy_revision ?? '0',
       });
       if (!result?.data?.revision || BigInt(result.data.revision) !== BigInt(account?.policy_revision ?? '0') + 1n) throw new Error('Credit approval could not be confirmed.');

@@ -35,40 +35,40 @@ servers:
 paths:
   /api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1media-retail-price-enrollment'
-  /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{supplier}~1offers~1{offer}~1media-liability-bounds'
-  /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{supplier}~1offers~1{offer}~1media-liability-bounds~1{revision}~1retire'
+  /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{supplier}~1offers~1{offer}~1media-liability-bounds'
+  /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{supplier}~1offers~1{offer}~1media-liability-bounds~1{revision}~1retire'
   /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1retail-price-enrollment'
-  /admin/v1/pricing/customers:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1customers'
-  /admin/v1/pricing/standard-prices/models:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1models'
-  /admin/v1/pricing/standard-prices:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices'
-  /admin/v1/pricing/standard-prices/{price}/promotions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1promotions'
-  /admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1promotions~1{promotion}~1retire'
-  /admin/v1/pricing/standard-prices/{price}/history:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1history'
-  /admin/v1/pricing/standard-prices/{price}/preview:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1standard-prices~1{price}~1preview'
+  /api/v1/pricing/customers:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1customers'
+  /api/v1/pricing/standard-prices/models:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices~1models'
+  /api/v1/pricing/standard-prices:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices'
+  /api/v1/pricing/standard-prices/{price}/promotions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices~1{price}~1promotions'
+  /api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices~1{price}~1promotions~1{promotion}~1retire'
+  /api/v1/pricing/standard-prices/{price}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices~1{price}~1history'
+  /api/v1/pricing/standard-prices/{price}/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices~1{price}~1preview'
   /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepare'
   /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared'
   /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared~1{key}'
-  /admin/v1/platform/customer-accounts:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1customer-accounts'
-  /admin/v1/financial-summary:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1financial-summary'
+  /api/v1/platform/customer-accounts:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1customer-accounts'
+  /api/v1/financial-summary:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1financial-summary'
   /api/v1/organizations/{organization}/billing/accounts/{currency}/grants:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants'
-  /admin/v1/commercial-position:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1commercial-position'
+  /api/v1/commercial-position:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1commercial-position'
   /api/v1/organizations/{organization}/projects/{project}/media/asset-operations:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations'
   /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}:
@@ -135,40 +135,40 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors'
   /api/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detectors'
-  /admin/v1/providers/{provider}/offers/{offer}/qualification/revoke:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1qualification~1revoke'
-  /admin/v1/providers/{provider}/offers/{offer}/qualification:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1qualification'
-  /admin/v1/providers/{provider}/qualification/revoke:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1qualification~1revoke'
-  /admin/v1/providers/{provider}/qualification:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1qualification'
+  /api/v1/providers/{provider}/offers/{offer}/qualification/revoke:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1qualification~1revoke'
+  /api/v1/providers/{provider}/offers/{offer}/qualification:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1qualification'
+  /api/v1/providers/{provider}/qualification/revoke:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1qualification~1revoke'
+  /api/v1/providers/{provider}/qualification:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1qualification'
   /api/v1/auth/preferences:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1preferences'
   /api/v1/auth/profile:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1profile'
   /api/v1/organizations/{organization}/projects:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects'
-  /admin/v1/providers/{provider}/configuration-usage:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1configuration-usage'
+  /api/v1/providers/{provider}/configuration-usage:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1configuration-usage'
   /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1usage-reconciliation'
-  /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs'
-  /admin/v1/pricing/models:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1models'
-  /admin/v1/pricing/targets:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1targets'
-  /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs~1{model}~1history'
-  /admin/v1/vendors/{vendor}/cooldown:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{vendor}~1cooldown'
-  /admin/v1/vendors/{vendor}/request-rate-limit/history:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit~1history'
-  /admin/v1/vendors/{vendor}/request-rate-limit:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit'
-  /admin/v1/providers/{provider}/offers/{offer}/revisions:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions'
+  /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs'
+  /api/v1/pricing/models:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1models'
+  /api/v1/pricing/targets:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1targets'
+  /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs~1{model}~1history'
+  /api/v1/vendors/{vendor}/cooldown:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1cooldown'
+  /api/v1/vendors/{vendor}/request-rate-limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1request-rate-limit~1history'
+  /api/v1/vendors/{vendor}/request-rate-limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{vendor}~1request-rate-limit'
+  /api/v1/providers/{provider}/offers/{offer}/revisions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1revisions'
   /api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs~1{model}~1history'
   /api/v1/organizations/{organization}/projects/{project}/video-intents:
@@ -179,16 +179,16 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}~1submit'
   /payments/stripe/notify:
     $ref: './generated/handler-operations.json#/paths/~1payments~1stripe~1notify'
-  /admin/v1/providers/{provider}/members:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1members'
+  /api/v1/providers/{provider}/members:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1members'
   /api/v1/organizations/{organization}/projects/{project}:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}'
-  /admin/v1/platform/financial-recovery:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1financial-recovery'
-  /admin/v1/platform/audit-events:
-    $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1audit-events'
-  /admin/v1/platform/configuration:
-    $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1configuration'
+  /api/v1/platform/financial-recovery:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1financial-recovery'
+  /api/v1/platform/audit-events:
+    $ref: './platform-configuration.openapi.yaml#/paths/~1api~1v1~1platform~1audit-events'
+  /api/v1/platform/configuration:
+    $ref: './platform-configuration.openapi.yaml#/paths/~1api~1v1~1platform~1configuration'
   /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}:
     $ref: './request-observability.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}'
   /api/v1/organizations/{organization}/projects/{project}/spending-limit:
@@ -211,8 +211,8 @@ paths:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1logout'
   /api/v1/auth/login:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1login'
-  /admin/v1/operators/{operator}/password:
-    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1operators~1{operator}~1password'
+  /api/v1/operators/{operator}/password:
+    $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1operators~1{operator}~1password'
   /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
   /api/v1/organizations/{organization}/billing/media-rate-models:
@@ -225,16 +225,16 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1reservations'
   /api/v1/organizations/{organization}/billing/charge-reconciliation:
     $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
-  /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
-  /admin/v1/platform/payments/integrations:
-    $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1payments~1integrations'
-  /admin/v1/model-route-pools:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools'
-  /admin/v1/model-route-pools/index:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools~1index'
-  /admin/v1/model-route-pools/history:
-    $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools~1history'
+  /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
+  /api/v1/platform/payments/integrations:
+    $ref: './platform-configuration.openapi.yaml#/paths/~1api~1v1~1platform~1payments~1integrations'
+  /api/v1/model-route-pools:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1model-route-pools'
+  /api/v1/model-route-pools/index:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1model-route-pools~1index'
+  /api/v1/model-route-pools/history:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1model-route-pools~1history'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit:
     $ref: './key-token-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history:
@@ -433,8 +433,8 @@ paths:
               schema: { type: integer, const: 1 }
   /v1/branding:
     $ref: './generated/handler-operations.json#/paths/~1v1~1branding'
-  /admin/v1/platform/branding:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1branding'
+  /api/v1/platform/branding:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1branding'
   /v1/video/models:
     get:
       operationId: listVideoModels
@@ -748,8 +748,8 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Workspace write access required. }
         '404': { description: No session in the caller's owner and workspace scope. }
-  /admin/v1/vendors/{id}/supplier:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1supplier'
+  /api/v1/vendors/{id}/supplier:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1supplier'
   /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
     $ref: './guardrails.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1guardrails'
   /api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
@@ -806,40 +806,40 @@ paths:
     $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}'
   /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
     $ref: './billing.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}~1payment'
-  /admin/v1/provider-memberships:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1provider-memberships'
-  /admin/v1/platform/payments/epay:
-    $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1payments~1epay'
-  /admin/v1/providers/{provider}:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}'
-  /admin/v1/providers:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers'
-  /admin/v1/providers/{provider}/members/{operator}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1members~1{operator}'
-  /admin/v1/providers/{provider}/media-rates/{revision}/retire:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1media-rates~1{revision}~1retire'
-  /admin/v1/providers/{provider}/media-rates:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1media-rates'
-  /admin/v1/providers/{provider}/media-offer-models:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1media-offer-models'
-  /admin/v1/providers/{provider}/media-offers:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1media-offers'
-  /admin/v1/providers/{provider}/media-rate-models:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1media-rate-models'
-  /admin/v1/providers/{provider}/media-rates/replace:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1media-rates~1replace'
-  /admin/v1/providers/{provider}/offers:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1offers'
-  /admin/v1/providers/{provider}/offers/{offer}:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}'
-  /admin/v1/providers/{provider}/dashboard:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1dashboard'
-  /admin/v1/providers/{provider}/administration:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1administration'
-  /admin/v1/providers/{provider}/earnings:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1earnings'
-  /admin/v1/providers/{provider}/settlements:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1settlements'
+  /api/v1/provider-memberships:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1provider-memberships'
+  /api/v1/platform/payments/epay:
+    $ref: './platform-configuration.openapi.yaml#/paths/~1api~1v1~1platform~1payments~1epay'
+  /api/v1/providers/{provider}:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}'
+  /api/v1/providers:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers'
+  /api/v1/providers/{provider}/members/{operator}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1members~1{operator}'
+  /api/v1/providers/{provider}/media-rates/{revision}/retire:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1media-rates~1{revision}~1retire'
+  /api/v1/providers/{provider}/media-rates:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1media-rates'
+  /api/v1/providers/{provider}/media-offer-models:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1media-offer-models'
+  /api/v1/providers/{provider}/media-offers:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1media-offers'
+  /api/v1/providers/{provider}/media-rate-models:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1media-rate-models'
+  /api/v1/providers/{provider}/media-rates/replace:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1media-rates~1replace'
+  /api/v1/providers/{provider}/offers:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1offers'
+  /api/v1/providers/{provider}/offers/{offer}:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}'
+  /api/v1/providers/{provider}/dashboard:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1dashboard'
+  /api/v1/providers/{provider}/administration:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1administration'
+  /api/v1/providers/{provider}/earnings:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1earnings'
+  /api/v1/providers/{provider}/settlements:
+    $ref: './provider-business.openapi.yaml#/paths/~1api~1v1~1providers~1{provider}~1settlements'
   /healthz:
     get:
       operationId: getHealth
@@ -904,13 +904,13 @@ paths:
           description: Missing or invalid administrator credentials.
         '404':
           description: Selected account is outside the authenticated scope.
-  /admin/v1/routing-registry:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1routing-registry'
-  /admin/v1/vendors:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors'
-  /admin/v1/vendors/{id}:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}'
-  /admin/v1/vendors/{id}/asset-management:
+  /api/v1/routing-registry:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1routing-registry'
+  /api/v1/vendors:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors'
+  /api/v1/vendors/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}'
+  /api/v1/vendors/{id}/asset-management:
     parameters:
       - name: id
         in: path
@@ -1007,7 +1007,7 @@ paths:
         '403': { description: Installation administrator required. }
         '409': { description: Missing configuration or stale revision. }
         '413': { description: Request body exceeds 16 KiB. }
-  /admin/v1/vendors/{id}/asset-management/lookups:
+  /api/v1/vendors/{id}/asset-management/lookups:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     post:
@@ -1076,7 +1076,7 @@ paths:
         '400': { description: Invalid limit or query. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-  /admin/v1/vendors/{id}/asset-management/lookups/{lookup}:
+  /api/v1/vendors/{id}/asset-management/lookups/{lookup}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: lookup, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1108,7 +1108,7 @@ paths:
         '204': { description: Erasure applied idempotently for this scope. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-  /admin/v1/vendors/{id}/asset-management/listings:
+  /api/v1/vendors/{id}/asset-management/listings:
     get:
       summary: List scoped ordinary asset-listing outcomes and timing
       description: Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Provider queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.
@@ -1170,7 +1170,7 @@ paths:
         '409': { description: "Qualification missing, identity already claimed, parent already continued or terminal, scope mismatch, or 100-page chain exhausted." }
         '422': { description: Invalid or unsupported request fields. }
         '503': { description: Capacity exhausted or safe transport/persistence failure. }
-  /admin/v1/vendors/{id}/asset-management/listings/{listing}:
+  /api/v1/vendors/{id}/asset-management/listings/{listing}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: listing, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1198,7 +1198,7 @@ paths:
         '204': { description: Scoped content absent or erased. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-  /admin/v1/vendors/{id}/asset-management/group-reads:
+  /api/v1/vendors/{id}/asset-management/group-reads:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     get:
@@ -1275,7 +1275,7 @@ paths:
         '404': { description: Saved group absent from the specified workspace or account. }
         '409': { description: Read already claimed or original operation qualification unavailable. }
         '503': { description: "Read capacity, credentials, transport or outcome persistence unavailable; no automatic retry." }
-  /admin/v1/vendors/{id}/asset-management/group-reads/{read}:
+  /api/v1/vendors/{id}/asset-management/group-reads/{read}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: read, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1315,7 +1315,7 @@ paths:
         '204': { description: "Content erased, already absent or outside the supplied scope." }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-  /admin/v1/vendors/{id}/asset-management/group-updates/{update}:
+  /api/v1/vendors/{id}/asset-management/group-updates/{update}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: update, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1331,7 +1331,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
         '404': { description: Update unavailable in this account and workspace. }
-  /admin/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile:
+  /api/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: update, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1360,7 +1360,7 @@ paths:
         '409': { description: "Read identity consumed, content unavailable, update not acknowledged/held or original qualification unavailable." }
         '422': { description: Malformed request. }
         '503': { description: "Read capacity, encryption, transport or durable persistence unavailable." }
-  /admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch:
+  /api/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: update, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1402,7 +1402,7 @@ paths:
         '409': { description: "Update already claimed, content unavailable, qualification revoked or group held." }
         '422': { description: Malformed scope. }
         '503': { description: "Execution capacity, encryption or durable completion unavailable; never automatically retry a claimed update." }
-  /admin/v1/vendors/{id}/asset-management/group-updates:
+  /api/v1/vendors/{id}/asset-management/group-updates:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     get:
@@ -1474,7 +1474,7 @@ paths:
         '409': { description: Qualification unavailable or changed patch conflicts. }
         '422': { description: Malformed request. }
         '503': { description: Encryption unavailable. }
-  /admin/v1/vendors/{id}/asset-management/groups:
+  /api/v1/vendors/{id}/asset-management/groups:
     parameters:
       - name: id
         in: path
@@ -1513,7 +1513,7 @@ paths:
         '413': { description: Request body exceeds 16 KiB. }
         '422': { description: Invalid shape or unknown fields. }
         '503': { description: Asset management capacity or encrypted credentials unavailable. No send was admitted by this request. }
-  /admin/v1/vendors/{id}/asset-management/group-deletion-consents:
+  /api/v1/vendors/{id}/asset-management/group-deletion-consents:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     post:
@@ -1565,7 +1565,7 @@ paths:
         '409': { description: "Group or qualification unavailable, stale binding, or conflicting/expired/revoked consent." }
         '413': { description: Request exceeds 4096 bytes. }
         '422': { description: Invalid request shape or unknown fields. }
-  /admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch:
+  /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: consent, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1609,7 +1609,7 @@ paths:
         '413': { description: Request exceeds 4096 bytes. }
         '422': { description: Invalid shape or unknown fields. }
         '503': { description: "Execution capacity, credential decryption or durable outcome unavailable. Read saved status; do not automatically retry." }
-  /admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}:
+  /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: consent, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1653,7 +1653,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
         '400': { description: Invalid scope. }
-  /admin/v1/vendors/{id}/asset-management/authorizations:
+  /api/v1/vendors/{id}/asset-management/authorizations:
     parameters:
       - name: id
         in: path
@@ -1720,7 +1720,7 @@ paths:
         '400': { description: Invalid limit or cursor. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-  /admin/v1/vendors/{id}/asset-management/authorizations/{authorization}:
+  /api/v1/vendors/{id}/asset-management/authorizations/{authorization}:
     parameters:
       - name: id
         in: path
@@ -1739,7 +1739,7 @@ paths:
         '204': { description: Local revocation applied or no matching active record. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-  /admin/v1/vendors/{id}/personal-owner:
+  /api/v1/vendors/{id}/personal-owner:
     parameters:
       - name: id
         in: path
@@ -1776,12 +1776,12 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Installation administrator required. }
         '409': { description: "Stale revision, different owner, existing model route pricing, commercial qualification or unavailable account." }
-  /admin/v1/vendors/{id}/models:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1models'
-  /admin/v1/vendors/{id}/catalog:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1catalog'
-  /admin/v1/vendors/{id}/check:
-    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1check'
+  /api/v1/vendors/{id}/models:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1models'
+  /api/v1/vendors/{id}/catalog:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1catalog'
+  /api/v1/vendors/{id}/check:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1check'
   /api/v1/session:
     get:
       operationId: getAdminSessionIdentity
@@ -1835,7 +1835,7 @@ paths:
           description: Missing, invalid, expired or revoked administrator credential.
         '503':
           description: Operator storage is unavailable.
-  /admin/v1/operators:
+  /api/v1/operators:
     get:
       operationId: adminListOperators
       summary: List operator identities without session credentials
@@ -1870,9 +1870,9 @@ paths:
           description: Missing, invalid, expired or revoked credentials.
         '403':
           description: The authenticated operator is not an owner.
-  /admin/v1/operators/{operator}:
+  /api/v1/operators/{operator}:
     patch:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1operators~1{operator}/patch'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1operators~1{operator}/patch'
     delete:
       operationId: adminRevokeOperator
       summary: Revoke an operator and all of its sessions
@@ -1892,7 +1892,7 @@ paths:
           description: The authenticated operator is not an owner.
         '409':
           description: Operator was already revoked or does not exist.
-  /admin/v1/operators/{operator}/sessions:
+  /api/v1/operators/{operator}/sessions:
     get:
       operationId: adminListOperatorSessions
       summary: List session expiry and revocation metadata
@@ -1937,7 +1937,7 @@ paths:
           description: The authenticated operator is not an owner.
         '409':
           description: Operator is unavailable.
-  /admin/v1/operators/{operator}/sessions/{session}:
+  /api/v1/operators/{operator}/sessions/{session}:
     delete:
       operationId: adminRevokeOperatorSession
       summary: Revoke one operator session
@@ -1961,7 +1961,7 @@ paths:
           description: The authenticated operator is not an owner.
         '409':
           description: Session was already revoked or does not exist.
-  /admin/v1/operators/{operator}/events:
+  /api/v1/operators/{operator}/events:
     get:
       operationId: adminListOperatorAuditEvents
       summary: Read immutable operator and session lifecycle events

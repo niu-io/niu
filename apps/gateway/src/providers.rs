@@ -58,7 +58,7 @@ async fn member(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/provider-memberships",
+///   "path": "/api/v1/provider-memberships",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderMemberships",
@@ -201,7 +201,7 @@ pub struct Name {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers",
+///   "path": "/api/v1/providers",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createProviderBusiness",
@@ -300,7 +300,7 @@ pub async fn create(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}",
+///   "path": "/api/v1/providers/{provider}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getProviderProfile",
@@ -407,7 +407,7 @@ pub async fn profile(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}",
+///   "path": "/api/v1/providers/{provider}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "renameProviderBusiness",
@@ -567,7 +567,7 @@ pub async fn rename(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}",
+///   "path": "/api/v1/providers/{provider}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "deleteProviderBusiness",
@@ -655,7 +655,7 @@ pub struct Membership {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/members/{operator}",
+///   "path": "/api/v1/providers/{provider}/members/{operator}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setProviderMembership",
@@ -783,7 +783,7 @@ pub async fn set_member(
 /// Immutable Provider schedule publication.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/offers",
+///   "path": "/api/v1/providers/{provider}/offers",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishProviderPayoutRates",
@@ -1015,7 +1015,7 @@ pub async fn publish_offer(
 /// Historical rates are procurement data, even after an offer is paused.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}",
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/revisions/{revision}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getProviderOfferRevision",
@@ -1292,7 +1292,7 @@ pub async fn offer_revision(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/qualification",
+///   "path": "/api/v1/providers/{provider}/qualification",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "qualifyProviderBusiness",
@@ -1430,7 +1430,7 @@ pub async fn qualify_business(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification",
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/qualification",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "qualifyProviderOffer",
@@ -1602,7 +1602,7 @@ pub async fn qualify_offer(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/qualification/revoke",
+///   "path": "/api/v1/providers/{provider}/qualification/revoke",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "revokeProviderBusinessQualification",
@@ -1721,7 +1721,7 @@ pub async fn revoke_business_qualification(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke",
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/qualification/revoke",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "revokeProviderOfferQualification",
@@ -1855,7 +1855,7 @@ pub struct Settlement {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/settlements",
+///   "path": "/api/v1/providers/{provider}/settlements",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "recordExternalProviderPayment",
@@ -1986,7 +1986,7 @@ pub async fn record_settlement(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers",
+///   "path": "/api/v1/providers",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderBusinesses",
@@ -2089,7 +2089,7 @@ pub async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/members",
+///   "path": "/api/v1/providers/{provider}/members",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderMembers",
@@ -2341,7 +2341,7 @@ pub async fn publish_media_offer(
 /// Sanitized platform capabilities; credentials and deployment paths stay private.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/platform/configuration",
+///   "path": "/api/v1/platform/configuration",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPlatformConfiguration",
@@ -2434,7 +2434,7 @@ pub struct OfferHistoryQuery {
 /// Provider history requires the same procurement authority as an individual quote.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions",
+///   "path": "/api/v1/providers/{provider}/offers/{offer}/revisions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderOfferHistory",
@@ -2755,7 +2755,7 @@ pub async fn offer_history(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/settlements",
+///   "path": "/api/v1/providers/{provider}/settlements",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderSettlements",
@@ -2940,7 +2940,7 @@ pub async fn settlement_history(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/earnings",
+///   "path": "/api/v1/providers/{provider}/earnings",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderEarnings",
@@ -3199,7 +3199,7 @@ pub struct CurrentOfferPage {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{provider}/offers",
+///   "path": "/api/v1/providers/{provider}/offers",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderOffersPage",

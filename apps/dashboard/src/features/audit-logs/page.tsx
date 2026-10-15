@@ -47,7 +47,7 @@ function AuditLogs({ token }: { token: string }) {
     setRows(null); setCursor(null); setError(''); setLoading(true);
     const query = new URLSearchParams({ limit: '50' });
     if (category !== 'all') query.set('category', category);
-    void request<PlatformAuditPage>(token, '/admin/v1/platform/audit-events?' + query, 'GET', undefined, controller.signal)
+    void request<PlatformAuditPage>(token, '/api/v1/platform/audit-events?' + query, 'GET', undefined, controller.signal)
       .then(page => { if (!controller.signal.aborted) { setRows(page.data); setCursor(page.next_cursor); } })
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Audit logs could not be loaded.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
@@ -61,7 +61,7 @@ function AuditLogs({ token }: { token: string }) {
     const query = new URLSearchParams({ limit: '50', cursor });
     if (category !== 'all') query.set('category', category);
     try {
-      const page = await request<PlatformAuditPage>(token, '/admin/v1/platform/audit-events?' + query, 'GET', undefined, controller.signal);
+      const page = await request<PlatformAuditPage>(token, '/api/v1/platform/audit-events?' + query, 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
       setRows(previous => {
         const ids = new Set(previous?.map(event => event.id));

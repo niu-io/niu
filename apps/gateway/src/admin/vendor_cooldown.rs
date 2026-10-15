@@ -3,7 +3,7 @@ use super::{AdminPermission, ApiError, AppState, HeaderMap, Json, Path, State, U
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{vendor}/cooldown",
+///   "path": "/api/v1/vendors/{vendor}/cooldown",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVendorCooldown",

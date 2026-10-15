@@ -144,7 +144,7 @@ pub(crate) async fn public(State(state): State<AppState>) -> Result<Json<Value>,
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/platform/branding",
+///   "path": "/api/v1/platform/branding",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getBranding",
@@ -201,7 +201,7 @@ pub(crate) struct Write {
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/platform/branding",
+///   "path": "/api/v1/platform/branding",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveBranding",

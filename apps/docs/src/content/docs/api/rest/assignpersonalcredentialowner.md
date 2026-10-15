@@ -1,12 +1,12 @@
 ---
 title: "Assign a configured personal credential to its account"
-description: "PUT /admin/v1/vendors/{id}/personal-owner"
+description: "PUT /api/v1/vendors/{id}/personal-owner"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/vendors/{id}/personal-owner`
+`PUT /api/v1/vendors/{id}/personal-owner`
 
 Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Provider offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/vendors/{id}/personal-owner" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/vendors/{id}/personal-owner" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

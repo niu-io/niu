@@ -1,12 +1,12 @@
 ---
 title: "Read an immutable Provider procurement quote"
-description: "GET /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}"
+description: "GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}`
+`GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}`
 
 Installation administrators or active members of this Provider may read a quote. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/offers/{offer}/revisions/{revision}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

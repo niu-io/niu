@@ -87,7 +87,7 @@ not qualification of media overruns or every provider. See the
 ## Route pool updates during generation
 
 Platform administrators can discover saved pools through
-`GET /admin/v1/model-route-pools/index`, or the SDK's `listModelRoutePools` method.
+`GET /api/v1/model-route-pools/index`, or the SDK's `listModelRoutePools` method.
 Pass `limit` (1–100, default 50), then use the returned `next_after` as `after` for
 the next page. The list includes enabled and disabled configurations. Its live
 alias-based traversal is not a snapshot; refresh from the first page to see
@@ -150,7 +150,7 @@ be an HTTPS origin without a path, credentials, query or fragment. Deploy it
 behind HTTPS at that origin. Self-registration and
 identity federation remain unimplemented.
 
-`PUT /admin/v1/operators/{operator}/password` lets an installation administrator
+`PUT /api/v1/operators/{operator}/password` lets an installation administrator
 or a scoped owner provision an existing member with `email`, `password` and
 optional `expected_revision`. First provision omits the revision; resets require
 the last returned revision and revoke all prior sessions atomically. Passwords
@@ -216,9 +216,9 @@ endpoint for cookie sessions and preserves its session when revocation fails.
 The [password session contract](https://github.com/niu-io/niu/blob/main/contracts/password-sessions.openapi.yaml)
 documents request fields, role restrictions, session responses and failure statuses.
 
-`NIU_ADMIN_TOKENS` remains the owner-level installation bootstrap credential. An owner can create persistent operators with `owner`, `admin`, or `viewer` roles through `POST /admin/v1/operators`, and issue additional expiring sessions through `POST /admin/v1/operators/{operator}/sessions`. Creation responses contain the bearer token once and include `Cache-Control: no-store`; list APIs return only identity, role, session IDs, expiry and revocation metadata. Delete an individual session or an operator to revoke access. A revoked or expired token fails the next administrative request.
+`NIU_ADMIN_TOKENS` remains the owner-level installation bootstrap credential. An owner can create persistent operators with `owner`, `admin`, or `viewer` roles through `POST /api/v1/operators`, and issue additional expiring sessions through `POST /api/v1/operators/{operator}/sessions`. Creation responses contain the bearer token once and include `Cache-Control: no-store`; list APIs return only identity, role, session IDs, expiry and revocation metadata. Delete an individual session or an operator to revoke access. A revoked or expired token fails the next administrative request.
 
-Operator and session creation/revocation also append immutable, metadata-only audit events in the same database transaction. Events record whether the actor was an installation bootstrap credential or a scoped operator, the actor operator ID when present, target operator/session IDs, tenant scope and timestamp. They never store bearer tokens, token hashes or request bodies. A scoped owner can page through one operator's events with `GET /admin/v1/operators/{operator}/events`; pages are ordered by timestamp and event ID, limited to 1–100 items, and use `next_cursor` for stable continuation.
+Operator and session creation/revocation also append immutable, metadata-only audit events in the same database transaction. Events record whether the actor was an installation bootstrap credential or a scoped operator, the actor operator ID when present, target operator/session IDs, tenant scope and timestamp. They never store bearer tokens, token hashes or request bodies. A scoped owner can page through one operator's events with `GET /api/v1/operators/{operator}/events`; pages are ordered by timestamp and event ID, limited to 1–100 items, and use `next_cursor` for stable continuation.
 
 Owners can manage members. Admins can read and write management resources but cannot manage members. Viewers have read access only. Every member has an `organization_id` and may have a legacy `project_id` that restricts access to a single workspace. Owners cannot create or manage members outside their own scope. Workspace IDs in dashboard URLs do not grant authority. `GET /api/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials.
 
@@ -434,13 +434,12 @@ Task correlation covers only model requests handled by Niu. External model
 calls, agent tool events, task acceptance, and subscription usage are outside
 Niu's collection scope. Niu does not expose execution or agent-usage import APIs.
 
-## Three-plane API architecture
+## API route architecture
 
-Niu separates HTTP endpoints into three explicit planes:
+Niu organizes HTTP endpoints into two public prefixes:
 
 - **Developer & Inference Data Plane (`/v1/*` and `/v1beta/*`)**: Model discovery (`GET /v1/models`), API key self-introspection (`GET /v1/key`), generation lookup (`GET /v1/generations/{id}`), text inference (`POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`, `POST /v1beta/models/{model_action}`, `POST /v1/embeddings`), and media/video generation (`GET /v1/media/capabilities`, `POST /v1/video/jobs`, `GET /v1/video/jobs`, `GET /v1/video/jobs/{id}`, `POST /v1/video/jobs/{id}/cancel`, `DELETE /v1/video/jobs/{id}`, `GET /v1/video/jobs/{id}/results/{kind}`, `POST /v1/video/jobs/{id}/results/{kind}/refresh`). Authorizes either a workspace API key (`Authorization: Bearer <niu_api_key>`) or an authenticated console session paired with `X-Niu-Key-Id: <key_uuid>`.
-- **Customer Console & Commercial Plane (`/api/v1/*`)**: Customer session, authentication, organization, workspace, request diagnostics, billing, and unified workspace API key management (`GET /api/v1/workspaces/{workspace}/keys`, `POST /api/v1/workspaces/{workspace}/keys`, `GET /api/v1/workspaces/{workspace}/keys/{key}`, `PATCH /api/v1/workspaces/{workspace}/keys/{key}`, `DELETE /api/v1/workspaces/{workspace}/keys/{key}`, `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`).
-- **Platform Administration Plane (`/admin/v1/*`)**: Provider supply, upstream credentials, model route pools, pricing administration, and installation governance.
+- **Control, Workspace, Provider & Commercial Plane (`/api/v1/*`)**: Authentication, user sessions, organizations, workspaces, unified workspace API key management (`GET /api/v1/workspaces/{workspace}/keys`, `POST /api/v1/workspaces/{workspace}/keys`, `GET /api/v1/workspaces/{workspace}/keys/{key}`, `PATCH /api/v1/workspaces/{workspace}/keys/{key}`, `DELETE /api/v1/workspaces/{workspace}/keys/{key}`, `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`), request diagnostics, billing, Provider directory and offers, upstream API connections, model routing, pricing, and platform settings. Authorization is operation-specific (workspace member session, Provider membership, or platform authority). Legacy `/api/v1/*` paths remain supported at runtime for backward compatibility.
 
 ### API key self-introspection and generation lookup
 
@@ -480,12 +479,12 @@ This creates a USD 100 lifetime upstream budget for the workspace. It does not s
 
 Shared upstream connections persist in PostgreSQL and are managed with installation authority or an explicitly granted platform-administrator role:
 
-- `GET /admin/v1/vendors` lists all configuration metadata, including disabled configurations, without credentials. Optional `supplier` filters by explicit Provider business ownership. The response is one unpaginated `data` array without a silent row cap; memory use grows with list size.
-- `POST /admin/v1/vendors` creates a vendor with a write-only `api_key`.
-- `PUT /admin/v1/vendors/{id}` updates metadata, enabled state or the credential using `expected_revision`.
-- `GET /admin/v1/vendors/{id}/models` lists all of the vendor's mappings, including disabled mappings, in alias order. This compatibility endpoint returns one `data` array without pagination; it does not silently truncate at 1,000 rows. Large lists still consume response memory proportional to their size.
-- `POST /admin/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
-- `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 2 MiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Chat to test a real request through Niu.
+- `GET /api/v1/vendors` lists all configuration metadata, including disabled configurations, without credentials. Optional `supplier` filters by explicit Provider business ownership. The response is one unpaginated `data` array without a silent row cap; memory use grows with list size.
+- `POST /api/v1/vendors` creates a vendor with a write-only `api_key`.
+- `PUT /api/v1/vendors/{id}` updates metadata, enabled state or the credential using `expected_revision`.
+- `GET /api/v1/vendors/{id}/models` lists all of the vendor's mappings, including disabled mappings, in alias order. This compatibility endpoint returns one `data` array without pagination; it does not silently truncate at 1,000 rows. Large lists still consume response memory proportional to their size.
+- `POST /api/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
+- `POST /api/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 2 MiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Chat to test a real request through Niu.
 
 A Provider can own multiple independently configured credentials, and each credential can bind multiple model aliases. Workspace key grants apply to each requested alias even when aliases share a credential. See the [current multi-key and multi-model verification](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md#multiple-mappings-on-one-credential--current-input-verification) for the exercised update, disable, restart and billing behavior.
 
@@ -661,7 +660,7 @@ matched the charges, invoice and refund balance. See the
 
 ## Immutable Provider quotes
 
-`GET /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}` reads
+`GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}` reads
 a known historical procurement quote. Installation administration or active
 membership in that Provider is required; company ownership grants no access.
 The Provider, offer and revision must match. Missing or inaccessible quotes
@@ -679,7 +678,7 @@ Media quote reads remain unverified.
 
 ### Discovering Provider quote revisions
 
-`GET /admin/v1/providers/{provider}/offers/{offer}/revisions` lists historical
+`GET /api/v1/providers/{provider}/offers/{offer}/revisions` lists historical
 quotes without requiring a known revision ID. The same Provider membership or
 platform authority applies. Use `limit` (1–100, default 50), then pass
 `next_before` as `before` while `has_more` is true. Each entry adds `is_current`;
@@ -694,7 +693,7 @@ before integrating. These are procurement prices, not customer billing data.
 ## Upstream credential request limits
 
 Platform administrators can read or update
-`/admin/v1/vendors/{vendor}/request-rate-limit` and read its `/history`.
+`/api/v1/vendors/{vendor}/request-rate-limit` and read its `/history`.
 PUT requires `requests_per_minute` (explicit null for unlimited, zero to stop
 dispatch) and the exact string `expected_revision`. Limits are independent of
 customer key RPM and shared across gateway instances using the same saved
@@ -710,7 +709,7 @@ The SDK provides `getVendorRequestRateLimit`, `setVendorRequestRateLimit` and
 ## Upstream credential cooldown
 
 Platform administrators can read
-`GET /admin/v1/vendors/{vendor}/cooldown`, or use SDK `getVendorCooldown`.
+`GET /api/v1/vendors/{vendor}/cooldown`, or use SDK `getVendorCooldown`.
 The response reports `policy_revision`, `failure_threshold`, `window_seconds`,
 `cooldown_seconds`, `active`, nullable `cooldown_until`, and
 `qualifying_failures`. Company-scoped administrators cannot read this state.
@@ -772,7 +771,7 @@ erasing data to bypass the diagnostic. See
 
 ## Provider settlement history
 
-`GET /admin/v1/providers/{provider}/settlements` provides history beyond the
+`GET /api/v1/providers/{provider}/settlements` provides history beyond the
 Provider dashboard's latest 100 payment records. Platform administrators or
 active members of that Provider can read it. Use `limit` (1–100), `before`,
 `currency`, `from_ms` (inclusive) and `to_ms` (exclusive); keep filters fixed while
@@ -824,7 +823,7 @@ and known upstream errors retain their own outcomes. See the
 
 ### Platform Provider earning history
 
-Platform administrators can use `GET /admin/v1/providers/{provider}/earnings`
+Platform administrators can use `GET /api/v1/providers/{provider}/earnings`
 to page beyond the administration overview's recent earning preview. The SDK
 exposes `listSupplierEarnings`; exact amounts remain Provider liabilities.
 Provider membership does not grant this request-level reconciliation access.
@@ -835,8 +834,8 @@ Nonempty pagination and full Provider reconciliation remain unverified.
 ### Platform customer-price configuration reads
 
 Explicit platform administrators can discover named company/workspace pricing
-targets with `GET /admin/v1/pricing/targets`, then read current selling prices at
-`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`.
+targets with `GET /api/v1/pricing/targets`, then read current selling prices at
+`GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`.
 Both use `after`, `limit` (1–100) and `next_after` pagination. Append
 `/{model}/history` to the tariff route for immutable history (`before`, `limit`,
 `next_before`). These reads exclude customer balances, usage, statements,

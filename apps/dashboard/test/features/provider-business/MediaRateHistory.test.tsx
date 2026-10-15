@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MediaRateHistory from '../../../src/features/provider-business/MediaRateHistory';
 
-const endpoint = '/admin/v1/providers/supplier-a/media-rates';
+const endpoint = '/api/v1/providers/supplier-a/media-rates';
 const revision = 'b335657a-dd32-400e-bf48-23c2a2c627c9';
 function record(overrides = {}) {
   return {

@@ -224,7 +224,7 @@ pub(crate) async fn catalog_inputs(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/routing-registry",
+///   "path": "/api/v1/routing-registry",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRoutingRegistryStatus",

@@ -11,7 +11,7 @@ pub struct PositionQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/commercial-position",
+///   "path": "/api/v1/commercial-position",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCommercialPosition",

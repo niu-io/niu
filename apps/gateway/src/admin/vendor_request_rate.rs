@@ -39,7 +39,7 @@ pub struct History {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{vendor}/request-rate-limit",
+///   "path": "/api/v1/vendors/{vendor}/request-rate-limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVendorRequestRateLimit",
@@ -182,7 +182,7 @@ pub async fn read(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{vendor}/request-rate-limit",
+///   "path": "/api/v1/vendors/{vendor}/request-rate-limit",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setVendorRequestRateLimit",
@@ -307,7 +307,7 @@ pub async fn write(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/vendors/{vendor}/request-rate-limit/history",
+///   "path": "/api/v1/vendors/{vendor}/request-rate-limit/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendorRequestRateLimitHistory",

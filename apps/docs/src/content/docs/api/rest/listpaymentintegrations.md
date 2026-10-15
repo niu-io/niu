@@ -1,12 +1,12 @@
 ---
 title: "List supported payment integrations"
-description: "GET /admin/v1/platform/payments/integrations"
+description: "GET /api/v1/platform/payments/integrations"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/platform/payments/integrations`
+`GET /api/v1/platform/payments/integrations`
 
 Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. checkout_enabled and enabled_methods describe locally configured checkout, not merchant approval, funding or verified settlement. Customer checkout additionally requires the matching company currency account. Returns no merchant identity, endpoint or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/platform/payments/integrations" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/payments/integrations" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

@@ -1,12 +1,12 @@
 ---
 title: "Atomically replace agreed media purchase terms"
-description: "POST /admin/v1/providers/{provider}/media-rates/replace"
+description: "POST /api/v1/providers/{provider}/media-rates/replace"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/providers/{provider}/media-rates/replace`
+`POST /api/v1/providers/{provider}/media-rates/replace`
 
 Installation write authority only. Publishes an immutable replacement and ends the original schedule at the replacement's effective_from in one transaction. Dimensions and meter must match the original; current offer, credential, model and schema bindings are rechecked. Original terms, pinned job prices and earnings remain unchanged. Exact replay is idempotent while the configuration remains eligible. Conflicting cutoff, changed replay or stale binding rejects the whole transaction. No transfers, job cancellations, refunds or automatic retries occur.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/providers/{provider}/media-rates/replace" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/media-rates/replace" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

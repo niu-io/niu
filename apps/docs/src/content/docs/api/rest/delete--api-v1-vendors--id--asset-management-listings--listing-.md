@@ -1,16 +1,16 @@
 ---
 title: "Erase retained ordinary asset listing content"
-description: "DELETE /admin/v1/vendors/{id}/asset-management/listings/{listing}"
+description: "DELETE /api/v1/vendors/{id}/asset-management/listings/{listing}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /admin/v1/vendors/{id}/asset-management/listings/{listing}`
+`DELETE /api/v1/vendors/{id}/asset-management/listings/{listing}`
 
 Platform administrator only. Local idempotent erasure and immutable tombstone; preserves audit and upstream assets. Also prevents in-flight work from retaining late content. Does not require a still-valid operation grant.
 
-Operation: `delete--admin-v1-vendors--id--asset-management-listings--listing-`.
+Operation: `delete--api-v1-vendors--id--asset-management-listings--listing-`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/listings/{listing}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/listings/{listing}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

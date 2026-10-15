@@ -89,7 +89,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
   } catch (error) {setSaveError(error instanceof Error ? error.message : 'Enter a valid amount.');return;}
   const controller = new AbortController(); saveController.current = controller; setSaving(true);
   try {
-   await request(token, `/admin/v1/organizations/${organization}/billing/accounts/${editing.currency}/warning-threshold`, 'PUT', {warning_threshold_nanos:nanos,expected_revision:editing.policy_revision},controller.signal);
+   await request(token, `/api/v1/organizations/${organization}/billing/accounts/${editing.currency}/warning-threshold`, 'PUT', {warning_threshold_nanos:nanos,expected_revision:editing.policy_revision},controller.signal);
    if (!controller.signal.aborted) {setEditing(null);setRevision(value=>value+1);}
   } catch (error) {
    if (!controller.signal.aborted) {
@@ -102,7 +102,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
   if (!editing || saving) return;
   const controller = new AbortController();saveController.current=controller;setSaving(true);
   try {
-   const result = await request<{data:Balance[]}>(token, `/admin/v1/organizations/${organization}/billing/balance`, 'GET',undefined,controller.signal);
+   const result = await request<{data:Balance[]}>(token, `/api/v1/organizations/${organization}/billing/balance`, 'GET',undefined,controller.signal);
    if (!controller.signal.aborted) {
     const accounts = checkedAccounts(result);
     setAccounts(accounts);
@@ -117,8 +117,8 @@ export default function AccountBilling({token, organization, canConfigure = fals
   olderController.current?.abort(); setLoadingOlder(false);
   setAccountError(''); setTransactionError(''); setTransactionFailure(null); setTransactionsLoading(showTransactions);
   setRefreshing(true);
-  void request<{data: Balance[]}>(token, `/admin/v1/organizations/${organization}/billing/balance`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) setAccounts(checkedAccounts(r));}).catch(e => {if (!controller.signal.aborted) setAccountError(e.message);}).finally(() => {if (!controller.signal.aborted) setRefreshing(false);});
-  if (showTransactions) void request<{data: BalanceTransaction[]; next_cursor?: string | null}>(token, `/admin/v1/organizations/${organization}/billing/transactions`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) {const result=checkedTransactions(r);setTransactions(result.data);setNextCursor(result.next_cursor ?? null);}}).catch(e => {if (!controller.signal.aborted) {setTransactionError(e.message);setTransactionFailure('latest');}}).finally(() => {if (!controller.signal.aborted) setTransactionsLoading(false);});
+  void request<{data: Balance[]}>(token, `/api/v1/organizations/${organization}/billing/balance`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) setAccounts(checkedAccounts(r));}).catch(e => {if (!controller.signal.aborted) setAccountError(e.message);}).finally(() => {if (!controller.signal.aborted) setRefreshing(false);});
+  if (showTransactions) void request<{data: BalanceTransaction[]; next_cursor?: string | null}>(token, `/api/v1/organizations/${organization}/billing/transactions`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) {const result=checkedTransactions(r);setTransactions(result.data);setNextCursor(result.next_cursor ?? null);}}).catch(e => {if (!controller.signal.aborted) {setTransactionError(e.message);setTransactionFailure('latest');}}).finally(() => {if (!controller.signal.aborted) setTransactionsLoading(false);});
   return () => {controller.abort();olderController.current?.abort();};
  }, [token,organization,revision,showTransactions]);
  const loadOlder = async () => {
@@ -126,7 +126,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
   const controller = new AbortController(); olderController.current = controller;
   setLoadingOlder(true); setTransactionError(''); setTransactionFailure(null);
   try {
-   const result = await request<{data: BalanceTransaction[];next_cursor: string | null}>(token, `/admin/v1/organizations/${organization}/billing/transactions?before=${encodeURIComponent(nextCursor)}`, 'GET', undefined, controller.signal);
+   const result = await request<{data: BalanceTransaction[];next_cursor: string | null}>(token, `/api/v1/organizations/${organization}/billing/transactions?before=${encodeURIComponent(nextCursor)}`, 'GET', undefined, controller.signal);
    if (controller.signal.aborted) return;
    checkedTransactions(result);
    if (result.next_cursor === nextCursor) throw new Error('Could not advance transaction history.');

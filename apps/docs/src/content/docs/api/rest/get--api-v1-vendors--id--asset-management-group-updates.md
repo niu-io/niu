@@ -1,16 +1,16 @@
 ---
-title: "List durable asset lookup audit history"
-description: "GET /admin/v1/vendors/{id}/asset-management/lookups"
+title: "Retrieve scoped metadata-update audit history"
+description: "GET /api/v1/vendors/{id}/asset-management/group-updates"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/vendors/{id}/asset-management/lookups`
+`GET /api/v1/vendors/{id}/asset-management/group-updates`
 
-Platform administrator only. Safe operational metadata survives grant revocation and source erasure. Missing completion remains unresolved. No asset content, upstream identities, credentials or commercial amounts. Scoped cursor and newest-first ordering; no upstream call.
+Platform administrator only. No patch metadata, upstream identities, credentials or commercial amounts. Newest prepared identity first with stable cursor pagination. Audit survives erasure and revocation. Unresolved is missing completion evidence, not proof of active work. Responses are no-store.
 
-Operation: `get--admin-v1-vendors--id--asset-management-lookups`.
+Operation: `get--api-v1-vendors--id--asset-management-group-updates`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/lookups" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-updates" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters
@@ -100,7 +100,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Operational history; Cache-Control no-store.
+Safe history and next_cursor; out-of-scope cursors return an empty page.
 
 Content type: `application/json`.
 
@@ -121,50 +121,39 @@ Content type: `application/json`.
     },
     "data": {
       "type": "array",
-      "maxItems": 100,
       "items": {
         "type": "object",
-        "additionalProperties": false,
         "required": [
-          "lookup_id",
-          "listing_id",
+          "update_id",
+          "intent_id",
           "status",
-          "asset_status",
-          "started_at",
+          "created_at",
           "completed_at",
           "duration_ms",
-          "reason"
+          "reason",
+          "patch_status",
+          "reconciliation_required"
         ],
         "properties": {
-          "lookup_id": {
+          "update_id": {
             "type": "string",
             "format": "uuid"
           },
-          "listing_id": {
+          "intent_id": {
             "type": "string",
             "format": "uuid"
           },
           "status": {
             "type": "string",
             "enum": [
+              "prepared",
               "unresolved",
-              "succeeded",
-              "failed"
+              "acknowledged",
+              "uncertain",
+              "reconciled"
             ]
           },
-          "asset_status": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "Active",
-              "Processing",
-              "Failed",
-              null
-            ]
-          },
-          "started_at": {
+          "created_at": {
             "type": "string",
             "format": "date-time"
           },
@@ -186,17 +175,18 @@ Content type: `application/json`.
             "type": [
               "string",
               "null"
-            ],
-            "enum": [
-              "invalid_configuration",
-              "destination_rejected",
-              "unavailable",
-              "transport",
-              "timeout",
-              "response_limit",
-              "invalid_response",
-              null
             ]
+          },
+          "patch_status": {
+            "type": "string",
+            "enum": [
+              "retained",
+              "erased",
+              "expired"
+            ]
+          },
+          "reconciliation_required": {
+            "type": "boolean"
           }
         }
       }
@@ -207,7 +197,7 @@ Content type: `application/json`.
 
 ### HTTP 400
 
-Invalid limit or query.
+Invalid limit.
 
 ### HTTP 401
 
@@ -219,4 +209,4 @@ Platform administrator required.
 
 ## Behavior and supported scope
 
-Platform administrator only. Safe operational metadata survives grant revocation and source erasure. Missing completion remains unresolved. No asset content, upstream identities, credentials or commercial amounts. Scoped cursor and newest-first ordering; no upstream call.
+Platform administrator only. No patch metadata, upstream identities, credentials or commercial amounts. Newest prepared identity first with stable cursor pagination. Audit survives erasure and revocation. Unresolved is missing completion evidence, not proof of active work. Responses are no-store.

@@ -67,7 +67,7 @@ export function PromotionEditor({ token, baseline, onClose, onSaved }: { token: 
     }
     setAttempt(input); setBusy(true); setError('');
     try {
-      const result = await request<{ data: RetailPublicationResult }>(token, '/admin/v1/pricing/standard-prices/' + encodeURIComponent(baseline.price_id) + '/promotions', 'POST', input);
+      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/pricing/standard-prices/' + encodeURIComponent(baseline.price_id) + '/promotions', 'POST', input);
       if (result.data?.price_id !== baseline.price_id || !result.data.revision || BigInt(result.data.version) !== BigInt(input.expected_version) + 1n) throw new Error('Publication response could not be confirmed.');
       onSaved();
     } catch (failure) {

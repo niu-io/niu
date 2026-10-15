@@ -43,19 +43,19 @@ function checkedPage<T>(page: PricingPage<T>, check: (row: T) => T, cursor?: str
   return page;
 }
 export async function listPricingTargets(token: string, after?: string, signal?: AbortSignal) {
-  const page = await request<PricingPage<PricingTarget>>(token, `/admin/v1/pricing/targets?limit=50${after ? `&after=${encodeURIComponent(after)}` : ''}`, 'GET', undefined, signal);
+  const page = await request<PricingPage<PricingTarget>>(token, `/api/v1/pricing/targets?limit=50${after ? `&after=${encodeURIComponent(after)}` : ''}`, 'GET', undefined, signal);
   return checkedPage(page, row => {
     if (!row || !row.organization_id || !row.workspace_id || typeof row.organization_name !== 'string' || !row.organization_name.trim() || typeof row.workspace_name !== 'string' || !row.workspace_name.trim()) throw new Error('Pricing targets could not be read.');
     return row;
   }, after);
 }
-export const pricingBase = (target: PricingTarget) => `/admin/v1/pricing/organizations/${encodeURIComponent(target.organization_id)}/workspaces/${encodeURIComponent(target.workspace_id)}/tariffs`;
+export const pricingBase = (target: PricingTarget) => `/api/v1/pricing/organizations/${encodeURIComponent(target.organization_id)}/workspaces/${encodeURIComponent(target.workspace_id)}/tariffs`;
 /** Platform route inventory, independent of the administrator's customer workspace. */
 export async function listPricingModels(token: string, signal?: AbortSignal): Promise<string[]> {
-  const vendors = await request<{data: Vendor[]}>(token, '/admin/v1/vendors', 'GET', undefined, signal);
+  const vendors = await request<{data: Vendor[]}>(token, '/api/v1/vendors', 'GET', undefined, signal);
   if (!Array.isArray(vendors.data)) throw new Error('Pricing models could not be read.');
   const pages = await Promise.all(vendors.data.filter(vendor => vendor.enabled).map(vendor =>
-    request<{data: VendorModel[]}>(token, `/admin/v1/vendors/${encodeURIComponent(vendor.id)}/models`, 'GET', undefined, signal)));
+    request<{data: VendorModel[]}>(token, `/api/v1/vendors/${encodeURIComponent(vendor.id)}/models`, 'GET', undefined, signal)));
   const aliases = new Set<string>();
   for (const page of pages) {
     if (!Array.isArray(page.data)) throw new Error('Pricing models could not be read.');
@@ -95,7 +95,7 @@ export async function publishCustomerPrice(token: string, target: PricingTarget,
   let result: {data:{revision:string}};
   try {
     result = await request<{ data: { revision: string } }>(token,
-      `/admin/v1/organizations/${encodeURIComponent(target.organization_id)}/projects/${encodeURIComponent(target.workspace_id)}/billing/tariffs`, 'POST', input, signal);
+      `/api/v1/organizations/${encodeURIComponent(target.organization_id)}/projects/${encodeURIComponent(target.workspace_id)}/billing/tariffs`, 'POST', input, signal);
   } catch (reason) {
     if (signal?.aborted || !writeMayHaveCommitted(reason)) throw reason;
     throw new PublicationUnconfirmedError('Publication could not be confirmed. Load the current price before trying again.');

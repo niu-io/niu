@@ -56,7 +56,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
     if (value === 'balance') query.delete('tab'); else query.set('tab', value);
     setSearchParams(query);
   }
-  const base = `/admin/v1/organizations/${organization}/projects/${project}/billing`;
+  const base = `/api/v1/organizations/${organization}/projects/${project}/billing`;
   const [data, setData] = useState<Billing | null>(null);
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);

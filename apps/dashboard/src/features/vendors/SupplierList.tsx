@@ -30,7 +30,7 @@ export default function SupplierList() {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError('');
-    void request<{data: Supplier[]}>(token, '/admin/v1/providers', 'GET', undefined, controller.signal)
+    void request<{data: Supplier[]}>(token, '/api/v1/providers', 'GET', undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setSuppliers(result.data); })
       .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
@@ -42,7 +42,7 @@ export default function SupplierList() {
     event.preventDefault(); if (busy || (dialog === 'delete' && deletionBlocked)) return;
     setBusy(true); setError('');
     try {
-      await request(token, '/admin/v1/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : { name: name.trim() });
+      await request(token, '/api/v1/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : { name: name.trim() });
       setDialog(''); setRevision(value => value + 1);
     } catch (reason) {
       if (dialog === 'add' && writeMayHaveCommitted(reason)) {

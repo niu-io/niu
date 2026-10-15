@@ -1,12 +1,12 @@
 ---
 title: "Record a Provider offer qualification review"
-description: "PUT /admin/v1/providers/{provider}/offers/{offer}/qualification"
+description: "PUT /api/v1/providers/{provider}/offers/{offer}/qualification"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/providers/{provider}/offers/{offer}/qualification`
+`PUT /api/v1/providers/{provider}/offers/{offer}/qualification`
 
 Platform administration required. Requires current Provider business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/providers/{provider}/offers/{offer}/qualification" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/providers/{provider}/offers/{offer}/qualification" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

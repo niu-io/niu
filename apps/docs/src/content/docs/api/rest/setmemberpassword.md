@@ -1,12 +1,12 @@
 ---
 title: "Provision or reset an existing member password"
-description: "PUT /admin/v1/operators/{operator}/password"
+description: "PUT /api/v1/operators/{operator}/password"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/operators/{operator}/password`
+`PUT /api/v1/operators/{operator}/password`
 
 Requires installation administration or an owner permitted to manage the target member's scope. Admin and viewer roles cannot perform this operation. First provision omits expected_revision; resetting requires the previous returned revision. Changes revoke all previous sessions atomically and append metadata-only audit events. Hashes are never returned. Bodies are limited to 4096 bytes and all success/error responses are non-cacheable.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/operators/{operator}/password" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/operators/{operator}/password" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -12,7 +12,7 @@ function valid(policy: VendorRequestRateLimit) {
     (policy.requests_per_minute === null || Number.isSafeInteger(policy.requests_per_minute) && policy.requests_per_minute >= 0 && policy.requests_per_minute <= 1_000_000);
 }
 export default function CredentialRequestLimit({ token, vendorId }: { token: string; vendorId: string }) {
-  const endpoint = `/admin/v1/vendors/${encodeURIComponent(vendorId)}/request-rate-limit`;
+  const endpoint = `/api/v1/vendors/${encodeURIComponent(vendorId)}/request-rate-limit`;
   const [policy, setPolicy] = useState<VendorRequestRateLimit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

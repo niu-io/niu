@@ -427,7 +427,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const exportController = useRef<AbortController | null>(null);
   const sessionTitle = (item: SavedComparison) => item.title || item.prompt.split('\n')[0];
 
-  const historyEndpoint = `/admin/v1/organizations/${organization}/projects/${workspaceId}/chat-sessions`;
+  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chat-sessions`;
   const historyIdentity = `${token}\u0000${historyEndpoint}`;
   const historyScope = useRef(historyIdentity);
   historyScope.current = historyIdentity;
@@ -506,7 +506,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState('');
   const [historyRevision, setHistoryRevision] = useState(0);
-  const draft=useChatDraft({token,endpoint:`/admin/v1/organizations/${organization}/projects/${workspaceId}/chat-draft`,
+  const draft=useChatDraft({token,endpoint:`/api/v1/organizations/${organization}/projects/${workspaceId}/chat-draft`,
     identity:JSON.stringify([token,organization,workspaceId,session?.operator?.id]),
     enabled:Boolean(token&&organization&&workspaceId&&!historyLoading&&!historyError),
     value:{sessionId:activeComparisonId,prompt,models:selectedModels,attachments,settings:{systemPrompt,maxTokens,temperature,logPayloads}},
@@ -738,7 +738,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
 
   async function loadCharges(attemptIds: string[], signal?: AbortSignal) {
     if (!attemptIds.length) return new Map<string, RequestLedgerEntry>();
-    const base = '/admin/v1/organizations/' + encodeURIComponent(organization) + '/projects/' + encodeURIComponent(workspaceId);
+    const base = '/api/v1/organizations/' + encodeURIComponent(organization) + '/projects/' + encodeURIComponent(workspaceId);
     const reads = await Promise.allSettled([...new Set(attemptIds)].map(async attemptId => {
       const response = await fetch(base + '/requests/' + encodeURIComponent(attemptId), { signal, headers: { authorization: 'Bearer ' + token } });
       const entry = await responseData<RequestLedgerEntry>(response);

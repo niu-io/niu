@@ -25,7 +25,7 @@ pub struct PoolInput {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/model-route-pools",
+///   "path": "/api/v1/model-route-pools",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getModelRoutePool",
@@ -164,7 +164,7 @@ pub async fn get(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/model-route-pools",
+///   "path": "/api/v1/model-route-pools",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setModelRoutePool",
@@ -321,7 +321,7 @@ pub async fn put(
 }
 /// ```openapi
 /// {
-///   "path": "/admin/v1/model-route-pools/history",
+///   "path": "/api/v1/model-route-pools/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePoolHistory",
@@ -435,7 +435,7 @@ pub struct IndexQuery {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/model-route-pools/index",
+///   "path": "/api/v1/model-route-pools/index",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePools",

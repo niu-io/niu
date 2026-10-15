@@ -15,7 +15,7 @@ function context(projectId:string|null=null):DashboardContext {
  return {token:'fixture',organization,organizations:[organization],workspace:null,workspaces:[],workspaceLoading:false,session:{kind:'operator',operator:{id:'member',role:'owner',project_id:projectId},permissions:{read:true,write:true,manage_operators:true}},signOut:vi.fn(),selectOrganization:vi.fn()} as unknown as DashboardContext;
 }
 function view(path='/settings/appearance') {return <MemoryRouter initialEntries={[path]}><SidebarProvider><SettingsNavigation context={current}/></SidebarProvider><Link to="/settings/account">Account section</Link><Link to="/settings/appearance">Appearance section</Link><Link to="/settings/billing">Billing section</Link><Routes><Route path="/settings/:section" element={<SettingsPage/>}/></Routes></MemoryRouter>;}
-function mockRequests() {const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input)==='/admin/v1/auth/profile'?Response.json({data:{name:'Member',email:null,avatar_data_url:null,revision:0}}):Response.json({password_login:false,data:[]}));vi.stubGlobal('fetch',fetcher);return fetcher;}
+function mockRequests() {const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input)==='/api/v1/auth/profile'?Response.json({data:{name:'Member',email:null,avatar_data_url:null,revision:0}}):Response.json({password_login:false,data:[]}));vi.stubGlobal('fetch',fetcher);return fetcher;}
 describe('global settings routes',()=>{
  it('does not report a permission denial while an authorized billing account loads',()=>{
   current={...context(),organization:null,organizations:[],workspaceLoading:true};mockRequests();
@@ -88,7 +88,7 @@ describe('global settings routes',()=>{
   const name=screen.getByLabelText('Display name') as HTMLInputElement;await waitFor(()=>expect(name.disabled).toBe(false));
   await user.clear(name);await user.type(name,'Unfinished edit');await user.click(screen.getByRole('link',{name:'About',exact:true}));expect(screen.queryByRole('form',{name:'Profile'})).toBeNull();await user.click(screen.getByRole('link',{name:'Appearance',exact:true}));expect(screen.queryByRole('form',{name:'Profile'})).toBeNull();
   await user.click(screen.getByRole('link',{name:'Account',exact:true}));expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('Unfinished edit');
-  expect(fetcher.mock.calls.filter(call=>String(call[0])==='/admin/v1/auth/profile')).toHaveLength(1);
+  expect(fetcher.mock.calls.filter(call=>String(call[0])==='/api/v1/auth/profile')).toHaveLength(1);
  });
  it('clears drafts when the signed-in member changes',async()=>{
   current=context();mockRequests();const rendered=render(view('/settings/account'));const user=userEvent.setup();

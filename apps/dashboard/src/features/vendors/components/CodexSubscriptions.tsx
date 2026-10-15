@@ -24,7 +24,7 @@ export default function CodexSubscriptions({ token, workspaces = [] }: { token: 
   const [search] = useSearchParams();
   const [workspaceId, setWorkspaceId] = useState(search.get('workspace') ?? '');
   const workspace = workspaces.find(item => item.id === workspaceId) ?? workspaces[0];
-  const path = workspace ? `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/codex-connections` : '';
+  const path = workspace ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/codex-connections` : '';
   const currentPath = useRef(path); currentPath.current = path;
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);

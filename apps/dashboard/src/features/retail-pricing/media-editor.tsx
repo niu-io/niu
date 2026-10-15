@@ -44,7 +44,7 @@ export function MediaStandardEditor({ token, previous, onClose, onSaved }: { tok
     }
     setAttempt(input); setBusy(true); setError('');
     try {
-      const result = await request<{ data: RetailPublicationResult }>(token, '/admin/v1/pricing/standard-prices', 'POST', input);
+      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/pricing/standard-prices', 'POST', input);
       if (!result.data?.price_id || !result.data.revision || BigInt(result.data.version) !== BigInt(input.expected_version) + 1n) throw new Error('Publication response could not be confirmed.');
       onSaved();
     } catch (failure) {

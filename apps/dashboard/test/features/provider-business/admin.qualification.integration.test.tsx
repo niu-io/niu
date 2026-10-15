@@ -29,21 +29,21 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     const method = init?.method ?? "GET";
     const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
     requests.push({ path, method, body });
-    if (path === "/admin/v1/operators") return Response.json({ data: [
+    if (path === "/api/v1/operators") return Response.json({ data: [
       { id: "account-demo", name: "Demo", revoked: false },
       { id: "account-revoked", name: "Revoked account", revoked: true },
     ] });
-    if (path === `/admin/v1/providers/${supplierId}/members`) return Response.json({ data: [
+    if (path === `/api/v1/providers/${supplierId}/members`) return Response.json({ data: [
       { operator_id: "account-demo", name: "Demo", role: "manager", active: true, revoked: false },
       { operator_id: "account-revoked", name: "Revoked account", role: "viewer", active: false, revoked: true },
     ] });
 
-    if (path === "/admin/v1/providers") {
+    if (path === "/api/v1/providers") {
       return Response.json({
         data: [{ id: supplierId, name: "Example provider", members: 0, qualification_status: supplierQualified ? "qualified" : "unqualified" }],
       });
     }
-    if (path === `/admin/v1/providers/${supplierId}/administration?days=90`) {
+    if (path === `/api/v1/providers/${supplierId}/administration?days=90`) {
       if (failInitialRead) {
         failInitialRead = false;
         return Response.json({ error: { message: 'Provider data temporarily unavailable' } }, { status: 503 });
@@ -69,15 +69,15 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     }
     if (path.includes('/media-offer-models')) return Response.json({data:[{model_alias:'example/model',api_key_name:'Video credential',vendor_id:supplierId,vendor_revision:'2',model_revision:'1',schema_revision:'private-schema',channel:'ark-direct-v1',offer_revision:rateRevision}],has_more:false,next_after:null});
     if (path.includes('/media-rates')) return Response.json({data:[],has_more:false,next_after:null});
-    if (path === `/admin/v1/providers/${supplierId}/qualification` && method === "PUT") {
+    if (path === `/api/v1/providers/${supplierId}/qualification` && method === "PUT") {
       supplierQualified = true;
       return Response.json({ data: { qualification_status: "qualified" } });
     }
-    if (path === `/admin/v1/providers/${supplierId}/offers/${offerId}/qualification` && method === "PUT") {
+    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}/qualification` && method === "PUT") {
       offerQualified = true;
       return Response.json({ data: { qualification_status: "qualified" } });
     }
-    if (path === `/admin/v1/providers/${supplierId}/offers/${offerId}/qualification/revoke` && method === "POST") {
+    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}/qualification/revoke` && method === "POST") {
       offerQualified = false;
       return Response.json({ data: { qualification_status: "revoked" } });
     }
@@ -138,7 +138,7 @@ describe("installation Provider qualification workflow", () => {
     expect(screen.queryByText("account-demo")).toBeNull();
     await user.click(screen.getByRole("menuitemradio", { name: "Demo" }));
     await user.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await waitFor(() => expect(requests.some(item => item.path === `/admin/v1/providers/${supplierId}/members/account-demo` && item.method === "PUT")).toBe(true));
+    await waitFor(() => expect(requests.some(item => item.path === `/api/v1/providers/${supplierId}/members/account-demo` && item.method === "PUT")).toBe(true));
   });
   it("summarizes media offers on Overview and links to dedicated pricing without repeating rates", async () => {
     setup("1000000000", false, true, "overview");
@@ -193,7 +193,7 @@ describe("installation Provider qualification workflow", () => {
     await user.click(screen.getByLabelText("Data-handling evidence SHA-256"));
     await user.paste(sha256);
     await user.click(screen.getByRole("button", { name: "Record review" }));
-    await waitFor(() => expect(requests.some((request) => request.path === `/admin/v1/providers/${supplierId}/qualification` && request.method === "PUT")).toBe(true));
+    await waitFor(() => expect(requests.some((request) => request.path === `/api/v1/providers/${supplierId}/qualification` && request.method === "PUT")).toBe(true));
 
     await user.click(await screen.findByRole("button", { name: "Actions for example/model" }));
     expect(screen.getByRole("menuitem", { name: "Review offer" }).getAttribute("aria-disabled")).not.toBe("true");
@@ -212,7 +212,7 @@ describe("installation Provider qualification workflow", () => {
     await user.click(screen.getByRole("button", { name: "Record review" }));
 
     await waitFor(() => {
-      const offerWrite = requests.find((request) => request.path === `/admin/v1/providers/${supplierId}/offers/${offerId}/qualification` && request.method === "PUT");
+      const offerWrite = requests.find((request) => request.path === `/api/v1/providers/${supplierId}/offers/${offerId}/qualification` && request.method === "PUT");
       expect(offerWrite?.body).toMatchObject({
         rate_revision: rateRevision,
         model_identity_sha256: sha256,
@@ -231,7 +231,7 @@ describe("installation Provider qualification workflow", () => {
     await user.paste(sha256);
     await user.click(screen.getByRole("button", { name: "Revoke and pause offers" }));
     await waitFor(() => {
-      const revocation = requests.find((request) => request.path === `/admin/v1/providers/${supplierId}/offers/${offerId}/qualification/revoke` && request.method === "POST");
+      const revocation = requests.find((request) => request.path === `/api/v1/providers/${supplierId}/offers/${offerId}/qualification/revoke` && request.method === "POST");
       expect(revocation?.body).toEqual({ reason_sha256: sha256 });
     });
     expect(await screen.findByText("Qualification review revoked; affected offers are paused.")).toBeTruthy();
@@ -279,13 +279,13 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     reads.push(path);
-    if (path === '/admin/v1/vendors' && init?.method === 'POST') {
+    if (path === '/api/v1/vendors' && init?.method === 'POST') {
       created = true;
       writes.push(JSON.parse(String(init.body)));
       return Response.json({ data: { id: 'configured-api' } });
     }
     if (path.endsWith('/provider') || path.endsWith('/supplier')) return discoveryFails ? Response.json({ error: { message: 'Discovery unavailable' } }, { status: 503 }) : Response.json({ data: { id: supplierId, name: 'Test provider' } });
-    if (path === '/admin/v1/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0, qualification_status: 'unqualified' }] : [] });
+    if (path === '/api/v1/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0, qualification_status: 'unqualified' }] : [] });
     return Response.json({ data: { offers: [], balances: [], consumption: [], settlements: [], earnings: [] } });
   }));
   render(<MemoryRouter initialEntries={['/admin/suppliers/overview?create=supplier']}><Routes><Route path='/admin/suppliers/:section' element={<ProviderAdministration />} /></Routes></MemoryRouter>);
@@ -299,7 +299,7 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
   if (discoveryFails) expect(await screen.findByText('API key saved, but Provider details could not be opened. Refresh the Provider list.')).toBeTruthy();
   else {
     expect(await screen.findByText('Provider created. Add models and agreed rates to continue setup.')).toBeTruthy();
-    await waitFor(() => expect(reads).toContain(`/admin/v1/providers/${supplierId}/administration?days=90`));
+    await waitFor(() => expect(reads).toContain(`/api/v1/providers/${supplierId}/administration?days=90`));
   }
   expect(document.body.textContent).not.toContain('fixture-credential');
 });

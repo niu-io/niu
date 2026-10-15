@@ -57,7 +57,7 @@ function checkedRequestPage(value: Page): Page {
 async function readRequestPage(url: string, token: string, signal: AbortSignal): Promise<Page> {
   return checkedRequestPage(await read<Page>(url, token, signal));
 }
-const root = (workspace: Workspace) => `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests`;
+const root = (workspace: Workspace) => `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests`;
 const name = (workspace: Workspace) => workspaceDisplayName(workspace.name) || 'Workspace';
 const scopeHref = (workspace: Workspace, page: string) => `/workspaces/${workspace.id}/${page}`;
 function chargeLabel(request: Request) {
@@ -81,7 +81,7 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
     olderController.current?.abort();
     olderController.current = null;
     setLoading(true); setError(''); setPages([]); setWorkspaces([]);
-    void read<{data: Workspace[]}>('/admin/v1/workspaces', token, controller.signal).then(async value => {
+    void read<{data: Workspace[]}>('/api/v1/workspaces', token, controller.signal).then(async value => {
       if (controller.signal.aborted) return;
       setWorkspaces(value.data);
       if (selectedId) {

@@ -572,7 +572,7 @@ export type SupplierAccount = Omit<SupplierAccountInput, 'credential_reference'>
 };
 export type NiuAdminOptions = {
   adminToken: string;
-  /** Administration API base; defaults to http://localhost:2555/admin/v1. */
+  /** Administration API base; defaults to http://localhost:2555/api/v1. */
   baseURL?: string;
   fetch?: typeof globalThis.fetch;
 };
@@ -2855,7 +2855,7 @@ export class NiuAdminClient {
   constructor(options: NiuAdminOptions) {
     if (!options.adminToken.trim()) throw new Error('adminToken is required');
     this.token = options.adminToken;
-    this.base = (options.baseURL ?? 'http://localhost:2555/admin/v1').replace(/\/+$/, '');
+    this.base = (options.baseURL ?? 'http://localhost:2555/api/v1').replace(/\/+$/, '');
     this.apiBase = this.base.replace(/\/(?:admin|api)\/v1$/, '/api/v1');
     this.v1Base = this.base.replace(/\/(?:admin|api)\/v1$/, '/v1');
     const url = new URL(this.base);

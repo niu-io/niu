@@ -27,7 +27,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
   const [search] = useSearchParams();
   const { supplierId: routeSupplierId } = useParams();
   const supplierId = routeSupplierId ?? search.get('supplier');
-  const vendorsPath = '/admin/v1/vendors' + (supplierId ? '?supplier=' + encodeURIComponent(supplierId) : '');
+  const vendorsPath = '/api/v1/vendors' + (supplierId ? '?supplier=' + encodeURIComponent(supplierId) : '');
   const canManage = (session.kind === 'installation' || session.permissions.platform_admin) && session.permissions.manage_operators;
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState('');
@@ -87,7 +87,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     if (!canManage || !token || !requestSignal || requestSignal.aborted) return;
     const result = await request<{ data: VendorModel[] }>(
       token,
-      `/admin/v1/vendors/${encodeURIComponent(vendorId)}/models`,
+      `/api/v1/vendors/${encodeURIComponent(vendorId)}/models`,
       'GET',
       undefined,
       requestSignal,
@@ -159,7 +159,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     setLoadingModels(true);
     void request<{ data: VendorModel[] }>(
       token,
-      `/admin/v1/vendors/${encodeURIComponent(selectedVendorId)}/models`,
+      `/api/v1/vendors/${encodeURIComponent(selectedVendorId)}/models`,
       'GET',
       undefined,
       controller.signal,
@@ -225,7 +225,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     await mutate(async (signal, generation) => {
       let result: { data: Vendor };
       try {
-        result = await request<{ data: Vendor }>(token, '/admin/v1/vendors', 'POST', input, signal);
+        result = await request<{ data: Vendor }>(token, '/api/v1/vendors', 'POST', input, signal);
         if (!result?.data?.id || typeof result.data.id !== 'string') throw new Error('Invalid creation response.');
       } catch (reason) {
         if (signal.aborted || generation !== authGeneration.current) throw reason;
@@ -258,7 +258,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     await mutate(async (signal, generation) => {
       const result = await request<{ data: Vendor }>(
         token,
-        `/admin/v1/vendors/${encodeURIComponent(selectedVendorId)}`,
+        `/api/v1/vendors/${encodeURIComponent(selectedVendorId)}`,
         'PUT',
         input,
         signal,
@@ -276,7 +276,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     await mutate(async (signal, generation) => {
       await request<{ data?: VendorModel }>(
         token,
-        `/admin/v1/vendors/${encodeURIComponent(vendorId)}/models`,
+        `/api/v1/vendors/${encodeURIComponent(vendorId)}/models`,
         'POST',
         input,
         signal,
@@ -292,7 +292,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
   async function checkModel(vendorId: string, alias: string): Promise<ProviderModelCheck> {
     const result = await request<{ data: ProviderModelCheck }>(
       token,
-      `/admin/v1/vendors/${encodeURIComponent(vendorId)}/check`,
+      `/api/v1/vendors/${encodeURIComponent(vendorId)}/check`,
       'POST',
       { alias },
     );
@@ -311,7 +311,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     try {
       const result = await request<{ data: ProviderCatalogModel[] }>(
         token,
-        `/admin/v1/vendors/${encodeURIComponent(vendorId)}/catalog`,
+        `/api/v1/vendors/${encodeURIComponent(vendorId)}/catalog`,
         'GET',
         undefined,
         controller.signal,
@@ -354,7 +354,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
     try {
       const result = await request<{ data: VendorModel[] }>(
         token,
-        `/admin/v1/vendors/${encodeURIComponent(vendorId)}/models`,
+        `/api/v1/vendors/${encodeURIComponent(vendorId)}/models`,
         'GET',
         undefined,
         controller.signal,

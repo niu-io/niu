@@ -11,19 +11,19 @@ describe('production member browser sessions', () => {
     const calls: Array<{path:string; init?:RequestInit}> = [];
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input,init) => {
       const path = String(input); calls.push({path,init});
-      if (path === '/admin/v1/auth/config') return Response.json({password_login:true});
-      if (path === '/admin/v1/auth/preferences') return Response.json({data:{color_mode:'system'}});
-      if (path === '/admin/v1/auth/browser/login') {authenticated=true; return Response.json({session:{expires_at_unix:9999999999,revoked:false}});}
-      if (path === '/admin/v1/auth/browser/logout') {
+      if (path === '/api/v1/auth/config') return Response.json({password_login:true});
+      if (path === '/api/v1/auth/preferences') return Response.json({data:{color_mode:'system'}});
+      if (path === '/api/v1/auth/browser/login') {authenticated=true; return Response.json({session:{expires_at_unix:9999999999,revoked:false}});}
+      if (path === '/api/v1/auth/browser/logout') {
         if (failSignOut) return new Response(null,{status:503});
         authenticated=false; return new Response(null,{status:204});
       }
-      if (path === '/admin/v1/session') return authenticated
+      if (path === '/api/v1/session') return authenticated
         ? Response.json({data:{kind:'operator',operator:{id:'member',role:'viewer',organization_id:'org',project_id:'default'},permissions:{read:true,write:false,manage_operators:false},provider_memberships:[]}})
         : new Response(null,{status:401});
       if (path === '/healthz') return Response.json({status:'ok',model_count:0});
-      if (path === '/admin/v1/workspaces') return Response.json({data:[{id:'default',name:'Default',organization_id:'org',organization_name:'Company'}]});
-      if (path === '/admin/v1/organizations') return Response.json({data:[{id:'org',name:'Company'}]});
+      if (path === '/api/v1/workspaces') return Response.json({data:[{id:'default',name:'Default',organization_id:'org',organization_name:'Company'}]});
+      if (path === '/api/v1/organizations') return Response.json({data:[{id:'org',name:'Company'}]});
       return Response.json({data:[]});
     }));
     let router = createMemoryRouter(appRoutes,{initialEntries:['/workspaces/default/models']});
@@ -33,7 +33,7 @@ describe('production member browser sessions', () => {
     expect(screen.queryByText('Could not sign in. Try again.')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Sign in'}));
     await waitFor(()=>expect(router.state.location.pathname).toBe('/workspaces/default/models'));
-    const login = calls.find(call=>call.path==='/admin/v1/auth/browser/login');
+    const login = calls.find(call=>call.path==='/api/v1/auth/browser/login');
     expect(JSON.parse(login!.init!.body as string)).toEqual({email:'member@example.test',password:'unchanged member passphrase'});
     expect(login!.init!.cache).toBe('no-store');
     expect(calls.some(call=>call.path.startsWith('/__niu_dev/'))).toBe(false);
@@ -54,7 +54,7 @@ describe('production member browser sessions', () => {
     await user.click(screen.getByRole('button',{name:'Try again'}));
     await waitFor(()=>expect(router.state.location.pathname).toBe('/login'));
     expect(authenticated).toBe(false);
-    expect(calls.filter(call=>call.path==='/admin/v1/auth/browser/logout')).toHaveLength(2);
-    expect(calls.filter(call=>call.path==='/admin/v1/auth/browser/logout').every(call=>!call.init?.headers)).toBe(true);
+    expect(calls.filter(call=>call.path==='/api/v1/auth/browser/logout')).toHaveLength(2);
+    expect(calls.filter(call=>call.path==='/api/v1/auth/browser/logout').every(call=>!call.init?.headers)).toBe(true);
   });
 });

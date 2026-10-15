@@ -5,7 +5,7 @@ use serde_json::Value;
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/platform/financial-recovery",
+///   "path": "/api/v1/platform/financial-recovery",
 ///   "method": "get",
 ///   "operation": {
 ///     "x-niu-implementation": "implemented",

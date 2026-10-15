@@ -1,12 +1,12 @@
 ---
 title: "Read this Provider's agreed media purchase schedules"
-description: "GET /admin/v1/providers/{provider}/media-rates"
+description: "GET /api/v1/providers/{provider}/media-rates"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/providers/{provider}/media-rates`
+`GET /api/v1/providers/{provider}/media-rates`
 
 Installation read access or active membership of this exact Provider only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/providers/{provider}/media-rates"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-rates"
 ```
 
 ## Parameters

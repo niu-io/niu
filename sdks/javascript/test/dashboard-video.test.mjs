@@ -35,7 +35,7 @@ test('dashboard Video rejects invalid references and unbounded pages before tran
 
 test('dashboard Video discovery uses a scoped session GET and carries cancellation', async () => {
   let captured;
-  const client=new NiuAdminClient({adminToken:'member-session',baseURL:'https://niu.example/admin/v1',fetch:async(url,init)=>{captured={url,init};return Response.json({object:'list',data:[]});}});
+  const client=new NiuAdminClient({adminToken:'member-session',baseURL:'https://niu.example/api/v1',fetch:async(url,init)=>{captured={url,init};return Response.json({object:'list',data:[]});}});
   const signal=new AbortController().signal;
   assert.deepEqual(await client.listDashboardVideoModels(scope,id,{signal}),{object:'list',data:[]});
   assert.equal(captured.url,'https://niu.example/v1/video/models');

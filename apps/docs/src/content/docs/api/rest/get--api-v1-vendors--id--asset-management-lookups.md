@@ -1,16 +1,16 @@
 ---
-title: "List scoped ordinary group-read outcomes and timing"
-description: "GET /admin/v1/vendors/{id}/asset-management/group-reads"
+title: "List durable asset lookup audit history"
+description: "GET /api/v1/vendors/{id}/asset-management/lookups"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/vendors/{id}/asset-management/group-reads`
+`GET /api/v1/vendors/{id}/asset-management/lookups`
 
-Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Provider queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
+Platform administrator only. Safe operational metadata survives grant revocation and source erasure. Missing completion remains unresolved. No asset content, upstream identities, credentials or commercial amounts. Scoped cursor and newest-first ordering; no upstream call.
 
-Operation: `get--admin-v1-vendors--id--asset-management-group-reads`.
+Operation: `get--api-v1-vendors--id--asset-management-lookups`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/group-reads" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/lookups" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters
@@ -70,7 +70,7 @@ Location: **query**. **Required.**
 
 ### after
 
-Location: **query**. Optional. Previous page next_cursor; missing or out-of-scope cursors produce an empty page.
+Location: **query**. Optional.
 
 ```json
 {
@@ -100,7 +100,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Bounded outcome history.
+Operational history; Cache-Control no-store.
 
 Content type: `application/json`.
 
@@ -121,18 +121,26 @@ Content type: `application/json`.
     },
     "data": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
-          "read_id",
+          "lookup_id",
+          "listing_id",
           "status",
+          "asset_status",
           "started_at",
           "completed_at",
           "duration_ms",
           "reason"
         ],
         "properties": {
-          "read_id": {
+          "lookup_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listing_id": {
             "type": "string",
             "format": "uuid"
           },
@@ -142,6 +150,18 @@ Content type: `application/json`.
               "unresolved",
               "succeeded",
               "failed"
+            ]
+          },
+          "asset_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "Active",
+              "Processing",
+              "Failed",
+              null
             ]
           },
           "started_at": {
@@ -168,14 +188,14 @@ Content type: `application/json`.
               "null"
             ],
             "enum": [
-              null,
               "invalid_configuration",
               "destination_rejected",
               "unavailable",
               "transport",
               "timeout",
               "response_limit",
-              "invalid_response"
+              "invalid_response",
+              null
             ]
           }
         }
@@ -187,7 +207,7 @@ Content type: `application/json`.
 
 ### HTTP 400
 
-Invalid limit.
+Invalid limit or query.
 
 ### HTTP 401
 
@@ -199,4 +219,4 @@ Platform administrator required.
 
 ## Behavior and supported scope
 
-Platform administrator only. Audit metadata without descriptive content or upstream identities. Newest claim first, stable chronological cursor pagination. Unresolved means no durable outcome, not proof that work is still running. Duration is measured gateway execution time; no Provider queue or processing intervals are inferred. Audit remains after result deletion or grant revocation. No upstream request or automatic retry occurs. Responses use Cache-Control no-store.
+Platform administrator only. Safe operational metadata survives grant revocation and source erasure. Missing completion remains unresolved. No asset content, upstream identities, credentials or commercial amounts. Scoped cursor and newest-first ordering; no upstream call.

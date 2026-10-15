@@ -16,8 +16,8 @@ describe('sign-in destination restoration', () => {
     vi.stubGlobal('fetch', vi.fn(async input => {
       const path = String(input);
       return new Response(JSON.stringify(path === '/healthz' ? { status: 'ok' }
-        : path === '/admin/v1/auth/config' ? { password_login: true }
-        : path === '/admin/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
+        : path === '/api/v1/auth/config' ? { password_login: true }
+        : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
         : { data: [] }));
     }));
     const router = createMemoryRouter([{ element: <AppLayout />, children: [

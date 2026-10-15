@@ -15,7 +15,7 @@ type Observed = { row: Promotion; asOf: string; version: string };
 const at = (seconds: string) => new Date(Number(seconds) * 1000).toLocaleString();
 const date = (value: string) => new Date(value).toLocaleString();
 const state = (value: Promotion['state']) => value === 'within_period' ? 'Within period' : value === 'scheduled' ? 'Scheduled' : 'Ended';
-const endpoint = (price: string) => '/admin/v1/pricing/standard-prices/' + encodeURIComponent(price) + '/promotions';
+const endpoint = (price: string) => '/api/v1/pricing/standard-prices/' + encodeURIComponent(price) + '/promotions';
 
 /** Cutoffs are server projections; event pagination never establishes active status. */
 export function PromotionsManager({ token, price, onClose, onPublish }: { token: string; price: RetailPriceRecord; onClose: () => void; onPublish: (baseline: RetailPriceRecord) => void }) {

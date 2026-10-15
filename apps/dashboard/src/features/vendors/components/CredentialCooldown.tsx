@@ -17,7 +17,7 @@ export default function CredentialCooldown({ token, vendorId }: { token: string;
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     const controller = new AbortController();setState(null);setLoading(true);setError('');
-    void request<{data: VendorCooldown}>(token, `/admin/v1/vendors/${encodeURIComponent(vendorId)}/cooldown`, 'GET', undefined, controller.signal)
+    void request<{data: VendorCooldown}>(token, `/api/v1/vendors/${encodeURIComponent(vendorId)}/cooldown`, 'GET', undefined, controller.signal)
       .then(({data}) => {if (!controller.signal.aborted) {
         if (!readable(data)) throw new Error('The cooldown status could not be read.');
         setState(data);

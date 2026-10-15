@@ -1,16 +1,16 @@
 ---
-title: "Erase retained asset lookup content"
-description: "DELETE /admin/v1/vendors/{id}/asset-management/lookups/{lookup}"
+title: "Erase retained group-read content"
+description: "DELETE /api/v1/vendors/{id}/asset-management/group-reads/{read}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /admin/v1/vendors/{id}/asset-management/lookups/{lookup}`
+`DELETE /api/v1/vendors/{id}/asset-management/group-reads/{read}`
 
-Platform administrator only. Scoped erasure remains available after grant revocation. An in-flight completion cannot resurrect content. Immutable operational audit survives. No upstream request or billing mutation.
+Platform administrator only. Idempotent scoped erasure. Records a deletion even during an in-flight read so later completion cannot restore content. Does not delete the upstream group or immutable audit. Content erasure remains available after read grant revocation.
 
-Operation: `delete--admin-v1-vendors--id--asset-management-lookups--lookup-`.
+Operation: `delete--api-v1-vendors--id--asset-management-group-reads--read-`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/lookups/{lookup}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-reads/{read}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters
@@ -46,7 +46,7 @@ Location: **path**. **Required.**
 }
 ```
 
-### lookup
+### read
 
 Location: **path**. **Required.**
 
@@ -70,7 +70,7 @@ Location: **query**. **Required.**
 
 ### project_id
 
-Location: **query**. **Required.**
+Location: **query**. **Required.** Workspace routing identifier.
 
 ```json
 {
@@ -87,7 +87,7 @@ No request body is declared.
 
 ### HTTP 204
 
-Erasure applied idempotently for this scope.
+Content erased, already absent or outside the supplied scope.
 
 ### HTTP 401
 
@@ -99,4 +99,4 @@ Platform administrator required.
 
 ## Behavior and supported scope
 
-Platform administrator only. Scoped erasure remains available after grant revocation. An in-flight completion cannot resurrect content. Immutable operational audit survives. No upstream request or billing mutation.
+Platform administrator only. Idempotent scoped erasure. Records a deletion even during an in-flight read so later completion cannot restore content. Does not delete the upstream group or immutable audit. Content erasure remains available after read grant revocation.

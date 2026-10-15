@@ -32,7 +32,7 @@ export function useAccountAppearance(token: string, identity: string, personal: 
         while (queued !== null) {
           const mode: Theme = queued;
           queued = null;
-          const result = await request<{data:{color_mode:Theme}}>(token,'/admin/v1/auth/preferences','PUT',{color_mode:mode},controller.signal);
+          const result = await request<{data:{color_mode:Theme}}>(token,'/api/v1/auth/preferences','PUT',{color_mode:mode},controller.signal);
           if (controller.signal.aborted) return;
           if (!validMode(result.data?.color_mode) || result.data.color_mode !== mode) throw new Error('Invalid appearance response');
           confirmed = mode;
@@ -71,7 +71,7 @@ export function useAccountAppearance(token: string, identity: string, personal: 
     };
     window.addEventListener('niu-theme-change',changed);
     window.addEventListener('storage',storageChanged);
-    void request<{data:{color_mode:Theme}}>(token,'/admin/v1/auth/preferences','GET',undefined,controller.signal).then(result=>{
+    void request<{data:{color_mode:Theme}}>(token,'/api/v1/auth/preferences','GET',undefined,controller.signal).then(result=>{
       if (controller.signal.aborted) return;
       if (!validMode(result.data?.color_mode)) throw new Error('Invalid appearance response');
       confirmed = result.data.color_mode;

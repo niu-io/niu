@@ -1,12 +1,12 @@
 ---
 title: "Read safe local consent and outcome status"
-description: "GET /admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}"
+description: "GET /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}`
+`GET /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}`
 
 Platform administrator only. Scoped to the original workspace and Provider configuration. Returns no upstream identities, credentials, grant evidence or procurement data. Consent status alone is not current dispatch authorization. Claimed/outcome state takes precedence over later consent revocation or expiry. Does not query upstream. Cache-Control no-store.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

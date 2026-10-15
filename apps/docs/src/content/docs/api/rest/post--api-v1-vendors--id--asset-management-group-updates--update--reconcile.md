@@ -1,16 +1,16 @@
 ---
 title: "Read back and reconcile an acknowledged ordinary-group update"
-description: "POST /admin/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile"
+description: "POST /api/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile`
+`POST /api/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile`
 
 Platform administrator only. Requires an acknowledged held update, retained patch and distinct current GetAssetGroup permission for the original account. First attempts reconciliation from the retained successful bound read with the supplied read_id, without another upstream call. Otherwise claims a fresh one-shot read, uses the bounded group-read worker and persists its encrypted result. Authenticates both snapshots and compares the exact patch before atomically recording reconciliation and releasing the hold. Mismatch preserves the hold; uncertain or already reconciled updates never dispatch a read. No mutation replay or inference charge. Caller disconnect leaves tracked work running. Process recovery remains separately qualified.
 
-Operation: `post--admin-v1-vendors--id--asset-management-group-updates--update--reconcile`.
+Operation: `post--api-v1-vendors--id--asset-management-group-updates--update--reconcile`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

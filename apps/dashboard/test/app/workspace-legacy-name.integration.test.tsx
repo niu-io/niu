@@ -10,14 +10,14 @@ it('shows the seeded default project as a workspace without changing its existin
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     
-    if (path === '/admin/v1/auth/config') return json({ password_login: true });
-    if (path === '/admin/v1/auth/browser/login' && init?.method === 'POST') { signedIn = true; return json({ session: {} }); }
-      if (path === '/admin/v1/session' && !signedIn) return Response.json({ error: { message: 'Unauthorized' } }, { status: 401 });
+    if (path === '/api/v1/auth/config') return json({ password_login: true });
+    if (path === '/api/v1/auth/browser/login' && init?.method === 'POST') { signedIn = true; return json({ session: {} }); }
+      if (path === '/api/v1/session' && !signedIn) return Response.json({ error: { message: 'Unauthorized' } }, { status: 401 });
     if (path === '/healthz') return json({ status: 'ok' });
-    if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
-    if (path.startsWith('/admin/v1/models')) return json({ data: [] });
-    if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-default', name: 'Personal workspace' }] });
-    if (path === '/admin/v1/workspaces') return json({ data: [
+    if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+    if (path.startsWith('/api/v1/models')) return json({ data: [] });
+    if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-default', name: 'Personal workspace' }] });
+    if (path === '/api/v1/workspaces') return json({ data: [
       { id: 'workspace-default', name: 'Default project', organization_id: 'org-default', organization_name: 'Personal workspace' },
     ] });
     if (path.endsWith('/keys')) return json({ data: [] });

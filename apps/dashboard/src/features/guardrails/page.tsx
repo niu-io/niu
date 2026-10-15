@@ -87,7 +87,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const modelSearchRef = useRef<HTMLInputElement>(null);
   const endpoint = workspace
-    ? `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/guardrails`
+    ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/guardrails`
     : "";
   useEffect(() => {
     if (!endpoint) return;

@@ -20,7 +20,7 @@ async function runExample(t, respond, withKey = true) {
     env: {
       ...process.env,
       NIU_ADMIN_TOKEN: 'history-test-credential',
-      NIU_ADMIN_BASE_URL: `http://127.0.0.1:${server.address().port}/admin/v1`,
+      NIU_ADMIN_BASE_URL: `http://127.0.0.1:${server.address().port}/api/v1`,
       NIU_ORGANIZATION_ID: id,
       NIU_WORKSPACE_ID: id,
       NIU_KEY_ID: withKey ? id : '',

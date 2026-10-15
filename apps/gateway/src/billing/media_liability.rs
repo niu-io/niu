@@ -21,7 +21,7 @@ pub struct Page {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds",
+///   "path": "/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishMediaLiabilityQualification",
@@ -274,7 +274,7 @@ pub async fn publish(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds",
+///   "path": "/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listMediaLiabilityQualifications",
@@ -601,7 +601,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire",
+///   "path": "/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retireMediaLiabilityQualification",

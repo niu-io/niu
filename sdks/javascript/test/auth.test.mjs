@@ -5,15 +5,15 @@ import { NiuAuthClient, NiuAPIError } from '../dist/index.js';
 test('member sign-in preserves password bytes and sign-out sends only the supplied bearer', async () => {
   const calls = []; const abort = new AbortController();
   const result = {token:'member-session',session:{id:'routing-reference',operator_id:'member-reference',expires_at_unix:123,revoked:false}};
-  const client = new NiuAuthClient({baseURL:'https://niu.example/admin/v1/',fetch:async(url,init)=>{
+  const client = new NiuAuthClient({baseURL:'https://niu.example/api/v1/',fetch:async(url,init)=>{
     calls.push({url,init}); return calls.length === 1 ? Response.json(result) : new Response(null,{status:204});
   }});
   assert.deepEqual(await client.signIn({email:'Member@example.test',password:'  密码 unchanged  ',ignored:'never sent'},{signal:abort.signal}),result);
   await client.signOut(result.token,{signal:abort.signal});
-  assert.equal(calls[0].url,'https://niu.example/admin/v1/auth/login');
+  assert.equal(calls[0].url,'https://niu.example/api/v1/auth/login');
   assert.deepEqual(JSON.parse(calls[0].init.body),{email:'Member@example.test',password:'  密码 unchanged  '});
   assert.equal(calls[0].init.headers.authorization,undefined);
-  assert.equal(calls[1].url,'https://niu.example/admin/v1/auth/logout');
+  assert.equal(calls[1].url,'https://niu.example/api/v1/auth/logout');
   assert.equal(calls[1].init.headers.authorization,'Bearer member-session');
   assert.equal(calls[1].init.body,undefined);
   for (const {init} of calls) {
@@ -41,7 +41,7 @@ test('invalid inputs are rejected before fetching, including oversized serialize
   assert.throws(()=>client.signIn({email:'a'.repeat(255),password:'x'}),/bounded/);
   assert.throws(()=>client.signIn({email:'a@example.test',password:'密'.repeat(342)}),/bounded/);
   assert.throws(()=>client.signIn({email:'a@example.test',password:'\u0000'.repeat(1024)}),/4096/);
-  for (const baseURL of ['https://user:secret@example.test/admin/v1','https://example.test/admin/v1?secret=1','file:///tmp/api']) assert.throws(()=>new NiuAuthClient({baseURL}),/HTTP/);
+  for (const baseURL of ['https://user:secret@example.test/api/v1','https://example.test/api/v1?secret=1','file:///tmp/api']) assert.throws(()=>new NiuAuthClient({baseURL}),/HTTP/);
   assert.equal(calls,0);
 });
 
@@ -51,7 +51,7 @@ test('self password change targets no other member and preserves password bytes 
   const client = new NiuAuthClient({fetch:async(url,init)=>{calls.push({url,init});return Response.json({revision:2,sign_in_required:true});}});
   const input = {current_password:' original password ',password:'  replacement password  ',operator_id:'ignored',email:'ignored@example.test'};
   assert.deepEqual(await client.changePassword('own-session',input,{signal:abort.signal}),{revision:2,sign_in_required:true});
-  assert.ok(calls[0].url.endsWith('/admin/v1/auth/password'));
+  assert.ok(calls[0].url.endsWith('/api/v1/auth/password'));
   assert.equal(calls[0].init.method,'PUT'); assert.equal(calls[0].init.headers.authorization,'Bearer own-session');
   assert.deepEqual(JSON.parse(calls[0].init.body),{current_password:input.current_password,password:input.password});
   assert.equal(calls[0].init.signal,abort.signal); assert.equal(calls[0].init.credentials,'omit');

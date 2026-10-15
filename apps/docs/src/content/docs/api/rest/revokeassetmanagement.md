@@ -1,12 +1,12 @@
 ---
 title: "Revoke locally saved asset-management credentials"
-description: "DELETE /admin/v1/vendors/{id}/asset-management"
+description: "DELETE /api/v1/vendors/{id}/asset-management"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /admin/v1/vendors/{id}/asset-management`
+`DELETE /api/v1/vendors/{id}/asset-management`
 
 Installation administrator only. The expected management revision must match the latest configuration. Revocation blocks internal reads through that revision. Optional erasure removes ciphertext from the active database only and requires confirm_erase=true; immutable metadata and audit events remain. Exact repeat requests do not duplicate audit events. This does not revoke Access Keys at Ark or erase backups, and does not affect inference bearer credentials.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

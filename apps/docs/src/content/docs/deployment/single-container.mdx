@@ -5,7 +5,7 @@ description: Niu's target deployment shape and current packaging status.
 
 Niu serves documentation, the public model catalog, workspace dashboard, inference API and management API from one origin. The hosted distribution also serves the separately maintained marketing website under `niu.io`. One Rust gateway owns the HTTP listener and serves the built static sites; PostgreSQL stores tenants, scoped API keys, operations and attempt evidence. The application image exposes one public port. Compose starts it with PostgreSQL as the only supporting service.
 
-The Dockerfile builds the Rust gateway, TypeScript dashboard and Astro documentation, and packages the static model catalog into one image. The community root redirects to the workspace; a composed hosted build can supply a separate website artifact using `NIU_SITE_DIR`. The product URLs are `/`, `/docs/`, `/models/`, `/workspaces/default/`, `/v1/…` and `/admin/v1/…`.
+The Dockerfile builds the Rust gateway, TypeScript dashboard and Astro documentation, and packages the static model catalog into one image. The community root redirects to the workspace; a composed hosted build can supply a separate website artifact using `NIU_SITE_DIR`. The product URLs are `/`, `/docs/`, `/models/`, `/workspaces/default/`, `/v1/…` and `/api/v1/…`.
 
 :::caution[Current status]
 The current image is an evaluation build. Initial persistence and migrations are implemented. Budget reservations, financial settlement, operator roles, streaming evidence and recovery workers remain in progress. Container qualification is not complete. Do not use this image for production workloads.
@@ -47,7 +47,7 @@ The gateway serves HTTP. Terminate HTTPS at the hosting platform's TLS edge and 
 
 When migrating existing hosts, configure permanent redirects at the TLS edge: `docs.niu.io/<path>` should map to `niu.io/docs/<path>`. Redirect the old dashboard root to `/workspaces/default/` and map prior dashboard sections such as `/keys` and `/usage` to `/workspaces/default/keys` and `/workspaces/default/usage`. In the unified product, `/models/` is the public catalog and `/suppliers` manages Provider configuration. Model supply is global; workspaces manage scoped keys, requests and customer billing.
 
-The static documentation tree is mounted separately from the dashboard. Missing documentation paths return 404, and unknown `/v1/`, `/catalog/v1/` and `/admin/v1/` endpoints return JSON API errors. Nested workspace links can be opened or refreshed directly. Static routes do not buffer inference responses; streaming remains on the gateway's inference handler.
+The static documentation tree is mounted separately from the dashboard. Missing documentation paths return 404, and unknown `/v1/`, `/catalog/v1/` and `/api/v1/` endpoints return JSON API errors. Nested workspace links can be opened or refreshed directly. Static routes do not buffer inference responses; streaming remains on the gateway's inference handler.
 
 ## Enable member sign-in
 
@@ -67,9 +67,9 @@ access does not qualify production browser login.
 
 Use `/installation` and the installation administrator credential for initial
 setup. After creating an organization and workspace, provision a member through
-`POST /admin/v1/operators` with the saved organization/workspace references:
+`POST /api/v1/operators` with the saved organization/workspace references:
 `{"organization_id":"<organization_id>","project_id":"<workspace_id>","name":"Workspace owner","role":"owner","expires_in_seconds":3600}`.
-Then use `PUT /admin/v1/operators/{operator_id}/password` with the member's
+Then use `PUT /api/v1/operators/{operator_id}/password` with the member's
 `email` and a password of at least 15 characters and at most 1024 UTF-8 bytes.
 Omit `expected_revision` for first provisioning; use the returned revision for
 later changes. Provisioning revokes the initially issued bearer session. The

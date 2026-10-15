@@ -37,7 +37,7 @@ pub(crate) fn background_polling_enabled() -> Result<bool, &'static str> {
 /// Product support inventory, independent of merchant activation or live qualification.
 /// ```openapi
 /// {
-///   "path": "/admin/v1/platform/payments/integrations",
+///   "path": "/api/v1/platform/payments/integrations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPaymentIntegrations",

@@ -21,7 +21,7 @@ export default function MediaOfferPublisher({ token, supplier, initialModel = ''
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [frozen, setFrozen] = useState<SupplierMediaOfferInput | null>(null);
-  const endpoint = `/admin/v1/providers/${encodeURIComponent(supplier)}`;
+  const endpoint = `/api/v1/providers/${encodeURIComponent(supplier)}`;
   const chosen = models.find(model => model.model_alias === selected);
 
   useEffect(() => {

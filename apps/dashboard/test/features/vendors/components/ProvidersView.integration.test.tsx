@@ -48,15 +48,15 @@ function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : undefined;
     calls.push({ path, method, body, signal: init?.signal ?? undefined });
 
-    if (path === '/admin/v1/providers' && method === 'GET') return jsonResponse({ data: [{ id: 'supplier-one', name: 'Existing business' }] });
-    if (path === '/admin/v1/vendors' && method === 'GET') return jsonResponse({ data: vendors });
-    if (path === '/admin/v1/vendors' && method === 'POST') {
+    if (path === '/api/v1/providers' && method === 'GET') return jsonResponse({ data: [{ id: 'supplier-one', name: 'Existing business' }] });
+    if (path === '/api/v1/vendors' && method === 'GET') return jsonResponse({ data: vendors });
+    if (path === '/api/v1/vendors' && method === 'POST') {
       const created = { ...openRouter, id: 'vendor-' + (vendors.length + 1), name: String(body?.name), supplier: body?.supplier_id ? { id: String(body.supplier_id), name: 'Existing business' } : { id: 'supplier-created', name: String(body?.name) }, adapter: body?.adapter as Vendor['adapter'], api_base: String(body?.api_base), revision: 1, enabled: true, has_credential: Boolean(body?.api_key) };
       vendors.push(created);
       models.set(created.id, []);
       return jsonResponse({ data: created }, 201);
     }
-    if (path.startsWith('/admin/v1/vendors/') && path.endsWith('/models')) {
+    if (path.startsWith('/api/v1/vendors/') && path.endsWith('/models')) {
       const vendorId = path.split('/')[4];
       if (method === 'GET') return jsonResponse({ data: models.get(vendorId) ?? [] });
       if (method === 'POST') {
@@ -75,10 +75,10 @@ function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
         return jsonResponse({ data: value });
       }
     }
-    if (path.startsWith('/admin/v1/vendors/') && path.endsWith('/check') && method === 'POST') {
+    if (path.startsWith('/api/v1/vendors/') && path.endsWith('/check') && method === 'POST') {
       return jsonResponse({ data: { status: 'connected', model: 'listed', http_status: 200, duration_ms: 8, checked_at_ms: 1 } });
     }
-    if (path.startsWith('/admin/v1/vendors/') && method === 'PUT') {
+    if (path.startsWith('/api/v1/vendors/') && method === 'PUT') {
       const vendorId = path.split('/')[4];
       const index = vendors.findIndex(vendor => vendor.id === vendorId);
       if (index < 0) return jsonResponse({ error: { message: 'Vendor not found' } }, 404);
@@ -175,7 +175,7 @@ describe('vendor administration workflow', () => {
     const write = api.calls.find(call => call.method === 'POST' && call.path.endsWith('/models'))?.body;
     expect(write).toMatchObject({ expected_revision: 7, capabilities: { supports_tool_calls: true } });
     expect(write).not.toHaveProperty('pricing');
-    const response = await api.fetchMock(`/admin/v1/vendors/${openRouter.id}/models`);
+    const response = await api.fetchMock(`/api/v1/vendors/${openRouter.id}/models`);
     expect((await response.json()).data[0]).toMatchObject({ pricing, revision: 8, capabilities: { supports_tool_calls: true } });
   });
 
@@ -204,8 +204,8 @@ describe('vendor administration workflow', () => {
     await user.click(screen.getByRole('button', { name: 'Create provider' }));
 
     expect(await screen.findByRole('heading', { name: 'OpenRouter primary routes' })).toBeTruthy();
-    await waitFor(() => expect(api.calls.some(call => call.path === '/admin/v1/vendors/vendor-1/models' && call.method === 'GET')).toBe(true));
-    const createVendor = api.calls.find(call => call.path === '/admin/v1/vendors' && call.method === 'POST');
+    await waitFor(() => expect(api.calls.some(call => call.path === '/api/v1/vendors/vendor-1/models' && call.method === 'GET')).toBe(true));
+    const createVendor = api.calls.find(call => call.path === '/api/v1/vendors' && call.method === 'POST');
     expect(createVendor?.body).toEqual({
       name: 'OpenRouter primary',
       adapter: 'openrouter',
@@ -228,7 +228,7 @@ describe('vendor administration workflow', () => {
     await user.click(screen.getByRole('button', { name: 'Add mapping' }));
 
     expect(await screen.findByText('team/fast')).toBeTruthy();
-    const createModel = api.calls.find(call => call.path === '/admin/v1/vendors/vendor-1/models' && call.method === 'POST');
+    const createModel = api.calls.find(call => call.path === '/api/v1/vendors/vendor-1/models' && call.method === 'POST');
     expect(createModel?.body).toMatchObject({
       alias: 'team/fast',
       upstream_model: 'openai/gpt-4.1-mini',
@@ -242,13 +242,13 @@ describe('vendor administration workflow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Check' }));
     expect(await screen.findByText('Reachable · model listed. Try Chat to verify access.')).toBeTruthy();
-    expect(api.calls.find(call => call.path === '/admin/v1/vendors/vendor-1/check')?.body).toEqual({ alias: 'team/fast' });
+    expect(api.calls.find(call => call.path === '/api/v1/vendors/vendor-1/check')?.body).toEqual({ alias: 'team/fast' });
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.click(screen.getByRole('checkbox', { name: /Enabled for inference/ }));
     await user.click(screen.getByRole('button', { name: 'Save mapping' }));
     expect(await screen.findByText('Disabled')).toBeTruthy();
-    const updateModel = api.calls.filter(call => call.path === '/admin/v1/vendors/vendor-1/models' && call.method === 'POST')[1];
+    const updateModel = api.calls.filter(call => call.path === '/api/v1/vendors/vendor-1/models' && call.method === 'POST')[1];
     expect(updateModel?.body).toMatchObject({ alias: 'team/fast', enabled: false, expected_revision: 1 });
     expect(Object.hasOwn(updateModel?.body ?? {}, 'pricing')).toBe(false);
     expect(refreshWorkspace).toHaveBeenCalledTimes(3);
@@ -261,7 +261,7 @@ describe('vendor administration workflow', () => {
     expect(await screen.findByRole('alertdialog', { name: 'Disable this API key?' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Confirm disable' }));
 
-    const updateVendor = api.calls.find(call => call.path === '/admin/v1/vendors/vendor-1' && call.method === 'PUT');
+    const updateVendor = api.calls.find(call => call.path === '/api/v1/vendors/vendor-1' && call.method === 'PUT');
     expect(updateVendor?.body).toMatchObject({
       name: 'OpenRouter primary',
       api_base: 'https://openrouter.ai/api/v1',
@@ -289,7 +289,7 @@ describe('vendor administration workflow', () => {
     await user.click(await screen.findByRole('button', { name: 'Close model management' }));
     expect(await screen.findByRole('heading', { name: 'Specialized models' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Select Provider API key' }).textContent).toContain('Specialized models');
-    const creation = api.calls.find(call => call.method === 'POST' && call.path === '/admin/v1/vendors');
+    const creation = api.calls.find(call => call.method === 'POST' && call.path === '/api/v1/vendors');
     expect(creation?.body).toMatchObject({ supplier_id: 'supplier-one', name: 'Specialized models', api_key: 'independent-secret' });
     expect(creation?.body).not.toHaveProperty('create_supplier');
     expect(api.calls.some(call => call.method === 'PUT')).toBe(false);
@@ -301,11 +301,11 @@ describe('vendor administration workflow', () => {
     const original = api.fetchMock.getMockImplementation()!;
     let created = false;
     api.fetchMock.mockImplementation(async (input, init) => {
-      if (created && String(input) === '/admin/v1/vendors' && (init?.method ?? 'GET') === 'GET') {
+      if (created && String(input) === '/api/v1/vendors' && (init?.method ?? 'GET') === 'GET') {
         return jsonResponse({ error: { message: 'Temporarily unavailable' } }, 503);
       }
       const response = await original(input, init);
-      if (String(input) === '/admin/v1/vendors' && init?.method === 'POST') created = true;
+      if (String(input) === '/api/v1/vendors' && init?.method === 'POST') created = true;
       return response;
     });
     const user = userEvent.setup();
@@ -318,7 +318,7 @@ describe('vendor administration workflow', () => {
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('API key saved'));
     expect(screen.queryByRole('dialog')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/admin/v1/vendors')).toHaveLength(1);
+    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/vendors')).toHaveLength(1);
   });
 
   it.each(['transport', 'server', 'malformed'])('reconciles an uncertain %s creation through reads without reposting', async failure => {
@@ -326,7 +326,7 @@ describe('vendor administration workflow', () => {
     const original = api.fetchMock.getMockImplementation()!;
     api.fetchMock.mockImplementation(async (input, init) => {
       const response = await original(input, init);
-      if (String(input) === '/admin/v1/vendors' && init?.method === 'POST') {
+      if (String(input) === '/api/v1/vendors' && init?.method === 'POST') {
         if (failure === 'transport') throw new TypeError('Connection lost');
         if (failure === 'server') return jsonResponse({ error: { message: 'Unavailable' } }, 503);
         return jsonResponse({ data: null }, 201);
@@ -346,7 +346,7 @@ describe('vendor administration workflow', () => {
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     await user.click(await screen.findByRole('button', { name: 'Select Provider API key' }));
     expect(await screen.findByRole('menuitemradio', { name: /Possibly saved Provider/ })).toBeTruthy();
-    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/admin/v1/vendors')).toHaveLength(1);
+    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/vendors')).toHaveLength(1);
     expect(localStorage.length).toBe(0);
   });
 
@@ -390,7 +390,7 @@ describe('vendor administration workflow', () => {
     await user.click(await screen.findByRole('button', { name: 'Close model management' }));
     expect(await screen.findByRole('heading', { name: 'OpenAI fallback' })).toBeTruthy();
     expect(screen.getByText('https://api.openai.com/v1')).toBeTruthy();
-    expect(api.calls.find(call => call.path === '/admin/v1/vendors' && call.method === 'POST')?.body).toMatchObject({
+    expect(api.calls.find(call => call.path === '/api/v1/vendors' && call.method === 'POST')?.body).toMatchObject({
       name: 'OpenAI fallback',
       adapter: 'openai',
       api_base: 'https://api.openai.com/v1',
@@ -417,16 +417,16 @@ describe('vendor administration workflow', () => {
     baseApi.fetchMock.mockImplementation(async (input, init) => {
       const path = String(input);
       const method = init?.method ?? 'GET';
-      if (path === '/admin/v1/vendors' && method === 'GET') return jsonResponse({ data: [openRouter, vendorB] });
-      if (path === `/admin/v1/vendors/${openRouter.id}/models` && method === 'GET') return delayed;
-      if (path === `/admin/v1/vendors/${vendorB.id}/models` && method === 'GET') return jsonResponse({ data: [] });
+      if (path === '/api/v1/vendors' && method === 'GET') return jsonResponse({ data: [openRouter, vendorB] });
+      if (path === `/api/v1/vendors/${openRouter.id}/models` && method === 'GET') return delayed;
+      if (path === `/api/v1/vendors/${vendorB.id}/models` && method === 'GET') return jsonResponse({ data: [] });
       return jsonResponse({ data: [] });
     });
     const user = userEvent.setup();
     render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
     await screen.findByRole('heading', { name: openRouter.name });
-    await waitFor(() => expect(baseApi.fetchMock.mock.calls.some(([path]) => String(path) === `/admin/v1/vendors/${openRouter.id}/models`)).toBe(true));
+    await waitFor(() => expect(baseApi.fetchMock.mock.calls.some(([path]) => String(path) === `/api/v1/vendors/${openRouter.id}/models`)).toBe(true));
     await user.click(screen.getByRole('button', { name: 'Select Provider API key' }));
     await user.click(screen.getByRole('menuitemradio', { name: 'Second vendor' }));
     expect(await screen.findByRole('heading', { name: vendorB.name })).toBeTruthy();
@@ -442,11 +442,11 @@ describe('vendor administration workflow', () => {
     api.fetchMock.mockImplementation(async (input, init) => {
       const path = String(input);
       const method = init?.method ?? 'GET';
-      if (path === `/admin/v1/vendors/${openRouter.id}` && method === 'PUT') {
+      if (path === `/api/v1/vendors/${openRouter.id}` && method === 'PUT') {
         return jsonResponse({ error: { message: 'Vendor revision conflict' } }, 409);
       }
-      if (path === `/admin/v1/vendors/${openRouter.id}/models`) return jsonResponse({ data: [] });
-      if (path === '/admin/v1/vendors') return jsonResponse({ data: [openRouter] });
+      if (path === `/api/v1/vendors/${openRouter.id}/models`) return jsonResponse({ data: [] });
+      if (path === '/api/v1/vendors') return jsonResponse({ data: [openRouter] });
       return jsonResponse({ error: { message: 'Not found' } }, 404);
     });
     const user = userEvent.setup();
@@ -483,7 +483,7 @@ it('shows a rejected model-route save inside its dialog and preserves the draft'
   api.fetchMock.mockImplementation(async (input, init) => {
     const path = String(input);
     if (path.endsWith('/models') && init?.method === 'POST') return jsonResponse({ error: { message: 'Model alias already exists' } }, 409);
-    if (path === '/admin/v1/vendors') return jsonResponse({ data: [openRouter] });
+    if (path === '/api/v1/vendors') return jsonResponse({ data: [openRouter] });
     return jsonResponse({ data: [] });
   });
   const user = userEvent.setup();
@@ -501,14 +501,14 @@ it('reads explicitly linked configurations when returning from Provider pricing'
   const calls: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const path = String(input); calls.push(path);
-    if (path === '/admin/v1/vendors?supplier=business-fixture') return jsonResponse({ data: [openRouter] });
+    if (path === '/api/v1/vendors?supplier=business-fixture') return jsonResponse({ data: [openRouter] });
     if (path.endsWith('/models')) return jsonResponse({ data: [] });
     return jsonResponse({ error: { message: 'Unexpected unscoped read' } }, 400);
   }));
   renderView(<MemoryRouter initialEntries={['/suppliers?supplier=business-fixture']}><SuppliersView token="test-token" session={installationSession} refreshWorkspace={vi.fn()} /></MemoryRouter>);
   await screen.findByRole('heading', { name: openRouter.name });
-  expect(calls).toContain('/admin/v1/vendors?supplier=business-fixture');
-  expect(calls).not.toContain('/admin/v1/vendors');
+  expect(calls).toContain('/api/v1/vendors?supplier=business-fixture');
+  expect(calls).not.toContain('/api/v1/vendors');
   expect(screen.getByRole('heading', { name: 'API keys & routes' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Add provider' })).toBeNull();
 });
@@ -518,7 +518,7 @@ it('retries catalog discovery inside the model editor without losing its draft',
   let reads=0;
   api.fetchMock.mockImplementation(async input => {
     const path=String(input);
-    if(path==='/admin/v1/vendors') return jsonResponse({data:[openRouter]});
+    if(path==='/api/v1/vendors') return jsonResponse({data:[openRouter]});
     if(path.endsWith('/catalog')) return ++reads===1 ? jsonResponse({error:{message:'Catalog temporarily unavailable'}},503) : jsonResponse({data:[{id:'upstream/available',name:'Available model',context_length:null}]});
     return jsonResponse({data:[]});
   });

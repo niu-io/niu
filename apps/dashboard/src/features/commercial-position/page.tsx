@@ -39,9 +39,9 @@ function Position({ token }: { token: string }) {
     if (!valid) { setError('Choose a configured uppercase currency and a 7, 30 or 90 day period.'); setLoading(false); return; }
     const query = new URLSearchParams({ currency, days: period });
     const pending = view === 'financial'
-      ? request<CustomerFinancialSummary>(token, '/admin/v1/financial-summary?' + query, 'GET', undefined, controller.signal)
+      ? request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + query, 'GET', undefined, controller.signal)
         .then(value => { if (!controller.signal.aborted) setSummary(value); })
-      : request<CommercialPosition>(token, '/admin/v1/commercial-position?' + query, 'GET', undefined, controller.signal)
+      : request<CommercialPosition>(token, '/api/v1/commercial-position?' + query, 'GET', undefined, controller.signal)
         .then(value => { if (!controller.signal.aborted) setPosition(value); });
     void pending
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Commercial report could not be loaded.'); })

@@ -28,7 +28,7 @@ export default function PasswordSettings({ token, hasPassword = true, onChanged 
   useEffect(() => {
     const controller = new AbortController();
     setLoaded(false); setCapabilityError(false);
-    void fetch('/admin/v1/auth/config', {signal:controller.signal,cache:'no-store'})
+    void fetch('/api/v1/auth/config', {signal:controller.signal,cache:'no-store'})
       .then(async response => { if (!response.ok) throw new Error('Capability request failed'); const value = await response.json(); if (typeof value?.password_login !== 'boolean') throw new Error('Invalid capability response'); return value; })
       .then(value => {if (!controller.signal.aborted) {setEnabled(value?.password_login === true);setLoaded(true);}})
       .catch(() => { if (!controller.signal.aborted) { setCapabilityError(true); setLoaded(true); } });
@@ -49,7 +49,7 @@ export default function PasswordSettings({ token, hasPassword = true, onChanged 
     const controller = new AbortController();
     saveController.current = controller;
     try {
-      const response = await fetch('/admin/v1/auth/password', {
+      const response = await fetch('/api/v1/auth/password', {
         method:'PUT', signal:controller.signal, cache:'no-store', headers:{'content-type':'application/json',authorization:`Bearer ${token}`},
         body:JSON.stringify({current_password:current,password}),
       });

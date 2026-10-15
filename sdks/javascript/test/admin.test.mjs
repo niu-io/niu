@@ -80,7 +80,7 @@ test('saved top-up history uses scoped bodyless cursor reads and preserves backe
   const result = {data:[{id,currency:'CNY',amount_nanos:'1000000000',payment_method:'wxpaynative',status:'closed',checkout_url:null,created_at:'2026-10-06T00:00:00Z'}],next_cursor:null};
   const client = new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json(result);}});
   assert.deepEqual(await client.listCustomerTopups(id,{before:id,signal:abort.signal}),result);
-  assert.ok(calls[0].url.endsWith(`/admin/v1/organizations/${id}/billing/topups?before=${id}`));
+  assert.ok(calls[0].url.endsWith(`/api/v1/organizations/${id}/billing/topups?before=${id}`));
   assert.equal(calls[0].init.method,'GET');assert.equal(calls[0].init.body,undefined);assert.equal(calls[0].init.signal,abort.signal);
   assert.throws(()=>client.listCustomerTopups(id,{before:'../foreign'}),/UUID/);
   assert.equal(calls.length,1);
@@ -92,7 +92,7 @@ test('payment method discovery preserves company scope, unavailable states and c
   const data = {currency:'CNY', payment_gateway:null, available:false, payment_methods:[], unavailable_reason:'integration_unavailable'};
   const client = new NiuAdminClient({adminToken:'test', fetch:async(url,init)=>{calls.push({url,init});return Response.json({data});}});
   assert.deepEqual(await client.getCustomerPaymentMethods(id,{signal:abort.signal}),{data});
-  assert.ok(calls[0].url.endsWith(`/admin/v1/organizations/${id}/billing/payment-methods`));
+  assert.ok(calls[0].url.endsWith(`/api/v1/organizations/${id}/billing/payment-methods`));
   assert.equal(calls[0].init.method,'GET');
   assert.equal(calls[0].init.body,undefined);
   assert.equal(calls[0].init.signal,abort.signal);
@@ -158,7 +158,7 @@ test('account management preserves scope, cancellation and explicit auth', async
   }});
   await client.listAccounts(scope, { signal: abort.signal });
   await client.createAccount(scope, { provider: 'fixture', plan: 'monthly', authentication_mode: 'api_key', billing_mode: 'subscription', credential_reference: 'env:FIXTURE', concurrency_limit: 1 });
-  assert.equal(calls[0].url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/accounts`);
+  assert.equal(calls[0].url, `http://localhost:2555/api/v1/organizations/${id}/projects/${id}/accounts`);
   assert.equal(calls[0].init.headers.authorization, 'Bearer test-admin');
   assert.equal(calls[0].init.signal, abort.signal);
   assert.equal(calls[0].init.redirect, 'error');
@@ -381,7 +381,7 @@ test('retail tariff publication is workspace scoped, exact, revision aware and n
   }});
   await assert.rejects(client.publishCustomerTariff(scope, tariff, { signal: abort.signal }), e => e instanceof NiuAPIError && e.status === 409);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/billing/tariffs`);
+  assert.equal(calls[0].url, `http://localhost:2555/api/v1/organizations/${id}/projects/${id}/billing/tariffs`);
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].init.signal, abort.signal);
   assert.deepEqual(JSON.parse(calls[0].init.body), tariff);
@@ -397,7 +397,7 @@ test('customer billing reads retain exact amounts and unknown counts', async () 
   assert.deepEqual(await client.getCustomerBilling(scope), { data });
   assert.equal(request.init.method, 'GET');
   assert.equal(request.init.body, undefined);
-  assert.equal(request.url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/billing`);
+  assert.equal(request.url, `http://localhost:2555/api/v1/organizations/${id}/projects/${id}/billing`);
 });
 
 
@@ -672,7 +672,7 @@ test('CSV exports preserve full-range filters, exact text, cancellation and redi
   const client = new NiuAdminClient({ adminToken: 'workspace-reader', fetch: async (input, init) => {
     calls++;
     const url = new URL(input);
-    assert.equal(url.pathname, `/admin/v1/organizations/${id}/projects/${id}/requests/export`);
+    assert.equal(url.pathname, `/api/v1/organizations/${id}/projects/${id}/requests/export`);
     assert.deepEqual(Object.fromEntries(url.searchParams), { sort: 'input_desc', from_ms: '1', to_ms: '2', model_alias: 'google/model & variant', key_id: id, status: 'confirmed_completed' });
     assert.equal(init.headers.authorization, 'Bearer workspace-reader');
     assert.equal(init.headers.accept, 'text/csv');
@@ -755,7 +755,7 @@ test('company balance read keeps exact amounts and organization scope', async ()
     transport = {url, init}; return Response.json({data});
   }});
   assert.deepEqual(await client.getCustomerBalance(id), {data});
-  assert.equal(transport.url, `http://localhost:2555/admin/v1/organizations/${id}/billing/balance`);
+  assert.equal(transport.url, `http://localhost:2555/api/v1/organizations/${id}/billing/balance`);
   assert.equal(transport.init.method, 'GET');
   assert.throws(() => client.getCustomerBalance('../foreign'), /UUID/);
 });
@@ -768,7 +768,7 @@ test('company ledger read preserves signed exact amounts, reversal linkage and c
     transport = {url, init}; return Response.json({data});
   }});
   assert.deepEqual(await client.getCustomerBalanceTransactions(id, {signal: abort.signal}), {data});
-  assert.equal(transport.url, `http://localhost:2555/admin/v1/organizations/${id}/billing/transactions`);
+  assert.equal(transport.url, `http://localhost:2555/api/v1/organizations/${id}/billing/transactions`);
   assert.equal(transport.init.method, 'GET');
   assert.equal(transport.init.signal, abort.signal);
   assert.throws(() => client.getCustomerBalanceTransactions('../foreign'), /UUID/);
@@ -778,7 +778,7 @@ test('company ledger pagination validates cursor and preserves organization and 
  const abort=new AbortController();let transport;
  const client=new NiuAdminClient({adminToken:'test-admin',fetch:async (url,init)=>{transport={url,init};return Response.json({data:[],next_cursor:null});}});
  assert.deepEqual(await client.getCustomerBalanceTransactions(id,{before:id,signal:abort.signal}),{data:[],next_cursor:null});
- assert.equal(transport.url,`http://localhost:2555/admin/v1/organizations/${id}/billing/transactions?before=${id}`);
+ assert.equal(transport.url,`http://localhost:2555/api/v1/organizations/${id}/billing/transactions?before=${id}`);
  assert.equal(transport.init.signal,abort.signal);
  assert.throws(()=>client.getCustomerBalanceTransactions(id,{before:'../foreign'}),/UUID/);
 });

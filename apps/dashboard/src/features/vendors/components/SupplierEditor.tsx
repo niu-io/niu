@@ -31,7 +31,7 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
     const controller = new AbortController();
     setSupplierLoading(true);
     setSupplierError('');
-    void request<{ data: Array<{ id: string; name: string }> }>(token, '/admin/v1/providers', 'GET', undefined, controller.signal)
+    void request<{ data: Array<{ id: string; name: string }> }>(token, '/api/v1/providers', 'GET', undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setSuppliers(result.data); })
       .catch(() => { if (!controller.signal.aborted) setSupplierError('Provider list could not be loaded.'); })
       .finally(() => { if (!controller.signal.aborted) setSupplierLoading(false); });

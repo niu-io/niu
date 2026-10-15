@@ -22,7 +22,7 @@ describe('media offer publication',()=>{
   expect((await screen.findByRole('alert')).textContent).toContain('Response unavailable');expect(writes).toHaveLength(1);
   expect((screen.getByLabelText('Model') as HTMLButtonElement).disabled).toBe(true);
   await user.click(screen.getByRole('button',{name:'Retry save'}));await waitFor(()=>expect(saved).toHaveBeenCalledTimes(1));
-  expect(writes).toHaveLength(2);expect(writes[1].body).toBe(writes[0].body);expect(writes[0].path).toBe('/admin/v1/providers/supplier-a/media-offers');
+  expect(writes).toHaveLength(2);expect(writes[1].body).toBe(writes[0].body);expect(writes[0].path).toBe('/api/v1/providers/supplier-a/media-offers');
   const body=JSON.parse(writes[0].body);expect(body).toMatchObject({model_alias:'fixture-video',vendor_id:vendor,vendor_revision:'4',model_revision:'2',schema_revision:'private-schema',expected_revision:offer});expect(body.revision).toMatch(/^[0-9a-f-]{36}$/);expect(body).not.toHaveProperty('prompt_rate');expect(body).not.toHaveProperty('customer_price');
  });
  it('keeps draft setup available without qualification and traverses bounded model pages',async()=>{
@@ -30,7 +30,7 @@ describe('media offer publication',()=>{
   vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>{paths.push(String(input));return Response.json(paths.length===1?{data:[],has_more:true,next_after:'a/model'}:{data:[{...model,offer_revision:null}],has_more:false,next_after:null});}));
   const user=userEvent.setup();render(<MediaOfferPublisher token="fixture" supplier="supplier-a" onClose={vi.fn()} onSaved={vi.fn()}/>);
   await user.click(await screen.findByRole('button',{name:'Load more models'}));await choose(user);
-  expect(paths[1]).toBe('/admin/v1/providers/supplier-a/media-offer-models?limit=50&after=a%2Fmodel');expect((screen.getByRole('button',{name:'Save offer'}) as HTMLButtonElement).disabled).toBe(false);
+  expect(paths[1]).toBe('/api/v1/providers/supplier-a/media-offer-models?limit=50&after=a%2Fmodel');expect((screen.getByRole('button',{name:'Save offer'}) as HTMLButtonElement).disabled).toBe(false);
  });
  it('forwards exact large revisions without rounding',async()=>{
   const writes:Record<string,unknown>[]=[];

@@ -1,12 +1,12 @@
 ---
 title: "Save an encrypted asset-management credential revision"
-description: "PUT /admin/v1/vendors/{id}/asset-management"
+description: "PUT /api/v1/vendors/{id}/asset-management"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/vendors/{id}/asset-management`
+`PUT /api/v1/vendors/{id}/asset-management`
 
 Installation administrator only. Direct Beijing Ark account required. Separate encryption binds the exact configuration, management revision and upstream project. Stale management or concurrently changed vendor revisions conflict. No upstream call, entitlement verification or dispatch activation occurs. Request body is limited to 16 KiB. Retention, revocation and lifecycle activation remain unqualified.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

@@ -1,12 +1,12 @@
 ---
 title: "List current media pricing configuration choices"
-description: "GET /admin/v1/providers/{provider}/media-rate-models"
+description: "GET /api/v1/providers/{provider}/media-rate-models"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/providers/{provider}/media-rate-models`
+`GET /api/v1/providers/{provider}/media-rate-models`
 
 Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
 
@@ -25,7 +25,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/providers/{provider}/media-rate-models"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-rate-models"
 ```
 
 ## Parameters

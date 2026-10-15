@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router';
 import KeyGuardrails from '../../../src/features/keys/components/KeyGuardrails';
 
 const policy = { name: 'Restricted policy', models: { mode: 'allow_list', values: ['example/model'] }, providers: { mode: 'inherit' }, input_rules: [{ preset: 'email_v1', action: 'redact' }] };
-const workspace = '/admin/v1/organizations/org/projects/workspace/guardrails';
-const endpoint = '/admin/v1/organizations/org/projects/workspace/keys/key/guardrail';
+const workspace = '/api/v1/organizations/org/projects/workspace/guardrails';
+const endpoint = '/api/v1/organizations/org/projects/workspace/keys/key/guardrail';
 function setup({ assigned = false, writer = true, active = true, failed = false, conflict = false, historyFailed = false, paginated = false, observation = false } = {}) {
   const writes: unknown[] = [];
   const reads: string[] = [];

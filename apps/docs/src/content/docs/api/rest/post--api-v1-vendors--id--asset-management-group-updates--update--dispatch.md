@@ -1,16 +1,16 @@
 ---
 title: "Dispatch a prepared ordinary-group metadata update once"
-description: "POST /admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch"
+description: "POST /api/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch`
+`POST /api/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch`
 
 Platform administrator only. Requires the exact saved workspace/account binding, retained authenticated patch and current original update qualification. Commits claim and group hold before credential release. Four execution slots, 30-second transport and 35-second outer deadline. Caller disconnect does not cancel the tracked worker. No replay or automatic retries; process loss leaves unresolved work. Acknowledgement is not read-back verification. Unacknowledged attempts remain uncertain and held, never falsely failed. No inference charge or automatic hold release.
 
-Operation: `post--admin-v1-vendors--id--asset-management-group-updates--update--dispatch`.
+Operation: `post--api-v1-vendors--id--asset-management-group-updates--update--dispatch`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

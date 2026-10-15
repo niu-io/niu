@@ -69,7 +69,7 @@ dashboard integration and self-registration are separate from this client.
 ```ts
 import { NiuAuthClient } from '@niu-io/sdk';
 
-const auth = new NiuAuthClient({ baseURL: 'https://niu.io/admin/v1' });
+const auth = new NiuAuthClient({ baseURL: 'https://niu.io/api/v1' });
 const signedIn = await auth.signIn({ email: memberEmail, password: memberPassword });
 // Store signedIn.token securely in the calling application's session layer.
 // It grants the member's existing permissions, never installation access.
@@ -100,7 +100,7 @@ import { NiuAdminClient } from '@niu-io/sdk';
 
 const admin = new NiuAdminClient({
   adminToken: process.env.NIU_ADMIN_TOKEN!,
-  baseURL: 'http://localhost:2555/admin/v1',
+  baseURL: 'http://localhost:2555/api/v1',
 });
 const scope = {
   organizationId: process.env.NIU_ORGANIZATION_ID!,
@@ -210,7 +210,7 @@ await collector.observeQuota(accountId, providerObservation);
 The collector interface exposes only `observeQuota`. Its scope is copied at construction, and the server enforces project ownership, expiry and revocation on every ingestion. It cannot query quota or register accounts; use the admin client in the operator application for those operations. No retries, polling or credential refresh happen implicitly.
 ## Runnable usage investigation example
 
-After building the SDK, run `node examples/inspect-usage.mjs` from the SDK directory. Set `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/admin/v1`), `NIU_ORGANIZATION_ID`, and `NIU_WORKSPACE_ID` through the environment. For local development, the base URL is `http://localhost:2566/admin/v1`. Optionally set `NIU_MODEL_ALIAS` to filter requests, or `NIU_REQUEST_STATUS=output_withheld` to investigate recorded blocked/indeterminate output. Withheld output does not cancel incurred usage or customer charges.
+After building the SDK, run `node examples/inspect-usage.mjs` from the SDK directory. Set `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/api/v1`), `NIU_ORGANIZATION_ID`, and `NIU_WORKSPACE_ID` through the environment. For local development, the base URL is `http://localhost:2566/api/v1`. Optionally set `NIU_MODEL_ALIAS` to filter requests, or `NIU_REQUEST_STATUS=output_withheld` to investigate recorded blocked/indeterminate output. Withheld output does not cancel incurred usage or customer charges.
 
 Use an authorized server credential; an inference key cannot read the workspace feed. The example traverses pagination and prints aggregate usage and customer charges without credentials, payload content, or internal identifiers. Missing customer rates remain unpriced. Each summary reads one consistent database snapshot, including its histogram, usage breakdowns and customer charges. The traversal uses the first page’s summary; concurrent requests can change the number traversed.
 
@@ -239,7 +239,7 @@ Inspect shared company funds with the packaged example (no workspace selection i
 
 ```sh
 # Set NIU_ADMIN_TOKEN privately using your credential manager.
-export NIU_ADMIN_BASE_URL='http://localhost:2566/admin/v1'
+export NIU_ADMIN_BASE_URL='http://localhost:2566/api/v1'
 export NIU_ORGANIZATION_ID='YOUR_ORGANIZATION_UUID'
 node node_modules/@niu-io/sdk/examples/inspect-account-balance.mjs
 # Retrieve older pages as well:
@@ -283,7 +283,7 @@ After building the SDK, run the fixed synthetic example with an authorized
 workspace credential:
 
 ```sh
-NIU_ADMIN_BASE_URL=http://localhost:2566/admin/v1 \
+NIU_ADMIN_BASE_URL=http://localhost:2566/api/v1 \
 NIU_ADMIN_TOKEN="$WORKSPACE_ADMIN_TOKEN" \
 NIU_ORGANIZATION_ID="$ORGANIZATION_ID" \
 NIU_WORKSPACE_ID="$WORKSPACE_ID" \
@@ -319,7 +319,7 @@ may not. Preview does not activate these rules; include them in an explicitly ac
 
 `recordCustomerInvoicePayment(scope, invoiceId, paymentReference)` records a confirmed external payment through installation administration. It does not charge a card or transfer money. A conflicting reference is not silently overwritten. Do not invoke it for simulated payments against a real workspace.
 
-After building the SDK, run `node examples/inspect-billing.mjs` with `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/admin/v1`), `NIU_ORGANIZATION_ID`, and `NIU_WORKSPACE_ID`. The example only reads balances and the latest 100 invoices, checks each invoice's line totals using exact integer arithmetic, and prints periods/amounts/status without internal IDs or payment references. It does not issue invoices, record payments, or call a model. Unpriced and unresolved requests remain explicit.
+After building the SDK, run `node examples/inspect-billing.mjs` with `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/api/v1`), `NIU_ORGANIZATION_ID`, and `NIU_WORKSPACE_ID`. The example only reads balances and the latest 100 invoices, checks each invoice's line totals using exact integer arithmetic, and prints periods/amounts/status without internal IDs or payment references. It does not issue invoices, record payments, or call a model. Unpriced and unresolved requests remain explicit.
 
 `listGuardrailPreparationDenials(scope, options)` reads the latest 100 pre-admission access and local-input denials. It returns safe policy/key names, revision metadata, fixed reasons and server timestamps, with explicit limited coverage. It does not return request content or internal event/key identifiers. These decisions have no attempt; dispatch-time race denials and output inspection are not covered. Local input denials have explicit `local_input` coverage. Missing key policy metadata stays null. Workspace read access is required, and inference keys cannot read decisions.
 
@@ -337,7 +337,7 @@ Request metadata includes nullable `finish_reasons`, an array of allowlisted ter
 
 `admin.listWorkspaceKeys(scope, { signal })` reads scoped key metadata without secrets. `last_used_at_ms` is the latest durable dispatch intent in Unix milliseconds, including uncertain requests. Null means no attributed dispatch is recorded; authentication and pre-dispatch denial do not count as use. Rotation leaves the original key's history intact and starts the replacement without a dispatch record. This field does not establish upstream completion, task success or customer charges.
 
-Run `node examples/inspect-keys.mjs` from the built or extracted SDK package with `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/admin/v1`), `NIU_ORGANIZATION_ID` and `NIU_WORKSPACE_ID`. Use a scoped read credential where available. The example only reads metadata and prints key names, model grants, status, expiry and latest dispatch time. It omits internal identifiers and credentials. A null dispatch time with `activityAvailable: true` means no recorded dispatch; `false` means an older endpoint did not report activity. Authorization failures produce a failure exit rather than an empty key list.
+Run `node examples/inspect-keys.mjs` from the built or extracted SDK package with `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/api/v1`), `NIU_ORGANIZATION_ID` and `NIU_WORKSPACE_ID`. Use a scoped read credential where available. The example only reads metadata and prints key names, model grants, status, expiry and latest dispatch time. It omits internal identifiers and credentials. A null dispatch time with `activityAvailable: true` means no recorded dispatch; `false` means an older endpoint did not report activity. Authorization failures produce a failure exit rather than an empty key list.
 
 ### Required external input checks
 

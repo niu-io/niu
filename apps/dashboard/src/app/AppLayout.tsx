@@ -109,7 +109,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
     }
     const controller = new AbortController();
     setLoading(true);setError('');
-    void request<{data: {id: string; name: string}[]}>(context.token, '/admin/v1/providers', 'GET', undefined, controller.signal)
+    void request<{data: {id: string; name: string}[]}>(context.token, '/api/v1/providers', 'GET', undefined, controller.signal)
       .then(result => {
         if (!Array.isArray(result.data)) throw new Error('Invalid provider list');
         if (!controller.signal.aborted) { setSuppliers(result.data);setDirectoryOwner(context.token);setError(''); }
@@ -227,7 +227,7 @@ export default function AppLayout() {
     setAdminSupplierName('');
     if (!adminSupplierId || !token) return;
     const controller = new AbortController();
-    void request<{ data: {id: string; name: string}[] }>(token, '/admin/v1/providers', 'GET', undefined, controller.signal).then(result => {
+    void request<{ data: {id: string; name: string}[] }>(token, '/api/v1/providers', 'GET', undefined, controller.signal).then(result => {
       if (!controller.signal.aborted) setAdminSupplierName(result.data.find(item => item.id === adminSupplierId)?.name ?? 'Provider unavailable');
     }).catch(() => {});
     return () => controller.abort();
@@ -273,7 +273,7 @@ export default function AppLayout() {
     connectionController.current = controller;
     const revision = ++connectionRevision.current;
     try {
-      const sessionResponse = await fetch('/admin/v1/session', {
+      const sessionResponse = await fetch('/api/v1/session', {
         headers: { authorization: 'Bearer ' + credential },
         signal: controller.signal,
       });
@@ -304,7 +304,7 @@ export default function AppLayout() {
     try {
       if (token === 'niu-browser-member-session' || session?.kind === 'operator') {
         const browser = token === 'niu-browser-member-session';
-        const response = await fetch(browser ? '/admin/v1/auth/browser/logout' : '/admin/v1/auth/logout', {
+        const response = await fetch(browser ? '/api/v1/auth/browser/logout' : '/api/v1/auth/logout', {
           method: 'POST', cache: 'no-store',
           headers: browser ? undefined : { authorization: `Bearer ${token}` },
         });
@@ -355,7 +355,7 @@ export default function AppLayout() {
     try { if (sessionStorage.getItem('niu.signed-out') === '1') { setSessionChecked(true); return; } } catch { /* Storage is optional. */ }
     const controller = new AbortController();
     void (async () => {
-      const configured = await fetch('/admin/v1/auth/config', { signal: controller.signal, cache: 'no-store' });
+      const configured = await fetch('/api/v1/auth/config', { signal: controller.signal, cache: 'no-store' });
       if (configured.ok && (await configured.json()).password_login === true) {
         await authenticate('niu-browser-member-session', true);
         return null;
@@ -378,7 +378,7 @@ export default function AppLayout() {
     const revision = connectionRevision.current;
     const query = modelOrganizationId ? '?organization_id=' + encodeURIComponent(modelOrganizationId) + (modelWorkspaceId ? '&project_id=' + encodeURIComponent(modelWorkspaceId) : '') : '';
     try {
-      const response = await fetch('/admin/v1/models' + query, {
+      const response = await fetch('/api/v1/models' + query, {
         headers: { authorization: `Bearer ${token}` },
         signal: AbortSignal.any([connection.signal, controller.signal]),
       });
@@ -409,7 +409,7 @@ export default function AppLayout() {
     if (!await gateway.check()) return;
     if (token && controller && revision === connectionRevision.current && !controller.signal.aborted) {
       try {
-        const response = await fetch('/admin/v1/session', {
+        const response = await fetch('/api/v1/session', {
           headers: { authorization: 'Bearer ' + token },
           signal: controller.signal,
         });
@@ -482,13 +482,13 @@ export default function AppLayout() {
     setWorkspaceError(null);
     const headers = { authorization: `Bearer ${token}` };
     void Promise.all([
-      fetch('/admin/v1/organizations', { headers, signal: controller.signal }),
-      fetch('/admin/v1/workspaces', { headers, signal: controller.signal }),
+      fetch('/api/v1/organizations', { headers, signal: controller.signal }),
+      fetch('/api/v1/workspaces', { headers, signal: controller.signal }),
     ]).then(async ([organizationResponse, workspaceResponse]) => {
       if (!organizationResponse.ok || !workspaceResponse.ok) {
         const [endpoint, response] = !organizationResponse.ok
-          ? ['/admin/v1/organizations', organizationResponse]
-          : ['/admin/v1/workspaces', workspaceResponse];
+          ? ['/api/v1/organizations', organizationResponse]
+          : ['/api/v1/workspaces', workspaceResponse];
         setWorkspaceError({ kind: 'api', endpoint, status: response.status });
         return;
       }
@@ -559,7 +559,7 @@ export default function AppLayout() {
 
   const createWorkspace = useCallback(async (name: string, organizationId?: string) => {
     if (!token) throw new Error('Sign in before creating a workspace.');
-    const response = await fetch('/admin/v1/workspaces', {
+    const response = await fetch('/api/v1/workspaces', {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ name, organization_id: organizationId || null }),
@@ -584,7 +584,7 @@ export default function AppLayout() {
   const renameWorkspace = useCallback(async (target: Workspace, name: string) => {
     const revision = connectionRevision.current;
     const result = await request<{id: string; name: string}>(token,
-      `/admin/v1/organizations/${target.organization_id}/projects/${target.id}`, 'PATCH', {name: name.trim()});
+      `/api/v1/organizations/${target.organization_id}/projects/${target.id}`, 'PATCH', {name: name.trim()});
     if (result.id !== target.id || typeof result.name !== 'string' || !result.name.trim()) throw new Error('Could not confirm the workspace name. Reload before retrying.');
     const renamed = {...target, name: result.name};
     if (revision !== connectionRevision.current) return renamed;
@@ -602,7 +602,7 @@ export default function AppLayout() {
 
   const deleteWorkspace = useCallback(async (target: Workspace) => {
     const revision = connectionRevision.current;
-    await request(token, `/admin/v1/organizations/${target.organization_id}/projects/${target.id}`, 'DELETE');
+    await request(token, `/api/v1/organizations/${target.organization_id}/projects/${target.id}`, 'DELETE');
     if (revision !== connectionRevision.current) return;
     const current = workspaceNavigation.current;
     const remaining = current.workspaces.filter(item => item.id !== target.id);

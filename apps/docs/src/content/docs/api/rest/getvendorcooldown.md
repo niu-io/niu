@@ -1,12 +1,12 @@
 ---
 title: "Read credential safe-failure cooldown"
-description: "GET /admin/v1/vendors/{vendor}/cooldown"
+description: "GET /api/v1/vendors/{vendor}/cooldown"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/vendors/{vendor}/cooldown`
+`GET /api/v1/vendors/{vendor}/cooldown`
 
 Platform administration only. Fixed policy: three new canonical OpenRouter text authentication rejections with pinned nonexecution qualification within 60 seconds pause new selection for 60 seconds. Further qualifying in-flight failures may extend the deadline; unknown execution never counts. State is shared in PostgreSQL, independent per credential, and survives restart and credential edits. Expiry automatically restores eligibility without a health probe or republish. Does not cancel pinned requests or saved video recovery. No historical failures are backfilled. This read performs no upstream request.
 
@@ -32,8 +32,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/vendors/{vendor}/cooldown" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{vendor}/cooldown" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

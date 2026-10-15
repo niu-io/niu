@@ -11,7 +11,7 @@ async function run(t, account, entry, status=200, pages=null) {
   res.end(JSON.stringify(status===200 ? body : {error:{message:'private-response-body'}}));
  });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve)); t.after(()=>server.close());
- const child=spawn(process.execPath,[new URL('../examples/inspect-account-balance.mjs',import.meta.url).pathname,...(pages ? ['--all'] : [])],{env:{...process.env,NIU_ADMIN_TOKEN:'private-balance-test',NIU_ADMIN_BASE_URL:`http://127.0.0.1:${server.address().port}/admin/v1`,NIU_ORGANIZATION_ID:id}});
+ const child=spawn(process.execPath,[new URL('../examples/inspect-account-balance.mjs',import.meta.url).pathname,...(pages ? ['--all'] : [])],{env:{...process.env,NIU_ADMIN_TOKEN:'private-balance-test',NIU_ADMIN_BASE_URL:`http://127.0.0.1:${server.address().port}/api/v1`,NIU_ORGANIZATION_ID:id}});
  let stdout='',stderr=''; child.stdout.on('data',x=>stdout+=x);child.stderr.on('data',x=>stderr+=x);
  const code=await new Promise((resolve,reject)=>{child.on('close',resolve);child.on('error',reject);});return {code,stdout,stderr};
 }

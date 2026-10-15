@@ -34,7 +34,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
   useEffect(() => () => { photoRequest.current += 1; }, [token]);
   useEffect(() => {
     const read = new AbortController();setLoading(true);setLoadFailed(false);setError('');
-    void request<{data:MemberProfile}>(token,'/admin/v1/auth/profile','GET',undefined,read.signal).then(result=>{
+    void request<{data:MemberProfile}>(token,'/api/v1/auth/profile','GET',undefined,read.signal).then(result=>{
       if (read.signal.aborted) return;
       if (!validProfile(result.data)) throw new Error('Invalid profile response');
       setProfile(result.data);setName(result.data.name);setAvatar(result.data.avatar_data_url);
@@ -71,7 +71,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
     event.preventDefault();if (!profile || loading || loadFailed || conflict || unconfirmed || saving || processing) return;
     const pending=new AbortController();controller.current=pending;setSaving(true);setError('');setSaved(false);
     try {
-      const result=await request<{data:MemberProfile}>(token,'/admin/v1/auth/profile','PUT',{name:name.trim(),avatar_data_url:avatar,expected_revision:profile.revision},pending.signal);
+      const result=await request<{data:MemberProfile}>(token,'/api/v1/auth/profile','PUT',{name:name.trim(),avatar_data_url:avatar,expected_revision:profile.revision},pending.signal);
       if (!validProfile(result.data)) throw new Error('Invalid profile response');
       if (!pending.signal.aborted) {setProfile(result.data);setName(result.data.name);setAvatar(result.data.avatar_data_url);onSaved(result.data);setSaved(true);}
     } catch (failure) {

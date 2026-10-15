@@ -1,16 +1,16 @@
 ---
 title: "Recover an encrypted ordinary group read result"
-description: "GET /admin/v1/vendors/{id}/asset-management/group-reads/{read}"
+description: "GET /api/v1/vendors/{id}/asset-management/group-reads/{read}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /admin/v1/vendors/{id}/asset-management/group-reads/{read}`
+`GET /api/v1/vendors/{id}/asset-management/group-reads/{read}`
 
 Platform administrator only. No upstream request. Requires the original read grant, account and credential revisions to remain current. Returns only retained descriptive fields, with Cache-Control no-store; absent, pending, failed, expired, deleted or revoked results return 404. Retention is 24 hours from completion. Backup retention remains an operational responsibility.
 
-Operation: `get--admin-v1-vendors--id--asset-management-group-reads--read-`.
+Operation: `get--api-v1-vendors--id--asset-management-group-reads--read-`.
 
 ## Authentication
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/vendors/{id}/asset-management/group-reads/{read}" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-reads/{read}" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters

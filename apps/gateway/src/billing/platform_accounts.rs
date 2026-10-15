@@ -10,7 +10,7 @@ pub struct AccountPage {
 
 /// ```openapi
 /// {
-///   "path": "/admin/v1/platform/customer-accounts",
+///   "path": "/api/v1/platform/customer-accounts",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformCustomerAccounts",

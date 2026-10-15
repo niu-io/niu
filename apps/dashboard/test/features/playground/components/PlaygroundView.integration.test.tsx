@@ -109,7 +109,7 @@ describe('Global Chat', () => {
   });
   it.each(['older', 'missing'])('opens only the explicitly requested saved session: %s', async requested => {
     for (const [id, prompt, createdAt] of [['latest', 'Latest conversation', 2], ['older', 'Requested conversation', 1]] as const) {
-      serverChats.set(`/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/${id}`, {
+      serverChats.set(`/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/${id}`, {
         id, prompt, createdAt, results: [],
       });
     }
@@ -170,7 +170,7 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
     const user=userEvent.setup();renderPlayground(['fast','other']);
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
-    serverDrafts.set('/admin/v1/organizations/org-a/projects/workspace-a/chat-draft',{revision:1,payload:{sessionId:null,prompt:'Other tab',models:['fast'],attachments:[],settings:{systemPrompt:'Remote instructions',maxTokens:512,temperature:0.7,logPayloads:true}}});
+    serverDrafts.set('/api/v1/organizations/org-a/projects/workspace-a/chat-draft',{revision:1,payload:{sessionId:null,prompt:'Other tab',models:['fast'],attachments:[],settings:{systemPrompt:'Remote instructions',maxTokens:512,temperature:0.7,logPayloads:true}}});
     await user.type(screen.getByLabelText('Prompt for all selected models'),'My local draft');
     await user.click(screen.getByRole('button',{name:'Chat settings',exact:true}));
     await user.type(screen.getByLabelText('System instructions'),'My local instructions');
@@ -237,7 +237,7 @@ describe('Global Chat', () => {
   });
 
   it('preserves a saved model selection while the account catalog reloads', async () => {
-    serverChats.set('/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved', {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved', {
       id: 'saved', prompt: 'Saved selection', createdAt: 1,
       results: [{ model: 'fast', content: 'Saved answer', phase: 'complete', elapsedMs: 10,
         promptTokens: 1, completionTokens: 1, totalTokens: 2, attemptId: null, error: null }],
@@ -282,7 +282,7 @@ describe('Global Chat', () => {
     });
     expect(JSON.parse(content)).toEqual(exported);
     const call = fetch.mock.calls.find(([input]) => String(input).endsWith('/export'));
-    expect(String(call?.[0])).toBe('/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved/export');
+    expect(String(call?.[0])).toBe('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved/export');
   });
   it('keeps history and reports failed export without downloading', async () => {
     const item = { id: 'saved', prompt: 'Saved diagnosis', createdAt: 1, results: [] };
@@ -297,7 +297,7 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: 'Actions for Saved diagnosis' })).toBeTruthy();
   });
   it('restores customer charge states without displaying legacy Provider accounting', async () => {
-    serverChats.set('/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/accounting', {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/accounting', {
       id: 'accounting', prompt: 'Customer accounting', createdAt: 1,
       results: ['charged', 'pending', 'unpriced', 'not_charged', 'owner_funded'].map((status, index) => ({
         model: ['fast', 'strong', 'balanced', 'unused', 'personal'][index], content: 'Fixture response', phase: 'complete', elapsedMs: 10,
@@ -354,7 +354,7 @@ describe('Global Chat', () => {
     ]);
   });
   it('confirms server deletion and clears the active conversation after success', async () => {
-    const url = '/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved';
+    const url = '/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved';
     serverChats.set(url, { id: 'saved', prompt: 'Saved diagnosis', createdAt: 1, results: [] });
     stubFetch(vi.fn(async () => jsonResponse({ data: [] })));
     const user = userEvent.setup();
@@ -392,7 +392,7 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: 'Actions for Saved diagnosis' })).toBeTruthy();
   });
   it('opens a catalog model in a fresh draft while preserving earlier conversations', async () => {
-    serverChats.set('/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/older', {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/older', {
       id:'older', prompt:'Earlier task', createdAt:1,
       results:[{model:'other',content:'Earlier response',phase:'complete',elapsedMs:10,promptTokens:null,completionTokens:null,totalTokens:null,attemptId:null,error:null}],
     });
@@ -405,7 +405,7 @@ describe('Global Chat', () => {
     expect(serverChats.size).toBe(1);
   });
   it('starts a fresh single-model draft from key setup without replacing saved history', async () => {
-    serverChats.set('/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/older', {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/older', {
       id: 'older', prompt: 'Earlier task', createdAt: 1,
       results: [{ model: 'other', content: 'Earlier response', phase: 'complete', elapsedMs: 10,
         promptTokens: null, completionTokens: null, totalTokens: null, attemptId: null,
@@ -669,7 +669,7 @@ describe('Global Chat', () => {
           if (pendingInference.length === 3) allInferenceStarted();
         });
       }
-      if (url.startsWith(`/admin/v1/organizations/${scope.organizationId}/projects/${scope.workspaceId}/requests/`)) {
+      if (url.startsWith(`/api/v1/organizations/${scope.organizationId}/projects/${scope.workspaceId}/requests/`)) {
         const attempt = url.split('/').at(-1);
         const entries = [
           { attempt_id: 'attempt-fast', customer_charge_status: 'charged', customer_charge_nanos: '1000000', customer_charge_currency: 'USD', cash_nanos: '999999999999', api_equivalent_nanos: '999999999999', currency: 'EUR' },
@@ -955,7 +955,7 @@ it('keeps archived content when restore fails and distinguishes archive read err
 
 it('persists existing chat settings on panel dismissal without sending another message', async () => {
  serverChats.clear();
- const url='/admin/v1/organizations/org-a/projects/workspace-a/chat-sessions/settings-only';
+ const url='/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/settings-only';
  const originalResponse={model:'fast',content:'Original answer',phase:'complete',elapsedMs:10,promptTokens:1,completionTokens:1,totalTokens:2,attemptId:null,error:null};
  serverChats.set(url,{id:'settings-only',prompt:'Saved conversation',createdAt:1,results:[originalResponse],settings:{systemPrompt:'',maxTokens:512,temperature:0.7,logPayloads:true}});
  stubFetch(vi.fn(async ()=>jsonResponse({data:[]})));

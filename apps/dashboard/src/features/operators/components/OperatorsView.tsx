@@ -76,7 +76,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setOpenedRoleContext('');
     setRoleOpenError('');
     setRoleRefreshError('');
-    void request<{data: Operator[]}>(token, '/admin/v1/operators', 'GET', undefined, controller.signal)
+    void request<{data: Operator[]}>(token, '/api/v1/operators', 'GET', undefined, controller.signal)
       .then(result => {
         if (controller.signal.aborted) return;
         const saved = result.data.find(item => item.id === selectedOperatorId);
@@ -101,8 +101,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setRoleRefreshError('');
     try {
       const result = nextRole
-        ? await request<{ data: Operator }>(token, '/admin/v1/operators/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
-        : await request<{ data: Operator[] }>(token, '/admin/v1/operators', 'GET', undefined, controller.signal);
+        ? await request<{ data: Operator }>(token, '/api/v1/operators/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
+        : await request<{ data: Operator[] }>(token, '/api/v1/operators', 'GET', undefined, controller.signal);
       if (!current()) throw new DOMException('Role context changed.', 'AbortError');
       const saved = Array.isArray(result.data) ? result.data.find(item => item.id === context.operatorId) : result.data;
       if (!saved || saved.revoked || saved.organization_id !== context.organization
@@ -121,7 +121,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   }
 
   const loadOperators = useCallback(async (signal?: AbortSignal) => {
-    const result = await request<{ data: Operator[] }>(token, '/admin/v1/operators', 'GET', undefined, signal);
+    const result = await request<{ data: Operator[] }>(token, '/api/v1/operators', 'GET', undefined, signal);
     setOperators(result.data);
   }, [token]);
 
@@ -153,7 +153,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     try {
       const result = await request<{ data: OperatorAuditEvent[]; next_cursor: string | null }>(
         token,
-        '/admin/v1/operators/' + operatorId + '/events' + query,
+        '/api/v1/operators/' + operatorId + '/events' + query,
         'GET',
         undefined,
         requestSignal,
@@ -176,7 +176,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         try {
           const firstPage = await request<{ data: OperatorAuditEvent[]; next_cursor: string | null }>(
             token,
-            '/admin/v1/operators/' + operatorId + '/events?limit=50',
+            '/api/v1/operators/' + operatorId + '/events?limit=50',
             'GET',
             undefined,
             requestSignal,
@@ -210,8 +210,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setLoading(true);
     setError('');
     Promise.all([
-      request<{ data: NamedResource[] }>(token, '/admin/v1/organizations', 'GET', undefined, controller.signal),
-      request<{ data: Operator[] }>(token, '/admin/v1/operators', 'GET', undefined, controller.signal),
+      request<{ data: NamedResource[] }>(token, '/api/v1/organizations', 'GET', undefined, controller.signal),
+      request<{ data: Operator[] }>(token, '/api/v1/operators', 'GET', undefined, controller.signal),
     ]).then(([organizationResult, operatorResult]) => {
       if (controller.signal.aborted) return;
       setOrganizations(organizationResult.data);
@@ -240,7 +240,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setProjects([]);
     request<{ data: NamedResource[] }>(
       token,
-      '/admin/v1/organizations/' + organization + '/projects',
+      '/api/v1/organizations/' + organization + '/projects',
       'GET',
       undefined,
       controller.signal,
@@ -268,7 +268,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setSessionsLoading(true);
     request<{ data: OperatorSession[] }>(
       token,
-      '/admin/v1/operators/' + selectedOperatorId + '/sessions',
+      '/api/v1/operators/' + selectedOperatorId + '/sessions',
       'GET',
       undefined,
       controller.signal,
@@ -330,7 +330,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     void perform(async () => {
       const result = await request<{ operator: Operator } & IssuedSession>(
         token,
-        '/admin/v1/operators',
+        '/api/v1/operators',
         'POST',
         {
           organization_id: organization,
@@ -355,7 +355,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     void perform(async () => {
       const result = await request<IssuedSession>(
         token,
-        '/admin/v1/operators/' + operatorId + '/sessions',
+        '/api/v1/operators/' + operatorId + '/sessions',
         'POST',
         { expires_in_seconds: expiresInSeconds },
       );
@@ -368,7 +368,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
 
   function onRevokeOperator(operator: Operator) {
     void perform(async () => {
-      await request<void>(token, '/admin/v1/operators/' + operator.id, 'DELETE');
+      await request<void>(token, '/api/v1/operators/' + operator.id, 'DELETE');
       setOperators(previous => previous.map(item => item.id === operator.id ? { ...item, revoked: true } : item));
       setSessions(previous => previous.map(item => ({ ...item, revoked: true })));
       if (credential?.operatorId === operator.id) setCredential(null);
@@ -383,7 +383,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     void perform(async () => {
       await request<void>(
         token,
-        '/admin/v1/operators/' + operatorId + '/sessions/' + sessionId,
+        '/api/v1/operators/' + operatorId + '/sessions/' + sessionId,
         'DELETE',
       );
       setSessions(previous => previous.map(item => item.id === sessionId ? { ...item, revoked: true } : item));

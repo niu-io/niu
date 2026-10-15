@@ -12,7 +12,7 @@ describe('workspace recovery copy', () => {
     expect(screen.getByRole('link',{name:'Open an available workspace'})).toBeTruthy();
   });
   it.each([401,403])('does not suggest installation-wide access to recover an account error (%s)', status => {
-    const {container}=render(<MemoryRouter><WorkspaceRecovery problem={{kind:'api',status,endpoint:'/admin/v1/workspaces'}} onRetry={vi.fn()}/></MemoryRouter>);
+    const {container}=render(<MemoryRouter><WorkspaceRecovery problem={{kind:'api',status,endpoint:'/api/v1/workspaces'}} onRetry={vi.fn()}/></MemoryRouter>);
     expect(container.textContent).not.toContain('installation administrator');
     expect(container.textContent).not.toContain('administrator credential');
   });

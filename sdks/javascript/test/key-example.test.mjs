@@ -15,7 +15,7 @@ async function run(t, status, body) {
   t.after(() => server.close());
   const child = spawn(process.execPath, [new URL('../examples/inspect-keys.mjs', import.meta.url).pathname], {
     env: { ...process.env, NIU_ADMIN_TOKEN: 'key-example-private',
-      NIU_ADMIN_BASE_URL: `http://127.0.0.1:${server.address().port}/admin/v1`,
+      NIU_ADMIN_BASE_URL: `http://127.0.0.1:${server.address().port}/api/v1`,
       NIU_ORGANIZATION_ID: '12345678-1234-1234-1234-123456789abc',
       NIU_WORKSPACE_ID: '22345678-1234-1234-1234-123456789abc' },
   });

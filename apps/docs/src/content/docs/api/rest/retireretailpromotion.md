@@ -1,12 +1,12 @@
 ---
 title: "Append a promotion eligibility cutoff"
-description: "POST /admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire"
+description: "POST /api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire`
+`POST /api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Append-only explicit retirement, at most one cutoff for this promotion. Cutoff cannot extend its published end; a cutoff before its start cancels a future rule. Exact epoch-second strings and configuration version are required. Published schedules and already pinned operations/jobs stay immutable. This does not trigger a customer refund or change routing.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

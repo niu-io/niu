@@ -52,7 +52,7 @@ export function workspaceKeyPath(workspaceId: string) {
 }
 
 export function projectKeyPath(organization: string, project: string) {
-  return `/admin/v1/organizations/${encodeURIComponent(organization)}/projects/${encodeURIComponent(project)}/keys`;
+  return `/api/v1/organizations/${encodeURIComponent(organization)}/projects/${encodeURIComponent(project)}/keys`;
 }
 
 export async function keyRequest<T>(

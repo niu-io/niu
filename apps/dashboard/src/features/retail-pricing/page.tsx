@@ -17,7 +17,7 @@ import { SellingSchedule } from './schedule';
 import { PromotionsManager } from './promotions';
 import type { RetailPriceRecord, RetailPriceHistory } from '../../../../../sdks/javascript/src/admin';
 
-const base = '/admin/v1/pricing/standard-prices';
+const base = '/api/v1/pricing/standard-prices';
 const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : 'Date unavailable';
 const seconds = (value: string) => /^\d+$/.test(value) ? date(new Date(Number(value) * 1000).toISOString()) : 'Date unavailable';
 export default function RetailPricingRoute() {

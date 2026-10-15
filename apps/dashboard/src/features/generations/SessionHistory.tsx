@@ -38,14 +38,14 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const [deleteError,setDeleteError]=useState('');
   const actionButtons=useRef(new Map<string,HTMLButtonElement>());
   const deleteOpener=useRef<HTMLButtonElement|null>(null);
-  const client=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/admin/v1',window.location.origin).href}):null,[token]);
+  const client=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(false);
   const [revision,setRevision]=useState(0);
   useEffect(()=>{const refresh=()=>setRevision(value=>value+1);window.addEventListener('niu:video-intent-saved',refresh);return()=>window.removeEventListener('niu:video-intent-saved',refresh);},[]);
   const [cursors,setCursors]=useState<VideoCursor[]>([]);
   const loadedScope=useRef('');
-  const scope=workspace ? `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}` : '';
+  const scope=workspace ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}` : '';
   useEffect(()=>{
     const controller=new AbortController();
     const nextScope=JSON.stringify([token,scope]);
@@ -69,7 +69,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       const pending=Array.from({length:Math.min(4,queue.length)},async()=>{
         while(queue.length && !controller.signal.aborted){
           const item=queue.shift()!;
-          const currentScope=`/admin/v1/organizations/${item.organization_id}/projects/${item.id}`;
+          const currentScope=`/api/v1/organizations/${item.organization_id}/projects/${item.id}`;
           const tenant={organizationId:item.organization_id,projectId:item.id};
           try{
             const page=await videoIntentHistory(client!,tenant,{limit:25},{signal:controller.signal});

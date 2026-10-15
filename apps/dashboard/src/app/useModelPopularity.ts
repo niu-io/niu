@@ -26,7 +26,7 @@ export function useModelPopularity(models: Model[], token: string, organizationI
     setCounts({});
     if (!token || !organizationId || !projectId) return;
     const controller = new AbortController();
-    const path = `/admin/v1/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/requests?limit=100`;
+    const path = `/api/v1/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/requests?limit=100`;
     void fetch(path, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(async response => {
         if (!response.ok) return null;

@@ -344,7 +344,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     if (!selectedAttempt) return;
     const controller = new AbortController();
     setPayloadLoading(true);
-    void get<{data: typeof payload}>(`/admin/v1/organizations/${organization}/projects/${project}/requests/${selectedAttempt}/payloads`, token, controller.signal)
+    void get<{data: typeof payload}>(`/api/v1/organizations/${organization}/projects/${project}/requests/${selectedAttempt}/payloads`, token, controller.signal)
       .then(value => {
         const data = value?.data;
         if (data !== null && (!data || typeof data !== 'object' || !Object.hasOwn(data, 'request')
@@ -441,7 +441,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     setExporting(true);
     setExportError('');
     try {
-      const response = await fetch(`/admin/v1/organizations/${organization}/projects/${project}/requests/export${activityFilterQuery ? `?${activityFilterQuery}` : ''}`, {
+      const response = await fetch(`/api/v1/organizations/${organization}/projects/${project}/requests/export${activityFilterQuery ? `?${activityFilterQuery}` : ''}`, {
         signal: controller.signal, headers: { authorization: `Bearer ${token}`, accept: 'text/csv' },
       });
       if (!response.ok) throw new Error(response.status === 413
@@ -507,7 +507,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     setLoading(true);
     const query = new URLSearchParams(activityFilterQuery);
     query.set('limit', compact ? '10' : '100');
-    void get<{ data: GatewayRequest[]; next_cursor: string | null; summary: ActivitySummary }>(`/admin/v1/organizations/${organization}/projects/${project}/requests?${query}`, token, controller.signal)
+    void get<{ data: GatewayRequest[]; next_cursor: string | null; summary: ActivitySummary }>(`/api/v1/organizations/${organization}/projects/${project}/requests?${query}`, token, controller.signal)
       .then(value => { if (!controller.signal.aborted) { setRequests(value.data); setNextCursor(value.next_cursor); setSummary(value.summary); } })
       .catch(reason => { if (!controller.signal.aborted) setError((reason as Error).message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
@@ -529,7 +529,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     query.set('after', nextCursor);
     try {
       const value = await get<{ data: GatewayRequest[]; next_cursor: string | null; summary: ActivitySummary }>(
-        `/admin/v1/organizations/${organization}/projects/${project}/requests?${query}`,
+        `/api/v1/organizations/${organization}/projects/${project}/requests?${query}`,
         token,
         controller.signal,
       );
@@ -625,7 +625,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     const attempt = location.hash.startsWith(prefix) ? location.hash.slice(prefix.length) : '';
     if (!attempt || loading || error || !organization || !project || requests.some(item=>item.attempt_id===attempt)) return () => controller.abort();
     setLinkedLoading(true);
-    void get<{data:GatewayRequest}>(`/admin/v1/organizations/${organization}/projects/${project}/requests/${encodeURIComponent(attempt)}`,token,controller.signal)
+    void get<{data:GatewayRequest}>(`/api/v1/organizations/${organization}/projects/${project}/requests/${encodeURIComponent(attempt)}`,token,controller.signal)
       .then(value=>{
         if (controller.signal.aborted) return;
         if (!value.data || value.data.attempt_id !== attempt) throw new Error('Invalid request details');
@@ -772,7 +772,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           <RequestGuardrails
             key={`${token}:${organization}:${project}:${selectedRequest.attempt_id}`}
             token={token}
-            endpoint={`/admin/v1/organizations/${organization}/projects/${project}/requests/${selectedRequest.attempt_id}/guardrails`}
+            endpoint={`/api/v1/organizations/${organization}/projects/${project}/requests/${selectedRequest.attempt_id}/guardrails`}
             historyPath={`${location.pathname.match(/^\/workspaces\/[^/]+/)?.[0] ?? '/workspaces/default'}/guardrails/history`}
           />
           <div className="gateway-request-detail"><h3 className="mb-3 text-sm font-medium">Overview</h3><dl>{admissionDenial && <div><dt>Failure reason</dt><dd>{admissionDenial.kind === 'key_request_rate_exceeded' ? 'API key request rate limit reached' : 'API key request rate is zero'}<span className="block">Gateway HTTP 429</span></dd></div>}{selectedRequest.failure && <div><dt>Failure reason</dt><dd>{failureDescriptions[selectedRequest.failure.kind] ?? 'Not reported'}{Number.isInteger(selectedRequest.failure.upstream_http_status) && selectedRequest.failure.upstream_http_status! >= 100 && selectedRequest.failure.upstream_http_status! <= 599 && <span className="block">Upstream HTTP {selectedRequest.failure.upstream_http_status}</span>}</dd></div>}<div><dt>Provider model</dt><dd>{selectedRequest.provider_model ?? 'Unknown'}</dd></div><div><dt>Provider status</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div>{selectedRequest.request_kind !== 'video' && <div><dt>Finish reason</dt><dd>{selectedRequest.finish_reasons?.length ? selectedRequest.finish_reasons.map(choice => <span className="block" key={choice.index}>{selectedRequest.finish_reasons!.length > 1 ? `Choice ${choice.index + 1}: ` : ''}{{stop: 'Stopped', length: 'Token limit reached', tool_calls: 'Tool calls', content_filter: 'Content filter', function_call: 'Function call'}[choice.reason] ?? 'Unknown'}</span>) : 'Not reported'}</dd></div>}{selectedRequest.timing?.http_status != null && <div><dt>Delivery status</dt><dd>HTTP {selectedRequest.timing.http_status}</dd></div>}<div><dt>Time</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>{requestedKeyName ? 'Requested API key' : 'API key'}</dt><dd>{selectedRequest.key_name ?? requestedKeyName ?? 'Unknown'}</dd></div></dl></div>

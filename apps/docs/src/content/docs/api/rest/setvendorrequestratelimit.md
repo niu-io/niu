@@ -1,12 +1,12 @@
 ---
 title: "Set upstream credential request limit"
-description: "PUT /admin/v1/vendors/{vendor}/request-rate-limit"
+description: "PUT /api/v1/vendors/{vendor}/request-rate-limit"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /admin/v1/vendors/{vendor}/request-rate-limit`
+`PUT /api/v1/vendors/{vendor}/request-rate-limit`
 
 Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows. Storage operations use bounded transactions: read-only snapshots for reads and a recording transaction for updates, with transaction-local 250 ms lock and 2 s statement limits. Exceeded waits return sanitized 503; failed updates do not advance policy/history. These bounds exclude authorization and pool acquisition.
 
@@ -29,8 +29,8 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/vendors/{vendor}/request-rate-limit" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/vendors/{vendor}/request-rate-limit" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

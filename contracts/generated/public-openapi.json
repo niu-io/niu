@@ -377,7 +377,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds": {
+    "/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds": {
       "post": {
         "operationId": "publishMediaLiabilityQualification",
         "summary": "Publish an evidenced route media liability bound",
@@ -918,7 +918,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire": {
+    "/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire": {
       "post": {
         "operationId": "retireMediaLiabilityQualification",
         "summary": "Retire a route media liability bound",
@@ -1316,7 +1316,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/customers": {
+    "/api/v1/pricing/customers": {
       "get": {
         "operationId": "listRetailCustomerTargets",
         "summary": "List named companies for customer-specific promotions",
@@ -1414,7 +1414,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/standard-prices/models": {
+    "/api/v1/pricing/standard-prices/models": {
       "get": {
         "operationId": "listRegisteredRetailModels",
         "summary": "List registered shared models for standard-price preparation",
@@ -1503,7 +1503,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/standard-prices": {
+    "/api/v1/pricing/standard-prices": {
       "post": {
         "operationId": "publishRetailStandard",
         "summary": "Publish a platform standard selling-price revision",
@@ -1645,7 +1645,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/standard-prices/{price}/promotions": {
+    "/api/v1/pricing/standard-prices/{price}/promotions": {
       "post": {
         "operationId": "publishRetailPromotion",
         "summary": "Publish one finite global or customer price",
@@ -1931,7 +1931,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire": {
+    "/api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire": {
       "post": {
         "operationId": "retireRetailPromotion",
         "summary": "Append a promotion eligibility cutoff",
@@ -2013,7 +2013,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/standard-prices/{price}/history": {
+    "/api/v1/pricing/standard-prices/{price}/history": {
       "get": {
         "operationId": "getRetailPriceHistory",
         "summary": "Read immutable standard and promotion history",
@@ -2130,7 +2130,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/standard-prices/{price}/preview": {
+    "/api/v1/pricing/standard-prices/{price}/preview": {
       "get": {
         "operationId": "previewRetailPrice",
         "summary": "Preview a customer applicable price",
@@ -2725,7 +2725,7 @@
         ]
       }
     },
-    "/admin/v1/platform/customer-accounts": {
+    "/api/v1/platform/customer-accounts": {
       "get": {
         "operationId": "listPlatformCustomerAccounts",
         "summary": "Discover named customer accounts for platform financial administration",
@@ -2871,7 +2871,7 @@
         ]
       }
     },
-    "/admin/v1/financial-summary": {
+    "/api/v1/financial-summary": {
       "get": {
         "operationId": "getCustomerFinancialSummary",
         "summary": "Read platform customer revenue and cash receipt summary",
@@ -3226,7 +3226,7 @@
         ]
       }
     },
-    "/admin/v1/commercial-position": {
+    "/api/v1/commercial-position": {
       "get": {
         "operationId": "getCommercialPosition",
         "summary": "Compare installation commercial Provider positions",
@@ -8651,7 +8651,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke": {
+    "/api/v1/providers/{provider}/offers/{offer}/qualification/revoke": {
       "post": {
         "operationId": "revokeProviderOfferQualification",
         "x-niu-implementation": "implemented",
@@ -8763,7 +8763,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/offers/{offer}/qualification": {
+    "/api/v1/providers/{provider}/offers/{offer}/qualification": {
       "put": {
         "operationId": "qualifyProviderOffer",
         "x-niu-implementation": "implemented",
@@ -8919,7 +8919,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/qualification/revoke": {
+    "/api/v1/providers/{provider}/qualification/revoke": {
       "post": {
         "operationId": "revokeProviderBusinessQualification",
         "x-niu-implementation": "implemented",
@@ -9022,7 +9022,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/qualification": {
+    "/api/v1/providers/{provider}/qualification": {
       "put": {
         "operationId": "qualifyProviderBusiness",
         "x-niu-implementation": "implemented",
@@ -9682,7 +9682,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/configuration-usage": {
+    "/api/v1/providers/{provider}/configuration-usage": {
       "get": {
         "operationId": "getProviderConfigurationUsage",
         "summary": "Inspect operational usage of Provider-owned configurations",
@@ -10287,7 +10287,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs": {
+    "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs": {
       "get": {
         "operationId": "listPlatformCustomerTariffs",
         "summary": "Page current customer selling tariffs",
@@ -10524,7 +10524,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/models": {
+    "/api/v1/pricing/models": {
       "get": {
         "operationId": "listPlatformPricingModels",
         "summary": "List models eligible for customer tariff publication",
@@ -10613,7 +10613,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/targets": {
+    "/api/v1/pricing/targets": {
       "get": {
         "operationId": "listPlatformPricingTargets",
         "summary": "Discover named platform pricing targets",
@@ -10721,7 +10721,7 @@
         ]
       }
     },
-    "/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history": {
+    "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history": {
       "get": {
         "operationId": "listPlatformCustomerTariffHistory",
         "summary": "Read platform customer selling-price history",
@@ -10848,7 +10848,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{vendor}/cooldown": {
+    "/api/v1/vendors/{vendor}/cooldown": {
       "get": {
         "operationId": "getVendorCooldown",
         "summary": "Read credential safe-failure cooldown",
@@ -10953,7 +10953,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{vendor}/request-rate-limit/history": {
+    "/api/v1/vendors/{vendor}/request-rate-limit/history": {
       "get": {
         "operationId": "listVendorRequestRateLimitHistory",
         "summary": "Read credential request-limit history",
@@ -11040,7 +11040,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{vendor}/request-rate-limit": {
+    "/api/v1/vendors/{vendor}/request-rate-limit": {
       "get": {
         "operationId": "getVendorRequestRateLimit",
         "summary": "Read upstream credential request limit",
@@ -11198,7 +11198,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/offers/{offer}/revisions": {
+    "/api/v1/providers/{provider}/offers/{offer}/revisions": {
       "get": {
         "operationId": "listProviderOfferHistory",
         "summary": "List immutable Provider quote history",
@@ -12131,7 +12131,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/members": {
+    "/api/v1/providers/{provider}/members": {
       "get": {
         "operationId": "listProviderMembers",
         "summary": "List Provider business members",
@@ -12380,14 +12380,14 @@
         ]
       }
     },
-    "/admin/v1/platform/financial-recovery": {
+    "/api/v1/platform/financial-recovery": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getFinancialRecoveryDiagnostics",
         "summary": "Read committed financial recovery progress",
         "description": "Platform administrators only. Stages are ordered by name. Null step fields mean no durable worker step has committed since diagnostics were installed. Counts describe the last committed candidate page, not settled rows, total backlog or throughput. A cursor indicates traversal position, not remaining recoverable debt. Zero failures does not establish settlement. Storage failures leave previous committed diagnostics unchanged and are reported separately in worker logs. No attempt IDs, amounts or credentials.",
         "tags": [
-          "Platform operations"
+          "Audit and recovery"
         ],
         "security": [
           {
@@ -12477,7 +12477,7 @@
         }
       }
     },
-    "/admin/v1/platform/audit-events": {
+    "/api/v1/platform/audit-events": {
       "get": {
         "operationId": "listPlatformAuditEvents",
         "summary": "List platform operation audit logs",
@@ -12555,11 +12555,11 @@
           }
         },
         "tags": [
-          "Platform operations"
+          "Audit and recovery"
         ]
       }
     },
-    "/admin/v1/platform/configuration": {
+    "/api/v1/platform/configuration": {
       "get": {
         "operationId": "getPlatformConfiguration",
         "summary": "Read platform payment configuration presence",
@@ -12629,7 +12629,7 @@
           }
         },
         "tags": [
-          "Platform operations"
+          "Branding and settings"
         ]
       }
     },
@@ -13577,7 +13577,7 @@
         ]
       }
     },
-    "/admin/v1/operators/{operator}/password": {
+    "/api/v1/operators/{operator}/password": {
       "put": {
         "operationId": "setMemberPassword",
         "summary": "Provision or reset an existing member password",
@@ -14581,7 +14581,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}": {
+    "/api/v1/providers/{provider}/offers/{offer}/revisions/{revision}": {
       "get": {
         "operationId": "getProviderOfferRevision",
         "summary": "Read an immutable Provider procurement quote",
@@ -14659,7 +14659,7 @@
         ]
       }
     },
-    "/admin/v1/platform/payments/integrations": {
+    "/api/v1/platform/payments/integrations": {
       "get": {
         "operationId": "listPaymentIntegrations",
         "summary": "List supported payment integrations",
@@ -14761,11 +14761,11 @@
           }
         },
         "tags": [
-          "Payment gateways"
+          "Customer payments"
         ]
       }
     },
-    "/admin/v1/model-route-pools": {
+    "/api/v1/model-route-pools": {
       "get": {
         "operationId": "getModelRoutePool",
         "security": [
@@ -14960,7 +14960,7 @@
         ]
       }
     },
-    "/admin/v1/model-route-pools/index": {
+    "/api/v1/model-route-pools/index": {
       "get": {
         "operationId": "listModelRoutePools",
         "summary": "List platform-managed model route pools",
@@ -15043,7 +15043,7 @@
         ]
       }
     },
-    "/admin/v1/model-route-pools/history": {
+    "/api/v1/model-route-pools/history": {
       "get": {
         "operationId": "listModelRoutePoolHistory",
         "security": [
@@ -17572,11 +17572,11 @@
           }
         },
         "tags": [
-          "Branding"
+          "Branding and settings"
         ]
       }
     },
-    "/admin/v1/platform/branding": {
+    "/api/v1/platform/branding": {
       "get": {
         "operationId": "getBranding",
         "summary": "Read platform branding and theme configuration",
@@ -17609,7 +17609,7 @@
           }
         },
         "tags": [
-          "Branding"
+          "Branding and settings"
         ]
       },
       "put": {
@@ -17683,7 +17683,7 @@
           }
         },
         "tags": [
-          "Branding"
+          "Branding and settings"
         ]
       }
     },
@@ -20083,7 +20083,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/supplier": {
+    "/api/v1/vendors/{id}/supplier": {
       "get": {
         "operationId": "getConfigurationProvider",
         "summary": "Read the Provider owning an API configuration",
@@ -24591,7 +24591,7 @@
         ]
       }
     },
-    "/admin/v1/provider-memberships": {
+    "/api/v1/provider-memberships": {
       "get": {
         "operationId": "listProviderMemberships",
         "summary": "List the signed-in operator’s complete active Provider memberships",
@@ -24667,7 +24667,7 @@
         ]
       }
     },
-    "/admin/v1/platform/payments/epay": {
+    "/api/v1/platform/payments/epay": {
       "get": {
         "operationId": "getPlatformEPayConfiguration",
         "summary": "Read EPay configuration with platform administrator read access",
@@ -24711,7 +24711,7 @@
         ],
         "x-niu-implementation": "implemented",
         "tags": [
-          "Payment gateways"
+          "Customer payments"
         ]
       },
       "put": {
@@ -24825,11 +24825,11 @@
         ],
         "x-niu-implementation": "implemented",
         "tags": [
-          "Payment gateways"
+          "Customer payments"
         ]
       }
     },
-    "/admin/v1/providers/{provider}": {
+    "/api/v1/providers/{provider}": {
       "get": {
         "operationId": "getProviderProfile",
         "summary": "Read Provider business profile",
@@ -25135,7 +25135,7 @@
         ]
       }
     },
-    "/admin/v1/providers": {
+    "/api/v1/providers": {
       "post": {
         "operationId": "createProviderBusiness",
         "summary": "Create a Provider business identity",
@@ -25322,7 +25322,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/providers/{provider}/members/{operator}": {
+    "/api/v1/providers/{provider}/members/{operator}": {
       "put": {
         "operationId": "setProviderMembership",
         "summary": "Grant, change or disable a Provider membership",
@@ -25431,7 +25431,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/providers/{provider}/media-rates/{revision}/retire": {
+    "/api/v1/providers/{provider}/media-rates/{revision}/retire": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -25533,7 +25533,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/media-rates": {
+    "/api/v1/providers/{provider}/media-rates": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -25711,7 +25711,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/media-offer-models": {
+    "/api/v1/providers/{provider}/media-offer-models": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -25839,7 +25839,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/media-offers": {
+    "/api/v1/providers/{provider}/media-offers": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -25982,7 +25982,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/media-rate-models": {
+    "/api/v1/providers/{provider}/media-rate-models": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -26114,7 +26114,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/media-rates/replace": {
+    "/api/v1/providers/{provider}/media-rates/replace": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -26205,7 +26205,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/offers": {
+    "/api/v1/providers/{provider}/offers": {
       "get": {
         "operationId": "listProviderOffersPage",
         "summary": "Page current Provider offers and rate revisions",
@@ -26643,7 +26643,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/offers/{offer}": {
+    "/api/v1/providers/{provider}/offers/{offer}": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -26697,7 +26697,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/dashboard": {
+    "/api/v1/providers/{provider}/dashboard": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -26709,7 +26709,7 @@
       "get": {
         "operationId": "getProviderDashboard",
         "summary": "Provider-scoped earnings and operations; active explicit membership required",
-        "description": "Returns one repeatable-read snapshot in data. Balances group by currency and include all-time earned_nanos, unpaid_nanos, paid_nanos and period_nanos. All amounts and usage totals are decimal integer strings. Traffic includes admitted requests, completed requests, reported tokens and unresolved earnings in the selected rolling period. Daily earnings use UTC. Offers include rate_kind (text or media), model identity and availability (up to 1000); offers_has_more explicitly identifies truncation, and GET /admin/v1/providers/{provider}/offers traverses the complete current directory. Text offers retain agreed currency, prompt_rate and completion_rate strings plus nullable cached_prompt_rate, cache_write_prompt_rate and reasoning_completion_rate. Consumption includes nullable cached_prompt_tokens, cache_write_prompt_tokens and reasoning_completion_tokens for separately priced categories. Media offers return null for text-price fields; their independent specification-selected purchase cards are available through media-rates. Consumption groups verified text tokens, request counts, agreed rates, earnings and unpaid amounts by model, payout revision and selected context_minimum_input_tokens (null for base rates); media_consumption separately groups media meter quantities, specifications, agreed purchase prices and earnings. Media earnings have null text-token categories and use the same exact external-payment settlement ledger; no request identifiers, customer identities, workspaces or task references are returned; settlements contain the latest 100 all-time external payment records; GET /admin/v1/providers/{provider}/settlements provides filtered keyset pagination beyond this preview. No customer identity, prompt, credential, endpoint or customer charges are returned. This is an accrual ledger, not a guarantee of payment eligibility or schedule.",
+        "description": "Returns one repeatable-read snapshot in data. Balances group by currency and include all-time earned_nanos, unpaid_nanos, paid_nanos and period_nanos. All amounts and usage totals are decimal integer strings. Traffic includes admitted requests, completed requests, reported tokens and unresolved earnings in the selected rolling period. Daily earnings use UTC. Offers include rate_kind (text or media), model identity and availability (up to 1000); offers_has_more explicitly identifies truncation, and GET /api/v1/providers/{provider}/offers traverses the complete current directory. Text offers retain agreed currency, prompt_rate and completion_rate strings plus nullable cached_prompt_rate, cache_write_prompt_rate and reasoning_completion_rate. Consumption includes nullable cached_prompt_tokens, cache_write_prompt_tokens and reasoning_completion_tokens for separately priced categories. Media offers return null for text-price fields; their independent specification-selected purchase cards are available through media-rates. Consumption groups verified text tokens, request counts, agreed rates, earnings and unpaid amounts by model, payout revision and selected context_minimum_input_tokens (null for base rates); media_consumption separately groups media meter quantities, specifications, agreed purchase prices and earnings. Media earnings have null text-token categories and use the same exact external-payment settlement ledger; no request identifiers, customer identities, workspaces or task references are returned; settlements contain the latest 100 all-time external payment records; GET /api/v1/providers/{provider}/settlements provides filtered keyset pagination beyond this preview. No customer identity, prompt, credential, endpoint or customer charges are returned. This is an accrual ledger, not a guarantee of payment eligibility or schedule.",
         "responses": {
           "200": {
             "description": "Provider dashboard in data"
@@ -26729,7 +26729,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/administration": {
+    "/api/v1/providers/{provider}/administration": {
       "parameters": [
         {
           "$ref": "#/components/parameters/provider_business_openapi_yaml_provider"
@@ -26758,7 +26758,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/earnings": {
+    "/api/v1/providers/{provider}/earnings": {
       "get": {
         "operationId": "listProviderEarnings",
         "summary": "Page platform Provider accrued and paid obligations",
@@ -26993,7 +26993,7 @@
         ]
       }
     },
-    "/admin/v1/providers/{provider}/settlements": {
+    "/api/v1/providers/{provider}/settlements": {
       "get": {
         "operationId": "listProviderSettlements",
         "summary": "Page Provider settlement history",
@@ -29358,7 +29358,7 @@
         ]
       }
     },
-    "/admin/v1/routing-registry": {
+    "/api/v1/routing-registry": {
       "get": {
         "operationId": "getRoutingRegistryStatus",
         "summary": "Read the active routing generation",
@@ -29423,7 +29423,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/admin/v1/vendors": {
+    "/api/v1/vendors": {
       "get": {
         "operationId": "listVendors",
         "parameters": [
@@ -29543,7 +29543,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}": {
+    "/api/v1/vendors/{id}": {
       "put": {
         "operationId": "updateVendor",
         "summary": "Update one Provider API-key configuration or rotate its credential",
@@ -29615,7 +29615,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management": {
+    "/api/v1/vendors/{id}/asset-management": {
       "parameters": [
         {
           "name": "id",
@@ -29860,7 +29860,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/lookups": {
+    "/api/v1/vendors/{id}/asset-management/lookups": {
       "parameters": [
         {
           "name": "id",
@@ -30080,7 +30080,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/lookups/{lookup}": {
+    "/api/v1/vendors/{id}/asset-management/lookups/{lookup}": {
       "parameters": [
         {
           "name": "id",
@@ -30187,7 +30187,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/listings": {
+    "/api/v1/vendors/{id}/asset-management/listings": {
       "get": {
         "summary": "List scoped ordinary asset-listing outcomes and timing",
         "description": "Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Provider queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.",
@@ -30392,7 +30392,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/listings/{listing}": {
+    "/api/v1/vendors/{id}/asset-management/listings/{listing}": {
       "parameters": [
         {
           "name": "id",
@@ -30491,7 +30491,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-reads": {
+    "/api/v1/vendors/{id}/asset-management/group-reads": {
       "parameters": [
         {
           "name": "id",
@@ -30766,7 +30766,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-reads/{read}": {
+    "/api/v1/vendors/{id}/asset-management/group-reads/{read}": {
       "parameters": [
         {
           "name": "id",
@@ -30904,7 +30904,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-updates/{update}": {
+    "/api/v1/vendors/{id}/asset-management/group-updates/{update}": {
       "parameters": [
         {
           "name": "id",
@@ -30972,7 +30972,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile": {
+    "/api/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile": {
       "parameters": [
         {
           "name": "id",
@@ -31062,7 +31062,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch": {
+    "/api/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch": {
       "parameters": [
         {
           "name": "id",
@@ -31183,7 +31183,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-updates": {
+    "/api/v1/vendors/{id}/asset-management/group-updates": {
       "parameters": [
         {
           "name": "id",
@@ -31449,7 +31449,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/groups": {
+    "/api/v1/vendors/{id}/asset-management/groups": {
       "parameters": [
         {
           "name": "id",
@@ -31548,7 +31548,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-deletion-consents": {
+    "/api/v1/vendors/{id}/asset-management/group-deletion-consents": {
       "parameters": [
         {
           "name": "id",
@@ -31722,7 +31722,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch": {
+    "/api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch": {
       "parameters": [
         {
           "name": "id",
@@ -31848,7 +31848,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}": {
+    "/api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}": {
       "parameters": [
         {
           "name": "id",
@@ -32016,7 +32016,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/authorizations": {
+    "/api/v1/vendors/{id}/asset-management/authorizations": {
       "parameters": [
         {
           "name": "id",
@@ -32193,7 +32193,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/asset-management/authorizations/{authorization}": {
+    "/api/v1/vendors/{id}/asset-management/authorizations/{authorization}": {
       "parameters": [
         {
           "name": "id",
@@ -32239,7 +32239,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/personal-owner": {
+    "/api/v1/vendors/{id}/personal-owner": {
       "parameters": [
         {
           "name": "id",
@@ -32325,7 +32325,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/models": {
+    "/api/v1/vendors/{id}/models": {
       "get": {
         "operationId": "listVendorModels",
         "summary": "List model bindings for one Provider API-key configuration",
@@ -32454,7 +32454,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/catalog": {
+    "/api/v1/vendors/{id}/catalog": {
       "get": {
         "operationId": "listProviderModelCatalog",
         "summary": "Discover upstream models for a Provider API-key configuration",
@@ -32578,7 +32578,7 @@
         ]
       }
     },
-    "/admin/v1/vendors/{id}/check": {
+    "/api/v1/vendors/{id}/check": {
       "post": {
         "operationId": "checkVendorModel",
         "summary": "Check provider reachability and whether a mapped model is listed",
@@ -32852,7 +32852,7 @@
         ]
       }
     },
-    "/admin/v1/operators": {
+    "/api/v1/operators": {
       "get": {
         "operationId": "adminListOperators",
         "summary": "List operator identities without session credentials",
@@ -32915,7 +32915,7 @@
         ]
       }
     },
-    "/admin/v1/operators/{operator}": {
+    "/api/v1/operators/{operator}": {
       "patch": {
         "operationId": "updateOperatorRole",
         "summary": "Change a scoped customer member role",
@@ -33039,7 +33039,7 @@
         ]
       }
     },
-    "/admin/v1/operators/{operator}/sessions": {
+    "/api/v1/operators/{operator}/sessions": {
       "get": {
         "operationId": "adminListOperatorSessions",
         "summary": "List session expiry and revocation metadata",
@@ -33125,7 +33125,7 @@
         ]
       }
     },
-    "/admin/v1/operators/{operator}/sessions/{session}": {
+    "/api/v1/operators/{operator}/sessions/{session}": {
       "delete": {
         "operationId": "adminRevokeOperatorSession",
         "summary": "Revoke one operator session",
@@ -33173,7 +33173,7 @@
         ]
       }
     },
-    "/admin/v1/operators/{operator}/events": {
+    "/api/v1/operators/{operator}/events": {
       "get": {
         "operationId": "adminListOperatorAuditEvents",
         "summary": "Read immutable operator and session lifecycle events",
@@ -51426,6 +51426,18 @@
       "description": "Discover video models, estimate a request, submit a job, and retrieve its status and results."
     },
     {
+      "name": "Providers",
+      "description": "Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints."
+    },
+    {
+      "name": "Provider API connections",
+      "description": "Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics."
+    },
+    {
+      "name": "Model routing",
+      "description": "Published routing snapshots and candidate pools."
+    },
+    {
       "name": "Authentication",
       "description": "Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation."
     },
@@ -51471,7 +51483,7 @@
     },
     {
       "name": "Financial reports",
-      "description": "Platform financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs."
+      "description": "Financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs."
     },
     {
       "name": "Customer balances",
@@ -51479,35 +51491,19 @@
     },
     {
       "name": "Customer payments",
-      "description": "Top-up methods, checkout history and payment callbacks. Checkout creation is not confirmation of funding."
+      "description": "Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding."
     },
     {
       "name": "Customer prices and statements",
       "description": "Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates."
     },
     {
-      "name": "Providers",
-      "description": "Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints."
+      "name": "Branding and settings",
+      "description": "Public branding, theme configuration and runtime settings."
     },
     {
-      "name": "Provider API connections",
-      "description": "Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics."
-    },
-    {
-      "name": "Model routing",
-      "description": "Published routing snapshots and candidate pools."
-    },
-    {
-      "name": "Payment gateways",
-      "description": "Platform merchant and payment integration configuration."
-    },
-    {
-      "name": "Branding",
-      "description": "Public branding and platform-controlled theme configuration."
-    },
-    {
-      "name": "Platform operations",
-      "description": "Audit events, runtime configuration and recovery controls."
+      "name": "Audit and recovery",
+      "description": "Audit events and financial recovery controls."
     },
     {
       "name": "Service health",
@@ -51528,6 +51524,14 @@
         "Messages and GenerateContent",
         "Embeddings",
         "Video generation"
+      ]
+    },
+    {
+      "name": "Providers and routing",
+      "tags": [
+        "Providers",
+        "Provider API connections",
+        "Model routing"
       ]
     },
     {
@@ -51561,19 +51565,10 @@
       ]
     },
     {
-      "name": "Platform administration",
-      "tags": [
-        "Providers",
-        "Provider API connections",
-        "Model routing",
-        "Payment gateways",
-        "Branding",
-        "Platform operations"
-      ]
-    },
-    {
       "name": "Service and compatibility",
       "tags": [
+        "Branding and settings",
+        "Audit and recovery",
         "Service health",
         "Legacy account and cost APIs"
       ]

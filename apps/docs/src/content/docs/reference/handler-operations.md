@@ -4077,7 +4077,7 @@ Content type: `application/json`.
 
 ## List platform operation audit logs
 
-`GET /admin/v1/platform/audit-events`
+`GET /api/v1/platform/audit-events`
 
 Platform administrators only. Aggregates saved operator, Provider configuration, Provider, branding, payment gateway and platform-access journals. Metadata only: no credentials, configuration values, request content or procurement prices. password_login_succeeded records verified password login; session_created records session issuance and does not prove login. Historical actor attribution may be unknown, and displayed names are current names. No historical completeness or failed-login coverage is asserted. Source-qualified keyset pagination orders newest first, using source and event ID for ties. Changing category requires restarting without a cursor. Successful responses are not cached. Includes immutable standard-price/promotion changes, text/media workspace enrollment, noncash grants and route media-liability qualification. Publishes and exact idempotent retries share the same saved event; no history is fabricated. Freeform reasons, quantities, schedules, balances and monetary values are not returned. New commercial sources remain platform-only; a cursor from another category is rejected.
 
@@ -4538,7 +4538,7 @@ HTTP 409: expected_revision does not match the saved profile; reload before retr
 
 ## Read credential safe-failure cooldown
 
-`GET /admin/v1/vendors/{vendor}/cooldown`
+`GET /api/v1/vendors/{vendor}/cooldown`
 
 Platform administration only. Fixed policy: three new canonical OpenRouter text authentication rejections with pinned nonexecution qualification within 60 seconds pause new selection for 60 seconds. Further qualifying in-flight failures may extend the deadline; unknown execution never counts. State is shared in PostgreSQL, independent per credential, and survives restart and credential edits. Expiry automatically restores eligibility without a health probe or republish. Does not cancel pinned requests or saved video recovery. No historical failures are backfilled. This read performs no upstream request.
 
@@ -4643,7 +4643,7 @@ HTTP 503: Storage unavailable.
 
 ## Read upstream credential request limit
 
-`GET /admin/v1/vendors/{vendor}/request-rate-limit`
+`GET /api/v1/vendors/{vendor}/request-rate-limit`
 
 Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows. Storage operations use bounded transactions: read-only snapshots for reads and a recording transaction for updates, with transaction-local 250 ms lock and 2 s statement limits. Exceeded waits return sanitized 503; failed updates do not advance policy/history. These bounds exclude authorization and pool acquisition.
 
@@ -4706,7 +4706,7 @@ HTTP 503: Storage unavailable or bounded storage wait exceeded; no empty-success
 
 ## Set upstream credential request limit
 
-`PUT /admin/v1/vendors/{vendor}/request-rate-limit`
+`PUT /api/v1/vendors/{vendor}/request-rate-limit`
 
 Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows. Storage operations use bounded transactions: read-only snapshots for reads and a recording transaction for updates, with transaction-local 250 ms lock and 2 s statement limits. Exceeded waits return sanitized 503; failed updates do not advance policy/history. These bounds exclude authorization and pool acquisition.
 
@@ -4801,7 +4801,7 @@ HTTP 503: Storage unavailable or bounded storage wait exceeded; no empty-success
 
 ## Read credential request-limit history
 
-`GET /admin/v1/vendors/{vendor}/request-rate-limit/history`
+`GET /api/v1/vendors/{vendor}/request-rate-limit/history`
 
 Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows. Storage operations use bounded transactions: read-only snapshots for reads and a recording transaction for updates, with transaction-local 250 ms lock and 2 s statement limits. Exceeded waits return sanitized 503; failed updates do not advance policy/history. These bounds exclude authorization and pool acquisition.
 
@@ -8327,7 +8327,7 @@ HTTP 409: Cursor revision does not exist for this account
 
 ## Compare installation commercial Provider positions
 
-`GET /admin/v1/commercial-position`
+`GET /api/v1/commercial-position`
 
 Explicit late-grant applications against a cohort charge reduce net revenue and increase sales allowance without repricing nominal charges or Provider payable. Their refund restoration is included in recorded refund gift allocation once. Explicit platform administrator only. One current database snapshot for a UTC rolling dispatch interval [from, until), 7/30/90 days and a configured currency. Personal owner-funded supply is excluded. Each row is a Provider, customer-facing model alias and currency; route-pool candidates appear as distinct offers. Customer charges are confirmed retail charges, not external cash receipts. Provider settlement links record confirmed external payments, not automatic transfers. Null monetary values mean unavailable, never zero. Margin is customer charge minus Provider earning over matched attempts only, withheld when any potentially executed attempt is unresolved. Cost is separately reported over matched attempts and withheld if any matching cost entry is missing; cost coverage counts are explicit. Empty offers means no quote in the selected currency. No customer identity, request identity, body or credential is returned. Read-only; never changes routing or model. Identifiers are API references and must not become product labels. Cache-Control: no-store. Net customer revenue excludes consumed gifts and recorded customer refunds for this dispatch cohort; it is not cash receipts or posting-period income. Missing charge/source coverage leaves the full net revenue unavailable. Gift allowance is a sales allowance, not an operating expense. net_contribution_nanos subtracts matched Provider earnings from net customer revenue, never known upstream expense again. Legacy margin_nanos remains nominal charge minus Provider earnings and must not be labeled income or net profit. Personal funding is excluded independently of current vendor ownership. customer_refunds_nanos records associated balance-credit restorations for the dispatch cohort, not external cash refund transfers. When fully covered, nominal charge minus recorded refunds minus net consumed-gift allowance equals net customer revenue. Each known customer/Provider/cost ledger currency is represented independently, without conversion. known_upstream_cost_subtotal_nanos sums only actual recorded costs in the selected currency, independently of same-currency customer/Provider matching. It is a known partial subtotal, not proof of complete expense coverage; absent records remain null. upstream_cost_recorded_attempts counts these recorded cost entries. Legacy cost_nanos and cost_known_attempts retain their matched-attempt coverage semantics.
 
@@ -8619,7 +8619,7 @@ HTTP 401: Invalid credentials
 
 ## Read platform customer revenue and cash receipt summary
 
-`GET /admin/v1/financial-summary`
+`GET /api/v1/financial-summary`
 
 Explicit platform administrator only; no customer or Provider access. One database snapshot, configured currency and UTC rolling posting interval [from, until), 7/30/90 days. Confirmed text/media charges use their immutable charge posting time; customer refunds, grants and cash receipts use their own posting times. This differs from the commercial dispatch cohort. Personal-funded operations, durable personal attempt bindings and current personal-owned Provider offer credentials are excluded from consumption and related refunds. Revenue is nominal consumption minus consumed gift allowance and non-gift refunds; explicit late-grant applications post sales allowance at application time, while their refund restoration is already part of refund gift allocation and is not posted twice; non-gift can be prepaid or credit-backed. Issuing a gift or collecting a credit repayment never creates consumption revenue. Missing or legacy-unknown consumption allocation leaves revenue and total allowance null; known subtotals are partial. Uncovered nominal includes both charge and refund amounts as positive coverage exposure. A zero-charge record is known zero. Net allowance/revenue may be negative when refunds relate to an earlier interval. Verified cash receipt records remain independent; potentially overlapping legacy invoice and funding references leave the combined receipt total null. Funding reversal records do not attest an external cash refund transfer. No procurement prices, customer identifiers, credentials or content. The balance_credit_sources object is a point-in-time company wallet cash/credit provenance view at as_of, independent of the selected posting interval and external invoice receivables. Verified cash repayments reduce outstanding credit without creating revenue. Missing historical sources, unclassified adjustments or funding reversal ambiguity withhold complete prepaid cash and outstanding credit; known subtotals include only wholly covered accounts. Aggregate read only; does not initiate merchant operations. Cache-Control: no-store. This operational reconciliation report is not a closed general ledger or tax statement.
 
@@ -9031,7 +9031,7 @@ HTTP 503: Storage unavailable.
 
 ## Publish an evidenced route media liability bound
 
-`POST /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`
+`POST /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`
 
 Explicit platform administration only. Ordinary customer and Provider memberships do not grant access. Liability qualifications are finite, immutable maximum billed quantities tied to exact currently approved Provider offer, credential/model/schema revisions, dimensions and meter; they contain no purchase or selling price and must be supported by explicit evidence. Video output estimates are not liability evidence. Publication alone does not authorize dispatch. UUIDs are API references, never display labels. Exact epoch times and versions are decimal integer strings. Identical idempotent retries preserve the original result; changed intent or stale versions conflict. Revocation affects future admission, never rewrites already pinned jobs. Reads use no-store.
 
@@ -9265,7 +9265,7 @@ HTTP 409: Stale version, conflicting idempotency/interval or unavailable current
 
 ## List immutable route media liability qualifications
 
-`GET /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`
+`GET /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`
 
 Explicit platform administration only. Ordinary customer and Provider memberships do not grant access. Liability qualifications are finite, immutable maximum billed quantities tied to exact currently approved Provider offer, credential/model/schema revisions, dimensions and meter; they contain no purchase or selling price and must be supported by explicit evidence. Video output estimates are not liability evidence. Publication alone does not authorize dispatch. UUIDs are API references, never display labels. Exact epoch times and versions are decimal integer strings. Identical idempotent retries preserve the original result; changed intent or stale versions conflict. Revocation affects future admission, never rewrites already pinned jobs. Reads use no-store.
 
@@ -9578,7 +9578,7 @@ HTTP 409: Stale version, conflicting idempotency/interval or unavailable current
 
 ## Retire a route media liability bound
 
-`POST /admin/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire`
+`POST /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire`
 
 Explicit platform administration only. Ordinary customer and Provider memberships do not grant access. Liability qualifications are finite, immutable maximum billed quantities tied to exact currently approved Provider offer, credential/model/schema revisions, dimensions and meter; they contain no purchase or selling price and must be supported by explicit evidence. Video output estimates are not liability evidence. Publication alone does not authorize dispatch. UUIDs are API references, never display labels. Exact epoch times and versions are decimal integer strings. Identical idempotent retries preserve the original result; changed intent or stale versions conflict. Revocation affects future admission, never rewrites already pinned jobs. Reads use no-store.
 
@@ -10758,7 +10758,7 @@ HTTP 404: No saved intent for this company/currency/key
 
 ## Discover named customer accounts for platform financial administration
 
-`GET /admin/v1/platform/customer-accounts`
+`GET /api/v1/platform/customer-accounts`
 
 Explicit platform administration only, independent of ordinary company membership. Named companies and their current currency balance summaries; companies without accounts have an empty accounts array. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.
 
@@ -10906,7 +10906,7 @@ HTTP 409: Missing company cursor
 
 ## Discover named platform pricing targets
 
-`GET /admin/v1/pricing/targets`
+`GET /api/v1/pricing/targets`
 
 Explicit platform administration required; ordinary company/workspace roles do not grant access. Configuration only, without usage, balances, statements, content, credentials or procurement. Keyset order is workspace UUID ascending for targets, model alias ascending for tariffs. Pass next_after unchanged as after; null means complete. Limit defaults to 50, maximum 100. Each page is one database snapshot; concurrent inserts before the cursor require refreshing the first page. Missing cursor returns 409. Identifiers are API references, never display labels. Cache-Control no-store. Tariff token rates are exact nanounits per million tokens; minimum and request fees are exact currency nanounits. Empty valid workspace returns an empty page.
 
@@ -11015,7 +11015,7 @@ HTTP 503: Storage unavailable
 
 ## Page current customer selling tariffs
 
-`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`
+`GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`
 
 Explicit platform administration required; ordinary company/workspace roles do not grant access. Configuration only, without usage, balances, statements, content, credentials or procurement. Keyset order is workspace UUID ascending for targets, model alias ascending for tariffs. Pass next_after unchanged as after; null means complete. Limit defaults to 50, maximum 100. Each page is one database snapshot; concurrent inserts before the cursor require refreshing the first page. Missing cursor returns 409. Identifiers are API references, never display labels. Cache-Control no-store. Tariff token rates are exact nanounits per million tokens; minimum and request fees are exact currency nanounits. Empty valid workspace returns an empty page.
 
@@ -11252,7 +11252,7 @@ HTTP 404: Company/workspace pair does not exist
 
 ## List models eligible for customer tariff publication
 
-`GET /admin/v1/pricing/models`
+`GET /api/v1/pricing/models`
 
 Explicit platform administration required. Uses the same shared catalog as customer tariff publication, excluding personal owner-funded and unavailable aliases. This is a current eligibility read, not a price, supply qualification or dispatch guarantee. Publication rechecks eligibility. Sorted by model alias; limit defaults to 50, maximum 100. Pass next_after unchanged; null means complete. An unavailable cursor returns 409: restart pagination. No credentials, upstream mappings or procurement prices. Cache-Control no-store.
 
@@ -11543,7 +11543,7 @@ HTTP 409: Cursor is unknown or does not match the company/currency.
 
 ## Publish a platform standard selling-price revision
 
-`POST /admin/v1/pricing/standard-prices`
+`POST /api/v1/pricing/standard-prices`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Independent model/currency/text-or-media identity; standard prices are independent of Provider purchase offers. expected_version is zero for a new identity and the last management version for replacement. All changes are versioned and attributed. Global UUID idempotency keys preserve canonical intent; exact retries return the original publication version, which may be older than current configuration. New standards take effect at commit and do not revoke still-eligible finite promotions. No request price, balance, supply qualification or route is changed. Rates are decimal integer strings; token rates are nanounits per million tokens, fixed charges are nanounits, media quantities are exact rationals. Publication alone is not customer enrollment or dispatch qualification.
 
@@ -11606,7 +11606,7 @@ HTTP 422: Malformed JSON or unsupported schedule shape
 
 ## List current platform standard prices
 
-`GET /admin/v1/pricing/standard-prices`
+`GET /api/v1/pricing/standard-prices`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Provider costs. Internal references are API identifiers, never display names. Cache-Control: no-store.
 
@@ -11688,7 +11688,7 @@ HTTP 409: Stale version, conflicting key/period, unknown identity/customer or un
 
 ## Publish one finite global or customer price
 
-`POST /admin/v1/pricing/standard-prices/{price}/promotions`
+`POST /api/v1/pricing/standard-prices/{price}/promotions`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. The explicit result references an exact immutable undiscounted standard revision of this price identity. Null customer_organization_id means global; a company reference means customer-specific. Inclusive start/exclusive end are exact UTC epoch-second strings, with finite end greater than start. Same-scope overlap is rejected; at selection an eligible customer rule overrides the global rule, never stacks. Every text category/fixed charge/context tier must preserve meaning and not increase; media retains dimensions, meter, unit, decimal scale, rounding and minimum and only discounts amount_units. Retained original baselines survive later standard updates. No existing request or job is repriced.
 
@@ -11762,7 +11762,7 @@ HTTP 422: Malformed JSON or unsupported schedule shape
 
 ## Append a promotion eligibility cutoff
 
-`POST /admin/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire`
+`POST /api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Append-only explicit retirement, at most one cutoff for this promotion. Cutoff cannot extend its published end; a cutoff before its start cancels a future rule. Exact epoch-second strings and configuration version are required. Published schedules and already pinned operations/jobs stay immutable. This does not trigger a customer refund or change routing.
 
@@ -11845,7 +11845,7 @@ HTTP 422: Malformed JSON or unsupported schedule shape
 
 ## Read immutable standard and promotion history
 
-`GET /admin/v1/pricing/standard-prices/{price}/history`
+`GET /api/v1/pricing/standard-prices/{price}/history`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.
 
@@ -11962,7 +11962,7 @@ HTTP 409: Stale version, conflicting key/period, unknown identity/customer or un
 
 ## Preview a customer applicable price
 
-`GET /admin/v1/pricing/standard-prices/{price}/preview`
+`GET /api/v1/pricing/standard-prices/{price}/preview`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Advice only: does not enroll a workspace, reserve, dispatch or bind a request. Resolve at server time after the price identity lock, customer promotion then global then current standard. Exposes only this customer selection, not other customer rules. current_standard_revision may differ from the retained promotion baseline. Actual admission must select and pin in its transaction; never use preview as settlement evidence. Exact selected_at is UTC epoch seconds. Cache-Control: no-store.
 
@@ -12291,7 +12291,7 @@ HTTP 409: Unknown authorized workspace
 
 ## List registered shared models for standard-price preparation
 
-`GET /admin/v1/pricing/standard-prices/models`
+`GET /api/v1/pricing/standard-prices/models`
 
 Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.
 
@@ -12382,7 +12382,7 @@ HTTP 409: Cursor no longer registered; restart pagination
 
 ## List named companies for customer-specific promotions
 
-`GET /admin/v1/pricing/customers`
+`GET /api/v1/pricing/customers`
 
 Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names, company creation timestamps for distinguishing repeated names, and routing-only company references; no balances, payment details, request content, Supplier costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.
 
@@ -12482,7 +12482,7 @@ HTTP 409: Missing company cursor
 
 ## Read promotion periods with complete retirement coverage
 
-`GET /admin/v1/pricing/standard-prices/{price}/promotions`
+`GET /api/v1/pricing/standard-prices/{price}/promotions`
 
 Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store. The current standard and management version share this page snapshot; use them together for a new publication, then rely on server version comparison.
 
@@ -15482,7 +15482,7 @@ HTTP 503: Storage unavailable.
 
 ## Read platform customer selling-price history
 
-`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
+`GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
 
 Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Provider procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.
 
@@ -15636,7 +15636,7 @@ HTTP 503: Durable storage unavailable.
 
 ## Read platform branding and theme configuration
 
-`GET /admin/v1/platform/branding`
+`GET /api/v1/platform/branding`
 
 Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. When no saved configuration exists, returns revision string 0 and Niu defaults. Theme fields are part of settings; there is no separate theme endpoint.
 
@@ -15674,7 +15674,7 @@ HTTP 403: Platform administration required.
 
 ## Save platform branding and theme configuration
 
-`PUT /admin/v1/platform/branding`
+`PUT /api/v1/platform/branding`
 
 Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. Canonical nonnegative decimal expected_revision string controls atomic snapshot and audit save. Valid display name is nonempty, already trimmed and at most 80 Unicode characters without controls. Palette maps only accept eight supported tokens with six-digit hex colors and readable contrast; empty maps inherit Niu defaults. No arbitrary CSS or executable branding is accepted. Optional null/omitted images reset to defaults. PNG images are decoded and re-encoded before persistence. Route JSON body limit is 450000 bytes. Successful save returns the exact committed snapshot and incremented string revision.
 
@@ -15748,7 +15748,7 @@ HTTP 422: Invalid JSON body shape.
 
 ## Read committed financial recovery progress
 
-`GET /admin/v1/platform/financial-recovery`
+`GET /api/v1/platform/financial-recovery`
 
 Platform administrators only. Stages are ordered by name. Null step fields mean no durable worker step has committed since diagnostics were installed. Counts describe the last committed candidate page, not settled rows, total backlog or throughput. A cursor indicates traversal position, not remaining recoverable debt. Zero failures does not establish settlement. Storage failures leave previous committed diagnostics unchanged and are reported separately in worker logs. No attempt IDs, amounts or credentials.
 
@@ -15846,7 +15846,7 @@ HTTP 503: Storage unavailable
 
 ## Read EPay configuration with platform administrator read access
 
-`GET /admin/v1/platform/payments/epay`
+`GET /api/v1/platform/payments/epay`
 
 Returns enabled, merchant_id, endpoint, notify_url, return_url, methods, has_key and an exact string revision. Never returns merchant keys. Without a saved configuration, reads sanitized deployment defaults.
 
@@ -15894,7 +15894,7 @@ HTTP 503: Durable storage unavailable
 
 ## Save encrypted EPay configuration with platform administrator write access
 
-`PUT /admin/v1/platform/payments/epay`
+`PUT /api/v1/platform/payments/epay`
 
 Validates enabled checkout configuration before persistence. An empty key retains the stored credential. Exact expected_revision prevents overwriting concurrent edits. Pending EPay orders prevent configuration changes so their original verification settings remain available. Saves an append-only audit event and takes effect without restarting the gateway. This configures the classic EPay protocol; it does not establish merchant eligibility or live payment qualification. Supported method names and uniqueness are validated even when disabled; a disabled draft may use an empty methods list.
 
@@ -16009,7 +16009,7 @@ HTTP 422: Malformed JSON shape, missing fields or unknown fields
 
 ## List supported payment integrations
 
-`GET /admin/v1/platform/payments/integrations`
+`GET /api/v1/platform/payments/integrations`
 
 Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. checkout_enabled and enabled_methods describe locally configured checkout, not merchant approval, funding or verified settlement. Customer checkout additionally requires the matching company currency account. Returns no merchant identity, endpoint or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.
 
@@ -17057,7 +17057,7 @@ HTTP 503: Durable storage unavailable; retry notification
 
 ## List the signed-in operator’s complete active Provider memberships
 
-`GET /admin/v1/provider-memberships`
+`GET /api/v1/provider-memberships`
 
 Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.
 
@@ -17136,7 +17136,7 @@ HTTP 503: Storage unavailable.
 
 ## Create a Provider business identity
 
-`POST /admin/v1/providers`
+`POST /api/v1/providers`
 
 Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.
 
@@ -17219,7 +17219,7 @@ HTTP 503: Storage unavailable
 
 ## Read Provider business profile
 
-`GET /admin/v1/providers/{provider}`
+`GET /api/v1/providers/{provider}`
 
 Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.
 
@@ -17310,7 +17310,7 @@ HTTP 503: Storage unavailable
 
 ## Update Provider business profile
 
-`PATCH /admin/v1/providers/{provider}`
+`PATCH /api/v1/providers/{provider}`
 
 Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.
 
@@ -17455,7 +17455,7 @@ HTTP 422: Invalid body shape or unknown field
 
 ## Remove an unconfigured Provider from the directory
 
-`DELETE /admin/v1/providers/{provider}`
+`DELETE /api/v1/providers/{provider}`
 
 Platform administration required. Soft-deletes only a live Provider with no owned API configurations, offers or memberships; disabled configurations and inactive memberships still count as dependencies. Audit history is retained. Concurrent configuration association serializes with deletion. This is not a credential revocation or financial-history deletion operation. Repeating deletion returns 409.
 
@@ -17523,7 +17523,7 @@ HTTP 503: Storage unavailable.
 
 ## Grant, change or disable a Provider membership
 
-`PUT /admin/v1/providers/{provider}/members/{operator}`
+`PUT /api/v1/providers/{provider}/members/{operator}`
 
 Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
 
@@ -17632,7 +17632,7 @@ HTTP 503: Storage unavailable or transaction lock/statement timeout
 
 ## Publish an immutable agreed Provider payout schedule
 
-`POST /admin/v1/providers/{provider}/offers`
+`POST /api/v1/providers/{provider}/offers`
 
 Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.
 
@@ -17827,7 +17827,7 @@ HTTP 422: JSON schema mismatch; context_tiers must be an array, never null
 
 ## Read an immutable Provider procurement quote
 
-`GET /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}`
+`GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}`
 
 Installation administrators or active members of this Provider may read a quote. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.
 
@@ -17905,7 +17905,7 @@ HTTP 503: Storage unavailable.
 
 ## Record a Provider business qualification review
 
-`PUT /admin/v1/providers/{provider}/qualification`
+`PUT /api/v1/providers/{provider}/qualification`
 
 Platform administration required; Provider membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Provider conflicts.
 
@@ -18025,7 +18025,7 @@ Content type: `application/json`.
 
 ## Record a Provider offer qualification review
 
-`PUT /admin/v1/providers/{provider}/offers/{offer}/qualification`
+`PUT /api/v1/providers/{provider}/offers/{offer}/qualification`
 
 Platform administration required. Requires current Provider business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.
 
@@ -18179,7 +18179,7 @@ Content type: `application/json`.
 
 ## Revoke the current Provider business qualification
 
-`POST /admin/v1/providers/{provider}/qualification/revoke`
+`POST /api/v1/providers/{provider}/qualification/revoke`
 
 Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Provider offers while clearing their current reviews atomically. Missing/deleted Provider or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.
 
@@ -18280,7 +18280,7 @@ Content type: `application/json`.
 
 ## Revoke the current Provider offer qualification
 
-`POST /admin/v1/providers/{provider}/offers/{offer}/qualification/revoke`
+`POST /api/v1/providers/{provider}/offers/{offer}/qualification/revoke`
 
 Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Provider, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.
 
@@ -18390,7 +18390,7 @@ Content type: `application/json`.
 
 ## Record an already completed external Provider payment
 
-`POST /admin/v1/providers/{provider}/settlements`
+`POST /api/v1/providers/{provider}/settlements`
 
 Platform administration required; Provider membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Provider, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Provider qualification is created.
 
@@ -18501,7 +18501,7 @@ HTTP 503: Storage unavailable.
 
 ## List active Provider business identities
 
-`GET /admin/v1/providers`
+`GET /api/v1/providers`
 
 Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Total counts retain disabled credential configurations and models. enabled_api_keys counts enabled saved configurations; enabled_model_routes counts enabled model mappings on enabled configurations. These counts do not verify credentials, upstream availability, customer pricing or request authorization. Member counts include active memberships for non-revoked operators. Deleted Providers are excluded. Qualification is explicit and never inferred from configuration counts.
 
@@ -18609,7 +18609,7 @@ HTTP 503: Storage unavailable
 
 ## List Provider business members
 
-`GET /admin/v1/providers/{provider}/members`
+`GET /api/v1/providers/{provider}/members`
 
 Requires platform management permission. Lists saved memberships ordered by member name and internal identity. active is false when membership is disabled or the member account is revoked; revoked reports account revocation separately. No tokens, merchant secrets or procurement amounts are returned. Internal operator identities are for routing, not product labels.
 
@@ -18702,7 +18702,7 @@ HTTP 503: Storage unavailable
 
 ## Read platform payment configuration presence
 
-`GET /admin/v1/platform/configuration`
+`GET /api/v1/platform/configuration`
 
 Requires platform management permission. Returns configuration-presence flags without merchant credentials. EPay is configured when a saved configuration exists (including disabled configurations) or deployment configuration is present; Zhifux and Stripe reflect loaded runtime adapters. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.
 
@@ -18777,7 +18777,7 @@ HTTP 503: Configuration storage unavailable
 
 ## List immutable Provider quote history
 
-`GET /admin/v1/providers/{provider}/offers/{offer}/revisions`
+`GET /api/v1/providers/{provider}/offers/{offer}/revisions`
 
 Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.
 
@@ -18891,7 +18891,7 @@ HTTP 503: Storage unavailable.
 
 ## Page Provider settlement history
 
-`GET /admin/v1/providers/{provider}/settlements`
+`GET /api/v1/providers/{provider}/settlements`
 
 Platform administration or active membership of this Provider required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1–100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Provider or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.
 
@@ -19059,7 +19059,7 @@ HTTP 503: Storage unavailable.
 
 ## Page platform Provider accrued and paid obligations
 
-`GET /admin/v1/providers/{provider}/earnings`
+`GET /api/v1/providers/{provider}/earnings`
 
 Platform administration required; Provider membership and company ownership do not grant access. Full retained earning history, creation time descending then attempt ID ascending, using the existing ledger index. Exact amount strings; no customer identity, workspace, credential or customer selling price. The id is an internal selection value for the existing settlement POST, never a display label. A page is one database snapshot; settlement status may change between requests and settlement writes revalidate unpaid selections. Reads do not create earnings or payments. Missing or out-of-filter cursors return 409. Cache-Control no-store.
 
@@ -19297,7 +19297,7 @@ HTTP 503: Storage unavailable.
 
 ## Page current Provider offers and rate revisions
 
-`GET /admin/v1/providers/{provider}/offers`
+`GET /api/v1/providers/{provider}/offers`
 
 Platform administration or active membership of this Provider required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Provider or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
 
@@ -19541,7 +19541,7 @@ HTTP 503: Storage unavailable.
 
 ## Inspect operational usage of Provider-owned configurations
 
-`GET /admin/v1/providers/{provider}/configuration-usage`
+`GET /api/v1/providers/{provider}/configuration-usage`
 
 Installation credential or explicit platform administrator required. Provider membership and customer roles do not grant access. Uses current explicit configuration ownership and persisted managed/media request routes; includes disabled configurations and does not infer unbound legacy/static traffic. This is current-configuration operational history, not historical financial attribution, qualified commercial supply, earnings or settlement. Counts each dispatched attempt once, including retry attempts. From is inclusive, to exclusive, in epoch milliseconds; maximum range 90 days. Token sums include only complete provider-reported aggregate token usage; unknown requests and non-token media remain separately counted. Failures count persisted safe failure observations, not an inference that every unsuccessful request has one. Timing counts refer to recorded HTTP delivery, not video job completion. Totals cover the whole range regardless of model page. after is an exclusive lexical model-alias boundary, not an identity lookup; pages are live statement snapshots. No customer identity, request/key IDs, endpoint, credentials, costs or prices are returned. No upstream call or mutation. Cache-Control no-store.
 
@@ -19812,7 +19812,7 @@ HTTP 503: Storage unavailable or diagnostic query deadline exceeded; no partial 
 
 ## List Provider API-key configurations without credentials
 
-`GET /admin/v1/vendors`
+`GET /api/v1/vendors`
 
 Returns every matching configuration, including disabled configurations, in one data array. Optional supplier filtering uses explicit business ownership. No pagination or silent row cap; response memory grows with list size. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
@@ -19874,7 +19874,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## Create an encrypted Provider API-key configuration
 
-`POST /admin/v1/vendors`
+`POST /api/v1/vendors`
 
  Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
@@ -19936,7 +19936,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## Update one Provider API-key configuration or rotate its credential
 
-`PUT /admin/v1/vendors/{id}`
+`PUT /api/v1/vendors/{id}`
 
 Adapter is immutable. Changes affect new requests; already dispatched work can finish using its original configuration. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
@@ -20009,7 +20009,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## List model bindings for one Provider API-key configuration
 
-`GET /admin/v1/vendors/{id}/models`
+`GET /api/v1/vendors/{id}/models`
 
 Management reads include route eligibility in available and an owner_funded flag. Owner-funded routes are private to their recorded account and excluded from shared supply and the public catalog, regardless of their legacy configured public_catalog flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.
 
@@ -20069,7 +20069,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## Discover upstream models for a Provider API-key configuration
 
-`GET /admin/v1/vendors/{id}/catalog`
+`GET /api/v1/vendors/{id}/catalog`
 
 Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.
 
@@ -20132,7 +20132,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## Check provider reachability and whether a mapped model is listed
 
-`POST /admin/v1/vendors/{id}/check`
+`POST /api/v1/vendors/{id}/check`
 
 Performs a bounded GET to the provider's /models endpoint. Anthropic and Gemini use native authentication headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.
 
@@ -20262,7 +20262,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## Create or update a model mapping with optimistic revision checks
 
-`POST /admin/v1/vendors/{id}/models`
+`POST /api/v1/vendors/{id}/models`
 
 Omit expected_revision to create; provide the current revision to update. Aliases cannot be reassigned to another vendor. Disabled mappings still override static file aliases. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs. Omit pricing to preserve it on update; explicit null clears it. Changes do not rewrite previously pinned request prices.
 
@@ -20335,7 +20335,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## Refresh descriptive metadata for existing vendor model mappings
 
-`POST /admin/v1/vendors/{id}/catalog`
+`POST /api/v1/vendors/{id}/catalog`
 
 Fetches the bounded provider catalog and updates matching upstream IDs only. Preserves aliases, routing, capability declarations and billing prices. Increments revisions when metadata changes. Missing provider models are retained. Requires installation administration or an explicitly granted platform administrator.
 
@@ -20397,7 +20397,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 ## Read the Provider owning an API configuration
 
-`GET /admin/v1/vendors/{id}/supplier`
+`GET /api/v1/vendors/{id}/supplier`
 
 Installation credential or explicitly granted platform administrator required. Provider membership and customer ownership alone do not grant access. Returns the Provider identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.
 
@@ -20474,7 +20474,7 @@ HTTP 503: Storage unavailable.
 
 ## Associate an API configuration with a Provider
 
-`PUT /admin/v1/vendors/{id}/supplier`
+`PUT /api/v1/vendors/{id}/supplier`
 
 Installation credential or explicitly granted platform administrator required. Provider membership and customer ownership alone do not grant access. Atomic and audited. The first association requires the current configuration revision. Repeating the same Provider association is idempotent even with the original revision and does not increment it again. A different Provider cannot take over an existing association. Deleted Providers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.
 
@@ -20547,7 +20547,7 @@ HTTP 503: Storage unavailable.
 
 ## Read the active routing generation
 
-`GET /admin/v1/routing-registry`
+`GET /api/v1/routing-registry`
 
 Platform administrators can read the active immutable routing generation for diagnostics and an explicit static-configuration replacement. No definitions, endpoints, credential references, secrets or purchase prices are returned. local_static_configuration_matches is false on a Gateway whose local static configuration has been superseded; new inference on that instance fails closed until it restarts with matching configuration. The response is not cached.
 
@@ -20613,7 +20613,7 @@ HTTP 503: Publication is unavailable or its format is unsupported
 
 ## Read an installation-managed model candidate pool
 
-`GET /admin/v1/model-route-pools`
+`GET /api/v1/model-route-pools`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
@@ -20673,7 +20673,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## Create or revise a model candidate pool
 
-`PUT /admin/v1/model-route-pools`
+`PUT /api/v1/model-route-pools`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
 
@@ -20811,7 +20811,7 @@ HTTP 422: Malformed body schema or unknown fields; framework rejection may use p
 
 ## Read immutable model candidate pool revisions
 
-`GET /admin/v1/model-route-pools/history`
+`GET /api/v1/model-route-pools/history`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
@@ -20898,7 +20898,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## List platform-managed model route pools
 
-`GET /admin/v1/model-route-pools/index`
+`GET /api/v1/model-route-pools/index`
 
 Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels.
 
@@ -27288,7 +27288,7 @@ HTTP 504: Upstream query or delivery timed out
 
 ## Change a scoped customer member role
 
-`PATCH /admin/v1/operators/{operator}`
+`PATCH /api/v1/operators/{operator}`
 
 Current scoped Owner management permission or installation administrator required. Admin and Viewer cannot manage user roles. Preserves the original member organization/workspace, credentials, sessions, session expiries and Provider memberships. Rejects self role changes, revoked/noncustomer/platform actors and role-update demotion of the last applicable active Owner. expected_role is a compare-and-set precondition; stale input returns 409 and requires reloading. Organization-scoped serialization and current actor/session validation protect the mutation transaction. A same-role request with a matching precondition returns unchanged metadata without an audit event. Changed roles apply to the original token on its next authenticated request; no replacement token or renewed session is issued. A future immutable role_changed journal records exact before/after roles and actor attribution; historical roles are never inferred. No credentials or commercial data returned.
 

@@ -74,7 +74,7 @@ export default function MediaRatePublisher({ token, supplier, organization, prev
   const modelReads = useRef<AbortController | null>(null);
   const selected = models.find(item => item.model_alias === model);
   const unavailable = !selected || !selected.resolutions.includes(resolution) || (reference && !selected.reference_video) || (base && selected.channel !== base.dimensions.channel);
-  const endpoint = customer ? `/admin/v1/organizations/${encodeURIComponent(organization)}/billing` : `/admin/v1/providers/${encodeURIComponent(supplier!)}`;
+  const endpoint = customer ? `/api/v1/organizations/${encodeURIComponent(organization)}/billing` : `/api/v1/providers/${encodeURIComponent(supplier!)}`;
 
   useEffect(() => {
     const controller = new AbortController();

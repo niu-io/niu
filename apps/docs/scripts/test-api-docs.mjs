@@ -14,7 +14,7 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
    const spec=JSON.parse(readFileSync(join(directory,'contracts/generated/public-openapi.json'),'utf8'));
    assert.ok(spec.paths['/v1/chat/completions'].post.requestBody);
    assert.equal(spec.paths['/v1/chat/completions'].post.tags[0], 'Chat completions');
-   assert.equal(spec.paths['/admin/v1/platform/customer-accounts'].get.tags[0], 'Customer balances');
+   assert.equal(spec.paths['/api/v1/platform/customer-accounts'].get.tags[0], 'Customer balances');
    const tags = new Set(spec.tags.map(tag => tag.name));
    for (const item of Object.values(spec.paths)) for (const [method, operation] of Object.entries(item)) {
      if (!['get','post','put','patch','delete','head','options'].includes(method)) continue;

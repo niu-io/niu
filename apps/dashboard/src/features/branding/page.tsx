@@ -31,7 +31,7 @@ export default function BrandingPage() {
   const dirty = saved !== null && JSON.stringify(draft) !== JSON.stringify(saved.settings);
   useEffect(()=>{
     const controller = new AbortController(); setError(''); setSaved(null);
-    void request<unknown>(token,'/admin/v1/platform/branding','GET',undefined,controller.signal)
+    void request<unknown>(token,'/api/v1/platform/branding','GET',undefined,controller.signal)
       .then(value=>{if (!controller.signal.aborted) {const current=parseBranding(value);setSaved(current);setDraft(copy(current.settings));setReloadNeeded(false);}})
       .catch(()=>{if (!controller.signal.aborted) setError('Could not load branding settings.');});
     return ()=>controller.abort();
@@ -41,7 +41,7 @@ export default function BrandingPage() {
     if (!draft.display_name.trim() || draft.display_name !== draft.display_name.trim()) {setError('Enter a display name without leading or trailing spaces.');setReloadNeeded(false);return;}
     setBusy(true);setError('');setNotice('');setReloadNeeded(false);
     try {
-      const current = parseBranding(await request(token,'/admin/v1/platform/branding','PUT',{expected_revision:saved.revision,settings:draft}));
+      const current = parseBranding(await request(token,'/api/v1/platform/branding','PUT',{expected_revision:saved.revision,settings:draft}));
       setSaved(current);setDraft(copy(current.settings));branding.update(current);setNotice('Changes saved.');
     } catch (reason) {
       const status = reason instanceof VendorRequestError ? reason.status:0;

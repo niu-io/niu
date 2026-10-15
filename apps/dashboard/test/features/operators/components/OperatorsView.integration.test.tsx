@@ -54,16 +54,16 @@ function stubOperatorApi(options: {
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) as unknown : undefined;
     calls.push({ path, method, body });
 
-    if (path === '/admin/v1/organizations' && method === 'GET') {
+    if (path === '/api/v1/organizations' && method === 'GET') {
       return jsonResponse({ data: [organization] });
     }
-    if (path === '/admin/v1/organizations/org-1/projects' && method === 'GET') {
+    if (path === '/api/v1/organizations/org-1/projects' && method === 'GET') {
       return jsonResponse({ data: [project] });
     }
-    if (path === '/admin/v1/operators' && method === 'GET') {
+    if (path === '/api/v1/operators' && method === 'GET') {
       return jsonResponse({ data: operators });
     }
-    if (path.startsWith('/admin/v1/operators/') && path.endsWith('/sessions') && method === 'GET') {
+    if (path.startsWith('/api/v1/operators/') && path.endsWith('/sessions') && method === 'GET') {
       const id = path.split('/')[4];
       return jsonResponse({ data: sessions.get(id) ?? [] });
     }
@@ -98,7 +98,7 @@ function stubOperatorApi(options: {
       }
       return jsonResponse({ data: [], next_cursor: null });
     }
-    if (path === '/admin/v1/operators' && method === 'POST') {
+    if (path === '/api/v1/operators' && method === 'POST') {
       const created = {
         ...operator('operator-new', String((body as { name: string }).name)),
         role: (body as { role: 'owner' | 'admin' | 'viewer' }).role,
@@ -145,7 +145,7 @@ describe('operator administration workflow', () => {
 
   it('preserves the entered operator name after creation fails', async () => {
     const api=stubOperatorApi();
-    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>String(input)==='/admin/v1/operators' && init?.method==='POST'
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>String(input)==='/api/v1/operators' && init?.method==='POST'
       ? jsonResponse({error:{message:'Creation unavailable'}},503)
       : api.fetchMock(input,init)));
     const user=userEvent.setup();
@@ -168,7 +168,7 @@ describe('operator administration workflow', () => {
     await user.type(screen.getByLabelText('Name'), 'Workspace reviewer');
     await user.click(screen.getByRole('button', { name: 'Create user' }));
     await screen.findByRole('heading', { name: 'Workspace reviewer' });
-    expect(api.calls.find(call => call.path === '/admin/v1/operators' && call.method === 'POST')?.body).toMatchObject({ organization_id: organization.id, project_id: project.id });
+    expect(api.calls.find(call => call.path === '/api/v1/operators' && call.method === 'POST')?.body).toMatchObject({ organization_id: organization.id, project_id: project.id });
   });
 
   it('creates an operator within the selected scope, shows its secret once, and confirms revocation', async () => {
@@ -183,7 +183,7 @@ describe('operator administration workflow', () => {
 
     expect(await screen.findByRole('heading', { name: 'Production reviewer' })).toBeTruthy();
     expect((screen.getByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_new_operator_token');
-    const createCall = api.calls.find(call => call.path === '/admin/v1/operators' && call.method === 'POST');
+    const createCall = api.calls.find(call => call.path === '/api/v1/operators' && call.method === 'POST');
     expect(createCall?.body).toEqual({
       organization_id: organization.id,
       project_id: project.id,
@@ -194,11 +194,11 @@ describe('operator administration workflow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Revoke access' }));
     expect(await screen.findByRole('button', { name: 'Confirm revoke user access' })).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/operator-new' && call.method === 'DELETE')).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-new' && call.method === 'DELETE')).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Confirm revoke user access' }));
 
     expect(await screen.findByText('Access revoked')).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/operator-new' && call.method === 'DELETE')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-new' && call.method === 'DELETE')).toBe(true);
   });
 
   it('issues sessions only for the selected operator and clears one-time credentials when selection changes', async () => {
@@ -211,18 +211,18 @@ describe('operator administration workflow', () => {
     await user.click(await screen.findByRole('button', { name: 'Avery', exact: true }));
     await user.click(await screen.findByRole('button', { name: 'Create access token' }));
     expect((await screen.findByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_session_operator-a');
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/operator-a/sessions' && call.method === 'POST')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-a/sessions' && call.method === 'POST')).toBe(true);
 
     await user.click(screen.getByRole('button', { name: 'Close', exact: true }));
     await user.click(screen.getByRole('button', { name: 'Morgan', exact: true }));
     await waitFor(() => expect(screen.queryByDisplayValue('niu_once_session_operator-a')).toBeNull());
     expect(screen.getByRole('heading', { name: 'Morgan' })).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/operator-b/sessions' && call.method === 'POST')).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-b/sessions' && call.method === 'POST')).toBe(false);
 
     await user.click(screen.getByRole('button', { name: 'Create access token' }));
     expect((await screen.findByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_session_operator-b');
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/operator-b/sessions' && call.method === 'POST')).toBe(true);
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/sessions' && call.method === 'POST')).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-b/sessions' && call.method === 'POST')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/sessions' && call.method === 'POST')).toBe(false);
   });
 
   it('keeps the list simple and requires confirmation before revoking organization-wide access', async () => {
@@ -241,7 +241,7 @@ describe('operator administration workflow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Revoke access' }));
     await user.click(screen.getByRole('button', { name: 'Revoke access' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/operator-a' && call.method === 'DELETE')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-a' && call.method === 'DELETE')).toBe(true);
     expect(screen.getAllByText('Revoked').length).toBeGreaterThan(0);
   });
 
@@ -254,7 +254,7 @@ describe('operator administration workflow', () => {
     expect(await screen.findByText('User added')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Load older' }));
     expect(await screen.findByText('Access token created')).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/admin/v1/operators/operator-a/events?limit=50&cursor=event-cursor')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-a/events?limit=50&cursor=event-cursor')).toBe(true);
   });
 
   it('discards an older activity page that resolves after the selected operator changes', async () => {

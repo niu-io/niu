@@ -26,7 +26,7 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  const reloadController=useRef<AbortController|null>(null);
  const [groups,setGroups]=useState<MediaAssetGroup[]>([]),[assets,setAssets]=useState<MediaAsset[]>([]),[sessions,setSessions]=useState<MediaVerificationSession[]>([]);
  const [group,setGroup]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(true);
- const admin=useMemo(()=>new NiuAdminClient({adminToken:context.token,baseURL:new URL('/admin/v1',window.location.origin).href}),[context.token]);
+ const admin=useMemo(()=>new NiuAdminClient({adminToken:context.token,baseURL:new URL('/api/v1',window.location.origin).href}),[context.token]);
  useEffect(()=>{
   if(nativeContext)return;
   const controller=new AbortController();setDiscovery({identity:discoveryIdentity,loading:true,keys:[],choices:[],errors:[]});

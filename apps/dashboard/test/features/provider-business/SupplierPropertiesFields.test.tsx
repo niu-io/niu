@@ -12,7 +12,7 @@ it('loads linked settings and preserves credentials and availability on revision
       const body = JSON.parse(String(init.body)); writes.push(body);
       return Response.json({ data: { ...vendor, ...body, revision: 4 } });
     }
-    expect(String(input)).toBe('/admin/v1/vendors?supplier=supplier-fixture');
+    expect(String(input)).toBe('/api/v1/vendors?supplier=supplier-fixture');
     return Response.json({ data: [vendor] });
   });
   vi.stubGlobal('fetch', fetchMock);

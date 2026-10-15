@@ -5,17 +5,17 @@ info:
 servers:
   - url: /
 paths:
-  /admin/v1/platform/configuration:
+  /api/v1/platform/configuration:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1configuration/get'
-  /admin/v1/platform/payments/integrations:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1configuration/get'
+  /api/v1/platform/payments/integrations:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1payments~1integrations/get'
-  /admin/v1/platform/payments/epay:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1payments~1integrations/get'
+  /api/v1/platform/payments/epay:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1payments~1epay/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1payments~1epay/get'
     put:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1payments~1epay/put'
-  /admin/v1/platform/audit-events:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1payments~1epay/put'
+  /api/v1/platform/audit-events:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1audit-events/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1audit-events/get'

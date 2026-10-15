@@ -28,7 +28,7 @@ export default function SupplierSettings() {
   const [reload, setReload] = useState(0);
   const [brokenLogo, setBrokenLogo] = useState(false);
   const pending = useRef<AbortController | null>(null);
-  const path = `/admin/v1/providers/${encodeURIComponent(supplierId ?? '')}`;
+  const path = `/api/v1/providers/${encodeURIComponent(supplierId ?? '')}`;
   const loadedContext = useRef('');
   useEffect(() => {
     const controller = new AbortController();

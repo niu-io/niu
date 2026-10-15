@@ -13,8 +13,8 @@ it('detects a later proxy outage and restores the same page without losing its d
     if (!online) return new Response('Bad Gateway', { status: 502 });
     const path = String(input);
     return new Response(JSON.stringify(path === '/healthz' ? { status: 'ok' }
-      : path === '/admin/v1/auth/config' ? { password_login: true }
-      : path === '/admin/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
+      : path === '/api/v1/auth/config' ? { password_login: true }
+      : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
       : { data: [] }));
   }));
   const router = createMemoryRouter([{ element: <AppLayout />, children: [{ path: '/chat', element: <textarea aria-label="Task draft" /> }] }], { initialEntries: ['/chat'] });

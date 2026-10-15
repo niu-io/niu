@@ -11,7 +11,7 @@ test('branding uses platform scope, explicit fields and exact revision without r
   }});
   assert.deepEqual(await client.getBranding(), result);
   assert.deepEqual(await client.saveBranding('0', { ...settings, secret: 'omit' }, { signal: controller.signal }), result);
-  assert.ok(calls.every(call => call.url.endsWith('/admin/v1/platform/branding')));
+  assert.ok(calls.every(call => call.url.endsWith('/api/v1/platform/branding')));
   assert.equal(calls[0].init.method, 'GET');
   assert.equal(calls[0].init.body, undefined);
   assert.equal(calls[1].init.method, 'PUT');

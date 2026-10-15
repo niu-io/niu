@@ -32,7 +32,7 @@ export default function LoginRoute() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch('/admin/v1/auth/config', { signal: controller.signal, cache: 'no-store' })
+    void fetch('/api/v1/auth/config', { signal: controller.signal, cache: 'no-store' })
       .then(async response => {
         if(!response.ok)throw new Error('Sign-in configuration unavailable');
         const value=await response.json();
@@ -61,7 +61,7 @@ export default function LoginRoute() {
     const controller=new AbortController();request.current=controller;inFlight.current=true;
     setLocalError('');setSubmitting(true);
     try {
-      const response=await fetch(mode==='token'?'/admin/v1/auth/browser/token':'/admin/v1/auth/browser/login',{
+      const response=await fetch(mode==='token'?'/api/v1/auth/browser/token':'/api/v1/auth/browser/login',{
         method:'POST',headers:{'content-type':'application/json'},
         body:JSON.stringify(mode==='token'?{token:accessToken.trim()}:{email:username,password}),
         cache:'no-store',signal:controller.signal,
