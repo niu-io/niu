@@ -96,10 +96,11 @@ pub(in crate::web) async fn inspect<'a>(
 ) -> Result<Vec<InspectedImage<'a>>, ApiError> {
     // Ordinary schema-approved URLs and inline images are upstream inputs.
     // Local inspection is required only by an explicit current policy.
-    if !inspection_required(snapshot)? {
+    let bindings = requirements(snapshot)?;
+    if bindings.is_empty() {
         return Ok(Vec::new());
     }
-    let references: Vec<(usize, String)> = body["content"]
+    let references: Vec<(usize, &str)> = body["content"]
         .as_array()
         .ok_or_else(ApiError::forbidden)?
         .iter()
@@ -109,19 +110,23 @@ pub(in crate::web) async fn inspect<'a>(
             item["image_url"]["url"]
                 .as_str()
                 .filter(|url| url.starts_with("data:image/"))
-                .map(|url| (position, url.to_owned()))
+                .map(|url| (position, url))
                 .ok_or_else(ApiError::unsupported)
         })
         .collect::<Result<_, _>>()?;
     if references.is_empty() {
         return Ok(Vec::new());
     }
-    let bindings = requirements(snapshot)?;
-    if !permitted(state, snapshot, principal) {
+    let workspace = principal.scope().project_id.to_string();
+    if !bindings.iter().all(|(name, consent)| {
+        state
+            .image_detectors
+            .get(name)
+            .is_some_and(|runtime| runtime.permits(&workspace, consent))
+    }) {
         return Err(ApiError::image_inspection_required());
     }
     // Validate every binding before disclosing any image to any detector.
-    let workspace = principal.scope().project_id.to_string();
     let mut batches = BTreeMap::new();
     for name in bindings.keys() {
         let runtime = state
@@ -149,7 +154,7 @@ pub(in crate::web) async fn inspect<'a>(
             let approval = match batches
                 .get_mut(name)
                 .ok_or_else(ApiError::forbidden)?
-                .inspect(&workspace, consent, &reference)
+                .inspect(&workspace, consent, reference)
                 .await
             {
                 Ok(approval) => approval,
@@ -178,7 +183,7 @@ pub(in crate::web) async fn inspect<'a>(
                 }
             };
             let exact = approval
-                .inline_reference(reference.len())
+                .inline_reference_str(reference.len())
                 .map_err(|_| ApiError::forbidden())?;
             if exact != reference {
                 return Err(ApiError::forbidden());

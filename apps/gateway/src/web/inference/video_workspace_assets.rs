@@ -53,12 +53,18 @@ impl PreparedWorkspaceAssets {
         principal: &Principal,
     ) -> Result<Value, ApiError> {
         let mut body = self.admission.clone();
+        if self.references.is_empty() {
+            return Ok(body);
+        }
+        let ids: Vec<Uuid> = self.references.iter().map(|r| r.asset_id).collect();
+        let assets = state
+            .store
+            .workspace_assets_by_ids(principal.scope(), &ids)
+            .await
+            .map_err(ApiError::from_store)?;
         for reference in &self.references {
-            let asset = state
-                .store
-                .workspace_asset(principal.scope(), reference.asset_id)
-                .await
-                .map_err(ApiError::from_store)?
+            let asset = assets
+                .get(&reference.asset_id)
                 .ok_or_else(ApiError::not_found)?;
             if asset.media_kind != AssetLibraryKind::Image {
                 return Err(ApiError::unsupported_message(

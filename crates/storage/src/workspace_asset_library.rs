@@ -307,6 +307,33 @@ impl Store {
         tx.commit().await?;
         Ok(asset)
     }
+
+    pub async fn workspace_assets_by_ids(
+        &self,
+        scope: TenantScope,
+        ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, AssetLibraryAsset>, StoreError> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let sql = format!(
+            "SELECT {COLUMNS} FROM workspace_asset_library WHERE organization_id=$1 AND project_id=$2 AND id=ANY($3) AND deleted_at IS NULL"
+        );
+        let rows = sqlx::query_as::<_, AssetRow>(&sql)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(ids)
+            .fetch_all(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        let mut map = std::collections::HashMap::with_capacity(rows.len());
+        for row in rows {
+            let asset = row.into_asset()?;
+            map.insert(asset.id, asset);
+        }
+        Ok(map)
+    }
     async fn workspace_asset_using(
         connection: &mut PgConnection,
         scope: TenantScope,
@@ -334,6 +361,7 @@ impl Store {
     ) -> Result<Option<AssetLibraryContent>, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
         let Some(asset) = Self::workspace_asset_using(&mut tx, scope, id).await? else {
+            tx.commit().await?;
             return Ok(None);
         };
         let ciphertext: Option<Vec<u8>> = sqlx::query_scalar(
