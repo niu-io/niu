@@ -4,6 +4,7 @@ packages:
   - apps/catalog
   - sdks/javascript
   - sdks/agent-connect
+  - sdks/mcp
 allowBuilds:
   esbuild: true
   vue-demi: true

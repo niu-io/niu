@@ -33,6 +33,7 @@ export default defineConfig({
           { label: 'Quickstart', slug: 'getting-started' },
           { label: 'API tutorial', slug: 'guides/api-quickstart' },
           { label: 'SDK tutorial', slug: 'guides/sdk-quickstart' },
+          { label: 'Coding agents', slug: 'guides/mcp' },
         ] },
         { label: 'Use Niu', items: [
           { label: 'Models & routing', slug: 'configuration/models' },

@@ -1,0 +1,99 @@
+---
+title: Coding agents
+description: Connect a coding agent to Niu with a workspace API key and the local MCP server.
+---
+
+A coding agent (such as Claude Code, Cursor, Windsurf, Zed, or Codex) can connect to Niu through `@niu-io/mcp` (`niu-mcp`), a local stdio Model Context Protocol (MCP) server. Using a workspace API key, the agent can inspect key limits and remaining spending allowance, discover models and protocol capabilities, run multi-protocol inference or parallel multi-model comparisons, inspect per-generation token breakdowns and customer charges, and execute end-to-end video and media asset workflows.
+
+Each model call is a normal Niu request and uses the exact model the agent specifies. The server never guesses or substitutes another model, does not sign in to the dashboard, and never exposes Provider purchase costs or platform margins.
+
+## Hosted niu.io
+
+The hosted configuration is pinned in the repository at `sdks/mcp/hosted/niu.io.json`. It sets the gateway address to `https://niu.io/v1`. Create a workspace API key in the dashboard and pass it only in the agent's environment. Do not put the key in the pinned file or the deployment image.
+
+```json
+{
+  "mcpServers": {
+    "niu": {
+      "command": "node",
+      "args": ["sdks/mcp/bin/niu-mcp.mjs", "--hosted"],
+      "env": {
+        "NIU_API_KEY": "your-workspace-api-key",
+        "NIU_LOG_PAYLOADS": "false"
+      }
+    }
+  }
+}
+```
+
+Build the server from this checkout first:
+
+```sh
+pnpm --dir sdks/mcp build
+```
+
+`--hosted` refuses a different `NIU_BASE_URL`. The `niu.io` deployment publishes this origin and does not store customer keys.
+
+## Self-hosted or local gateway
+
+Omit `--hosted` and set `NIU_BASE_URL` to that gateway's `/v1` address:
+
+```json
+{
+  "mcpServers": {
+    "niu": {
+      "command": "node",
+      "args": ["sdks/mcp/bin/niu-mcp.mjs"],
+      "env": {
+        "NIU_API_KEY": "your-workspace-api-key",
+        "NIU_BASE_URL": "http://127.0.0.1:2555/v1"
+      }
+    }
+  }
+}
+```
+
+### Environment options
+
+- `NIU_API_KEY` (required): Workspace API key (or console session token when `NIU_KEY_ID` is also set).
+- `NIU_BASE_URL` (required without `--hosted`): Gateway `/v1` base URL.
+- `NIU_KEY_ID` (optional): Canonical workspace key UUID sent as `X-Niu-Key-Id`.
+- `NIU_CREDENTIAL_HEADER` (optional): `authorization` (default) or `x-niu-api-key`.
+- `NIU_LOG_PAYLOADS` (optional): `false` to opt out of 24-hour request/response payload capture by default (`x-niu-log-payloads: false`), or `true`. Individual tool calls can also pass `log_payloads`.
+- `NIU_TASK_ID` (optional): Default `X-Niu-Task-ID` correlation tag (1–200 printable ASCII characters) to group agent requests in workspace activity.
+
+## Tools
+
+### Key introspection, model discovery & telemetry
+- `inspect_key` — Reads `GET /v1/key` for the key's label, `allowed_models`, expiration, `spending_limits` (including `remaining_allowance_nanos`), request/token/concurrency rate limits, 60-second `usage_window`, and `ip_policy`.
+- `list_models` — Reads `GET /v1/models` for accessible models and published `customer_pricing`, with optional `search` and `priced_only` filters.
+- `list_catalog_models` — Reads `GET /catalog/v1/models` for public catalog metadata and protocol `capabilities` (`chat_completions`, `streaming`, `embeddings`, `messages`, `messages_streaming`, `generate_content`, `responses`), with optional `search` and `capability` filters.
+- `get_generation` — Reads `GET /v1/generations/{id}` using the `attempt_id` returned by inference calls to inspect token breakdowns (cached input, cache write, reasoning output), phase latency timings, `output_guardrail_outcome`, and settled `customer_charge`.
+
+### Multi-protocol inference & model comparison
+- `create_chat_completion` — Calls `POST /v1/chat/completions` with `model` and `messages`, plus optional sampling controls (`temperature`, `top_p`, `max_tokens`, `max_completion_tokens`, `stop`, `seed`), structured output (`response_format`), `reasoning` / `reasoning_effort`, client function `tools` / `tool_choice`, `log_payloads`, and `task_id`. Returns `choices`, `usage`, and `attempt_id`.
+- `compare_models` — Sends the same chat messages concurrently to 1–5 explicit `models` and returns each model's completion, `duration_ms`, `usage`, and `attempt_id` side-by-side.
+- `create_response` — Calls `POST /v1/responses` (`model`, `input`, optional `instructions`, `max_output_tokens`, `temperature`, `top_p`, `metadata`, `user`) and extracts `output_text`.
+- `create_message` — Calls `POST /v1/messages` (`model`, `max_tokens`, `messages`, optional `system`, `temperature`, `top_p`, `stop_sequences`, `tools`, `tool_choice`).
+- `generate_content` — Calls `POST /v1beta/models/{model}:generateContent` (`model`, `contents`, `generationConfig`, optional `systemInstruction`).
+- `create_embeddings` — Calls `POST /v1/embeddings` (`model`, `input`, optional `encoding_format`, `dimensions`, `user`).
+
+### Video generation & lifecycle
+- `list_video_models` — Reads `GET /v1/video/models` for configured video models, input bounds, control schemas, output dimensions, and meters (`video_tokens` or `seconds`).
+- `estimate_video` — Calls `POST /v1/video/estimate` to estimate output dimensions, metered quantity, and customer charge before submitting a job.
+- `create_video_job` — Calls `POST /v1/video/jobs` using friendly domain fields (`prompt`, `references`, `duration_seconds`, `resolution`, `aspect_ratio`, `seed`, `watermark`, `camera_fixed`, `return_last_frame`, `frames_per_second`, `controls`) or raw `content`, with optional `idempotency_key` and `wait: true`.
+- `list_video_jobs`, `get_video_job`, `refresh_video_job`, `wait_for_video_job` — List, inspect, refresh, or safely poll video jobs until completion.
+- `get_video_job_billing` & `get_video_job_diagnostics` — Inspect customer video billing (`reserved_nanos`, `charge_nanos`, `settled_usage`), gateway transport spans, and upstream query observations.
+- `get_video_job_results`, `download_video_result`, `delete_video_results` — Check result availability, save generated `video` (`mp4`/`webm`) or `last_frame` (`png`/`jpeg`) to a local `output_path` (with optional inline MCP image return for `last_frame`), or delete saved result references.
+
+### Native media materials, verification & image ingestion
+- `list_media_capabilities` — Reads `GET /v1/media/capabilities`.
+- `media_asset_groups` & `media_assets` — Manage workspace Provider asset groups and media assets (`list`, `create`, `get`, `update`/`rename`, `delete`, `refresh`).
+- `media_asset_operations` — List, inspect, prepare, dispatch, or cancel durable Provider asset operations (`list`, `get`, `get_by_idempotency`, `prepare`, `dispatch`, `cancel`).
+- `media_verification_sessions` — Manage human verification sessions (`list`, `create`, `get`, `refresh`, `link`).
+- `media_image_ingestions` — Manage inline image sources and consented image ingestions (`prepare_source`, `erase_source`, `list`, `prepare_consent`, `get_consent`, `revoke_consent`, `dispatch`, `get_readiness`, `refresh_readiness`).
+
+## Resources & prompts
+
+- **Resources (`resources/list` & `resources/read`)**: `niu://key`, `niu://models`, `niu://catalog/models`, `niu://video/models`, `niu://media/capabilities`, `niu://branding`, plus dynamic templates `niu://generations/{id}` and `niu://video/jobs/{id}`.
+- **Prompts (`prompts/list` & `prompts/get`)**: `consult_model`, `compare_models`, `check_key_budget`, and `generate_video_workflow`.

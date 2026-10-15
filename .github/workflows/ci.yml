@@ -129,6 +129,12 @@ jobs:
         run: pnpm --dir sdks/javascript run test
       - name: Test Agent Connect SDK
         run: pnpm --dir sdks/agent-connect run test
+      - name: Check MCP server types
+        run: pnpm --dir sdks/mcp run check
+      - name: Build MCP server
+        run: pnpm --dir sdks/mcp run build
+      - name: Test MCP server
+        run: pnpm --dir sdks/mcp run test
 
   package:
     runs-on: ubuntu-latest

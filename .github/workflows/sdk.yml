@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/sdk.yml'
       - 'sdks/javascript/**'
+      - 'sdks/mcp/**'
       - 'apps/docs/scripts/generate-api-docs.mjs'
       - 'apps/docs/src/content/docs/api/**'
       - 'contracts/**'
@@ -16,6 +17,7 @@ on:
     paths:
       - '.github/workflows/sdk.yml'
       - 'sdks/javascript/**'
+      - 'sdks/mcp/**'
       - 'apps/docs/scripts/generate-api-docs.mjs'
       - 'apps/docs/src/content/docs/api/**'
       - 'contracts/**'
@@ -54,6 +56,8 @@ jobs:
         run: pnpm --dir sdks/javascript check
       - name: Build SDK JavaScript and declarations
         run: pnpm --dir sdks/javascript build
+      - name: Check and test the MCP server
+        run: pnpm --dir sdks/mcp test
       - name: Record verification scope
         if: always()
         run: echo 'SDK type and build checks only. Runtime authorization, model calls, accounting and release readiness require current-input end-to-end runs and independent artifact verification.' >> "$GITHUB_STEP_SUMMARY"

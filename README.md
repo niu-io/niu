@@ -28,7 +28,7 @@ This repository is the complete self-hosted monorepo: single-process Rust gatewa
 - **Extensible Plugin Architecture (`plugin-api` & `plugin-sdk`)**:
   - Versioned Rust `plugin-api` and `plugin-sdk` supporting built-in open-source plugins (`plugins/hello-echo`, `plugins/request-tagger`, `plugins/webhook-audit`) and manifest-validated external plugins over Unix domain sockets (`/api/plugins/v1/{plugin_id}/…`).
 - **Independent Client Access**:
-  - Applications and coding agents connect through standard `/v1` model APIs or the TypeScript SDKs (`@niu-io/sdk`, `@niu-io/agent-connect`) without requiring an external agent orchestrator.
+  - Applications and coding agents connect through standard `/v1` model APIs or the TypeScript SDKs (`@niu-io/sdk`, `@niu-io/agent-connect`, `@niu-io/mcp`) without requiring an external agent orchestrator. `niu-mcp` is a local stdio server; the hosted client uses `https://niu.io/v1`.
 
 ---
 
