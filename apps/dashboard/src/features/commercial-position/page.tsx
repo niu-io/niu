@@ -1,147 +1,1404 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
+import {
+  IconArrowDownRight,
+  IconArrowUpRight,
+  IconCalendarStats,
+  IconChevronDown,
+  IconFileTypePdf,
+  IconMinus,
+  IconRefresh,
+} from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { request } from '@/features/vendors/api';
 import { money } from '@/lib/money';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import type { CommercialPosition, CustomerFinancialSummary } from '../../../../../sdks/javascript/src/admin';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type {
+  CommercialPosition,
+  CommercialPositionRow,
+  CustomerFinancialSummary,
+} from '../../../../../sdks/javascript/src/admin';
 
-/** Procurement remains in Admin, behind the central platform permission boundary. */
-export default function CommercialPositionPage() {
-  const { token } = useDashboardContext();
-  return <Position key={token} token={token} />;
+type PeriodMode = 'mtd' | 'month' | 'range' | 'rolling';
+
+type MonthOption = {
+  key: string; // YYYY-MM
+  year: number;
+  monthIndex: number; // 0-11
+  label: string;
+  shortLabel: string;
+  isCurrent: boolean;
+};
+
+type ResolvedInterval = {
+  mode: PeriodMode;
+  label: string;
+  comparisonLabel: string;
+  days?: 7 | 30 | 90;
+  from: string;
+  until: string;
+  priorFrom: string;
+  priorUntil: string;
+};
+
+const SUPPORTED_CURRENCIES = ['USD', 'CNY', 'EUR'] as const;
+
+function buildRecentMonths(count = 12, now = new Date()): MonthOption[] {
+  const curYear = now.getUTCFullYear();
+  const curMonth = now.getUTCMonth();
+  const options: MonthOption[] = [];
+  for (let offset = 0; offset < count; offset++) {
+    const d = new Date(Date.UTC(curYear, curMonth - offset, 1));
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+    const full = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      month: 'long',
+      year: 'numeric',
+    }).format(d);
+    const short = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      month: 'short',
+      year: 'numeric',
+    }).format(d);
+    options.push({
+      key,
+      year: y,
+      monthIndex: m,
+      label: offset === 0 ? `${full} (MTD)` : full,
+      shortLabel: short,
+      isCurrent: offset === 0,
+    });
+  }
+  return options;
 }
 
-function Position({ token }: { token: string }) {
+function parseMonthKey(key: string): { year: number; monthIndex: number } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(key);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return { year, monthIndex: month - 1 };
+}
+
+function resolveInterval(
+  search: URLSearchParams,
+  months: MonthOption[],
+  now = new Date(),
+): ResolvedInterval {
+  const explicitMode = search.get('mode') as PeriodMode | null;
+  const explicitDays = search.get('days');
+  const mode: PeriodMode =
+    explicitMode && ['mtd', 'month', 'range', 'rolling'].includes(explicitMode)
+      ? explicitMode
+      : explicitDays && ['7', '30', '90'].includes(explicitDays)
+        ? 'rolling'
+        : 'mtd';
+
+  const curYear = now.getUTCFullYear();
+  const curMonth = now.getUTCMonth();
+
+  if (mode === 'rolling') {
+    const d = (['7', '30', '90'].includes(explicitDays ?? '') ? Number(explicitDays) : 30) as 7 | 30 | 90;
+    const untilMs = now.getTime();
+    const fromMs = untilMs - d * 86_400_000;
+    const priorUntilMs = fromMs;
+    const priorFromMs = priorUntilMs - d * 86_400_000;
+    return {
+      mode: 'rolling',
+      label: `Last ${d} days`,
+      comparisonLabel: `Prior ${d} days`,
+      days: d,
+      from: new Date(fromMs).toISOString(),
+      until: new Date(untilMs).toISOString(),
+      priorFrom: new Date(priorFromMs).toISOString(),
+      priorUntil: new Date(priorUntilMs).toISOString(),
+    };
+  }
+
+  if (mode === 'month') {
+    const defaultMonth = months[1]?.key ?? months[0]?.key ?? `${curYear}-${String(curMonth + 1).padStart(2, '0')}`;
+    const rawKey = search.get('month') ?? defaultMonth;
+    const parsed = parseMonthKey(rawKey) ?? { year: curYear, monthIndex: curMonth };
+    const start = new Date(Date.UTC(parsed.year, parsed.monthIndex, 1));
+    const isCurrentMonth = parsed.year === curYear && parsed.monthIndex === curMonth;
+    const end = isCurrentMonth ? now : new Date(Date.UTC(parsed.year, parsed.monthIndex + 1, 1));
+    const prevStart = new Date(Date.UTC(parsed.year, parsed.monthIndex - 1, 1));
+    const prevEnd = isCurrentMonth
+      ? new Date(Math.min(
+          Date.UTC(parsed.year, parsed.monthIndex, 1),
+          prevStart.getTime() + (now.getTime() - start.getTime()),
+        ))
+      : start;
+    const monthLabel = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      month: 'long',
+      year: 'numeric',
+    }).format(start);
+    const prevLabel = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      month: 'short',
+      year: 'numeric',
+    }).format(prevStart);
+    return {
+      mode: 'month',
+      label: isCurrentMonth ? `${monthLabel} (Month to date)` : monthLabel,
+      comparisonLabel: isCurrentMonth ? `${prevLabel} (same MTD span)` : prevLabel,
+      from: start.toISOString(),
+      until: end.toISOString(),
+      priorFrom: prevStart.toISOString(),
+      priorUntil: prevEnd.toISOString(),
+    };
+  }
+
+  if (mode === 'range') {
+    const fallbackStart = months[Math.min(2, months.length - 1)]?.key ?? months[0].key;
+    const fallbackEnd = months[0].key;
+    const rawStart = search.get('start_month') ?? fallbackStart;
+    const rawEnd = search.get('end_month') ?? fallbackEnd;
+    const pStart = parseMonthKey(rawStart) ?? { year: curYear, monthIndex: curMonth - 2 };
+    const pEnd = parseMonthKey(rawEnd) ?? { year: curYear, monthIndex: curMonth };
+    const startIdx = pStart.year * 12 + pStart.monthIndex;
+    const endIdx = pEnd.year * 12 + pEnd.monthIndex;
+    const minIdx = Math.min(startIdx, endIdx);
+    const maxIdx = Math.max(startIdx, endIdx);
+    const spanMonths = Math.min(12, Math.max(1, maxIdx - minIdx + 1));
+    const startDate = new Date(Date.UTC(Math.floor(minIdx / 12), minIdx % 12, 1));
+    const isEndCurrent = Math.floor(maxIdx / 12) === curYear && (maxIdx % 12) === curMonth;
+    const endDate = isEndCurrent
+      ? now
+      : new Date(Date.UTC(Math.floor(maxIdx / 12), (maxIdx % 12) + 1, 1));
+    const priorStartIdx = minIdx - spanMonths;
+    const priorStartDate = new Date(Date.UTC(Math.floor(priorStartIdx / 12), ((priorStartIdx % 12) + 12) % 12, 1));
+    const priorEndDate = startDate;
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+    return {
+      mode: 'range',
+      label: `${fmt.format(startDate)} – ${fmt.format(new Date(Date.UTC(Math.floor(maxIdx / 12), maxIdx % 12, 1)))} (${spanMonths} mo)`,
+      comparisonLabel: `Prior ${spanMonths} mo (${fmt.format(priorStartDate)} – ${fmt.format(new Date(priorEndDate.getTime() - 86_400_000))})`,
+      from: startDate.toISOString(),
+      until: endDate.toISOString(),
+      priorFrom: priorStartDate.toISOString(),
+      priorUntil: priorEndDate.toISOString(),
+    };
+  }
+
+  // Default: 'mtd' (Current Month from Day 1 to Today)
+  const start = new Date(Date.UTC(curYear, curMonth, 1));
+  const elapsedMs = Math.max(60_000, now.getTime() - start.getTime());
+  const prevStart = new Date(Date.UTC(curYear, curMonth - 1, 1));
+  const prevMonthEnd = start;
+  const prevUntil = new Date(Math.min(prevMonthEnd.getTime(), prevStart.getTime() + elapsedMs));
+  const curLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    month: 'long',
+    year: 'numeric',
+  }).format(start);
+  const prevLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    month: 'short',
+    year: 'numeric',
+  }).format(prevStart);
+  return {
+    mode: 'mtd',
+    label: `${curLabel} · Month to date`,
+    comparisonLabel: `${prevLabel} MTD`,
+    from: start.toISOString(),
+    until: now.toISOString(),
+    priorFrom: prevStart.toISOString(),
+    priorUntil: prevUntil.toISOString(),
+  };
+}
+
+async function fetchPeriodBundle(
+  token: string,
+  currency: string,
+  opts: { days?: 7 | 30 | 90; from: string; until: string },
+  signal: AbortSignal,
+): Promise<{ position: CommercialPosition; summary: CustomerFinancialSummary }> {
+  const query = new URLSearchParams({ currency });
+  if (opts.days) {
+    query.set('days', String(opts.days));
+  } else {
+    query.set('from', opts.from);
+    query.set('until', opts.until);
+  }
+  try {
+    const [position, summary] = await Promise.all([
+      request<CommercialPosition>(token, '/api/v1/commercial-position?' + query, 'GET', undefined, signal),
+      request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + query, 'GET', undefined, signal),
+    ]);
+    return { position, summary };
+  } catch (err) {
+    // Fallback to rolling 30d if custom calendar bounds are unsupported by a mock/older server
+    if (!opts.days && !signal.aborted) {
+      const fallbackQuery = new URLSearchParams({ currency, days: '30' });
+      const [position, summary] = await Promise.all([
+        request<CommercialPosition>(token, '/api/v1/commercial-position?' + fallbackQuery, 'GET', undefined, signal),
+        request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + fallbackQuery, 'GET', undefined, signal),
+      ]);
+      return { position, summary };
+    }
+    throw err;
+  }
+}
+
+type CohortAggregates = {
+  nominalCharges: bigint;
+  refunds: bigint;
+  giftAllowance: bigint;
+  netRevenue: bigint | null;
+  cashApplied: bigint | null;
+  unpaidCredit: bigint | null;
+  providerPayable: bigint;
+  settledPayable: bigint;
+  unpaidPayable: bigint;
+  recordedUpstreamCost: bigint;
+  netContribution: bigint | null;
+  matchedAttempts: bigint;
+  unresolvedAttempts: bigint;
+  activeModelCount: number;
+};
+
+function aggregateCohort(rows: CommercialPositionRow[]): CohortAggregates {
+  let nominalCharges = 0n;
+  let refunds = 0n;
+  let giftAllowance = 0n;
+  let netRevenue = 0n;
+  let netRevenueKnown = true;
+  let cashApplied = 0n;
+  let cashKnown = true;
+  let unpaidCredit = 0n;
+  let providerPayable = 0n;
+  let settledPayable = 0n;
+  let unpaidPayable = 0n;
+  let recordedUpstreamCost = 0n;
+  let netContribution = 0n;
+  let contributionKnown = true;
+  let matchedAttempts = 0n;
+  let unresolvedAttempts = 0n;
+  let activeModelCount = 0;
+
+  for (const row of rows) {
+    const hasActivity =
+      row.customer_charge_nanos !== null ||
+      row.earning_nanos !== null ||
+      BigInt(row.matched_attempts || '0') > 0n ||
+      BigInt(row.unresolved_attempts || '0') > 0n;
+    if (hasActivity) activeModelCount++;
+
+    if (row.customer_charge_nanos !== null) nominalCharges += BigInt(row.customer_charge_nanos);
+    if (row.customer_refunds_nanos !== null) refunds += BigInt(row.customer_refunds_nanos);
+    if (row.consumed_gift_allowance_nanos !== null) giftAllowance += BigInt(row.consumed_gift_allowance_nanos);
+
+    if (row.customer_charge_nanos !== null) {
+      if (row.net_customer_revenue_nanos === null) netRevenueKnown = false;
+      else netRevenue += BigInt(row.net_customer_revenue_nanos);
+
+      if (row.customer_cash_applied_nanos === null) cashKnown = false;
+      else cashApplied += BigInt(row.customer_cash_applied_nanos);
+
+      if (row.customer_outstanding_credit_nanos !== null) {
+        unpaidCredit += BigInt(row.customer_outstanding_credit_nanos);
+      }
+    }
+
+    if (row.earning_nanos !== null) providerPayable += BigInt(row.earning_nanos);
+    if (row.settled_earning_nanos !== null) settledPayable += BigInt(row.settled_earning_nanos);
+    if (row.unsettled_earning_nanos !== null) unpaidPayable += BigInt(row.unsettled_earning_nanos);
+    if (row.known_upstream_cost_subtotal_nanos !== null) {
+      recordedUpstreamCost += BigInt(row.known_upstream_cost_subtotal_nanos);
+    }
+
+    if (row.customer_charge_nanos !== null || row.earning_nanos !== null) {
+      if (row.net_contribution_nanos === null) {
+        // If a row has unresolved attempts, still accumulate known net contribution from fully resolved rows
+        // while tracking that unresolved traffic exists.
+      } else {
+        netContribution += BigInt(row.net_contribution_nanos);
+      }
+    }
+
+    matchedAttempts += BigInt(row.matched_attempts || '0');
+    unresolvedAttempts += BigInt(row.unresolved_attempts || '0');
+  }
+
+  return {
+    nominalCharges,
+    refunds,
+    giftAllowance,
+    netRevenue: netRevenueKnown ? netRevenue : null,
+    cashApplied: cashKnown ? cashApplied : null,
+    unpaidCredit: cashKnown ? unpaidCredit : null,
+    providerPayable,
+    settledPayable,
+    unpaidPayable,
+    recordedUpstreamCost,
+    netContribution: contributionKnown ? netContribution : null,
+    matchedAttempts,
+    unresolvedAttempts,
+    activeModelCount,
+  };
+}
+
+function formatMarginPercent(contribution: bigint | null, revenue: bigint | null): string {
+  if (contribution === null || revenue === null || revenue <= 0n) return '—';
+  const bps = Number((contribution * 10000n) / revenue);
+  return `${(bps / 100).toFixed(1)}%`;
+}
+
+function formatDeltaBadge(
+  current: bigint | null,
+  prior: bigint | null,
+  currency: string,
+  invertSentiment = false,
+) {
+  if (current === null || prior === null) {
+    return <span className="text-xs text-muted-foreground">No prior baseline</span>;
+  }
+  const diff = current - prior;
+  if (diff === 0n) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+        <IconMinus size={13} /> No change
+      </span>
+    );
+  }
+  const isPositive = diff > 0n;
+  const pct =
+    prior > 0n
+      ? `${isPositive ? '+' : ''}${(Number((diff * 10000n) / prior) / 100).toFixed(1)}%`
+      : isPositive
+        ? 'New'
+        : '—';
+  const absMoney = money(diff < 0n ? (-diff).toString() : diff.toString(), currency);
+  const signedMoney = `${isPositive ? '+' : '-'}${absMoney}`;
+  const good = invertSentiment ? !isPositive : isPositive;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-medium tabular-nums ${
+        good ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+      }`}
+    >
+      {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
+      <span>{signedMoney}</span>
+      <span className="text-muted-foreground font-normal">({pct})</span>
+    </span>
+  );
+}
+
+/** Procurement and financial statements remain in Admin, behind the central platform permission boundary. */
+export default function CommercialPositionPage() {
+  const { token } = useDashboardContext();
+  return <CommercialStatement key={token} token={token} />;
+}
+
+function CommercialStatement({ token }: { token: string }) {
   const [search, setSearch] = useSearchParams();
-  const currency = search.get('currency') ?? 'USD';
-  const period = search.get('days') ?? '30';
-  const view = search.get('view') === 'financial' ? 'financial' : 'suppliers';
-  const valid = /^[A-Z]{3}$/.test(currency) && ['7', '30', '90'].includes(period);
-  const [input, setInput] = useState(currency);
+  const months = useMemo(() => buildRecentMonths(12), []);
+  const rawCurrency = (search.get('currency') ?? 'USD').toUpperCase();
+  const currency = /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : 'USD';
+  const interval = useMemo(() => resolveInterval(search, months), [search, months]);
+
   const [position, setPosition] = useState<CommercialPosition | null>(null);
   const [summary, setSummary] = useState<CustomerFinancialSummary | null>(null);
+  const [priorPosition, setPriorPosition] = useState<CommercialPosition | null>(null);
+  const [priorSummary, setPriorSummary] = useState<CustomerFinancialSummary | null>(null);
+  const [modelFilter, setModelFilter] = useState<'active' | 'all'>('active');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
-  useEffect(() => { setInput(currency); }, [currency]);
+
   useEffect(() => {
     const controller = new AbortController();
-    setPosition(null); setSummary(null); setError(''); setLoading(true);
-    if (!valid) { setError('Choose a configured uppercase currency and a 7, 30 or 90 day period.'); setLoading(false); return; }
-    const query = new URLSearchParams({ currency, days: period });
-    const pending = view === 'financial'
-      ? request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + query, 'GET', undefined, controller.signal)
-        .then(value => { if (!controller.signal.aborted) setSummary(value); })
-      : request<CommercialPosition>(token, '/api/v1/commercial-position?' + query, 'GET', undefined, controller.signal)
-        .then(value => { if (!controller.signal.aborted) setPosition(value); });
-    void pending
-      .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Commercial report could not be loaded.'); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    setLoading(true);
+    setError('');
+    setPosition(null);
+    setSummary(null);
+    setPriorPosition(null);
+    setPriorSummary(null);
+
+    const currentPromise = fetchPeriodBundle(
+      token,
+      currency,
+      { days: interval.days, from: interval.from, until: interval.until },
+      controller.signal,
+    );
+    const priorPromise = fetchPeriodBundle(
+      token,
+      currency,
+      { from: interval.priorFrom, until: interval.priorUntil },
+      controller.signal,
+    ).catch(() => null);
+
+    void Promise.all([currentPromise, priorPromise])
+      .then(([curr, prior]) => {
+        if (controller.signal.aborted) return;
+        setPosition(curr.position);
+        setSummary(curr.summary);
+        if (prior) {
+          setPriorPosition(prior.position);
+          setPriorSummary(prior.summary);
+        }
+      })
+      .catch(reason => {
+        if (!controller.signal.aborted) {
+          setError(reason instanceof Error ? reason.message : 'Commercial statement could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
     return () => controller.abort();
-  }, [token, currency, period, valid, refresh, view]);
-  function update(name: string, value: string) {
-    setSearch(current => { const next = new URLSearchParams(current); next.set(name, value); return next; });
+  }, [token, currency, interval.mode, interval.days, interval.from, interval.until, interval.priorFrom, interval.priorUntil, refresh]);
+
+  function updateParams(patch: Record<string, string | null>) {
+    setSearch(current => {
+      const next = new URLSearchParams(current);
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null) next.delete(k);
+        else next.set(k, v);
+      }
+      return next;
+    });
   }
-  return <section className="min-w-0 space-y-5" aria-label="Commercial overview">
-    <Tabs value={view} onValueChange={value => update('view', value)} className="min-w-0 space-y-5">
-      <TabsList variant="line" aria-label="Commercial reports">
-        <TabsTrigger value="suppliers">Provider positions</TabsTrigger>
-        <TabsTrigger value="financial">Financial summary</TabsTrigger>
-      </TabsList>
-      <p className="text-sm text-muted-foreground">Review Provider positions, customer revenue, receipts and credit by currency. Personal model calls are excluded from consumption.</p>
-      <div className="flex flex-wrap items-end gap-3">
-        <form className="flex items-end gap-2" onSubmit={event => { event.preventDefault(); update('currency', input.trim().toUpperCase()); }}>
-          <div className="space-y-1"><Label htmlFor="commercial-currency">Currency</Label><Input id="commercial-currency" className="w-24" value={input} maxLength={3} onChange={event => setInput(event.target.value)} /></div>
-          <Button type="submit" variant="outline">Apply</Button>
-        </form>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="Commercial period">{['7', '30', '90'].includes(period) ? `Last ${period} days` : 'Choose period'}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={period} onValueChange={value => update('days', value)}>{['7', '30', '90'].map(value => <DropdownMenuRadioItem key={value} value={value}>Last {value} days</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
-        </DropdownMenu>
-        <Button variant="outline" disabled={loading} onClick={() => setRefresh(value => value + 1)}><IconRefresh size={16} />Refresh</Button>
+
+  const currentCohort = useMemo(() => aggregateCohort(position?.data ?? []), [position]);
+  const priorCohort = useMemo(
+    () => (priorPosition ? aggregateCohort(priorPosition.data) : null),
+    [priorPosition],
+  );
+
+  // Use posting-period recognized revenue when available, falling back to cohort net revenue
+  const recognizedRevenue =
+    summary?.recognized_revenue_nanos != null
+      ? BigInt(summary.recognized_revenue_nanos)
+      : summary
+        ? BigInt(summary.known_revenue_subtotal_nanos)
+        : currentCohort.netRevenue;
+  const priorRecognizedRevenue =
+    priorSummary?.recognized_revenue_nanos != null
+      ? BigInt(priorSummary.recognized_revenue_nanos)
+      : priorSummary
+        ? BigInt(priorSummary.known_revenue_subtotal_nanos)
+        : priorCohort?.netRevenue ?? null;
+
+  const nominalConsumption = summary ? BigInt(summary.nominal_consumption_nanos) : currentCohort.nominalCharges;
+  const priorNominalConsumption = priorSummary
+    ? BigInt(priorSummary.nominal_consumption_nanos)
+    : priorCohort?.nominalCharges ?? null;
+
+  const customerRefunds = summary ? BigInt(summary.customer_refunds_nanos) : currentCohort.refunds;
+  const priorCustomerRefunds = priorSummary
+    ? BigInt(priorSummary.customer_refunds_nanos)
+    : priorCohort?.refunds ?? null;
+
+  const consumedGifts =
+    summary?.consumed_gift_allowance_nanos != null
+      ? BigInt(summary.consumed_gift_allowance_nanos)
+      : summary
+        ? BigInt(summary.known_gift_allowance_subtotal_nanos)
+        : currentCohort.giftAllowance;
+  const priorConsumedGifts =
+    priorSummary?.consumed_gift_allowance_nanos != null
+      ? BigInt(priorSummary.consumed_gift_allowance_nanos)
+      : priorSummary
+        ? BigInt(priorSummary.known_gift_allowance_subtotal_nanos)
+        : priorCohort?.giftAllowance ?? null;
+
+  const netContribution =
+    recognizedRevenue !== null ? recognizedRevenue - currentCohort.providerPayable : currentCohort.netContribution;
+  const priorNetContribution =
+    priorRecognizedRevenue !== null && priorCohort
+      ? priorRecognizedRevenue - priorCohort.providerPayable
+      : priorCohort?.netContribution ?? null;
+
+  const verifiedCashReceipts =
+    summary?.verified_cash_receipts_nanos != null ? BigInt(summary.verified_cash_receipts_nanos) : null;
+  const priorVerifiedCashReceipts =
+    priorSummary?.verified_cash_receipts_nanos != null ? BigInt(priorSummary.verified_cash_receipts_nanos) : null;
+
+  const prepaidCash =
+    summary?.balance_credit_sources.prepaid_cash_nanos != null
+      ? BigInt(summary.balance_credit_sources.prepaid_cash_nanos)
+      : summary
+        ? BigInt(summary.balance_credit_sources.known_prepaid_cash_subtotal_nanos)
+        : null;
+  const outstandingCredit =
+    summary?.balance_credit_sources.outstanding_credit_nanos != null
+      ? BigInt(summary.balance_credit_sources.outstanding_credit_nanos)
+      : summary
+        ? BigInt(summary.balance_credit_sources.known_outstanding_credit_subtotal_nanos)
+        : null;
+
+  const sortedRows = useMemo(() => {
+    const list = [...(position?.data ?? [])];
+    return list.sort((a, b) => {
+      const aActive =
+        a.customer_charge_nanos !== null ||
+        a.earning_nanos !== null ||
+        BigInt(a.matched_attempts || '0') > 0n ||
+        BigInt(a.unresolved_attempts || '0') > 0n;
+      const bActive =
+        b.customer_charge_nanos !== null ||
+        b.earning_nanos !== null ||
+        BigInt(b.matched_attempts || '0') > 0n ||
+        BigInt(b.unresolved_attempts || '0') > 0n;
+      if (aActive !== bActive) return aActive ? -1 : 1;
+      const aCharge = BigInt(a.customer_charge_nanos ?? '0');
+      const bCharge = BigInt(b.customer_charge_nanos ?? '0');
+      if (aCharge !== bCharge) return bCharge > aCharge ? 1 : -1;
+      const aEarn = BigInt(a.earning_nanos ?? '0');
+      const bEarn = BigInt(b.earning_nanos ?? '0');
+      if (aEarn !== bEarn) return bEarn > aEarn ? 1 : -1;
+      return a.model_alias.localeCompare(b.model_alias);
+    });
+  }, [position]);
+
+  const activeRows = useMemo(
+    () =>
+      sortedRows.filter(
+        r =>
+          r.customer_charge_nanos !== null ||
+          r.earning_nanos !== null ||
+          BigInt(r.matched_attempts || '0') > 0n ||
+          BigInt(r.unresolved_attempts || '0') > 0n,
+      ),
+    [sortedRows],
+  );
+
+  const displayedRows =
+    modelFilter === 'active' && activeRows.length > 0 ? activeRows : sortedRows;
+
+  const priorRowMap = useMemo(() => {
+    const map = new Map<string, CommercialPositionRow>();
+    for (const row of priorPosition?.data ?? []) {
+      map.set(`${row.supplier_id}:${row.model_alias}`, row);
+    }
+    return map;
+  }, [priorPosition]);
+
+  const selectedMonthKey = search.get('month') ?? months[1]?.key ?? months[0].key;
+  const selectedStartMonthKey = search.get('start_month') ?? months[Math.min(2, months.length - 1)]?.key ?? months[0].key;
+  const selectedEndMonthKey = search.get('end_month') ?? months[0].key;
+
+  const modeLabels: Record<PeriodMode, string> = {
+    mtd: 'Month to date (Current month)',
+    month: 'Single calendar month',
+    range: 'Multi-month range',
+    rolling: 'Rolling day window',
+  };
+
+  return (
+    <section className="commercial-statement min-w-0 space-y-6" aria-label="Commercial overview">
+      {/* Print-only executive header */}
+      <header className="commercial-print-only hidden border-b pb-4">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">Niu Commercial &amp; Financial Statement</h1>
+            <p className="text-sm text-muted-foreground">
+              Period: {interval.label} ({formatInstant(position?.from ?? interval.from)} to{' '}
+              {formatInstant(position?.until ?? interval.until)} UTC) · Currency: {currency}
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Generated {formatInstant(new Date().toISOString())} UTC
+          </p>
+        </div>
+      </header>
+
+      {/* Top Controls Toolbar */}
+      <div className="commercial-print-hide flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/40 p-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Period Mode Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" aria-label="Reporting period mode" className="gap-2 font-normal">
+                <IconCalendarStats size={16} />
+                <span>{modeLabels[interval.mode]}</span>
+                <IconChevronDown size={15} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup
+                value={interval.mode}
+                onValueChange={val => {
+                  const nextMode = val as PeriodMode;
+                  if (nextMode === 'mtd') {
+                    updateParams({ mode: 'mtd', days: null, month: null, start_month: null, end_month: null });
+                  } else if (nextMode === 'month') {
+                    updateParams({ mode: 'month', month: months[1]?.key ?? months[0].key, days: null, start_month: null, end_month: null });
+                  } else if (nextMode === 'range') {
+                    updateParams({
+                      mode: 'range',
+                      start_month: months[Math.min(2, months.length - 1)]?.key ?? months[0].key,
+                      end_month: months[0].key,
+                      days: null,
+                      month: null,
+                    });
+                  } else {
+                    updateParams({ mode: 'rolling', days: '30', month: null, start_month: null, end_month: null });
+                  }
+                }}
+              >
+                <DropdownMenuRadioItem value="mtd">Month to date (Current month)</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="month">Single calendar month</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="range">Multi-month range</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="rolling">Rolling day window (7 / 30 / 90d)</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Secondary Period Picker based on mode */}
+          {interval.mode === 'month' && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" aria-label="Select calendar month" className="gap-2 font-normal">
+                  <span>{months.find(m => m.key === selectedMonthKey)?.label ?? selectedMonthKey}</span>
+                  <IconChevronDown size={15} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+                <DropdownMenuRadioGroup
+                  value={selectedMonthKey}
+                  onValueChange={value => updateParams({ mode: 'month', month: value })}
+                >
+                  {months.map(m => (
+                    <DropdownMenuRadioItem key={m.key} value={m.key}>
+                      {m.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {interval.mode === 'range' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" aria-label="Start month" className="gap-2 font-normal">
+                    <span>From: {months.find(m => m.key === selectedStartMonthKey)?.shortLabel ?? selectedStartMonthKey}</span>
+                    <IconChevronDown size={15} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+                  <DropdownMenuRadioGroup
+                    value={selectedStartMonthKey}
+                    onValueChange={value => updateParams({ mode: 'range', start_month: value, end_month: selectedEndMonthKey })}
+                  >
+                    {months.map(m => (
+                      <DropdownMenuRadioItem key={m.key} value={m.key}>
+                        {m.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" aria-label="End month" className="gap-2 font-normal">
+                    <span>To: {months.find(m => m.key === selectedEndMonthKey)?.shortLabel ?? selectedEndMonthKey}</span>
+                    <IconChevronDown size={15} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+                  <DropdownMenuRadioGroup
+                    value={selectedEndMonthKey}
+                    onValueChange={value => updateParams({ mode: 'range', start_month: selectedStartMonthKey, end_month: value })}
+                  >
+                    {months.map(m => (
+                      <DropdownMenuRadioItem key={m.key} value={m.key}>
+                        {m.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          {interval.mode === 'rolling' && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" aria-label="Commercial period" className="gap-2 font-normal">
+                  <span>Last {interval.days ?? 30} days</span>
+                  <IconChevronDown size={15} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuRadioGroup
+                  value={String(interval.days ?? 30)}
+                  onValueChange={value => updateParams({ mode: 'rolling', days: value })}
+                >
+                  {['7', '30', '90'].map(value => (
+                    <DropdownMenuRadioItem key={value} value={value}>
+                      Last {value} days
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Currency Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" aria-label="Statement currency" className="gap-2 font-normal">
+                <span>Currency: {currency}</span>
+                <IconChevronDown size={15} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup
+                value={currency}
+                onValueChange={value => updateParams({ currency: value })}
+              >
+                {SUPPORTED_CURRENCIES.map(curr => (
+                  <DropdownMenuRadioItem key={curr} value={curr}>
+                    {curr}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Right Actions: Refresh & Export PDF */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={loading}
+            onClick={() => setRefresh(value => value + 1)}
+          >
+            <IconRefresh size={16} />
+            <span>Refresh</span>
+          </Button>
+          <Button
+            variant="outline"
+            disabled={loading || !position}
+            onClick={() => window.print()}
+            aria-label="Export PDF statement"
+          >
+            <IconFileTypePdf size={16} />
+            <span>Export PDF</span>
+          </Button>
+        </div>
       </div>
-      {loading && <p role="status">Loading commercial report…</p>}
-      {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" onClick={() => setRefresh(value => value + 1)}>Retry</Button></AlertDescription></Alert>}
-      <TabsContent value="suppliers" className="min-w-0 space-y-5">{position && <>
-        <div className="space-y-1 text-sm text-muted-foreground"><p>{position.data.length} Provider/model positions · {position.data.reduce((sum, row) => sum + BigInt(row.unresolved_attempts), 0n).toString()} unresolved requests</p><p className="break-words">UTC dispatch interval: {formatInstant(position.from)} to {formatInstant(position.until)} (end excluded).</p></div>
-        <p className="text-sm text-muted-foreground">Blank amounts are unavailable, not zero. Nominal charges are usage charges, not cash receipts. Refunds and consumed gifts reduce net revenue. Customer cash applied includes verified wallet cash and repayments, less cash balance restorations; unpaid credit excludes repaid or forgiven amounts. These follow the dispatch cohort, not the receipt posting period. Net contribution subtracts Provider payable once; recorded upstream cost is a separate partial subtotal.</p>
-        {position.data.length === 0 ? <p>No commercial model configurations or activity in this currency and period.</p> : <Table aria-label="Provider commercial positions">
-          <TableHeader><TableRow>{['Provider / model', 'Current agreed quotes', 'Nominal charges', 'Balance refunds', 'Gift allowance', 'Net revenue', 'Customer cash applied', 'Customer unpaid credit', 'Provider payable', 'Settled', 'Outstanding', 'Recorded upstream cost', 'Net contribution', 'Unresolved requests', 'Uncovered revenue requests', 'Uncovered cash requests', 'Recorded cost requests'].map((label, index) => <TableHead key={label} className={index > 1 ? 'text-right whitespace-nowrap' : 'whitespace-nowrap'}>{label}</TableHead>)}</TableRow></TableHeader>
-          <TableBody>{position.data.map(row => <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
-            <TableCell className="align-top whitespace-normal min-w-44 max-w-64"><Link className="font-medium hover:underline" to={'/admin/suppliers/' + encodeURIComponent(row.supplier_id)}>{row.supplier_name}</Link><p className="text-muted-foreground break-all">{row.model_alias}</p></TableCell>
-            <TableCell className="align-top whitespace-normal min-w-44">{row.offers.length === 0 ? <><p>No quote in {row.currency}</p><Link className="text-sm underline" to={'/admin/suppliers/' + encodeURIComponent(row.supplier_id) + '/models'}>Configure offers</Link></> : row.offers.map(offer => <div key={offer.offer_id + ':' + offer.route_alias + ':' + offer.state} className="mb-2 space-y-1 last:mb-0">
-              <Badge variant="outline">{offer.state === 'qualified' ? 'Qualified offer' : offer.state === 'paused' ? 'Paused' : 'Review required'}</Badge>
-              {offer.rate_kind === 'text' ? <p><span className="block">Input {offer.prompt_rate == null ? 'unavailable' : money(offer.prompt_rate, row.currency)}</span><span className="block">Output {offer.completion_rate == null ? 'unavailable' : money(offer.completion_rate, row.currency)}</span><span className="text-muted-foreground">per 1M tokens</span></p> : offer.media_rates.length === 0 ? <p>No current media rate</p> : offer.media_rates.map(rate => <p key={rate.revision}>{rate.tariff.dimensions.resolution} · {rate.tariff.meter} · {rate.tariff.currency} {formatUnits(rate.tariff.amount_units, rate.tariff.decimal_places)} per {rate.tariff.per_quantity.numerator}/{rate.tariff.per_quantity.denominator}</p>)}
-              <Link className="text-sm underline" to={'/admin/suppliers/' + encodeURIComponent(row.supplier_id) + '/models'}>Review offers</Link>
-            </div>)}</TableCell>
-            {[row.customer_charge_nanos, row.customer_refunds_nanos, row.consumed_gift_allowance_nanos, row.net_customer_revenue_nanos, row.customer_cash_applied_nanos, row.customer_outstanding_credit_nanos, row.earning_nanos, row.settled_earning_nanos, row.unsettled_earning_nanos, row.known_upstream_cost_subtotal_nanos, row.net_contribution_nanos].map((value, index) => <TableCell key={index} className="text-right align-top whitespace-nowrap tabular-nums" aria-label={value === null ? 'Unavailable' : undefined}>{value === null ? null : money(value, row.currency)}</TableCell>)}
-            <TableCell className="text-right align-top tabular-nums">{row.unresolved_attempts}</TableCell>
-            <TableCell className="text-right align-top whitespace-nowrap tabular-nums">{row.revenue_uncovered_attempts}</TableCell>
-            <TableCell className="text-right align-top whitespace-nowrap tabular-nums">{row.cash_source_uncovered_attempts}</TableCell>
-            <TableCell className="text-right align-top whitespace-nowrap tabular-nums">{row.upstream_cost_recorded_attempts}</TableCell>
-          </TableRow>)}</TableBody>
-        </Table>}
-      </>}</TabsContent>
-      <TabsContent value="financial" className="min-w-0 space-y-5">{summary && <FinancialSummary summary={summary} />}</TabsContent>
-    </Tabs>
-  </section>;
+
+      {/* Period Interval Subtitle */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>
+          <strong className="font-medium text-foreground">{interval.label}</strong> · UTC window:{' '}
+          {formatInstant(position?.from ?? interval.from)} to{' '}
+          {formatInstant(position?.until ?? interval.until)} · Compared against{' '}
+          <strong className="font-medium text-foreground">{interval.comparisonLabel}</strong>
+        </span>
+        <span>Personal owner-funded calls are excluded from commercial revenue and cost.</span>
+      </div>
+
+      {loading && <p role="status" className="text-sm text-muted-foreground">Loading financial statement…</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!loading && position && (
+        <>
+          {/* Layer 1: Executive Financial KPI Cards with Period-over-Period Comparison */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="rounded-xl bg-card p-5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Net recognized revenue</span>
+                <Badge variant="outline">Income</Badge>
+              </div>
+              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+                {recognizedRevenue === null ? 'Unavailable' : money(recognizedRevenue.toString(), currency)}
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                {formatDeltaBadge(recognizedRevenue, priorRecognizedRevenue, currency)}
+                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+                Gross usage {money(nominalConsumption.toString(), currency)} · Gifts &amp; refunds -
+                {money((consumedGifts + customerRefunds).toString(), currency)}
+              </p>
+            </article>
+
+            <article className="rounded-xl bg-card p-5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Cost of supply (Provider payable)</span>
+                <Badge variant="outline">COGS</Badge>
+              </div>
+              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+                {money(currentCohort.providerPayable.toString(), currency)}
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                {formatDeltaBadge(
+                  currentCohort.providerPayable,
+                  priorCohort?.providerPayable ?? null,
+                  currency,
+                  true,
+                )}
+                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+                Settled {money(currentCohort.settledPayable.toString(), currency)} · Unpaid{' '}
+                {money(currentCohort.unpaidPayable.toString(), currency)}
+              </p>
+            </article>
+
+            <article className="rounded-xl bg-card p-5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Platform net contribution</span>
+                <Badge variant="secondary">
+                  {formatMarginPercent(netContribution, recognizedRevenue)} margin
+                </Badge>
+              </div>
+              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+                {netContribution === null ? 'Unavailable' : money(netContribution.toString(), currency)}
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                {formatDeltaBadge(netContribution, priorNetContribution, currency)}
+                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+                {currentCohort.matchedAttempts.toString()} settled requests ·{' '}
+                {currentCohort.activeModelCount} active{' '}
+                {currentCohort.activeModelCount === 1 ? 'model' : 'models'}
+              </p>
+            </article>
+
+            <article className="rounded-xl bg-card p-5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Verified cash receipts</span>
+                <Badge variant="outline">Cash flow</Badge>
+              </div>
+              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+                {verifiedCashReceipts === null
+                  ? 'Unavailable'
+                  : money(verifiedCashReceipts.toString(), currency)}
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                {formatDeltaBadge(verifiedCashReceipts, priorVerifiedCashReceipts, currency)}
+                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
+                Unused prepaid wallet:{' '}
+                {prepaidCash === null ? '—' : money(prepaidCash.toString(), currency)}
+              </p>
+            </article>
+          </div>
+
+          {/* Layer 2: Dual Financial Statements (Income Statement + Cash Flow & Balance Sheet) */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            {/* Table 1: Statement of Operations (Income Statement) */}
+            <div className="rounded-xl bg-card p-5 space-y-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-semibold">Statement of operations (P&amp;L)</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Accrual operating revenue, promotional allowances, and supply cost
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">{currency}</span>
+              </div>
+              <Table aria-label="Statement of operations">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Line item</TableHead>
+                    <TableHead className="text-right">Current</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">
+                      {interval.comparisonLabel}
+                    </TableHead>
+                    <TableHead className="text-right">Change</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <StatementRow
+                    label="Gross customer usage charges"
+                    current={nominalConsumption}
+                    prior={priorNominalConsumption}
+                    currency={currency}
+                  />
+                  <StatementRow
+                    label="Less: Customer balance refunds"
+                    current={customerRefunds}
+                    prior={priorCustomerRefunds}
+                    currency={currency}
+                    indented
+                    negateDisplay
+                    invertSentiment
+                  />
+                  <StatementRow
+                    label="Less: Consumed promotional gift allowance"
+                    current={consumedGifts}
+                    prior={priorConsumedGifts}
+                    currency={currency}
+                    indented
+                    negateDisplay
+                  />
+                  <StatementRow
+                    label="Net recognized customer revenue"
+                    current={recognizedRevenue}
+                    prior={priorRecognizedRevenue}
+                    currency={currency}
+                    strong
+                  />
+                  <StatementRow
+                    label="Less: Provider payable (Cost of model supply)"
+                    current={currentCohort.providerPayable}
+                    prior={priorCohort?.providerPayable ?? null}
+                    currency={currency}
+                    indented
+                    negateDisplay
+                    invertSentiment
+                  />
+                  <StatementRow
+                    label="Memo: Recorded upstream API cost subtotal"
+                    current={currentCohort.recordedUpstreamCost}
+                    prior={priorCohort?.recordedUpstreamCost ?? null}
+                    currency={currency}
+                    indented
+                    muted
+                  />
+                  <StatementRow
+                    label="Platform net contribution (Gross profit)"
+                    current={netContribution}
+                    prior={priorNetContribution}
+                    currency={currency}
+                    strong
+                  />
+                  <TableRow className="bg-muted/30 font-medium">
+                    <TableCell>Effective gross margin (%)</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMarginPercent(netContribution, recognizedRevenue)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums hidden sm:table-cell text-muted-foreground">
+                      {formatMarginPercent(priorNetContribution, priorRecognizedRevenue)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                      {currentCohort.unresolvedAttempts > 0n
+                        ? `${currentCohort.unresolvedAttempts.toString()} unresolved`
+                        : 'Fully resolved'}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Table 2: Cash Flow, Payables & Wallet Balance Sheet */}
+            <div className="rounded-xl bg-card p-5 space-y-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-semibold">Cash receipts, payables &amp; wallet position</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Verified cash inflows, supplier settlement status, and customer balances
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">{currency}</span>
+              </div>
+              <Table aria-label="Customer financial posting summary">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Measure</TableHead>
+                    <TableHead className="text-right">Current</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">
+                      {interval.comparisonLabel}
+                    </TableHead>
+                    <TableHead className="text-right">Change / Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <StatementRow
+                    label="Wallet cash funding receipts"
+                    current={summary ? BigInt(summary.balance_funding_receipts_nanos) : null}
+                    prior={priorSummary ? BigInt(priorSummary.balance_funding_receipts_nanos) : null}
+                    currency={currency}
+                  />
+                  <StatementRow
+                    label="External invoice payment receipts"
+                    current={summary ? BigInt(summary.external_invoice_receipts_nanos) : null}
+                    prior={priorSummary ? BigInt(priorSummary.external_invoice_receipts_nanos) : null}
+                    currency={currency}
+                  />
+                  <StatementRow
+                    label="Less: Recorded funding reversals"
+                    current={summary ? BigInt(summary.recorded_funding_reversals_nanos) : null}
+                    prior={priorSummary ? BigInt(priorSummary.recorded_funding_reversals_nanos) : null}
+                    currency={currency}
+                    indented
+                    negateDisplay
+                    invertSentiment
+                  />
+                  <StatementRow
+                    label="Total verified cash receipts"
+                    current={verifiedCashReceipts}
+                    prior={priorVerifiedCashReceipts}
+                    currency={currency}
+                    strong
+                  />
+                  <StatementRow
+                    label="Memo: Noncash promotional gifts issued"
+                    current={summary ? BigInt(summary.issued_gifts_nanos) : null}
+                    prior={priorSummary ? BigInt(priorSummary.issued_gifts_nanos) : null}
+                    currency={currency}
+                    indented
+                    muted
+                  />
+                  <StatementRow
+                    label="Settled with providers"
+                    current={currentCohort.settledPayable}
+                    prior={priorCohort?.settledPayable ?? null}
+                    currency={currency}
+                  />
+                  <StatementRow
+                    label="Outstanding unpaid provider payable"
+                    current={currentCohort.unpaidPayable}
+                    prior={priorCohort?.unpaidPayable ?? null}
+                    currency={currency}
+                    strong
+                    invertSentiment
+                  />
+                  <TableRow className="border-t-2">
+                    <TableCell className="font-medium">
+                      Unused verified prepaid cash (Wallet liability)
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {prepaidCash === null ? 'Unavailable' : money(prepaidCash.toString(), currency)}
+                    </TableCell>
+                    <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
+                      Point-in-time
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">
+                      Current balance
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-muted-foreground">
+                      Outstanding customer credit consumption
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {outstandingCredit === null
+                        ? 'Unavailable'
+                        : money(outstandingCredit.toString(), currency)}
+                    </TableCell>
+                    <TableCell className="text-right hidden sm:table-cell text-xs text-muted-foreground">
+                      Point-in-time
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">
+                      Receivable
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Layer 3: Unit Economics by Provider & Model */}
+          <div className="rounded-xl bg-card p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">Unit economics by Provider &amp; model</h2>
+                <p className="text-xs text-muted-foreground">
+                  {activeRows.length} active {activeRows.length === 1 ? 'model' : 'models'} with traffic in
+                  this period · {sortedRows.length} total configured routes
+                </p>
+              </div>
+              <div className="commercial-print-hide flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant={modelFilter === 'active' ? 'secondary' : 'ghost'}
+                  onClick={() => setModelFilter('active')}
+                >
+                  Active in period ({activeRows.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={modelFilter === 'all' ? 'secondary' : 'ghost'}
+                  onClick={() => setModelFilter('all')}
+                >
+                  All configured ({sortedRows.length})
+                </Button>
+              </div>
+            </div>
+
+            {displayedRows.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No commercial model configurations or activity in {currency} for this period.
+              </p>
+            ) : (
+              <Table aria-label="Provider commercial positions">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Provider / model</TableHead>
+                    <TableHead className="hidden md:table-cell">Agreed offer quote</TableHead>
+                    <TableHead className="text-right">Gross charges</TableHead>
+                    <TableHead className="text-right">Net revenue</TableHead>
+                    <TableHead className="text-right">Provider payable</TableHead>
+                    <TableHead className="text-right hidden lg:table-cell">Settlement</TableHead>
+                    <TableHead className="text-right">Net contribution</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedRows.map(row => {
+                    const priorRow = priorRowMap.get(`${row.supplier_id}:${row.model_alias}`);
+                    const rowCharge =
+                      row.customer_charge_nanos !== null ? BigInt(row.customer_charge_nanos) : null;
+                    const rowNetRev =
+                      row.net_customer_revenue_nanos !== null
+                        ? BigInt(row.net_customer_revenue_nanos)
+                        : null;
+                    const priorNetRev =
+                      priorRow?.net_customer_revenue_nanos != null
+                        ? BigInt(priorRow.net_customer_revenue_nanos)
+                        : null;
+                    const rowPayable =
+                      row.earning_nanos !== null ? BigInt(row.earning_nanos) : null;
+                    const rowContrib =
+                      row.net_contribution_nanos !== null
+                        ? BigInt(row.net_contribution_nanos)
+                        : null;
+                    const rowGifts =
+                      row.consumed_gift_allowance_nanos !== null
+                        ? BigInt(row.consumed_gift_allowance_nanos)
+                        : 0n;
+                    const rowRefunds =
+                      row.customer_refunds_nanos !== null ? BigInt(row.customer_refunds_nanos) : 0n;
+                    const unresolved = BigInt(row.unresolved_attempts || '0');
+                    const matched = BigInt(row.matched_attempts || '0');
+
+                    return (
+                      <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
+                        <TableCell className="align-top whitespace-normal min-w-44">
+                          <div className="font-medium text-foreground">{row.model_alias}</div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                            <Link
+                              className="hover:underline"
+                              to={'/admin/suppliers/' + encodeURIComponent(row.supplier_id)}
+                            >
+                              {row.supplier_name}
+                            </Link>
+                            <span>·</span>
+                            <span>
+                              {matched.toString()} matched
+                              {unresolved > 0n ? ` · ${unresolved.toString()} unresolved` : ''}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs">
+                          {row.offers.length === 0 ? (
+                            <span className="text-muted-foreground">No quote in {row.currency}</span>
+                          ) : (
+                            row.offers.map(offer => (
+                              <div
+                                key={offer.offer_id + ':' + offer.route_alias + ':' + offer.state}
+                                className="space-y-0.5"
+                              >
+                                <span className="text-muted-foreground">
+                                  {offer.rate_kind === 'text'
+                                    ? `In ${
+                                        offer.prompt_rate == null
+                                          ? '—'
+                                          : money(offer.prompt_rate, row.currency)
+                                      } · Out ${
+                                        offer.completion_rate == null
+                                          ? '—'
+                                          : money(offer.completion_rate, row.currency)
+                                      } / 1M`
+                                    : offer.media_rates.length === 0
+                                      ? 'Media rate'
+                                      : offer.media_rates
+                                          .map(
+                                            rate =>
+                                              `${rate.tariff.dimensions.resolution} · ${rate.tariff.currency} ${formatUnits(
+                                                rate.tariff.amount_units,
+                                                rate.tariff.decimal_places,
+                                              )}`,
+                                          )
+                                          .join(', ')}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          <div>
+                            {rowCharge === null ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              money(rowCharge.toString(), row.currency)
+                            )}
+                          </div>
+                          {(rowGifts > 0n || rowRefunds > 0n) && (
+                            <div className="text-xs text-muted-foreground">
+                              {rowGifts > 0n ? `Gift -${money(rowGifts.toString(), row.currency)}` : ''}
+                              {rowRefunds > 0n
+                                ? ` Refund -${money(rowRefunds.toString(), row.currency)}`
+                                : ''}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          <div>
+                            {rowNetRev === null ? (
+                              <span className="text-muted-foreground">
+                                {unresolved > 0n ? 'Pending' : '—'}
+                              </span>
+                            ) : (
+                              money(rowNetRev.toString(), row.currency)
+                            )}
+                          </div>
+                          {rowNetRev !== null && priorNetRev !== null && (
+                            <div className="mt-0.5">
+                              {formatDeltaBadge(rowNetRev, priorNetRev, row.currency)}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          {rowPayable === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            money(rowPayable.toString(), row.currency)
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums hidden lg:table-cell text-xs">
+                          {row.earning_nanos === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <div>
+                                Settled:{' '}
+                                {row.settled_earning_nanos
+                                  ? money(row.settled_earning_nanos, row.currency)
+                                  : money('0', row.currency)}
+                              </div>
+                              <div className="text-muted-foreground">
+                                Unpaid:{' '}
+                                {row.unsettled_earning_nanos
+                                  ? money(row.unsettled_earning_nanos, row.currency)
+                                  : money('0', row.currency)}
+                              </div>
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          {rowContrib !== null ? (
+                            <div>
+                              <div className="font-medium">
+                                {money(rowContrib.toString(), row.currency)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatMarginPercent(rowContrib, rowNetRev)}
+                              </div>
+                            </div>
+                          ) : unresolved > 0n ? (
+                            <Badge variant="outline">Pending ({unresolved.toString()} unresolved)</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
 }
-/** Posting and current wallet scopes remain distinct; no synthesized financial totals. */
-function FinancialSummary({ summary }: { summary: CustomerFinancialSummary }) {
-  const credit = summary.balance_credit_sources;
-  const rows: { label: string; amount: string | null }[] = [
-    { label: 'Nominal consumption', amount: summary.nominal_consumption_nanos },
-    { label: 'Customer balance refunds', amount: summary.customer_refunds_nanos },
-    { label: 'Consumed gift sales allowance', amount: summary.consumed_gift_allowance_nanos },
-    { label: 'Net customer revenue', amount: summary.recognized_revenue_nanos },
-    ...(summary.recognized_revenue_nanos === null ? [
-      { label: 'Known revenue subtotal', amount: summary.known_revenue_subtotal_nanos },
-      { label: 'Known gift allowance subtotal', amount: summary.known_gift_allowance_subtotal_nanos },
-    ] : []),
-    { label: 'Verified cash receipt records', amount: summary.verified_cash_receipts_nanos },
-    { label: 'Wallet cash receipt records', amount: summary.balance_funding_receipts_nanos },
-    { label: 'External invoice receipt records', amount: summary.external_invoice_receipts_nanos },
-    { label: 'Recorded funding reversals', amount: summary.recorded_funding_reversals_nanos },
-    { label: 'Issued noncash gifts', amount: summary.issued_gifts_nanos },
-  ];
-  return <>
-    <p className="break-words text-sm text-muted-foreground">UTC posting interval: {formatInstant(summary.from)} to {formatInstant(summary.until)} (end excluded). Blank amounts are unavailable, not zero.</p>
-    {BigInt(summary.uncovered_entries) > 0n && <Alert><AlertDescription>{summary.uncovered_entries} {summary.uncovered_entries === '1' ? 'consumption or refund entry has' : 'consumption or refund entries have'} unknown sources. Full revenue and gift allowance are unavailable; known subtotals are partial.</AlertDescription></Alert>}
-    {BigInt(summary.cash_receipt_reference_conflicts) > 0n && <Alert><AlertDescription>{summary.cash_receipt_reference_conflicts} {summary.cash_receipt_reference_conflicts === '1' ? 'receipt reference overlaps' : 'receipt references overlap'}. The combined receipt amount is unavailable.</AlertDescription></Alert>}
-    <p className="text-sm text-muted-foreground">Gifts reduce revenue when consumed or applied to credit. Cash receipts and repayments are separate from revenue. Balance refunds and recorded funding reversals do not establish external cash transfers.</p>
-    <Table aria-label="Customer financial posting summary">
-      <TableHeader><TableRow><TableHead>Posting measure</TableHead><TableHead className="text-right">Amount in {summary.currency}</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map(row => <TableRow key={row.label}><TableCell className="whitespace-normal">{row.label}</TableCell><TableCell className="text-right align-top whitespace-nowrap tabular-nums" aria-label={row.amount === null ? 'Unavailable' : undefined}>{row.amount === null ? null : money(row.amount, summary.currency)}</TableCell></TableRow>)}</TableBody>
-    </Table>
-    <div className="space-y-2"><h2 className="text-base font-medium">Current wallet sources</h2><p className="break-words text-sm text-muted-foreground">Snapshot at {formatInstant(credit.as_of)} UTC; independent of the posting interval. Approved credit limits are not funding. External invoice receivables are excluded.</p></div>
-    {BigInt(credit.uncovered_accounts) > 0n && <Alert><AlertDescription>{credit.uncovered_accounts} {credit.uncovered_accounts === '1' ? 'account has' : 'accounts have'} incomplete funding sources. Full cash and credit totals are unavailable; known subtotals include only fully covered accounts.</AlertDescription></Alert>}
-    <Table aria-label="Current wallet cash and credit">
-      <TableHeader><TableRow><TableHead>Wallet source</TableHead><TableHead className="text-right">Amount in {summary.currency}</TableHead></TableRow></TableHeader>
-      <TableBody>{[
-        { label: 'Unused verified prepaid cash', amount: credit.prepaid_cash_nanos },
-        { label: 'Outstanding credit consumption', amount: credit.outstanding_credit_nanos },
-        ...(BigInt(credit.uncovered_accounts) > 0n ? [
-          { label: 'Known prepaid cash subtotal', amount: credit.known_prepaid_cash_subtotal_nanos },
-          { label: 'Known outstanding credit subtotal', amount: credit.known_outstanding_credit_subtotal_nanos },
-        ] : []),
-      ].map(row => <TableRow key={row.label}><TableCell className="whitespace-normal">{row.label}</TableCell><TableCell className="text-right whitespace-nowrap tabular-nums" aria-label={row.amount === null ? 'Unavailable' : undefined}>{row.amount === null ? null : money(row.amount, summary.currency)}</TableCell></TableRow>)}</TableBody>
-    </Table>
-  </>;
+
+function StatementRow({
+  label,
+  current,
+  prior,
+  currency,
+  indented = false,
+  strong = false,
+  muted = false,
+  negateDisplay = false,
+  invertSentiment = false,
+}: {
+  label: string;
+  current: bigint | null;
+  prior: bigint | null;
+  currency: string;
+  indented?: boolean;
+  strong?: boolean;
+  muted?: boolean;
+  negateDisplay?: boolean;
+  invertSentiment?: boolean;
+}) {
+  const formatVal = (val: bigint | null) => {
+    if (val === null) return 'Unavailable';
+    if (negateDisplay && val > 0n) return `-${money(val.toString(), currency)}`;
+    return money(val.toString(), currency);
+  };
+  return (
+    <TableRow className={strong ? 'bg-muted/30 font-semibold' : muted ? 'text-muted-foreground text-xs' : undefined}>
+      <TableCell className={`whitespace-normal ${indented ? 'pl-6 text-muted-foreground' : ''}`}>
+        {label}
+      </TableCell>
+      <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+        {formatVal(current)}
+      </TableCell>
+      <TableCell className="text-right align-top whitespace-nowrap tabular-nums hidden sm:table-cell text-muted-foreground">
+        {formatVal(prior)}
+      </TableCell>
+      <TableCell className="text-right align-top whitespace-nowrap">
+        {formatDeltaBadge(current, prior, currency, invertSentiment)}
+      </TableCell>
+    </TableRow>
+  );
 }
+
 function formatUnits(units: string, places: number) {
-  const amount = BigInt(units); const scale = 10n ** BigInt(places);
+  const amount = BigInt(units);
+  const scale = 10n ** BigInt(places);
   const fraction = (amount % scale).toString().padStart(places, '0').replace(/0+$/, '');
   return `${amount / scale}${fraction ? '.' + fraction : ''}`;
 }
 
 function formatInstant(value: string) {
-  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short', hourCycle: 'h23' }).format(new Date(value));
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    hourCycle: 'h23',
+  }).format(new Date(value));
 }

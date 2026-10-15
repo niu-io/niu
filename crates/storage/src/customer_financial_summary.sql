@@ -1,8 +1,12 @@
 -- Financial posting interval, separate from the commercial dispatch cohort.
 -- Unknown historical funding allocation must never become zero gift / gross income.
-WITH bounds AS MATERIALIZED (
-    SELECT statement_timestamp() AS until,
-           statement_timestamp() - make_interval(days => $2) AS since
+WITH raw_bounds AS MATERIALIZED (
+    SELECT LEAST(COALESCE(to_timestamp($4::double precision / 1000.0), statement_timestamp()), statement_timestamp()) AS until,
+           COALESCE(to_timestamp($3::double precision / 1000.0), statement_timestamp() - make_interval(days => COALESCE($2, 30))) AS since
+), bounds AS MATERIALIZED (
+    SELECT GREATEST(raw_bounds.since, raw_bounds.until) AS until,
+           raw_bounds.since AS since
+    FROM raw_bounds
 ), currency AS (
     SELECT EXISTS(SELECT 1 FROM customer_balance_accounts WHERE currency=$1
         UNION ALL SELECT 1 FROM customer_tariff_revisions WHERE currency=$1
@@ -138,7 +142,7 @@ WITH bounds AS MATERIALIZED (
         AND entry.created_at>=bounds.since AND entry.created_at<bounds.until
 )
 SELECT currency.known,
-    jsonb_build_object('currency',$1,'days',$2,'from',bounds.since,'until',bounds.until,
+    jsonb_build_object('currency',$1,'days',COALESCE($2, GREATEST(1, ceil(extract(epoch FROM (bounds.until - bounds.since)) / 86400.0)::int)),'from',bounds.since,'until',bounds.until,
         'nominal_consumption_nanos',totals.nominal::text,
         'customer_refunds_nanos',totals.refunded::text,
         'recognized_revenue_nanos',CASE WHEN totals.uncovered_entries=0 THEN totals.known_revenue::text END,

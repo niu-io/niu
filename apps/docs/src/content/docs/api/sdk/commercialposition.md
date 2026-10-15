@@ -12,7 +12,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 /** All rows share one database snapshot and UTC dispatch interval [from, until). */
 export type CommercialPosition = {
     currency: string;
-    days: 7 | 30 | 90;
+    days: number;
     from: string;
     until: string;
     data: CommercialPositionRow[];

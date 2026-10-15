@@ -1142,6 +1142,8 @@ listRegisteredRetailModels(page?: {
 getCommercialPosition(query: {
     currency: string;
     days?: 7 | 30 | 90;
+    from?: string;
+    until?: string;
 }, options?: RequestOptions): Promise<CommercialPosition>;
 ```
 
@@ -1152,6 +1154,8 @@ getCommercialPosition(query: {
 getCustomerFinancialSummary(query: {
     currency: string;
     days?: 7 | 30 | 90;
+    from?: string;
+    until?: string;
 }, options?: RequestOptions): Promise<CustomerFinancialSummary>;
 ```
 

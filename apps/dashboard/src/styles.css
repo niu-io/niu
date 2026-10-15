@@ -3023,3 +3023,38 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 
 /* Field values keep a consistent weight when composed inside labels. */
 [data-slot="input"], [data-slot="textarea"] { font-weight: 400; }
+
+@media print {
+  .app-rail,
+  .app-rail-spacer,
+  .niu-workspace-sidebar,
+  .niu-workspace-sidebar-mobile,
+  .mobile-product-navigation,
+  .dashboard-page-header,
+  .commercial-print-hide {
+    display: none !important;
+  }
+  .commercial-print-only {
+    display: block !important;
+  }
+  body,
+  .app-shell,
+  .page-content,
+  .commercial-statement {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .commercial-statement article,
+  .commercial-statement > div {
+    break-inside: avoid;
+    border: 1px solid #e5e7eb !important;
+  }
+}
+

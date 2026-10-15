@@ -3,9 +3,13 @@
 -- Missing source allocation leaves full revenue and net contribution unknown.
 -- One database snapshot; all period membership uses UTC dispatch timestamps.
 -- Monetary ledgers are joined by attempt before aggregation, never by model alone.
-WITH bounds AS MATERIALIZED (
-    SELECT statement_timestamp() AS until,
-           statement_timestamp() - make_interval(days => $2) AS since
+WITH raw_bounds AS MATERIALIZED (
+    SELECT LEAST(COALESCE(to_timestamp($4::double precision / 1000.0), statement_timestamp()), statement_timestamp()) AS until,
+           COALESCE(to_timestamp($3::double precision / 1000.0), statement_timestamp() - make_interval(days => COALESCE($2, 30))) AS since
+), bounds AS MATERIALIZED (
+    SELECT GREATEST(raw_bounds.since, raw_bounds.until) AS until,
+           raw_bounds.since AS since
+    FROM raw_bounds
 ), currencies AS (
     SELECT currency FROM cost_entries
     UNION SELECT currency FROM provider_earnings
@@ -215,6 +219,6 @@ WITH bounds AS MATERIALIZED (
     LEFT JOIN totals USING(provider_id,model_alias)
 )
 SELECT EXISTS(SELECT 1 FROM currencies WHERE currency=$1),
-       jsonb_build_object('currency',$1,'days',$2,'from',bounds.since,'until',bounds.until,
+       jsonb_build_object('currency',$1,'days',COALESCE($2, GREATEST(1, ceil(extract(epoch FROM (bounds.until - bounds.since)) / 86400.0)::int)),'from',bounds.since,'until',bounds.until,
            'data',COALESCE((SELECT jsonb_agg(document ORDER BY model_alias,provider_id) FROM rows),'[]'::jsonb))
 FROM bounds;

@@ -7,6 +7,8 @@ use serde::Deserialize;
 pub struct PositionQuery {
     currency: String,
     days: Option<i32>,
+    from: Option<String>,
+    until: Option<String>,
 }
 
 /// ```openapi
@@ -16,7 +18,7 @@ pub struct PositionQuery {
 ///   "operation": {
 ///     "operationId": "getCommercialPosition",
 ///     "summary": "Compare installation commercial Provider positions",
-///     "description": "Explicit late-grant applications against a cohort charge reduce net revenue and increase sales allowance without repricing nominal charges or Provider payable. Their refund restoration is included in recorded refund gift allocation once. Explicit platform administrator only. One current database snapshot for a UTC rolling dispatch interval [from, until), 7/30/90 days and a configured currency. Personal owner-funded supply is excluded. Each row is a Provider, customer-facing model alias and currency; route-pool candidates appear as distinct offers. Customer charges are confirmed retail charges, not external cash receipts. Provider settlement links record confirmed external payments, not automatic transfers. Null monetary values mean unavailable, never zero. Margin is customer charge minus Provider earning over matched attempts only, withheld when any potentially executed attempt is unresolved. Cost is separately reported over matched attempts and withheld if any matching cost entry is missing; cost coverage counts are explicit. Empty offers means no quote in the selected currency. No customer identity, request identity, body or credential is returned. Read-only; never changes routing or model. Identifiers are API references and must not become product labels. Cache-Control: no-store. Net customer revenue excludes consumed gifts and recorded customer refunds for this dispatch cohort; it is not cash receipts or posting-period income. Missing charge/source coverage leaves the full net revenue unavailable. Gift allowance is a sales allowance, not an operating expense. net_contribution_nanos subtracts matched Provider earnings from net customer revenue, never known upstream expense again. Legacy margin_nanos remains nominal charge minus Provider earnings and must not be labeled income or net profit. Personal funding is excluded independently of current vendor ownership. customer_refunds_nanos records associated balance-credit restorations for the dispatch cohort, not external cash refund transfers. When fully covered, nominal charge minus recorded refunds minus net consumed-gift allowance equals net customer revenue. Each known customer/Provider/cost ledger currency is represented independently, without conversion. known_upstream_cost_subtotal_nanos sums only actual recorded costs in the selected currency, independently of same-currency customer/Provider matching. It is a known partial subtotal, not proof of complete expense coverage; absent records remain null. upstream_cost_recorded_attempts counts these recorded cost entries. Legacy cost_nanos and cost_known_attempts retain their matched-attempt coverage semantics.",
+///     "description": "Explicit late-grant applications against a cohort charge reduce net revenue and increase sales allowance without repricing nominal charges or Provider payable. Their refund restoration is included in recorded refund gift allocation once. Explicit platform administrator only. One current database snapshot for a UTC rolling dispatch interval [from, until), 7/30/90 days or explicit calendar bounds, and a configured currency. Personal owner-funded supply is excluded. Each row is a Provider, customer-facing model alias and currency; route-pool candidates appear as distinct offers. Customer charges are confirmed retail charges, not external cash receipts. Provider settlement links record confirmed external payments, not automatic transfers. Null monetary values mean unavailable, never zero. Margin is customer charge minus Provider earning over matched attempts only, withheld when any potentially executed attempt is unresolved. Cost is separately reported over matched attempts and withheld if any matching cost entry is missing; cost coverage counts are explicit. Empty offers means no quote in the selected currency. No customer identity, request identity, body or credential is returned. Read-only; never changes routing or model. Identifiers are API references and must not become product labels. Cache-Control: no-store. Net customer revenue excludes consumed gifts and recorded customer refunds for this dispatch cohort; it is not cash receipts or posting-period income. Missing charge/source coverage leaves the full net revenue unavailable. Gift allowance is a sales allowance, not an operating expense. net_contribution_nanos subtracts matched Provider earnings from net customer revenue, never known upstream expense again. Legacy margin_nanos remains nominal charge minus Provider earnings and must not be labeled income or net profit. Personal funding is excluded independently of current vendor ownership. customer_refunds_nanos records associated balance-credit restorations for the dispatch cohort, not external cash refund transfers. When fully covered, nominal charge minus recorded refunds minus net consumed-gift allowance equals net customer revenue. Each known customer/Provider/cost ledger currency is represented independently, without conversion. known_upstream_cost_subtotal_nanos sums only actual recorded costs in the selected currency, independently of same-currency customer/Provider matching. It is a known partial subtotal, not proof of complete expense coverage; absent records remain null. upstream_cost_recorded_attempts counts these recorded cost entries. Legacy cost_nanos and cost_known_attempts retain their matched-attempt coverage semantics.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -48,6 +50,22 @@ pub struct PositionQuery {
 ///           ],
 ///           "default": 30
 ///         }
+///       },
+///       {
+///         "name": "from",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "date-time"
+///         }
+///       },
+///       {
+///         "name": "until",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "date-time"
+///         }
 ///       }
 ///     ],
 ///     "responses": {
@@ -69,12 +87,7 @@ pub struct PositionQuery {
 ///                   "type": "string"
 ///                 },
 ///                 "days": {
-///                   "type": "integer",
-///                   "enum": [
-///                     7,
-///                     30,
-///                     90
-///                   ]
+///                   "type": "integer"
 ///                 },
 ///                 "from": {
 ///                   "type": "string",
@@ -302,7 +315,12 @@ pub async fn read(
     state.authorize_platform_headers(&headers).await?;
     let position = state
         .store
-        .commercial_position(&query.currency, query.days.unwrap_or(30))
+        .commercial_position_interval(
+            &query.currency,
+            query.days,
+            query.from.as_deref(),
+            query.until.as_deref(),
+        )
         .await
         .map_err(ApiError::from_store)?;
     Ok(([("cache-control", "no-store")], Json(position)))

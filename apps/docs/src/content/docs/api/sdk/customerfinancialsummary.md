@@ -12,7 +12,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 /** Posting interval; nullable totals are unavailable, and known subtotals are partial. */
 export type CustomerFinancialSummary = {
     currency: string;
-    days: 7 | 30 | 90;
+    days: number;
     from: string;
     until: string;
     nominal_consumption_nanos: string;

@@ -964,13 +964,13 @@ export type CommercialPositionRow = {
 };
 /** All rows share one database snapshot and UTC dispatch interval [from, until). */
 export type CommercialPosition = {
-  currency: string; days: 7 | 30 | 90; from: string; until: string;
+  currency: string; days: number; from: string; until: string;
   data: CommercialPositionRow[];
 };
 
 /** Posting interval; nullable totals are unavailable, and known subtotals are partial. */
 export type CustomerFinancialSummary = {
-  currency: string; days: 7 | 30 | 90; from: string; until: string;
+  currency: string; days: number; from: string; until: string;
   nominal_consumption_nanos: string;
   customer_refunds_nanos: string;
   known_revenue_subtotal_nanos: string;
@@ -1888,18 +1888,30 @@ export class NiuAdminClient {
   }
 
   /** Platform-only read; never changes routes or initiates payment. Unknown amounts remain null. */
-  getCommercialPosition(query: { currency: string; days?: 7 | 30 | 90 }, options?: RequestOptions): Promise<CommercialPosition> {
+  getCommercialPosition(query: { currency: string; days?: 7 | 30 | 90; from?: string; until?: string }, options?: RequestOptions): Promise<CommercialPosition> {
     if (!/^[A-Z]{3}$/.test(query.currency)) throw new TypeError('Provide a three-letter uppercase currency');
-    if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
-    const parameters = new URLSearchParams({ currency: query.currency, days: String(query.days ?? 30) });
+    const parameters = new URLSearchParams({ currency: query.currency });
+    if (query.from && query.until) {
+      parameters.set('from', query.from);
+      parameters.set('until', query.until);
+    } else {
+      if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
+      parameters.set('days', String(query.days ?? 30));
+    }
     return this.request(`/commercial-position?${parameters}`, undefined, options);
   }
 
   /** Platform-only posting summary. Cash receipts, gift issuance and net consumption revenue are distinct. */
-  getCustomerFinancialSummary(query: { currency: string; days?: 7 | 30 | 90 }, options?: RequestOptions): Promise<CustomerFinancialSummary> {
+  getCustomerFinancialSummary(query: { currency: string; days?: 7 | 30 | 90; from?: string; until?: string }, options?: RequestOptions): Promise<CustomerFinancialSummary> {
     if (!/^[A-Z]{3}$/.test(query.currency)) throw new TypeError('Provide a three-letter uppercase currency');
-    if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
-    const parameters = new URLSearchParams({ currency: query.currency, days: String(query.days ?? 30) });
+    const parameters = new URLSearchParams({ currency: query.currency });
+    if (query.from && query.until) {
+      parameters.set('from', query.from);
+      parameters.set('until', query.until);
+    } else {
+      if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
+      parameters.set('days', String(query.days ?? 30));
+    }
     return this.request(`/financial-summary?${parameters}`, undefined, options);
   }
 
