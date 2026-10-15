@@ -38,6 +38,11 @@ impl Store {
         if !(0..9_007_199_254_740_990).contains(&expected_revision) {
             return Err(StoreError::Conflict);
         }
+        if let Some(payload) = payload
+            && !crate::agent_traces::serialized_within_limit(payload, 1_048_576)?
+        {
+            return Err(StoreError::InvalidObservation);
+        }
         let mut tx = self.begin_bounded_recording().await?;
         // Synchronize even updates of an existing row with empty-workspace deletion.
         let project: Option<uuid::Uuid> = sqlx::query_scalar(

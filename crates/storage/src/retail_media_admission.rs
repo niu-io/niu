@@ -257,11 +257,6 @@ impl Store {
                 .select_customer_media_rate(scope.organization_id, dimensions, legacy_at)
                 .await;
         };
-        sqlx::query("SELECT id FROM platform_retail_price_heads WHERE id=$1 FOR SHARE")
-            .bind(head)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(StoreError::Conflict)?;
         let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
         let prepared = platform_rate(&mut tx, scope, head, &identity, None).await?;
         tx.commit().await?;

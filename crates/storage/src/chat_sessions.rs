@@ -54,6 +54,14 @@ impl Store {
         if expected_revision < 0 {
             return Err(StoreError::Conflict);
         }
+        if let Some(payload) = payload
+            && !crate::agent_traces::serialized_within_limit(
+                payload,
+                CHAT_HISTORY_PAYLOAD_BYTES as usize,
+            )?
+        {
+            return Err(StoreError::ChatHistoryCapacityExceeded);
+        }
         let revision = sqlx::query_scalar("INSERT INTO chat_drafts(organization_id,project_id,owner,payload) SELECT $1,$2,$3,$4 WHERE $5=0 OR EXISTS(SELECT 1 FROM chat_drafts WHERE organization_id=$1 AND project_id=$2 AND owner=$3) ON CONFLICT(organization_id,project_id,owner) DO UPDATE SET payload=EXCLUDED.payload,revision=chat_drafts.revision+1,updated_at=clock_timestamp() WHERE chat_drafts.revision=$5 RETURNING revision")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload).bind(expected_revision)
             .fetch_optional(&self.pool).await?;
@@ -99,18 +107,24 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let metadata: Option<(bool, i64, i64, bool)> = sqlx::query_as("SELECT archived,COALESCE(payload_bytes,octet_length(payload::text)::bigint),write_revision,guarded_writes FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
-            .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
-            .fetch_optional(&mut *snapshot).await?;
-        let Some((archived, bytes, revision, guarded)) = metadata else {
+        let row: Option<(bool, i64, i64, bool, Option<Value>)> = sqlx::query_as(
+            "SELECT archived,COALESCE(payload_bytes,octet_length(payload::text)::bigint) AS bytes,write_revision,guarded_writes,CASE WHEN COALESCE(payload_bytes,octet_length(payload::text)::bigint)<=$5 THEN payload END FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(owner)
+        .bind(id)
+        .bind(CHAT_HISTORY_PAYLOAD_BYTES)
+        .fetch_optional(&mut *snapshot)
+        .await?;
+        let Some((archived, bytes, revision, guarded, payload)) = row else {
             snapshot.commit().await?;
             return Ok(None);
         };
         if bytes > CHAT_HISTORY_PAYLOAD_BYTES {
             return Err(StoreError::ChatHistoryCapacityExceeded);
         }
-        let payloads =
-            Self::load_chat_payloads(&mut snapshot, scope, owner, archived, vec![id]).await?;
+        let payloads = payload.into_iter().collect();
         let mut payloads = Self::hydrate_chat_charges(&mut snapshot, scope, payloads).await?;
         snapshot.commit().await?;
         Ok(payloads
@@ -397,6 +411,12 @@ impl Store {
     ) -> Result<i64, StoreError> {
         if matches!(condition, ChatWriteCondition::Revision(r) if r <= 0) {
             return Err(StoreError::Conflict);
+        }
+        if !crate::agent_traces::serialized_within_limit(
+            payload,
+            CHAT_HISTORY_PAYLOAD_BYTES as usize,
+        )? {
+            return Err(StoreError::ChatHistoryCapacityExceeded);
         }
         let mut tx = self.begin_bounded_recording().await?;
         let revision = match condition {
