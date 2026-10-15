@@ -26,23 +26,16 @@ pub async fn current_session(
             Some(principal.role),
         ),
     };
-    let provider_memberships = match authorization {
-        AdminAuthorization::Installation => vec![],
-        AdminAuthorization::Operator(principal) => state
-            .store
-            .provider_memberships(principal.id)
-            .await
-            .map_err(ApiError::from_store)?,
-    };
-    let profile = match authorization {
-        AdminAuthorization::Installation => None,
-        AdminAuthorization::Operator(principal) => Some(
-            state
-                .store
-                .member_profile(principal.id)
-                .await
-                .map_err(ApiError::from_store)?,
-        ),
+    let (provider_memberships, profile) = match authorization {
+        AdminAuthorization::Installation => (vec![], None),
+        AdminAuthorization::Operator(principal) => {
+            let (memberships, profile) = tokio::try_join!(
+                state.store.provider_memberships(principal.id),
+                state.store.member_profile(principal.id)
+            )
+            .map_err(ApiError::from_store)?;
+            (memberships, Some(profile))
+        }
     };
     Ok(Json(json!({"data": {
         "kind": kind,

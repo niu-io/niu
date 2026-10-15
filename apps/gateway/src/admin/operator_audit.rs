@@ -22,13 +22,15 @@ pub async fn operator_events(
     Query(query): Query<OperatorEventsQuery>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    super::authorize_operator_management(&state, &headers, operator_id).await?;
-    if state
-        .store
-        .operator(operator_id)
-        .await
-        .map_err(ApiError::from_store)?
-        .is_none()
+    let authorization =
+        super::authorize_operator_management(&state, &headers, operator_id).await?;
+    if authorization.is_installation()
+        && state
+            .store
+            .operator(operator_id)
+            .await
+            .map_err(ApiError::from_store)?
+            .is_none()
     {
         return Err(ApiError::not_found());
     }

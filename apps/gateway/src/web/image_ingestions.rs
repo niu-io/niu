@@ -167,9 +167,9 @@ pub(crate) async fn dispatch(
     Path(id): Path<Uuid>,
     body: axum::body::Bytes,
 ) -> Result<Json<Value>, ApiError> {
-    state.authorize_api_headers(&headers).await?;
+    let principal = state.authorize_api_headers(&headers).await?;
     validate_command_body(&body)?;
-    dispatch_with_transport(state, headers, id, |signer, request| async move {
+    dispatch_authorized_with_transport(state, headers, principal, id, |signer, request| async move {
         niu_media::asset_create::create_asset_now(
             &signer,
             &request,
@@ -182,6 +182,7 @@ pub(crate) async fn dispatch(
     .await
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) async fn dispatch_with_transport<F, Fut>(
     state: AppState,
     headers: HeaderMap,
@@ -199,8 +200,29 @@ where
         + Send
         + 'static,
 {
-    use niu_media::asset_read::ReadError;
     let principal = state.authorize_api_headers(&headers).await?;
+    dispatch_authorized_with_transport(state, headers, principal, id, send).await
+}
+
+async fn dispatch_authorized_with_transport<F, Fut>(
+    state: AppState,
+    headers: HeaderMap,
+    principal: niu_storage::Principal,
+    id: Uuid,
+    send: F,
+) -> Result<Json<Value>, ApiError>
+where
+    F: FnOnce(
+            niu_media::asset_signing::AssetManagementSigner,
+            niu_media::asset_create::OrdinaryAssetCreate,
+        ) -> Fut
+        + Send
+        + 'static,
+    Fut: std::future::Future<Output = Result<String, niu_media::asset_read::ReadError>>
+        + Send
+        + 'static,
+{
+    use niu_media::asset_read::ReadError;
     // Validate deployment configuration and capacity before consuming consent.
     state
         .config

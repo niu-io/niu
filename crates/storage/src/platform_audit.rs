@@ -78,27 +78,30 @@ impl Store {
             {
                 return Err(StoreError::InvalidPlatformAuditQuery);
             }
-            let query =
-                format!("SELECT created_at::text FROM {table} WHERE {column}=$1::text::{cast}");
-            let timestamp: Option<String> = sqlx::query_scalar(&query)
+            let (timestamp, cursor_category) = if source == "operator" {
+                let row: Option<(String, String)> = sqlx::query_as(
+                    "SELECT created_at::text, action FROM operator_audit_events WHERE id=$1::text::uuid",
+                )
                 .bind(id)
                 .fetch_optional(&self.pool)
                 .await?;
-            let timestamp = timestamp.ok_or(StoreError::InvalidPlatformAuditQuery)?;
-            let cursor_category = if source == "operator" {
-                let action: String = sqlx::query_scalar(
-                    "SELECT action FROM operator_audit_events WHERE id=$1::text::uuid",
-                )
-                .bind(id)
-                .fetch_one(&self.pool)
-                .await?;
-                if action.starts_with("session_") || action.starts_with("password_") {
+                let (timestamp, action) = row.ok_or(StoreError::InvalidPlatformAuditQuery)?;
+                let category = if action.starts_with("session_") || action.starts_with("password_")
+                {
                     "authentication"
                 } else {
                     "access"
-                }
+                };
+                (timestamp, category)
             } else {
-                match source {
+                let query =
+                    format!("SELECT created_at::text FROM {table} WHERE {column}=$1::text::{cast}");
+                let timestamp: Option<String> = sqlx::query_scalar(&query)
+                    .bind(id)
+                    .fetch_optional(&self.pool)
+                    .await?;
+                let timestamp = timestamp.ok_or(StoreError::InvalidPlatformAuditQuery)?;
+                let category = match source {
                     "vendor"
                     | "branding"
                     | "payment_gateway"
@@ -108,7 +111,8 @@ impl Store {
                     | "balance_grant" => "configuration",
                     "supplier" | "media_liability" => "supplier",
                     _ => "access",
-                }
+                };
+                (timestamp, category)
             };
             if category.is_some_and(|c| c != cursor_category) {
                 return Err(StoreError::InvalidPlatformAuditQuery);

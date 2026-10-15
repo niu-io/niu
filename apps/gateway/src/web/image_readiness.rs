@@ -35,11 +35,12 @@ pub(crate) async fn refresh(
     Path((consent, read_id)): Path<(Uuid, Uuid)>,
     body: axum::body::Bytes,
 ) -> Result<Json<Value>, ApiError> {
-    state.authorize_api_headers(&headers).await?;
+    let principal = state.authorize_api_headers(&headers).await?;
     super::image_ingestions::validate_command_body(&body)?;
-    refresh_with_transport(
+    refresh_authorized_with_transport(
         state,
         headers,
+        principal,
         consent,
         read_id,
         |signer, request| async move {
@@ -54,6 +55,7 @@ pub(crate) async fn refresh(
     )
     .await
 }
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) async fn refresh_with_transport<F, Fut>(
     state: AppState,
     headers: HeaderMap,
@@ -66,6 +68,21 @@ where
     Fut: std::future::Future<Output = Result<OrdinaryAsset, ReadError>> + Send + 'static,
 {
     let principal = state.authorize_api_headers(&headers).await?;
+    refresh_authorized_with_transport(state, headers, principal, consent, read_id, send).await
+}
+
+async fn refresh_authorized_with_transport<F, Fut>(
+    state: AppState,
+    headers: HeaderMap,
+    principal: niu_storage::Principal,
+    consent: Uuid,
+    read_id: Uuid,
+    send: F,
+) -> Result<Json<Value>, ApiError>
+where
+    F: FnOnce(AssetManagementSigner, OrdinaryAssetRead) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<OrdinaryAsset, ReadError>> + Send + 'static,
+{
     let cipher = state
         .vendor_cipher
         .clone()

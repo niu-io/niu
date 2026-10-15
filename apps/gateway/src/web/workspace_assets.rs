@@ -970,17 +970,12 @@ pub(crate) async fn rename(
         input.map_err(|_| ApiError::invalid_request("Provide asset name and expected revision"))?;
     let name = name(&input.name)?;
     let revision = revision(&input.expected_revision)?;
-    state
-        .store
-        .workspace_asset(scope, asset)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
     let data = state
         .store
         .rename_workspace_asset(scope, asset, name, revision, &actor)
         .await
-        .map_err(ApiError::from_store)?;
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
     Ok(([("cache-control", "no-store")], Json(json!({"data":data}))))
 }
 #[derive(Deserialize)]

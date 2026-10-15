@@ -329,7 +329,7 @@ impl Store {
         name: &str,
         expected_revision: i64,
         actor: &str,
-    ) -> Result<AssetLibraryAsset, StoreError> {
+    ) -> Result<Option<AssetLibraryAsset>, StoreError> {
         let name = checked_name(name)?;
         checked_actor(actor)?;
         if expected_revision < 1 {
@@ -339,7 +339,7 @@ impl Store {
         let row:Option<(i64,String)>=sqlx::query_as("SELECT revision,name FROM workspace_asset_library WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND deleted_at IS NULL FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?;
         let Some((revision, old_name)) = row else {
-            return Err(StoreError::Conflict);
+            return Ok(None);
         };
         if revision != expected_revision {
             return Err(StoreError::Conflict);
@@ -354,7 +354,7 @@ impl Store {
             .await?
             .ok_or(StoreError::Conflict)?;
         tx.commit().await?;
-        Ok(asset)
+        Ok(Some(asset))
     }
 
     /// Mark deleted before erasing encrypted content in the same transaction.
