@@ -5,7 +5,10 @@ use std::{
     time::Duration,
 };
 
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{
+    SinkExt, StreamExt,
+    stream::{SplitSink, SplitStream},
+};
 use litellm_types::responses::streaming_websocket::ResponsesWsEventType;
 use rustls::{ClientConfig, RootCertStore};
 use tokio::{net::TcpStream, sync::Mutex};
@@ -17,16 +20,20 @@ use tokio_tungstenite::{
         error::TlsError,
         handshake::client::Response,
         http::{HeaderName, HeaderValue},
+        protocol::WebSocketConfig,
     },
 };
 
 use super::Error;
 
+const DEFAULT_WS_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_WS_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
+const MAX_WS_FRAME_BYTES: usize = 4 * 1024 * 1024;
+
 pub fn is_terminal_event(event_type: &ResponsesWsEventType) -> bool {
     matches!(
         event_type,
-        ResponsesWsEventType::ResponseCreated
-            | ResponsesWsEventType::ResponseCompleted
+        ResponsesWsEventType::ResponseCompleted
             | ResponsesWsEventType::ResponseFailed
             | ResponsesWsEventType::ResponseIncomplete
             | ResponsesWsEventType::Error
@@ -78,14 +85,18 @@ where
         Some("wss") => Some(Connector::Rustls(tls_config()?)),
         _ => None,
     };
-    connect_async_tls_with_config(request, None, false, connector)
+    let mut ws_config = WebSocketConfig::default();
+    ws_config.max_message_size = Some(MAX_WS_MESSAGE_BYTES);
+    ws_config.max_frame_size = Some(MAX_WS_FRAME_BYTES);
+    connect_async_tls_with_config(request, Some(ws_config), false, connector)
         .await
         .map_err(Box::new)
 }
 
 #[derive(Clone)]
 pub struct ResponsesWebSocketConnection {
-    socket: Arc<Mutex<Option<ResponsesUpstreamWs>>>,
+    sink: Arc<Mutex<Option<SplitSink<ResponsesUpstreamWs, Message>>>>,
+    stream: Arc<Mutex<Option<SplitStream<ResponsesUpstreamWs>>>>,
 }
 
 impl ResponsesWebSocketConnection {
@@ -106,14 +117,16 @@ impl ResponsesWebSocketConnection {
             request.headers_mut().insert(header_name, header_value);
         }
         let connect = connect_upstream(request);
-        let result = match timeout {
-            Some(timeout) => tokio::time::timeout(timeout, connect).await.map_err(|_| {
+        let effective_timeout = timeout
+            .filter(|t| !t.is_zero())
+            .unwrap_or(DEFAULT_WS_CONNECT_TIMEOUT);
+        let result = tokio::time::timeout(effective_timeout, connect)
+            .await
+            .map_err(|_| {
                 Error::Transport(litellm_http::transport::Error::Network(
                     "Responses WebSocket connection timed out".into(),
                 ))
-            })?,
-            None => connect.await,
-        };
+            })?;
         let (socket, _) = result.map_err(|error| match *error {
             tokio_tungstenite::tungstenite::Error::Http(response) => {
                 Error::Transport(litellm_http::transport::Error::Http {
@@ -123,29 +136,31 @@ impl ResponsesWebSocketConnection {
             }
             other => Error::Transport(litellm_http::transport::Error::Network(other.to_string())),
         })?;
+        let (sink, stream) = socket.split();
         Ok(Self {
-            socket: Arc::new(Mutex::new(Some(socket))),
+            sink: Arc::new(Mutex::new(Some(sink))),
+            stream: Arc::new(Mutex::new(Some(stream))),
         })
     }
 
     pub async fn send_text(&self, text: String) -> Result<(), Error> {
-        let mut socket = self.socket.lock().await;
-        let Some(socket) = socket.as_mut() else {
+        let mut sink = self.sink.lock().await;
+        let Some(sink) = sink.as_mut() else {
             return Err(Error::Transport(litellm_http::transport::Error::Network(
                 "Responses WebSocket is closed".into(),
             )));
         };
-        socket.send(Message::Text(text)).await.map_err(|error| {
+        sink.send(Message::Text(text)).await.map_err(|error| {
             Error::Transport(litellm_http::transport::Error::Network(error.to_string()))
         })
     }
 
     pub async fn recv_text(&self) -> Result<Option<String>, Error> {
-        let mut socket = self.socket.lock().await;
-        let Some(socket) = socket.as_mut() else {
+        let mut stream = self.stream.lock().await;
+        let Some(stream) = stream.as_mut() else {
             return Ok(None);
         };
-        match socket.next().await {
+        match stream.next().await {
             Some(Ok(Message::Text(text))) => Ok(Some(text)),
             Some(Ok(Message::Binary(bytes))) => String::from_utf8(bytes.to_vec())
                 .map(Some)
@@ -159,13 +174,16 @@ impl ResponsesWebSocketConnection {
     }
 
     pub async fn close(&self) -> Result<(), Error> {
-        let mut socket = self.socket.lock().await;
-        if let Some(socket) = socket.as_mut() {
-            socket.close(None).await.map_err(|error| {
+        let mut sink = self.sink.lock().await;
+        if let Some(s) = sink.as_mut() {
+            s.close().await.map_err(|error| {
                 Error::Transport(litellm_http::transport::Error::Network(error.to_string()))
             })?;
         }
-        *socket = None;
+        *sink = None;
+        if let Ok(mut stream) = self.stream.try_lock() {
+            *stream = None;
+        }
         Ok(())
     }
 }
