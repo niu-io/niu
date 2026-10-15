@@ -275,10 +275,53 @@ pub(super) async fn admit(
     }
     Ok(binding)
 }
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct FastRouterClientCacheKey {
+    vendor_id: Uuid,
+    vendor_revision: i64,
+    model_revision: i64,
+    api_base: String,
+    upstream_model: String,
+    credential_ciphertext: Vec<u8>,
+}
+
+const FASTROUTER_CLIENT_CACHE_TTL: Duration = Duration::from_secs(300);
+const FASTROUTER_CLIENT_CACHE_CAPACITY: usize = 256;
+
+static FASTROUTER_ACTION_CLIENTS: std::sync::LazyLock<
+    std::sync::Mutex<
+        std::collections::HashMap<
+            FastRouterClientCacheKey,
+            (std::time::Instant, FastRouterActionClient),
+        >,
+    >,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
 pub(super) fn client(
     state: &AppState,
     route: &WorkspaceProviderAssetRoute,
 ) -> Result<FastRouterActionClient, ApiError> {
+    let cipher = state
+        .vendor_cipher
+        .as_ref()
+        .ok_or_else(ApiError::unavailable)?;
+    let cache_key = FastRouterClientCacheKey {
+        vendor_id: route.vendor_id(),
+        vendor_revision: route.vendor_revision(),
+        model_revision: route.model_revision(),
+        api_base: route.api_base().to_owned(),
+        upstream_model: route.upstream_model().to_owned(),
+        credential_ciphertext: route.credential_ciphertext().to_vec(),
+    };
+    let now = std::time::Instant::now();
+    if let Ok(mut guard) = FASTROUTER_ACTION_CLIENTS.lock() {
+        if let Some((cached_at, client)) = guard.get(&cache_key) {
+            if now.duration_since(*cached_at) < FASTROUTER_CLIENT_CACHE_TTL {
+                return Ok(client.clone());
+            }
+        }
+        guard.remove(&cache_key);
+    }
     let mut endpoint = url::Url::parse(route.api_base()).map_err(|_| ApiError::unsupported())?;
     if endpoint.path().trim_end_matches('/') != "/doubao/api/v3"
         || endpoint.query().is_some()
@@ -289,14 +332,27 @@ pub(super) fn client(
         ));
     }
     endpoint.set_path("/doubao");
-    let key = state
-        .vendor_cipher
-        .as_ref()
-        .ok_or_else(ApiError::unavailable)?
+    let key = cipher
         .open(route.vendor_id(), route.credential_ciphertext())
         .map_err(|_| ApiError::unavailable())?;
-    FastRouterActionClient::new(endpoint.as_str(), &key, route.upstream_model())
-        .map_err(|_| ApiError::unavailable())
+    let action_client =
+        FastRouterActionClient::new(endpoint.as_str(), &key, route.upstream_model())
+            .map_err(|_| ApiError::unavailable())?;
+    if let Ok(mut guard) = FASTROUTER_ACTION_CLIENTS.lock() {
+        if guard.len() >= FASTROUTER_CLIENT_CACHE_CAPACITY {
+            guard.retain(|_, (ts, _)| now.duration_since(*ts) < FASTROUTER_CLIENT_CACHE_TTL);
+            if guard.len() >= FASTROUTER_CLIENT_CACHE_CAPACITY
+                && let Some(oldest_key) = guard
+                    .iter()
+                    .min_by_key(|(_, (ts, _))| *ts)
+                    .map(|(k, _)| k.clone())
+            {
+                guard.remove(&oldest_key);
+            }
+        }
+        guard.insert(cache_key, (now, action_client.clone()));
+    }
+    Ok(action_client)
 }
 pub(super) fn limits(state: &AppState) -> FastRouterActionLimits {
     let seconds = state.config.server.request_timeout_seconds.min(60);

@@ -127,6 +127,7 @@ impl FastRouterActionResponse {
 }
 /// Private configured credential; never use workspace/customer credentials as a
 /// substitute. Unlike direct Ark, this adapter requires no SigV4 access pair.
+#[derive(Clone)]
 pub struct FastRouterActionClient {
     endpoint: Url,
     model: String,
@@ -209,10 +210,8 @@ impl FastRouterActionClient {
                 .map_err(|_| FastRouterActionError::Transport(failure(action, None, None, None)))?;
             let status = response.status();
             observed_status = Some(status.as_u16());
-            if response
-                .content_length()
-                .is_some_and(|n| n > limits.maximum_response_bytes as u64)
-            {
+            let content_length = response.content_length();
+            if content_length.is_some_and(|n| n > limits.maximum_response_bytes as u64) {
                 return Err(FastRouterActionError::ResponseTooLarge(failure(
                     action,
                     observed_status,
@@ -220,7 +219,11 @@ impl FastRouterActionClient {
                     None,
                 )));
             }
-            let mut bytes = Vec::new();
+            let mut bytes = Vec::with_capacity(
+                content_length
+                    .unwrap_or(0)
+                    .min(limits.maximum_response_bytes as u64) as usize,
+            );
             while let Some(chunk) = response.chunk().await.map_err(|_| {
                 FastRouterActionError::Transport(failure(action, observed_status, None, None))
             })? {
