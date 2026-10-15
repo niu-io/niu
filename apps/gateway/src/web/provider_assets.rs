@@ -127,12 +127,13 @@ pub(super) fn idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
 pub(super) struct AdmissionContext {
     published: Option<Option<std::sync::Arc<crate::vendors::publication::Published>>>,
     principal_auth: Option<PrincipalAdmissionAuth>,
+    verified_vendors: std::collections::HashSet<Uuid>,
 }
 
 struct PrincipalAdmissionAuth {
     snapshot: niu_storage::GuardrailSnapshot,
     current_key: Principal,
-    policies: Option<Vec<crate::guardrails::PolicyDraft>>,
+    policies: Option<Vec<(crate::guardrails::EffectiveAccess, crate::guardrails::EffectiveAccess)>>,
 }
 
 pub(super) async fn admit(
@@ -250,7 +251,10 @@ pub(super) async fn admit_with_context(
             "This model does not configure Provider asset management",
         ));
     }
-    crate::vendors::require_selectable_credential(state, route.vendor.id).await?;
+    if !context.verified_vendors.contains(&route.vendor.id) {
+        crate::vendors::require_selectable_credential(state, route.vendor.id).await?;
+        context.verified_vendors.insert(route.vendor.id);
+    }
     let auth = match &mut context.principal_auth {
         Some(auth) => auth,
         None => {
@@ -295,16 +299,16 @@ pub(super) async fn admit_with_context(
                 let draft: crate::guardrails::PolicyDraft =
                     serde_json::from_value(policy.clone()).map_err(|_| ApiError::forbidden())?;
                 draft.validate_shape().map_err(|_| ApiError::forbidden())?;
-                parsed.push(draft);
+                parsed.push((
+                    crate::guardrails::EffectiveAccess::compose([draft.models]),
+                    crate::guardrails::EffectiveAccess::compose([draft.providers]),
+                ));
             }
             auth.policies.insert(parsed)
         }
     };
-    for draft in policies {
-        if !crate::guardrails::EffectiveAccess::compose([draft.models.clone()]).permits(model)
-            || !crate::guardrails::EffectiveAccess::compose([draft.providers.clone()])
-                .permits(&route.vendor.adapter)
-        {
+    for (models_access, providers_access) in policies {
+        if !models_access.permits(model) || !providers_access.permits(&route.vendor.adapter) {
             return Err(ApiError::forbidden());
         }
     }
