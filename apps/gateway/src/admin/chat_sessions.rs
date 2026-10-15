@@ -19,8 +19,19 @@ fn valid_results(payload: &Value) -> bool {
                     result
                         .get("model")
                         .and_then(Value::as_str)
-                        .is_some_and(|model| !model.trim().is_empty() && models.insert(model))
-                        && result.get("content").and_then(Value::as_str).is_some()
+                        .is_some_and(|model| {
+                            !model.trim().is_empty() && model.len() <= 512 && models.insert(model)
+                        })
+                        && result
+                            .get("content")
+                            .and_then(Value::as_str)
+                            .is_some_and(|content| content.len() <= 512 * 1024)
+                        && result.get("error").is_none_or(|v| {
+                            v.is_null() || v.as_str().is_some_and(|s| s.len() <= 8192)
+                        })
+                        && result.get("attemptId").is_none_or(|v| {
+                            v.is_null() || v.as_str().is_some_and(|s| s.len() <= 128)
+                        })
                         && result
                             .get("elapsedMs")
                             .is_some_and(safe_nonnegative_integer)
@@ -66,14 +77,27 @@ fn sanitize_attachments(payload: &mut Value) -> Result<(), ApiError> {
         let attachments = attachments
             .as_array_mut()
             .ok_or_else(|| ApiError::invalid_request("Invalid chat attachments"))?;
+        if attachments.len() > 4 {
+            return Err(ApiError::invalid_request("Invalid chat attachments"));
+        }
         for attachment in attachments {
             let attachment = attachment
                 .as_object_mut()
                 .ok_or_else(|| ApiError::invalid_request("Invalid chat attachment"))?;
             attachment.retain(|key, _| ["name", "type", "content"].contains(&key.as_str()));
-            if !["name", "type", "content"]
-                .iter()
-                .all(|key| attachment.get(*key).is_some_and(Value::is_string))
+            let Some(name) = attachment.get("name").and_then(Value::as_str) else {
+                return Err(ApiError::invalid_request("Invalid chat attachment"));
+            };
+            let Some(kind) = attachment.get("type").and_then(Value::as_str) else {
+                return Err(ApiError::invalid_request("Invalid chat attachment"));
+            };
+            let Some(content) = attachment.get("content").and_then(Value::as_str) else {
+                return Err(ApiError::invalid_request("Invalid chat attachment"));
+            };
+            if name.is_empty()
+                || name.len() > 1024
+                || !["image", "text"].contains(&kind)
+                || content.len() > 6 * 1024 * 1024
             {
                 return Err(ApiError::invalid_request("Invalid chat attachment"));
             }
@@ -1240,7 +1264,13 @@ pub async fn save(
         _ => return Err(ApiError::invalid_request("Invalid Chat write revision")),
     };
     if !payload.is_object()
-        || payload.get("prompt").and_then(Value::as_str).is_none()
+        || !payload
+            .get("prompt")
+            .and_then(Value::as_str)
+            .is_some_and(|s| s.chars().count() <= 12000)
+        || payload
+            .get("title")
+            .is_some_and(|v| !v.is_null() && !v.as_str().is_some_and(|s| s.chars().count() <= 512))
         || !valid_results(&payload)
         || !payload
             .get("createdAt")
@@ -1271,7 +1301,10 @@ pub async fn save(
         if turns.len() > 100
             || turns.iter().any(|turn| {
                 !turn.is_object()
-                    || !turn.get("prompt").is_some_and(Value::is_string)
+                    || !turn
+                        .get("prompt")
+                        .and_then(Value::as_str)
+                        .is_some_and(|s| s.chars().count() <= 12000)
                     || !valid_results(turn)
             })
         {
@@ -1292,13 +1325,17 @@ pub async fn save(
         settings.retain(|key, _| {
             ["systemPrompt", "maxTokens", "temperature", "logPayloads"].contains(&key.as_str())
         });
-        if settings.get("systemPrompt").is_some_and(|v| !v.is_string())
-            || settings
-                .get("maxTokens")
-                .is_some_and(|v| !v.as_u64().is_some_and(|n| n > 0))
-            || settings
-                .get("temperature")
-                .is_some_and(|v| !v.as_f64().is_some_and(|n| (0.0..=2.0).contains(&n)))
+        if settings
+            .get("systemPrompt")
+            .is_some_and(|v| !v.as_str().is_some_and(|s| s.chars().count() <= 12000))
+            || settings.get("maxTokens").is_some_and(|v| {
+                !v.as_u64()
+                    .is_some_and(|n| (1..=9_007_199_254_740_991).contains(&n))
+            })
+            || settings.get("temperature").is_some_and(|v| {
+                !v.as_f64()
+                    .is_some_and(|n| n.is_finite() && (0.0..=2.0).contains(&n))
+            })
             || settings.get("logPayloads").is_some_and(|v| !v.is_boolean())
         {
             return Err(ApiError::invalid_request("Invalid chat settings"));
@@ -1350,5 +1387,29 @@ mod tests {
                 assert_eq!(turns[0]["prompt"], "Legacy prompt");
             }
         }
+    }
+
+    #[test]
+    fn attachment_and_result_bounds_reject_oversized_or_invalid_items() {
+        let mut too_many = json!({
+            "attachments": (0..5).map(|i| json!({"name": format!("f{i}.txt"), "type": "text", "content": "ok"})).collect::<Vec<_>>()
+        });
+        assert!(sanitize_attachments(&mut too_many).is_err());
+
+        let mut bad_kind = json!({
+            "attachments": [{"name": "f.bin", "type": "binary", "content": "ok"}]
+        });
+        assert!(sanitize_attachments(&mut bad_kind).is_err());
+
+        let mut valid = json!({
+            "attachments": [{"name": "f.txt", "type": "text", "content": "ok", "extra": "dropped"}]
+        });
+        assert!(sanitize_attachments(&mut valid).is_ok());
+        assert!(valid["attachments"][0].get("extra").is_none());
+
+        let long_model = "m".repeat(513);
+        assert!(!valid_results(&json!({
+            "results": [{"model": long_model, "content": "ok", "elapsedMs": 1, "phase": "complete"}]
+        })));
     }
 }

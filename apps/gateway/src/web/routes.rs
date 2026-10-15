@@ -703,8 +703,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/v1", any(api_not_found))
         .route("/api/v1/{*path}", any(api_not_found))
         .route("/admin/v1", any(api_not_found))
-        .route("/admin/v1/{*path}", any(api_not_found))
-        .layer(DefaultBodyLimit::max(1_048_576));
+        .route("/admin/v1/{*path}", any(api_not_found));
     let app = if enterprise_enabled {
         app.route("/enterprise/api/v1", any(crate::enterprise::handle))
             .route("/enterprise/api/v1/{*path}", any(crate::enterprise::handle))
@@ -713,7 +712,8 @@ pub(crate) fn router(state: AppState) -> Router {
     } else {
         app
     };
-    app.layer(middleware::from_fn_with_state(
+    app.layer(DefaultBodyLimit::max(1_048_576))
+        .layer(middleware::from_fn_with_state(
         state.clone(),
         crate::request_timings::collect,
     ))
