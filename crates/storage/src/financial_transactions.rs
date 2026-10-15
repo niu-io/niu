@@ -4,7 +4,8 @@ use sqlx::{Postgres, Transaction};
 
 async fn bound_statement_waits(tx: &mut Transaction<'_, Postgres>) -> Result<(), StoreError> {
     sqlx::query(
-        "SELECT set_config('lock_timeout','250ms',true), set_config('statement_timeout','2s',true)",
+        "SELECT set_config('lock_timeout', '250ms', true), \
+                set_config('statement_timeout', '2s', true)",
     )
     .execute(&mut **tx)
     .await?;
@@ -37,9 +38,9 @@ impl Store {
     pub(crate) async fn begin_bounded_read_snapshot(
         &self,
     ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            .execute(&mut *tx)
+        let mut tx = self
+            .pool
+            .begin_with("BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .await?;
         bound_statement_waits(&mut tx).await?;
         Ok(tx)
