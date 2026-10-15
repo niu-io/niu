@@ -1,4 +1,4 @@
-WITH inventory AS (
+WITH inventory AS NOT MATERIALIZED (
  SELECT a.id,a.created_at,
  greatest(a.created_at,coalesce(o.max_created_at,a.created_at)) AS updated_at,
  a.resource_id AS model,nullif(m.capabilities->'catalog'->>'name','') AS model_display_name,
@@ -74,10 +74,10 @@ WITH inventory AS (
  AND (t.task_id IS NULL OR t.owner=$3)
  AND (intent_binding.intent_id IS NULL OR intent_binding.owner=$3)
  AND NOT coalesce(intent_binding.has_foreign_owner,false)
-), filtered AS (
+), filtered AS NOT MATERIALIZED (
  SELECT * FROM inventory WHERE ($4::text IS NULL OR state=$4)
  AND ($5::uuid IS NULL OR session_id=$5)
-), all_outputs AS (
+), all_outputs AS NOT MATERIALIZED (
  SELECT i.*,r.kind,r.created_at AS output_created_at,
  capture_projection.capture,capture_projection.content_type,
  CASE WHEN r.expires_at<=clock_timestamp() THEN 'expired'
@@ -109,7 +109,7 @@ WITH inventory AS (
   LIMIT 1
  ) capture_projection ON true
 )
-, outputs AS (
+, outputs AS NOT MATERIALIZED (
  SELECT * FROM all_outputs WHERE ($4::text IS NULL OR state=$4)
  AND ($5::uuid IS NULL OR session_id=$5)
 )
