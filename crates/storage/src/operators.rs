@@ -486,15 +486,51 @@ impl Store {
         operator_id: Uuid,
         actor: OperatorAuditActor,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
-        let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
-            "UPDATE admin_operators SET revoked_at=clock_timestamp() \
-             WHERE id=$1 AND revoked_at IS NULL RETURNING organization_id,project_id",
+        let mut tx = self.begin_bounded_recording().await?;
+        let scope: Option<(Option<Uuid>, Option<Uuid>)> =
+            sqlx::query_as("SELECT organization_id,project_id FROM admin_operators WHERE id=$1")
+                .bind(operator_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        let (organization_id, _) = scope.ok_or(StoreError::Conflict)?;
+        let organization_id = organization_id.ok_or(StoreError::Conflict)?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(format!("niu-member-role:{organization_id}"))
+            .execute(&mut *tx)
+            .await?;
+        let row: Option<(String, Option<Uuid>, bool)> = sqlx::query_as(
+            "SELECT role,project_id,revoked_at IS NOT NULL FROM admin_operators WHERE id=$1 AND organization_id=$2 FOR UPDATE",
         )
         .bind(operator_id)
+        .bind(organization_id)
         .fetch_optional(&mut *tx)
         .await?;
-        let (organization_id, project_id) = scope.ok_or(StoreError::Conflict)?;
+        let (role, project_id, revoked) = row.ok_or(StoreError::Conflict)?;
+        if revoked {
+            return Err(StoreError::Conflict);
+        }
+        if role == "owner"
+            && matches!(actor, OperatorAuditActor::Operator(actor_id) if actor_id != operator_id)
+        {
+            let remaining: Vec<Uuid> = sqlx::query_scalar(
+                "SELECT id FROM admin_operators WHERE organization_id=$1 AND revoked_at IS NULL AND role='owner' AND id<>$2 AND (project_id IS NULL OR project_id IS NOT DISTINCT FROM $3) ORDER BY id FOR SHARE",
+            )
+            .bind(organization_id)
+            .bind(operator_id)
+            .bind(project_id)
+            .fetch_all(&mut *tx)
+            .await?;
+            if remaining.is_empty() {
+                return Err(StoreError::Conflict);
+            }
+        }
+        sqlx::query(
+            "UPDATE admin_operators SET revoked_at=clock_timestamp() \
+             WHERE id=$1 AND revoked_at IS NULL",
+        )
+        .bind(operator_id)
+        .execute(&mut *tx)
+        .await?;
         sqlx::query(
             "UPDATE admin_sessions SET revoked_at=clock_timestamp() \
              WHERE operator_id=$1 AND revoked_at IS NULL",
