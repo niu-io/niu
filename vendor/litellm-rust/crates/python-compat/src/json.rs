@@ -6,19 +6,27 @@
 
 use std::fmt::Write;
 
+use num_traits::ToPrimitive;
 use serde_json::{Map, Number};
 
-use crate::{Error, Value, repr::float_repr};
+use crate::{Error, MAX_DECIMAL_INT_BITS, MAX_DEPTH, Value, repr::float_repr};
 
 /// `json.dumps(value)`.
 pub fn dumps(value: &Value) -> Result<String, Error> {
     let mut out = String::new();
-    write_value(&mut out, value)?;
+    write_value(&mut out, value, 0)?;
     Ok(out)
 }
 
 /// The Python value `json.loads` returns for a JSON document.
 pub fn from_json(value: serde_json::Value) -> Value {
+    from_json_bounded(value, 0)
+}
+
+fn from_json_bounded(value: serde_json::Value, depth: usize) -> Value {
+    if depth > MAX_DEPTH {
+        return Value::None;
+    }
     match value {
         serde_json::Value::Null => Value::None,
         serde_json::Value::Bool(value) => Value::Bool(value),
@@ -32,13 +40,16 @@ pub fn from_json(value: serde_json::Value) -> Value {
             }
         }
         serde_json::Value::String(text) => Value::Str(text),
-        serde_json::Value::Array(values) => {
-            Value::List(values.into_iter().map(from_json).collect())
-        }
+        serde_json::Value::Array(values) => Value::List(
+            values
+                .into_iter()
+                .map(|item| from_json_bounded(item, depth + 1))
+                .collect(),
+        ),
         serde_json::Value::Object(entries) => Value::Dict(
             entries
                 .into_iter()
-                .map(|(key, value)| (Value::Str(key), from_json(value)))
+                .map(|(key, value)| (Value::Str(key), from_json_bounded(value, depth + 1)))
                 .collect(),
         ),
     }
@@ -48,29 +59,37 @@ pub fn from_json(value: serde_json::Value) -> Value {
 /// keys are coerced to strings as `json.dumps` does. Non-finite floats, which Python writes
 /// as `NaN` and `Infinity`, have no `serde_json` form and fail with [`Error::NonFiniteFloat`].
 pub fn to_json(value: &Value) -> Result<serde_json::Value, Error> {
+    to_json_bounded(value, 0)
+}
+
+fn to_json_bounded(value: &Value, depth: usize) -> Result<serde_json::Value, Error> {
+    if depth > MAX_DEPTH {
+        return Err(Error::TooDeep);
+    }
     Ok(match value {
         Value::None => serde_json::Value::Null,
         Value::Bool(value) => serde_json::Value::Bool(*value),
-        Value::Int(value) => {
-            let text = value.to_string();
-            serde_json::Value::Number(
-                text.parse::<i64>()
-                    .map(Number::from)
-                    .or_else(|_| text.parse::<u64>().map(Number::from))
-                    .map_err(|_| Error::IntegerOutOfRange)?,
-            )
-        }
+        Value::Int(value) => serde_json::Value::Number(
+            value
+                .to_i64()
+                .map(Number::from)
+                .or_else(|| value.to_u64().map(Number::from))
+                .ok_or(Error::IntegerOutOfRange)?,
+        ),
         Value::Float(value) => {
             serde_json::Value::Number(Number::from_f64(*value).ok_or(Error::NonFiniteFloat)?)
         }
         Value::Str(text) => serde_json::Value::String(text.clone()),
-        Value::List(values) | Value::Tuple(values) => {
-            serde_json::Value::Array(values.iter().map(to_json).collect::<Result<Vec<_>, _>>()?)
-        }
+        Value::List(values) | Value::Tuple(values) => serde_json::Value::Array(
+            values
+                .iter()
+                .map(|item| to_json_bounded(item, depth + 1))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
         Value::Dict(entries) => serde_json::Value::Object(
             entries
                 .iter()
-                .map(|(key, value)| Ok((json_key(key)?, to_json(value)?)))
+                .map(|(key, value)| Ok((json_key(key)?, to_json_bounded(value, depth + 1)?)))
                 .collect::<Result<Map<_, _>, Error>>()?,
         ),
         value @ (Value::Bytes(_) | Value::Set(_) | Value::Complex { .. }) => {
@@ -79,12 +98,18 @@ pub fn to_json(value: &Value) -> Result<serde_json::Value, Error> {
     })
 }
 
-fn write_value(out: &mut String, value: &Value) -> Result<(), Error> {
+fn write_value(out: &mut String, value: &Value, depth: usize) -> Result<(), Error> {
+    if depth > MAX_DEPTH {
+        return Err(Error::TooDeep);
+    }
     match value {
         Value::None => out.push_str("null"),
         Value::Bool(true) => out.push_str("true"),
         Value::Bool(false) => out.push_str("false"),
         Value::Int(value) => {
+            if value.bits() > MAX_DECIMAL_INT_BITS {
+                return Err(Error::IntegerOutOfRange);
+            }
             let _ = write!(out, "{value}");
         }
         Value::Float(value) => out.push_str(&float_text(*value)),
@@ -95,7 +120,7 @@ fn write_value(out: &mut String, value: &Value) -> Result<(), Error> {
                 if index > 0 {
                     out.push_str(", ");
                 }
-                write_value(out, value)?;
+                write_value(out, value, depth + 1)?;
             }
             out.push(']');
         }
@@ -107,7 +132,7 @@ fn write_value(out: &mut String, value: &Value) -> Result<(), Error> {
                 }
                 write_string(out, &json_key(key)?);
                 out.push_str(": ");
-                write_value(out, value)?;
+                write_value(out, value, depth + 1)?;
             }
             out.push('}');
         }
@@ -133,7 +158,12 @@ fn float_text(value: f64) -> String {
 fn json_key(key: &Value) -> Result<String, Error> {
     Ok(match key {
         Value::Str(text) => text.clone(),
-        Value::Int(value) => value.to_string(),
+        Value::Int(value) => {
+            if value.bits() > MAX_DECIMAL_INT_BITS {
+                return Err(Error::IntegerOutOfRange);
+            }
+            value.to_string()
+        }
         Value::Float(value) => float_text(*value),
         Value::Bool(true) => "true".to_owned(),
         Value::Bool(false) => "false".to_owned(),

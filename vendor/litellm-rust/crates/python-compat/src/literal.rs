@@ -375,9 +375,17 @@ impl Parser<'_> {
     /// Digits with single underscores between them, as CPython's `digitpart`.
     fn digits(&mut self, radix: u32, out: &mut String) -> Result<(), Error> {
         let start = out.len();
+        let max_digits = if radix == 10 {
+            crate::MAX_INT_STRING_DIGITS
+        } else {
+            crate::MAX_INT_STRING_DIGITS * 4
+        };
         loop {
             match self.peek() {
                 Some(byte) if (byte as char).is_digit(radix) => {
+                    if out.len() - start >= max_digits {
+                        return Err(self.error());
+                    }
                     out.push(byte as char);
                     self.pos += 1;
                 }
