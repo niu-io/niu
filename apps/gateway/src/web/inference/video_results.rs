@@ -14,7 +14,12 @@ use std::{
 };
 use uuid::Uuid;
 static DOWNLOADS: LazyLock<Arc<tokio::sync::Semaphore>> =
-    LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(4)));
+    LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(32)));
+/// Bound total buffered downstream delivery memory (4096 * 64 KiB = 256 MiB)
+/// independently of upstream fetch concurrency so slow client reads cannot
+/// starve upstream downloads.
+static DELIVERY_CHUNKS: LazyLock<Arc<tokio::sync::Semaphore>> =
+    LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(4096)));
 fn kind(value: &str) -> Result<MediaResultKind, ApiError> {
     match value {
         "video" => Ok(MediaResultKind::Video),
@@ -153,10 +158,14 @@ async fn retrieve_authorized(
     let url = cipher
         .open_media_result(scope, id, kind, &encrypted)
         .map_err(|_| ApiError::unavailable())?;
-    let permit = DOWNLOADS
-        .clone()
-        .try_acquire_owned()
-        .map_err(|_| ApiError::media_result_busy())?;
+    let permit = match DOWNLOADS.clone().try_acquire_owned() {
+        Ok(permit) => permit,
+        Err(_) => tokio::time::timeout(Duration::from_millis(250), DOWNLOADS.clone().acquire_owned())
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .ok_or_else(ApiError::media_result_busy)?,
+    };
     let (transport_kind, maximum_bytes) = match kind {
         MediaResultKind::Video => (niu_media::result::ResultKind::Video, 64 * 1024 * 1024),
         MediaResultKind::LastFrame => (niu_media::result::ResultKind::LastFrame, 10 * 1024 * 1024),
@@ -208,7 +217,16 @@ async fn retrieve_authorized(
             upstream_http_status,
         )
         .await;
+    // Upstream fetch is complete; release the upstream download slot so slow
+    // client reads cannot block other upstream fetches.
+    drop(permit);
     let media = media.map_err(ApiError::from_media_result)?;
+    let needed_chunks = u32::try_from(media.bytes.len().div_ceil(64 * 1024).max(1))
+        .unwrap_or(u32::MAX);
+    let delivery_permit = DELIVERY_CHUNKS
+        .clone()
+        .try_acquire_many_owned(needed_chunks)
+        .map_err(|_| ApiError::media_result_busy())?;
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
     authorize_delivery(state, scope, principal, owner, id).await?;
@@ -230,12 +248,8 @@ async fn retrieve_authorized(
         _ => "attachment; filename=last-frame.jpg",
     };
     let length = media.bytes.len();
-    // Keep the bounded download slot while HTTP consumes the buffered result.
-    // Copy small chunks so a final in-flight frame cannot retain the entire file
-    // after the stream releases its buffer and permit. Dropping the body cancels
-    // delivery and releases both without creating another generation.
     let chunks = futures_util::stream::unfold(
-        (media.bytes, 0, permit),
+        (media.bytes, 0, delivery_permit),
         |(bytes, offset, permit)| async move {
             if offset == bytes.len() {
                 return None;

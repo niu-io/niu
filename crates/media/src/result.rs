@@ -112,7 +112,11 @@ pub(crate) async fn read(
     {
         return Err(ResultError::TooLarge);
     }
-    let mut bytes = Vec::new();
+    let initial_capacity = response
+        .content_length()
+        .and_then(|n| usize::try_from(n).ok())
+        .map_or(0, |n| n.min(maximum_bytes).min(8 * 1024 * 1024));
+    let mut bytes = Vec::with_capacity(initial_capacity);
     while let Some(chunk) = response.chunk().await.map_err(transport_error)? {
         if chunk.len() > maximum_bytes.saturating_sub(bytes.len()) {
             return Err(ResultError::TooLarge);
