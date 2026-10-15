@@ -98,6 +98,27 @@ pub(super) async fn retrieve_history(
     )
     .await
 }
+pub(super) async fn retrieve_verified_history(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    owner: &str,
+    id: Uuid,
+    result_kind: &str,
+) -> Result<Response, ApiError> {
+    retrieve_authorized(
+        state,
+        scope,
+        None,
+        Some(owner),
+        id,
+        result_kind,
+        DeliveryOptions {
+            pre_verified_owner: true,
+            ..DeliveryOptions::default()
+        },
+    )
+    .await
+}
 pub(super) async fn authorize_delivery(
     state: &AppState,
     scope: niu_storage::TenantScope,
@@ -123,6 +144,7 @@ pub(super) async fn authorize_delivery(
 struct DeliveryOptions {
     fresh: Option<Vec<u8>>,
     maximum_bytes: Option<usize>,
+    pre_verified_owner: bool,
 }
 
 async fn retrieve_authorized_media(
@@ -137,9 +159,12 @@ async fn retrieve_authorized_media(
     let DeliveryOptions {
         fresh,
         maximum_bytes: capture_limit,
+        pre_verified_owner,
     } = options;
     let kind = kind(result_kind)?;
-    authorize_delivery(state, scope, principal, owner, id).await?;
+    if !pre_verified_owner || principal.is_some() {
+        authorize_delivery(state, scope, principal, owner, id).await?;
+    }
     let is_fresh = fresh.is_some();
     let encrypted = if let Some(value) = fresh {
         value
@@ -489,6 +514,7 @@ pub(super) async fn retrieve_fresh_as(
         DeliveryOptions {
             fresh: Some(encrypted),
             maximum_bytes: None,
+            pre_verified_owner: false,
         },
     )
     .await
@@ -529,6 +555,7 @@ pub(super) async fn retrieve_capture(
         DeliveryOptions {
             fresh,
             maximum_bytes: Some(niu_media::workspace_asset_validation::MAX_ASSET_BYTES),
+            pre_verified_owner: true,
         },
     )
     .await?;

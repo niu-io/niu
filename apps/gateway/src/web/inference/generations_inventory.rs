@@ -1354,7 +1354,8 @@ pub(in crate::web) async fn content(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    let response = super::video_results::retrieve_history(&state, scope, &actor, id, &kind).await?;
+    let response =
+        super::video_results::retrieve_verified_history(&state, scope, &actor, id, &kind).await?;
     if owner(&state, &headers, scope).await? != actor {
         return Err(ApiError::forbidden());
     }
