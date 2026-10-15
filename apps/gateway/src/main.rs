@@ -51,13 +51,21 @@ use tracing_subscriber::EnvFilter;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments: Vec<_> = env::args_os().skip(1).collect();
     if !arguments.is_empty() {
+        if arguments.len() == 1 && (arguments[0] == "--version" || arguments[0] == "-V") {
+            let commit = option_env!("NIU_CORE_GIT_COMMIT").unwrap_or("dev");
+            println!("niu-gateway {} ({commit})", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
         if arguments.len() == 1 && arguments[0] == "--check-encryption" {
             return encryption_check::run().await;
         }
         if arguments.len() == 1 && arguments[0] == "--rotate-encryption-offline" {
             return encryption_rotation::run().await;
         }
-        return Err("Usage: niu-gateway [--check-encryption | --rotate-encryption-offline]".into());
+        return Err(
+            "Usage: niu-gateway [--version | -V | --check-encryption | --rotate-encryption-offline]"
+                .into(),
+        );
     }
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -111,7 +119,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     ));
 
-    tracing::info!(address = %address, "Niu gateway listening");
+    tracing::info!(
+        address = %address,
+        version = env!("CARGO_PKG_VERSION"),
+        "Niu gateway listening"
+    );
     // Finalize routes once instead of repeating with_state for every connection.
     axum::serve(
         listener,

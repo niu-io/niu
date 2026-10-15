@@ -56,8 +56,27 @@ The [product focus](docs/product/product-focus.md) defines the audience, commerc
 - `vendor/litellm-rust`: individually selected LiteLLM Rust crates, pinned and checksummed.
 - `sdks`: client SDKs for supported languages.
 - `Dockerfile` and `compose.yaml`: container packaging for one application image and one public port.
+- `scripts/install.sh` and `scripts/release-version.py`: self-hosted installation, safe upgrade with database backup and rollback, and release version management.
 - `docs/architecture`: product contracts, decisions, and implementation guides.
 - `branding`: approved niu.io assets, portable theme tokens, and asset provenance.
+
+## Installation and upgrade
+
+Self-hosted installations use Docker Compose with versioned release images (`ghcr.io/niu-io/niu:vX.Y.Z`) managed by [`scripts/install.sh`](scripts/install.sh):
+
+```sh
+# Install Niu (generates .env secrets, pulls pinned image, and verifies /readyz)
+./scripts/install.sh install --version v0.2.0 --dir /opt/niu
+
+# Upgrade an existing installation (backs up PostgreSQL, runs --check-encryption, and auto-rolls back on failure)
+./scripts/install.sh upgrade --version v0.2.0 --dir /opt/niu
+
+# Roll back to the previous image version or inspect deployment health
+./scripts/install.sh rollback --dir /opt/niu
+./scripts/install.sh status --dir /opt/niu
+```
+
+Release versions are synchronized across [`VERSION`](VERSION), [`Cargo.toml`](Cargo.toml), [`package.json`](package.json), and [`compose.yaml`](compose.yaml) via `pnpm version:check` and `pnpm version:set <X.Y.Z> --tag`. The gateway binary reports its version and build commit via `niu-gateway --version`.
 
 ## Development
 

@@ -2483,7 +2483,7 @@ dependencies = [
 
 [[package]]
 name = "niu-benchmark"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "niu-execution",
  "serde",
@@ -2494,11 +2494,11 @@ dependencies = [
 
 [[package]]
 name = "niu-cost"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "niu-execution"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2506,7 +2506,7 @@ dependencies = [
 
 [[package]]
 name = "niu-extension-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "niu-execution",
  "serde",
@@ -2518,7 +2518,7 @@ dependencies = [
 
 [[package]]
 name = "niu-gateway"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2561,7 +2561,7 @@ dependencies = [
 
 [[package]]
 name = "niu-media"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2582,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "niu-metered-cost"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2590,7 +2590,7 @@ dependencies = [
 
 [[package]]
 name = "niu-payments"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "futures-util",
@@ -2608,7 +2608,7 @@ dependencies = [
 
 [[package]]
 name = "niu-reference-extension"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "niu-execution",
  "niu-extension-api",
@@ -2619,7 +2619,7 @@ dependencies = [
 
 [[package]]
 name = "niu-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "argon2",
  "axum",
@@ -2642,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "niu-upstream"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "reqwest 0.12.28",

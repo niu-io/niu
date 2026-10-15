@@ -1,5 +1,6 @@
 {
   "name": "@niu-io/workspace",
+  "version": "0.2.0",
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "scripts": {
@@ -21,6 +22,8 @@
     "dev": "python3 scripts/dev.py",
     "dev:stop": "python3 scripts/dev.py --stop",
     "generate:api": "python3 scripts/extract-handler-openapi.py && pnpm --filter @niu-io/docs generate:api",
-    "check:api": "python3 scripts/extract-handler-openapi.py --check && pnpm --filter @niu-io/docs check:api"
+    "check:api": "python3 scripts/extract-handler-openapi.py --check && pnpm --filter @niu-io/docs check:api",
+    "version:check": "python3 scripts/release-version.py check",
+    "version:set": "python3 scripts/release-version.py set"
   }
 }
