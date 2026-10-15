@@ -125,7 +125,6 @@ async fn key_metadata_patch_requires_workspace_write_and_valid_grants(pool: PgPo
     );
 }
 
-
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn admin_cost_reporting_preserves_precision_and_requires_admin(pool: sqlx::PgPool) {

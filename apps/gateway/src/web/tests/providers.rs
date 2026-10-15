@@ -883,7 +883,11 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         StatusCode::CONFLICT
     );
     let (_, current) = call(&app, Method::GET, "/v1/models", &key.token, None).await;
-    assert!(current["data"][0]["customer_pricing"].get("revision").is_none());
+    assert!(
+        current["data"][0]["customer_pricing"]
+            .get("revision")
+            .is_none()
+    );
     assert_eq!(current["data"][0]["customer_pricing"]["prompt_rate"], "0");
     let historical: (i64, i64) = sqlx::query_as(
         "SELECT prompt_rate,completion_rate FROM customer_tariff_revisions WHERE id=$1",

@@ -425,7 +425,8 @@ pub async fn list_keys(
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let (_, scope) = authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
+    let (_, scope) =
+        authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
     if query.limit.is_some() || query.after.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
@@ -438,7 +439,9 @@ pub async fn list_keys(
             .key_detail_directory_page(scope, query.after, limit)
             .await
             .map_err(ApiError::from_store)?;
-        return Ok(Json(serde_json::json!({"data": data, "next_cursor": next_cursor})));
+        return Ok(Json(
+            serde_json::json!({"data": data, "next_cursor": next_cursor}),
+        ));
     }
     let data = state
         .store
@@ -536,9 +539,8 @@ pub async fn create_key(
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
     let (auth, scope) =
         authorize_workspace(&state, &headers, workspace, AdminPermission::Write).await?;
-    let Json(input) = input.map_err(|_| {
-        ApiError::invalid_request("Invalid workspace API key creation payload")
-    })?;
+    let Json(input) = input
+        .map_err(|_| ApiError::invalid_request("Invalid workspace API key creation payload"))?;
     let has_policies = input.spending_limit.is_some()
         || input.requests_per_minute.is_some()
         || input.tokens_per_minute.is_some()
@@ -565,12 +567,7 @@ pub async fn create_key(
     }
     let issued = state
         .store
-        .issue_key_with_expiry(
-            scope,
-            &input.name,
-            &input.allowed_models,
-            input.ttl_seconds,
-        )
+        .issue_key_with_expiry(scope, &input.name, &input.allowed_models, input.ttl_seconds)
         .await
         .map_err(ApiError::from_store)?;
     let actor = super::audit_actor(auth);
@@ -678,7 +675,8 @@ pub async fn get_key(
     Path((workspace, key)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let (_, scope) = authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
+    let (_, scope) =
+        authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
     let detail = state
         .store
         .key_detail(scope, key)
@@ -834,7 +832,14 @@ pub async fn update_key(
         };
         state
             .store
-            .set_customer_key_spending_limit(scope, key, &spending.currency, amount, expected, actor)
+            .set_customer_key_spending_limit(
+                scope,
+                key,
+                &spending.currency,
+                amount,
+                expected,
+                actor,
+            )
             .await
             .map_err(ApiError::from_store)?;
     }
@@ -879,13 +884,7 @@ pub async fn update_key(
         };
         state
             .store
-            .set_key_concurrency_policy(
-                scope,
-                key,
-                conc.max_concurrent_requests,
-                expected,
-                actor,
-            )
+            .set_key_concurrency_policy(scope, key, conc.max_concurrent_requests, expected, actor)
             .await
             .map_err(ApiError::from_store)?;
     }

@@ -351,7 +351,10 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
 
     for (method, path) in [
         ("GET", "/v1/key"),
-        ("GET", "/v1/generations/00000000-0000-0000-0000-000000000001"),
+        (
+            "GET",
+            "/v1/generations/00000000-0000-0000-0000-000000000001",
+        ),
         ("GET", "/v1/media/capabilities"),
         (
             "POST",
@@ -359,8 +362,14 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
         ),
         ("GET", "/api/v1/session"),
         ("GET", "/api/v1/workspaces"),
-        ("GET", "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys"),
-        ("POST", "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys"),
+        (
+            "GET",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys",
+        ),
+        (
+            "POST",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys",
+        ),
         (
             "GET",
             "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000001",

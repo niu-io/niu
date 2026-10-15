@@ -344,7 +344,10 @@ async fn video_job_reads_require_current_scoped_model_access(pool: PgPool) {
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         assert!(!String::from_utf8_lossy(&bytes).contains(&key.token));
     }
-    for suffix in ["/v1/video/jobs".to_string(), format!("/v1/video/jobs/{id}/refresh")] {
+    for suffix in [
+        "/v1/video/jobs".to_string(),
+        format!("/v1/video/jobs/{id}/refresh"),
+    ] {
         let response = app
             .clone()
             .oneshot(
@@ -1730,7 +1733,14 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     let mut dashboard_key_id = via_dashboard.then_some(key.id);
     let before_block: (i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")
         .bind(organization).fetch_one(&pool).await.unwrap();
-    let blocked = create(&app, &create_path, inference_token, dashboard_key_id, "denied secret").await;
+    let blocked = create(
+        &app,
+        &create_path,
+        inference_token,
+        dashboard_key_id,
+        "denied secret",
+    )
+    .await;
     assert_eq!(blocked.0, StatusCode::FORBIDDEN);
     assert_eq!(posts.load(std::sync::atomic::Ordering::SeqCst), 0);
     let after_block: (i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")
@@ -1915,7 +1925,15 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         (status, body)
     }
     assert_eq!(
-        create(&app, &create_path, inference_token, dashboard_key_id, "valid").await.0,
+        create(
+            &app,
+            &create_path,
+            inference_token,
+            dashboard_key_id,
+            "valid"
+        )
+        .await
+        .0,
         StatusCode::PAYMENT_REQUIRED
     );
     assert_eq!(posts.load(std::sync::atomic::Ordering::SeqCst), 0);
@@ -1971,8 +1989,8 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     .unwrap();
     assert_eq!(charged, 0);
     let models_path = "/v1/video/models";
-    let mut models_req = Request::get(models_path)
-        .header("authorization", format!("Bearer {inference_token}"));
+    let mut models_req =
+        Request::get(models_path).header("authorization", format!("Bearer {inference_token}"));
     if let Some(kid) = dashboard_key_id {
         models_req = models_req.header("x-niu-key-id", kid.to_string());
     }
@@ -2123,7 +2141,14 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         .set_customer_workspace_spending_limit(scope, "CNY", 19, 0)
         .await
         .unwrap();
-    let limit_denied = create(&app, &create_path, inference_token, dashboard_key_id, "valid").await;
+    let limit_denied = create(
+        &app,
+        &create_path,
+        inference_token,
+        dashboard_key_id,
+        "valid",
+    )
+    .await;
     assert_eq!(limit_denied.0, StatusCode::PAYMENT_REQUIRED);
     assert_eq!(
         limit_denied.1["error"]["type"],
@@ -2143,7 +2168,14 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         .set_customer_workspace_spending_limit(scope, "CNY", 30, 1)
         .await
         .unwrap();
-    let (status, job) = create(&app, &create_path, inference_token, dashboard_key_id, "valid secret").await;
+    let (status, job) = create(
+        &app,
+        &create_path,
+        inference_token,
+        dashboard_key_id,
+        "valid secret",
+    )
+    .await;
     assert_eq!(status, StatusCode::ACCEPTED, "{job}");
     assert_eq!(job["status"], "unknown");
     let id = Uuid::parse_str(job["id"].as_str().unwrap()).unwrap();
@@ -2723,13 +2755,26 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     assert_eq!(bill["estimate"], original_estimate);
     assert_eq!(bill["effective_output"], original_output);
     assert_ne!(bill["estimate"]["amount_nanos"], bill["charge_nanos"]);
-    let (status, uncertain) = create(&app, &create_path, inference_token, dashboard_key_id, "uncertain").await;
+    let (status, uncertain) = create(
+        &app,
+        &create_path,
+        inference_token,
+        dashboard_key_id,
+        "uncertain",
+    )
+    .await;
     assert_eq!(status, StatusCode::ACCEPTED);
     assert_eq!(uncertain["status"], "submission_unknown");
     assert_eq!(
-        create(&app, &create_path, inference_token, dashboard_key_id, "insufficient")
-            .await
-            .0,
+        create(
+            &app,
+            &create_path,
+            inference_token,
+            dashboard_key_id,
+            "insufficient"
+        )
+        .await
+        .0,
         StatusCode::PAYMENT_REQUIRED
     );
     assert_eq!(posts.load(std::sync::atomic::Ordering::SeqCst), 2);
@@ -2845,7 +2890,14 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     let before_budget: (i64, i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM attempts WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")
         .bind(organization).fetch_one(&pool).await.unwrap();
     let calls_before_budget = posts.load(std::sync::atomic::Ordering::SeqCst);
-    let budget_denial = create(&app, &create_path, inference_token, dashboard_key_id, "valid").await;
+    let budget_denial = create(
+        &app,
+        &create_path,
+        inference_token,
+        dashboard_key_id,
+        "valid",
+    )
+    .await;
     assert_eq!(budget_denial.0, StatusCode::NOT_IMPLEMENTED);
     assert!(budget_denial.1.to_string().contains("workspace budget"));
     let after_budget: (i64, i64, i64) = sqlx::query_as("SELECT (SELECT count(*) FROM attempts WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_reservations WHERE organization_id=$1),(SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1)")

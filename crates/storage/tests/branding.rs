@@ -171,19 +171,29 @@ async fn legacy_default_brand_name_migration_preserves_theme_and_custom_names(po
     let mut settings = niu_storage::BrandingSettings::default();
     settings.display_name = "NIU.IO".into();
     settings.dark.insert("primary".into(), "#ffffff".into());
-    store.save_branding_configuration(0, &settings, None).await.unwrap();
+    store
+        .save_branding_configuration(0, &settings, None)
+        .await
+        .unwrap();
     let migration = include_str!("../migrations/0323_legacy_default_brand_name.sql");
     sqlx::raw_sql(migration).execute(&pool).await.unwrap();
     let (revision, migrated) = store.branding_configuration().await.unwrap();
     assert_eq!(revision, 2);
     assert_eq!(migrated.display_name, "Niu");
     assert_eq!(migrated.dark, settings.dark);
-    let previous: serde_json::Value = sqlx::query_scalar("SELECT settings FROM branding_configuration_events WHERE revision=1").fetch_one(&pool).await.unwrap();
+    let previous: serde_json::Value =
+        sqlx::query_scalar("SELECT settings FROM branding_configuration_events WHERE revision=1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(previous["display_name"], "NIU.IO");
     sqlx::raw_sql(migration).execute(&pool).await.unwrap();
     assert_eq!(store.branding_configuration().await.unwrap().0, 2);
     settings.display_name = "Customer brand".into();
-    store.save_branding_configuration(2, &settings, None).await.unwrap();
+    store
+        .save_branding_configuration(2, &settings, None)
+        .await
+        .unwrap();
     sqlx::raw_sql(migration).execute(&pool).await.unwrap();
     let (revision, custom) = store.branding_configuration().await.unwrap();
     assert_eq!(revision, 3);
