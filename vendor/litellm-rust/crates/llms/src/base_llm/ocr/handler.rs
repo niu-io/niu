@@ -218,11 +218,37 @@ pub async fn transform_request_body<C: BaseOcrConfig, B: Serialize>(
     signer: Option<&dyn RequestSigner>,
     hooks: &dyn CallHooks<Error>,
 ) -> Result<OutboundRequest, Error> {
-    let composed = litellm_core_utils::call_arguments::compose_body(
+    let body_value =
+        serde_json::to_value(&body).map_err(|_| crate::base_llm::ocr::error::Error::Params(litellm_core_utils::params::Error::Body))?;
+    let transformed_document = body_document(&body_value).ok();
+    let protect_document_source = transformed_document
+        .as_ref()
+        .is_some_and(|doc| !request.caller_document || doc.source() != request.document.source());
+    let mut composed = litellm_core_utils::call_arguments::compose_body(
         &request.optional_params,
-        &body,
+        &body_value,
         config.get_supported_ocr_params(&request.model),
     )?;
+    if protect_document_source
+        && let (Some(Value::Object(orig_doc)), Some(composed_map)) = (
+            body_value.get("document"),
+            composed.as_object_mut(),
+        )
+    {
+        match composed_map.get_mut("document") {
+            Some(Value::Object(doc_map)) => {
+                doc_map.retain(|k, _| !matches!(k.as_str(), "type" | "image_url" | "document_url"));
+                for key in ["type", "image_url", "document_url"] {
+                    if let Some(val) = orig_doc.get(key) {
+                        doc_map.insert(key.to_string(), val.clone());
+                    }
+                }
+            }
+            _ => {
+                composed_map.insert("document".to_string(), Value::Object(orig_doc.clone()));
+            }
+        }
+    }
     config.validate_request_body(&composed)?;
     let changed = hooks
         .before_send(wire_request(url, headers, composed))

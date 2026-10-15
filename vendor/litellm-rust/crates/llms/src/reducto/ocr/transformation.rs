@@ -290,19 +290,23 @@ async fn prepare_upload_request<C: BaseOcrConfig<Environment = Vec<(String, Stri
             },
         )
         .await?;
-    let protected: Vec<(String, Value)> = serde_json::to_value(&body)
-        .ok()
-        .and_then(|v| v.as_object().cloned())
+    let body_value = serde_json::to_value(&body).map_err(|_| Error::RequestField {
+        path: "body".into(),
+    })?;
+    let protected: Vec<(String, Value)> = body_value
+        .as_object()
         .into_iter()
         .flatten()
         .filter(|(k, _)| matches!(k.as_str(), "input" | "document" | "document_url"))
+        .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let mut body = compose_body(
         &request.optional_params,
-        &body,
+        &body_value,
         config.get_supported_ocr_params(&request.model),
     )?;
     if let Value::Object(map) = &mut body {
+        map.retain(|k, _| !matches!(k.as_str(), "input" | "document" | "document_url"));
         for (k, v) in protected {
             map.insert(k, v);
         }

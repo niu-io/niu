@@ -37,6 +37,15 @@ pub struct ArgumentSpec {
     pub secret: bool,
 }
 
+const PROTECTED_BODY_FIELDS: &[&str] = &[
+    "model",
+    "extra_body",
+    "messages",
+    "Document",
+    "base64Source",
+    "urlSource",
+];
+
 pub fn compose_body<B: Serialize>(
     arguments: &CallArguments,
     body: &B,
@@ -62,8 +71,7 @@ pub fn compose_body<B: Serialize>(
                 extensions
                     .chain(overrides.into_iter().flatten())
                     .filter(|(name, _)| {
-                        name.as_str() != "model"
-                            && name.as_str() != "extra_body"
+                        !PROTECTED_BODY_FIELDS.contains(&name.as_str())
                             && !crate::params::is_control_param(name)
                     })
                     .map(|(name, value)| (name.clone(), value.clone())),
