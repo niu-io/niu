@@ -13,8 +13,15 @@ pub(crate) fn spawn(state: &AppState) -> Result<Option<tokio::task::JoinHandle<(
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             interval.tick().await;
-            if run_once(&state).await.is_err() {
-                tracing::warn!("Video query recovery requires retry");
+            for _ in 0..8 {
+                match run_once(&state).await {
+                    Ok(true) => continue,
+                    Ok(false) => break,
+                    Err(_) => {
+                        tracing::warn!("Video query recovery requires retry");
+                        break;
+                    }
+                }
             }
         }
     })))

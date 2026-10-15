@@ -2176,12 +2176,78 @@ pub(crate) async fn refresh_for_principal(
         .map(|(saved, _)| saved)
 }
 
+type RefreshResult = Result<(Value, Vec<(niu_storage::MediaResultKind, Vec<u8>)>), ApiError>;
+type RefreshKey = (Uuid, Uuid, Uuid, Uuid);
+
+static IN_FLIGHT_REFRESHES: std::sync::LazyLock<
+    std::sync::Mutex<
+        std::collections::HashMap<RefreshKey, tokio::sync::watch::Receiver<Option<RefreshResult>>>,
+    >,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+struct RefreshFlightGuard {
+    key: RefreshKey,
+}
+
+impl Drop for RefreshFlightGuard {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = IN_FLIGHT_REFRESHES.lock() {
+            guard.remove(&self.key);
+        }
+    }
+}
+
 /// An explicit query can return new delivery references even when the old cache expired.
 pub(super) async fn refresh_with_results(
     state: &AppState,
     principal: &niu_storage::Principal,
     id: Uuid,
-) -> Result<(Value, Vec<(niu_storage::MediaResultKind, Vec<u8>)>), ApiError> {
+) -> RefreshResult {
+    let scope = principal.scope();
+    let key = (
+        scope.organization_id,
+        scope.project_id,
+        id,
+        principal.key_id(),
+    );
+    let flight = {
+        let mut map = IN_FLIGHT_REFRESHES
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(rx) = map.get(&key).cloned() {
+            Ok(rx)
+        } else {
+            let (tx, rx) = tokio::sync::watch::channel(None);
+            map.insert(key, rx);
+            Err(tx)
+        }
+    };
+    let tx = match flight {
+        Ok(mut rx) => {
+            loop {
+                let ready = rx.borrow_and_update().clone();
+                if let Some(result) = ready {
+                    return result;
+                }
+                if rx.changed().await.is_err() {
+                    break;
+                }
+            }
+            return refresh_with_results_inner(state, principal, id).await;
+        }
+        Err(tx) => tx,
+    };
+    let _guard = RefreshFlightGuard { key };
+    let result = refresh_with_results_inner(state, principal, id).await;
+    let _ = tx.send(Some(result.clone()));
+    result
+}
+
+async fn refresh_with_results_inner(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    id: Uuid,
+) -> RefreshResult {
     let scope = principal.scope();
     let saved = state
         .store

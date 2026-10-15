@@ -1,7 +1,7 @@
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::{Value, json};
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct ApiError {
     status: StatusCode,
     kind: &'static str,
