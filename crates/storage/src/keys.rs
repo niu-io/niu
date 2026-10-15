@@ -872,52 +872,30 @@ impl Store {
     /// row lock serializes revocation against admission. Revocation prevents
     /// future admissions; it cannot unsend work already admitted upstream.
     pub async fn mark_dispatched(&self, principal: &Principal, id: Uuid) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
-        let mut captured = None;
-        let allowed = match Self::mark_dispatched_with_key_capture(
-            &mut tx,
-            principal,
-            id,
-            Some(&mut captured),
-        )
-        .await
-        {
-            Ok(allowed) => allowed,
-            Err(error) => {
-                // Only a definitive checked denial is evidence. Commit/transport
-                // uncertainty never becomes a denied admission observation.
-                let denial_kind = match &error {
-                    StoreError::KeyRequestRateDisabled => {
-                        Some(crate::GatewayAdmissionDenialKind::KeyRequestRateDisabled)
-                    }
-                    StoreError::KeyRequestRateExceeded => {
-                        Some(crate::GatewayAdmissionDenialKind::KeyRequestRateExceeded)
-                    }
-                    _ => None,
-                };
-                let rolled_back = tx.rollback().await.is_ok();
-                if rolled_back && let (Some(kind), Some(captured)) = (denial_kind, captured) {
-                    // Diagnostic failure must not change the original rejection
-                    // or authorize another dispatch / audit writer retry.
-                    let _ = self
-                        .record_key_request_rate_denial(
-                            principal.scope,
-                            id,
-                            principal.key_id,
-                            &captured,
-                            kind,
-                        )
-                        .await;
-                }
-                return Err(error);
+        let mut tx = self.begin_bounded_recording().await?;
+        let outcome =
+            Self::mark_dispatched_with_rate_denial_audit(&mut tx, principal, id, true).await?;
+        match outcome {
+            1 => {
+                tx.commit().await?;
+                Ok(())
             }
-        };
-        tx.commit().await?;
-        if allowed {
-            Ok(())
-        } else {
-            // The audited denial committed without authorizing transport.
-            Err(StoreError::GuardrailAdmissionConflict)
+            -1 => {
+                tx.commit().await?;
+                // The audited denial committed without authorizing transport.
+                Err(StoreError::GuardrailAdmissionConflict)
+            }
+            -2 => {
+                // Diagnostic failure must not change the original rejection
+                // or authorize another dispatch / audit writer retry.
+                let _ = tx.commit().await;
+                Err(StoreError::KeyRequestRateDisabled)
+            }
+            -3 => {
+                let _ = tx.commit().await;
+                Err(StoreError::KeyRequestRateExceeded)
+            }
+            _ => Err(StoreError::Conflict),
         }
     }
 
@@ -926,33 +904,31 @@ impl Store {
         principal: &Principal,
         id: Uuid,
     ) -> Result<bool, StoreError> {
-        Self::mark_dispatched_with_key_capture(tx, principal, id, None).await
+        match Self::mark_dispatched_with_rate_denial_audit(tx, principal, id, false).await? {
+            1 => Ok(true),
+            -1 => Ok(false),
+            _ => Err(StoreError::Conflict),
+        }
     }
 
-    async fn mark_dispatched_with_key_capture(
+    async fn mark_dispatched_with_rate_denial_audit(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         principal: &Principal,
         id: Uuid,
-        capture: Option<&mut Option<crate::gateway_admission_denials::CapturedAdmissionKey>>,
-    ) -> Result<bool, StoreError> {
+        record_rate_denial: bool,
+    ) -> Result<i64, StoreError> {
         let scope = principal.scope;
 
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
             .bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
 
-        let key = sqlx::query("SELECT k.id,k.name,k.revision FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
+        let key = sqlx::query("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
             .bind(principal.key_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
         if key.is_none() {
             // The composite key foreign key guarantees that a valid key also
             // has its project. Locking both rows together keeps key revocation
             // and budget creation ordered with dispatch in a single query.
             return Err(StoreError::Unauthorized);
-        }
-        if let (Some(capture), Some(key)) = (capture, key.as_ref()) {
-            *capture = Some(crate::gateway_admission_denials::CapturedAdmissionKey {
-                name: key.try_get("name")?,
-                revision: key.try_get("revision")?,
-            });
         }
         let account_eligible = sqlx::query_scalar::<_, bool>("SELECT a.health='ready' AND a.refresh_owner IS NULL AND a.credential_revision=s.credential_revision FROM account_assignments s JOIN supplier_accounts a ON a.organization_id=s.organization_id AND a.project_id=s.project_id AND a.id=s.account_id WHERE s.organization_id=$1 AND s.project_id=$2 AND s.attempt_id=$3 FOR SHARE OF a")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?;
@@ -973,21 +949,15 @@ impl Store {
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let changed: i64 =
-            sqlx::query_scalar("SELECT niu_mark_dispatched_with_guardrail_audit($1,$2,$3,$4)")
+            sqlx::query_scalar("SELECT niu_mark_dispatched_with_guardrail_audit($1,$2,$3,$4,$5)")
                 .bind(scope.organization_id)
                 .bind(scope.project_id)
                 .bind(id)
                 .bind(principal.key_id)
+                .bind(record_rate_denial)
                 .fetch_one(&mut **tx)
                 .await
                 .map_err(crate::accounting::map_gateway_admission_error)?;
-        if changed == -1 {
-            // Commit only the denial audit. Dispatch intent stayed not_sent.
-            return Ok(false);
-        }
-        if changed != 1 {
-            return Err(StoreError::Conflict);
-        }
-        Ok(true)
+        Ok(changed)
     }
 }
