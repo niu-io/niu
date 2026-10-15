@@ -164,13 +164,20 @@ impl Store {
         snapshot: &PricingSnapshot,
         bound: &MediaLiabilityBound,
     ) -> Result<i64, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        // Account-before-attempt also matches the existing reservation path.
+        sqlx::query("SELECT o.id FROM operations o JOIN attempts a ON a.operation_id=o.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND o.organization_id=a.organization_id AND o.project_id=a.project_id FOR UPDATE OF o")
+            .bind(attempt)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        // Operation -> account -> attempt matches the text pricing and reservation lock order.
         sqlx::query("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
             .bind(scope.organization_id).bind(&snapshot.tariff().currency)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
@@ -409,6 +416,13 @@ impl Store {
         let encoded = snapshot.encode().map_err(|_| StoreError::InvalidPrice)?;
         let value: serde_json::Value =
             serde_json::from_str(&encoded).map_err(|_| StoreError::InvalidPrice)?;
+        sqlx::query("SELECT o.id FROM operations o JOIN attempts a ON a.operation_id=o.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND o.organization_id=a.organization_id AND o.project_id=a.project_id FOR UPDATE OF o")
+            .bind(attempt)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
         let row = sqlx::query("SELECT resource_id,offer_revision,execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;

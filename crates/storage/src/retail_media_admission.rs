@@ -290,6 +290,13 @@ impl Store {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        sqlx::query("SELECT o.id FROM operations o JOIN attempts a ON a.operation_id=o.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND o.organization_id=a.organization_id AND o.project_id=a.project_id FOR UPDATE OF o")
+            .bind(attempt)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
         let existing:Option<Value>=sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?;
         if let Some(saved) = existing {
