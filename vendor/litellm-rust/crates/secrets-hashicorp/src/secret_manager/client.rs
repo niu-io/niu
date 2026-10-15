@@ -182,6 +182,31 @@ fn identity_for(tls: Option<&TlsCertAuth>) -> Result<Option<Identity>, Error> {
     .transpose()
 }
 
+const MAX_TOKEN_TTL_SECS: u64 = 365 * 24 * 60 * 60;
+const TOKEN_RENEWAL_MARGIN_SECS: u64 = 30;
+
 fn token_expiry(lease_duration: u64) -> Option<Instant> {
-    (lease_duration > 0).then(|| Instant::now() + Duration::from_secs(lease_duration))
+    if lease_duration == 0 {
+        return None;
+    }
+    let effective_secs = if lease_duration > TOKEN_RENEWAL_MARGIN_SECS * 2 {
+        lease_duration - TOKEN_RENEWAL_MARGIN_SECS
+    } else {
+        lease_duration
+    }
+    .min(MAX_TOKEN_TTL_SECS);
+    Instant::now().checked_add(Duration::from_secs(effective_secs))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_expiry_handles_zero_and_u64_max_without_panicking() {
+        assert!(token_expiry(0).is_none());
+        assert!(token_expiry(1).is_some());
+        assert!(token_expiry(3600).is_some());
+        assert!(token_expiry(u64::MAX).is_some());
+    }
 }
