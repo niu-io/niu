@@ -137,7 +137,6 @@ export type KeyIntrospection = {
 
 export type GenerationView = {
   id: string;
-  operation_id: string;
   model: string;
   provider_model: string | null;
   request_kind: 'video' | 'inference';
@@ -147,11 +146,13 @@ export type GenerationView = {
   duration_ms: number | null;
   execution: string;
   usage_confidence: string;
-  tokens_prompt: string | null;
-  tokens_completion: string | null;
-  native_tokens_cached: string | null;
-  native_tokens_cache_write: string | null;
-  native_tokens_reasoning: string | null;
+  usage: {
+    prompt_tokens: string | null;
+    completion_tokens: string | null;
+    cached_input_tokens: string | null;
+    cache_write_input_tokens: string | null;
+    reasoning_output_tokens: string | null;
+  };
   finish_reasons: Array<{ index: number; reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'function_call' }> | null;
   timing: {
     dispatch_ms: number | null;

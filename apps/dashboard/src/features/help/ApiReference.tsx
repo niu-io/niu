@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import WorkspaceKeyConnection, { type DocsKeySelection } from '../../../../docs/src/components/live-api/WorkspaceKeyConnection';
 import { useNavigate } from 'react-router';
 import { ApiReferenceReact, type AnyApiReferenceConfiguration } from '@scalar/api-reference-react';
+import { Button } from '@/components/ui/button';
 import PublicHeader from '../../../../docs/src/components/PublicHeader';
 import '../../../../../branding/public-header.css';
 import '@scalar/api-reference-react/style.css';
@@ -9,6 +11,9 @@ import './api-reference.css';
 /** Scalar owns documentation navigation, schema rendering and code samples. */
 export default function ApiReference() {
   const navigate = useNavigate();
+  const [selection, setSelection] = useState<DocsKeySelection | null>(null);
+  const [connectionRevision, setConnectionRevision] = useState(0);
+  const selectedKey = useRef(selection); selectedKey.current = selection;
   const [mode, setMode] = useState<'dark' | 'light'>(() => document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   useEffect(() => {
     const observer = new MutationObserver(() => setMode(document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
@@ -28,6 +33,20 @@ export default function ApiReference() {
     defaultOpenAllTags: false,
     hideClientButton: true,
     persistAuth: false,
+    // Mutate the final Request, not Scalar's pre-build copy. Never forward
+    // session-backed key context through a selectable external server/proxy.
+    onRequestBuilt: ({ request }: { request: Request }) => {
+      const selected = selectedKey.current;
+      if (!selected) return;
+      const target = new URL(request.url);
+      if (target.origin !== window.location.origin || !/^\/v1(?:beta)?\//.test(target.pathname)) {
+        throw new Error('The selected workspace key can only test inference APIs on this Niu origin. Clear the connection to use other credentials.');
+      }
+      if (!['GET', 'HEAD'].includes(request.method) && !selected.canWrite) throw new Error('Your role does not permit request execution.');
+      request.headers.delete('x-niu-api-key');
+      request.headers.set('authorization', 'Bearer niu-browser-member-session');
+      request.headers.set('x-niu-key-id', selected.keyId);
+    },
     telemetry: false,
     agent: {disabled:true},
     defaultHttpClient: {targetKey:'shell', clientKey:'curl'},
@@ -44,6 +63,7 @@ export default function ApiReference() {
     navigate('/help/' + url.pathname.slice('/docs/'.length) + url.search + url.hash);
   }}>
     <PublicHeader path="/docs/api/rest/" brandSrc="" embedded />
+    <section className="space-y-3 px-4 py-4 sm:px-6" aria-label="Connect API reference"><p className="text-sm text-muted-foreground">Use your signed-in workspace key without revealing its secret. Requests can incur real charges. This connection applies to same-origin inference APIs only.</p><WorkspaceKeyConnection key={connectionRevision} onChange={setSelection}/>{selection && <Button variant="outline" onClick={() => { setSelection(null); setConnectionRevision(value => value + 1); }}>Disconnect reference</Button>}</section>
     <div className="niu-api-reference" aria-label="Niu OpenAPI reference"><ApiReferenceReact configuration={configuration} /></div>
   </div>;
 }

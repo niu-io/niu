@@ -3,6 +3,16 @@ title: Make your first API request
 description: Discover an available model and call Niu with curl.
 ---
 
+import LiveApiConsole from '../../../components/live-api/LiveApiConsole';
+
+<LiveApiConsole client:load />
+
+The live test uses your existing Niu browser session and the selected key's opaque reference. It never retrieves a key secret. Requests follow the same model grants, source-IP policy, limits, customer pricing and saved diagnostics as application calls. Only workspace members with write access can execute; readers can discover models. Your selections and output are not persisted by this page. Request content follows the workspace's configured logging and retention policy.
+
+A completed stream does not establish settled billing. The panel reads saved request diagnostics separately; pending or unavailable charges remain explicit. Stopping the browser wait does not establish upstream cancellation. Check **Logs** before sending a new request after an uncertain outcome.
+
+Use [the interactive API reference](/help/api/) for other request shapes. Select a workspace key there to attach your session to same-origin inference requests; clear the connection to use manually supplied credentials. Copied application examples use `$NIU_API_KEY`, not the browser session.
+
 Use a **workspace API key** from your workspace's **Keys** page. An administrator must first configure an enabled model route. Provider credentials and installation administrator tokens are not application keys.
 
 ## Set your endpoint and key

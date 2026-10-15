@@ -5,6 +5,9 @@
 @source '../../dashboard/src/components/ui/dropdown-menu.tsx';
 @source './components/ThemeMenu.tsx';
 @source './components/DocsHome.tsx';
+@source './components/SessionLink.tsx';
+@source './components/live-api';
+@source '../../dashboard/src/components/ui';
 @custom-variant dark (&:is(.dark *));
 @theme inline {
   --color-background: var(--background);
@@ -18,6 +21,9 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
   --color-ring: var(--ring);
@@ -261,4 +267,16 @@ starlight-toc a {
  #starlight__sidebar:popover-open { inset:calc(var(--sl-nav-height) + .5rem) 1rem auto auto; margin:0; width:min(22.5rem,calc(100% - 2rem)); height:auto; max-height:calc(100dvh - var(--sl-nav-height) - 1.5rem); border:1px solid var(--border); border-radius:var(--radius-overlay); background:var(--popover); box-shadow:var(--shadow-overlay); overflow-y:auto; scrollbar-gutter:auto; }
  #starlight__sidebar::backdrop { background:oklch(0 0 0 / 18%); }
  #starlight__sidebar:popover-open .sidebar-content { height:auto; padding:1rem; gap:0; }
+}
+
+/* Starlight owns the document reset. Supply the baseline expected by installed
+   shadcn buttons without applying Tailwind preflight to the article layout. */
+@layer base {
+  [data-slot='button'] {
+    border: 0 solid;
+    background-color: transparent;
+    color: inherit;
+    font-family: inherit;
+  }
+  a[data-slot='button'] { text-decoration: none; }
 }
