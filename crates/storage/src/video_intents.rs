@@ -105,7 +105,7 @@ impl Store {
              FROM video_submission_intents intent \
              JOIN media_submission_keys submitted ON submitted.organization_id=intent.organization_id \
               AND submitted.project_id=intent.project_id \
-              AND submitted.key_digest=sha256(convert_to(intent.submission_key::text,'UTF8')) \
+              AND submitted.key_digest=niu_submission_key_digest(intent.submission_key) \
              JOIN attempts a ON a.organization_id=submitted.organization_id \
               AND a.project_id=submitted.project_id AND a.id=submitted.attempt_id \
              WHERE intent.organization_id=$1 AND intent.project_id=$2 AND intent.owner=$3 AND intent.id=$4",

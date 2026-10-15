@@ -61,40 +61,18 @@ impl Store {
             }
         };
         let mut tx = self.begin_bounded_read_snapshot().await?;
-        if let Some(id) = before {
-            let sql = format!(
-                "{CTE} SELECT EXISTS(SELECT 1 FROM {} WHERE id=$6 {})",
-                if outputs { "all_outputs" } else { "inventory" },
-                if outputs {
-                    "AND kind=$7"
-                } else {
-                    "AND $7::text IS NULL"
-                }
-            );
-            let valid: bool = sqlx::query_scalar(&sql)
-                .bind(scope.organization_id)
-                .bind(scope.project_id)
-                .bind(owner)
-                .bind(state)
-                .bind(session)
-                .bind(id)
-                .bind(kind)
-                .fetch_one(&mut *tx)
-                .await?;
-            if !valid {
-                return Err(StoreError::InvalidMediaQuery);
-            }
-        }
         let sql = if outputs {
             format!(
-                "{CTE} SELECT {OUTPUT} FROM outputs i WHERE ($6::uuid IS NULL OR (i.output_created_at,i.id,i.kind)<(SELECT output_created_at,id,kind FROM all_outputs WHERE id=$6 AND kind=$7)) ORDER BY i.output_created_at DESC,i.id DESC,i.kind DESC LIMIT $8"
+                "{CTE} SELECT ($6::uuid IS NULL OR EXISTS(SELECT 1 FROM all_outputs WHERE id=$6 AND kind=$7)), \
+                 ARRAY(SELECT {OUTPUT} FROM outputs i WHERE ($6::uuid IS NULL OR (i.output_created_at,i.id,i.kind)<(SELECT output_created_at,id,kind FROM all_outputs WHERE id=$6 AND kind=$7)) ORDER BY i.output_created_at DESC,i.id DESC,i.kind DESC LIMIT $8)"
             )
         } else {
             format!(
-                "{CTE} SELECT {TASK} FROM filtered i WHERE ($6::uuid IS NULL OR (i.created_at,i.id)<(SELECT created_at,id FROM inventory WHERE id=$6)) AND $7::text IS NULL ORDER BY i.created_at DESC,i.id DESC LIMIT $8"
+                "{CTE} SELECT ($6::uuid IS NULL OR EXISTS(SELECT 1 FROM inventory WHERE id=$6 AND $7::text IS NULL)), \
+                 ARRAY(SELECT {TASK} FROM filtered i WHERE ($6::uuid IS NULL OR (i.created_at,i.id)<(SELECT created_at,id FROM inventory WHERE id=$6)) AND $7::text IS NULL ORDER BY i.created_at DESC,i.id DESC LIMIT $8)"
             )
         };
-        let mut data: Vec<Value> = sqlx::query_scalar(&sql)
+        let (valid, mut data): (bool, Vec<Value>) = sqlx::query_as(&sql)
             .bind(scope.organization_id)
             .bind(scope.project_id)
             .bind(owner)
@@ -103,9 +81,12 @@ impl Store {
             .bind(before)
             .bind(kind)
             .bind(limit + 1)
-            .fetch_all(&mut *tx)
+            .fetch_one(&mut *tx)
             .await?;
         tx.commit().await?;
+        if !valid {
+            return Err(StoreError::InvalidMediaQuery);
+        }
         let more = data.len() > limit as usize;
         data.truncate(limit as usize);
         // The cursor is derived only from the page's explicit typed identity.

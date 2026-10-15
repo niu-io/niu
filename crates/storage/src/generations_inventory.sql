@@ -1,6 +1,6 @@
 WITH inventory AS (
  SELECT a.id,a.created_at,
- greatest(a.created_at,coalesce((SELECT max(created_at) FROM media_job_observations WHERE attempt_id=a.id),a.created_at)) AS updated_at,
+ greatest(a.created_at,coalesce(o.max_created_at,a.created_at)) AS updated_at,
  a.resource_id AS model,nullif(m.capabilities->'catalog'->>'name','') AS model_display_name,
  CASE WHEN nullif(m.capabilities->'catalog'->>'name','') IS NULL THEN 'unknown' ELSE 'current_catalog' END AS model_display_name_source,
  -- Dispatch context comes only from immutable saved records. Current Supplier
@@ -21,7 +21,7 @@ WITH inventory AS (
  -- an explicit association and this immutable intent binding agree.
  coalesce(t.session_id,intent_binding.session_id) AS session_id,
  coalesce(t.turn_id,intent_binding.turn_id) AS turn_id,
- CASE WHEN t.task_id IS NULL AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.key_digest=niu_submission_key_digest(vi.submission_key) AND sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id) THEN 'unknown' ELSE 'generations' END AS source,
+ CASE WHEN t.task_id IS NULL AND NOT coalesce(intent_binding.has_intent,false) THEN 'unknown' ELSE 'generations' END AS source,
  CASE WHEN j.attempt_id IS NULL THEN 'submission_unknown'
  WHEN 'succeeded'=ANY(o.statuses) AND 'failed'=ANY(o.statuses) THEN 'reconciliation_required'
  WHEN 'succeeded'=ANY(o.statuses) THEN 'succeeded'
@@ -46,24 +46,34 @@ WITH inventory AS (
  LEFT JOIN vendor_models m ON m.alias=a.resource_id
  LEFT JOIN generations_turn_tasks t ON t.task_id=a.id
  LEFT JOIN LATERAL (
-  SELECT binding.intent_id,binding.owner,binding.session_id,binding.turn_id
+  SELECT
+   bool_or(true) AS has_intent,
+   bool_or(intent.owner<>$3) AS has_foreign_owner,
+   (array_agg(binding.intent_id) FILTER (WHERE binding.intent_id IS NOT NULL))[1] AS intent_id,
+   (array_agg(binding.owner) FILTER (WHERE binding.intent_id IS NOT NULL))[1] AS owner,
+   (array_agg(binding.session_id) FILTER (WHERE binding.intent_id IS NOT NULL))[1] AS session_id,
+   (array_agg(binding.turn_id) FILTER (WHERE binding.intent_id IS NOT NULL))[1] AS turn_id
   FROM media_submission_keys submitted
   JOIN video_submission_intents intent
    ON intent.organization_id=submitted.organization_id
     AND intent.project_id=submitted.project_id
     AND submitted.key_digest=niu_submission_key_digest(intent.submission_key)
-  JOIN generations_turn_intents binding
+  LEFT JOIN generations_turn_intents binding
    ON binding.organization_id=intent.organization_id
     AND binding.project_id=intent.project_id AND binding.owner=intent.owner
     AND binding.intent_id=intent.id
   WHERE submitted.organization_id=a.organization_id
    AND submitted.project_id=a.project_id AND submitted.attempt_id=a.id
  ) intent_binding ON true
- LEFT JOIN LATERAL (SELECT ARRAY(SELECT status FROM media_job_observations WHERE attempt_id=a.id) AS statuses) o ON true
+ LEFT JOIN LATERAL (
+  SELECT max(created_at) AS max_created_at, coalesce(array_agg(status), ARRAY[]::text[]) AS statuses
+  FROM media_job_observations
+  WHERE attempt_id=a.id
+ ) o ON true
  WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL
  AND (t.task_id IS NULL OR t.owner=$3)
  AND (intent_binding.intent_id IS NULL OR intent_binding.owner=$3)
- AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.key_digest=niu_submission_key_digest(vi.submission_key) AND sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id AND vi.owner<>$3)
+ AND NOT coalesce(intent_binding.has_foreign_owner,false)
 ), filtered AS (
  SELECT * FROM inventory WHERE ($4::text IS NULL OR state=$4)
  AND ($5::uuid IS NULL OR session_id=$5)
