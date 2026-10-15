@@ -273,7 +273,11 @@ pub(in crate::web) async fn embeddings(
             "Embeddings require an OpenAI-compatible model route.",
         ));
     }
-    let input_bounds = validate_embedding_request(&body)?;
+    let input_bounds = if inspected_snapshot.input_outcome.as_deref() == Some("redacted") {
+        validate_embedding_request(&body)?
+    } else {
+        bounds
+    };
     if !model.supports_embeddings {
         return Err(ApiError::unsupported_message(
             "Embeddings are not enabled for this model. Choose an embedding model.",
@@ -556,7 +560,7 @@ async fn execute_embeddings(
         finish_reasons: None,
         token_categories: None,
         response: if valid_data {
-            Json(value).into_response()
+            buffered_json_response(value)
         } else {
             ApiError::upstream_invalid_response().into_response()
         },

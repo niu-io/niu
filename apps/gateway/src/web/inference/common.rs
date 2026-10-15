@@ -987,14 +987,41 @@ mod tests {
     }
 }
 
+#[derive(Clone)]
+pub(super) struct BufferedJsonOutput(pub(super) Value);
+
+pub(super) fn buffered_json_response(value: Value) -> Response {
+    let mut response = Response::new(axum::body::Body::empty());
+    response.extensions_mut().insert(BufferedJsonOutput(value));
+    response
+}
+
+fn materialize_json_response(mut parts: axum::http::response::Parts, value: Value) -> Response {
+    let (json_parts, body) = axum::Json(value).into_response().into_parts();
+    for (name, header_value) in json_parts.headers {
+        if let Some(name) = name {
+            parts.headers.insert(name, header_value);
+        }
+    }
+    Response::from_parts(parts, body)
+}
+
 async fn inspect_output_rules(
     protocol: crate::guardrails::input::Protocol,
     original: &Value,
     rules: &[crate::guardrails::input::RuleConfig],
     slots: std::sync::Arc<tokio::sync::Semaphore>,
 ) -> Result<(Value, bool), crate::guardrails::input::InspectionError> {
+    inspect_output_rules_owned(protocol, original.clone(), rules, slots).await
+}
+
+async fn inspect_output_rules_owned(
+    protocol: crate::guardrails::input::Protocol,
+    original: Value,
+    rules: &[crate::guardrails::input::RuleConfig],
+    slots: std::sync::Arc<tokio::sync::Semaphore>,
+) -> Result<(Value, bool), crate::guardrails::input::InspectionError> {
     use crate::guardrails::input::{CompiledInputPolicy, InspectionError};
-    let original = original.clone();
     let rules = rules.to_vec();
     crate::guardrails::input::run_bounded(slots, move || {
         CompiledInputPolicy::compile(&rules)
@@ -1017,6 +1044,37 @@ async fn inspect_complete_output(
     let started = std::time::Instant::now();
     let (mut parts, body) = response.into_parts();
     parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    if let Some(BufferedJsonOutput(original)) = parts.extensions.remove::<BufferedJsonOutput>() {
+        if !dispatch.output_observe_rules.is_empty() {
+            observe_complete_output(
+                state,
+                dispatch.scope,
+                dispatch.attempt,
+                dispatch.protocol,
+                Ok(&original),
+                &dispatch.output_observe_rules,
+                started,
+            )
+            .await;
+        }
+        if dispatch.output_rules.is_empty() {
+            return materialize_json_response(parts, original);
+        }
+        return match inspect_required_output(
+            state,
+            dispatch.scope,
+            dispatch.attempt,
+            dispatch.protocol,
+            RequiredOutputInput::Buffered(Ok(original)),
+            &dispatch.output_rules,
+            started,
+        )
+        .await
+        {
+            Ok(value) => materialize_json_response(parts, value),
+            Err(()) => ApiError::guardrail_output_withheld().into_response(),
+        };
+    }
     // Provider JSON is already bounded at 16 MiB. Allow serialization overhead
     // here, while inspection itself retains its separate 1 MiB bound.
     let bytes = axum::body::to_bytes(body, MAX_PROVIDER_JSON_BYTES + 64 * 1024).await;
@@ -1055,10 +1113,7 @@ async fn inspect_complete_output(
     )
     .await
     {
-        Ok(value) => {
-            let (_, body) = axum::Json(value).into_response().into_parts();
-            Response::from_parts(parts, body)
-        }
+        Ok(value) => materialize_json_response(parts, value),
         Err(()) => ApiError::guardrail_output_withheld().into_response(),
     }
 }
@@ -1124,7 +1179,7 @@ async fn inspect_required_output(
     };
     let inspected = match original {
         Ok(original) => {
-            inspect_output_rules(protocol, &original, rules, LIVE_INPUT_SLOTS.clone()).await
+            inspect_output_rules_owned(protocol, original, rules, LIVE_INPUT_SLOTS.clone()).await
         }
         Err(error) => Err(error),
     }
@@ -1166,6 +1221,11 @@ pub(super) async fn finalize_response(
         Ok(mut result) if result.completed => {
             if !dispatch.output_rules.is_empty() || !dispatch.output_observe_rules.is_empty() {
                 result.response = inspect_complete_output(state, &dispatch, result.response).await;
+            } else if let Some(BufferedJsonOutput(value)) =
+                result.response.extensions_mut().remove::<BufferedJsonOutput>()
+            {
+                let (parts, _) = result.response.into_parts();
+                result.response = materialize_json_response(parts, value);
             }
             if let Some(mut guard) = dispatch.pending_cancellation.take() {
                 guard.disarmed = true;
@@ -1220,7 +1280,13 @@ pub(super) async fn finalize_response(
                 .await;
             result.response
         }
-        Ok(result) => {
+        Ok(mut result) => {
+            if let Some(BufferedJsonOutput(value)) =
+                result.response.extensions_mut().remove::<BufferedJsonOutput>()
+            {
+                let (parts, _) = result.response.into_parts();
+                result.response = materialize_json_response(parts, value);
+            }
             if let Some(mut guard) = dispatch.pending_cancellation.take() {
                 guard.disarmed = true;
             }

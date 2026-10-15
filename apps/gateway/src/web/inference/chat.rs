@@ -860,7 +860,7 @@ async fn execute_chat(
         token_categories: usage.and_then(|totals| {
             niu_storage::RequestTokenCategories::from_openai_usage(&value["usage"], totals)
         }),
-        response: Json(value).into_response(),
+        response: buffered_json_response(value),
         completed: true,
         usage,
         provider_model,
@@ -993,7 +993,7 @@ async fn complete_openai_compatible(
         token_categories: usage.and_then(|totals| {
             niu_storage::RequestTokenCategories::from_openai_usage(&value["usage"], totals)
         }),
-        response: Json(value).into_response(),
+        response: buffered_json_response(value),
         completed: true,
         usage,
         provider_model,

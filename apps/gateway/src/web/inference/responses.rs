@@ -721,7 +721,7 @@ async fn execute_responses(
         token_categories: usage.and_then(|totals| {
             niu_storage::RequestTokenCategories::from_responses_usage(&value["usage"], totals)
         }),
-        response: Json(value).into_response(),
+        response: buffered_json_response(value),
         completed: true,
         usage,
         provider_model,

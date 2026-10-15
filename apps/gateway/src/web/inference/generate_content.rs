@@ -779,9 +779,12 @@ async fn execute(
     }
     if let Some(price) = &model.pricing
         && (bound > price.max_output_tokens
-            || crate::inference_schema::json_serialized_len(&body)
-                .map_err(|_| ApiError::invalid_request("Invalid GenerateContent request"))?
-                > price.max_input_tokens as usize)
+            || price.max_input_tokens <= 0
+            || crate::inference_schema::json_serialized_len_within(
+                &body,
+                price.max_input_tokens as usize,
+            )
+            .is_err())
     {
         return Err(ApiError::invalid_request(
             "GenerateContent exceeds the priced route's conservative input or output bound",
@@ -1010,7 +1013,7 @@ fn normalize(value: Value, public_model: &str) -> Result<ProviderResponse, ApiEr
         .map(str::to_owned);
     Ok(ProviderResponse {
         response: if valid {
-            Json(sanitized).into_response()
+            buffered_json_response(sanitized)
         } else {
             invalid().into_response()
         },

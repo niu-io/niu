@@ -9,12 +9,8 @@ pub fn inspect(
     body: &Value,
     rules: &[TextRule],
 ) -> Result<Value, InspectionError> {
-    if crate::inference_schema::json_serialized_len(body)
-        .map_err(|_| InspectionError::UnsupportedContent)?
-        > 1024 * 1024
-    {
-        return Err(InspectionError::ResourceLimit);
-    }
+    crate::inference_schema::json_serialized_len_within(body, 1024 * 1024)
+        .map_err(|_| InspectionError::ResourceLimit)?;
     let object = body
         .as_object()
         .ok_or(InspectionError::UnsupportedContent)?;
@@ -333,12 +329,8 @@ pub fn inspect(
     if matches!(protocol, Protocol::Responses) {
         inspect_response_metadata(&transformed, &mut Vec::new())?;
     }
-    if crate::inference_schema::json_serialized_len(&transformed)
-        .map_err(|_| InspectionError::UnsupportedContent)?
-        > 1024 * 1024
-    {
-        return Err(InspectionError::ResourceLimit);
-    }
+    crate::inference_schema::json_serialized_len_within(&transformed, 1024 * 1024)
+        .map_err(|_| InspectionError::ResourceLimit)?;
     Ok(transformed)
 }
 

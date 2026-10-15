@@ -1101,7 +1101,7 @@ fn normalize(
         .and_then(Value::as_str)
         .filter(|s| s.len() <= 512);
     let response = if valid {
-        Json(json!({"id":id,"type":"message","role":"assistant","model":public_model,"content":content,"stop_reason":stop,"stop_sequence":stop_sequence,"usage":sanitized_usage})).into_response()
+        buffered_json_response(json!({"id":id,"type":"message","role":"assistant","model":public_model,"content":content,"stop_reason":stop,"stop_sequence":stop_sequence,"usage":sanitized_usage}))
     } else {
         invalid().into_response()
     };
