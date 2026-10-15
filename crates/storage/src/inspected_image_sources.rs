@@ -1,6 +1,5 @@
 //! Encrypted exact approved bytes; no public URL or Provider dispatch authority.
 use crate::{GuardrailSnapshot, Principal, Store, StoreError};
-use base64::Engine;
 use niu_media::image_detector::{Consent, ProcessingApproval, Runtime};
 use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Row, Transaction};
@@ -164,12 +163,27 @@ impl Store {
         ) {
             return Err(StoreError::Unauthorized);
         }
-        let mut tx = self.pool.begin().await?;
-        self.authorize_image_source_using(&mut tx, principal, snapshot)
-            .await?;
         if input.additional_approvals.len() > 7 {
             return Err(StoreError::InvalidObservation);
         }
+        let mime = input.approval.content_type();
+        if !matches!(mime, "image/png" | "image/jpeg" | "image/webp") {
+            return Err(StoreError::InvalidObservation);
+        }
+        let bytes = input.approval.encoded_bytes();
+        if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
+            return Err(StoreError::InvalidObservation);
+        }
+        let ciphertext = seal(
+            bytes,
+            &inspected_image_source_aad(scope, principal.key_id(), input.id),
+        )?;
+        if !(28..=bytes.len() + 128).contains(&ciphertext.len()) {
+            return Err(StoreError::InvalidObservation);
+        }
+        let mut tx = self.pool.begin().await?;
+        self.authorize_image_source_using(&mut tx, principal, snapshot)
+            .await?;
         let required = crate::image_processing::required_image_detectors(snapshot)?;
         let primary = crate::ImageRequestApproval {
             receipt_id: input.approval_id,
@@ -207,29 +221,6 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        let reference = input
-            .approval
-            .inline_reference(12 * 1024 * 1024)
-            .map_err(|_| StoreError::InvalidObservation)?;
-        let (header, encoded) = reference
-            .split_once(',')
-            .ok_or(StoreError::InvalidObservation)?;
-        let mime = header
-            .strip_prefix("data:")
-            .and_then(|v| v.strip_suffix(";base64"))
-            .ok_or(StoreError::InvalidObservation)?;
-        if !matches!(mime, "image/png" | "image/jpeg" | "image/webp") {
-            return Err(StoreError::InvalidObservation);
-        }
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(encoded)
-            .map_err(|_| StoreError::InvalidObservation)?;
-        if bytes.is_empty()
-            || bytes.len() > 8 * 1024 * 1024
-            || format!("{:x}", Sha256::digest(&bytes)) != input.approval.content_sha256()
-        {
-            return Err(StoreError::InvalidObservation);
-        }
         // Serialize admissions across workspaces in the database, not per process.
         // Cleanup/erasure can only reduce the usage measured under this lock.
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-inspected-image-source-capacity',0))")
@@ -245,13 +236,6 @@ impl Store {
         ) {
             return Err(StoreError::ImageSourceCapacityExceeded);
         }
-        let ciphertext = seal(
-            &bytes,
-            &inspected_image_source_aad(scope, principal.key_id(), input.id),
-        )?;
-        if !(28..=bytes.len() + 128).contains(&ciphertext.len()) {
-            return Err(StoreError::InvalidObservation);
-        }
         let inserted = sqlx::query("INSERT INTO inspected_image_sources(id,approval_id,organization_id,project_id,key_id,content_sha256,content_type,byte_length,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,statement_timestamp()+make_interval(secs=>$9)) ON CONFLICT DO NOTHING")
             .bind(input.id).bind(input.approval_id).bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(input.approval.content_sha256()).bind(mime).bind(bytes.len() as i64).bind(input.valid_for_seconds as f64).execute(&mut *tx).await?.rows_affected();
         if inserted != 1 {
@@ -264,15 +248,14 @@ impl Store {
         .bind(ciphertext)
         .execute(&mut *tx)
         .await?;
-        for approval_id in proof_ids {
-            sqlx::query(
-                "INSERT INTO inspected_image_source_approvals(source_id,approval_id) VALUES($1,$2)",
-            )
-            .bind(input.id)
-            .bind(approval_id)
-            .execute(&mut *tx)
-            .await?;
-        }
+        let proof_vec: Vec<Uuid> = proof_ids.into_iter().collect();
+        sqlx::query(
+            "INSERT INTO inspected_image_source_approvals(source_id,approval_id) SELECT $1,UNNEST($2::uuid[])",
+        )
+        .bind(input.id)
+        .bind(&proof_vec)
+        .execute(&mut *tx)
+        .await?;
         tx.commit().await?;
         Ok(())
     }
@@ -543,7 +526,7 @@ impl Store {
         let Some(vendor) = vendor else {
             return Ok(None);
         };
-        sqlx::query("SELECT id FROM vendors WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM vendors WHERE id=$1 FOR SHARE")
             .bind(vendor)
             .execute(&mut *tx)
             .await?;

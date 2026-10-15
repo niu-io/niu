@@ -125,7 +125,7 @@ struct DeliveryOptions {
     maximum_bytes: Option<usize>,
 }
 
-async fn retrieve_authorized(
+async fn retrieve_authorized_media(
     state: &AppState,
     scope: niu_storage::TenantScope,
     principal: Option<&Principal>,
@@ -133,7 +133,7 @@ async fn retrieve_authorized(
     id: Uuid,
     result_kind: &str,
     options: DeliveryOptions,
-) -> Result<Response, ApiError> {
+) -> Result<(niu_media::result::ResultMedia, tokio::sync::OwnedSemaphorePermit), ApiError> {
     let DeliveryOptions {
         fresh,
         maximum_bytes: capture_limit,
@@ -241,6 +241,20 @@ async fn retrieve_authorized(
     {
         return Err(ApiError::not_found());
     }
+    Ok((media, delivery_permit))
+}
+
+async fn retrieve_authorized(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    principal: Option<&Principal>,
+    owner: Option<&str>,
+    id: Uuid,
+    result_kind: &str,
+    options: DeliveryOptions,
+) -> Result<Response, ApiError> {
+    let (media, delivery_permit) =
+        retrieve_authorized_media(state, scope, principal, owner, id, result_kind, options).await?;
     let filename = match media.content_type {
         "video/mp4" => "attachment; filename=video.mp4",
         "video/webm" => "attachment; filename=video.webm",
@@ -248,14 +262,15 @@ async fn retrieve_authorized(
         _ => "attachment; filename=last-frame.jpg",
     };
     let length = media.bytes.len();
+    let shared_bytes = Bytes::from(media.bytes);
     let chunks = futures_util::stream::unfold(
-        (media.bytes, 0, delivery_permit),
+        (shared_bytes, 0, delivery_permit),
         |(bytes, offset, permit)| async move {
             if offset == bytes.len() {
                 return None;
             }
             let end = (offset + 64 * 1024).min(bytes.len());
-            let chunk = Bytes::copy_from_slice(&bytes[offset..end]);
+            let chunk = bytes.slice(offset..end);
             Some((
                 Ok::<_, std::convert::Infallible>(chunk),
                 (bytes, end, permit),
@@ -489,7 +504,7 @@ pub(super) async fn retrieve_capture(
     principal: Option<&Principal>,
     id: Uuid,
     result_kind: &str,
-) -> Result<Response, ApiError> {
+) -> Result<niu_media::result::ResultMedia, ApiError> {
     let requested = kind(result_kind)?;
     authorize_delivery(state, scope, principal, Some(owner), id).await?;
     let fresh = if let Some(principal) = principal {
@@ -504,7 +519,7 @@ pub(super) async fn retrieve_capture(
     } else {
         None
     };
-    retrieve_authorized(
+    let (media, _delivery_permit) = retrieve_authorized_media(
         state,
         scope,
         principal,
@@ -516,5 +531,6 @@ pub(super) async fn retrieve_capture(
             maximum_bytes: Some(niu_media::workspace_asset_validation::MAX_ASSET_BYTES),
         },
     )
-    .await
+    .await?;
+    Ok(media)
 }

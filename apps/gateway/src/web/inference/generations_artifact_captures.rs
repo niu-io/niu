@@ -5,9 +5,8 @@ use crate::{
 };
 use axum::{
     Json,
-    body::{Bytes, to_bytes},
     extract::{Path, State, rejection::JsonRejection},
-    http::{HeaderMap, header},
+    http::HeaderMap,
 };
 use niu_storage::{
     AdminPermission, AssetLibraryCreate, AssetLibraryKind, AssetLibraryLimits,
@@ -591,28 +590,21 @@ async fn copy_using(
     } else {
         None
     };
-    let response =
+    let media =
         super::video_results::retrieve_capture(state, scope, actor, principal.as_ref(), task, kind)
             .await
             .map_err(|e| ("delivery_failed", e))?;
-    let content_type = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .ok_or_else(|| ("invalid_media", ApiError::unavailable()))?
-        .to_owned();
+    let content_type = media.content_type.to_owned();
     let media_kind = AssetLibraryKind::for_content_type(&content_type).ok_or_else(|| {
         (
             "invalid_media",
             ApiError::invalid_request("Unsupported captured media type"),
         )
     })?;
-    let bytes: Bytes = to_bytes(
-        response.into_body(),
-        niu_media::workspace_asset_validation::MAX_ASSET_BYTES,
-    )
-    .await
-    .map_err(|_| ("invalid_media", ApiError::request_too_large()))?;
+    if media.bytes.len() > niu_media::workspace_asset_validation::MAX_ASSET_BYTES {
+        return Err(("invalid_media", ApiError::request_too_large()));
+    }
+    let bytes = media.bytes;
     niu_media::workspace_asset_validation::validate(&content_type, &bytes)
         .await
         .map_err(|_| {
@@ -657,7 +649,7 @@ async fn copy_using(
             },
             AssetLibraryLimits::default(),
             |actual_aad, actual_bytes| {
-                if actual_aad != aad || actual_bytes != bytes.as_ref() {
+                if actual_aad != aad || actual_bytes != bytes.as_slice() {
                     return Err(niu_storage::StoreError::InvalidObservation);
                 }
                 Ok(encrypted)
