@@ -168,8 +168,10 @@ async fn deployment_appearance_only_defaults_members_without_an_explicit_choice(
 #[ignore = "requires PostgreSQL"]
 async fn legacy_default_brand_name_migration_preserves_theme_and_custom_names(pool: PgPool) {
     let store = Store::from_pool(pool.clone());
-    let mut settings = niu_storage::BrandingSettings::default();
-    settings.display_name = "NIU.IO".into();
+    let mut settings = niu_storage::BrandingSettings {
+        display_name: "NIU.IO".into(),
+        ..Default::default()
+    };
     settings.dark.insert("primary".into(), "#ffffff".into());
     store
         .save_branding_configuration(0, &settings, None)

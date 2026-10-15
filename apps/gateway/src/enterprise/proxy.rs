@@ -93,7 +93,7 @@ async fn handle_request(state: AppState, request: Request<Body>) -> Response<Bod
 
     let principal = match authenticate_route_principal(&state, route, request.headers()).await {
         Ok(principal) => principal,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
 
     let limit = route.declaration.max_request_bytes;
@@ -127,7 +127,7 @@ async fn authenticate_route_principal(
     state: &AppState,
     route: &RegisteredRoute,
     headers: &HeaderMap,
-) -> Result<ContextPrincipal, Response<Body>> {
+) -> Result<ContextPrincipal, ApiError> {
     match route.declaration.auth_mode {
         RouteAuthMode::Operator => {
             let Some(token) = headers
@@ -136,15 +136,15 @@ async fn authenticate_route_principal(
                 .and_then(|value| value.strip_prefix("Bearer "))
                 .filter(|value| !value.is_empty())
             else {
-                return Err(ApiError::unauthorized().into_response());
+                return Err(ApiError::unauthorized());
             };
             let operator = state
                 .store
                 .authenticate_operator(token)
                 .await
-                .map_err(|error| ApiError::from_store(error).into_response())?;
+                .map_err(ApiError::from_store)?;
             if !route.declaration.permission.permits(operator.role) {
-                return Err(ApiError::forbidden().into_response());
+                return Err(ApiError::forbidden());
             }
             Ok(ContextPrincipal::Operator(operator))
         }
@@ -155,14 +155,11 @@ async fn authenticate_route_principal(
             if state.admin_tokens.matches(auth_header) {
                 Ok(ContextPrincipal::InstallationAdmin)
             } else {
-                Err(ApiError::unauthorized().into_response())
+                Err(ApiError::unauthorized())
             }
         }
         RouteAuthMode::WorkspaceKey => {
-            let principal = state
-                .authorize_api_headers(headers)
-                .await
-                .map_err(IntoResponse::into_response)?;
+            let principal = state.authorize_api_headers(headers).await?;
             Ok(ContextPrincipal::WorkspaceKey {
                 key_id: principal.key_id(),
                 organization_id: principal.scope().organization_id,
