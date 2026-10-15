@@ -209,17 +209,50 @@ fn layout_markdown(blocks: &[Block], page: i64, by_id: &HashMap<&str, &Block>) -
     sections.join("\n\n")
 }
 
+const MAX_TEXT_DEPTH: usize = 32;
+const MAX_TABLE_COLUMNS: usize = 1_024;
+
 fn text_of(block: &Block, by_id: &HashMap<&str, &Block>, separator: &str) -> String {
-    match &block.text {
-        Some(text) => text.clone(),
-        None => block
-            .children()
-            .filter_map(|id| by_id.get(id))
-            .map(|child| text_of(child, by_id, separator))
-            .filter(|text| !text.is_empty())
-            .collect::<Vec<_>>()
-            .join(separator),
+    let mut active = std::collections::HashSet::new();
+    let mut memo = HashMap::new();
+    text_of_bounded(block, by_id, separator, 0, &mut active, &mut memo)
+}
+
+fn text_of_bounded<'a>(
+    block: &'a Block,
+    by_id: &HashMap<&'a str, &'a Block>,
+    separator: &'a str,
+    depth: usize,
+    active: &mut std::collections::HashSet<&'a str>,
+    memo: &mut HashMap<(&'a str, &'a str), String>,
+) -> String {
+    if depth >= MAX_TEXT_DEPTH {
+        return block.text.clone().unwrap_or_default();
     }
+    if let Some(text) = &block.text {
+        return text.clone();
+    }
+    let id = block.id.as_str();
+    if !id.is_empty() {
+        if let Some(cached) = memo.get(&(id, separator)) {
+            return cached.clone();
+        }
+        if !active.insert(id) {
+            return String::new();
+        }
+    }
+    let joined = block
+        .children()
+        .filter_map(|child_id| by_id.get(child_id))
+        .map(|child| text_of_bounded(child, by_id, separator, depth + 1, active, memo))
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join(separator);
+    if !id.is_empty() {
+        active.remove(id);
+        memo.insert((id, separator), joined.clone());
+    }
+    joined
 }
 
 fn strip_bullet(item: &str) -> &str {
@@ -233,13 +266,20 @@ fn table_markdown(table: &Block, by_id: &HashMap<&str, &Block>) -> String {
         .filter_map(|id| by_id.get(id))
         .filter(|cell| cell.block_type == BlockType::Cell)
         .filter_map(|cell| {
-            Some((
-                (cell.row_index?, cell.column_index?),
-                text_of(cell, by_id, " ").replace('|', "\\|"),
-            ))
+            let row = cell.row_index?.max(1);
+            let col = cell.column_index?.clamp(1, MAX_TABLE_COLUMNS);
+            Some(((row, col), text_of(cell, by_id, " ").replace('|', "\\|")))
         })
         .collect();
-    let columns = cells.keys().map(|(_, column)| *column).max().unwrap_or(0);
+    let columns = cells
+        .keys()
+        .map(|(_, column)| *column)
+        .max()
+        .unwrap_or(0)
+        .min(MAX_TABLE_COLUMNS);
+    if columns == 0 {
+        return String::new();
+    }
     let rows: BTreeSet<usize> = cells.keys().map(|(row, _)| *row).collect();
     let render = |row: usize| {
         let values: Vec<&str> = (1..=columns)

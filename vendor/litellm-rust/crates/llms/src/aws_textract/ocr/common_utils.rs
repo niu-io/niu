@@ -363,7 +363,7 @@ pub(super) fn ocr_response(
     let pages: Vec<OcrPage> = page_markdown
         .into_iter()
         .map(|(page, markdown)| OcrPage {
-            index: page - 1,
+            index: page.saturating_sub(1).max(0),
             markdown,
             ..Default::default()
         })
