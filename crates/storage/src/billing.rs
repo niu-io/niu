@@ -1229,7 +1229,27 @@ pub(crate) async fn reserve_customer_balance_in_tx(
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
     let state: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut **tx).await?;
-    if state != "not_sent" {
+    reserve_customer_balance_for_locked_account_in_tx(
+        tx,
+        attempt,
+        account,
+        &state,
+        maximum_nanos,
+    )
+    .await
+}
+
+pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    attempt: Uuid,
+    account: Uuid,
+    execution: &str,
+    maximum_nanos: i64,
+) -> Result<(), StoreError> {
+    if maximum_nanos < 0 {
+        return Err(StoreError::InvalidPrice);
+    }
+    if execution != "not_sent" {
         return Err(StoreError::Conflict);
     }
     let prior: Option<(i64, bool)> = sqlx::query_as("SELECT amount_nanos,released_at IS NULL FROM customer_balance_reservations WHERE attempt_id=$1")
@@ -1266,3 +1286,4 @@ pub(crate) async fn reserve_customer_balance_in_tx(
         })?;
     Ok(())
 }
+

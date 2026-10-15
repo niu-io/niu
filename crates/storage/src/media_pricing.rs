@@ -56,7 +56,7 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<i64, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let result = Self::settle_customer_media_charge_in_tx(&mut tx, scope, attempt).await;
         // Insufficient funding still commits the immutable liability and keeps
         // the hold. All other failures roll back the attempted settlement.
@@ -178,12 +178,21 @@ impl Store {
             .await?
             .ok_or(StoreError::Conflict)?;
         // Operation -> account -> attempt matches the text pricing and reservation lock order.
-        sqlx::query("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
+        let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
             .bind(scope.organization_id).bind(&snapshot.tariff().currency)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
-        Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, snapshot).await?;
-        let amount = Self::reserve_customer_media_balance_with_snapshot_in_tx(
-            &mut tx, scope, attempt, snapshot, bound,
+        let execution = Self::bind_customer_media_pricing_with_locked_operation_in_tx(
+            &mut tx, scope, attempt, snapshot, true,
+        )
+        .await?;
+        let amount = Self::reserve_customer_media_balance_with_locked_account_in_tx(
+            &mut tx,
+            scope,
+            attempt,
+            snapshot,
+            bound,
+            Some(account),
+            Some(&execution),
         )
         .await?;
         tx.commit().await?;
@@ -196,7 +205,7 @@ impl Store {
         attempt: Uuid,
         bound: &MediaLiabilityBound,
     ) -> Result<i64, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let amount =
             Self::reserve_customer_media_balance_in_tx(&mut tx, scope, attempt, bound).await?;
         tx.commit().await?;
@@ -234,6 +243,21 @@ impl Store {
         snapshot: &PricingSnapshot,
         bound: &MediaLiabilityBound,
     ) -> Result<i64, StoreError> {
+        Self::reserve_customer_media_balance_with_locked_account_in_tx(
+            tx, scope, attempt, snapshot, bound, None, None,
+        )
+        .await
+    }
+
+    pub(crate) async fn reserve_customer_media_balance_with_locked_account_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        snapshot: &PricingSnapshot,
+        bound: &MediaLiabilityBound,
+        locked_account: Option<Uuid>,
+        locked_execution: Option<&str>,
+    ) -> Result<i64, StoreError> {
         if bound.qualification_revision.is_empty()
             || bound.qualification_revision.len() > 256
             || bound.qualification_revision.trim() != bound.qualification_revision
@@ -253,12 +277,18 @@ impl Store {
         if maximum_nanos < 0 {
             return Err(StoreError::InvalidPrice);
         }
-        let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
-            .bind(scope.organization_id).bind(&receipt.currency)
-            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
-        sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+        let account: Uuid = match locked_account {
+            Some(account) => account,
+            None => sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
+                .bind(scope.organization_id).bind(&receipt.currency)
+                .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?,
+        };
+        let execution: String = match locked_execution {
+            Some(execution) => execution.to_owned(),
+            None => sqlx::query_scalar("SELECT execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
+                .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
+                .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?,
+        };
         sqlx::query("INSERT INTO customer_attempt_balance_accounts(attempt_id,organization_id,project_id,account_id,currency) VALUES($1,$2,$3,$4,$5) ON CONFLICT(attempt_id) DO NOTHING")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(account)
             .bind(&receipt.currency).execute(&mut **tx).await?;
@@ -281,7 +311,14 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        crate::billing::reserve_customer_balance_in_tx(tx, scope, attempt, maximum_nanos).await?;
+        crate::billing::reserve_customer_balance_for_locked_account_in_tx(
+            tx,
+            attempt,
+            account,
+            &execution,
+            maximum_nanos,
+        )
+        .await?;
         if previous.is_none() {
             sqlx::query("INSERT INTO customer_media_liability_bounds(organization_id,project_id,attempt_id,bound,maximum_nanos) VALUES($1,$2,$3,$4,$5)")
                 .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(record)
@@ -299,7 +336,7 @@ impl Store {
         source: MediaUsageSource,
         usage: &Usage,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::record_customer_media_usage_in_tx(&mut tx, scope, attempt, source, usage).await?;
         tx.commit().await?;
         Ok(())
@@ -396,7 +433,7 @@ impl Store {
         attempt: Uuid,
         snapshot: &PricingSnapshot,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, snapshot).await?;
         tx.commit().await?;
         Ok(())
@@ -410,19 +447,35 @@ impl Store {
         attempt: Uuid,
         snapshot: &PricingSnapshot,
     ) -> Result<(), StoreError> {
+        Self::bind_customer_media_pricing_with_locked_operation_in_tx(
+            tx, scope, attempt, snapshot, false,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    pub(crate) async fn bind_customer_media_pricing_with_locked_operation_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        snapshot: &PricingSnapshot,
+        operation_locked: bool,
+    ) -> Result<String, StoreError> {
         if snapshot.customer() != scope.organization_id.to_string() {
             return Err(StoreError::Conflict);
         }
         let encoded = snapshot.encode().map_err(|_| StoreError::InvalidPrice)?;
         let value: serde_json::Value =
             serde_json::from_str(&encoded).map_err(|_| StoreError::InvalidPrice)?;
-        sqlx::query("SELECT o.id FROM operations o JOIN attempts a ON a.operation_id=o.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND o.organization_id=a.organization_id AND o.project_id=a.project_id FOR UPDATE OF o")
-            .bind(attempt)
-            .bind(scope.organization_id)
-            .bind(scope.project_id)
-            .fetch_optional(&mut **tx)
-            .await?
-            .ok_or(StoreError::Conflict)?;
+        if !operation_locked {
+            sqlx::query("SELECT o.id FROM operations o JOIN attempts a ON a.operation_id=o.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND o.organization_id=a.organization_id AND o.project_id=a.project_id FOR UPDATE OF o")
+                .bind(attempt)
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .fetch_optional(&mut **tx)
+                .await?
+                .ok_or(StoreError::Conflict)?;
+        }
         let row = sqlx::query("SELECT resource_id,offer_revision,execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
@@ -431,6 +484,7 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
+        let execution = row.get::<String, _>("execution");
         let existing: Option<serde_json::Value> = sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut **tx).await?;
@@ -439,7 +493,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         } else {
-            if row.get::<String, _>("execution") != "not_sent" {
+            if execution != "not_sent" {
                 return Err(StoreError::Conflict);
             }
             let text_bound: bool = sqlx::query_scalar(
@@ -455,7 +509,7 @@ impl Store {
                 .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(value)
                 .execute(&mut **tx).await?;
         }
-        Ok(())
+        Ok(execution)
     }
 
     /// Scoped internal retrieval revalidates the versioned calculation inputs.

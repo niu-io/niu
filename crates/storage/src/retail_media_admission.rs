@@ -355,7 +355,7 @@ impl Store {
                 .await?
                 .ok_or(StoreError::AccountUnavailable)?;
         }
-        sqlx::query("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
+        let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
             .bind(scope.organization_id).bind(&preview.pricing.tariff().currency)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND execution='not_sent' FOR UPDATE")
@@ -396,14 +396,22 @@ impl Store {
             at,
         )
         .await?;
-        Self::bind_customer_media_pricing_in_tx(&mut tx, scope, attempt, &prepared.rate.pricing)
-            .await?;
-        let amount = Self::reserve_customer_media_balance_with_snapshot_in_tx(
+        let execution = Self::bind_customer_media_pricing_with_locked_operation_in_tx(
+            &mut tx,
+            scope,
+            attempt,
+            &prepared.rate.pricing,
+            true,
+        )
+        .await?;
+        let amount = Self::reserve_customer_media_balance_with_locked_account_in_tx(
             &mut tx,
             scope,
             attempt,
             &prepared.rate.pricing,
             &prepared.rate.liability,
+            Some(account),
+            Some(&execution),
         )
         .await?;
         if let Some(selected) = prepared.selection {
