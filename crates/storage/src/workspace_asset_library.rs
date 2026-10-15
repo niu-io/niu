@@ -91,6 +91,11 @@ pub fn workspace_asset_content_aad(scope: TenantScope, id: Uuid) -> Vec<u8> {
     )
     .into_bytes()
 }
+pub(crate) struct PreparedWorkspaceAssetCreate {
+    name: String,
+    digest: String,
+    ciphertext: Vec<u8>,
+}
 #[derive(sqlx::FromRow)]
 struct AssetRow {
     id: Uuid,
@@ -148,24 +153,23 @@ impl Store {
     where
         F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
     {
+        let prepared = Self::prepare_workspace_asset_create(scope, &input, limits, seal)?;
         let mut tx = self.begin_bounded_recording().await?;
-        let asset = Self::create_workspace_asset_in_tx(&mut tx, scope, input, limits, seal).await?;
+        let asset = Self::insert_prepared_workspace_asset_in_tx(&mut tx, scope, &input, limits, prepared).await?;
         tx.commit().await?;
         Ok(asset)
     }
 
-    /// Reuse the asset quota, encryption and audit write in an owning transaction.
-    pub(crate) async fn create_workspace_asset_in_tx<F>(
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    pub(crate) fn prepare_workspace_asset_create<F>(
         scope: TenantScope,
-        input: AssetLibraryCreate<'_>,
+        input: &AssetLibraryCreate<'_>,
         limits: AssetLibraryLimits,
         seal: F,
-    ) -> Result<AssetLibraryAsset, StoreError>
+    ) -> Result<PreparedWorkspaceAssetCreate, StoreError>
     where
         F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
     {
-        let name = checked_name(input.name)?;
+        let name = checked_name(input.name)?.to_owned();
         checked_actor(input.actor)?;
         if limits.max_asset_bytes == 0
             || limits.max_asset_bytes > MAX_ASSET_BYTES
@@ -181,6 +185,39 @@ impl Store {
         }
         let digest = format!("{:x}", Sha256::digest(input.bytes));
         let aad = workspace_asset_content_aad(scope, input.id);
+        let ciphertext = seal(&aad, input.bytes)?;
+        if ciphertext.len() < input.bytes.len() + 28 || ciphertext.len() > input.bytes.len() + 128 {
+            return Err(StoreError::InvalidObservation);
+        }
+        Ok(PreparedWorkspaceAssetCreate {
+            name,
+            digest,
+            ciphertext,
+        })
+    }
+
+    /// Reuse the asset quota, encryption and audit write in an owning transaction.
+    pub(crate) async fn create_workspace_asset_in_tx<F>(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        input: AssetLibraryCreate<'_>,
+        limits: AssetLibraryLimits,
+        seal: F,
+    ) -> Result<AssetLibraryAsset, StoreError>
+    where
+        F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
+    {
+        let prepared = Self::prepare_workspace_asset_create(scope, &input, limits, seal)?;
+        Self::insert_prepared_workspace_asset_in_tx(tx, scope, &input, limits, prepared).await
+    }
+
+    pub(crate) async fn insert_prepared_workspace_asset_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        input: &AssetLibraryCreate<'_>,
+        limits: AssetLibraryLimits,
+        prepared: PreparedWorkspaceAssetCreate,
+    ) -> Result<AssetLibraryAsset, StoreError> {
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu:workspace-asset-library:'||$1::text||':'||$2::text,0))")
             .bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         let present: Option<Uuid> = sqlx::query_scalar(
@@ -200,28 +237,32 @@ impl Store {
         {
             return Err(StoreError::AssetLibraryCapacityExceeded);
         }
-        let ciphertext = seal(&aad, input.bytes)?;
-        if ciphertext.len() < input.bytes.len() + 28 || ciphertext.len() > input.bytes.len() + 128 {
-            return Err(StoreError::InvalidObservation);
-        }
-        let inserted=sqlx::query("INSERT INTO workspace_asset_library(id,organization_id,project_id,name,media_kind,content_type,content_sha256,byte_length) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING")
-            .bind(input.id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(input.kind.as_str()).bind(input.content_type).bind(digest).bind(input.bytes.len() as i64).execute(&mut **tx).await?.rows_affected();
-        if inserted != 1 {
-            return Err(StoreError::Conflict);
-        }
+        let insert_sql = format!(
+            "INSERT INTO workspace_asset_library(id,organization_id,project_id,name,media_kind,content_type,content_sha256,byte_length) \
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING RETURNING {COLUMNS}"
+        );
+        let row = sqlx::query_as::<_, AssetRow>(&insert_sql)
+            .bind(input.id)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(&prepared.name)
+            .bind(input.kind.as_str())
+            .bind(input.content_type)
+            .bind(&prepared.digest)
+            .bind(input.bytes.len() as i64)
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
         sqlx::query(
             "INSERT INTO workspace_asset_library_content(asset_id,ciphertext) VALUES($1,$2)",
         )
         .bind(input.id)
-        .bind(ciphertext)
+        .bind(prepared.ciphertext)
         .execute(&mut **tx)
         .await?;
         sqlx::query("INSERT INTO workspace_asset_library_events(asset_id,revision,actor,operation,name) VALUES($1,1,$2,'created',$3)")
-            .bind(input.id).bind(input.actor).bind(name).execute(&mut **tx).await?;
-        let asset = Self::workspace_asset_using(tx, scope, input.id)
-            .await?
-            .ok_or(StoreError::Conflict)?;
-        Ok(asset)
+            .bind(input.id).bind(input.actor).bind(&prepared.name).execute(&mut **tx).await?;
+        row.into_asset()
     }
 
     /// Cursor lookup is scoped and kind-filtered before use. Rename cannot move
