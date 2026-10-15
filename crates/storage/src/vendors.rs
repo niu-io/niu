@@ -164,6 +164,7 @@ pub struct SharedVendorRoute {
     pub route: VendorRoute,
     pub supplier_available: bool,
     pub uses_media_offer: bool,
+    pub cooling_down: bool,
 }
 
 #[derive(FromRow)]
@@ -172,6 +173,7 @@ struct SharedVendorRouteRow {
     route: VendorRouteRow,
     supplier_available: bool,
     uses_media_offer: bool,
+    cooling_down: bool,
 }
 
 #[derive(FromRow)]
@@ -712,7 +714,8 @@ impl Store {
         let query = format!(
             "SELECT route.*,niu_supplier_model_route_available(route.alias) AS supplier_available, \
              EXISTS(SELECT 1 FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision \
-             WHERE o.model_alias=route.alias AND r.rate_kind='media') AS uses_media_offer \
+             WHERE o.model_alias=route.alias AND r.rate_kind='media') AS uses_media_offer, \
+             EXISTS(SELECT 1 FROM vendor_cooldowns c WHERE c.vendor_id=route.vendor_id AND c.cooldown_until>statement_timestamp()) AS cooling_down \
              FROM ({}) route",
             route_query("WHERE m.alias=$1")
         );
@@ -724,6 +727,7 @@ impl Store {
                 route: row.route.into_route(),
                 supplier_available: row.supplier_available,
                 uses_media_offer: row.uses_media_offer,
+                cooling_down: row.cooling_down,
             }))
     }
 

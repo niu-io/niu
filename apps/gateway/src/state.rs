@@ -17,6 +17,7 @@ use crate::{config::AppConfig, error::ApiError};
 pub struct AppState {
     pub(crate) route_registry:
         Arc<tokio::sync::RwLock<Option<Arc<crate::vendors::publication::Published>>>>,
+    pub(crate) route_registry_reload: Arc<tokio::sync::Mutex<()>>,
     pub(crate) trusted_proxies: Arc<Vec<ipnet::IpNet>>,
     pub(crate) password_auth: Option<Arc<crate::admin::passwords::Runtime>>,
     pub(crate) payments: Option<Arc<crate::payments::Runtime>>,
@@ -203,6 +204,7 @@ impl AppState {
             .collect();
         Self {
             route_registry: Arc::new(tokio::sync::RwLock::new(None)),
+            route_registry_reload: Arc::new(tokio::sync::Mutex::new(())),
             trusted_proxies: Arc::new(Vec::new()),
             image_detectors: Arc::new(image_detectors),
             media_detectors: Arc::new(media_detectors),

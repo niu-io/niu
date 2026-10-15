@@ -433,7 +433,13 @@ pub(crate) async fn resolve_model(
         if !route.vendor.enabled || !route.model.enabled {
             return Err(ApiError::not_found());
         }
-        require_selectable_credential(state, route.vendor.id).await?;
+        if selection.cooling_down {
+            tracing::debug!(
+                reason = "upstream_credential_cooldown",
+                "Credential unavailable for new selection"
+            );
+            return Err(ApiError::credential_cooldown());
+        }
         reject_video_text_route(&route)?;
         let cipher = state
             .vendor_cipher
@@ -591,7 +597,13 @@ async fn resolve_published(
             "This model uses a media offer. Use the qualified video job API.",
         ));
     }
-    require_selectable_credential(state, metadata.vendor.id).await?;
+    if live.cooling_down {
+        tracing::debug!(
+            reason = "upstream_credential_cooldown",
+            "Credential unavailable for new selection"
+        );
+        return Err(ApiError::credential_cooldown());
+    }
     reject_video_text_route(&route)?;
     let api_key = state
         .vendor_cipher

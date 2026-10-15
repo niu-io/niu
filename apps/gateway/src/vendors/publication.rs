@@ -147,6 +147,12 @@ pub(crate) async fn snapshot(
     {
         return Ok(Some(cached.clone()));
     }
+    let _reload_guard = state.route_registry_reload.lock().await;
+    if let Some(cached) = state.route_registry.read().await.as_ref()
+        && cached.generation >= generation
+    {
+        return Ok(Some(cached.clone()));
+    }
     let publication = state
         .store
         .route_registry_publication(generation)
