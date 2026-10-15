@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-15
+
+### Added
+
+- Run live streaming Chat examples from documentation with a signed-in workspace key, without revealing the key secret.
+- Connect Scalar inference requests to the same-origin browser session and selected workspace key.
+- Display supported model parameters in model discovery and management.
+
+### Fixed
+
+- Align JavaScript generation diagnostics with the API's nested usage fields.
+- Return browser sign-in to public documentation and website pages, preserving query parameters.
+- Serve Admin deep links and sort active API keys consistently.
+
+### Verification boundary
+
+- Live documentation requests were verified against OpenRouter with independently inspected saved attempts and customer ledger fingerprints. This does not qualify every model, protocol or commercial billing path.
+
 ## [0.2.2] - 2026-10-15
 
 ### Added
