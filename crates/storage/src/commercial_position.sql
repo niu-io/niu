@@ -19,10 +19,6 @@ WITH raw_bounds AS MATERIALIZED (
         OR EXISTS(SELECT 1 FROM customer_media_charges WHERE currency=$1)
         OR EXISTS(SELECT 1 FROM customer_balance_accounts WHERE currency=$1)
         OR EXISTS(SELECT 1 FROM supplier_media_rate_cards WHERE document->'tariff'->>'currency'=$1) AS known
-), covered_accounts AS MATERIALIZED (
-    SELECT a.id AS account_id, niu_customer_credit_account_covered(a.id) AS covered
-    FROM customer_balance_accounts a
-    WHERE a.currency=$1
 ), mappings AS (
     SELECT own.provider_id, m.alias AS model_alias, m.alias AS route_alias,
            m.vendor_id, m.enabled AND v.enabled AS route_enabled
@@ -39,31 +35,27 @@ WITH raw_bounds AS MATERIALIZED (
     JOIN vendors v ON v.id=m.vendor_id
     JOIN vendor_supplier_ownership own ON own.vendor_id=v.id
     WHERE NOT EXISTS (SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=v.id)
-), traffic AS MATERIALIZED (
+), raw_traffic AS MATERIALIZED (
     SELECT a.id, b.provider_id, a.resource_id AS model_alias,
            a.execution, a.usage_confidence, c.amount_nanos AS charge,
            e.amount_nanos AS earning, cost.cash_nanos AS cost,
-           (c.amount_nanos=0 OR allocation.source_coverage='known')
-               AND refunds.covered AS revenue_covered,
-           (c.amount_nanos=0 OR (credit.source_coverage='known'
-               AND COALESCE(account_cov.covered, false)))
-               AND refunds.cash_covered AS cash_covered,
-           CASE WHEN c.amount_nanos=0 THEN 0 ELSE credit.cash_nanos::numeric
-               + repayments.amount - refunds.cash END AS cash_applied,
-           CASE
-               WHEN c.amount_nanos=0 THEN 0
-               WHEN credit.source_coverage='known' THEN
-                   credit.credit_nanos::numeric
-                   - COALESCE((SELECT sum(r.credit_nanos::numeric) FROM customer_credit_sources r
-                       WHERE r.kind='refund' AND r.source_charge_entry_id=credit.entry_id), 0)
-                   - repayments.amount
-                   - late_gifts.amount
-           END AS outstanding_credit,
-           refunds.nominal AS refunded,
-           CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.nongift_nanos END::numeric
-               - refunds.nongift - late_gifts.amount AS net_revenue,
-           CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.gift_nanos END::numeric
-               - refunds.gift + late_gifts.amount AS gift_allowance,
+           debit.id AS debit_id, debit.account_id AS debit_account_id,
+           allocation.source_coverage AS allocation_source_coverage,
+           allocation.nongift_nanos AS allocation_nongift_nanos,
+           allocation.gift_nanos AS allocation_gift_nanos,
+           credit.entry_id AS credit_entry_id,
+           credit.source_coverage AS credit_source_coverage,
+           credit.cash_nanos AS credit_cash_nanos,
+           credit.credit_nanos AS credit_credit_nanos,
+           repayments.amount AS repayments_amount,
+           refunds.cash_covered AS refunds_cash_covered,
+           refunds.cash AS refunds_cash,
+           refunds.credit AS refunds_credit,
+           refunds.covered AS refunds_covered,
+           refunds.nominal AS refunds_nominal,
+           refunds.nongift AS refunds_nongift,
+           refunds.gift AS refunds_gift,
+           late_gifts.amount AS late_gifts_amount,
            settled.attempt_id IS NOT NULL AS supplier_settled
     FROM provider_attempt_offers b
     JOIN attempts a ON a.id=b.attempt_id
@@ -71,16 +63,16 @@ WITH raw_bounds AS MATERIALIZED (
     JOIN provider_offer_revisions rate ON rate.id=b.revision_id
     LEFT JOIN supplier_media_attempt_pricing media ON media.attempt_id=a.id
     CROSS JOIN bounds
-    LEFT JOIN (
-        SELECT attempt_id,currency,amount_nanos FROM customer_charges
+    LEFT JOIN LATERAL (
+        SELECT amount_nanos, attempt_id FROM customer_charges WHERE attempt_id=a.id AND currency=$1
         UNION ALL
-        SELECT attempt_id,currency,amount_nanos FROM customer_media_charges
-    ) c ON c.attempt_id=a.id AND c.currency=$1
+        SELECT amount_nanos, attempt_id FROM customer_media_charges WHERE attempt_id=a.id AND currency=$1
+        LIMIT 1
+    ) c ON true
     LEFT JOIN customer_balance_entries debit ON debit.attempt_id=a.id
         AND debit.organization_id=a.organization_id AND debit.project_id=a.project_id
         AND debit.currency=$1 AND debit.kind='charge'
         AND debit.amount_nanos::numeric=-c.amount_nanos::numeric
-    LEFT JOIN covered_accounts account_cov ON account_cov.account_id=debit.account_id
     LEFT JOIN customer_balance_consumption_allocations allocation ON allocation.entry_id=debit.id
     LEFT JOIN customer_credit_sources credit ON credit.entry_id=debit.id AND credit.kind='charge'
     LEFT JOIN LATERAL (
@@ -90,6 +82,7 @@ WITH raw_bounds AS MATERIALIZED (
     LEFT JOIN LATERAL (
         SELECT COALESCE(bool_and(COALESCE(source.source_coverage='known',false)),true) AS cash_covered,
                COALESCE(sum(source.cash_nanos::numeric),0) AS cash,
+               COALESCE(sum(source.credit_nanos::numeric),0) AS credit,
                COALESCE(bool_and(COALESCE(refund_allocation.source_coverage='known',false)),true) AS covered,
                COALESCE(sum(refund.amount_nanos::numeric),0) AS nominal,
                COALESCE(sum(refund_allocation.nongift_nanos::numeric),0) AS nongift,
@@ -113,6 +106,36 @@ WITH raw_bounds AS MATERIALIZED (
       AND NOT EXISTS (SELECT 1 FROM operation_funding_sources funding WHERE funding.operation_id=a.operation_id AND funding.funding_source='personal')
       AND a.dispatched_at>=bounds.since AND a.dispatched_at<bounds.until
       AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=o.vendor_id)
+), covered_accounts AS MATERIALIZED (
+    SELECT active.account_id, niu_customer_credit_account_covered(active.account_id) AS covered
+    FROM (SELECT DISTINCT debit_account_id AS account_id FROM raw_traffic WHERE debit_account_id IS NOT NULL) active
+), traffic AS MATERIALIZED (
+    SELECT r.id, r.provider_id, r.model_alias,
+           r.execution, r.usage_confidence, r.charge,
+           r.earning, r.cost,
+           (r.charge=0 OR r.allocation_source_coverage='known')
+               AND r.refunds_covered AS revenue_covered,
+           (r.charge=0 OR (r.credit_source_coverage='known'
+               AND COALESCE(account_cov.covered, false)))
+               AND r.refunds_cash_covered AS cash_covered,
+           CASE WHEN r.charge=0 THEN 0 ELSE r.credit_cash_nanos::numeric
+               + r.repayments_amount - r.refunds_cash END AS cash_applied,
+           CASE
+               WHEN r.charge=0 THEN 0
+               WHEN r.credit_source_coverage='known' THEN
+                   r.credit_credit_nanos::numeric
+                   - r.refunds_credit
+                   - r.repayments_amount
+                   - r.late_gifts_amount
+           END AS outstanding_credit,
+           r.refunds_nominal AS refunded,
+           CASE WHEN r.charge=0 THEN 0 ELSE r.allocation_nongift_nanos END::numeric
+               - r.refunds_nongift - r.late_gifts_amount AS net_revenue,
+           CASE WHEN r.charge=0 THEN 0 ELSE r.allocation_gift_nanos END::numeric
+               - r.refunds_gift + r.late_gifts_amount AS gift_allowance,
+           r.supplier_settled
+    FROM raw_traffic r
+    LEFT JOIN covered_accounts account_cov ON account_cov.account_id=r.debit_account_id
 ), inventory AS (
     SELECT provider_id,model_alias FROM mappings
     UNION SELECT provider_id,model_alias FROM traffic
