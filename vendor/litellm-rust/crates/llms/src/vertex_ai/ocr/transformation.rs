@@ -152,6 +152,8 @@ impl VertexAiOcrConfig {
         model: &str,
     ) -> Result<String, Error> {
         validate_location(location)?;
+        validate_path_segment(project, "vertex_project")?;
+        validate_path_segment(model, "model")?;
         let default_base = format!("https://{location}-aiplatform.googleapis.com");
         let base = api_base
             .map(str::trim)
@@ -179,7 +181,7 @@ impl VertexAiOcrConfig {
     }
 }
 
-fn validate_location(location: &str) -> Result<(), Error> {
+pub(super) fn validate_location(location: &str) -> Result<(), Error> {
     let valid = !location.is_empty()
         && location
             .bytes()
@@ -198,6 +200,20 @@ fn validate_location(location: &str) -> Result<(), Error> {
     Err(Error::RequestField {
         path: "vertex_location".into(),
     })
+}
+
+pub(super) fn validate_path_segment(value: &str, field: &'static str) -> Result<(), Error> {
+    if value.is_empty()
+        || matches!(value, "." | "..")
+        || value
+            .bytes()
+            .any(|b| b.is_ascii_control() || matches!(b, b'/' | b'\\' | b'?' | b'#'))
+    {
+        return Err(Error::RequestField {
+            path: field.into(),
+        });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

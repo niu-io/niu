@@ -27,6 +27,15 @@ impl ApiUrl<Base> {
     }
 
     pub fn complete_path(mut self, target: &[&str]) -> Result<ApiUrl<Complete>, ApiUrlError> {
+        if target.iter().any(|segment| {
+            segment.is_empty()
+                || matches!(*segment, "." | "..")
+                || segment.contains('/')
+                || segment.contains('\\')
+                || segment.bytes().any(|b| b.is_ascii_control())
+        }) {
+            return Err(ApiUrlError::CannotBeBase);
+        }
         let existing: Vec<String> = self
             .url
             .path_segments()

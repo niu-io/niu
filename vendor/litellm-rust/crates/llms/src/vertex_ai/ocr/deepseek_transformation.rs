@@ -375,11 +375,7 @@ fn response_field(field: &str) -> Error {
 
 pub fn provider_model(model: &str) -> Result<String, Error> {
     let local_model = model.trim_start_matches(MODEL_PREFIX);
-    if local_model.is_empty() {
-        return Err(Error::RequestField {
-            path: "model".into(),
-        });
-    }
+    super::transformation::validate_path_segment(local_model, "model")?;
     Ok(format!("{MODEL_PREFIX}{local_model}"))
 }
 
@@ -390,6 +386,8 @@ impl VertexAIDeepSeekOCRConfig {
         project: &str,
         location: &str,
     ) -> Result<String, Error> {
+        super::transformation::validate_location(location)?;
+        super::transformation::validate_path_segment(project, "vertex_project")?;
         let base = api_base
             .map(str::trim)
             .filter(|base| !base.is_empty())
