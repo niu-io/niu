@@ -182,6 +182,41 @@ pub(super) async fn inspect_request_input_for_provider(
     .await
 }
 
+fn parse_cached_policy_draft(
+    cache_key: Option<(uuid::Uuid, i64, i64)>,
+    stored: &Value,
+) -> Result<std::sync::Arc<crate::guardrails::PolicyDraft>, ()> {
+    use serde::Deserialize;
+    static PARSED_POLICY_DRAFT_CACHE: std::sync::LazyLock<
+        std::sync::Mutex<
+            std::collections::HashMap<
+                (uuid::Uuid, i64, i64),
+                std::sync::Arc<crate::guardrails::PolicyDraft>,
+            >,
+        >,
+    > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    if let Some(key) = cache_key
+        && let Ok(cache) = PARSED_POLICY_DRAFT_CACHE.lock()
+        && let Some(cached) = cache.get(&key)
+    {
+        return Ok(cached.clone());
+    }
+    let parsed = std::sync::Arc::new(
+        crate::guardrails::PolicyDraft::deserialize(stored).map_err(|_| ())?,
+    );
+    if let Some(key) = cache_key
+        && let Ok(mut cache) = PARSED_POLICY_DRAFT_CACHE.lock()
+    {
+        if cache.len() >= 512
+            && let Some(evict_key) = cache.keys().next().copied()
+        {
+            cache.remove(&evict_key);
+        }
+        cache.insert(key, parsed.clone());
+    }
+    Ok(parsed)
+}
+
 /// Only the video admission pipeline may retain image requirements while it
 /// inspects a text projection. Images still require separate runtime approvals.
 pub(super) async fn inspect_request_input_with_image_requirements(
@@ -206,11 +241,25 @@ pub(super) async fn inspect_request_input_with_image_requirements(
     let mut rules = Vec::new();
     let mut detectors = Vec::new();
     let mut output_rule_count = 0usize;
-    for stored in [&snapshot.workspace_policy, &snapshot.key_policy]
-        .into_iter()
-        .flatten()
-    {
-        let policy = serde_json::from_value::<crate::guardrails::PolicyDraft>(stored.clone());
+    for (cache_key, stored) in [
+        (
+            snapshot
+                .workspace_revision
+                .map(|rev| (scope.project_id, 0_i64, rev)),
+            &snapshot.workspace_policy,
+        ),
+        (
+            snapshot
+                .key_assignment_revision
+                .zip(snapshot.key_policy_revision)
+                .map(|(assign, rev)| (principal.key_id(), assign, rev)),
+            &snapshot.key_policy,
+        ),
+    ] {
+        let Some(stored) = stored.as_ref() else {
+            continue;
+        };
+        let policy = parse_cached_policy_draft(cache_key, stored);
         let reason = match policy {
             Ok(policy)
                 if policy.validate_shape().is_ok()
@@ -219,17 +268,17 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                     && !(matches!(protocol, crate::guardrails::input::Protocol::VideoText)
                         && (!policy.input_detectors.is_empty() || policy.output.is_some())) =>
             {
-                rules.extend(policy.input_rules);
-                detectors.extend(policy.input_detectors);
+                rules.extend(policy.input_rules.iter().cloned());
+                detectors.extend(policy.input_detectors.iter().cloned());
                 output_rule_count += policy
                     .output
                     .as_ref()
                     .map_or(0, |output| output.rules.len());
-                if !crate::guardrails::EffectiveAccess::compose([policy.models])
+                if !crate::guardrails::EffectiveAccess::compose([policy.models.clone()])
                     .permits(public_model)
                 {
                     Some("model_denied")
-                } else if !crate::guardrails::EffectiveAccess::compose([policy.providers])
+                } else if !crate::guardrails::EffectiveAccess::compose([policy.providers.clone()])
                     .permits(provider)
                 {
                     Some("provider_denied")
@@ -495,17 +544,32 @@ pub(super) async fn begin_retry_attempt(
         .then(|| request_body.clone());
     let mut output_rules = Vec::new();
     let mut output_observe_rules = Vec::new();
-    for policy in [&snapshot.workspace_policy, &snapshot.key_policy]
-        .into_iter()
-        .flatten()
-    {
-        let policy: crate::guardrails::PolicyDraft =
-            serde_json::from_value(policy.clone()).map_err(|_| ApiError::forbidden())?;
-        if let Some(output) = policy.output {
+    for (cache_key, policy) in [
+        (
+            snapshot
+                .workspace_revision
+                .map(|rev| (principal.scope().project_id, 0_i64, rev)),
+            &snapshot.workspace_policy,
+        ),
+        (
+            snapshot
+                .key_assignment_revision
+                .zip(snapshot.key_policy_revision)
+                .map(|(assign, rev)| (principal.key_id(), assign, rev)),
+            &snapshot.key_policy,
+        ),
+    ] {
+        let Some(policy) = policy.as_ref() else {
+            continue;
+        };
+        let policy = parse_cached_policy_draft(cache_key, policy).map_err(|_| ApiError::forbidden())?;
+        if let Some(output) = &policy.output {
             match output.mode {
-                crate::guardrails::OutputMode::BufferedFull => output_rules.extend(output.rules),
+                crate::guardrails::OutputMode::BufferedFull => {
+                    output_rules.extend(output.rules.iter().cloned())
+                }
                 crate::guardrails::OutputMode::ObserveOnly => {
-                    output_observe_rules.extend(output.rules)
+                    output_observe_rules.extend(output.rules.iter().cloned())
                 }
             }
         }

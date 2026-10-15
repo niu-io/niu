@@ -97,13 +97,10 @@ impl CompiledInputPolicy {
         }
         let rules = configs
             .iter()
-            .map(|config| {
-                let pattern = match (&config.pattern, config.preset) {
-                    (Some(pattern), None) => pattern.as_str(),
-                    (None, Some(preset)) => preset.pattern(),
-                    _ => return Err(InspectionError::InvalidPattern),
-                };
-                TextRule::compile(pattern, config.action)
+            .map(|config| match (&config.pattern, config.preset) {
+                (Some(pattern), None) => TextRule::compile(pattern.as_str(), config.action),
+                (None, Some(preset)) => Ok(TextRule::from_preset(preset, config.action)),
+                _ => Err(InspectionError::InvalidPattern),
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self { rules })
@@ -515,12 +512,62 @@ impl Preset {
             }
         }
     }
+
+    pub fn regex(self) -> &'static Regex {
+        static NIU_API_KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            RegexBuilder::new(Preset::NiuApiKeyV1.pattern())
+                .size_limit(256 * 1024)
+                .dfa_size_limit(256 * 1024)
+                .nest_limit(64)
+                .build()
+                .expect("valid preset regex")
+        });
+        static EMAIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            RegexBuilder::new(Preset::EmailV1.pattern())
+                .size_limit(256 * 1024)
+                .dfa_size_limit(256 * 1024)
+                .nest_limit(64)
+                .build()
+                .expect("valid preset regex")
+        });
+        static API_KEY_PREFIX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            RegexBuilder::new(Preset::ApiKeyPrefixV1.pattern())
+                .size_limit(256 * 1024)
+                .dfa_size_limit(256 * 1024)
+                .nest_limit(64)
+                .build()
+                .expect("valid preset regex")
+        });
+        match self {
+            Self::NiuApiKeyV1 => &NIU_API_KEY,
+            Self::EmailV1 => &EMAIL,
+            Self::ApiKeyPrefixV1 => &API_KEY_PREFIX,
+        }
+    }
 }
 
 impl TextRule {
+    pub fn from_preset(preset: Preset, action: Action) -> Self {
+        Self {
+            expression: preset.regex().clone(),
+            action,
+        }
+    }
+
     pub fn compile(pattern: &str, action: Action) -> Result<Self, InspectionError> {
         if pattern.is_empty() || pattern.len() > 4096 {
             return Err(InspectionError::ResourceLimit);
+        }
+        static COMPILED_REGEX_CACHE: std::sync::LazyLock<
+            std::sync::Mutex<std::collections::HashMap<String, Regex>>,
+        > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+        if let Ok(cache) = COMPILED_REGEX_CACHE.lock()
+            && let Some(expression) = cache.get(pattern)
+        {
+            return Ok(Self {
+                expression: expression.clone(),
+                action,
+            });
         }
         let expression = RegexBuilder::new(pattern)
             .size_limit(256 * 1024)
@@ -528,6 +575,14 @@ impl TextRule {
             .nest_limit(64)
             .build()
             .map_err(|_| InspectionError::InvalidPattern)?;
+        if let Ok(mut cache) = COMPILED_REGEX_CACHE.lock() {
+            if cache.len() >= 512
+                && let Some(evict_key) = cache.keys().next().cloned()
+            {
+                cache.remove(&evict_key);
+            }
+            cache.insert(pattern.to_owned(), expression.clone());
+        }
         Ok(Self { expression, action })
     }
 }
