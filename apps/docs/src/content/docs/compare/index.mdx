@@ -31,6 +31,10 @@ Compare two self-hosted gateways: upstream configuration, workspace access, requ
 
 Compare running your gateway with using hosted model access. They can also work together: Niu can connect to OpenRouter as an upstream Provider.
 
+### [Performance benchmark: Niu vs New API vs LiteLLM](/docs/guides/gateway-benchmarks/)
+
+Review head-to-head throughput (`3,238.7 RPS`), tail latency (`31.54 ms` p99), SSE streaming (`235.9 streams/s`), multi-turn coding agent sessions, and memory footprint (`18.2 MB` idle RSS) measured with the `ai-gateway-bench` harness.
+
 ## Which approach fits?
 
 Choose **OpenRouter** if you want hosted catalog access without operating a gateway. Evaluate **New API** if its documented upstream integrations and instance-management workflows match your requirements. Evaluate **Niu** if you want to operate its workspace, Provider, and request-accounting workflows and its current supported scope meets your needs.

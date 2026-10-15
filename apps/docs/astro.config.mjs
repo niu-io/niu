@@ -57,6 +57,7 @@ export default defineConfig({
         { label: 'Operate Niu', items: [
           { label: 'Deployment', slug: 'deployment/single-container' },
           { label: 'Security & access', slug: 'security/overview' },
+          { label: 'Performance benchmark', slug: 'guides/gateway-benchmarks' },
           { label: 'Load testing', slug: 'guides/gateway-load-testing' },
           { label: 'Local development', slug: 'guides/local-development' },
         ] },
