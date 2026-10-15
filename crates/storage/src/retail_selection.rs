@@ -56,6 +56,7 @@ impl Store {
         tx: &mut Transaction<'_, Postgres>,
         heads: &[Uuid],
         customer: Uuid,
+        at: i64,
     ) -> Result<std::collections::HashMap<Uuid, RetailSelection>, StoreError> {
         if heads.is_empty() {
             return Ok(std::collections::HashMap::new());
@@ -64,7 +65,7 @@ impl Store {
         unique_heads.sort_unstable();
         unique_heads.dedup();
         let price_rows: Vec<BatchHead> = sqlx::query_as(
-            "SELECT h.id,h.model_alias,h.currency,h.version,h.current_revision,s.schedule FROM platform_retail_price_heads h JOIN platform_retail_standard_revisions s ON s.id=h.current_revision WHERE h.id=ANY($1::uuid[]) ORDER BY h.id FOR SHARE OF h",
+            "SELECT h.id,h.model_alias,h.currency,h.version,h.current_revision,s.schedule FROM platform_retail_price_heads h JOIN platform_retail_standard_revisions s ON s.id=h.current_revision WHERE h.id=ANY($1::uuid[]) ORDER BY h.id",
         )
         .bind(&unique_heads)
         .fetch_all(&mut **tx)
@@ -72,10 +73,6 @@ impl Store {
         if price_rows.len() != unique_heads.len() {
             return Err(StoreError::Conflict);
         }
-        let at: i64 =
-            sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
-                .fetch_one(&mut **tx)
-                .await?;
         let promo_rows: Vec<BatchPromotion> = sqlx::query_as(
             "SELECT p.head_id,p.id,p.baseline_revision,p.customer_organization_id,p.schedule FROM platform_retail_promotions p LEFT JOIN platform_retail_promotion_retirements r ON r.promotion_id=p.id WHERE p.head_id=ANY($1::uuid[]) AND (p.customer_organization_id IS NULL OR p.customer_organization_id=$2) AND p.effective_from<=$3 AND LEAST(p.effective_until,COALESCE(r.effective_until,p.effective_until))>$3 ORDER BY p.head_id,(p.customer_organization_id IS NOT NULL) DESC",
         )

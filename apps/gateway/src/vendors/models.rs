@@ -378,6 +378,32 @@ pub(crate) async fn scoped_managed_catalog(
     state: &AppState,
     organization_id: uuid::Uuid,
 ) -> Result<Vec<niu_storage::VendorCatalogRoute>, ApiError> {
+    if let Some(published) = super::publication::snapshot(state).await? {
+        let (unavailable, cooling_down) = state
+            .store
+            .route_registry_live_eligibility()
+            .await
+            .map_err(ApiError::from_store)?;
+        let visible = super::catalog_compiler::compile_published_catalog(
+            &published.registry,
+            &unavailable,
+            &cooling_down,
+            Some(organization_id),
+        )?;
+        return Ok(published
+            .registry
+            .routes
+            .values()
+            .filter(|compiled| {
+                visible.contains_key(&compiled.metadata.model.alias)
+                    && compiled
+                        .metadata
+                        .personal_organization_id
+                        .is_none_or(|owner| owner == organization_id)
+            })
+            .map(|compiled| compiled.metadata.clone())
+            .collect());
+    }
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
     let visible =
         super::catalog_compiler::compile_catalog(&static_models, &inputs, Some(organization_id))?;
@@ -400,6 +426,19 @@ async fn catalog_models(
     state: &AppState,
     organization_id: Option<uuid::Uuid>,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
+    if let Some(published) = super::publication::snapshot(state).await? {
+        let (unavailable, cooling_down) = state
+            .store
+            .route_registry_live_eligibility()
+            .await
+            .map_err(ApiError::from_store)?;
+        return super::catalog_compiler::compile_published_catalog(
+            &published.registry,
+            &unavailable,
+            &cooling_down,
+            organization_id,
+        );
+    }
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
     super::catalog_compiler::compile_catalog(&static_models, &inputs, organization_id)
 }

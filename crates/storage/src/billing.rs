@@ -563,13 +563,18 @@ SELECT jsonb_build_object(
         &self,
         scope: TenantScope,
     ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
-        let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE")
-            .bind(scope.organization_id)
-            .bind(scope.project_id)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(StoreError::Conflict)?;
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let (exists, at): (bool, i64) = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM projects WHERE organization_id=$1 AND id=$2), \
+                    floor(extract(epoch FROM clock_timestamp()))::bigint",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !exists {
+            return Err(StoreError::Conflict);
+        }
         let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text,'pricing_source','workspace') FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND NOT EXISTS(SELECT 1 FROM retail_text_enrollments enrollment WHERE enrollment.organization_id=t.organization_id AND enrollment.project_id=t.project_id AND enrollment.model_alias=t.model_alias AND enrollment.price_id IS NOT NULL) ORDER BY t.model_alias")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
         let mut prices: std::collections::BTreeMap<String, Value> = rows.into_iter().collect();
@@ -578,7 +583,8 @@ SELECT jsonb_build_object(
         if !enrollments.is_empty() {
             let head_ids: Vec<Uuid> = enrollments.iter().map(|(_, head)| *head).collect();
             let selected_by_head =
-                Self::select_retail_prices_in_tx(&mut tx, &head_ids, scope.organization_id).await?;
+                Self::select_retail_prices_in_tx(&mut tx, &head_ids, scope.organization_id, at)
+                    .await?;
             for (alias, head) in enrollments {
                 let selected = selected_by_head.get(&head).ok_or(StoreError::Conflict)?;
                 let crate::RetailSchedule::Text(schedule) = &selected.schedule else {
