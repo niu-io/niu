@@ -212,7 +212,7 @@ export type ContextPriceTier = {
   cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null; reasoning_completion_rate?: string | null;
 };
 export type CustomerTariffInput = SupplierRateInput & { discount_baseline_revision?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string };
-export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
+export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string; pricing_source?: 'workspace' | 'platform'; promotion_scope?: 'global' | 'customer' | null; selected_at?: string };
 export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; is_current: boolean };
 export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */

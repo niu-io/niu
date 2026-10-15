@@ -570,14 +570,28 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        let prices = Self::customer_model_prices_in_tx(&mut tx, scope, true).await?;
+        tx.commit().await?;
+        Ok(prices)
+    }
+
+    /// Shared own-customer selling projection, never Supplier purchase rates.
+    async fn customer_model_prices_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        lock_heads: bool,
+    ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
         let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text,'pricing_source','workspace') FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND NOT EXISTS(SELECT 1 FROM retail_text_enrollments enrollment WHERE enrollment.organization_id=t.organization_id AND enrollment.project_id=t.project_id AND enrollment.model_alias=t.model_alias AND enrollment.price_id IS NOT NULL) ORDER BY t.model_alias")
-            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut **tx).await?;
         let mut prices: std::collections::BTreeMap<String, Value> = rows.into_iter().collect();
         let enrollments:Vec<(String,Uuid)>=sqlx::query_as("SELECT model_alias,price_id FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND price_id IS NOT NULL ORDER BY price_id")
-            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut **tx).await?;
         for (alias, head) in enrollments {
-            let selected =
-                Self::select_retail_price_in_tx(&mut tx, head, scope.organization_id).await?;
+            let selected = if lock_heads {
+                Self::select_retail_price_in_tx(tx, head, scope.organization_id).await?
+            } else {
+                Self::select_retail_price_snapshot_in_tx(tx, head, scope.organization_id).await?
+            };
             let crate::RetailSchedule::Text(schedule) = &selected.schedule else {
                 return Err(StoreError::InvalidPrice);
             };
@@ -603,7 +617,6 @@ SELECT jsonb_build_object(
             price["price_version"] = json!(selected.version);
             prices.insert(alias, price);
         }
-        tx.commit().await?;
         Ok(prices)
     }
 
@@ -1139,7 +1152,38 @@ SELECT jsonb_build_object(
                 .bind(scope.project_id)
                 .fetch_one(&mut *tx)
                 .await?;
-        let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+        let prices = Self::customer_model_prices_in_tx(&mut tx, scope, false).await?;
+        let tariffs: Vec<Value> = prices
+            .into_iter()
+            .map(|(alias, mut price)| {
+                price["model_alias"] = json!(alias);
+                // The billing boundary exposes selling terms/applied scope only,
+                // not registry management references or another customer's rules.
+                if let Some(fields) = price.as_object_mut() {
+                    fields.retain(|key, _| {
+                        matches!(
+                            key.as_str(),
+                            "model_alias"
+                                | "revision"
+                                | "discount_baseline_revision"
+                                | "currency"
+                                | "prompt_rate"
+                                | "completion_rate"
+                                | "cached_prompt_rate"
+                                | "cache_write_prompt_rate"
+                                | "reasoning_completion_rate"
+                                | "context_tiers"
+                                | "request_fee_nanos"
+                                | "minimum_charge_nanos"
+                                | "pricing_source"
+                                | "promotion_scope"
+                                | "selected_at"
+                        )
+                    });
+                }
+                price
+            })
+            .collect();
 
         tx.commit().await?;
         Ok(

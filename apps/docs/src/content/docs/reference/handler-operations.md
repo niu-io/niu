@@ -12587,7 +12587,7 @@ HTTP 503: Storage or credential decryption unavailable.
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/billing`
 
-Requires workspace read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
+Requires own workspace read access. Balances cover the full ledger per currency. Tariffs are the advisory applicable customer selling terms: enrolled aliases select the platform standard or the requesting company's applicable customer/global promotion; other aliases retain workspace tariffs. This shares catalog selection and preserves its categories/context tiers/fixed fees. One read-only repeatable-read snapshot uses transaction-time advisory selection; admission must independently select and pin under its locks. Existing requests retain their saved prices. Monetary amounts/counts are exact integer strings. No Supplier costs, procurement, other-customer promotion records or registry-management references. Cache-Control no-store.
 
 Implementation: `implemented`. Operation: `getCustomerBilling`.
 
@@ -12833,6 +12833,29 @@ Content type: `application/json`.
                 ],
                 "format": "uuid",
                 "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+              },
+              "pricing_source": {
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "platform"
+                ]
+              },
+              "promotion_scope": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "global",
+                  "customer",
+                  null
+                ],
+                "description": "Own applicable platform promotion scope; null means standard, absent for workspace pricing."
+              },
+              "selected_at": {
+                "type": "string",
+                "description": "Advisory selection UTC epoch seconds for an enrolled platform price."
               }
             }
           }

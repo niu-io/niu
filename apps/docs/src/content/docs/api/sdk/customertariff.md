@@ -11,5 +11,8 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & {
     revision: string;
+    pricing_source?: 'workspace' | 'platform';
+    promotion_scope?: 'global' | 'customer' | null;
+    selected_at?: string;
 };
 ```

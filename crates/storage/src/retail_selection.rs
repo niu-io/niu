@@ -49,8 +49,39 @@ impl Store {
         customer: Uuid,
         at: Option<i64>,
     ) -> Result<RetailSelection, StoreError> {
-        let price:Head=sqlx::query_as("SELECT h.model_alias,h.currency,h.version,h.current_revision,s.schedule FROM platform_retail_price_heads h JOIN platform_retail_standard_revisions s ON s.id=h.current_revision WHERE h.id=$1 FOR SHARE OF h")
-            .bind(head).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+        Self::select_retail_price_with_mode_in_tx(tx, head, customer, at, true).await
+    }
+
+    /// Advisory prices inside the caller's read-only repeatable-read snapshot.
+    /// Admission must use the locking selector after its liability locks.
+    pub(crate) async fn select_retail_price_snapshot_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        head: Uuid,
+        customer: Uuid,
+    ) -> Result<RetailSelection, StoreError> {
+        let at: i64 =
+            sqlx::query_scalar("SELECT floor(extract(epoch FROM transaction_timestamp()))::bigint")
+                .fetch_one(&mut **tx)
+                .await?;
+        Self::select_retail_price_with_mode_in_tx(tx, head, customer, Some(at), false).await
+    }
+
+    async fn select_retail_price_with_mode_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        head: Uuid,
+        customer: Uuid,
+        at: Option<i64>,
+        lock_head: bool,
+    ) -> Result<RetailSelection, StoreError> {
+        let mut query = include_str!("retail_price_head.sql").to_owned();
+        if lock_head {
+            query.push_str(" FOR SHARE OF h");
+        }
+        let price: Head = sqlx::query_as(&query)
+            .bind(head)
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
         // Obtain time after the identity lock, so waiting on publication cannot
         // retain a preview timestamp across an expiry boundary.
         let at = match at {

@@ -16,8 +16,12 @@ import { request } from '@/features/vendors/api';
 import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
 type Tariff = CustomerTariff;
+const sellingSource = (tariff: Tariff) => tariff.pricing_source === 'workspace' ? 'Workspace price'
+  : tariff.pricing_source === 'platform' ? tariff.promotion_scope === 'customer' ? 'Your company promotion'
+    : tariff.promotion_scope === 'global' ? 'Global promotion' : tariff.promotion_scope === null ? 'Platform standard' : 'Platform price · applied rule unavailable'
+  : 'Price source unavailable';
 // An absent category rate is neither a zero price nor an inherited tier rate.
-const categoryRate = (rate: string | null | undefined, currency: string) => rate === undefined ? 'Unknown' : rate === null ? 'Not configured' : money(rate, currency);
+const categoryRate = (rate: string | null | undefined, currency: string) => rate === undefined ? 'Unknown' : rate === null ? 'Not separately priced' : money(rate, currency);
 type Invoice = { id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; status: string };
 type InvoicePage = { data: Invoice[]; next_cursor: string | null };
 function checkedInvoices(page: InvoicePage) {
@@ -178,12 +182,12 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
       <TabsContent value="rates">
         <section className="panel billing-rates">
           <div className="provider-panel-heading"><h2>Model rates</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">Token rates per million · fees per request</p>}</div>
-          {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.</p>}
+          {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not separately priced means no separate category rate is saved. These are current selling terms; existing requests keep their saved prices. Availability and spending limits are checked when a request is sent.</p>}
           {data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger" aria-label="Customer model rates" style={{minWidth:"70rem",tableLayout:"auto"}}>
             <TableHeader><TableRow><TableHead style={{width:"18rem"}}>Model</TableHead><TableHead>Input</TableHead><TableHead>Cache read</TableHead><TableHead>Cache write</TableHead><TableHead>Output</TableHead><TableHead>Reasoning</TableHead><TableHead>Fixed fee / request</TableHead><TableHead>Minimum / request</TableHead></TableRow></TableHeader>
             <TableBody>{data.tariffs.map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>
-                <TableCell>{tariff.model_alias}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">Base rate</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">Context tiers unavailable</p>}</TableCell>
+                <TableCell>{tariff.model_alias}<p className="mt-1 text-xs text-muted-foreground">{sellingSource(tariff)}</p>{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">Base rate</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">Context tiers unavailable</p>}</TableCell>
                 <TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell>
                 <TableCell>{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>
                 <TableCell>{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>
