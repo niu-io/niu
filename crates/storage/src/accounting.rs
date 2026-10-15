@@ -1106,7 +1106,7 @@ impl Store {
         attempt_id: Uuid,
         reservation: &GatewayReservation,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let dispatched =
             Self::reserve_and_dispatch_gateway_in_tx(&mut tx, principal, attempt_id, reservation)
                 .await?;
@@ -1131,6 +1131,13 @@ impl Store {
             .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        sqlx::query(
+            "SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:' || $1::text || ':' || $2::text, 0))",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .execute(&mut **tx)
+        .await?;
         // Account-enabled organizations use customer retail rates, independently
         // of the procurement budget. Hold and dispatch commit atomically.
         let prepaid: bool = sqlx::query_scalar(
