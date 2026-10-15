@@ -1,0 +1,43 @@
+name: Feature Request
+description: Propose an improvement or capability for Niu
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area of Niu does this proposal belong to?
+      options:
+        - Inference Data Plane (/v1, Provider routing, protocol compatibility)
+        - Control Plane API (/api/v1, workspace/Provider/platform management)
+        - Dashboard UI (apps/dashboard)
+        - Public Model Catalog & Docs (apps/catalog, apps/docs)
+        - Accounting, Budgets & Observability
+        - Plugin SDK & Built-in Plugins (crates/plugin-sdk, plugins/*)
+        - Client SDKs (sdks/javascript, sdks/agent-connect)
+        - Self-Hosted Operations & Packaging (Docker, scripts/install.sh)
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: What operational, developer, or workspace problem are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the API, configuration, or UI behavior you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative approaches, workarounds, or reference patterns from existing gateways?

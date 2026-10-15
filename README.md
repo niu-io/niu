@@ -1,74 +1,76 @@
 # Niu
 
-Niu is an open-source model API gateway focused on lower-cost model access and transparent usage and billing. The repository is a mixed-language monorepo for the complete self-hosted product: gateway runtime, management dashboard, API contracts, SDKs, documentation, and release packaging.
+[![Release](https://img.shields.io/github/v/release/niu-io/niu?label=release)](https://github.com/niu-io/niu/releases)
+[![Qualification CI](https://github.com/niu-io/niu/actions/workflows/ci.yml/badge.svg)](https://github.com/niu-io/niu/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-niu.io%2Fdocs-0f172a)](https://niu.io/docs/)
 
-The product is intended to cover the practical gateway lifecycle: connect model providers, expose compatible APIs, route requests, enforce identity and policy, observe usage, account for cost, manage keys and model offers, and operate the deployment. The current code is an early implementation and does not yet provide feature parity with established gateways.
+**Niu** (牛元) is an open-source AI model API gateway built in Rust for lower-cost model access, Provider routing, workspace budget controls, and transparent consumption accounting.
+
+This repository is the complete self-hosted monorepo: single-process Rust gateway, workspace and Provider management dashboard, opt-in public model catalog, developer documentation, OpenAPI 3.1 contracts, client SDKs, built-in open-source plugins, and container packaging.
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/niu-io/niu)
 
-The [Render Blueprint](render.yaml) provisions the gateway and a separate managed PostgreSQL database in your Render workspace. It uses paid compute plans; check [Render pricing](https://render.com/pricing) before deploying. You provide the OpenRouter API key privately during setup, and Render generates the admin token and vendor encryption key. Automatic deploys are off for button-created instances; trigger updates manually from Render.
+---
 
-## Simple model access
+## Key Capabilities
 
-Configure a provider, issue a client key, and call the standard model API on port 2555. No task definitions, agent telemetry, benchmarks, subscriptions or pooling are required. See the [quickstart](apps/docs/src/content/docs/getting-started.mdx). Agent orchestration and task evaluation belong to external clients. Niu remains independently usable through its public APIs.
+- **Three-Plane Single-Process Gateway (`apps/gateway`)**:
+  - **Inference Data Plane (`/v1/*`)**: OpenAI-compatible `/v1/models` and `/v1/chat/completions` (streaming SSE and non-streaming) with native Anthropic and AWS Bedrock protocol transformations via pinned LiteLLM Rust modules.
+  - **Unified Control Plane (`/api/v1/*`)**: Scope-isolated REST API across account sessions (`/api/v1/auth/*`, `/api/v1/user/*`), customer workspaces (`/api/v1/workspaces/:workspace/*`), model Providers (`/api/v1/providers/*`), and installation administration (`/api/v1/platform/*`).
+  - **Public Catalog & Docs (`/models/`, `/docs/`, `/catalog/v1/*`)**: Opt-in public model catalog and embedded developer documentation served directly from the same Rust HTTP listener on port `2555`.
+- **Pre-Dispatch Budget Reservations & Durable Accounting**:
+  - Commits dispatch intent and bounded workspace budget reservations in PostgreSQL before calling an upstream Provider, then settles token usage and customer charges asynchronously in batched workers.
+  - Strictly separates customer-facing workspace charges from confidential Provider purchase rates and platform margins.
+- **Encrypted Provider Credentials & Fail-Closed Startup**:
+  - Provider API credentials persist in PostgreSQL encrypted with `NIU_VENDOR_ENCRYPTION_KEY` and are never returned by API responses.
+  - `niu-gateway --check-encryption` verifies stored credential decryption before cutover or upgrade.
+- **Extensible Plugin Architecture (`plugin-api` & `plugin-sdk`)**:
+  - Versioned Rust `plugin-api` and `plugin-sdk` supporting built-in open-source plugins (`plugins/hello-echo`, `plugins/request-tagger`, `plugins/webhook-audit`) and manifest-validated external plugins over Unix domain sockets (`/api/plugins/v1/{plugin_id}/…`).
+- **Independent Client Access**:
+  - Applications and coding agents connect through standard `/v1` model APIs or the TypeScript SDKs (`@niu-io/sdk`, `@niu-io/agent-connect`) without requiring an external agent orchestrator.
 
-## Managed upstream vendors
+---
 
-Installation administrators enter through `/installation` using the administrator credential configured for the deployment. This administration page is separate from customer account sign-in at `/login`; account sign-in never falls back to an administrator-token form. Production customer account authentication remains a release requirement; the current username/password service is development-only.
+## Quickstart
 
-Installation administrators can manage Suppliers such as OpenRouter and their model mappings in the dashboard. Configuration persists in PostgreSQL; new requests use current enabled state and routing. Provider credentials are encrypted with a separate `NIU_VENDOR_ENCRYPTION_KEY` deployment secret and are never returned by the API. Back up that key separately from the database. See [vendor architecture](docs/architecture/vendors.md) for access boundaries, static-route precedence and bootstrap semantics.
+### 1. Self-Hosted Installation (Docker Compose)
 
-The gateway's PostgreSQL connection pool defaults to 10 connections per instance. Set `NIU_DATABASE_MAX_CONNECTIONS` from 1 to 256 to tune it for the database's connection limit and the number of gateway instances.
-
-Concurrent unpriced requests share bounded PostgreSQL admission batches. Niu commits dispatch intent before calling a provider, then flushes usage evidence asynchronously after the response. Priced requests commit a bounded budget reservation before dispatch and queue provider usage and settlement in a bounded worker after completion. The worker batches completions by workspace to reduce database round trips and budget-row contention. Queue pressure applies backpressure; a storage failure leaves the durable attempt and reservation unresolved rather than inventing a charge.
-
-## Current implementation
-
-The repository is a mixed-language monorepo. `apps/gateway` is the Rust application entry point, `apps/catalog` contains the public model catalog, `apps/dashboard` is the workspace dashboard, and `apps/docs` is the static developer documentation site. `contracts` owns the public API schema, `crates` contains execution, benchmark, extension and cost components, and `vendor/litellm-rust` contains selected provider and protocol modules with upstream provenance.
-
-The first gateway slice serves health, model-list, admin model-list, process counters, and OpenAI-compatible chat completion routes from one Rust HTTP process. Requests use configured public model names; provider endpoints and credentials remain server-side. Niu owns the OpenAI-compatible pass-through adapter; selected, pinned LiteLLM Rust modules provide native Anthropic and Bedrock transformations. Streaming is currently supported for configured OpenAI-compatible routes.
-
-The Rust gateway redirects `/` to the workspace and serves documentation at `/docs/`, the explicitly published model catalog at `/models/`, workspace UI under `/workspaces/:workspace/…`, and APIs from the same HTTP listener. Dashboard, docs and catalog assets are built into one application image. The marketing homepage is maintained separately in `niu-io/website`; a hosted distribution supplies its pinned static artifact through `NIU_SITE_DIR` on the same domain. The public catalog lists only routes whose operator enables `public_catalog`; its API omits provider names, upstream IDs, endpoints and credentials. PostgreSQL stores organizations, projects, scoped API keys, operator sessions, managed vendors and routes, accounting records, and attempt evidence. Management endpoints create, rotate and revoke credentials; every dispatch rechecks permission and persists intent. Operator roles enforce tenant scope. Broader routing, provider conformance, subscription inference and production qualification remain in progress.
-
-The public workspace retains historical paired benchmark analysis and a versioned Rust extension API with a synthetic reference extension. These existing components do not expand the current product scope into task orchestration or evaluation. The extension contract is tested independently, but the gateway does not load extensions yet. The API defines claim mapping rather than a full OIDC/SAML login flow, and the task adapter's required sandbox runner is not implemented.
-
-The [Plugin composition, Cloud SaaS, and Enterprise architecture](docs/architecture/enterprise-composition.md) defines how Niu's public `plugin-api`, `plugin-sdk`, and built-in open-source plugins (`niu/plugins/*`) combine with private commercial and enterprise plugins (`niu-io/plugins`) to produce the hosted `niu.io` SaaS distribution (`niu-io/cloud`) and the self-hosted Enterprise distribution (`niu-io/enterprise`). The public Gateway includes an optional manifest-validated Unix-socket plugin proxy, disabled when no manifest is configured, and is scheduled to wire full Plugin Host hook, outbox, and neutral `/api/plugins/v1/{plugin_id}/…` support after the core API refactor completes.
-
-The [first-release acceptance matrix](docs/releases/first-release.md) defines the complete product scope, enterprise extension boundary, implementation milestones, and required release evidence.
-
-## Product goals
-
-- **Lower-cost model access:** offer verified customer prices from qualified Suppliers, with explicit model capabilities and reliable delivery. Compare prices for specific models and usage patterns; do not imply universal savings or current competitive superiority.
-- **Transparent consumption:** show where tokens and customer charges accumulate, including observable retries, latency, failures and unknown usage. Link potential waste to evidence and a change the user can try; high consumption alone does not prove waste.
-- **Independent access:** applications and coding agents can use Niu without an orchestration product. Niu owns model requests; external clients own tasks, tools, reviews and outcomes.
-- **Security and commercial boundaries:** preserve workspace isolation and credential ownership. Customer reports show customer charges; Supplier purchase prices and platform margins remain confidential.
-
-The [product focus](docs/product/product-focus.md) defines the audience, commercial model, Supplier qualification, request-observability boundaries and scope exclusions. These are release targets, not claims that discounted supply is already available.
-
-## Monorepo map
-
-- `apps/gateway`: single-process inference and management API, static product routes, and recovery workers.
-- `apps/catalog`: opt-in public model catalog.
-- `apps/dashboard`: TypeScript management application, built as static assets.
-- `apps/docs`: Astro Starlight developer documentation.
-- `contracts`: versioned OpenAPI and shared protocol contracts.
-- `crates`: Niu-owned execution, benchmark, extension and cost components.
-- `vendor/litellm-rust`: individually selected LiteLLM Rust crates, pinned and checksummed.
-- `sdks`: client SDKs for supported languages.
-- `Dockerfile` and `compose.yaml`: container packaging for one application image and one public port.
-- `scripts/install.sh` and `scripts/release-version.py`: self-hosted installation, safe upgrade with database backup and rollback, and release version management.
-- `docs/architecture`: product contracts, decisions, and implementation guides.
-- `branding`: approved niu.io assets, portable theme tokens, and asset provenance.
-
-## Installation and upgrade
-
-Self-hosted installations use Docker Compose with versioned release images (`ghcr.io/niu-io/niu:vX.Y.Z`) managed by [`scripts/install.sh`](scripts/install.sh):
+Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKEN`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.0`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-# Install Niu (generates .env secrets, pulls pinned image, and verifies /readyz)
 ./scripts/install.sh install --version v0.2.0 --dir /opt/niu
+```
 
-# Upgrade an existing installation (backs up PostgreSQL, runs --check-encryption, and auto-rolls back on failure)
+Once running on port `2555`:
+
+- **Default Entry (`/`)**: Redirects to `/workspaces/default/` (or `/installation` before first-time setup and `/login` when unauthenticated, with direct links to `/models/` and `/docs/`).
+- **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKEN` to configure upstream Providers (such as OpenRouter, OpenAI, Anthropic, or Bedrock) and publish model routes.
+- **Public Model Catalog (`/models/`)**: Browse routes enabled for `public_catalog`.
+- **Developer Documentation (`/docs/` & `/help/`)**: Read setup, routing, and API guides.
+
+### 2. Call the Inference API
+
+Issue a workspace API key in the dashboard and call `/v1/chat/completions` using any OpenAI-compatible client or `curl`:
+
+```sh
+curl http://localhost:2555/v1/chat/completions \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5.4-mini",
+    "messages": [
+      {"role": "user", "content": "Explain pre-dispatch budget reservation in one sentence."}
+    ]
+  }'
+```
+
+### 3. Upgrade & Rollback
+
+[`scripts/install.sh`](scripts/install.sh) performs a PostgreSQL `pg_dump` backup, runs `niu-gateway --check-encryption` against the target image before restarting, verifies `/readyz`, and automatically rolls back if any check fails:
+
+```sh
+# Upgrade an existing installation to a pinned release
 ./scripts/install.sh upgrade --version v0.2.0 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
@@ -76,41 +78,76 @@ Self-hosted installations use Docker Compose with versioned release images (`ghc
 ./scripts/install.sh status --dir /opt/niu
 ```
 
-Release versions are synchronized across [`VERSION`](VERSION), [`Cargo.toml`](Cargo.toml), [`package.json`](package.json), and [`compose.yaml`](compose.yaml) via `pnpm version:check` and `pnpm version:set <X.Y.Z> --tag`. The gateway binary reports its version and build commit via `niu-gateway --version`.
+### 4. Deploy to Render
 
-## Development
+The [Render Blueprint](render.yaml) provisions the gateway and a managed PostgreSQL database in your Render workspace. Provide your upstream Provider API key during setup; Render generates `NIU_ADMIN_TOKEN` and `NIU_VENDOR_ENCRYPTION_KEY`.
 
-Start the native open-source development stack (no Docker):
+---
 
-```sh
-pnpm dev
+## Architecture & Repository Layout
+
+```text
+niu/
+├── apps/
+│   ├── gateway/          # Rust HTTP gateway (/v1, /api/v1, /catalog/v1, /api/plugins/v1, static UI routes)
+│   ├── dashboard/        # Workspace, Provider, and platform management UI (React + TypeScript + Vite)
+│   ├── catalog/          # Opt-in public model catalog (/models/)
+│   └── docs/             # Developer documentation site (/docs/, Astro Starlight)
+├── contracts/            # Versioned OpenAPI 3.1 specifications (niu.v1.json) and fixtures
+├── crates/
+│   ├── storage/          # PostgreSQL persistence, migrations, encrypted credentials, budget reservations
+│   ├── execution/        # Request admission, routing, and execution primitives
+│   ├── cost/             # Model token pricing calculation engine
+│   ├── benchmark/        # Paired benchmark comparison runner
+│   ├── plugin-api/       # Neutral plugin protocol types, capabilities, and hook envelopes
+│   └── plugin-sdk/       # Rust SDK for building Niu plugins over Unix domain sockets
+├── plugins/              # Built-in open-source plugins (hello-echo, request-tagger, webhook-audit)
+├── sdks/
+│   ├── javascript/       # @niu-io/sdk client library
+│   └── agent-connect/    # @niu-io/agent-connect telemetry & correlation helper
+├── vendor/litellm-rust/  # Selectively imported, checksum-verified LiteLLM Rust protocol crates
+├── branding/             # Shared Niu brand assets, theme tokens, and public header contracts
+├── scripts/              # Dev runner, self-hosted installer, OpenAPI checks, and boundary verifiers
+└── docs/                 # Product focus, architecture specifications, and release criteria
 ```
 
-This starts an isolated local PostgreSQL cluster, the Gateway, and the dashboard,
-docs and catalog dev servers. Frontends hot reload; Rust changes rebuild and
-restart the Gateway. Stop with Ctrl-C or `pnpm dev:stop`. See
-[scripts/DEV.md](scripts/DEV.md) for prerequisites, URLs, credentials and logs.
+See:
+- [Product Focus](docs/product/product-focus.md) for product goals, Provider qualification, and commercial data boundaries.
+- [Vendor & Provider Architecture](docs/architecture/vendors.md) for credential encryption (`NIU_VENDOR_ENCRYPTION_KEY`), static-route precedence, and bootstrap semantics.
+- [Repository Ownership](docs/architecture/repository-ownership.md) and [Plugin, Cloud & Enterprise Composition](docs/architecture/enterprise-composition.md) for how `niu-io/niu` composes with `niu-io/website` and `niu-io/plugins` in hosted (`niu-io/cloud`) and self-hosted enterprise (`niu-io/enterprise`) distributions.
 
+---
 
-The native gateway currently builds with Rust 1.98.0 or newer. The dashboard and docs use Node.js 24 or newer with pnpm 11.
+## Local Development
+
+Start the native open-source development stack (isolated local PostgreSQL cluster, Rust gateway, and hot-reloading dashboard, docs, and catalog dev servers — no Docker required):
 
 ```sh
 pnpm install
+pnpm dev
+```
+
+Stop the local stack with `Ctrl-C` or `pnpm dev:stop`. The default local member account is `demo@niu.io`; see [`scripts/DEV.md`](scripts/DEV.md) for local URLs, seeded credentials, and log files.
+
+Build and verify the workspace manually (requires Rust `1.98.0+`, Node.js `24+`, and `pnpm` `11+`):
+
+```sh
 pnpm build:dashboard
 pnpm build:docs
 pnpm build:catalog
 cargo check --workspace
 ```
 
-The gateway reads a TOML model configuration and runtime secrets from the environment. Start with [`config/niu.example.toml`](config/niu.example.toml) and [the development guide](apps/docs/src/content/docs/getting-started.mdx).
+Release versions are synchronized across [`VERSION`](VERSION), [`Cargo.toml`](Cargo.toml), [`package.json`](package.json), and [`compose.yaml`](compose.yaml) via `pnpm version:check` and `pnpm version:set <X.Y.Z> --tag`. The gateway binary reports its version and commit via `niu-gateway --version`.
+
+---
+
+## Contributing & Security
+
+- Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for development workflows, OpenAPI synchronization, migration immutability rules, and UI guidelines.
+- Please review [`SECURITY.md`](SECURITY.md) to report vulnerabilities privately via GitHub Security Advisories.
+- Community participation is governed by the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ## License
 
-Niu-owned code is released under the MIT License. Reused code keeps its original copyright, license, pinned source, and checksums in [third-party notices](THIRD-PARTY-NOTICES.md) and [the source manifest](vendor/litellm-rust/SOURCE-MANIFEST.json).
-
-Local dashboard sign-in uses a persisted member account and the normal browser
-session flow. The default development account is `demo@niu.io`; see the
-[development guide](scripts/DEV.md) for its password and seed configuration.
-Account profiles and workspace permissions behave as they do in the deployed
-dashboard. Installation tokens are separate credentials for setup and automated
-administration.
+Niu is released under the [MIT License](LICENSE). Selectively reused third-party modules retain their original copyright, license, pinned commit, and SHA-256 checksums in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and [`vendor/litellm-rust/SOURCE-MANIFEST.json`](vendor/litellm-rust/SOURCE-MANIFEST.json).
