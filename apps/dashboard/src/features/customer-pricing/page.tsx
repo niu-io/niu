@@ -44,7 +44,7 @@ function PricingTargets({ token }: { token: string }) {
   useEffect(() => { void load(); return () => activeRequest.current?.abort(); }, [token]);
   const selected = targets.find(row => row.workspace_id === selectedId);
   useEffect(() => { if (selectedId && !selected && cursor && !loading && !error) void load(cursor); }, [selectedId, selected, cursor, loading, error]);
-  return <div className="space-y-6 p-6">
+  return <div className="space-y-6 pt-4">
     <div className="flex flex-wrap items-center gap-3">
       <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={loading && !targets.length}>{selected ? `${selected.organization_name} · ${selected.workspace_name}` : 'Choose company and workspace'}<IconChevronDown size={16}/></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={selectedId ?? ''} onValueChange={value => setSearch(current => { current.set('target', value); return current; })}>

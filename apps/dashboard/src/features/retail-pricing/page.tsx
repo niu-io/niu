@@ -22,7 +22,7 @@ const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(va
 const seconds = (value: string) => /^\d+$/.test(value) ? date(new Date(Number(value) * 1000).toISOString()) : 'Date unavailable';
 export default function RetailPricingRoute() {
   const { token } = useDashboardContext();
-  return <Tabs defaultValue="standards" className="w-full"><div className="px-6 pt-6"><TabsList><TabsTrigger value="standards">Standard prices</TabsTrigger><TabsTrigger value="workspaces">Workspace tariffs</TabsTrigger></TabsList></div><TabsContent value="standards"><Standards key={token} token={token} /></TabsContent><TabsContent value="workspaces"><WorkspacePricing /></TabsContent></Tabs>;
+  return <Tabs defaultValue="standards" className="w-full"><TabsList variant="line"><TabsTrigger value="standards">Standard prices</TabsTrigger><TabsTrigger value="workspaces">Workspace tariffs</TabsTrigger></TabsList><TabsContent value="standards"><Standards key={token} token={token} /></TabsContent><TabsContent value="workspaces"><WorkspacePricing /></TabsContent></Tabs>;
 }
 function Standards({ token }: { token: string }) {
   const [rows, setRows] = useState<RetailPriceRecord[]>([]), [cursor, setCursor] = useState<string | null>(null);
@@ -46,7 +46,7 @@ function Standards({ token }: { token: string }) {
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
-  return <div className="space-y-6 p-6"><PageHeader title="Standard prices" /><p className="text-sm text-muted-foreground">Platform customer selling prices, independent of Supplier purchase offers. Publication does not establish qualified supply or enroll a workspace. Publish or revise text and media standards here. Publish finite promotions from the current standard or an original price in history. Customer-specific rules override global rules without stacking.</p>
+  return <div className="space-y-6 pt-4"><PageHeader title="Standard prices" /><p className="text-sm text-muted-foreground">Platform customer selling prices, independent of Provider purchase offers. Publication does not establish qualified supply or enroll a workspace. Publish or revise text and media standards here. Publish finite promotions from the current standard or an original price in history. Customer-specific rules override global rules without stacking.</p>
     <div className="flex flex-wrap items-center gap-3"><Input aria-label="Filter standard models" placeholder="Filter models" className="max-w-sm" value={filter} onChange={event => setFilter(event.target.value)} /><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button><Button disabled={loading || !!error} onClick={() => setEditor({ kind: 'text', previous: null })}>Publish text price</Button><Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: 'media', previous: null })}>Publish media price</Button></div>
     {notice && <p role="status">{notice}</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failed)}>Retry prices</Button></AlertDescription></Alert>}

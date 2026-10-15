@@ -87,7 +87,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
   const disabled=loading || loadFailed || unconfirmed || saving || processing;
   const retryDisabled=loading || saving || processing;
   return <form onSubmit={save} className="grid gap-5" aria-label="Profile">
-    <div className="flex flex-wrap items-center gap-4">
+    <div className="relative flex flex-wrap items-center gap-4">
       <Avatar className="size-16"><AvatarImage src={avatar ?? undefined} alt="Profile photo"/><AvatarFallback>{name.trim().slice(0,1).toUpperCase() || '?'}</AvatarFallback></Avatar>
       <div className="grid gap-2"><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" aria-describedby="account-photo-help" disabled={disabled} onClick={()=>input.current?.click()}>{processing ? 'Processing…' : 'Change photo'}</Button>{avatar && <Button type="button" variant="ghost" disabled={disabled} onClick={()=>{setAvatar(null);setSaved(false);}}>Remove photo</Button>}</div><p id="account-photo-help" className="text-xs text-muted-foreground">PNG, JPEG, or WebP · Up to 5 MB</p></div>
       <Input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Upload profile photo" disabled={disabled} onChange={event=>void choosePhoto(event.target.files?.[0])}/>

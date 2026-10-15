@@ -1,8 +1,7 @@
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useParams } from "react-router";
 import { IconArrowDownLeft as ArrowDownLeft } from "@tabler/icons-react";
-import { IconBuildings as Building2 } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCoin as CircleDollarSign } from "@tabler/icons-react";
@@ -74,7 +73,6 @@ const date = (value: string) =>
 
 export default function ProviderBusinessRoute() {
   const context = useDashboardContext();
-  const navigate = useNavigate();
   const { supplier } = useParams();
   const membership = context.session?.provider_memberships?.find(
     (item) => item.id === supplier,
@@ -101,7 +99,6 @@ export default function ProviderBusinessRoute() {
         provider={membership.id}
         role={membership.role}
         memberships={memberships}
-        navigate={navigate}
         refreshAccess={context.refreshWorkspace}
       />
   );
@@ -112,19 +109,17 @@ function ProviderBusiness({
   provider,
   role,
   memberships,
-  navigate,
   refreshAccess,
 }: {
   token: string;
   provider: string;
   role: string;
   memberships: { id: string; name: string; role: "manager" | "viewer" }[];
-  navigate: (to: string) => void;
   refreshAccess: () => Promise<void>;
 }) {
   const [days, setDays] = useState("30");
   const { section = "overview" } = useParams();
-  const tab = section === "models" ? "offers" : section === "consumption" ? "earnings" : section;
+  const tab = section === "models" ? "offers" : section === "consumption" ? "earnings" : section === "settlements" ? "settlements" : "overview";
   const showPeriod = tab === "overview" || tab === "earnings";
   const [currency, setCurrency] = useState("");
   const [data, setData] = useState<Dashboard | null>(null);
@@ -234,22 +229,6 @@ function ProviderBusiness({
         eyebrow={memberships.length === 1 ? data?.name : undefined}
         action={
           <div className="provider-header-actions">
-            {memberships.length > 1 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button aria-label="Switch provider" variant="outline" className="provider-context-picker">
-                    <Building2 size={16} />
-                    <span>{memberships.find((item) => item.id === provider)?.name ?? "Choose provider"}</span>
-                    <ChevronDown size={16} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuRadioGroup value={provider} onValueChange={(value) => navigate(`/suppliers/${value}`)}>
-                    {memberships.map((item) => <DropdownMenuRadioItem key={item.id} value={item.id}>{item.name}</DropdownMenuRadioItem>)}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
             {showPeriod && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Date range" variant="outline" className="provider-period-picker">Last {days} days<ChevronDown size={16} /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={days} onValueChange={setDays}>
                 <DropdownMenuRadioItem value="7">Last 7 days</DropdownMenuRadioItem><DropdownMenuRadioItem value="30">Last 30 days</DropdownMenuRadioItem><DropdownMenuRadioItem value="90">Last 90 days</DropdownMenuRadioItem>
@@ -620,7 +599,7 @@ function ProviderBusiness({
                 ) : (
                   <Empty
                     title="No settlements recorded"
-                    detail="Your accrued earnings remain unpaid until provider management records a confirmed external payment."
+                    detail="Your accrued earnings remain unpaid until Provider management records a confirmed external payment."
                   />
                 )}
               </section>

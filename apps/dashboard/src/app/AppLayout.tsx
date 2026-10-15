@@ -254,15 +254,16 @@ export default function AppLayout() {
     : undefined;
   const requestedWorkspaceId = usesSelectedWorkspace ? new URLSearchParams(location.search).get('workspace') : null;
   const requestedWorkspace = requestedWorkspaceId ? resolveWorkspacePathSegment(requestedWorkspaceId, workspaces) : undefined;
+  const isDefaultWorkspaceAlias = requestedWorkspaceId === 'default' && !requestedWorkspace;
   // Explicit routes must not inherit a different workspace during selection effects.
-  const selectedWorkspace = requestedWorkspaceId ? requestedWorkspace ?? null : workspace;
-  const effectiveWorkspaceError: WorkspaceProblem | null = requestedWorkspaceId && !requestedWorkspace
+  const selectedWorkspace = requestedWorkspaceId && !isDefaultWorkspaceAlias ? requestedWorkspace ?? null : workspace;
+  const effectiveWorkspaceError: WorkspaceProblem | null = requestedWorkspaceId && !isDefaultWorkspaceAlias && !requestedWorkspace
     && !workspaceLoading && workspacesLoadedFor === token
     ? { kind: 'missing', workspace: requestedWorkspaceId }
-    : workspaceError?.kind === 'missing' && requestedWorkspace ? null : workspaceError;
+    : workspaceError?.kind === 'missing' && (requestedWorkspace || isDefaultWorkspaceAlias) ? null : workspaceError;
   const workspaceNavigation = useRef({routeWorkspace, workspace, workspaces, location});
   useLayoutEffect(() => { workspaceNavigation.current = {routeWorkspace, workspace, workspaces, location}; }, [routeWorkspace, workspace, workspaces, location]);
-  const modelOrganizationId = routeWorkspace?.organization_id ?? (requestedWorkspaceId ? requestedWorkspace?.organization_id : selectedOrganizationId ?? workspace?.organization_id);
+  const modelOrganizationId = routeWorkspace?.organization_id ?? (requestedWorkspaceId && !isDefaultWorkspaceAlias ? requestedWorkspace?.organization_id : selectedOrganizationId ?? workspace?.organization_id);
   const modelWorkspace = routeWorkspace ?? selectedWorkspace;
   const modelWorkspaceId = modelWorkspace && modelWorkspace.organization_id === modelOrganizationId ? modelWorkspace.id : undefined;
 
@@ -627,7 +628,7 @@ export default function AppLayout() {
       const requestedWorkspace = new URLSearchParams(location.search).get('workspace');
       preferred = requestedWorkspace ? resolveWorkspacePathSegment(requestedWorkspace, workspaces) : undefined;
     }
-    if (!preferred && (routeWorkspaceId === 'default' || (usesSelectedWorkspace && !requestedWorkspaceId))) {
+    if (!preferred && (routeWorkspaceId === 'default' || (usesSelectedWorkspace && (!requestedWorkspaceId || requestedWorkspaceId === 'default')))) {
       const operatorProjectId = session?.operator?.project_id;
       let storedId: string | null = null;
       try { storedId = window.localStorage.getItem('niu.active-workspace'); } catch { /* Storage is optional. */ }
@@ -649,7 +650,7 @@ export default function AppLayout() {
       }
     } else {
       setWorkspace(null);
-      if (requestedWorkspaceId || (routeWorkspaceId && routeWorkspaceId !== 'default')) setWorkspaceError({ kind: 'missing', workspace: requestedWorkspaceId || routeWorkspaceId! });
+      if ((requestedWorkspaceId && requestedWorkspaceId !== 'default') || (routeWorkspaceId && routeWorkspaceId !== 'default')) setWorkspaceError({ kind: 'missing', workspace: requestedWorkspaceId || routeWorkspaceId! });
     }
   }, [location.pathname, location.search, location.hash, usesSelectedWorkspace, requestedWorkspaceId, navigate, routeWorkspaceId, session, token, workspaceLoading, workspaces, workspacesLoadedFor, selectedOrganizationId]);
 
@@ -837,7 +838,7 @@ export default function AppLayout() {
           {isGuardrailEditor && <><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator></>}
           {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="sm:hidden"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6" aria-label="Show parent pages">…</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>Guardrails</NavLink></DropdownMenuItem>{isGuardrailEditor && <DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></BreadcrumbItem><BreadcrumbSeparator className="sm:hidden">/</BreadcrumbSeparator></>}
           <BreadcrumbItem className="min-w-0"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 max-w-full gap-1 px-1 py-1" aria-label="Switch workspace page"><h1 className="dashboard-route-title">{title}</h1><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeNavigation?.to ?? ''} onValueChange={value => navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)}>{scopedNavigation.filter(item => item.destination === 'Workspace').map(item => <DropdownMenuRadioItem key={item.to} value={item.to}>{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></BreadcrumbItem>
-        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin">Admin</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink to="/admin/suppliers">Providers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/suppliers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Provider…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : adminArea ? 'Admin' : supplierArea ? 'Providers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to="/models">Models</NavLink> : title}</h1></Breadcrumb>}
+        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin">Admin</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin/suppliers">Providers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/suppliers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Provider…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : adminArea ? 'Admin' : supplierArea ? 'Providers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to="/models">Models</NavLink> : title}</h1></Breadcrumb>}
         <div id="dashboard-page-actions" className="dashboard-page-actions" />
       </header>}
       <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>

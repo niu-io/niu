@@ -45,7 +45,7 @@ function PaymentConfiguration({token}: {token: string}) {
     } catch (reason) {if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Payment configuration could not be saved.');}
     finally {if (mutation.current === controller) {mutation.current = null; if (!controller.signal.aborted) setBusy(false);}}
   }
-  return <section className="space-y-5 py-5">
+  return <section className="space-y-5">
     {error && !open && <p role="alert">{error}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>Retry</Button></p>}
     {loading ? <p role="status">Loading payment gateways…</p> : configuration ? <Table className="payment-gateway-table" aria-label="Supported payment gateways">
       <TableHeader><TableRow><TableHead>Gateway</TableHead><TableHead className="hidden sm:table-cell">Status</TableHead><TableHead className="w-28"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>

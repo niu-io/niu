@@ -136,7 +136,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .keys-scope-line { display: flex; align-items: center; gap: 12px; min-height: 36px; color: var(--muted-foreground); }
 .keys-scope-line strong { color: var(--foreground); font-weight: 620; }
 .keys-scope-line > span { padding-left: 0; }
-.keys-scope-line > button { margin-left: auto; }
+.keys-scope-line > button:last-child { margin-left: auto; }
 .key-prerequisite { display: flex; align-items: center; gap: 13px; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--info) 28%, var(--border)); border-radius: 13px; background: color-mix(in srgb, var(--info) 5%, var(--card)); }
 .key-prerequisite > svg { flex: 0 0 auto; color: var(--info); }
 .key-prerequisite > div { flex: 1; }
@@ -2279,7 +2279,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .provider-logo-small .provider-logo-art { width: 19px; height: 19px; }
 .provider-logo-large .provider-logo-art { width: 34px; height: 34px; }
 
-.provider-logo-colored { background: #f5f6fa; }
+.provider-logo-colored { background: var(--card); }
 @media (max-width: 480px) {
   .model-directory-filters { flex-direction: column; }
   .model-route-name strong { white-space: normal; overflow-wrap: anywhere; }
@@ -2350,9 +2350,9 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 @media (max-width: 900px) { .provider-metrics { grid-template-columns: 1fr; gap: 10px; } .provider-metric { gap: 12px; } .provider-overview-grid { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .provider-offer { flex-wrap: wrap; padding: 18px; gap: 12px; } .provider-offer-name { flex-basis: calc(100% - 56px); } .provider-offer-rates { flex: 1; } .provider-toolbar { width: 100%; } .provider-revenue, .provider-traffic { padding: 18px; } .provider-section-heading { align-items: flex-start; flex-wrap: wrap; } .provider-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; overflow: visible; } }
 @media (max-width: 600px) {
-  .provider-header-actions { width: 100%; justify-content: flex-start; }
+  .provider-header-actions { width: auto; justify-content: flex-end; flex-wrap: nowrap; }
   .provider-context-picker { width: auto; max-width: 100%; flex: 1 1 180px; }
-  .provider-period-picker { flex: 1 1 132px; }
+  .provider-period-picker { min-width: 0; flex: 0 0 auto; }
   .provider-admin-section-heading { padding: 18px 16px 10px; }
   .provider-admin-panel > h2 { margin-inline: 16px; }
   .provider-balance-list { padding-inline: 16px; }
@@ -2756,7 +2756,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 
 .guardrails-sample { max-height: 240px; overflow-y: auto; }
 
-.key-guardrails-card { margin-block: 24px; }
+.key-guardrails-card, .key-detail-card ~ [data-slot="card"] { margin-block: 24px; }
 .key-guardrails-content { display: grid; gap: 16px; }
 .key-guardrails-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .key-guardrails-row p { color: var(--muted-foreground); overflow-wrap: anywhere; }
@@ -2770,7 +2770,11 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 @media (max-width: 600px) { .request-toolbar-actions { min-width: 0; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; } }
 
 .gateway-request-table.has-column-controls { min-width: 0; }
-.gateway-request-table thead .request-column-controls { position: sticky; right: 0; width: 40px; padding: 4px; background: var(--background); }
+.gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 6px; }
+.gateway-request-table.has-column-controls tbody th small { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gateway-request-table.has-column-controls td:nth-last-child(2) { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.gateway-request-table.has-column-controls td:last-child { width: 32px; padding: 0; }
+.gateway-request-table thead .request-column-controls { position: sticky; right: 0; width: 32px; padding: 2px; background: var(--background); }
 @media (max-width: 600px) {
   .gateway-request-table.has-column-controls th, .gateway-request-table.has-column-controls td { padding: 10px 8px; font-size: 12px; }
   .gateway-request-table.has-column-controls thead .request-column-controls { padding: 2px; }
@@ -2816,8 +2820,8 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 /* Flat section surfaces: navigation and content are separated by tone.
    Reserve elevation for floating controls; retain table and input affordances. */
 [data-slot="card"] { border: 0; border-radius: var(--radius-panel); box-shadow: none; }
-[data-slot="button"][data-variant="outline"]:not(:focus-visible) { border-color: transparent; background: var(--secondary); box-shadow: none; }
-[data-slot="button"][data-variant="outline"]:hover { background: var(--accent); }
+[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):not(:focus-visible) { border-color: transparent; background: var(--secondary); box-shadow: none; }
+[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):hover { background: var(--accent); }
 .gateway-activity-summary { gap: 0; background: var(--card); border-radius: var(--radius-panel); }
 .gateway-activity-summary article { border-radius: 0; background: transparent; box-shadow: none; }
 .gateway-task-feed, .gateway-task-feed:not(.is-compact) { border: 0; border-radius: 0; background: transparent; }

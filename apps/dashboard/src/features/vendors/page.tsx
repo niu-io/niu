@@ -5,6 +5,8 @@ import SupplierSettings from '@/features/provider-business/SupplierSettings';
 import ConnectGate from '@/app/ConnectGate';
 import SuppliersView from './components/SuppliersView';
 
+const validSections = new Set(["overview", "configuration", "models", "consumption", "settlements", "members", "settings"]);
+
 export default function SuppliersRoute() {
   const { supplierId, section } = useParams();
   const [search] = useSearchParams();
@@ -14,6 +16,9 @@ export default function SuppliersRoute() {
     const query = new URLSearchParams(search);
     query.delete('properties');
     return <Navigate replace to={`/admin/suppliers/${encodeURIComponent(supplierId)}/settings${query.size ? '?' + query.toString() : ''}${location.hash}`} />;
+  }
+  if (section && !validSections.has(section)) {
+    return <Navigate replace to={`/admin/suppliers/${encodeURIComponent(supplierId)}${location.search}${location.hash}`} />;
   }
   if (section === "settings") return <SupplierSettings key={supplierId} />;
   if (section !== "configuration") return <ProviderAdministration />;

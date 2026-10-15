@@ -21,8 +21,10 @@ export default function InstallationRoute() {
       <h1>Installation administration</h1>
       <p className="dashboard-login-intro">Use the administrator credential configured for this installation.</p>
       <form className="dashboard-login-form" onSubmit={context.connect}>
-        <Label htmlFor="installation-token">Administrator token</Label>
-        <Input id="installation-token" type="password" autoComplete="off" autoFocus required value={context.draftToken} onChange={event => context.setDraftToken(event.target.value)} />
+        <div className="dashboard-login-field">
+          <Label htmlFor="installation-token">Administrator token</Label>
+          <Input id="installation-token" type="password" autoComplete="off" autoFocus required value={context.draftToken} onChange={event => context.setDraftToken(event.target.value)} />
+        </div>
         {context.error && <p className="dashboard-login-error" role="alert">{context.error}</p>}
         {context.token && context.session?.kind === 'operator' && <p className="dashboard-login-error" role="alert">An installation administrator credential is required.</p>}
         <Button type="submit">Continue</Button>

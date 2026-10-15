@@ -52,12 +52,12 @@ function Position({ token }: { token: string }) {
     setSearch(current => { const next = new URLSearchParams(current); next.set(name, value); return next; });
   }
   return <section className="min-w-0 space-y-5" aria-label="Commercial overview">
-    <p className="text-sm text-muted-foreground">Review Provider positions, customer revenue, receipts and credit by currency. Personal model calls are excluded from consumption.</p>
     <Tabs value={view} onValueChange={value => update('view', value)} className="min-w-0 space-y-5">
       <TabsList variant="line" aria-label="Commercial reports">
         <TabsTrigger value="suppliers">Provider positions</TabsTrigger>
         <TabsTrigger value="financial">Financial summary</TabsTrigger>
       </TabsList>
+      <p className="text-sm text-muted-foreground">Review Provider positions, customer revenue, receipts and credit by currency. Personal model calls are excluded from consumption.</p>
       <div className="flex flex-wrap items-end gap-3">
         <form className="flex items-end gap-2" onSubmit={event => { event.preventDefault(); update('currency', input.trim().toUpperCase()); }}>
           <div className="space-y-1"><Label htmlFor="commercial-currency">Currency</Label><Input id="commercial-currency" className="w-24" value={input} maxLength={3} onChange={event => setInput(event.target.value)} /></div>

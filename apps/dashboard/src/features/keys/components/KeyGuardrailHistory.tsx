@@ -39,7 +39,7 @@ export default function KeyGuardrailHistory({ token, endpoint }: { token: string
   }
   return <>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button variant="outline">Assignment history</Button></DialogTrigger>
+      <DialogTrigger asChild><Button variant="ghost">Assignment history</Button></DialogTrigger>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>Guardrail assignment history</DialogTitle><DialogDescription>Recorded changes to this key’s additional policy. Workspace rules continue to apply after removal.</DialogDescription></DialogHeader>
         {rows.length > 0 && <Table className="min-w-[520px] table-fixed">

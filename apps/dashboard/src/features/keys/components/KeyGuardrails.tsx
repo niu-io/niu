@@ -113,8 +113,7 @@ export default function KeyGuardrails({ token, endpoint, workspaceEndpoint, root
     <CardContent className="key-guardrails-content">
       {loading ? <p role="status">Loading Guardrails…</p> : error ? <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" onClick={() => setReload(value => value + 1)}>Reload Guardrails</Button></AlertDescription></Alert> : <>
         <div className="key-guardrails-row"><div><strong>Workspace</strong><p>{head ? `${head.policy.name} · Version ${head.revision}` : 'No workspace policy configured'}</p></div><Button asChild variant="outline"><Link to={`${root}/guardrails/policy`}>View policy</Link></Button></div>
-        <div className="key-guardrails-row"><div><strong>API key</strong><p>{assignment?.policy_revision ? `${assignment.policy?.name || 'Saved policy'} · Version ${assignment.policy_revision}` : 'No additional key policy'}</p></div>{canWrite && active && <Button ref={changePolicyButton} variant="outline" onClick={() => setOpen(true)}>Change key policy</Button>}</div>
-        <KeyGuardrailHistory token={token} endpoint={endpoint} />
+        <div className="key-guardrails-row"><div><strong>API key</strong><p>{assignment?.policy_revision ? `${assignment.policy?.name || 'Saved policy'} · Version ${assignment.policy_revision}` : 'No additional key policy'}</p></div><div className="flex flex-wrap items-center gap-1"><KeyGuardrailHistory token={token} endpoint={endpoint} />{canWrite && active && <Button ref={changePolicyButton} variant="outline" onClick={() => setOpen(true)}>Change key policy</Button>}</div></div>
         {!active && <p className="page-subtitle">Assignments cannot be changed for an inactive key.</p>}
         {notice && <p role="status">{notice}</p>}
       </>}

@@ -16,7 +16,7 @@ export default function RequestContent({ payload }: { payload: {request: unknown
     catch { setCopyStatus('Could not copy. Select the text to copy it.'); }
   }
   return <section className="min-w-0 space-y-3" aria-label="Request content">
-    <Tabs defaultValue="messages"><TabsList><TabsTrigger value="messages">Messages</TabsTrigger><TabsTrigger value="raw">Raw data</TabsTrigger></TabsList>
+    <Tabs defaultValue="messages"><TabsList variant="line"><TabsTrigger value="messages">Messages</TabsTrigger><TabsTrigger value="raw">Raw data</TabsTrigger></TabsList>
       <TabsContent value="messages" className="space-y-5">
         {([['Request', input], ['Response', output.messages]] as const).map(([label, messages]) => <div key={label} className="space-y-3"><h3 className="text-sm font-medium">{label}</h3>
           {messages.length ? messages.map((item, index) => <div key={index} className="min-w-0 rounded-lg border p-3 space-y-2">

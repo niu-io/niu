@@ -149,7 +149,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
     <PageHeader title="Usage statements" action={<Button variant="outline" aria-label="Refresh billing" disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>} />
     {error && <Alert variant="destructive"><AlertTitle>Billing unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>Retry</Button></AlertDescription></Alert>}
     {loading && !data ? <p role="status">Loading billing…</p> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
-      <TabsList aria-label="Billing sections"><TabsTrigger value="balance">Spending</TabsTrigger><TabsTrigger value="statements">Statements</TabsTrigger><TabsTrigger value="rates">Rates</TabsTrigger></TabsList>
+      <TabsList variant="line" aria-label="Billing sections"><TabsTrigger value="balance">Spending</TabsTrigger><TabsTrigger value="statements">Statements</TabsTrigger><TabsTrigger value="rates">Rates</TabsTrigger></TabsList>
       <TabsContent value="balance" className="billing-balance-content">
         <section aria-label="Workspace spending">
           <h2>Workspace spending</h2>

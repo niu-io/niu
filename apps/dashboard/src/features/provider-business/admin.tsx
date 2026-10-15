@@ -538,7 +538,7 @@ function Administration({ token }: { token: string }) {
       ) : (
         <section className="provider-admin-panel supplier-admin-surface" data-section={section}>
           {section === "overview" && selectedBusiness && <div className="provider-admin-block">
-            <div className="provider-block-heading"><h2>API connection</h2></div>
+            <div className="provider-admin-section-heading"><h2>API connection</h2></div>
             <p className="px-6 pb-4 text-sm text-muted-foreground">Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.</p>
             <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>Setup step</TableHead><TableHead>Status</TableHead><TableHead>Action</TableHead></TableRow></TableHeader><TableBody>
               <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/suppliers/${selected}/configuration`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
@@ -585,7 +585,7 @@ function Administration({ token }: { token: string }) {
           </div>
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {section === "models" && <TabsList variant="line" className="mx-6 mb-4" aria-label="Provider pricing category"><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
+            {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label="Provider pricing category"><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
             <TabsContent value="text">
             {section === "models" && Boolean(textOffers.length) && <div className="px-6 pb-4"><div className="flex min-w-0 w-full max-w-sm items-center gap-2"><IconFilter size={17} className="shrink-0"/><Input ref={offerSearch} aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
