@@ -232,7 +232,7 @@ function resolveInterval(
 async function fetchPeriodBundle(
   token: string,
   currency: string,
-  opts: { days?: 7 | 30 | 90; from: string; until: string },
+  opts: { days?: 7 | 30 | 90; from: string; until: string; allowFallback?: boolean },
   signal: AbortSignal,
 ): Promise<{ position: CommercialPosition; summary: CustomerFinancialSummary }> {
   const query = new URLSearchParams({ currency });
@@ -250,7 +250,7 @@ async function fetchPeriodBundle(
     return { position, summary };
   } catch (err) {
     // Fallback to rolling 30d if custom calendar bounds are unsupported by a mock/older server
-    if (!opts.days && !signal.aborted) {
+    if (opts.allowFallback && !opts.days && !signal.aborted) {
       const fallbackQuery = new URLSearchParams({ currency, days: '30' });
       const [position, summary] = await Promise.all([
         request<CommercialPosition>(token, '/api/v1/commercial-position?' + fallbackQuery, 'GET', undefined, signal),
@@ -279,7 +279,7 @@ type CohortAggregates = {
   activeModelCount: number;
 };
 
-function aggregateCohort(rows: CommercialPositionRow[]): CohortAggregates {
+function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregates {
   let nominalCharges = 0n;
   let refunds = 0n;
   let giftAllowance = 0n;
@@ -298,7 +298,7 @@ function aggregateCohort(rows: CommercialPositionRow[]): CohortAggregates {
   let unresolvedAttempts = 0n;
   let activeModelCount = 0;
 
-  for (const row of rows) {
+  for (const row of Array.isArray(rows) ? rows : []) {
     const hasActivity =
       row.customer_charge_nanos !== null ||
       row.earning_nanos !== null ||
@@ -373,12 +373,12 @@ function formatDeltaBadge(
   invertSentiment = false,
 ) {
   if (current === null || prior === null) {
-    return <span className="text-xs text-muted-foreground">No prior baseline</span>;
+    return <span className="whitespace-nowrap shrink-0 text-xs text-muted-foreground">No prior baseline</span>;
   }
   const diff = current - prior;
   if (diff === 0n) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+      <span className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
         <IconMinus size={13} /> No change
       </span>
     );
@@ -395,7 +395,7 @@ function formatDeltaBadge(
   const good = invertSentiment ? !isPositive : isPositive;
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs font-medium tabular-nums ${
+      className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs font-medium tabular-nums ${
         good ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
       }`}
     >
@@ -440,13 +440,13 @@ function CommercialStatement({ token }: { token: string }) {
     const currentPromise = fetchPeriodBundle(
       token,
       currency,
-      { days: interval.days, from: interval.from, until: interval.until },
+      { days: interval.days, from: interval.from, until: interval.until, allowFallback: true },
       controller.signal,
     );
     const priorPromise = fetchPeriodBundle(
       token,
       currency,
-      { from: interval.priorFrom, until: interval.priorUntil },
+      { from: interval.priorFrom, until: interval.priorUntil, allowFallback: false },
       controller.signal,
     ).catch(() => null);
 
@@ -539,20 +539,20 @@ function CommercialStatement({ token }: { token: string }) {
     priorSummary?.verified_cash_receipts_nanos != null ? BigInt(priorSummary.verified_cash_receipts_nanos) : null;
 
   const prepaidCash =
-    summary?.balance_credit_sources.prepaid_cash_nanos != null
+    summary?.balance_credit_sources?.prepaid_cash_nanos != null
       ? BigInt(summary.balance_credit_sources.prepaid_cash_nanos)
-      : summary
+      : summary?.balance_credit_sources?.known_prepaid_cash_subtotal_nanos != null
         ? BigInt(summary.balance_credit_sources.known_prepaid_cash_subtotal_nanos)
         : null;
   const outstandingCredit =
-    summary?.balance_credit_sources.outstanding_credit_nanos != null
+    summary?.balance_credit_sources?.outstanding_credit_nanos != null
       ? BigInt(summary.balance_credit_sources.outstanding_credit_nanos)
-      : summary
+      : summary?.balance_credit_sources?.known_outstanding_credit_subtotal_nanos != null
         ? BigInt(summary.balance_credit_sources.known_outstanding_credit_subtotal_nanos)
         : null;
 
   const sortedRows = useMemo(() => {
-    const list = [...(position?.data ?? [])];
+    const list = Array.isArray(position?.data) ? [...position.data] : [];
     return list.sort((a, b) => {
       const aActive =
         a.customer_charge_nanos !== null ||
@@ -592,7 +592,7 @@ function CommercialStatement({ token }: { token: string }) {
 
   const priorRowMap = useMemo(() => {
     const map = new Map<string, CommercialPositionRow>();
-    for (const row of priorPosition?.data ?? []) {
+    for (const row of Array.isArray(priorPosition?.data) ? priorPosition.data : []) {
       map.set(`${row.supplier_id}:${row.model_alias}`, row);
     }
     return map;
@@ -833,17 +833,17 @@ function CommercialStatement({ token }: { token: string }) {
         <>
           {/* Layer 1: Executive Financial KPI Cards with Period-over-Period Comparison */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-xl bg-card p-5 space-y-2.5">
+            <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Net recognized revenue</span>
                 <Badge variant="outline">Income</Badge>
               </div>
-              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+              <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {recognizedRevenue === null ? 'Unavailable' : money(recognizedRevenue.toString(), currency)}
               </div>
-              <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(recognizedRevenue, priorRecognizedRevenue, currency)}
-                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
                 Gross usage {money(nominalConsumption.toString(), currency)} · Gifts &amp; refunds -
@@ -851,22 +851,22 @@ function CommercialStatement({ token }: { token: string }) {
               </p>
             </article>
 
-            <article className="rounded-xl bg-card p-5 space-y-2.5">
+            <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Cost of supply (Provider payable)</span>
                 <Badge variant="outline">COGS</Badge>
               </div>
-              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+              <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {money(currentCohort.providerPayable.toString(), currency)}
               </div>
-              <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(
                   currentCohort.providerPayable,
                   priorCohort?.providerPayable ?? null,
                   currency,
                   true,
                 )}
-                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
                 Settled {money(currentCohort.settledPayable.toString(), currency)} · Unpaid{' '}
@@ -874,19 +874,19 @@ function CommercialStatement({ token }: { token: string }) {
               </p>
             </article>
 
-            <article className="rounded-xl bg-card p-5 space-y-2.5">
+            <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Platform net contribution</span>
                 <Badge variant="secondary">
                   {formatMarginPercent(netContribution, recognizedRevenue)} margin
                 </Badge>
               </div>
-              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+              <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {netContribution === null ? 'Unavailable' : money(netContribution.toString(), currency)}
               </div>
-              <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(netContribution, priorNetContribution, currency)}
-                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
                 {currentCohort.matchedAttempts.toString()} settled requests ·{' '}
@@ -895,19 +895,19 @@ function CommercialStatement({ token }: { token: string }) {
               </p>
             </article>
 
-            <article className="rounded-xl bg-card p-5 space-y-2.5">
+            <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Verified cash receipts</span>
                 <Badge variant="outline">Cash flow</Badge>
               </div>
-              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+              <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {verifiedCashReceipts === null
                   ? 'Unavailable'
                   : money(verifiedCashReceipts.toString(), currency)}
               </div>
-              <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(verifiedCashReceipts, priorVerifiedCashReceipts, currency)}
-                <span className="text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
+                <span className="whitespace-nowrap text-xs text-muted-foreground">vs {interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 border-t border-border/60 tabular-nums">
                 Unused prepaid wallet:{' '}
@@ -916,10 +916,10 @@ function CommercialStatement({ token }: { token: string }) {
             </article>
           </div>
 
-          {/* Layer 2: Dual Financial Statements (Income Statement + Cash Flow & Balance Sheet) */}
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {/* Layer 2: Financial Statements (Income Statement + Cash Flow & Wallet Position) */}
+          <div className="grid grid-cols-1 gap-6">
             {/* Table 1: Statement of Operations (Income Statement) */}
-            <div className="rounded-xl bg-card p-5 space-y-3">
+            <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <div>
                   <h2 className="text-base font-semibold">Statement of operations (P&amp;L)</h2>
@@ -927,17 +927,17 @@ function CommercialStatement({ token }: { token: string }) {
                     Accrual operating revenue, promotional allowances, and supply cost
                   </p>
                 </div>
-                <span className="text-xs font-medium text-muted-foreground">{currency}</span>
+                <span className="text-xs font-medium text-muted-foreground">Amounts in {currency}</span>
               </div>
-              <Table aria-label="Statement of operations">
+              <Table aria-label="Statement of operations" className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Line item</TableHead>
-                    <TableHead className="text-right">Current</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">
+                    <TableHead className="w-[44%]">Line item</TableHead>
+                    <TableHead className="w-[18%] text-right">Current</TableHead>
+                    <TableHead className="w-[18%] text-right hidden sm:table-cell">
                       {interval.comparisonLabel}
                     </TableHead>
-                    <TableHead className="text-right">Change</TableHead>
+                    <TableHead className="w-[20%] text-right">Change</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1014,25 +1014,25 @@ function CommercialStatement({ token }: { token: string }) {
             </div>
 
             {/* Table 2: Cash Flow, Payables & Wallet Balance Sheet */}
-            <div className="rounded-xl bg-card p-5 space-y-3">
+            <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <div>
                   <h2 className="text-base font-semibold">Cash receipts, payables &amp; wallet position</h2>
                   <p className="text-xs text-muted-foreground">
-                    Verified cash inflows, supplier settlement status, and customer balances
+                    Verified cash inflows, Provider settlement status, and customer balances
                   </p>
                 </div>
-                <span className="text-xs font-medium text-muted-foreground">{currency}</span>
+                <span className="text-xs font-medium text-muted-foreground">Amounts in {currency}</span>
               </div>
-              <Table aria-label="Customer financial posting summary">
+              <Table aria-label="Customer financial posting summary" className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Measure</TableHead>
-                    <TableHead className="text-right">Current</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">
+                    <TableHead className="w-[44%]">Measure</TableHead>
+                    <TableHead className="w-[18%] text-right">Current</TableHead>
+                    <TableHead className="w-[18%] text-right hidden sm:table-cell">
                       {interval.comparisonLabel}
                     </TableHead>
-                    <TableHead className="text-right">Change / Status</TableHead>
+                    <TableHead className="w-[20%] text-right">Change / Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1073,13 +1073,13 @@ function CommercialStatement({ token }: { token: string }) {
                     muted
                   />
                   <StatementRow
-                    label="Settled with providers"
+                    label="Settled with Providers"
                     current={currentCohort.settledPayable}
                     prior={priorCohort?.settledPayable ?? null}
                     currency={currency}
                   />
                   <StatementRow
-                    label="Outstanding unpaid provider payable"
+                    label="Outstanding unpaid Provider payable"
                     current={currentCohort.unpaidPayable}
                     prior={priorCohort?.unpaidPayable ?? null}
                     currency={currency}
@@ -1122,7 +1122,7 @@ function CommercialStatement({ token }: { token: string }) {
           </div>
 
           {/* Layer 3: Unit Economics by Provider & Model */}
-          <div className="rounded-xl bg-card p-5 space-y-4">
+          <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Unit economics by Provider &amp; model</h2>
@@ -1162,7 +1162,6 @@ function CommercialStatement({ token }: { token: string }) {
                     <TableHead className="text-right">Gross charges</TableHead>
                     <TableHead className="text-right">Net revenue</TableHead>
                     <TableHead className="text-right">Provider payable</TableHead>
-                    <TableHead className="text-right hidden lg:table-cell">Settlement</TableHead>
                     <TableHead className="text-right">Net contribution</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1196,7 +1195,7 @@ function CommercialStatement({ token }: { token: string }) {
 
                     return (
                       <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
-                        <TableCell className="align-top whitespace-normal min-w-44">
+                        <TableCell className="align-top whitespace-normal">
                           <div className="font-medium text-foreground">{row.model_alias}</div>
                           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                             <Link
@@ -1213,7 +1212,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs">
+                        <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
                           {row.offers.length === 0 ? (
                             <span className="text-muted-foreground">No quote in {row.currency}</span>
                           ) : (
@@ -1289,26 +1288,21 @@ function CommercialStatement({ token }: { token: string }) {
                           {rowPayable === null ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
-                            money(rowPayable.toString(), row.currency)
-                          )}
-                        </TableCell>
-
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums hidden lg:table-cell text-xs">
-                          {row.earning_nanos === null ? (
-                            <span className="text-muted-foreground">—</span>
-                          ) : (
-                            <div className="space-y-0.5">
-                              <div>
-                                Settled:{' '}
-                                {row.settled_earning_nanos
-                                  ? money(row.settled_earning_nanos, row.currency)
-                                  : money('0', row.currency)}
-                              </div>
-                              <div className="text-muted-foreground">
-                                Unpaid:{' '}
-                                {row.unsettled_earning_nanos
-                                  ? money(row.unsettled_earning_nanos, row.currency)
-                                  : money('0', row.currency)}
+                            <div>
+                              <div>{money(rowPayable.toString(), row.currency)}</div>
+                              <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                                <div>
+                                  Settled{' '}
+                                  {row.settled_earning_nanos
+                                    ? money(row.settled_earning_nanos, row.currency)
+                                    : money('0', row.currency)}
+                                </div>
+                                <div>
+                                  Unpaid{' '}
+                                  {row.unsettled_earning_nanos
+                                    ? money(row.unsettled_earning_nanos, row.currency)
+                                    : money('0', row.currency)}
+                                </div>
                               </div>
                             </div>
                           )}

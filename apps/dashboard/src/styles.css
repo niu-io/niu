@@ -3024,6 +3024,14 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 /* Field values keep a consistent weight when composed inside labels. */
 [data-slot="input"], [data-slot="textarea"] { font-weight: 400; }
 
+.commercial-statement th {
+  letter-spacing: 0;
+  padding: 10px 10px;
+}
+.commercial-statement td {
+  padding: 12px 10px;
+}
+
 @media print {
   .app-rail,
   .app-rail-spacer,

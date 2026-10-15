@@ -1,8 +1,8 @@
 -- Financial posting interval, separate from the commercial dispatch cohort.
 -- Unknown historical funding allocation must never become zero gift / gross income.
 WITH raw_bounds AS MATERIALIZED (
-    SELECT LEAST(COALESCE(to_timestamp($4::double precision / 1000.0), statement_timestamp()), statement_timestamp()) AS until,
-           COALESCE(to_timestamp($3::double precision / 1000.0), statement_timestamp() - make_interval(days => COALESCE($2, 30))) AS since
+    SELECT LEAST(COALESCE(to_timestamp($4::bigint::double precision / 1000.0), statement_timestamp()), statement_timestamp()) AS until,
+           COALESCE(to_timestamp($3::bigint::double precision / 1000.0), statement_timestamp() - make_interval(days => COALESCE($2, 30))) AS since
 ), bounds AS MATERIALIZED (
     SELECT GREATEST(raw_bounds.since, raw_bounds.until) AS until,
            raw_bounds.since AS since
