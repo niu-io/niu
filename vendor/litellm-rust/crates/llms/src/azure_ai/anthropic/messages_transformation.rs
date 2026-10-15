@@ -121,6 +121,31 @@ pub fn complete_azure_anthropic_url(
         .or_else(|| env_lookup(AZURE_API_BASE_ENV).filter(|value| !value.trim().is_empty()))
         .ok_or_else(|| Error::from(litellm_auth::Error::MissingAzureApiBase))?;
 
+    if let Ok(mut url) = reqwest::Url::parse(api_base.trim()) {
+        let mut segments: Vec<String> = url
+            .path()
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect();
+        if !segments
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .ends_with(&["v1", "messages"])
+        {
+            if let Some(pos) = segments.iter().position(|s| s == "anthropic") {
+                segments.truncate(pos + 1);
+            } else {
+                segments.push("anthropic".to_string());
+            }
+            segments.push("v1".to_string());
+            segments.push("messages".to_string());
+        }
+        url.set_path(&format!("/{}", segments.join("/")));
+        return Ok(url.into());
+    }
+
     let api_base = api_base.trim_end_matches('/');
 
     if api_base.ends_with(MESSAGES_PATH_SUFFIX) {
