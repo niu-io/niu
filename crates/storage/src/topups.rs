@@ -363,7 +363,7 @@ impl Store {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let account:Uuid=sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE").bind(organization).bind(input.currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        let account:Uuid=sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE").bind(organization).bind(input.currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if let Some(member) = member {
             Self::authorize_company_writer_in_tx(&mut tx, organization, member).await?;
         }
@@ -650,7 +650,7 @@ impl Store {
         if let Some(entry) = prior {
             return Ok(entry);
         }
-        sqlx::query("SELECT id FROM customer_balance_accounts WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM customer_balance_accounts WHERE id=$1 FOR NO KEY UPDATE")
             .bind(saved.account_id)
             .fetch_one(&mut *tx)
             .await?;

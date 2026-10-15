@@ -196,7 +196,7 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let row=sqlx::query("SELECT e.account_id,e.currency,e.kind,e.amount_nanos FROM customer_balance_entries e JOIN customer_balance_accounts a ON a.id=e.account_id AND a.organization_id=e.organization_id WHERE e.id=$1 AND e.organization_id=$2 FOR UPDATE OF a")
+        let row=sqlx::query("SELECT e.account_id,e.currency,e.kind,e.amount_nanos FROM customer_balance_entries e JOIN customer_balance_accounts a ON a.id=e.account_id AND a.organization_id=e.organization_id WHERE e.id=$1 AND e.organization_id=$2 FOR NO KEY UPDATE OF a")
             .bind(original).bind(organization).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let account: Uuid = row.get("account_id");
         let currency: String = row.get("currency");
@@ -299,7 +299,7 @@ SELECT jsonb_build_object(
             .ok_or(StoreError::Conflict)?;
         sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,$3) ON CONFLICT(organization_id,currency) DO NOTHING")
             .bind(Uuid::new_v4()).bind(organization).bind(currency).execute(&mut *tx).await?;
-        let (account, revision): (Uuid,i64)=sqlx::query_as("SELECT id,policy_revision FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE")
+        let (account, revision): (Uuid,i64)=sqlx::query_as("SELECT id,policy_revision FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
             .bind(organization).bind(currency).fetch_one(&mut *tx).await?;
         if revision != expected_revision {
             return Err(StoreError::Conflict);
@@ -345,7 +345,7 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let (account,credit,revision):(Uuid,i64,i64)=sqlx::query_as("SELECT id,credit_limit_nanos,policy_revision FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE").bind(organization).bind(currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        let (account,credit,revision):(Uuid,i64,i64)=sqlx::query_as("SELECT id,credit_limit_nanos,policy_revision FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE").bind(organization).bind(currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if revision != expected_revision {
             return Err(StoreError::Conflict);
         }
@@ -402,7 +402,7 @@ SELECT jsonb_build_object(
             .await?
             .ok_or(StoreError::Conflict)?;
 
-        sqlx::query("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id WHERE b.attempt_id=$1 AND b.organization_id=$2 AND b.project_id=$3 FOR UPDATE OF c")
+        sqlx::query("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id WHERE b.attempt_id=$1 AND b.organization_id=$2 AND b.project_id=$3 FOR NO KEY UPDATE OF c")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let state: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut **tx).await?;
@@ -461,7 +461,7 @@ SELECT jsonb_build_object(
         }
         sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,$3) ON CONFLICT(organization_id,currency) DO NOTHING")
             .bind(Uuid::new_v4()).bind(organization).bind(currency).execute(&mut *tx).await?;
-        let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE")
+        let account: Uuid = sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE")
             .bind(organization).bind(currency).fetch_one(&mut *tx).await?;
         let entry = Uuid::new_v4();
         sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key) VALUES($1,$2,$3,$4,'funding',$5,$1)")
