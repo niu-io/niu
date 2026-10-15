@@ -61,14 +61,9 @@ impl RequestChoiceFinish {
 }
 
 impl Store {
-    /// An immutable observation for a completed, scoped attempt. This neither
-    /// infers usage nor alters charging or execution confirmation.
-    pub async fn save_request_finish_reasons(
-        &self,
-        scope: TenantScope,
-        attempt: Uuid,
+    pub(crate) fn validate_and_serialize_finish_reasons(
         mut choices: Vec<RequestChoiceFinish>,
-    ) -> Result<(), StoreError> {
+    ) -> Result<serde_json::Value, StoreError> {
         choices.sort_by_key(|choice| choice.index);
         if choices.is_empty()
             || choices.len() > 128
@@ -78,7 +73,18 @@ impl Store {
         {
             return Err(StoreError::InvalidUsage);
         }
-        let choices = serde_json::to_value(choices).expect("finish metadata is serializable");
+        Ok(serde_json::to_value(choices).expect("finish metadata is serializable"))
+    }
+
+    /// An immutable observation for a completed, scoped attempt. This neither
+    /// infers usage nor alters charging or execution confirmation.
+    pub async fn save_request_finish_reasons(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        choices: Vec<RequestChoiceFinish>,
+    ) -> Result<(), StoreError> {
+        let choices = Self::validate_and_serialize_finish_reasons(choices)?;
         let result = sqlx::query(
             "INSERT INTO request_finish_reasons (attempt_id,choices) \
              SELECT a.id,$4 FROM attempts a JOIN operations o ON o.id=a.operation_id \

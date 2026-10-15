@@ -373,6 +373,7 @@ pub enum GatewayAdmissionStatus {
 /// `may_have_executed` and therefore visibly unresolved.
 #[derive(Clone)]
 pub struct GatewayCompletion {
+    pub finish_reasons: Option<Vec<RequestChoiceFinish>>,
     pub token_categories: Option<RequestTokenCategories>,
     pub scope: TenantScope,
     pub attempt_id: Uuid,
@@ -1204,6 +1205,7 @@ impl Store {
         let mut completion_tokens = Vec::with_capacity(completion_count);
         let mut provider_models = Vec::with_capacity(completion_count);
         let mut categories = Vec::new();
+        let mut finish_reasons = Vec::new();
         for completion in completions {
             if !seen.insert(completion.attempt_id) {
                 return Err(StoreError::InvalidGatewayAdmissionBatch);
@@ -1223,6 +1225,10 @@ impl Store {
                 };
                 details.validate_totals(prompt, output)?;
                 categories.push((completion.attempt_id, completion.scope, details));
+            }
+            if let Some(choices) = completion.finish_reasons {
+                let serialized = Self::validate_and_serialize_finish_reasons(choices)?;
+                finish_reasons.push((completion.attempt_id, completion.scope, serialized));
             }
             organization_ids.push(completion.scope.organization_id);
             project_ids.push(completion.scope.project_id);
@@ -1306,6 +1312,49 @@ impl Store {
         categories.sort_unstable_by_key(|(attempt, _, _)| *attempt);
         for (attempt, scope, details) in categories {
             Self::save_request_token_categories_in_tx(&mut tx, scope, attempt, details).await?;
+        }
+        if !finish_reasons.is_empty() {
+            finish_reasons.sort_unstable_by_key(|(attempt, _, _)| *attempt);
+            let mut finish_attempt_ids = Vec::with_capacity(finish_reasons.len());
+            let mut finish_org_ids = Vec::with_capacity(finish_reasons.len());
+            let mut finish_project_ids = Vec::with_capacity(finish_reasons.len());
+            let mut finish_choices = Vec::with_capacity(finish_reasons.len());
+            for (attempt, scope, choices) in finish_reasons {
+                finish_attempt_ids.push(attempt);
+                finish_org_ids.push(scope.organization_id);
+                finish_project_ids.push(scope.project_id);
+                finish_choices.push(choices);
+            }
+            let saved = sqlx::query(
+                r#"
+                    WITH input AS (
+                        SELECT * FROM unnest(
+                            $1::uuid[], $2::uuid[], $3::uuid[], $4::jsonb[]
+                        ) AS row(attempt_id, organization_id, project_id, choices)
+                    )
+                    INSERT INTO request_finish_reasons (attempt_id, choices)
+                    SELECT a.id, input.choices
+                    FROM input
+                    JOIN attempts a ON a.id = input.attempt_id
+                    JOIN operations o ON o.id = a.operation_id
+                    WHERE o.organization_id = input.organization_id
+                      AND o.project_id = input.project_id
+                      AND a.execution = 'confirmed_completed'
+                    ON CONFLICT (attempt_id) DO UPDATE
+                       SET attempt_id = EXCLUDED.attempt_id
+                     WHERE request_finish_reasons.choices = EXCLUDED.choices
+                "#,
+            )
+            .bind(&finish_attempt_ids)
+            .bind(&finish_org_ids)
+            .bind(&finish_project_ids)
+            .bind(&finish_choices)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+            if saved != finish_attempt_ids.len() as u64 {
+                return Err(StoreError::Conflict);
+            }
         }
         tx.commit().await?;
         Ok(())

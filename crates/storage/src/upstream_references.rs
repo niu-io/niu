@@ -24,23 +24,52 @@ impl Store {
         {
             return Err(StoreError::InvalidUsage);
         }
-        let mut tx = self.pool.begin().await?;
-        let eligible: Option<Uuid> = sqlx::query_scalar(
-            "SELECT a.id FROM attempts a JOIN managed_attempt_routes r ON r.attempt_id=a.id \
-             WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.dispatched_at IS NOT NULL FOR UPDATE OF a",
-        ).bind(attempt).bind(scope.organization_id).bind(scope.project_id)
-            .fetch_optional(&mut *tx).await?;
-        if eligible.is_none() {
+        let saved: bool = sqlx::query_scalar(
+            r#"
+                WITH eligible AS (
+                    SELECT a.id
+                    FROM attempts a
+                    JOIN managed_attempt_routes r ON r.attempt_id = a.id
+                    WHERE a.id = $1
+                      AND a.organization_id = $2
+                      AND a.project_id = $3
+                      AND a.dispatched_at IS NOT NULL
+                    FOR UPDATE OF a
+                ),
+                inserted AS (
+                    INSERT INTO openrouter_generation_references (
+                        attempt_id,
+                        generation_id,
+                        upstream_model
+                    )
+                    SELECT id, $4, $5
+                    FROM eligible
+                    ON CONFLICT DO NOTHING
+                    RETURNING attempt_id
+                )
+                SELECT EXISTS(SELECT 1 FROM inserted)
+                    OR (
+                        EXISTS(SELECT 1 FROM eligible)
+                        AND EXISTS(
+                            SELECT 1
+                            FROM openrouter_generation_references
+                            WHERE attempt_id = $1
+                              AND generation_id = $4
+                              AND upstream_model = $5
+                        )
+                    )
+            "#,
+        )
+        .bind(attempt)
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(generation)
+        .bind(upstream_model)
+        .fetch_one(&self.pool)
+        .await?;
+        if !saved {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO openrouter_generation_references(attempt_id,generation_id,upstream_model) VALUES($1,$2,$3) ON CONFLICT DO NOTHING")
-            .bind(attempt).bind(generation).bind(upstream_model).execute(&mut *tx).await?;
-        let matches: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM openrouter_generation_references WHERE attempt_id=$1 AND generation_id=$2 AND upstream_model=$3)")
-            .bind(attempt).bind(generation).bind(upstream_model).fetch_one(&mut *tx).await?;
-        if !matches {
-            return Err(StoreError::Conflict);
-        }
-        tx.commit().await?;
         Ok(())
     }
 }

@@ -43,6 +43,7 @@ enum PricedCompletionCommand {
 }
 
 pub(crate) struct PricedGatewayCompletion {
+    pub(crate) finish_reasons: Option<Vec<niu_storage::RequestChoiceFinish>>,
     pub(crate) token_categories: Option<niu_storage::RequestTokenCategories>,
     pub(crate) scope: niu_storage::TenantScope,
     pub(crate) attempt_id: Uuid,
@@ -427,6 +428,7 @@ async fn run_priced_completion_writer(
                         .1
                         .push((
                             GatewayCompletion {
+                                finish_reasons: completion.finish_reasons,
                                 token_categories: completion.token_categories,
                                 scope,
                                 attempt_id: completion.attempt_id,

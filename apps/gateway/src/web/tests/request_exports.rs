@@ -78,6 +78,7 @@ async fn customer_charge_breakdowns_preserve_currency_and_unsettled_coverage(poo
             state
                 .store
                 .complete_gateway_batch(vec![niu_storage::GatewayCompletion {
+                    finish_reasons: None,
                     token_categories: None,
                     scope,
                     attempt_id: attempt,
@@ -170,6 +171,7 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
     state
         .store
         .complete_gateway_batch(vec![niu_storage::GatewayCompletion {
+            finish_reasons: None,
             token_categories: Some(niu_storage::RequestTokenCategories {
                 cache_write_input_tokens: None,
                 cached_input_tokens: Some(9_007_199_254_740_991),
@@ -472,6 +474,7 @@ async fn request_sorting_covers_the_filtered_range_and_paginates_known_and_unkno
         state
             .store
             .complete_gateway_batch(vec![niu_storage::GatewayCompletion {
+                finish_reasons: None,
                 token_categories: None,
                 scope,
                 attempt_id: id,

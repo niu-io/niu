@@ -412,6 +412,7 @@ impl StreamAttempt {
         let result = if self.priced {
             self.gateway_writes
                 .complete_priced(crate::admission::PricedGatewayCompletion {
+                    finish_reasons,
                     scope: self.scope,
                     attempt_id: self.id,
                     usage,
@@ -422,6 +423,7 @@ impl StreamAttempt {
         } else {
             self.gateway_writes
                 .complete_unpriced(niu_storage::GatewayCompletion {
+                    finish_reasons,
                     scope: self.scope,
                     attempt_id: self.id,
                     usage,
@@ -433,15 +435,6 @@ impl StreamAttempt {
         if result.is_err() {
             tracing::error!(attempt_id = %self.id, priced = self.priced,
                 "stream completion writer is unavailable; durable execution and reservations remain unresolved");
-        }
-        if let Some(choices) = finish_reasons
-            && self
-                .store
-                .save_request_finish_reasons(self.scope, self.id, choices)
-                .await
-                .is_err()
-        {
-            tracing::error!(attempt_id = %self.id, "stream finish-reason observation could not be saved");
         }
         if invalid_output {
             self.failures.fetch_add(1, Ordering::Relaxed);

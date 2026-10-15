@@ -21,6 +21,7 @@ async fn category_aggregates_remain_exact_beyond_integer_ranges(pool: PgPool) {
         store.mark_dispatched(&principal, attempt).await.unwrap();
         store
             .complete_gateway_batch(vec![niu_storage::GatewayCompletion {
+                finish_reasons: None,
                 scope,
                 attempt_id: attempt,
                 usage: Some((i64::MAX as u64, 1)),
@@ -160,6 +161,7 @@ async fn categories_are_scoped_bounded_immutable_and_preserve_unknowns(pool: PgP
         .unwrap();
     store.mark_dispatched(&principal, next).await.unwrap();
     let mut record = niu_storage::GatewayCompletion {
+        finish_reasons: None,
         scope,
         attempt_id: next,
         usage: Some((10, 5)),

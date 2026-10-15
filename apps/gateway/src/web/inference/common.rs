@@ -1022,6 +1022,7 @@ pub(super) async fn finalize_response(
                 if state
                     .gateway_writes
                     .complete_priced(crate::admission::PricedGatewayCompletion {
+                        finish_reasons: result.finish_reasons.take(),
                         token_categories: result.token_categories,
                         scope: dispatch.scope,
                         attempt_id: dispatch.attempt,
@@ -1036,18 +1037,10 @@ pub(super) async fn finalize_response(
                         "priced gateway completion writer is unavailable; the durable reservation remains unresolved"
                     );
                 }
-                if let Some(choices) = result.finish_reasons.take()
-                    && state
-                        .store
-                        .save_request_finish_reasons(dispatch.scope, dispatch.attempt, choices)
-                        .await
-                        .is_err()
-                {
-                    tracing::error!(attempt_id = %dispatch.attempt, "finish-reason observation could not be saved");
-                }
                 result.response
             } else {
                 let completion = niu_storage::GatewayCompletion {
+                    finish_reasons: result.finish_reasons.take(),
                     token_categories: result.token_categories,
                     scope: dispatch.scope,
                     attempt_id: dispatch.attempt,
@@ -1064,15 +1057,6 @@ pub(super) async fn finalize_response(
                         attempt_id = %dispatch.attempt,
                         "unpriced completion writer is unavailable; the durable request remains unresolved"
                     );
-                }
-                if let Some(choices) = result.finish_reasons.take()
-                    && state
-                        .store
-                        .save_request_finish_reasons(dispatch.scope, dispatch.attempt, choices)
-                        .await
-                        .is_err()
-                {
-                    tracing::error!(attempt_id = %dispatch.attempt, "finish-reason observation could not be saved");
                 }
                 result.response
             }
