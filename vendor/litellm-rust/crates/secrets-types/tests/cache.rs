@@ -114,6 +114,17 @@ async fn refresh_bypasses_cached_values_and_errors_and_absence_are_retried() {
     let cache = SecretCache::new(10, Duration::from_secs(60));
     cache.insert("key", "old").await;
     assert_eq!(
+        cache.refresh("key", async { Err("transient-error") }).await,
+        Err("transient-error")
+    );
+    assert_eq!(
+        cache
+            .read("key", async { Ok::<_, Infallible>(None) })
+            .await
+            .unwrap(),
+        Some("old")
+    );
+    assert_eq!(
         cache
             .refresh("key", async { Ok::<_, Infallible>(Some("fresh")) })
             .await

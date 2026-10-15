@@ -10,6 +10,7 @@ impl AwsSecretsManagerV2 {
             client,
             context_client_factory: Some(Box::new(context_client_factory)),
             write_settings,
+            cache: SecretCache::new(CACHE_CAPACITY, DEFAULT_CACHE_TTL),
         }
     }
 

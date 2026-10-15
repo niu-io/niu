@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use litellm_auth_azure::{AzureAuthInputs, AzureAuthService, ConfigValue};
 use litellm_auth_types::{InputSource, Sourced};
 use litellm_core_utils::settings::Lookup;
 use litellm_secrets_types::{
-    AzureOperationContext, BaseSecretManager, Secret, SecretValue, validate_secret_name,
+    AzureOperationContext, BaseSecretManager, Secret, SecretCache, SecretValue,
+    validate_secret_name,
 };
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde::Deserialize;
@@ -13,6 +14,8 @@ use crate::Error;
 
 const AZURE_KEY_VAULT_URI: &str = "AZURE_KEY_VAULT_URI";
 const API_VERSION: &str = "7.4";
+const CACHE_CAPACITY: u64 = 200;
+const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(600);
 const PATH_SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'_')
@@ -25,6 +28,7 @@ pub struct AzureKeyVault {
     auth: Arc<AzureAuthService>,
     inputs: Arc<AzureAuthInputs>,
     environment: Arc<dyn Lookup + Send + Sync>,
+    cache: SecretCache<String, SecretValue>,
 }
 
 #[derive(Deserialize)]
@@ -58,6 +62,7 @@ impl AzureKeyVault {
             auth: Arc::new(AzureAuthService::default()),
             inputs: Arc::new(inputs),
             environment,
+            cache: SecretCache::new(CACHE_CAPACITY, DEFAULT_CACHE_TTL),
         })
     }
 
@@ -92,6 +97,13 @@ impl AzureKeyVault {
     }
 
     async fn read(&self, name: &str) -> Result<Option<SecretValue>, Error> {
+        validate_secret_name(name)?;
+        self.cache
+            .read(name.to_owned(), self.read_uncached(name))
+            .await
+    }
+
+    async fn read_uncached(&self, name: &str) -> Result<Option<SecretValue>, Error> {
         validate_secret_name(name)?;
         let token = self
             .auth

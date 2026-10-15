@@ -65,6 +65,10 @@ where
         key: K,
         load: impl Future<Output = Result<Option<V>, E>>,
     ) -> Result<Option<V>, E> {
+        let previous = match self.entries.get(&key).await {
+            Some(existing) => existing.lock().await.clone(),
+            None => None,
+        };
         let entry = Arc::new(Mutex::new(None));
         let mut value = entry.lock().await;
         self.entries.insert(key.clone(), entry.clone()).await;
@@ -73,7 +77,7 @@ where
                 *value = Some(loaded.clone());
                 Ok(Some(loaded))
             }
-            result => {
+            Ok(None) => {
                 if self
                     .entries
                     .get(&key)
@@ -82,7 +86,20 @@ where
                 {
                     self.entries.invalidate(&key).await;
                 }
-                result
+                Ok(None)
+            }
+            Err(error) => {
+                if let Some(previous) = previous {
+                    *value = Some(previous);
+                } else if self
+                    .entries
+                    .get(&key)
+                    .await
+                    .is_some_and(|current| Arc::ptr_eq(&current, &entry))
+                {
+                    self.entries.invalidate(&key).await;
+                }
+                Err(error)
             }
         }
     }

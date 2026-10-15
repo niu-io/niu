@@ -43,6 +43,9 @@ impl AwsSecretsManagerV2 {
         {
             litellm_tracing::warn!("secret created but replication failed");
         }
+        let target_name = name.to_owned();
+        self.cache
+            .invalidate_where(move |(_, cached_name)| cached_name == &target_name);
         Ok(response)
     }
 
@@ -182,13 +185,17 @@ impl AwsSecretsManagerV2 {
         name: &str,
         value: &SecretValue,
     ) -> Result<PutSecretValueOutput, Error> {
-        client
+        let output = client
             .put_secret_value()
             .secret_id(name)
             .secret_string(value.expose())
             .send()
             .await
-            .map_err(|error| Error::Put(Box::new(error)))
+            .map_err(|error| Error::Put(Box::new(error)))?;
+        let target_name = name.to_owned();
+        self.cache
+            .invalidate_where(move |(_, cached_name)| cached_name == &target_name);
+        Ok(output)
     }
 
     pub async fn async_delete_secret(
@@ -217,13 +224,17 @@ impl AwsSecretsManagerV2 {
         name: &str,
         recovery_window_in_days: Option<u32>,
     ) -> Result<DeleteSecretOutput, Error> {
-        client
+        let output = client
             .delete_secret()
             .secret_id(name)
             .set_recovery_window_in_days(recovery_window_in_days.map(i64::from))
             .send()
             .await
-            .map_err(|error| Error::Delete(Box::new(error)))
+            .map_err(|error| Error::Delete(Box::new(error)))?;
+        let target_name = name.to_owned();
+        self.cache
+            .invalidate_where(move |(_, cached_name)| cached_name == &target_name);
+        Ok(output)
     }
 
     pub async fn async_rotate_secret(
@@ -300,7 +311,13 @@ impl SecretRotator for AwsSecretsManagerV2 {
         name: &str,
         context: &Self::Context,
     ) -> Result<Option<SecretValue>, Error> {
-        BaseSecretManager::async_read_secret(self, name, context).await
+        let client = self.client_for_context(context)?;
+        self.cache
+            .refresh(
+                (context.region_name.clone(), name.to_owned()),
+                Self::async_read_secret_with_client(&client, name),
+            )
+            .await
     }
 
     async fn async_write_replacement(

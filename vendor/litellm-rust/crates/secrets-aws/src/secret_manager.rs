@@ -23,18 +23,22 @@ use litellm_auth_aws::constants::{
 use litellm_core_utils::settings::Lookup;
 use litellm_secrets_types::{
     AwsOperationContext, BaseSecretManager, KeyManagementSettings, RotationError, Secret,
-    SecretDeleter, SecretRotator, SecretValue, SecretWriteContext, SecretWriter,
+    SecretCache, SecretDeleter, SecretRotator, SecretValue, SecretWriteContext, SecretWriter,
     async_rotate_secret,
 };
 use serde_json::Value;
 
 use crate::{Error, auth};
 
+const CACHE_CAPACITY: u64 = 200;
+const DEFAULT_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(600);
+
 #[derive(Clone)]
 pub struct AwsSecretsManagerV2 {
     client: Client,
     context_client_factory: Option<Box<ContextClientFactory>>,
     write_settings: AwsSecretWriteSettings,
+    cache: SecretCache<(Option<String>, String), SecretValue>,
 }
 
 #[derive(Clone)]
@@ -73,6 +77,7 @@ impl AwsSecretsManagerV2 {
             client,
             context_client_factory: None,
             write_settings,
+            cache: SecretCache::new(CACHE_CAPACITY, DEFAULT_CACHE_TTL),
         }
     }
 }

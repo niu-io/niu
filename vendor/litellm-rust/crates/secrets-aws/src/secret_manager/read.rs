@@ -120,19 +120,29 @@ impl AwsSecretsManagerV2 {
         name: &str,
         policy: ReadPolicy,
     ) -> Result<Option<SecretValue>, Error> {
-        match (
-            Self::read_with_client(&self.client, name, policy).await,
-            policy,
-        ) {
-            (Err(Error::Read(_) | Error::MissingString | Error::Timeout), ReadPolicy::Python) => {
-                Ok(None)
+        match policy {
+            ReadPolicy::Native => {
+                self.cache
+                    .read(
+                        (None, name.to_owned()),
+                        Self::read_with_client(&self.client, name, ReadPolicy::Native),
+                    )
+                    .await
             }
-            (result, _) => result,
+            ReadPolicy::Python => match Self::read_with_client(&self.client, name, policy).await {
+                Err(Error::Read(_) | Error::MissingString | Error::Timeout) => Ok(None),
+                result => result,
+            },
         }
     }
 
     pub async fn async_read_secret(&self, name: &str) -> Result<Option<SecretValue>, Error> {
-        Self::async_read_secret_with_client(&self.client, name).await
+        self.cache
+            .read(
+                (None, name.to_owned()),
+                Self::async_read_secret_with_client(&self.client, name),
+            )
+            .await
     }
 
     pub(super) async fn async_read_secret_with_client(
@@ -197,7 +207,12 @@ impl BaseSecretManager for AwsSecretsManagerV2 {
         context: &Self::Context,
     ) -> Result<Option<SecretValue>, Error> {
         let client = self.client_for_context(context)?;
-        Self::async_read_secret_with_client(&client, name).await
+        self.cache
+            .read(
+                (context.region_name.clone(), name.to_owned()),
+                Self::async_read_secret_with_client(&client, name),
+            )
+            .await
     }
 }
 
