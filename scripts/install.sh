@@ -123,6 +123,26 @@ ensure_files() {
   fi
 }
 
+prepare_image() {
+  local dir="$1"
+  local tag="$2"
+  local target_image="$3"
+
+  if docker image inspect "$target_image" >/dev/null 2>&1; then
+    return 0
+  fi
+  if docker pull "$target_image" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ -f "${dir}/Dockerfile" ]]; then
+    echo "Building ${target_image} from local source in ${dir} ..."
+    docker build -t "$target_image" "$dir"
+    return 0
+  fi
+  echo "Building ${target_image} from release archive ${tag} ..."
+  docker build -t "$target_image" "https://github.com/niu-io/niu.git#${tag}"
+}
+
 cmd_install() {
   local dir="$1"
   local tag="$2"
@@ -153,14 +173,15 @@ cmd_install() {
     set_env_var "$env_file" OPENROUTER_API_KEY "${OPENROUTER_API_KEY:-sk-or-v1-replace-me}"
   fi
 
+  local target_image="${IMAGE_REPO}:${tag}"
   set_env_var "$env_file" NIU_HOST_PORT "$port"
   set_env_var "$env_file" NIU_VERSION "$tag"
-  set_env_var "$env_file" NIU_IMAGE "${IMAGE_REPO}:${tag}"
+  set_env_var "$env_file" NIU_IMAGE "$target_image"
 
   echo "Installing Niu ${tag} in ${dir} ..."
+  prepare_image "$dir" "$tag" "$target_image"
   (
     cd "$dir"
-    docker compose --env-file "$env_file" pull
     docker compose --env-file "$env_file" up -d
   )
 
@@ -210,8 +231,8 @@ cmd_upgrade() {
     docker compose --env-file "$env_file" exec -T postgres pg_dump -U niu -d niu | gzip >"$backup_file"
   )
 
-  echo "2/4 Pulling target image ${target_image} ..."
-  docker pull "$target_image"
+  echo "2/4 Preparing target image ${target_image} ..."
+  prepare_image "$dir" "$target_tag" "$target_image"
 
   echo "3/4 Running pre-upgrade encryption verification ..."
   (

@@ -282,12 +282,6 @@ The upgrade command automatically backs up PostgreSQL (`pg_dump`), verifies `NIU
 
 ```sh
 ./scripts/install.sh upgrade --version {tag} --dir /opt/niu
-```
-
-### Container Image
-
-```text
-ghcr.io/niu-io/niu:{tag}
 ```"""
     parts.append(install_section)
 
@@ -319,12 +313,18 @@ def set_version(raw_version: str, create_tag: bool, update_changelog: bool) -> i
         raise RuntimeError("failed to update default image tag in compose.yaml")
     COMPOSE_YAML.write_text(compose_updated, encoding="utf-8")
 
-    subprocess.run(
-        ["cargo", "metadata", "--format-version", "1"],
-        cwd=ROOT,
-        stdout=subprocess.DEVNULL,
-        check=True,
+    import shutil
+    cargo_bin = (
+        shutil.which("cargo")
+        or shutil.which("cargo", path=f"/opt/homebrew/bin:{Path.home() / '.cargo' / 'bin'}")
     )
+    if cargo_bin:
+        subprocess.run(
+            [cargo_bin, "metadata", "--format-version", "1"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            check=True,
+        )
 
     if update_changelog and update_changelog_for_version(version):
         print(f"Updated CHANGELOG.md with section [{version}]")
