@@ -35,15 +35,83 @@ impl Store {
         decision: &Value,
     ) -> Result<uuid::Uuid, StoreError> {
         let id = uuid::Uuid::new_v4();
-        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO input_detector_decisions(id,organization_id,project_id,key_id,workspace_revision,key_policy_revision,key_assignment_revision,detector_name,configuration_fingerprint,outcome,reason,elapsed_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(key)
             .bind(snapshot.workspace_revision).bind(snapshot.key_policy_revision).bind(snapshot.key_assignment_revision)
             .bind(decision["detector"].as_str()).bind(decision["configuration_fingerprint"].as_str())
             .bind(decision["outcome"].as_str()).bind(decision["reason"].as_str()).bind(decision["elapsed_ms"].as_i64())
-            .execute(&mut *tx).await?;
-        tx.commit().await?;
+            .execute(&self.pool).await?;
         Ok(id)
+    }
+
+    pub async fn record_input_detector_decisions_batch(
+        &self,
+        scope: TenantScope,
+        key: uuid::Uuid,
+        snapshot: &GuardrailSnapshot,
+        decisions: &[Value],
+    ) -> Result<Vec<uuid::Uuid>, StoreError> {
+        if decisions.is_empty() {
+            return Ok(Vec::new());
+        }
+        if decisions.len() == 1 {
+            return Ok(vec![
+                self.record_input_detector_decision(scope, key, snapshot, &decisions[0])
+                    .await?,
+            ]);
+        }
+        let mut ids = Vec::with_capacity(decisions.len());
+        let mut detectors = Vec::with_capacity(decisions.len());
+        let mut fingerprints = Vec::with_capacity(decisions.len());
+        let mut outcomes = Vec::with_capacity(decisions.len());
+        let mut reasons = Vec::with_capacity(decisions.len());
+        let mut elapsed_ms = Vec::with_capacity(decisions.len());
+        for decision in decisions {
+            ids.push(uuid::Uuid::new_v4());
+            detectors.push(decision["detector"].as_str().unwrap_or_default().to_owned());
+            fingerprints.push(
+                decision["configuration_fingerprint"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned(),
+            );
+            outcomes.push(decision["outcome"].as_str().unwrap_or_default().to_owned());
+            reasons.push(decision["reason"].as_str().unwrap_or_default().to_owned());
+            elapsed_ms.push(decision["elapsed_ms"].as_i64().unwrap_or(0));
+        }
+        sqlx::query(
+            "INSERT INTO input_detector_decisions(
+                id, organization_id, project_id, key_id,
+                workspace_revision, key_policy_revision, key_assignment_revision,
+                detector_name, configuration_fingerprint, outcome, reason, elapsed_ms
+            )
+            SELECT
+                u.id, $1, $2, $3, $4, $5, $6,
+                u.detector_name, u.configuration_fingerprint, u.outcome, u.reason, u.elapsed_ms
+            FROM UNNEST(
+                $7::uuid[],
+                $8::text[],
+                $9::text[],
+                $10::text[],
+                $11::text[],
+                $12::bigint[]
+            ) AS u(id, detector_name, configuration_fingerprint, outcome, reason, elapsed_ms)",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(key)
+        .bind(snapshot.workspace_revision)
+        .bind(snapshot.key_policy_revision)
+        .bind(snapshot.key_assignment_revision)
+        .bind(&ids)
+        .bind(&detectors)
+        .bind(&fingerprints)
+        .bind(&outcomes)
+        .bind(&reasons)
+        .bind(&elapsed_ms)
+        .execute(&self.pool)
+        .await?;
+        Ok(ids)
     }
 
     pub async fn record_output_guardrail_observation(

@@ -385,56 +385,78 @@ pub(super) async fn inspect_request_input_with_image_requirements(
             return Err(ApiError::forbidden());
         }
         let text = crate::guardrails::input::detector_text(protocol, body);
-        for binding in detectors {
-            let started = std::time::Instant::now();
-            let result = match &text {
-                Err(crate::guardrails::input::InspectionError::ResourceLimit) => {
-                    crate::guardrails::detector::InspectionResult {
-                        outcome: crate::guardrails::detector::Outcome::Indeterminate,
-                        reason: "resource_limit",
+        let evaluated = futures_util::future::join_all(detectors.iter().map(|binding| {
+            let text_ref = &text;
+            let state_ref = state;
+            async move {
+                let started = std::time::Instant::now();
+                let result = match text_ref {
+                    Err(crate::guardrails::input::InspectionError::ResourceLimit) => {
+                        crate::guardrails::detector::InspectionResult {
+                            outcome: crate::guardrails::detector::Outcome::Indeterminate,
+                            reason: "resource_limit",
+                        }
                     }
-                }
-                Err(_) => crate::guardrails::detector::InspectionResult {
-                    outcome: crate::guardrails::detector::Outcome::Indeterminate,
-                    reason: "unsupported_content",
-                },
-                Ok(text) => match state.detectors.get(&binding.detector) {
-                    Some(runtime) if runtime.permits_live(scope.project_id, &binding) => {
-                        runtime.inspect(text).await
-                    }
-                    _ => crate::guardrails::detector::InspectionResult {
+                    Err(_) => crate::guardrails::detector::InspectionResult {
                         outcome: crate::guardrails::detector::Outcome::Indeterminate,
-                        reason: "configuration_unavailable",
+                        reason: "unsupported_content",
                     },
-                },
+                    Ok(text) => match state_ref.detectors.get(&binding.detector) {
+                        Some(runtime) if runtime.permits_live(scope.project_id, binding) => {
+                            runtime.inspect(text).await
+                        }
+                        _ => crate::guardrails::detector::InspectionResult {
+                            outcome: crate::guardrails::detector::Outcome::Indeterminate,
+                            reason: "configuration_unavailable",
+                        },
+                    },
+                };
+                let decision = json!({
+                    "detector": binding.detector,
+                    "configuration_fingerprint": binding.configuration_fingerprint,
+                    "outcome": result.outcome,
+                    "reason": result.reason,
+                    "elapsed_ms": i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX)
+                });
+                (result, decision)
+            }
+        }))
+        .await;
+
+        let mut decisions_to_record = Vec::with_capacity(evaluated.len());
+        let mut first_failure = None;
+        for (result, decision) in evaluated {
+            decisions_to_record.push(decision);
+            if result.outcome != crate::guardrails::detector::Outcome::Clear {
+                first_failure = Some(result);
+                break;
+            }
+        }
+        let ids = state
+            .store
+            .record_input_detector_decisions_batch(
+                scope,
+                principal.key_id(),
+                &snapshot,
+                &decisions_to_record,
+            )
+            .await
+            .map_err(ApiError::from_store)?;
+        snapshot.input_detector_decision_ids.extend(ids);
+        if let Some(result) = first_failure {
+            let reason = if result.outcome == crate::guardrails::detector::Outcome::Matched {
+                "detector_blocked"
+            } else if result.reason == "unsupported_content" {
+                "detector_unsupported"
+            } else {
+                "detector_unavailable"
             };
-            let decision = json!({"detector":binding.detector,"configuration_fingerprint":binding.configuration_fingerprint,"outcome":result.outcome,"reason":result.reason,"elapsed_ms":i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX)});
-            let id = state
+            state
                 .store
-                .record_input_detector_decision(scope, principal.key_id(), &snapshot, &decision)
+                .record_guardrail_preparation_denial(scope, principal.key_id(), &snapshot, reason)
                 .await
                 .map_err(ApiError::from_store)?;
-            snapshot.input_detector_decision_ids.push(id);
-            if result.outcome != crate::guardrails::detector::Outcome::Clear {
-                let reason = if result.outcome == crate::guardrails::detector::Outcome::Matched {
-                    "detector_blocked"
-                } else if result.reason == "unsupported_content" {
-                    "detector_unsupported"
-                } else {
-                    "detector_unavailable"
-                };
-                state
-                    .store
-                    .record_guardrail_preparation_denial(
-                        scope,
-                        principal.key_id(),
-                        &snapshot,
-                        reason,
-                    )
-                    .await
-                    .map_err(ApiError::from_store)?;
-                return Err(ApiError::guardrail_denied());
-            }
+            return Err(ApiError::guardrail_denied());
         }
     }
     Ok(snapshot)
