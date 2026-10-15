@@ -891,7 +891,7 @@ SELECT jsonb_build_object(
         Ok(())
     }
     pub async fn accrue_customer_charge(&self, attempt: Uuid) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::accrue_customer_charge_in_tx(&mut tx, attempt).await?;
         tx.commit().await?;
         Ok(())

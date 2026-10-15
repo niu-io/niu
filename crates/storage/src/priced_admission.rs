@@ -33,7 +33,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let attempt = admission.attempt_id;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::insert_gateway_retry_attempt(&mut tx, &admission, retry).await?;
         Self::insert_route_generation(&mut *tx, attempt, admission.route_generation).await?;
         if let Some(route) = &admission.managed_route {

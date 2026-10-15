@@ -168,7 +168,7 @@ impl AppState {
             Ok(value) => value
                 .parse::<u32>()
                 .map_err(|_| "NIU_DATABASE_MAX_CONNECTIONS must be an integer from 1 to 256")?,
-            Err(env::VarError::NotPresent) => 10,
+            Err(env::VarError::NotPresent) => 32,
             Err(_) => {
                 return Err("NIU_DATABASE_MAX_CONNECTIONS must be an integer from 1 to 256".into());
             }

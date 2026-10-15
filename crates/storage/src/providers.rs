@@ -900,7 +900,7 @@ impl Store {
 
     /// Idempotent accrual only from confirmed execution and complete trusted usage.
     pub async fn accrue_provider_earning(&self, attempt: Uuid) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::accrue_provider_earning_in_tx(&mut tx, attempt).await?;
         tx.commit().await?;
         Ok(())

@@ -860,7 +860,7 @@ impl Store {
             return Err(StoreError::InvalidGatewayAdmissionBatch);
         }
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let locked_attempts: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=ANY($3) AND execution='confirmed_completed' AND usage_confidence='provider_reported' ORDER BY id FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt_ids)
             .fetch_all(&mut *tx).await?;

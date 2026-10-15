@@ -476,7 +476,7 @@ pub enum StoreError {
 
 impl Store {
     pub async fn connect(url: &str) -> Result<Self, StoreError> {
-        Self::connect_with_max_connections(url, 10).await
+        Self::connect_with_max_connections(url, 32).await
     }
 
     pub async fn connect_with_max_connections(
@@ -488,6 +488,15 @@ impl Store {
         }
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
+            .acquire_timeout(std::time::Duration::from_secs(5))
+            .after_connect(|connection, _| {
+                Box::pin(async move {
+                    sqlx::query("SET idle_in_transaction_session_timeout = '15s'")
+                        .execute(connection)
+                        .await?;
+                    Ok(())
+                })
+            })
             .connect(url)
             .await?;
         migration_compatibility::run(&pool).await?;
@@ -950,7 +959,7 @@ impl Store {
             revisions.push(admission.revision);
         }
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         if !route_gen_attempts.is_empty() {
             sqlx::query(
                 "INSERT INTO attempt_route_generations(attempt_id, generation) \
@@ -1245,7 +1254,7 @@ impl Store {
             }));
         }
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let updated: Vec<Uuid> = sqlx::query_scalar(
             r#"
                 WITH input AS MATERIALIZED (
