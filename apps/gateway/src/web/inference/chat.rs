@@ -18,6 +18,12 @@ use crate::{error::ApiError, state::AppState};
 use super::common::*;
 use super::priced_chat::validate_priced_request;
 
+#[derive(Default)]
+struct ChatRouteRequirements {
+    model: crate::config::ModelRequirements,
+    schema_validator: Option<std::sync::Arc<jsonschema::Validator>>,
+}
+
 struct ChatExecution<'a> {
     output_policy: Option<crate::streaming::output_policy::BufferedOutputPolicy>,
     output_observation: Option<crate::streaming::output_policy::StreamOutputObservation>,
@@ -27,6 +33,7 @@ struct ChatExecution<'a> {
     body: Value,
     messages: Value,
     native_optional_params: Option<serde_json::Map<String, Value>>,
+    route_requirements: ChatRouteRequirements,
     stream: bool,
     timeout: Duration,
     upstream_client: Option<reqwest::Client>,
@@ -42,6 +49,7 @@ struct CompatibleExecution<'a> {
     model: &'a crate::config::ModelConfig,
     api_key: String,
     body: Value,
+    route_requirements: ChatRouteRequirements,
     timeout: Duration,
     upstream_client: reqwest::Client,
     scope: niu_storage::TenantScope,
@@ -589,7 +597,7 @@ async fn chat_as(
         body,
         public_model,
         crate::guardrails::input::Protocol::Chat,
-        Some(requirements),
+        Some(requirements.model),
     )
     .await
 }
@@ -639,7 +647,7 @@ pub(super) async fn execute_chat_attempt(
             "Provider is not supported by this gateway",
         ));
     }
-    validate_chat_capabilities(&body, model, stream)?;
+    let route_requirements = validate_chat_capabilities_with_requirements(&body, model, stream)?;
     if let Some(price) = &model.pricing {
         if body.get("reasoning").is_some() && model.provider != "openrouter" {
             return Err(ApiError::unsupported_message(
@@ -729,6 +737,7 @@ pub(super) async fn execute_chat_attempt(
             body,
             messages,
             native_optional_params,
+            route_requirements,
             stream,
             timeout,
             upstream_client,
@@ -754,6 +763,7 @@ async fn execute_chat(
         body,
         messages,
         native_optional_params,
+        route_requirements,
         stream,
         timeout,
         upstream_client,
@@ -771,6 +781,7 @@ async fn execute_chat(
                 model,
                 api_key,
                 body,
+                route_requirements,
                 timeout,
                 upstream_client: upstream_client.ok_or_else(ApiError::unavailable)?,
                 scope,
@@ -791,6 +802,7 @@ async fn execute_chat(
                 model,
                 api_key,
                 body,
+                route_requirements,
                 timeout,
                 upstream_client: upstream_client.ok_or_else(ApiError::unavailable)?,
                 scope,
@@ -885,6 +897,7 @@ async fn complete_openai_compatible(
         model,
         api_key,
         mut body,
+        route_requirements,
         timeout,
         upstream_client,
         scope,
@@ -934,7 +947,11 @@ async fn complete_openai_compatible(
         ApiError::upstream_invalid_response()
     })?;
     if !value.get("choices").is_some_and(Value::is_array)
-        || !valid_chat_completion_features(&value, &body)
+        || !valid_chat_completion_features_with_validator(
+            &value,
+            &body,
+            route_requirements.schema_validator.as_ref(),
+        )
     {
         state.failures.fetch_add(1, Ordering::Relaxed);
         // Delivery validation and upstream execution are separate facts. A
@@ -1104,6 +1121,7 @@ async fn stream_openai_compatible(
         model,
         api_key,
         mut body,
+        route_requirements,
         timeout,
         upstream_client,
         scope,
@@ -1123,10 +1141,15 @@ async fn stream_openai_compatible(
     {
         Some("json_object") => Some(crate::structured_stream::StructuredStream::new(None)),
         Some("json_schema") => Some(crate::structured_stream::StructuredStream::new(Some(
-            structured_schema_validator(&body["response_format"]["json_schema"]["schema"])
+            match route_requirements.schema_validator {
+                Some(validator) => validator,
+                None => structured_schema_validator(
+                    &body["response_format"]["json_schema"]["schema"],
+                )
                 .map_err(|_| ApiError::invalid_request("Invalid structured output schema"))?,
+            },
         ))),
-        _ if chat_route_requirements(&body, true)?.tools => {
+        _ if route_requirements.model.tools => {
             Some(crate::structured_stream::StructuredStream::text())
         }
         _ => None,
@@ -1297,13 +1320,22 @@ fn map_native_chat_params(
     Ok(mapped)
 }
 
+#[cfg(test)]
 pub(in crate::web) fn validate_chat_capabilities(
     body: &Value,
     model: &crate::config::ModelConfig,
     stream: bool,
 ) -> Result<(), ApiError> {
+    validate_chat_capabilities_with_requirements(body, model, stream).map(|_| ())
+}
+
+fn validate_chat_capabilities_with_requirements(
+    body: &Value,
+    model: &crate::config::ModelConfig,
+    stream: bool,
+) -> Result<ChatRouteRequirements, ApiError> {
     let requirements = chat_route_requirements(body, stream)?;
-    let has_tool_semantics = requirements.tools;
+    let has_tool_semantics = requirements.model.tools;
     if has_tool_semantics {
         if !model.supports_tool_calls {
             return Err(ApiError::unsupported_message(
@@ -1317,18 +1349,15 @@ pub(in crate::web) fn validate_chat_capabilities(
         }
     }
 
-    if requirements.structured_output && !model.supports_structured_output {
+    if requirements.model.structured_output && !model.supports_structured_output {
         return Err(ApiError::unsupported_message(
             "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output.",
         ));
     }
-    Ok(())
+    Ok(requirements)
 }
 
-fn chat_route_requirements(
-    body: &Value,
-    stream: bool,
-) -> Result<crate::config::ModelRequirements, ApiError> {
+fn chat_route_requirements(body: &Value, stream: bool) -> Result<ChatRouteRequirements, ApiError> {
     let object = body
         .as_object()
         .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
@@ -1427,6 +1456,7 @@ fn chat_route_requirements(
                         || message.get("tool_calls").is_some()
                 })
             });
+    let mut schema_validator = None;
     if let Some(format) = object.get("response_format") {
         let format = format
             .as_object()
@@ -1454,11 +1484,12 @@ fn chat_route_requirements(
                         "json_schema requires a name and JSON Schema object",
                     ));
                 }
-                structured_schema_validator(&schema["schema"]).map_err(|_| {
+                let validator = structured_schema_validator(&schema["schema"]).map_err(|_| {
                     ApiError::invalid_request(
                         "JSON Schema must be valid, self-contained, at most 64 KiB, and within the supported complexity limits. External references cannot be retrieved.",
                     )
                 })?;
+                schema_validator = Some(validator);
             }
             _ => {
                 return Err(ApiError::invalid_request(
@@ -1468,20 +1499,32 @@ fn chat_route_requirements(
         }
     }
 
-    Ok(crate::config::ModelRequirements {
-        streaming: stream,
-        tools: has_tool_semantics,
-        streaming_tools: stream && has_tool_semantics,
-        structured_output: matches!(
-            body.pointer("/response_format/type")
-                .and_then(Value::as_str),
-            Some("json_object" | "json_schema")
-        ),
-        ..Default::default()
+    Ok(ChatRouteRequirements {
+        model: crate::config::ModelRequirements {
+            streaming: stream,
+            tools: has_tool_semantics,
+            streaming_tools: stream && has_tool_semantics,
+            structured_output: matches!(
+                body.pointer("/response_format/type")
+                    .and_then(Value::as_str),
+                Some("json_object" | "json_schema")
+            ),
+            ..Default::default()
+        },
+        schema_validator,
     })
 }
 
+#[cfg(test)]
 pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: &Value) -> bool {
+    valid_chat_completion_features_with_validator(response, request, None)
+}
+
+fn valid_chat_completion_features_with_validator(
+    response: &Value,
+    request: &Value,
+    precompiled_validator: Option<&std::sync::Arc<jsonschema::Validator>>,
+) -> bool {
     let Some(choices) = response.get("choices").and_then(Value::as_array) else {
         return false;
     };
@@ -1493,6 +1536,7 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
         .filter_map(|tool| tool.pointer("/function/name").and_then(Value::as_str))
         .map(str::to_owned)
         .collect();
+    let tool_selection = crate::structured_stream::ToolSelection::from_request(request);
     let json_mode = matches!(
         request
             .pointer("/response_format/type")
@@ -1504,13 +1548,17 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
         .and_then(Value::as_str)
         == Some("json_schema")
     {
-        let Some(schema) = request.pointer("/response_format/json_schema/schema") else {
-            return false;
-        };
-        let Ok(validator) = structured_schema_validator(schema) else {
-            return false;
-        };
-        Some(validator)
+        if let Some(validator) = precompiled_validator {
+            Some(validator.clone())
+        } else {
+            let Some(schema) = request.pointer("/response_format/json_schema/schema") else {
+                return false;
+            };
+            let Ok(validator) = structured_schema_validator(schema) else {
+                return false;
+            };
+            Some(validator)
+        }
     } else {
         None
     };
@@ -1569,7 +1617,7 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
             .get("refusal")
             .and_then(Value::as_str)
             .is_none_or(str::is_empty)
-            && !crate::structured_stream::ToolSelection::from_request(request).valid(&names)
+            && !tool_selection.valid(&names)
         {
             return false;
         }

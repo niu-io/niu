@@ -58,9 +58,8 @@ pub(super) fn validate_priced_request(
         "parallel_tool_calls",
     ] {
         if let Some(value) = object.get(field) {
-            let length = serde_json::to_vec(value)
-                .map_err(|_| ApiError::invalid_request("Invalid priced Chat input"))?
-                .len();
+            let length = crate::inference_schema::json_serialized_len(value)
+                .map_err(|_| ApiError::invalid_request("Invalid priced Chat input"))?;
             input_bytes = input_bytes.checked_add(length).ok_or_else(|| {
                 ApiError::invalid_request("Chat input exceeds the priced route bound")
             })?;
