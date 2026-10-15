@@ -1235,18 +1235,23 @@ pub(crate) async fn reserve_customer_balance_in_tx(
     if !funded {
         return Err(StoreError::BudgetExceeded);
     }
-    let within_workspace: bool = sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_workspace_spending_limits l WHERE l.organization_id=$1 AND l.project_id=$2 AND l.account_id=$3 AND niu_customer_workspace_committed(l.organization_id,l.project_id,l.account_id)+$4>l.limit_nanos)")
-        .bind(scope.organization_id).bind(scope.project_id).bind(account).bind(maximum_nanos)
-        .fetch_one(&mut **tx).await?;
-    if !within_workspace {
-        return Err(StoreError::WorkspaceSpendingLimitExceeded);
-    }
-    let within_key: bool = sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_key_spending_limits l WHERE l.account_id=$1 AND l.spending_root_id=niu_customer_attempt_spending_root($2) AND l.limit_nanos IS NOT NULL AND niu_customer_key_committed(l.spending_root_id,l.account_id)+$3>l.limit_nanos)")
-        .bind(account).bind(attempt).bind(maximum_nanos).fetch_one(&mut **tx).await?;
-    if !within_key {
-        return Err(StoreError::KeySpendingLimitExceeded);
-    }
     sqlx::query("INSERT INTO customer_balance_reservations(attempt_id,organization_id,account_id,currency,amount_nanos) SELECT attempt_id,organization_id,account_id,currency,$2 FROM customer_attempt_balance_accounts WHERE attempt_id=$1")
-            .bind(attempt).bind(maximum_nanos).execute(&mut **tx).await?;
+        .bind(attempt)
+        .bind(maximum_nanos)
+        .execute(&mut **tx)
+        .await
+        .map_err(|err| match &err {
+            sqlx::Error::Database(db)
+                if db.message().contains("customer workspace spending limit exceeded") =>
+            {
+                StoreError::WorkspaceSpendingLimitExceeded
+            }
+            sqlx::Error::Database(db)
+                if db.message().contains("customer key spending limit exceeded") =>
+            {
+                StoreError::KeySpendingLimitExceeded
+            }
+            _ => StoreError::Database(err),
+        })?;
     Ok(())
 }
