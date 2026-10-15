@@ -77,11 +77,22 @@ impl Store {
     ) -> Result<i64, StoreError> {
         // Existing publication writers take this lock before workspace policy,
         // key and route locks. Never hold these locks across Provider I/O.
-        sqlx::query("SELECT pg_advisory_xact_lock_shared(716554)")
-            .execute(&mut **tx)
-            .await?;
-        Self::authorize_media_processing_using(tx, p, snapshot).await?;
+        let scope = p.scope();
+        sqlx::query(
+            "SELECT pg_advisory_xact_lock_shared(716554), \
+                    pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .execute(&mut **tx)
+        .await?;
         Self::provider_asset_key_using(tx, p, &route.model.alias, true).await?;
+        let current = Self::guardrail_snapshot_using(&mut **tx, scope, p.key_id())
+            .await?
+            .ok_or(StoreError::Unauthorized)?;
+        if !crate::image_processing::same_policy(&current, snapshot) {
+            return Err(StoreError::Conflict);
+        }
         if !route.vendor.enabled
             || !route.model.enabled
             || route.model.vendor_id != route.vendor.id
@@ -89,7 +100,6 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        let scope = p.scope();
         let row=sqlx::query("SELECT v.revision AS vendor_revision,v.adapter,v.api_base,v.credential_ciphertext,m.revision AS model_revision,m.upstream_model,m.capabilities,m.pricing,own.organization_id AS personal_owner FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id LEFT JOIN personal_vendor_ownership own ON own.vendor_id=v.id WHERE m.alias=$1 AND v.id=$2 AND v.enabled AND m.enabled AND v.credential_ciphertext IS NOT NULL AND m.capabilities#>>'{provider_assets,channel}'='fastrouter-actions-v1' AND (own.organization_id=$3 OR (own.organization_id IS NULL AND niu_supplier_model_route_available(m.alias))) FOR SHARE OF v,m")
             .bind(&route.model.alias).bind(route.vendor.id).bind(scope.organization_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         if row.get::<i64, _>("vendor_revision") != route.vendor.revision
@@ -109,55 +119,114 @@ impl Store {
             .await?
             .ok_or(StoreError::Conflict)
     }
-    async fn provider_asset_reference_using(
+
+    async fn provider_asset_references_using(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         p: &Principal,
         route: &VendorRoute,
-        asset_id: Uuid,
+        route_sha256: [u8; 32],
+        asset_ids: &[Uuid],
         generation: i64,
-    ) -> Result<WorkspaceProviderAssetReference, StoreError> {
+    ) -> Result<std::collections::BTreeMap<Uuid, WorkspaceProviderAssetReference>, StoreError> {
+        let mut unique_ids = asset_ids.to_vec();
+        unique_ids.sort_unstable();
+        unique_ids.dedup();
+        if unique_ids.is_empty() {
+            return Ok(std::collections::BTreeMap::new());
+        }
         let scope = p.scope();
-        let row=sqlx::query("SELECT a.group_id,a.kind,a.provider_ref,g.provider_ref AS group_provider_ref,a.revision AS asset_revision,g.revision AS group_revision,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model,g.model_alias FROM workspace_provider_assets a JOIN workspace_provider_asset_groups g ON g.id=a.group_id AND g.organization_id=a.organization_id AND g.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.status='active' AND a.provider_ref IS NOT NULL AND g.status='ready' AND g.provider_ref IS NOT NULL AND EXISTS(SELECT 1 FROM workspace_provider_asset_operations o WHERE o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.group_id=g.id AND o.asset_id=a.id AND o.action='create_asset' AND o.status='acknowledged') AND NOT EXISTS(SELECT 1 FROM workspace_provider_asset_operations pending WHERE pending.organization_id=a.organization_id AND pending.project_id=a.project_id AND pending.group_id=g.id AND (pending.asset_id IS NULL OR pending.asset_id=a.id) AND pending.status IN ('prepared','unknown')) FOR SHARE OF g,a")
-            .bind(scope.organization_id).bind(scope.project_id).bind(asset_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
-        if row.get::<Uuid, _>("vendor_id") != route.vendor.id
-            || row.get::<i64, _>("vendor_revision") != route.vendor.revision
-            || row.get::<String, _>("model_alias") != route.model.alias
-            || row.get::<String, _>("upstream_model") != route.model.upstream_model
-        {
+        let rows = sqlx::query(
+            "SELECT a.id AS asset_id,a.group_id,a.kind,a.provider_ref,g.provider_ref AS group_provider_ref,\
+                    a.revision AS asset_revision,g.revision AS group_revision,g.vendor_id,g.vendor_revision,\
+                    g.model_revision,g.upstream_model,g.model_alias \
+             FROM workspace_provider_assets a \
+             JOIN workspace_provider_asset_groups g \
+               ON g.id=a.group_id AND g.organization_id=a.organization_id AND g.project_id=a.project_id \
+             WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3) \
+               AND a.status='active' AND a.provider_ref IS NOT NULL \
+               AND g.status='ready' AND g.provider_ref IS NOT NULL \
+               AND EXISTS(SELECT 1 FROM workspace_provider_asset_operations o \
+                          WHERE o.organization_id=a.organization_id AND o.project_id=a.project_id \
+                            AND o.group_id=g.id AND o.asset_id=a.id \
+                            AND o.action='create_asset' AND o.status='acknowledged') \
+               AND NOT EXISTS(SELECT 1 FROM workspace_provider_asset_operations pending \
+                              WHERE pending.organization_id=a.organization_id AND pending.project_id=a.project_id \
+                                AND pending.group_id=g.id AND (pending.asset_id IS NULL OR pending.asset_id=a.id) \
+                                AND pending.status IN ('prepared','unknown')) \
+             ORDER BY a.group_id,a.id \
+             FOR SHARE OF g,a",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(&unique_ids)
+        .fetch_all(&mut **tx)
+        .await?;
+        if rows.len() != unique_ids.len() {
             return Err(StoreError::Conflict);
         }
+        let mut group_ids: Vec<Uuid> = Vec::with_capacity(rows.len());
+        let mut result = std::collections::BTreeMap::new();
+        for row in rows {
+            if row.get::<Uuid, _>("vendor_id") != route.vendor.id
+                || row.get::<i64, _>("vendor_revision") != route.vendor.revision
+                || row.get::<String, _>("model_alias") != route.model.alias
+                || row.get::<String, _>("upstream_model") != route.model.upstream_model
+            {
+                return Err(StoreError::Conflict);
+            }
+            niu_media::fastrouter_domain::FastRouterProviderReference::parse(
+                &row.get::<String, _>("group_provider_ref"),
+            )
+            .map_err(|_| StoreError::InvalidObservation)?;
+            let reference = row.get::<String, _>("provider_ref");
+            niu_media::fastrouter_domain::FastRouterProviderReference::parse(&reference)
+                .map_err(|_| StoreError::InvalidObservation)?;
+            let kind: String = row.get("kind");
+            if !matches!(kind.as_str(), "image" | "video" | "audio") {
+                return Err(StoreError::InvalidObservation);
+            }
+            let asset_id: Uuid = row.get("asset_id");
+            let group_id: Uuid = row.get("group_id");
+            group_ids.push(group_id);
+            result.insert(
+                asset_id,
+                WorkspaceProviderAssetReference {
+                    scope,
+                    asset_id,
+                    group_id,
+                    kind,
+                    uri: format!("asset://{reference}"),
+                    asset_revision: row.get("asset_revision"),
+                    group_revision: row.get("group_revision"),
+                    birth_model_revision: row.get("model_revision"),
+                    route_sha256,
+                    registry_generation: generation,
+                },
+            );
+        }
+        group_ids.sort_unstable();
+        group_ids.dedup();
         // A prepared mutation may have committed while the row locks waited
         // without changing the locked tuple. Recheck it with a fresh statement
         // snapshot after the group/asset locks are held.
-        let pending: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM workspace_provider_asset_operations WHERE organization_id=$1 AND project_id=$2 AND group_id=$3 AND (asset_id IS NULL OR asset_id=$4) AND status IN ('prepared','unknown'))")
-            .bind(scope.organization_id).bind(scope.project_id).bind(row.get::<Uuid,_>("group_id")).bind(asset_id).fetch_one(&mut **tx).await?;
+        let pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM workspace_provider_asset_operations \
+             WHERE organization_id=$1 AND project_id=$2 AND group_id=ANY($3) \
+               AND (asset_id IS NULL OR asset_id=ANY($4)) \
+               AND status IN ('prepared','unknown'))",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(&group_ids)
+        .bind(&unique_ids)
+        .fetch_one(&mut **tx)
+        .await?;
         if pending {
             return Err(StoreError::Conflict);
         }
-        niu_media::fastrouter_domain::FastRouterProviderReference::parse(
-            &row.get::<String, _>("group_provider_ref"),
-        )
-        .map_err(|_| StoreError::InvalidObservation)?;
-        let reference = row.get::<String, _>("provider_ref");
-        niu_media::fastrouter_domain::FastRouterProviderReference::parse(&reference)
-            .map_err(|_| StoreError::InvalidObservation)?;
-        let kind: String = row.get("kind");
-        if !matches!(kind.as_str(), "image" | "video" | "audio") {
-            return Err(StoreError::InvalidObservation);
-        }
-        Ok(WorkspaceProviderAssetReference {
-            scope,
-            asset_id,
-            group_id: row.get("group_id"),
-            kind,
-            uri: format!("asset://{reference}"),
-            asset_revision: row.get("asset_revision"),
-            group_revision: row.get("group_revision"),
-            birth_model_revision: row.get("model_revision"),
-            route_sha256: route_digest(route)?,
-            registry_generation: generation,
-        })
+        Ok(result)
     }
+
     /// Caller first admits the selected published model and its declared input
     /// contract. This read does not create a job, reserve balance or call upstream.
     pub async fn resolve_workspace_provider_asset_reference(
@@ -167,14 +236,24 @@ impl Store {
         snapshot: &GuardrailSnapshot,
         asset_id: Uuid,
     ) -> Result<WorkspaceProviderAssetReference, StoreError> {
+        let route_sha256 = route_digest(route)?;
         let mut tx = self.begin_bounded_recording().await?;
         let generation =
             Self::provider_asset_dispatch_route_using(&mut tx, p, route, snapshot).await?;
-        let reference =
-            Self::provider_asset_reference_using(&mut tx, p, route, asset_id, generation).await?;
+        let mut map = Self::provider_asset_references_using(
+            &mut tx,
+            p,
+            route,
+            route_sha256,
+            &[asset_id],
+            generation,
+        )
+        .await?;
+        let reference = map.remove(&asset_id).ok_or(StoreError::Conflict)?;
         tx.commit().await?;
         Ok(reference)
     }
+
     /// Recheck exact saved input identity and current route/key/policy together
     /// with the existing funded dispatch claim. Mixed inspected/library inputs
     /// require their existing composite dispatch path. Ordinary public HTTPS
@@ -196,6 +275,7 @@ impl Store {
         {
             return Err(StoreError::InvalidObservation);
         }
+        let expected_route_sha256 = route_digest(dispatch.route)?;
         let mut positions = std::collections::BTreeSet::new();
         for asset in dispatch.assets {
             if !positions.insert(asset.position) {
@@ -215,7 +295,7 @@ impl Store {
                 || item[key]["url"].as_str() != Some(reference.private_uri())
                 || reference.scope.organization_id != p.scope().organization_id
                 || reference.scope.project_id != p.scope().project_id
-                || reference.route_sha256 != route_digest(dispatch.route)?
+                || reference.route_sha256 != expected_route_sha256
             {
                 return Err(StoreError::InvalidObservation);
             }
@@ -252,16 +332,21 @@ impl Store {
         }
         let mut assets: Vec<_> = dispatch.assets.iter().collect();
         assets.sort_by_key(|v| (v.reference.group_id, v.reference.asset_id, v.position));
+        let asset_ids: Vec<Uuid> = assets.iter().map(|v| v.reference.asset_id).collect();
+        let live_by_id = Self::provider_asset_references_using(
+            &mut tx,
+            p,
+            dispatch.route,
+            expected_route_sha256,
+            &asset_ids,
+            generation,
+        )
+        .await?;
         for asset in assets {
             let expected = asset.reference;
-            let live = Self::provider_asset_reference_using(
-                &mut tx,
-                p,
-                dispatch.route,
-                expected.asset_id,
-                generation,
-            )
-            .await?;
+            let live = live_by_id
+                .get(&expected.asset_id)
+                .ok_or(StoreError::Conflict)?;
             if live.group_id != expected.group_id
                 || live.kind != expected.kind
                 || live.uri != expected.uri
