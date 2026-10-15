@@ -199,7 +199,7 @@ impl Store {
         Ok((inserted, inputs.len() as u64 - inserted))
     }
     pub async fn delete_agent_observations(&self, owner: Uuid) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("DELETE FROM agent_observation_sources WHERE owner_id=$1")
             .bind(owner)
             .execute(&mut *tx)
@@ -221,10 +221,7 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         // All sections must describe the same persisted snapshot during ingestion.
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-            .execute(&mut *tx)
-            .await?;
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let summary: serde_json::Value = sqlx::query_scalar("SELECT jsonb_build_object('response_count',count(*)::text,'input_tokens',coalesce(sum(input_tokens),0)::text,'cached_input_tokens',coalesce(sum(cached_input_tokens),0)::text,'output_tokens',coalesce(sum(output_tokens),0)::text,'cache_write_input_tokens',sum(cache_write_input_tokens)::text,'unknown_cache_write_count',count(*) FILTER(WHERE cache_write_input_tokens IS NULL)::text,'reasoning_output_tokens',sum(reasoning_output_tokens)::text,'unknown_reasoning_count',count(*) FILTER(WHERE reasoning_output_tokens IS NULL)::text,'unknown_value_count',count(*) FILTER(WHERE api_equivalent_usd_nanos IS NULL)::text,'priced_value_usd_nanos',coalesce(sum(api_equivalent_usd_nanos),0)::text,'unknown_billing_count',count(*) FILTER(WHERE billing_mode='unknown')::text,'subscription_response_count',count(*) FILTER(WHERE billing_mode='subscription')::text,'api_response_count',count(*) FILTER(WHERE billing_mode='api')::text) FROM agent_observations WHERE owner_id=$1 AND occurred_at>=to_timestamp($2::double precision/1000) AND occurred_at<to_timestamp($3::double precision/1000)")
             .bind(owner).bind(from).bind(to).fetch_one(&mut *tx).await?;
         let sources: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('source',source,'client_version',client_version,'consent_version',consent_version,'consented_at',consented_at,'paused',paused) FROM agent_observation_sources WHERE owner_id=$1 ORDER BY source")

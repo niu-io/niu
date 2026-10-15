@@ -559,6 +559,13 @@ impl Store {
         from_ms: i64,
         to_ms: i64,
     ) -> Result<serde_json::Value, StoreError> {
+        if from_ms < 0
+            || to_ms <= from_ms
+            || to_ms - from_ms > 366 * 24 * 60 * 60 * 1000
+        {
+            return Err(StoreError::InvalidUsage);
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let filter = "organization_id=$1 AND project_id=$2 AND occurred_at>=to_timestamp($3::double precision/1000.0) AND occurred_at<to_timestamp($4::double precision/1000.0)";
         let summary_query = format!(
             "SELECT count(*)::text AS response_count, count(*) FILTER (WHERE api_equivalent_usd_nanos IS NULL)::text AS unknown_value_count, COALESCE(sum(api_equivalent_usd_nanos),0)::text AS priced_value_nanos, COALESCE(sum(input_tokens),0)::text AS input_tokens, COALESCE(sum(cached_input_tokens),0)::text AS cached_input_tokens, COALESCE(sum(cache_write_input_tokens),0)::text AS cache_write_input_tokens, count(*) FILTER (WHERE cache_write_input_tokens IS NULL)::text AS unknown_cache_write_count, COALESCE(sum(output_tokens),0)::text AS output_tokens, COALESCE(sum(reasoning_output_tokens),0)::text AS reasoning_output_tokens, count(*) FILTER (WHERE reasoning_output_tokens IS NULL)::text AS unknown_reasoning_count, count(*) FILTER (WHERE model IS NULL)::text AS unknown_model_count FROM codex_usage_responses WHERE {filter}"
@@ -568,7 +575,7 @@ impl Store {
             .bind(scope.project_id)
             .bind(from_ms)
             .bind(to_ms)
-            .fetch_one(&self.pool)
+            .fetch_one(&mut *tx)
             .await?;
         let summary_json = serde_json::json!({
             "response_count": summary.try_get::<String,_>("response_count")?,
@@ -592,7 +599,7 @@ impl Store {
             .bind(scope.project_id)
             .bind(from_ms)
             .bind(to_ms)
-            .fetch_all(&self.pool)
+            .fetch_all(&mut *tx)
             .await?;
         let by_model = model_rows
             .iter()
@@ -618,7 +625,7 @@ impl Store {
             .bind(scope.project_id)
             .bind(from_ms)
             .bind(to_ms)
-            .fetch_all(&self.pool)
+            .fetch_all(&mut *tx)
             .await?;
         let by_day = day_rows
             .iter()
@@ -641,7 +648,7 @@ impl Store {
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *tx)
         .await?;
         let imports_json = imports
             .iter()
@@ -669,7 +676,7 @@ impl Store {
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await?
         .map(|row| -> Result<_, sqlx::Error> {
             Ok(serde_json::json!({
@@ -680,6 +687,7 @@ impl Store {
             }))
         })
         .transpose()?;
+        tx.commit().await?;
 
         Ok(serde_json::json!({
             "source_format": "codex-rollout-jsonl-token_usage_record-v1",
@@ -694,7 +702,7 @@ impl Store {
     }
 
     pub async fn delete_codex_usage_report(&self, scope: TenantScope) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("DELETE FROM codex_usage_responses WHERE organization_id=$1 AND project_id=$2")
             .bind(scope.organization_id)
             .bind(scope.project_id)

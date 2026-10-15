@@ -185,7 +185,7 @@ impl Store {
         Ok(IssuedKey { id, token })
     }
     pub async fn personal_agent_connections(&self, owner: Uuid) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'name',name,'source',source,'client_version',client_version,'paused',paused,'revoked',revoked,'expired',expires_at<=now(),'created_at',created_at,'expires_at',expires_at,'last_received_at',last_received_at) FROM personal_agent_connections WHERE owner_id=$1 ORDER BY created_at DESC,id DESC")
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'name',name,'source',source,'client_version',client_version,'paused',paused,'revoked',revoked,'expired',expires_at<=now(),'created_at',created_at,'expires_at',expires_at,'last_received_at',last_received_at) FROM personal_agent_connections WHERE owner_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1000")
             .bind(owner).fetch_all(&self.pool).await?)
     }
     pub async fn update_personal_agent_connection(
