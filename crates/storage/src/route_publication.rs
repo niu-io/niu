@@ -61,17 +61,21 @@ impl Store {
         mut tx: Transaction<'_, Postgres>,
     ) -> Result<(), StoreError> {
         if let Some(compiler) = &self.route_compiler {
-            let current: Option<String> = sqlx::query_scalar(
-                "SELECT g.static_identity FROM routing_registry_active a JOIN routing_registry_generations g ON g.generation=a.generation"
-            ).fetch_optional(&mut *tx).await?;
+            let (dirty, current): (Option<String>, Option<String>) = sqlx::query_as(
+                "SELECT current_setting('niu.registry_dirty', true), \
+                 (SELECT g.static_identity FROM routing_registry_active a JOIN routing_registry_generations g ON g.generation=a.generation)"
+            ).fetch_one(&mut *tx).await?;
             if current
                 .as_deref()
                 .is_some_and(|identity| identity != compiler.static_identity())
             {
                 return Err(StoreError::Conflict);
             }
-            let compiled = compiler.compile(Self::routing_registry_inputs_in_tx(&mut tx).await?)?;
-            Self::publish_compilation(&mut tx, compiler.as_ref(), compiled).await?;
+            if dirty.as_deref() == Some("1") || current.is_none() {
+                let compiled =
+                    compiler.compile(Self::routing_registry_inputs_in_tx(&mut tx).await?)?;
+                Self::publish_compilation(&mut tx, compiler.as_ref(), compiled).await?;
+            }
         }
         sqlx::query("SELECT set_config('niu.registry_dirty','0',true)")
             .execute(&mut *tx)
@@ -85,12 +89,30 @@ impl Store {
         compiler: &dyn RouteRegistryCompiler,
         compiled: Value,
     ) -> Result<(), StoreError> {
-        if !compiled.is_object() || compiled.to_string().len() > 16 * 1024 * 1024 {
+        struct ByteCounter(usize);
+        impl std::io::Write for ByteCounter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0 = self.0.saturating_add(buf.len());
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut counter = ByteCounter(0);
+        if !compiled.is_object()
+            || serde_json::to_writer(&mut counter, &compiled).is_err()
+            || counter.0 > 16 * 1024 * 1024
+        {
             return Err(StoreError::InvalidVendor);
         }
+        let offer_revisions = compiled
+            .get("offers")
+            .cloned()
+            .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
         let generation: i64 = sqlx::query_scalar(
-            "INSERT INTO routing_registry_generations(static_identity,compiled) VALUES($1,$2) RETURNING generation"
-        ).bind(compiler.static_identity()).bind(compiled).fetch_one(&mut **tx).await?;
+            "INSERT INTO routing_registry_generations(static_identity,compiled,offer_revisions) VALUES($1,$2,$3) RETURNING generation"
+        ).bind(compiler.static_identity()).bind(compiled).bind(offer_revisions).fetch_one(&mut **tx).await?;
         sqlx::query("INSERT INTO routing_registry_active(singleton,generation) VALUES(true,$1) ON CONFLICT(singleton) DO UPDATE SET generation=EXCLUDED.generation")
             .bind(generation).execute(&mut **tx).await?;
         sqlx::query("SELECT set_config('niu.registry_dirty','0',true)")
@@ -185,7 +207,7 @@ impl Store {
         alias: &str,
     ) -> Result<(), StoreError> {
         let matches: bool = sqlx::query_scalar(
-            "SELECT NOT EXISTS(SELECT 1 FROM attempt_route_generations b JOIN routing_registry_generations g ON g.generation=b.generation LEFT JOIN provider_attempt_offers o ON o.attempt_id=b.attempt_id WHERE b.attempt_id=$1 AND (g.compiled->'offers'->$2->>'current_revision') IS DISTINCT FROM o.revision_id::text)"
+            "SELECT NOT EXISTS(SELECT 1 FROM attempt_route_generations b JOIN routing_registry_generations g ON g.generation=b.generation LEFT JOIN provider_attempt_offers o ON o.attempt_id=b.attempt_id WHERE b.attempt_id=$1 AND (COALESCE(g.offer_revisions, g.compiled->'offers')->$2->>'current_revision') IS DISTINCT FROM o.revision_id::text)"
         ).bind(attempt).bind(alias).fetch_one(&mut **tx).await?;
         if !matches {
             return Err(StoreError::ManagedRouteChanged);

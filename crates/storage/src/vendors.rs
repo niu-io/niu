@@ -900,25 +900,16 @@ impl Store {
             .into_iter()
             .map(VendorCatalogRow::into_catalog)
             .collect();
-        let mut pools = Vec::new();
-        let mut after: Option<String> = None;
-        loop {
-            let page: Vec<Value> = sqlx::query_scalar(
-                "SELECT to_jsonb(p) FROM model_route_pools p WHERE ($1::text IS NULL OR alias>$1) ORDER BY alias LIMIT 100",
-            )
-            .bind(after.as_deref())
-            .fetch_all(&mut **tx)
-            .await?;
-            let done = page.len() < 100;
-            for value in page {
-                let pool: crate::ModelRoutePool =
-                    serde_json::from_value(value).map_err(|_| StoreError::Conflict)?;
-                after = Some(pool.alias.clone());
-                pools.push(pool);
-            }
-            if done {
-                break;
-            }
+        let pool_rows: Vec<Value> = sqlx::query_scalar(
+            "SELECT to_jsonb(p) FROM model_route_pools p ORDER BY alias",
+        )
+        .fetch_all(&mut **tx)
+        .await?;
+        let mut pools = Vec::with_capacity(pool_rows.len());
+        for value in pool_rows {
+            let pool: crate::ModelRoutePool =
+                serde_json::from_value(value).map_err(|_| StoreError::Conflict)?;
+            pools.push(pool);
         }
         let offers = sqlx::query_as::<_, RouteRegistryOffer>(
             "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id ORDER BY o.model_alias"
@@ -1186,6 +1177,17 @@ impl Store {
         expected_revision: i64,
         entries: Vec<(String, Value)>,
     ) -> Result<u64, StoreError> {
+        let mut seen = std::collections::HashSet::with_capacity(entries.len());
+        let mut has_duplicates = false;
+        for (upstream, metadata) in &entries {
+            if !metadata.is_object() || json_size(metadata) > MAX_JSON_BYTES {
+                return Err(StoreError::InvalidVendor);
+            }
+            if !seen.insert(upstream.as_str()) {
+                has_duplicates = true;
+            }
+        }
+
         let mut tx = self.begin_route_write().await?;
         // Acquire this only after upstream I/O; serialize the revision check with
         // configuration edits until all matching metadata updates commit.
@@ -1198,14 +1200,37 @@ impl Store {
             return Err(StoreError::Conflict);
         }
 
-        let mut updated = 0;
-        for (upstream, metadata) in entries {
-            if !metadata.is_object() || json_size(&metadata) > MAX_JSON_BYTES {
-                return Err(StoreError::InvalidVendor);
+        let updated = if entries.is_empty() {
+            0
+        } else if !has_duplicates {
+            let mut upstreams = Vec::with_capacity(entries.len());
+            let mut metadatas = Vec::with_capacity(entries.len());
+            for (upstream, metadata) in entries {
+                upstreams.push(upstream);
+                metadatas.push(metadata);
             }
-            updated += sqlx::query("UPDATE vendor_models SET capabilities=jsonb_set(capabilities, '{catalog}', $3), revision=revision+1 WHERE vendor_id=$1 AND upstream_model=$2 AND capabilities->'catalog' IS DISTINCT FROM $3")
-                .bind(vendor_id).bind(upstream).bind(metadata).execute(&mut *tx).await?.rows_affected();
-        }
+            sqlx::query(
+                "UPDATE vendor_models m \
+                 SET capabilities=jsonb_set(m.capabilities, '{catalog}', u.metadata), \
+                     revision=m.revision+1 \
+                 FROM UNNEST($2::text[], $3::jsonb[]) AS u(upstream, metadata) \
+                 WHERE m.vendor_id=$1 AND m.upstream_model=u.upstream \
+                   AND m.capabilities->'catalog' IS DISTINCT FROM u.metadata",
+            )
+            .bind(vendor_id)
+            .bind(upstreams)
+            .bind(metadatas)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected()
+        } else {
+            let mut count = 0;
+            for (upstream, metadata) in entries {
+                count += sqlx::query("UPDATE vendor_models SET capabilities=jsonb_set(capabilities, '{catalog}', $3), revision=revision+1 WHERE vendor_id=$1 AND upstream_model=$2 AND capabilities->'catalog' IS DISTINCT FROM $3")
+                    .bind(vendor_id).bind(upstream).bind(metadata).execute(&mut *tx).await?.rows_affected();
+            }
+            count
+        };
         self.commit_route_write(tx).await?;
         Ok(updated)
     }
