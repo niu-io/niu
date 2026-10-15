@@ -123,10 +123,32 @@ pub(super) fn idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
     }
 }
 
+#[derive(Default)]
+pub(super) struct AdmissionContext {
+    published: Option<Option<std::sync::Arc<crate::vendors::publication::Published>>>,
+    principal_auth: Option<PrincipalAdmissionAuth>,
+}
+
+struct PrincipalAdmissionAuth {
+    snapshot: niu_storage::GuardrailSnapshot,
+    current_key: Principal,
+    policies: Option<Vec<crate::guardrails::PolicyDraft>>,
+}
+
 pub(super) async fn admit(
     state: &AppState,
     principal: &Principal,
     model: &str,
+) -> Result<WorkspaceProviderAssetRoute, ApiError> {
+    let mut context = AdmissionContext::default();
+    admit_with_context(state, principal, model, &mut context).await
+}
+
+pub(super) async fn admit_with_context(
+    state: &AppState,
+    principal: &Principal,
+    model: &str,
+    context: &mut AdmissionContext,
 ) -> Result<WorkspaceProviderAssetRoute, ApiError> {
     if model.is_empty()
         || model.len() > 256
@@ -136,7 +158,14 @@ pub(super) async fn admit(
         return Err(ApiError::invalid_request("Invalid model"));
     }
     let scope = principal.scope();
-    let published = crate::vendors::publication::snapshot(state).await?;
+    let published = match &context.published {
+        Some(published) => published.clone(),
+        None => {
+            let snapshot = crate::vendors::publication::snapshot(state).await?;
+            context.published = Some(snapshot.clone());
+            snapshot
+        }
+    };
     let route = if let Some(published) = published {
         if published.registry.pools.contains_key(model) {
             return Err(ApiError::not_found());
@@ -222,35 +251,58 @@ pub(super) async fn admit(
         ));
     }
     crate::vendors::require_selectable_credential(state, route.vendor.id).await?;
-    let snapshot = state
-        .store
-        .guardrail_snapshot(scope, principal.key_id())
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::forbidden)?;
-    state
-        .store
-        .authorize_media_processing(principal, &snapshot)
-        .await
-        .map_err(ApiError::from_store)?;
-    let current = state
-        .store
-        .dashboard_key(scope, principal.key_id())
-        .await
-        .map_err(ApiError::from_store)?;
-    let current = state.authorize_key_source(current).await?;
-    if !current.allows_model(model) {
+    let auth = match &mut context.principal_auth {
+        Some(auth) => auth,
+        None => {
+            let snapshot = state
+                .store
+                .guardrail_snapshot(scope, principal.key_id())
+                .await
+                .map_err(ApiError::from_store)?
+                .ok_or_else(ApiError::forbidden)?;
+            state
+                .store
+                .authorize_media_processing(principal, &snapshot)
+                .await
+                .map_err(ApiError::from_store)?;
+            let current_key = state
+                .store
+                .dashboard_key_with_ip(
+                    scope,
+                    principal.key_id(),
+                    crate::request_source::current_ip(),
+                )
+                .await
+                .map_err(ApiError::from_store)?;
+            context.principal_auth.insert(PrincipalAdmissionAuth {
+                snapshot,
+                current_key,
+                policies: None,
+            })
+        }
+    };
+    if !auth.current_key.allows_model(model) {
         return Err(ApiError::not_found());
     }
-    for policy in [&snapshot.workspace_policy, &snapshot.key_policy]
-        .into_iter()
-        .flatten()
-    {
-        let draft: crate::guardrails::PolicyDraft =
-            serde_json::from_value(policy.clone()).map_err(|_| ApiError::forbidden())?;
-        draft.validate_shape().map_err(|_| ApiError::forbidden())?;
-        if !crate::guardrails::EffectiveAccess::compose([draft.models]).permits(model)
-            || !crate::guardrails::EffectiveAccess::compose([draft.providers])
+    let policies = match &auth.policies {
+        Some(policies) => policies,
+        None => {
+            let mut parsed = Vec::with_capacity(2);
+            for policy in [&auth.snapshot.workspace_policy, &auth.snapshot.key_policy]
+                .into_iter()
+                .flatten()
+            {
+                let draft: crate::guardrails::PolicyDraft =
+                    serde_json::from_value(policy.clone()).map_err(|_| ApiError::forbidden())?;
+                draft.validate_shape().map_err(|_| ApiError::forbidden())?;
+                parsed.push(draft);
+            }
+            auth.policies.insert(parsed)
+        }
+    };
+    for draft in policies {
+        if !crate::guardrails::EffectiveAccess::compose([draft.models.clone()]).permits(model)
+            || !crate::guardrails::EffectiveAccess::compose([draft.providers.clone()])
                 .permits(&route.vendor.adapter)
         {
             return Err(ApiError::forbidden());

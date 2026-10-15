@@ -322,6 +322,7 @@ pub(super) async fn discover(
         return Err(ApiError::not_found());
     }
     let mut modules = Vec::new();
+    let mut admission_context = provider_assets::AdmissionContext::default();
     for configured in crate::vendors::scoped_managed_catalog(&state, scope.organization_id).await? {
         let alias = &configured.model.alias;
         if !aliases.contains(alias.as_str())
@@ -341,7 +342,9 @@ pub(super) async fn discover(
         {
             continue;
         }
-        let route = provider_assets::admit(&state, &principal, alias).await?;
+        let route =
+            provider_assets::admit_with_context(&state, &principal, alias, &mut admission_context)
+                .await?;
         let schema: niu_media::VideoSchema = serde_json::from_value(
             route
                 .model_capabilities()
