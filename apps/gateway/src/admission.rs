@@ -93,10 +93,15 @@ impl GatewayWrites {
         let (completion_sender, completion_receiver) = mpsc::channel(QUEUE_CAPACITY);
         let (priced_completion_sender, priced_completion_receiver) = mpsc::channel(QUEUE_CAPACITY);
         tokio::spawn(run_admission_writer(store.clone(), admission_receiver));
-        tokio::spawn(run_completion_writer(store.clone(), completion_receiver));
+        tokio::spawn(run_completion_writer(
+            store.clone(),
+            completion_receiver,
+            inference_in_flight.clone(),
+        ));
         tokio::spawn(run_priced_completion_writer(
             store,
             priced_completion_receiver,
+            inference_in_flight.clone(),
         ));
         Self {
             admissions: admission_sender,
@@ -223,6 +228,11 @@ async fn run_admission_writer(store: Store, mut receiver: mpsc::Receiver<Admissi
     let mut deferred = None;
     let mut in_flight = JoinSet::new();
     loop {
+        while let Some(result) = in_flight.try_join_next() {
+            if let Err(error) = result {
+                tracing::error!(error = %error, task_name = "gateway admission", "gateway write task failed");
+            }
+        }
         if in_flight.len() >= MAX_IN_FLIGHT_BATCHES {
             join_one(&mut in_flight, "gateway admission").await;
         }
@@ -278,9 +288,22 @@ async fn run_admission_writer(store: Store, mut receiver: mpsc::Receiver<Admissi
     }
 }
 
-async fn run_completion_writer(store: Store, mut receiver: mpsc::Receiver<CompletionCommand>) {
+async fn run_completion_writer(
+    store: Store,
+    mut receiver: mpsc::Receiver<CompletionCommand>,
+    inference_in_flight: Arc<AtomicUsize>,
+) {
     let mut deferred = None;
+    let mut in_flight = JoinSet::new();
     loop {
+        while let Some(result) = in_flight.try_join_next() {
+            if let Err(error) = result {
+                tracing::error!(error = %error, task_name = "gateway completion", "gateway write task failed");
+            }
+        }
+        if in_flight.len() >= MAX_IN_FLIGHT_BATCHES {
+            join_one(&mut in_flight, "gateway completion").await;
+        }
         let command = match deferred.take() {
             Some(command) => Some(command),
             None => receiver.recv().await,
@@ -289,32 +312,54 @@ async fn run_completion_writer(store: Store, mut receiver: mpsc::Receiver<Comple
             Some(CompletionCommand::Complete(first, first_reply)) => {
                 let mut batch = Vec::with_capacity(MAX_BATCH_SIZE);
                 batch.push((first, first_reply));
-                let deadline = tokio::time::sleep(MAX_COMPLETION_BATCH_DELAY);
-                tokio::pin!(deadline);
-                while batch.len() < MAX_BATCH_SIZE {
-                    tokio::select! {
-                        _ = &mut deadline => break,
-                        next = receiver.recv() => match next {
-                            Some(CompletionCommand::Complete(completion, reply)) => batch.push((completion, reply)),
-                            Some(other) => {
+                if inference_in_flight.load(Ordering::Relaxed) <= 1 {
+                    while batch.len() < MAX_BATCH_SIZE {
+                        match receiver.try_recv() {
+                            Ok(CompletionCommand::Complete(completion, reply)) => {
+                                batch.push((completion, reply))
+                            }
+                            Ok(other) => {
                                 deferred = Some(other);
                                 break;
                             }
-                            None => break,
+                            Err(_) => break,
+                        }
+                    }
+                } else {
+                    let deadline = tokio::time::sleep(MAX_COMPLETION_BATCH_DELAY);
+                    tokio::pin!(deadline);
+                    while batch.len() < MAX_BATCH_SIZE {
+                        tokio::select! {
+                            _ = &mut deadline => break,
+                            next = receiver.recv() => match next {
+                                Some(CompletionCommand::Complete(completion, reply)) => batch.push((completion, reply)),
+                                Some(other) => {
+                                    deferred = Some(other);
+                                    break;
+                                }
+                                None => break,
+                            }
                         }
                     }
                 }
-                let (completions, replies): (Vec<_>, Vec<_>) = batch.into_iter().unzip();
-                let persisted = persist_completion_batch(&store, completions).await;
-                for (reply, persisted) in replies.into_iter().zip(persisted) {
-                    let _ = reply.send(persisted);
-                }
+                let store = store.clone();
+                in_flight.spawn(async move {
+                    let (completions, replies): (Vec<_>, Vec<_>) = batch.into_iter().unzip();
+                    let persisted = persist_completion_batch(&store, completions).await;
+                    for (reply, persisted) in replies.into_iter().zip(persisted) {
+                        let _ = reply.send(persisted);
+                    }
+                });
             }
             Some(CompletionCommand::Shutdown(reply)) => {
+                drain(&mut in_flight, "gateway completion").await;
                 let _ = reply.send(());
                 return;
             }
-            None => return,
+            None => {
+                drain(&mut in_flight, "gateway completion").await;
+                return;
+            }
         }
     }
 }
@@ -322,9 +367,19 @@ async fn run_completion_writer(store: Store, mut receiver: mpsc::Receiver<Comple
 async fn run_priced_completion_writer(
     store: Store,
     mut receiver: mpsc::Receiver<PricedCompletionCommand>,
+    inference_in_flight: Arc<AtomicUsize>,
 ) {
     let mut deferred = None;
+    let mut in_flight = JoinSet::new();
     loop {
+        while let Some(result) = in_flight.try_join_next() {
+            if let Err(error) = result {
+                tracing::error!(error = %error, task_name = "gateway priced completion", "gateway write task failed");
+            }
+        }
+        if in_flight.len() >= MAX_IN_FLIGHT_BATCHES {
+            join_one(&mut in_flight, "gateway priced completion").await;
+        }
         let command = match deferred.take() {
             Some(command) => Some(command),
             None => receiver.recv().await,
@@ -333,18 +388,33 @@ async fn run_priced_completion_writer(
             Some(PricedCompletionCommand::Complete(completion, first_reply)) => {
                 let mut batch = Vec::with_capacity(MAX_BATCH_SIZE);
                 batch.push((completion, first_reply));
-                let deadline = tokio::time::sleep(MAX_COMPLETION_BATCH_DELAY);
-                tokio::pin!(deadline);
-                while batch.len() < MAX_BATCH_SIZE {
-                    tokio::select! {
-                        _ = &mut deadline => break,
-                        next = receiver.recv() => match next {
-                            Some(PricedCompletionCommand::Complete(completion, reply)) => batch.push((completion, reply)),
-                            Some(other) => {
+                if inference_in_flight.load(Ordering::Relaxed) <= 1 {
+                    while batch.len() < MAX_BATCH_SIZE {
+                        match receiver.try_recv() {
+                            Ok(PricedCompletionCommand::Complete(completion, reply)) => {
+                                batch.push((completion, reply))
+                            }
+                            Ok(other) => {
                                 deferred = Some(other);
                                 break;
                             }
-                            None => break,
+                            Err(_) => break,
+                        }
+                    }
+                } else {
+                    let deadline = tokio::time::sleep(MAX_COMPLETION_BATCH_DELAY);
+                    tokio::pin!(deadline);
+                    while batch.len() < MAX_BATCH_SIZE {
+                        tokio::select! {
+                            _ = &mut deadline => break,
+                            next = receiver.recv() => match next {
+                                Some(PricedCompletionCommand::Complete(completion, reply)) => batch.push((completion, reply)),
+                                Some(other) => {
+                                    deferred = Some(other);
+                                    break;
+                                }
+                                None => break,
+                            }
                         }
                     }
                 }
@@ -366,19 +436,33 @@ async fn run_priced_completion_writer(
                             reply,
                         ));
                 }
-                for (_, (scope, grouped_batch)) in grouped {
-                    let (records, replies): (Vec<_>, Vec<_>) = grouped_batch.into_iter().unzip();
-                    let persisted = persist_priced_completion_batch(&store, scope, records).await;
-                    for (reply, persisted) in replies.into_iter().zip(persisted) {
-                        let _ = reply.send(persisted);
+                let store = store.clone();
+                in_flight.spawn(async move {
+                    let mut group_tasks = JoinSet::new();
+                    for (_, (scope, grouped_batch)) in grouped {
+                        let store = store.clone();
+                        group_tasks.spawn(async move {
+                            let (records, replies): (Vec<_>, Vec<_>) =
+                                grouped_batch.into_iter().unzip();
+                            let persisted =
+                                persist_priced_completion_batch(&store, scope, records).await;
+                            for (reply, persisted) in replies.into_iter().zip(persisted) {
+                                let _ = reply.send(persisted);
+                            }
+                        });
                     }
-                }
+                    drain(&mut group_tasks, "gateway priced completion group").await;
+                });
             }
             Some(PricedCompletionCommand::Shutdown(reply)) => {
+                drain(&mut in_flight, "gateway priced completion").await;
                 let _ = reply.send(());
                 return;
             }
-            None => return,
+            None => {
+                drain(&mut in_flight, "gateway priced completion").await;
+                return;
+            }
         }
     }
 }
