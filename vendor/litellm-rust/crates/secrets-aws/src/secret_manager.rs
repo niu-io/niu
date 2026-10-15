@@ -41,11 +41,14 @@ pub struct AwsSecretsManagerV2 {
     cache: SecretCache<(Option<String>, String), SecretValue>,
 }
 
+const CONTEXT_CLIENT_CACHE_CAPACITY: usize = 32;
+
 #[derive(Clone)]
 struct ContextClientFactory {
     settings: KeyManagementSettings,
     environment: Arc<dyn Lookup + Send + Sync>,
     endpoint_url: Option<String>,
+    cached_clients: Arc<std::sync::Mutex<Vec<(AwsOperationContext, Client)>>>,
 }
 
 #[derive(Clone, Debug, Default)]

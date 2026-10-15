@@ -56,10 +56,14 @@ impl CyberArkSecretManager {
             builder = builder.danger_accept_invalid_certs(true);
         }
         if !cert.is_empty() && !key.is_empty() {
-            let certificate = fs::read(cert).map_err(|_| Error::ClientCertificate)?;
+            let mut pem = fs::read(cert).map_err(|_| Error::ClientCertificate)?;
+            if !pem.ends_with(b"\n") {
+                pem.push(b'\n');
+            }
             let private_key = fs::read(key).map_err(|_| Error::ClientCertificate)?;
-            let identity = reqwest::Identity::from_pem(&[certificate, private_key].concat())
-                .map_err(|_| Error::ClientCertificate)?;
+            pem.extend_from_slice(&private_key);
+            let identity =
+                reqwest::Identity::from_pem(&pem).map_err(|_| Error::ClientCertificate)?;
             builder = builder.identity(identity);
         }
         let client = builder.build()?;

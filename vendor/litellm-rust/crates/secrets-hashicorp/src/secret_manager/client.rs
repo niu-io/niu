@@ -62,7 +62,7 @@ impl HashicorpVault {
         let (client, expires_at): (VaultClient, Option<Instant>) =
             match (self.config.approle.as_ref(), self.config.tls_cert.as_ref()) {
                 (Some(approle), _) => {
-                    let login_client: VaultClient = self.build_client_with_identity(
+                    let mut login_client: VaultClient = self.build_client_with_identity(
                         self.config.login_namespace(),
                         "",
                         identity.clone(),
@@ -75,17 +75,21 @@ impl HashicorpVault {
                     )
                     .await
                     .map_err(|error| map_api_error(error, ErrorContext::Login))?;
-                    (
+                    let client = if self.config.login_namespace() == self.config.secret_namespace()
+                    {
+                        vaultrs::client::Client::set_token(&mut login_client, &auth.client_token);
+                        login_client
+                    } else {
                         self.build_client_with_identity(
                             self.config.secret_namespace(),
                             &auth.client_token,
                             identity,
-                        )?,
-                        token_expiry(auth.lease_duration),
-                    )
+                        )?
+                    };
+                    (client, token_expiry(auth.lease_duration))
                 }
                 (None, Some(tls)) => {
-                    let login_client: VaultClient = self.build_client_with_identity(
+                    let mut login_client: VaultClient = self.build_client_with_identity(
                         self.config.login_namespace(),
                         "",
                         identity.clone(),
@@ -94,14 +98,18 @@ impl HashicorpVault {
                     let auth = api::auth(&login_client, endpoint)
                         .await
                         .map_err(|error| map_api_error(error, ErrorContext::Login))?;
-                    (
+                    let client = if self.config.login_namespace() == self.config.secret_namespace()
+                    {
+                        vaultrs::client::Client::set_token(&mut login_client, &auth.client_token);
+                        login_client
+                    } else {
                         self.build_client_with_identity(
                             self.config.secret_namespace(),
                             &auth.client_token,
                             identity,
-                        )?,
-                        token_expiry(auth.lease_duration),
-                    )
+                        )?
+                    };
+                    (client, token_expiry(auth.lease_duration))
                 }
                 (None, None) => {
                     let token: SecretValue =
@@ -164,19 +172,22 @@ impl HashicorpVault {
 
 fn identity_for(tls: Option<&TlsCertAuth>) -> Result<Option<Identity>, Error> {
     tls.map(|tls| {
-        let cert: Vec<u8> = std::fs::read(&tls.cert_path).map_err(|source| Error::TlsIdentity {
-            path: tls.cert_path.clone(),
-            message: source.to_string(),
-        })?;
+        let mut pem: Vec<u8> =
+            std::fs::read(&tls.cert_path).map_err(|source| Error::TlsIdentity {
+                path: tls.cert_path.clone(),
+                message: source.to_string(),
+            })?;
+        if !pem.ends_with(b"\n") {
+            pem.push(b'\n');
+        }
         let key: Vec<u8> = std::fs::read(&tls.key_path).map_err(|source| Error::TlsIdentity {
             path: tls.key_path.clone(),
             message: source.to_string(),
         })?;
-        Identity::from_pem(&[cert.as_slice(), key.as_slice()].concat()).map_err(|source| {
-            Error::TlsIdentity {
-                path: tls.cert_path.clone(),
-                message: source.to_string(),
-            }
+        pem.extend_from_slice(&key);
+        Identity::from_pem(&pem).map_err(|source| Error::TlsIdentity {
+            path: tls.cert_path.clone(),
+            message: source.to_string(),
         })
     })
     .transpose()

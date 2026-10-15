@@ -28,6 +28,7 @@ impl AwsSecretsManagerV2 {
             endpoint_url: environment
                 .get(AWS_BEDROCK_RUNTIME_ENDPOINT)
                 .map(|url| url.replace("bedrock-runtime", "secretsmanager")),
+            cached_clients: Arc::new(std::sync::Mutex::new(Vec::new())),
         };
         let client = context_client_factory.client(&AwsOperationContext::default())?;
         Ok(Some(Self::with_context_client_factory(
@@ -53,6 +54,14 @@ impl AwsSecretsManagerV2 {
 
 impl ContextClientFactory {
     fn client(&self, context: &AwsOperationContext) -> Result<Client, Error> {
+        if let Ok(mut guard) = self.cached_clients.lock()
+            && let Some(pos) = guard.iter().position(|(cached_ctx, _)| cached_ctx == context)
+        {
+            let entry = guard.remove(pos);
+            let client = entry.1.clone();
+            guard.push(entry);
+            return Ok(client);
+        }
         let settings = KeyManagementSettings {
             aws_region_name: context
                 .region_name
@@ -112,6 +121,17 @@ impl ContextClientFactory {
             Some(endpoint_url) => builder.endpoint_url(endpoint_url).build(),
             None => builder.build(),
         };
-        Ok(Client::from_conf(config))
+        let client = Client::from_conf(config);
+        if context != &AwsOperationContext::default()
+            && let Ok(mut guard) = self.cached_clients.lock()
+        {
+            if let Some(pos) = guard.iter().position(|(cached_ctx, _)| cached_ctx == context) {
+                guard.remove(pos);
+            } else if guard.len() >= CONTEXT_CLIENT_CACHE_CAPACITY {
+                guard.remove(0);
+            }
+            guard.push((context.clone(), client.clone()));
+        }
+        Ok(client)
     }
 }
