@@ -24,6 +24,7 @@ ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY apps/gateway apps/gateway
 COPY crates crates
+COPY plugins plugins
 COPY tests/extensions/reference-extension tests/extensions/reference-extension
 COPY vendor/litellm-rust vendor/litellm-rust
 COPY config config

@@ -1,4 +1,4 @@
-use niu_extension_api::{
+use niu_plugin_api::{
     BoundPolicyDecision, ContractError, EncodedProviderRequest, ExtensionCapability,
     ExtensionManifest, FailureMode, HttpMethod, IdentityAssertion, IdentityAssurance,
     IdentityFederation, IdentityInput, MeteringAck, MeteringEvent, MeteringEventKind,

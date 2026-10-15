@@ -689,7 +689,9 @@
       "paths": [
         "crates/benchmark",
         "crates/execution",
-        "crates/extension-api",
+        "crates/plugin-api",
+        "crates/plugin-sdk",
+        "plugins",
         "sdks/agent-connect",
         "docs/architecture/enterprise-composition.md"
       ],

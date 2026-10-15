@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/gateway", "crates/benchmark", "crates/cost", "crates/metered-cost", "crates/media", "crates/upstream", "crates/execution", "crates/extension-api", "crates/payments", "crates/storage", "tests/extensions/reference-extension"]
+members = ["apps/gateway", "crates/benchmark", "crates/cost", "crates/metered-cost", "crates/media", "crates/upstream", "crates/execution", "crates/plugin-api", "crates/plugin-sdk", "crates/payments", "crates/storage", "plugins/hello-echo", "plugins/request-tagger", "plugins/webhook-audit", "tests/extensions/reference-extension"]
 default-members = [
     "apps/gateway",
     "crates/benchmark",
@@ -8,9 +8,13 @@ default-members = [
     "crates/media",
     "crates/upstream",
     "crates/execution",
-    "crates/extension-api",
+    "crates/plugin-api",
+    "crates/plugin-sdk",
     "crates/payments",
     "crates/storage",
+    "plugins/hello-echo",
+    "plugins/request-tagger",
+    "plugins/webhook-audit",
     "tests/extensions/reference-extension",
 ]
 exclude = ["vendor/litellm-rust"]

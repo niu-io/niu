@@ -25,8 +25,11 @@ crates/metered-cost
                  Integer media pricing
 crates/cost      Imported floating-point text estimate; not the ledger
 crates/execution Compatibility vocabulary for imported task records
-crates/extension-api
-                 Versioned extension traits; the gateway does not load them
+crates/plugin-api
+                 Versioned plugin hook, observer, and route contracts
+crates/plugin-sdk
+                 Ed25519 JWS verification and Unix-socket plugin server helpers
+plugins/*        Built-in open-source plugins (hello-echo, request-tagger, webhook-audit)
 vendor/litellm-rust
                  Pinned provider and protocol modules
 ```
@@ -45,7 +48,7 @@ Route pools can choose among enabled supply mappings for one public alias by pri
 
 Attempt rows record execution certainty (`not_sent`, `may_have_executed`, `confirmed_completed`, `confirmed_not_executed`), usage confidence, and settlement separately. Provider-reported usage requires confirmed completion and nonnegative token counts. Missing usage stays unresolved. Process-local attempt counters reset on restart and are not the ledger.
 
-The gateway owns this admission path. `niu-extension-api` is not loaded. Provider adapters must not add a hidden retry or a second model.
+The gateway owns this admission path and registers built-in or configured plugins through `niu-plugin-api`. Provider adapters must not add a hidden retry or a second model.
 
 ## Money
 

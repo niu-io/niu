@@ -1,11 +1,14 @@
 use std::collections::HashSet;
 
 use axum::http::Method;
+use niu_plugin_api::RouteAuthMode;
 use semver::Version;
 use serde::Deserialize;
 
 pub(super) const HEALTH_LIVE_PATH: &str = "/_niu/enterprise/v1/health/live";
 pub(super) const HEALTH_READY_PATH: &str = "/_niu/enterprise/v1/health/ready";
+pub(super) const PLUGIN_HEALTH_LIVE_PATH: &str = "/_niu/plugins/v1/health/live";
+pub(super) const PLUGIN_HEALTH_READY_PATH: &str = "/_niu/plugins/v1/health/ready";
 
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
@@ -16,6 +19,7 @@ pub(crate) struct EnterpriseError(pub(super) String);
 pub(super) struct ReleaseManifest {
     pub(super) contract: String,
     pub(super) niu_core: CoreRelease,
+    #[serde(alias = "plugins")]
     pub(super) modules: Vec<ModuleDeclaration>,
 }
 
@@ -29,8 +33,11 @@ pub(super) struct CoreRelease {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ModuleDeclaration {
+    #[serde(alias = "plugin_id")]
     pub(super) module_id: String,
+    #[serde(alias = "plugin_version")]
     module_version: String,
+    #[serde(alias = "plugin_api_version")]
     module_api_version: String,
     core_api: ApiRange,
     pub(super) required: bool,
@@ -58,10 +65,19 @@ pub(super) struct HealthPaths {
 pub(super) struct RouteDeclaration {
     pub(super) path_prefix: String,
     pub(super) methods: Vec<RouteMethod>,
+    #[serde(default = "default_route_permission")]
     pub(super) permission: RoutePermission,
+    #[serde(default)]
+    pub(super) auth_mode: RouteAuthMode,
+    #[serde(default)]
+    pub(super) streaming: bool,
     pub(super) timeout_ms: u64,
     pub(super) max_request_bytes: usize,
     pub(super) max_response_bytes: usize,
+}
+
+fn default_route_permission() -> RoutePermission {
+    RoutePermission::Read
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq)]
@@ -128,8 +144,12 @@ pub(super) fn validate_manifest(
     core_version: &str,
     expected_commit: &str,
 ) -> Result<(), EnterpriseError> {
-    if manifest.contract != "niu.enterprise.release-manifest.v1" {
-        return invalid("contract must be niu.enterprise.release-manifest.v1");
+    if manifest.contract != "niu.enterprise.release-manifest.v1"
+        && manifest.contract != "niu.plugin.release-manifest.v1"
+    {
+        return invalid(
+            "contract must be niu.plugin.release-manifest.v1 or niu.enterprise.release-manifest.v1",
+        );
     }
     if !is_commit(&manifest.niu_core.git_commit) {
         return invalid("niu_core.git_commit must be a full lowercase 40-character Git SHA");
@@ -158,8 +178,12 @@ pub(super) fn validate_manifest(
             return invalid("module IDs must be unique");
         }
         parse_version(&module.module_version, "module_version")?;
-        if module.module_api_version != "niu.enterprise.service.v1" {
-            return invalid("module_api_version must be niu.enterprise.service.v1");
+        if module.module_api_version != "niu.enterprise.service.v1"
+            && module.module_api_version != "niu.plugin.service.v1"
+        {
+            return invalid(
+                "module_api_version must be niu.plugin.service.v1 or niu.enterprise.service.v1",
+            );
         }
         let minimum = parse_version(&module.core_api.minimum, "core_api.minimum")?;
         let maximum = parse_version(
@@ -170,14 +194,18 @@ pub(super) fn validate_manifest(
             return invalid("module core_api range does not include the Gateway API version");
         }
         if !valid_socket_path(&module.socket_path) || module.socket_path.len() > 107 {
-            return invalid("socket_path must be at most 107 bytes under /run/niu/modules");
+            return invalid(
+                "socket_path must be at most 107 bytes under /run/niu/plugins or /run/niu/modules",
+            );
         }
         if !sockets.insert(module.socket_path.as_str()) {
             return invalid("module socket paths must be unique");
         }
-        if module.health.live_path != HEALTH_LIVE_PATH
-            || module.health.ready_path != HEALTH_READY_PATH
-        {
+        let valid_enterprise_health = module.health.live_path == HEALTH_LIVE_PATH
+            && module.health.ready_path == HEALTH_READY_PATH;
+        let valid_plugin_health = module.health.live_path == PLUGIN_HEALTH_LIVE_PATH
+            && module.health.ready_path == PLUGIN_HEALTH_READY_PATH;
+        if !valid_enterprise_health && !valid_plugin_health {
             return invalid("module health paths do not match the v1 health contract");
         }
         if module.routes.is_empty() {
@@ -199,10 +227,15 @@ pub(super) fn validate_manifest(
                 if !methods.insert(*method) {
                     return invalid("route methods must be unique");
                 }
-                if matches!(
-                    method,
-                    RouteMethod::Post | RouteMethod::Put | RouteMethod::Patch | RouteMethod::Delete
-                ) && route.permission == RoutePermission::Read
+                if route.auth_mode == RouteAuthMode::Operator
+                    && matches!(
+                        method,
+                        RouteMethod::Post
+                            | RouteMethod::Put
+                            | RouteMethod::Patch
+                            | RouteMethod::Delete
+                    )
+                    && route.permission == RoutePermission::Read
                 {
                     return invalid(
                         "mutating route methods require write or manage_operators permission",
@@ -273,7 +306,10 @@ fn valid_module_id(value: &str) -> bool {
 }
 
 fn valid_socket_path(value: &str) -> bool {
-    let Some(name) = value.strip_prefix("/run/niu/modules/") else {
+    let name = value
+        .strip_prefix("/run/niu/plugins/")
+        .or_else(|| value.strip_prefix("/run/niu/modules/"));
+    let Some(name) = name else {
         return false;
     };
     let Some(module_id) = name.strip_suffix(".sock") else {
@@ -283,7 +319,10 @@ fn valid_socket_path(value: &str) -> bool {
 }
 
 fn valid_route_path(value: &str) -> bool {
-    let Some(path) = value.strip_prefix("/enterprise/api/v1/") else {
+    let path = value
+        .strip_prefix("/api/plugins/v1/")
+        .or_else(|| value.strip_prefix("/enterprise/api/v1/"));
+    let Some(path) = path else {
         return false;
     };
     !path.is_empty()
@@ -314,6 +353,7 @@ pub(super) const CORE_ROUTE_PREFIXES: &[&str] = &[
     "/healthz",
     "/readyz",
     "/enterprise/readyz",
+    "/plugins/readyz",
     "/v1",
     "/catalog/v1",
     "/admin/v1",
@@ -423,6 +463,44 @@ mod tests {
     }
 
     #[test]
+    fn validates_neutral_plugin_manifest_and_auth_modes() {
+        let plugin_manifest: ReleaseManifest = serde_json::from_value(json!({
+            "contract":"niu.plugin.release-manifest.v1",
+            "niu_core":{"git_commit":COMMIT,"api_version":"0.2.1"},
+            "plugins":[{
+                "plugin_id":"hello-echo",
+                "plugin_version":"0.2.1",
+                "plugin_api_version":"niu.plugin.service.v1",
+                "core_api":{"minimum":"0.2.0","maximum_exclusive":"0.3.0"},
+                "required":true,
+                "socket_path":"/run/niu/plugins/hello-echo.sock",
+                "health":{"live_path":"/_niu/plugins/v1/health/live","ready_path":"/_niu/plugins/v1/health/ready"},
+                "routes":[
+                    {
+                        "path_prefix":"/api/plugins/v1/hello-echo/echo",
+                        "methods":["POST"],
+                        "auth_mode":"workspace_key",
+                        "streaming":true,
+                        "timeout_ms":2000,
+                        "max_request_bytes":65536,
+                        "max_response_bytes":1048576
+                    },
+                    {
+                        "path_prefix":"/api/plugins/v1/hello-echo/webhook",
+                        "methods":["POST"],
+                        "auth_mode":"public_callback",
+                        "timeout_ms":2000,
+                        "max_request_bytes":65536,
+                        "max_response_bytes":65536
+                    }
+                ]
+            }]
+        }))
+        .unwrap();
+        validate_manifest(&plugin_manifest, "0.2.1", COMMIT).unwrap();
+    }
+
+    #[test]
     fn rejects_duplicate_module_ids_and_overlapping_or_core_routes() {
         let mut duplicate_module = manifest();
         duplicate_module
@@ -456,6 +534,7 @@ mod tests {
     fn route_matcher_observes_namespace_boundaries_and_template_segments() {
         let prefix = "/enterprise/api/v1/experiments/runs/{run_id}";
         assert!(valid_route_path(prefix));
+        assert!(valid_route_path("/api/plugins/v1/hello-echo/runs/{run_id}"));
         assert!(route_matches_path(
             prefix,
             "/enterprise/api/v1/experiments/runs/abc/events"

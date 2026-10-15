@@ -26,7 +26,7 @@ The public Niu repository owns the stable integration contracts and `plugin-sdk`
 
 Real product and enterprise features frequently span the inference hot path, background control-plane APIs, database state, and management UI. Treating hooks, adapters, and backend services as separate top-level concepts fragments a single feature across multiple trees. Instead, every open-source plugin in `niu-io/niu/plugins/` and every closed-source plugin in `niu-io/plugins/plugins/` is packaged as a cohesive **Plugin** (`plugins/<plugin-id>/`) that declares one or more of four capability facets in its manifest:
 
-1. **Data-plane Hooks and Adapters (`hooks`):** Typed extensions invoked on the request/authentication path (evolving [`crates/extension-api`](../../crates/extension-api/src/lib.rs)):
+1. **Data-plane Hooks and Adapters (`hooks`):** Typed extensions invoked on the request/authentication path ([`crates/plugin-api`](../../crates/plugin-api/src/lib.rs)):
    - `IdentityFederation`: Maps authenticated OIDC, SAML 2.0, WeCom, Feishu, or DingTalk assertions into verified identity claims and group memberships.
    - `PolicyHook`: Evaluates request/response content for guardrails, enterprise DLP redaction, or external compliance gateways under a cryptographic `PolicyBinding`.
    - `ProviderAdapter` and `PaymentAdapter`: Encodes and normalizes model protocols and payment/settlement channels.
@@ -41,7 +41,7 @@ Shipping built-in open-source plugins in `niu-io/niu/plugins/` validates the Plu
 
 | Plugin (`plugins/<id>`) | Repository | Capability facets used | Community (`niu`) | `niu-io/cloud` (`niu.io` SaaS) | `niu-io/enterprise` (Self-hosted) | Purpose |
 | --- | --- | --- | :---: | :---: | :---: | --- |
-| Built-in open-source plugins (e.g., `oauth-basic`, `webhook-exporter`, standard adapters) | `niu-io/niu` (Public) | `hooks` / `observers` / `ui` | Selectable | Selectable | Selectable | Standard single-tenant OAuth, basic webhook event delivery, and public Provider/Guardrail integrations |
+| Built-in open-source plugins (`hello-echo`, `request-tagger`, `webhook-audit`) | `niu-io/niu` (Public) | `hooks` / `observers` / `routes` | Selectable | Selectable | Selectable | Reference Unix-socket service (`hello-echo`), in-process `PolicyHook` + `RouteSelector` (`request-tagger`), and `MeteringObserver` + outbox audit consumer (`webhook-audit`) |
 | `sso-scim` | `niu-io/plugins` (Private) | `IdentityFederation` + `routes` (OAuth/SAML callbacks, SCIM 2.0 sync) + PG schema + `ui` | — | Enabled | Enabled | Multi-tenant enterprise SSO (OIDC/SAML/WeCom/Feishu/DingTalk) and automated SCIM 2.0 directory sync |
 | `governance` | `niu-io/plugins` (Private) | `routes` + `observers` + PG schema + `ui` | — | Enabled | Enabled | Cross-workspace cost centers, chargeback reporting, and multi-stage budget/policy approval workflows |
 | `compliance` | `niu-io/plugins` (Private) | `PolicyHook` + `observers` + `routes` + PG schema + `ui` | — | Enabled | Enabled | Real-time PII/DLP redaction, long-term encrypted audit retention, and SIEM streaming export (SLS, CLS, Splunk, Kafka) |
@@ -74,7 +74,7 @@ The two database labels may be separate databases or separately permissioned sch
 
 ## Registration, discovery, and loading
 
-Plugins are trusted build-time release components, not user-uploaded runtime code. Each distribution build (`cloud` or `enterprise`) contains one immutable manifest conforming to [`release-manifest.v1.schema.json`](../../contracts/enterprise/release-manifest.v1.schema.json) (and its planned unified plugin-manifest successor). The manifest pins the exact Niu commit and lists each plugin's ID, version, supported contract range, required/optional status, capability facets, private socket, HTTP route prefixes, allowed methods, authentication/permission mode, request/response size limits, and deadline. It cannot choose an arbitrary executable, public bind address, or unverified file to load.
+Plugins are trusted build-time release components, not user-uploaded runtime code. Each distribution build (`cloud` or `enterprise`) contains one immutable manifest conforming to [`release-manifest.v1.schema.json`](../../contracts/enterprise/release-manifest.v1.schema.json) (`niu.plugin.release-manifest.v1` or `niu.enterprise.release-manifest.v1`). The manifest pins the exact Niu commit and lists each plugin's ID, version, supported contract range, required/optional status, capability facets, private socket, HTTP route prefixes, allowed methods, authentication/permission mode, request/response size limits, and deadline. It cannot choose an arbitrary executable, public bind address, or unverified file to load.
 
 The runtime uses static composition:
 
@@ -100,19 +100,20 @@ When plugins call back into Niu platform features, they use the public HTTP/Open
 - Model operations (such as active supply probing) use an explicitly scoped Niu API credential so the core applies standard admission controls, routing, attempt recording, and canonical usage/cost accounting.
 - Tenant and platform administration use scoped operator or delegated credentials rather than forwarding a user's raw bearer token or sharing an unrestricted installation bootstrap secret.
 
-## Target Plugin Host capabilities (post-API refactor)
+## Plugin Host capabilities
 
-While the core Niu API surface is undergoing refactoring, the following five Plugin Host capabilities are designated as the target openness boundary to be implemented once the core API stabilizes:
+The Niu Plugin Host provides five core capabilities across [`crates/plugin-api`](../../crates/plugin-api/src/lib.rs), [`crates/plugin-sdk`](../../crates/plugin-sdk/src/lib.rs), and [`apps/gateway/src/enterprise/`](../../apps/gateway/src/enterprise/runtime.rs):
 
-1. **Unified `plugin` naming and neutral route namespace:** Converge [`crates/extension-api`](../../crates/extension-api/src/lib.rs) and [`apps/gateway/src/enterprise/`](../../apps/gateway/src/enterprise/runtime.rs) under unified `plugin` terminology (`NIU_PLUGIN_MANIFEST_PATH`, `/run/niu/plugins/{plugin_id}.sock`, and neutral `/api/plugins/v1/{plugin_id}/…` routes) so neither `niu-io/niu` nor `niu-io/cloud` exposes misleading `/enterprise/` URLs for general SaaS workflows like invoicing.
-2. **Gateway Hook Registry wiring:** Connect `IdentityFederation`, `PolicyHook`, `ProviderAdapter`, `PaymentAdapter`, and `RouteSelector` traits into the Gateway's live authentication, guardrail, routing, and dispatch paths.
-3. **Expanded route authentication modes and streaming support:** Extend manifest route declarations beyond workspace `operator` sessions (`read`/`write`/`manage_operators`) to support:
-   - `installation_admin`: Restricted to platform administrators (for `supply-intelligence` and platform-wide operations).
-   - `workspace_key`: Authenticated by a workspace API key for SDK-accessible plugin endpoints.
-   - `public_callback`: Unauthenticated ingress with Gateway size/rate bounds for external webhooks (OIDC/SAML callbacks, SCIM provisioning, tax-invoice/payment webhooks) verified by the target plugin.
-   - Streaming response forwarding (`streaming: true`) for SSE streams and bounded compliance/report exports.
-4. **Transactional Outbox delivery for `MeteringObserver` and audit streams:** Persist billing settlement and administrative audit events in a core outbox and deliver them over Unix sockets to subscribed plugins with idempotent `MeteringAck` receipts, eliminating any need for plugins to read core database tables.
-5. **Delegated operator credentials and build-time UI slots:** Provide a signed delegated-credential contract so plugin-initiated `/admin/v1/…` mutations (such as KYB credit-limit approval or SCIM role sync) record the originating human or system actor in core audit logs; add `/enterprise/` / plugin SPA route fallback in [`static_site.rs`](../../apps/gateway/src/web/static_site.rs) and build-time navigation/settings slot registration in `apps/dashboard`.
+1. **Unified `plugin` naming and neutral route namespace:** Supports `NIU_PLUGIN_MANIFEST_PATH` (and `NIU_ENTERPRISE_MANIFEST_PATH`), `/run/niu/plugins/{plugin_id}.sock` (and `/run/niu/modules/{module_id}.sock`), neutral `/api/plugins/v1/{plugin_id}/…` routes (alongside `/enterprise/api/v1/{module_id}/…`), and `/plugins/readyz` (alongside `/enterprise/readyz`).
+2. **Gateway Hook Registry wiring:** Connects `IdentityFederation`, `PolicyHook`, `ProviderAdapter`, `PaymentAdapter`, `RouteSelector`, and `MeteringObserver` traits into `PluginHookRegistry`, with built-in open-source plugins (`request-tagger` and `webhook-audit`) registered in the Gateway runtime.
+3. **Multi-mode route authentication and streaming support:** Supports four `auth_mode` policies on supervised plugin routes:
+   - `operator`: Workspace operator sessions (`read`, `write`, `manage_operators`).
+   - `installation_admin`: Platform administrator bearer tokens (`NIU_ADMIN_TOKENS`).
+   - `workspace_key`: Non-revoked workspace API keys (`Bearer sk-…`).
+   - `public_callback`: Unauthenticated webhook ingress bounded by Gateway body size and deadline limits.
+   - Streaming response forwarding (`streaming: true`) for SSE streams and bounded exports.
+4. **Unix-socket Outbox event delivery:** Delivers immutable `OutboxEvent` envelopes (`BillingSettlement`, `AdminAudit`, `RouteCooldown`) over Unix domain sockets to `/_niu/plugins/v1/outbox/events` with idempotent `OutboxDeliveryReceipt` verification.
+5. **Public `niu-plugin-sdk` and built-in community plugins:** Ships `crates/plugin-sdk` (Ed25519 JWK Set verifier, health/outbox routers, and Unix-socket server runner) and three reference open-source plugins under `plugins/` (`hello-echo`, `request-tagger`, `webhook-audit`).
 
 ## Compatibility, security, and release rules
 
@@ -134,6 +135,5 @@ No single project has the exact combination of a public Rust core, a shared priv
 
 ## Implementation status
 
-The Gateway currently implements the transitional V1 Unix-socket slice when `NIU_ENTERPRISE_MANIFEST_PATH` is set. Startup strictly parses and validates [`release-manifest.v1.schema.json`](../../contracts/enterprise/release-manifest.v1.schema.json) against the Gateway build commit (`NIU_CORE_GIT_COMMIT`) and API version (`NIU_CORE_API_VERSION`), rejects duplicate or overlapping routes and core-route collisions, and builds a static route registry under `/enterprise/api/v1/{module_id}/…`. Before forwarding, it checks the target service's liveness and readiness over `/run/niu/modules/{module_id}.sock`; unhealthy services return 503, and routes serve again when their service recovers. Requests require a scoped operator session and the route's declared permission; the Gateway replaces the incoming bearer with a short-lived EdDSA JWS (`NIU_ENTERPRISE_SIGNING_KEY` and `NIU_ENTERPRISE_SIGNING_KEY_ID`), forwards only approved request headers over the declared Unix socket, enforces request/response size limits and deadlines, and marks responses `Cache-Control: no-store`. `/enterprise/readyz` checks the core database and current required-service readiness within three seconds, while core `/readyz` remains independent. With the manifest unset, the community runtime remains unchanged and `/enterprise/readyz` reports `disabled`.
+The Gateway implements the unified Plugin Host when `NIU_PLUGIN_MANIFEST_PATH` (or `NIU_ENTERPRISE_MANIFEST_PATH`) is set. Startup strictly parses and validates [`release-manifest.v1.schema.json`](../../contracts/enterprise/release-manifest.v1.schema.json) (`niu.plugin.release-manifest.v1` or `niu.enterprise.release-manifest.v1`) against the Gateway build commit (`NIU_CORE_GIT_COMMIT`) and API version (`NIU_CORE_API_VERSION`), accepts `plugins` or `modules` arrays, rejects duplicate or overlapping routes and core-route collisions, and builds a static route registry under `/api/plugins/v1/{plugin_id}/…` and `/enterprise/api/v1/{module_id}/…`. Before forwarding, it checks the target service's liveness and readiness over `/run/niu/plugins/{plugin_id}.sock` (or `/run/niu/modules/{module_id}.sock`); unhealthy services return 503, and routes serve again when their service recovers. Routes enforce their declared `auth_mode` (`operator`, `installation_admin`, `workspace_key`, or `public_callback`), replace incoming credentials with a short-lived EdDSA JWS (`NIU_PLUGIN_SIGNING_KEY` / `NIU_ENTERPRISE_SIGNING_KEY`), forward only approved request headers over the declared Unix socket, support both buffered and streaming (`streaming: true`) responses, and mark authenticated responses `Cache-Control: no-store`. `/plugins/readyz` and `/enterprise/readyz` check the core database and current required-service readiness within three seconds, while core `/readyz` remains independent. Built-in open-source plugins (`hello-echo`, `request-tagger`, `webhook-audit`) are registered in the workspace and `PluginHookRegistry`.
 
-Convergence to the unified `NIU_PLUGIN_MANIFEST_PATH` contract, neutral `/api/plugins/v1/{plugin_id}/…` routes, multi-mode route authentication, outbox event delivery, and live Gateway hook wiring is scheduled after the ongoing core API refactoring completes.

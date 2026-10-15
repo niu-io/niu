@@ -1,17 +1,13 @@
 # Capability and adapter contracts
 
-Status: the versioned Rust API `niu.extension.v1` is implemented in
-`crates/extension-api` (targeted to converge into `crates/plugin-api` alongside `crates/plugin-sdk` after the ongoing core API refactor). A synthetic public extension in
-`tests/extensions/reference-extension` implements and tests each capability.
-The gateway does not load or invoke these traits yet, so none of them is
-available as a configured runtime integration today.
+Status: the unified Rust Plugin API (`niu.plugin.v1`, backward-compatible with `niu.extension.v1`) is implemented in `crates/plugin-api` alongside the service helper runtime in `crates/plugin-sdk`. Built-in open-source plugins in `plugins/hello-echo`, `plugins/request-tagger`, and `plugins/webhook-audit`, together with the synthetic reference fixture in `tests/extensions/reference-extension`, implement and exercise each capability.
 
 ## Role in the unified Plugin architecture
 
 These typed traits define the **data-plane hooks (`hooks`)** and **asynchronous event observers (`observers`)** facets of Niu's unified **Plugin** model (see [Plugin composition, Cloud SaaS, and Enterprise distributions](enterprise-composition.md) and [repository ownership](repository-ownership.md)):
 
-- **Public open-source plugins (`niu-io/niu/plugins/*`):** Built against `plugin-api` and `plugin-sdk` inside this repository so community deployments can enable standard integrations (such as basic OAuth, standard Provider adapters, and webhook event sinks) directly when starting Niu, and so public CI continuously exercises the Plugin Host boundary.
-- **Private commercial and enterprise plugins (`niu-io/plugins`):** Built against the same public `plugin-api` and `plugin-sdk` contracts to provide monetized capabilities (such as `sso-scim`, `governance`, `compliance`, `commercial`, `supply-intelligence`, `proprietary-providers`, and `license`) assembled into the `niu-io/cloud` (`niu.io` SaaS) and `niu-io/enterprise` (self-hosted Enterprise) distributions.
+- **Public open-source plugins (`niu-io/niu/plugins/*`):** Built against `crates/plugin-api` and `crates/plugin-sdk` inside this repository (`hello-echo`, `request-tagger`, `webhook-audit`) so community deployments can enable standard integrations directly when starting Niu, and so public CI continuously exercises the Plugin Host boundary.
+- **Private commercial and enterprise plugins (`niu-io/plugins`):** Built against the same public `crates/plugin-api` and `crates/plugin-sdk` contracts to provide monetized capabilities (such as `sso-scim`, `governance`, `compliance`, `commercial`, `supply-intelligence`, `proprietary-providers`, and `license`) assembled into the `niu-io/cloud` (`niu.io` SaaS) and `niu-io/enterprise` (self-hosted Enterprise) distributions.
 
 ## Product scope
 

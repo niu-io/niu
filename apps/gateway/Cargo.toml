@@ -24,6 +24,11 @@ ring = "0.17"
 regex = "=1.13.1"
 jsonschema = { version = "=0.58.5", default-features = false }
 niu-execution = { path = "../../crates/execution" }
+niu-plugin-api = { path = "../../crates/plugin-api" }
+niu-plugin-sdk = { path = "../../crates/plugin-sdk" }
+niu-plugin-hello-echo = { path = "../../plugins/hello-echo" }
+niu-plugin-request-tagger = { path = "../../plugins/request-tagger" }
+niu-plugin-webhook-audit = { path = "../../plugins/webhook-audit" }
 niu-media = { path = "../../crates/media" }
 niu-metered-cost = { path = "../../crates/metered-cost" }
 niu-storage = { path = "../../crates/storage" }

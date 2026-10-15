@@ -332,6 +332,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/healthz", get(health))
         .route("/readyz", get(ready))
         .route("/enterprise/readyz", get(enterprise_ready))
+        .route("/plugins/readyz", get(enterprise_ready))
         .route(
             "/admin/v1/organizations",
             get(crate::admin::organizations).post(crate::admin::organization),
@@ -697,6 +698,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1beta/{*path}", any(api_not_found))
         .route("/catalog/v1", any(api_not_found))
         .route("/catalog/v1/{*path}", any(api_not_found))
+        .route("/admin/v1/platform/plugins/outbox/deliver", axum::routing::post(crate::enterprise::deliver_outbox))
+        .route("/api/v1/platform/plugins/outbox/deliver", axum::routing::post(crate::enterprise::deliver_outbox))
         .route("/api/v1", any(api_not_found))
         .route("/api/v1/{*path}", any(api_not_found))
         .route("/admin/v1", any(api_not_found))
@@ -705,6 +708,8 @@ pub(crate) fn router(state: AppState) -> Router {
     let app = if enterprise_enabled {
         app.route("/enterprise/api/v1", any(crate::enterprise::handle))
             .route("/enterprise/api/v1/{*path}", any(crate::enterprise::handle))
+            .route("/api/plugins/v1", any(crate::enterprise::handle))
+            .route("/api/plugins/v1/{*path}", any(crate::enterprise::handle))
     } else {
         app
     };
@@ -733,6 +738,8 @@ async fn private_api_cache_control(request: axum::http::Request<Body>, next: Nex
         || path.starts_with("/api/v1/")
         || path == "/enterprise/api/v1"
         || path.starts_with("/enterprise/api/v1/")
+        || path == "/api/plugins/v1"
+        || path.starts_with("/api/plugins/v1/")
         || path == "/v1"
         || path.starts_with("/v1/")
         || path == "/v1beta"

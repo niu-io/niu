@@ -6,5 +6,5 @@ mod runtime;
 #[cfg(test)]
 mod postgres_tests;
 
-pub use proxy::handle;
+pub use proxy::{deliver_outbox, handle};
 pub use runtime::EnterpriseRuntime;

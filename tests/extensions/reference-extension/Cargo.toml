@@ -8,7 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 niu-execution = { path = "../../../crates/execution" }
-niu-extension-api = { path = "../../../crates/extension-api" }
+niu-plugin-api = { path = "../../../crates/plugin-api" }
 serde_json.workspace = true
 uuid.workspace = true
 

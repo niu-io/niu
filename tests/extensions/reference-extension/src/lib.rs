@@ -7,7 +7,7 @@ use niu_execution::observation::{
     Coverage, ExecutionRecord, Link, LinkKind, Outcome, OutcomeAuthority, OutcomeResult, Span,
     SpanKind,
 };
-use niu_extension_api::{
+use niu_plugin_api::{
     BoundPolicyDecision, CancellationSource, EncodedProviderRequest, ExtensionCapability,
     ExtensionContext, ExtensionFuture, ExtensionManifest, FailureMode, HttpMethod,
     IdentityAssertion, IdentityFederation, IdentityInput, MeteringAck, MeteringEvent,
@@ -30,7 +30,7 @@ impl ReferenceExtension {
             manifest: ExtensionManifest {
                 id: "niu.reference".into(),
                 version: "0.1.0".into(),
-                api_version: niu_extension_api::EXTENSION_API_VERSION.into(),
+                api_version: niu_plugin_api::EXTENSION_API_VERSION.into(),
                 capabilities: vec![
                     ExtensionCapability::IdentityFederation,
                     ExtensionCapability::Policy,
@@ -285,8 +285,8 @@ impl MeteringObserver for ReferenceExtension {
 pub fn test_context() -> ExtensionContext {
     let cancellation = CancellationSource::new();
     ExtensionContext::from_core(
-        niu_extension_api::TenantContext::from_core(Uuid::new_v4(), Uuid::new_v4()),
-        niu_extension_api::PrincipalContext::from_core(Uuid::new_v4(), vec!["chat".into()]),
+        niu_plugin_api::TenantContext::from_core(Uuid::new_v4(), Uuid::new_v4()),
+        niu_plugin_api::PrincipalContext::from_core(Uuid::new_v4(), vec!["chat".into()]),
         Uuid::new_v4(),
         Some(Uuid::new_v4()),
         Instant::now() + std::time::Duration::from_secs(1),

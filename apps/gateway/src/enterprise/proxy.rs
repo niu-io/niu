@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::{
-    body::{Body, to_bytes},
+    body::{Body, Bytes, to_bytes},
     extract::State,
     http::{
         HeaderMap, HeaderName, HeaderValue, Method, Request, Response, StatusCode, Uri, header,
@@ -9,12 +9,13 @@ use axum::{
     response::IntoResponse,
 };
 use futures_util::StreamExt;
+use niu_plugin_api::RouteAuthMode;
 use serde_json::json;
 use tokio::time::Instant;
 use uuid::Uuid;
 
 use super::{
-    context::SignedRequestContext,
+    context::{ContextPrincipal, SignedPluginRequestContext},
     manifest::route_allows_method,
     runtime::{EnterpriseRuntime, RegisteredRoute},
 };
@@ -26,6 +27,41 @@ pub async fn handle(State(state): State<AppState>, request: Request<Body>) -> Re
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
+}
+
+pub async fn deliver_outbox(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::Json(event): axum::Json<niu_plugin_api::OutboxEvent>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let auth_header = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    if !state.admin_tokens.matches(auth_header) {
+        return Err(ApiError::unauthorized());
+    }
+    let Some(runtime) = state.enterprise.as_deref() else {
+        return Err(ApiError::not_found());
+    };
+    let receipts = runtime.deliver_outbox_event(&event).await;
+    let delivered: Vec<_> = receipts
+        .into_iter()
+        .map(|res| match res {
+            Ok(receipt) => json!({
+                "plugin_id": receipt.plugin_id,
+                "event_id": receipt.event_id,
+                "status": receipt.status,
+            }),
+            Err(err) => json!({
+                "error": err.to_string(),
+            }),
+        })
+        .collect();
+    Ok(axum::Json(json!({
+        "event_id": event.event_id,
+        "hooks_registered": !runtime.hooks.is_empty(),
+        "deliveries": delivered,
+    })))
 }
 
 async fn handle_request(state: AppState, request: Request<Body>) -> Response<Body> {
@@ -55,22 +91,10 @@ async fn handle_request(state: AppState, request: Request<Body>) -> Response<Bod
         return gateway_error(StatusCode::URI_TOO_LONG, "request_target_too_long");
     }
 
-    let Some(token) = request
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
-        .filter(|value| !value.is_empty())
-    else {
-        return ApiError::unauthorized().into_response();
+    let principal = match authenticate_route_principal(&state, route, request.headers()).await {
+        Ok(principal) => principal,
+        Err(response) => return response,
     };
-    let operator = match state.store.authenticate_operator(token).await {
-        Ok(operator) => operator,
-        Err(error) => return ApiError::from_store(error).into_response(),
-    };
-    if !route.declaration.permission.permits(operator.role) {
-        return ApiError::forbidden().into_response();
-    }
 
     let limit = route.declaration.max_request_bytes;
     if request
@@ -87,10 +111,10 @@ async fn handle_request(state: AppState, request: Request<Body>) -> Response<Bod
         Ok(body) => body.to_vec(),
         Err(_) => return gateway_error(StatusCode::PAYLOAD_TOO_LARGE, "request_too_large"),
     };
-    forward(
+    forward_with_principal(
         runtime,
         route,
-        operator,
+        principal,
         parts.method,
         uri,
         &parts.headers,
@@ -99,10 +123,82 @@ async fn handle_request(state: AppState, request: Request<Body>) -> Response<Bod
     .await
 }
 
+async fn authenticate_route_principal(
+    state: &AppState,
+    route: &RegisteredRoute,
+    headers: &HeaderMap,
+) -> Result<ContextPrincipal, Response<Body>> {
+    match route.declaration.auth_mode {
+        RouteAuthMode::Operator => {
+            let Some(token) = headers
+                .get(header::AUTHORIZATION)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.strip_prefix("Bearer "))
+                .filter(|value| !value.is_empty())
+            else {
+                return Err(ApiError::unauthorized().into_response());
+            };
+            let operator = state
+                .store
+                .authenticate_operator(token)
+                .await
+                .map_err(|error| ApiError::from_store(error).into_response())?;
+            if !route.declaration.permission.permits(operator.role) {
+                return Err(ApiError::forbidden().into_response());
+            }
+            Ok(ContextPrincipal::Operator(operator))
+        }
+        RouteAuthMode::InstallationAdmin => {
+            let auth_header = headers
+                .get(header::AUTHORIZATION)
+                .and_then(|value| value.to_str().ok());
+            if state.admin_tokens.matches(auth_header) {
+                Ok(ContextPrincipal::InstallationAdmin)
+            } else {
+                Err(ApiError::unauthorized().into_response())
+            }
+        }
+        RouteAuthMode::WorkspaceKey => {
+            let principal = state
+                .authorize_api_headers(headers)
+                .await
+                .map_err(IntoResponse::into_response)?;
+            Ok(ContextPrincipal::WorkspaceKey {
+                key_id: principal.key_id(),
+                organization_id: principal.scope().organization_id,
+                project_id: principal.scope().project_id,
+            })
+        }
+        RouteAuthMode::PublicCallback => Ok(ContextPrincipal::PublicCallback),
+    }
+}
+
+#[cfg(test)]
 async fn forward(
     runtime: &EnterpriseRuntime,
     route: &RegisteredRoute,
     operator: niu_storage::OperatorPrincipal,
+    method: Method,
+    uri: Uri,
+    client_headers: &HeaderMap,
+    body: Vec<u8>,
+) -> Response<Body> {
+    forward_with_principal(
+        runtime,
+        route,
+        ContextPrincipal::Operator(operator),
+        method,
+        uri,
+        client_headers,
+        body,
+    )
+    .await
+}
+
+async fn forward_with_principal(
+    runtime: &EnterpriseRuntime,
+    route: &RegisteredRoute,
+    principal: ContextPrincipal,
     method: Method,
     uri: Uri,
     client_headers: &HeaderMap,
@@ -114,10 +210,11 @@ async fn forward(
     }
     let request_path = request_target(&uri);
     let request_id = Uuid::new_v4().to_string();
-    let context = match runtime.signer.sign(SignedRequestContext {
+    let context = match runtime.signer.sign_plugin(SignedPluginRequestContext {
         audience: &module.declaration.module_id,
-        operator,
+        principal,
         permission: route.declaration.permission,
+        auth_mode: route.declaration.auth_mode,
         method: &method,
         path: request_path,
         request_id: &request_id,
@@ -152,7 +249,7 @@ async fn forward(
     let response = match tokio::time::timeout_at(deadline, upstream.send()).await {
         Ok(Ok(response)) => response,
         Ok(Err(error)) => {
-            tracing::warn!(module_id = %module.declaration.module_id, error = %error, "Enterprise module request failed");
+            tracing::warn!(module_id = %module.declaration.module_id, error = %error, "Plugin/Enterprise module request failed");
             if error.is_timeout() {
                 return gateway_error(StatusCode::GATEWAY_TIMEOUT, "module_timeout");
             }
@@ -169,23 +266,6 @@ async fn forward(
         return gateway_error(StatusCode::BAD_GATEWAY, "module_response_too_large");
     }
     let connection_headers = connection_nominated_headers(&response_headers);
-    let mut stream = response.bytes_stream();
-    let mut response_body = Vec::new();
-    loop {
-        let chunk = match tokio::time::timeout_at(deadline, stream.next()).await {
-            Ok(Some(Ok(chunk))) => chunk,
-            Ok(Some(Err(error))) => {
-                tracing::warn!(module_id = %module.declaration.module_id, error = %error, "Enterprise module response failed");
-                return gateway_error(StatusCode::BAD_GATEWAY, "invalid_module_response");
-            }
-            Ok(None) => break,
-            Err(_) => return gateway_error(StatusCode::GATEWAY_TIMEOUT, "module_timeout"),
-        };
-        if response_body.len().saturating_add(chunk.len()) > route.declaration.max_response_bytes {
-            return gateway_error(StatusCode::BAD_GATEWAY, "module_response_too_large");
-        }
-        response_body.extend_from_slice(&chunk);
-    }
     let mut gateway_response = Response::builder().status(status);
     for (name, value) in &response_headers {
         if should_forward_response_header(name)
@@ -196,6 +276,54 @@ async fn forward(
         {
             gateway_response = gateway_response.header(name, value);
         }
+    }
+
+    if route.declaration.streaming {
+        let max_bytes = route.declaration.max_response_bytes;
+        let stream = futures_util::stream::try_unfold(
+            (response.bytes_stream(), 0_usize),
+            move |(mut inner, mut seen)| async move {
+                match tokio::time::timeout_at(deadline, inner.next()).await {
+                    Ok(Some(Ok(chunk))) => {
+                        seen = seen.saturating_add(chunk.len());
+                        if seen > max_bytes {
+                            Err(std::io::Error::other("module_response_too_large"))
+                        } else {
+                            Ok::<Option<(Bytes, _)>, std::io::Error>(Some((chunk, (inner, seen))))
+                        }
+                    }
+                    Ok(Some(Err(err))) => Err(std::io::Error::other(err)),
+                    Ok(None) => Ok(None),
+                    Err(_) => Err(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "module_timeout",
+                    )),
+                }
+            },
+        );
+        return gateway_response
+            .header("x-request-id", request_id)
+            .header(header::CACHE_CONTROL, "no-store")
+            .body(Body::from_stream(stream))
+            .unwrap_or_else(|_| gateway_error(StatusCode::BAD_GATEWAY, "invalid_module_response"));
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut response_body = Vec::new();
+    loop {
+        let chunk = match tokio::time::timeout_at(deadline, stream.next()).await {
+            Ok(Some(Ok(chunk))) => chunk,
+            Ok(Some(Err(error))) => {
+                tracing::warn!(module_id = %module.declaration.module_id, error = %error, "Plugin/Enterprise module response failed");
+                return gateway_error(StatusCode::BAD_GATEWAY, "invalid_module_response");
+            }
+            Ok(None) => break,
+            Err(_) => return gateway_error(StatusCode::GATEWAY_TIMEOUT, "module_timeout"),
+        };
+        if response_body.len().saturating_add(chunk.len()) > route.declaration.max_response_bytes {
+            return gateway_error(StatusCode::BAD_GATEWAY, "module_response_too_large");
+        }
+        response_body.extend_from_slice(&chunk);
     }
     gateway_response
         .header("x-request-id", request_id)
@@ -270,6 +398,8 @@ mod tests {
     use crate::enterprise::{manifest::ReleaseManifest, runtime::EnterpriseRuntime};
     use axum::body::to_bytes;
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use niu_plugin_api::{MeteringAckStatus, OutboxEvent, OutboxEventKind};
+    use niu_plugin_sdk::JwsVerifier;
     use ring::signature::{ED25519, Ed25519KeyPair, KeyPair, UnparsedPublicKey};
     use serde_json::json;
     use std::{
@@ -499,6 +629,177 @@ mod tests {
         let _ = stop.send(());
         server_task.await.unwrap();
         let _ = std::fs::remove_file(socket_path);
+    }
+
+    #[tokio::test]
+    async fn builtin_plugins_serve_neutral_routes_verify_jws_and_acknowledge_outbox_events() {
+        let echo_sock = std::env::temp_dir().join(format!("niu-p-echo-{}.sock", Uuid::new_v4()));
+        let audit_sock = std::env::temp_dir().join(format!("niu-p-audit-{}.sock", Uuid::new_v4()));
+        let seed = [11_u8; 32];
+        let kid = "plugin-key-2026";
+
+        let verifier = Arc::new(JwsVerifier::from_seed("hello-echo", kid, &seed));
+        let echo_builder = niu_plugin_hello_echo::build_service(Some(verifier));
+        let echo_task = tokio::spawn({
+            let echo_sock = echo_sock.clone();
+            async move {
+                let _ = echo_builder.serve_unix_socket(echo_sock).await;
+            }
+        });
+
+        let audit_plugin = niu_plugin_webhook_audit::WebhookAuditPlugin::new();
+        let audit_builder = audit_plugin.build_service();
+        let audit_task = tokio::spawn({
+            let audit_sock = audit_sock.clone();
+            async move {
+                let _ = audit_builder.serve_unix_socket(audit_sock).await;
+            }
+        });
+
+        // Wait briefly for Unix sockets to bind
+        for _ in 0..25 {
+            if echo_sock.exists() && audit_sock.exists() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        let manifest: ReleaseManifest = serde_json::from_value(json!({
+            "contract": "niu.plugin.release-manifest.v1",
+            "niu_core": {"git_commit": COMMIT, "api_version": "0.2.1"},
+            "plugins": [
+                {
+                    "plugin_id": "hello-echo",
+                    "plugin_version": "0.2.1",
+                    "plugin_api_version": "niu.plugin.service.v1",
+                    "core_api": {"minimum": "0.2.0", "maximum_exclusive": "0.3.0"},
+                    "required": true,
+                    "socket_path": echo_sock.to_string_lossy(),
+                    "health": {
+                        "live_path": "/_niu/plugins/v1/health/live",
+                        "ready_path": "/_niu/plugins/v1/health/ready"
+                    },
+                    "routes": [
+                        {
+                            "path_prefix": "/api/plugins/v1/hello-echo/echo",
+                            "methods": ["POST"],
+                            "auth_mode": "workspace_key",
+                            "streaming": true,
+                            "timeout_ms": 2000,
+                            "max_request_bytes": 65536,
+                            "max_response_bytes": 65536
+                        }
+                    ]
+                },
+                {
+                    "plugin_id": "webhook-audit",
+                    "plugin_version": "0.2.1",
+                    "plugin_api_version": "niu.plugin.service.v1",
+                    "core_api": {"minimum": "0.2.0", "maximum_exclusive": "0.3.0"},
+                    "required": true,
+                    "socket_path": audit_sock.to_string_lossy(),
+                    "health": {
+                        "live_path": "/_niu/plugins/v1/health/live",
+                        "ready_path": "/_niu/plugins/v1/health/ready"
+                    },
+                    "routes": [
+                        {
+                            "path_prefix": "/api/plugins/v1/webhook-audit/deliveries",
+                            "methods": ["GET"],
+                            "auth_mode": "installation_admin",
+                            "timeout_ms": 2000,
+                            "max_request_bytes": 4096,
+                            "max_response_bytes": 65536
+                        }
+                    ]
+                }
+            ]
+        }))
+        .unwrap();
+
+        let runtime = EnterpriseRuntime::for_test(manifest, &seed, kid)
+            .await
+            .unwrap();
+        assert!(runtime.ready().await);
+        assert_eq!(runtime.hooks.metering_observers().len(), 1);
+
+        // 1. Test WorkspaceKey route forwarding + streaming response + SDK JWS verification
+        let echo_uri = Uri::from_static("/api/plugins/v1/hello-echo/echo?mode=stream");
+        let echo_route = runtime.matching_route(echo_uri.path()).unwrap();
+        let org_id = Uuid::new_v4();
+        let proj_id = Uuid::new_v4();
+        let key_id = Uuid::new_v4();
+        let mut headers = HeaderMap::new();
+        headers.insert("content-type", HeaderValue::from_static("application/json"));
+        let echo_resp = forward_with_principal(
+            &runtime,
+            echo_route,
+            ContextPrincipal::WorkspaceKey {
+                key_id,
+                organization_id: org_id,
+                project_id: proj_id,
+            },
+            Method::POST,
+            echo_uri,
+            &headers,
+            br#"{"hello":"niu-plugin"}"#.to_vec(),
+        )
+        .await;
+        assert_eq!(echo_resp.status(), StatusCode::OK);
+        let echo_json: serde_json::Value =
+            serde_json::from_slice(&to_bytes(echo_resp.into_body(), 65_536).await.unwrap())
+                .unwrap();
+        assert_eq!(echo_json["plugin_id"], "hello-echo");
+        assert_eq!(echo_json["echo"]["hello"], "niu-plugin");
+        assert_eq!(echo_json["context"]["auth_mode"], "workspace_key");
+        assert_eq!(echo_json["context"]["organization_id"], org_id.to_string());
+
+        // 2. Test OutboxEvent delivery & idempotent deduplication
+        let event = OutboxEvent {
+            event_id: Uuid::new_v4(),
+            kind: OutboxEventKind::BillingSettlement,
+            organization_id: org_id,
+            project_id: Some(proj_id),
+            occurred_at_unix_ms: 1_760_000_000_000,
+            payload: json!({"charged_nanounits": 42000}),
+        };
+        let first_receipts = runtime.deliver_outbox_event(&event).await;
+        assert_eq!(first_receipts.len(), 2);
+        assert!(
+            first_receipts
+                .iter()
+                .all(|r| r.as_ref().unwrap().status == MeteringAckStatus::Accepted)
+        );
+        let duplicate_receipts = runtime.deliver_outbox_event(&event).await;
+        assert!(
+            duplicate_receipts
+                .iter()
+                .all(|r| r.as_ref().unwrap().status == MeteringAckStatus::Duplicate)
+        );
+
+        // 3. Inspect recorded outbox deliveries via InstallationAdmin route
+        let audit_uri = Uri::from_static("/api/plugins/v1/webhook-audit/deliveries");
+        let audit_route = runtime.matching_route(audit_uri.path()).unwrap();
+        let audit_resp = forward_with_principal(
+            &runtime,
+            audit_route,
+            ContextPrincipal::InstallationAdmin,
+            Method::GET,
+            audit_uri,
+            &HeaderMap::new(),
+            Vec::new(),
+        )
+        .await;
+        assert_eq!(audit_resp.status(), StatusCode::OK);
+        let audit_json: serde_json::Value =
+            serde_json::from_slice(&to_bytes(audit_resp.into_body(), 65_536).await.unwrap())
+                .unwrap();
+        assert_eq!(audit_json["count"], 1);
+
+        echo_task.abort();
+        audit_task.abort();
+        let _ = std::fs::remove_file(echo_sock);
+        let _ = std::fs::remove_file(audit_sock);
     }
 
     fn manifest_for_socket(path: &Path, required: bool) -> ReleaseManifest {

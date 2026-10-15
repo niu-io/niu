@@ -1,9 +1,11 @@
-//! Versioned extension contracts for Niu's public core.
+//! Unified Plugin Host contracts (`niu.plugin.v1`) for Niu's open-source core,
+//! built-in community plugins, and external commercial/enterprise plugins.
 //!
-//! Extensions return claims, decisions, transformations, candidate IDs, task
-//! evidence, or acknowledgements. The core remains the authority for tenant
-//! authorization, credential resolution, dispatch, reservations, attempt
-//! recording, route eligibility, settlement, and revocation.
+//! Plugins return claims, decisions, transformations, candidate IDs, task
+//! evidence, payment intents, or acknowledgements. The core remains the
+//! authority for tenant authorization, credential resolution, dispatch,
+//! reservations, attempt recording, route eligibility, settlement, and
+//! revocation.
 
 use std::{
     collections::BTreeSet,
@@ -22,10 +24,19 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+pub const PLUGIN_API_VERSION: &str = "niu.plugin.v1";
 pub const EXTENSION_API_VERSION: &str = "niu.extension.v1";
+pub const PLUGIN_SERVICE_API_VERSION: &str = "niu.plugin.service.v1";
+pub const PLUGIN_RELEASE_MANIFEST_CONTRACT: &str = "niu.plugin.release-manifest.v1";
 pub const EXECUTION_RECORD_VERSION: u16 = 1;
+
 pub type ExtensionFuture<'a, T> =
     Pin<Box<dyn Future<Output = Result<T, ExtensionError>> + Send + 'a>>;
+pub type PluginFuture<'a, T> = ExtensionFuture<'a, T>;
+pub type PluginContext = ExtensionContext;
+pub type PluginError = ExtensionError;
+pub type PluginCapability = ExtensionCapability;
+pub type PluginManifest = ExtensionManifest;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -63,7 +74,7 @@ impl ExtensionManifest {
         if !valid_identifier(&self.id)
             || self.version.trim().is_empty()
             || self.version.len() > 100
-            || self.api_version != EXTENSION_API_VERSION
+            || (self.api_version != PLUGIN_API_VERSION && self.api_version != EXTENSION_API_VERSION)
             || self.capabilities.is_empty()
             || !(1..=30_000).contains(&self.deadline_ms)
         {
@@ -79,7 +90,7 @@ impl ExtensionManifest {
         {
             return Err(ContractError::Manifest);
         }
-        // Only policy-only extensions may opt into fail-open behavior. Identity
+        // Only policy-only plugins may opt into fail-open behavior. Identity
         // and adapter failures must never bypass authentication or core work.
         if self.failure_mode == FailureMode::FailOpen
             && self
@@ -97,6 +108,9 @@ pub trait NiuExtension: Send + Sync {
     fn manifest(&self) -> &ExtensionManifest;
 }
 
+pub trait NiuPlugin: NiuExtension {}
+impl<T: NiuExtension + ?Sized> NiuPlugin for T {}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TenantContext {
     organization_id: Uuid,
@@ -104,7 +118,7 @@ pub struct TenantContext {
 }
 
 impl TenantContext {
-    /// Construct this only from the core's authenticated principal. Extension
+    /// Construct this only from the core's authenticated principal. Plugin
     /// data is never accepted from a client to establish this context.
     pub fn from_core(organization_id: Uuid, project_id: Uuid) -> Self {
         Self {
@@ -274,7 +288,7 @@ pub enum IdentityAssurance {
     MultiFactor,
 }
 
-/// The extension returns verified identity claims only. Tenant membership,
+/// The plugin returns verified identity claims only. Tenant membership,
 /// role mapping, key grants and session creation remain core decisions.
 pub trait IdentityFederation: NiuExtension {
     fn resolve<'a>(
@@ -303,7 +317,7 @@ pub enum PolicyStage {
 }
 
 /// Core-owned identity, version, stage, input digest, and expiry for one policy
-/// evaluation. Extensions must return this binding unchanged with their result.
+/// evaluation. Plugins must return this binding unchanged with their result.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct PolicyBinding {
@@ -741,7 +755,7 @@ impl ExtensionError {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum ContractError {
-    #[error("invalid extension manifest")]
+    #[error("invalid plugin manifest")]
     Manifest,
     #[error("invalid public identifier")]
     Identifier,
@@ -1093,6 +1107,259 @@ pub fn validate_task_output(
     Ok(())
 }
 
+/// High-level capability facets declared by a plugin in the release manifest.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PluginFacet {
+    Hooks,
+    Observers,
+    Routes,
+    Ui,
+}
+
+/// Authentication mode for a supervised plugin HTTP route.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteAuthMode {
+    /// Requires a workspace operator session (`read`, `write`, `manage_operators`).
+    #[default]
+    Operator,
+    /// Requires a platform installation administrator bearer token (`NIU_ADMIN_TOKENS`).
+    InstallationAdmin,
+    /// Requires a valid, non-revoked workspace API key (`Bearer sk-...`).
+    WorkspaceKey,
+    /// Unauthenticated public callback/webhook ingress bounded by Gateway size and timeout limits.
+    PublicCallback,
+}
+
+impl RouteAuthMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Operator => "operator",
+            Self::InstallationAdmin => "installation_admin",
+            Self::WorkspaceKey => "workspace_key",
+            Self::PublicCallback => "public_callback",
+        }
+    }
+}
+
+/// Payment quote and settlement hook for commercial or billing plugins.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaymentIntentInput {
+    pub organization_id: Uuid,
+    pub workspace_id: Option<Uuid>,
+    pub provider_channel: String,
+    pub amount_nanounits: i128,
+    pub currency: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaymentIntentDecision {
+    pub external_reference: String,
+    pub checkout_url: Option<String>,
+    pub accepted: bool,
+}
+
+pub trait PaymentAdapter: NiuExtension {
+    fn create_payment_intent<'a>(
+        &'a self,
+        ctx: &'a PluginContext,
+        input: &'a PaymentIntentInput,
+    ) -> PluginFuture<'a, PaymentIntentDecision>;
+}
+
+/// Status of an idempotent outbox event delivery receipt.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MeteringAckStatus {
+    Accepted,
+    Duplicate,
+}
+
+/// Transactional outbox event kinds emitted by the Gateway core to subscribed plugins.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutboxEventKind {
+    BillingSettlement,
+    AdminAudit,
+    RouteCooldown,
+}
+
+/// Immutable outbox event envelope delivered over Unix domain sockets to subscribed plugins.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct OutboxEvent {
+    pub event_id: Uuid,
+    pub kind: OutboxEventKind,
+    pub organization_id: Uuid,
+    pub project_id: Option<Uuid>,
+    pub occurred_at_unix_ms: u64,
+    pub payload: Value,
+}
+
+/// Idempotent delivery receipt returned by a plugin's outbox consumer endpoint.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct OutboxDeliveryReceipt {
+    pub plugin_id: String,
+    pub event_id: Uuid,
+    pub status: MeteringAckStatus,
+}
+
+/// Descriptor for a built-in or external plugin registered with the Gateway.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PluginDescriptor {
+    pub plugin_id: String,
+    pub version: String,
+    pub api_version: String,
+    pub facets: Vec<PluginFacet>,
+}
+
+impl PluginDescriptor {
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if self.plugin_id.trim().is_empty()
+            || self.version.trim().is_empty()
+            || (self.api_version != PLUGIN_API_VERSION && self.api_version != EXTENSION_API_VERSION)
+            || self.facets.is_empty()
+        {
+            return Err(ContractError::Manifest);
+        }
+        let unique: BTreeSet<_> = self.facets.iter().copied().collect();
+        if unique.len() != self.facets.len() {
+            return Err(ContractError::Manifest);
+        }
+        Ok(())
+    }
+}
+
+/// Live in-process Hook Registry wired into the Gateway runtime.
+#[derive(Clone, Default)]
+pub struct PluginHookRegistry {
+    identity_hooks: Vec<Arc<dyn IdentityFederation>>,
+    policy_hooks: Vec<Arc<dyn PolicyHook>>,
+    provider_adapters: Vec<Arc<dyn ProviderAdapter>>,
+    payment_adapters: Vec<Arc<dyn PaymentAdapter>>,
+    route_selectors: Vec<Arc<dyn RouteSelector>>,
+    metering_observers: Vec<Arc<dyn MeteringObserver>>,
+}
+
+impl std::fmt::Debug for PluginHookRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PluginHookRegistry")
+            .field("identity_hooks", &self.identity_hooks.len())
+            .field("policy_hooks", &self.policy_hooks.len())
+            .field("provider_adapters", &self.provider_adapters.len())
+            .field("payment_adapters", &self.payment_adapters.len())
+            .field("route_selectors", &self.route_selectors.len())
+            .field("metering_observers", &self.metering_observers.len())
+            .finish()
+    }
+}
+
+impl PluginHookRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.identity_hooks.is_empty()
+            && self.policy_hooks.is_empty()
+            && self.provider_adapters.is_empty()
+            && self.payment_adapters.is_empty()
+            && self.route_selectors.is_empty()
+            && self.metering_observers.is_empty()
+    }
+
+    pub fn register_identity_hook(&mut self, hook: Arc<dyn IdentityFederation>) {
+        self.identity_hooks.push(hook);
+    }
+
+    pub fn register_policy_hook(&mut self, hook: Arc<dyn PolicyHook>) {
+        self.policy_hooks.push(hook);
+    }
+
+    pub fn register_provider_adapter(&mut self, adapter: Arc<dyn ProviderAdapter>) {
+        self.provider_adapters.push(adapter);
+    }
+
+    pub fn register_payment_adapter(&mut self, adapter: Arc<dyn PaymentAdapter>) {
+        self.payment_adapters.push(adapter);
+    }
+
+    pub fn register_route_selector(&mut self, selector: Arc<dyn RouteSelector>) {
+        self.route_selectors.push(selector);
+    }
+
+    pub fn register_metering_observer(&mut self, observer: Arc<dyn MeteringObserver>) {
+        self.metering_observers.push(observer);
+    }
+
+    pub fn policy_hooks(&self) -> &[Arc<dyn PolicyHook>] {
+        &self.policy_hooks
+    }
+
+    pub fn route_selectors(&self) -> &[Arc<dyn RouteSelector>] {
+        &self.route_selectors
+    }
+
+    pub fn metering_observers(&self) -> &[Arc<dyn MeteringObserver>] {
+        &self.metering_observers
+    }
+
+    /// Run all registered policy hooks sequentially and validate each cryptographic `BoundPolicyDecision`.
+    pub async fn evaluate_policies(
+        &self,
+        ctx: &PluginContext,
+        input: &PolicyInput,
+        evaluated_at_unix_ms: i64,
+    ) -> Result<Vec<BoundPolicyDecision>, ContractError> {
+        let mut decisions = Vec::with_capacity(self.policy_hooks.len());
+        for hook in &self.policy_hooks {
+            let bound = hook
+                .evaluate(input.clone(), ctx)
+                .await
+                .map_err(|_| ContractError::PolicyDecision)?;
+            validate_policy_decision(input, &bound, evaluated_at_unix_ms)?;
+            let rejected = matches!(bound.decision, PolicyDecision::Deny { .. });
+            decisions.push(bound);
+            if rejected {
+                break;
+            }
+        }
+        Ok(decisions)
+    }
+
+    /// Run registered route selectors in order and validate every candidate reordering against core eligibility.
+    pub async fn select_routes(
+        &self,
+        ctx: &PluginContext,
+        candidates: &[RouteCandidate],
+    ) -> Result<Vec<Uuid>, ContractError> {
+        if self.route_selectors.is_empty() {
+            return Ok(candidates.iter().map(|c| c.id).collect());
+        }
+        let mut current: Vec<RouteCandidate> = candidates.to_vec();
+        let mut ordered_ids = Vec::new();
+        for selector in &self.route_selectors {
+            let selection = selector
+                .select(current.clone(), ctx)
+                .await
+                .map_err(|_| ContractError::RouteSelection)?;
+            validate_route_selection(&current, &selection)?;
+            ordered_ids = selection.candidate_ids;
+            current = ordered_ids
+                .iter()
+                .filter_map(|id| current.iter().find(|c| c.id == *id).cloned())
+                .collect();
+        }
+        Ok(ordered_ids)
+    }
+}
+
 fn valid_identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 200
@@ -1262,4 +1529,32 @@ fn forbidden_response_header(name: &str) -> bool {
             | "cookie"
             | "content-length"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validates_plugin_descriptor_and_auth_modes() {
+        let descriptor = PluginDescriptor {
+            plugin_id: "request-tagger".into(),
+            version: "0.2.1".into(),
+            api_version: PLUGIN_API_VERSION.into(),
+            facets: vec![PluginFacet::Hooks, PluginFacet::Routes],
+        };
+        assert!(descriptor.validate().is_ok());
+
+        let duplicate = PluginDescriptor {
+            facets: vec![PluginFacet::Hooks, PluginFacet::Hooks],
+            ..descriptor
+        };
+        assert!(duplicate.validate().is_err());
+        assert_eq!(
+            RouteAuthMode::InstallationAdmin.as_str(),
+            "installation_admin"
+        );
+        assert_eq!(RouteAuthMode::WorkspaceKey.as_str(), "workspace_key");
+        assert_eq!(RouteAuthMode::PublicCallback.as_str(), "public_callback");
+    }
 }
