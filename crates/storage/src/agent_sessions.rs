@@ -161,9 +161,9 @@ impl Store {
         owner: Uuid,
         connection: Uuid,
         input: &PersonalAgentTraceInput,
+        event: Value,
     ) -> Result<(Uuid, bool), StoreError> {
         // The connection row is already locked by ingestion: concurrent delivery cannot lose steps.
-        let event = serde_json::to_value(input).map_err(|_| StoreError::InvalidObservation)?;
         let standalone: Option<(Uuid, Value)> = sqlx::query_as("SELECT id,record FROM personal_agent_traces WHERE owner_id=$1 AND connection_id=$2 AND record_id=$3 AND session_key IS NULL")
             .bind(owner).bind(connection).bind(&input.record.record_id).fetch_optional(&mut *tx).await?;
         let legacy = if let Some((id, value)) = standalone {
@@ -210,7 +210,7 @@ impl Store {
         let mut id = Uuid::new_v4();
         let mut segment = 1;
         let mut already_size_checked = false;
-        let mut projection = if let Some((old_id, old_segment, old_record, old_names)) = latest {
+        let projection = if let Some((old_id, old_segment, old_record, old_names)) = latest {
             let previous = PersonalAgentTraceInput {
                 name: input.name.clone(),
                 record: serde_json::from_value::<ExecutionRecord>(old_record)
@@ -269,15 +269,11 @@ impl Store {
         } else {
             format!("{} · part {segment}", input.name)
         };
-        let record =
-            serde_json::to_value(&projection.record).map_err(|_| StoreError::InvalidObservation)?;
-        let names = serde_json::to_value(&projection.span_names)
-            .map_err(|_| StoreError::InvalidObservation)?;
         sqlx::query("INSERT INTO personal_agent_traces(id,owner_id,connection_id,source,record_id,name,occurred_at,time_basis,status,coverage,duration_ms,span_count,error_count,model_calls,tool_calls,record,span_names,session_key,session_segment) VALUES($1,$2,$3,$4,$5,$6,COALESCE(to_timestamp($7::double precision/1000),now()),CASE WHEN $7::bigint IS NULL THEN 'received' ELSE 'observed' END,'unknown','partial',$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT(id) DO UPDATE SET occurred_at=EXCLUDED.occurred_at,time_basis=EXCLUDED.time_basis,received_at=now(),duration_ms=EXCLUDED.duration_ms,span_count=EXCLUDED.span_count,error_count=EXCLUDED.error_count,model_calls=EXCLUDED.model_calls,tool_calls=EXCLUDED.tool_calls,record=EXCLUDED.record,span_names=EXCLUDED.span_names")
             .bind(id).bind(owner).bind(connection).bind(&input.record.source).bind(&projection.record.record_id).bind(name).bind(root.started_at_ms).bind(duration)
             .bind(projection.record.spans.len() as i64).bind(projection.record.spans.iter().filter(|s|s.status==Some(SpanStatus::Failed)).count() as i64)
             .bind(projection.record.spans.iter().filter(|s|s.kind==SpanKind::ModelInvocation).count() as i64).bind(projection.record.spans.iter().filter(|s|s.kind==SpanKind::ToolInvocation).count() as i64)
-            .bind(record).bind(names).bind(key).bind(segment).execute(&mut *tx).await?;
+            .bind(sqlx::types::Json(&projection.record)).bind(sqlx::types::Json(&projection.span_names)).bind(key).bind(segment).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO personal_agent_trace_events(owner_id,connection_id,event_id,trace_id,payload) VALUES($1,$2,$3,$4,$5)")
             .bind(owner).bind(connection).bind(&input.record.record_id).bind(id).bind(event).execute(&mut *tx).await?;
         if let Some(legacy) = legacy {

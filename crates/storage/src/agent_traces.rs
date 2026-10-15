@@ -229,22 +229,21 @@ impl Store {
         input: &PersonalAgentTraceInput,
     ) -> Result<(Uuid, bool), StoreError> {
         input.validate()?;
-        let mut tx = self.begin_bounded_recording().await?;
-        let connection: Option<(Uuid,Uuid,String)> = sqlx::query_as("SELECT id,owner_id,source FROM personal_agent_connections WHERE token_hash=$1 AND NOT paused AND NOT revoked AND expires_at>now() FOR UPDATE")
-            .bind(Sha256::digest(token.as_bytes()).to_vec()).fetch_optional(&mut *tx).await?;
-        let (connection, owner, source) = connection.ok_or(StoreError::Unauthorized)?;
-        if input.record.source != source {
-            return Err(StoreError::InvalidObservation);
-        }
+        let token_hash = Sha256::digest(token.as_bytes()).to_vec();
         if input.session_key.is_some() {
+            let event = serde_json::to_value(input).map_err(|_| StoreError::InvalidObservation)?;
+            let mut tx = self.begin_bounded_recording().await?;
+            let connection: Option<(Uuid, Uuid, String)> = sqlx::query_as("SELECT id,owner_id,source FROM personal_agent_connections WHERE token_hash=$1 AND NOT paused AND NOT revoked AND expires_at>now() FOR UPDATE")
+                .bind(token_hash)
+                .fetch_optional(&mut *tx)
+                .await?;
+            let (connection, owner, source) = connection.ok_or(StoreError::Unauthorized)?;
+            if input.record.source != source {
+                return Err(StoreError::InvalidObservation);
+            }
             return self
-                .append_personal_agent_session_event(tx, owner, connection, input)
+                .append_personal_agent_session_event(tx, owner, connection, input, event)
                 .await;
-        }
-        let grouped_event: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM personal_agent_trace_events WHERE owner_id=$1 AND connection_id=$2 AND event_id=$3)")
-            .bind(owner).bind(connection).bind(&input.record.record_id).fetch_one(&mut *tx).await?;
-        if grouped_event {
-            return Err(StoreError::Conflict);
         }
         let root = input
             .record
@@ -266,6 +265,18 @@ impl Store {
             serde_json::to_value(&input.record).map_err(|_| StoreError::InvalidObservation)?;
         let names =
             serde_json::to_value(&input.span_names).map_err(|_| StoreError::InvalidObservation)?;
+        let mut tx = self.begin_bounded_recording().await?;
+        let connection: Option<(Uuid,Uuid,String)> = sqlx::query_as("SELECT id,owner_id,source FROM personal_agent_connections WHERE token_hash=$1 AND NOT paused AND NOT revoked AND expires_at>now() FOR UPDATE")
+            .bind(token_hash).fetch_optional(&mut *tx).await?;
+        let (connection, owner, source) = connection.ok_or(StoreError::Unauthorized)?;
+        if input.record.source != source {
+            return Err(StoreError::InvalidObservation);
+        }
+        let grouped_event: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM personal_agent_trace_events WHERE owner_id=$1 AND connection_id=$2 AND event_id=$3)")
+            .bind(owner).bind(connection).bind(&input.record.record_id).fetch_one(&mut *tx).await?;
+        if grouped_event {
+            return Err(StoreError::Conflict);
+        }
         let id = Uuid::new_v4();
         let inserted = sqlx::query("INSERT INTO personal_agent_traces(id,owner_id,connection_id,source,record_id,name,occurred_at,time_basis,status,coverage,duration_ms,span_count,error_count,model_calls,tool_calls,record,span_names) VALUES($1,$2,$3,$4,$5,$6,COALESCE(to_timestamp($7::double precision/1000),now()),CASE WHEN $7::bigint IS NULL THEN 'received' ELSE 'observed' END,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT(owner_id,connection_id,record_id) DO NOTHING")
             .bind(id).bind(owner).bind(connection).bind(&source).bind(&input.record.record_id).bind(&input.name).bind(root.started_at_ms).bind(status).bind(coverage.as_str().unwrap_or("unknown")).bind(duration)
