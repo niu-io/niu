@@ -291,7 +291,7 @@ impl Store {
         actor: OperatorAuditActor,
     ) -> Result<IssuedOperatorSession, StoreError> {
         validate_operator(name, expires_in_seconds)?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let organization_exists: Option<Uuid> =
             sqlx::query_scalar("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
                 .bind(scope.organization_id)
@@ -344,7 +344,7 @@ impl Store {
         actor: OperatorAuditActor,
     ) -> Result<IssuedOperatorSession, StoreError> {
         validate_operator("operator", expires_in_seconds)?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
             "SELECT organization_id,project_id FROM admin_operators \
              WHERE id=$1 AND revoked_at IS NULL FOR UPDATE",
@@ -376,7 +376,7 @@ impl Store {
         session_id: Uuid,
         actor: OperatorAuditActor,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
             "UPDATE admin_sessions s SET revoked_at=clock_timestamp() \
              FROM admin_operators o \

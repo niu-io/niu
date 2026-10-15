@@ -53,7 +53,7 @@ impl Store {
         request_digest: &[u8],
         generation: Option<i64>,
     ) -> Result<(Uuid, bool), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let attempt = Uuid::new_v4();
         let inserted = sqlx::query("INSERT INTO media_submission_keys(organization_id,project_id,key_digest,request_digest,attempt_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,key_digest) DO NOTHING")
             .bind(scope.organization_id).bind(scope.project_id).bind(key_digest)

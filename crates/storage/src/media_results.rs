@@ -24,7 +24,10 @@ impl Store {
         kind: MediaResultKind,
         ciphertext: &[u8],
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        if !(30..=16413).contains(&ciphertext.len()) {
+            return Err(StoreError::InvalidUsage);
+        }
+        let mut tx = self.begin_bounded_recording().await?;
         let saved =
             Self::save_media_result_reference_in_tx(&mut tx, scope, attempt, kind, ciphertext)
                 .await?;

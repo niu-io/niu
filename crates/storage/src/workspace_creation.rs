@@ -39,11 +39,13 @@ impl Store {
             };
             (kind, actor, key.key_sha256)
         });
-        let mut tx = self.pool.begin().await?;
+        if let Some((kind, actor, hash)) = &identity
+            && (hash.len() != 32 || (*kind == "member" && actor.is_nil()))
+        {
+            return Err(StoreError::Conflict);
+        }
+        let mut tx = self.begin_bounded_recording().await?;
         if let Some((kind, actor, hash)) = &identity {
-            if hash.len() != 32 || (*kind == "member" && actor.is_nil()) {
-                return Err(StoreError::Conflict);
-            }
             sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-workspace-create:'||$1::text||':'||$2::uuid::text||':'||encode($3::bytea,'hex'),0))")
                 .bind(kind).bind(actor).bind(hash).execute(&mut *tx).await?;
         }

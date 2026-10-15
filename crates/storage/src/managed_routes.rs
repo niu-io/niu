@@ -39,7 +39,7 @@ impl Store {
         attempt: Uuid,
         route: &ManagedRouteSnapshot,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND execution='not_sent' FOR UPDATE")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;

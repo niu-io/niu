@@ -217,7 +217,7 @@ impl Store {
         meter: &str,
         at: i64,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::bind_supplier_media_rate_in_tx(&mut tx, scope, attempt, dimensions, meter, at)
             .await?;
         tx.commit().await?;
@@ -274,7 +274,7 @@ impl Store {
     }
     /// Independent Provider liability; customer funding and charges are not consulted.
     pub async fn accrue_supplier_media_earning(&self, attempt: Uuid) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::accrue_supplier_media_earning_in_tx(&mut tx, attempt).await?;
         tx.commit().await?;
         Ok(())

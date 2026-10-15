@@ -822,7 +822,7 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let dispatched: Option<bool> = sqlx::query_scalar("SELECT dispatched_at IS NOT NULL FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?;
         if dispatched != Some(true) {
@@ -856,7 +856,7 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let row = sqlx::query("SELECT m.alias,v.id,v.revision AS vendor_revision,m.revision AS model_revision,m.upstream_model,m.capabilities,v.adapter,v.api_base FROM attempts a JOIN vendor_models m ON m.alias=a.resource_id JOIN vendors v ON v.id=m.vendor_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND m.enabled AND v.enabled AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>a.organization_id) FOR SHARE OF v,m")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let unsent: Option<bool> = sqlx::query_scalar("SELECT dispatched_at IS NULL FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
@@ -948,7 +948,7 @@ impl Store {
             "effective_controls":request.effective_controls(),
             "reference_video_seconds":niu_metered_cost::Quantity::integer(0),
             "estimated_usage":{"meter":meter,"quantity":quantity,"provenance":provenance}});
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let capabilities: serde_json::Value = sqlx::query_scalar("SELECT m.capabilities FROM media_recovery_routes r JOIN vendors v ON v.id=r.vendor_id JOIN attempts a ON a.id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE r.organization_id=$1 AND r.project_id=$2 AND r.attempt_id=$3 AND v.revision=r.vendor_revision AND m.revision=r.model_revision AND v.enabled AND m.enabled AND a.dispatched_at IS NULL FOR SHARE OF v,m")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let schema: niu_media::VideoSchema = serde_json::from_value(
@@ -1045,7 +1045,7 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let dispatched: Option<bool> = sqlx::query_scalar("SELECT dispatched_at IS NOT NULL FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut *tx).await?;
@@ -1073,7 +1073,7 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         Self::confirm_media_job_completion_in_tx(&mut tx, scope, attempt).await?;
         tx.commit().await?;
         Ok(())

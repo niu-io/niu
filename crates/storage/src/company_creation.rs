@@ -17,11 +17,11 @@ impl Store {
         let request = serde_json::to_vec(&serde_json::json!({"name":name,"currency":currency}))
             .map_err(|_| StoreError::Conflict)?;
         let request_sha256 = Sha256::digest(request).to_vec();
-        let mut tx = self.pool.begin().await?;
+        if key_sha256.is_some_and(|key| key.len() != 32) {
+            return Err(StoreError::Conflict);
+        }
+        let mut tx = self.begin_bounded_recording().await?;
         if let Some(key) = key_sha256 {
-            if key.len() != 32 {
-                return Err(StoreError::Conflict);
-            }
             sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-company-create:'||encode($1::bytea,'hex'),0))")
                 .bind(key).execute(&mut *tx).await?;
             let saved: Option<(Vec<u8>, Uuid)> = sqlx::query_as(

@@ -227,13 +227,17 @@ impl Store {
         if payload.len() > 1_048_576 {
             return Err(StoreError::InvalidObservation);
         }
-        let mut tx = self.pool.begin().await?;
-        if let Some(token) = collector {
+        let collector_hash = if let Some(token) = collector {
             use sha2::{Digest, Sha256};
             if token.len() != 78 || !token.starts_with("niu_collector_") {
                 return Err(StoreError::Unauthorized);
             }
-            let hash = Sha256::digest(token.as_bytes()).to_vec();
+            Some(Sha256::digest(token.as_bytes()).to_vec())
+        } else {
+            None
+        };
+        let mut tx = self.begin_bounded_recording().await?;
+        if let Some(hash) = collector_hash {
             let key: Option<Uuid> = sqlx::query_scalar("SELECT id FROM collector_keys WHERE purpose='execution' AND token_hash=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE")
                 .bind(hash).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
             if key.is_none() {
