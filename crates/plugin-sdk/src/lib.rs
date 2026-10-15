@@ -1,7 +1,7 @@
 //! Rust SDK for building Niu plugins (in-process hooks and Unix-socket HTTP/outbox services).
 
 use std::{
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     path::Path,
     sync::{
         Arc, Mutex,
@@ -251,12 +251,19 @@ impl JwsVerifier {
     }
 }
 
+const MAX_RECORDED_OUTBOX_EVENTS: usize = 1024;
+
+#[derive(Default)]
+struct BoundedOutboxEvents {
+    seen: HashSet<Uuid>,
+    events: VecDeque<OutboxEvent>,
+}
+
 #[derive(Clone)]
 pub struct PluginRuntimeState {
     pub plugin_id: String,
     ready: Arc<AtomicBool>,
-    seen_outbox_events: Arc<Mutex<HashSet<Uuid>>>,
-    recorded_events: Arc<Mutex<Vec<OutboxEvent>>>,
+    outbox: Arc<Mutex<BoundedOutboxEvents>>,
 }
 
 impl PluginRuntimeState {
@@ -264,8 +271,7 @@ impl PluginRuntimeState {
         Self {
             plugin_id: plugin_id.into(),
             ready: Arc::new(AtomicBool::new(true)),
-            seen_outbox_events: Arc::new(Mutex::new(HashSet::new())),
-            recorded_events: Arc::new(Mutex::new(Vec::new())),
+            outbox: Arc::new(Mutex::new(BoundedOutboxEvents::default())),
         }
     }
 
@@ -278,22 +284,37 @@ impl PluginRuntimeState {
     }
 
     pub fn record_outbox_event(&self, event: OutboxEvent) -> OutboxDeliveryReceipt {
-        let mut seen = self.seen_outbox_events.lock().unwrap();
-        let status = if seen.insert(event.event_id) {
-            self.recorded_events.lock().unwrap().push(event.clone());
+        let mut outbox = self
+            .outbox
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let event_id = event.event_id;
+        let status = if outbox.seen.insert(event_id) {
+            if outbox.events.len() >= MAX_RECORDED_OUTBOX_EVENTS
+                && let Some(evicted) = outbox.events.pop_front()
+            {
+                outbox.seen.remove(&evicted.event_id);
+            }
+            outbox.events.push_back(event);
             MeteringAckStatus::Accepted
         } else {
             MeteringAckStatus::Duplicate
         };
         OutboxDeliveryReceipt {
             plugin_id: self.plugin_id.clone(),
-            event_id: event.event_id,
+            event_id,
             status,
         }
     }
 
     pub fn recorded_events(&self) -> Vec<OutboxEvent> {
-        self.recorded_events.lock().unwrap().clone()
+        self.outbox
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .events
+            .iter()
+            .cloned()
+            .collect()
     }
 }
 

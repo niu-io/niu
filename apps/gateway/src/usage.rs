@@ -1,6 +1,9 @@
 //! Process-local evidence counters, not a billing ledger. Every dispatched
 //! attempt starts unknown, including requests that fail or are cancelled.
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -16,18 +19,29 @@ pub struct UsageSnapshot {
 }
 
 #[derive(Default)]
-pub struct UsageMetrics(Mutex<UsageSnapshot>);
+pub struct UsageMetrics {
+    attempts_total: AtomicU64,
+    attempts_unknown: AtomicU64,
+    attempts_provider_reported: AtomicU64,
+    prompt_tokens: AtomicU64,
+    completion_tokens: AtomicU64,
+}
 
 impl UsageMetrics {
     pub fn begin(self: &Arc<Self>) -> UsageAttempt {
-        let mut counters = self.0.lock().expect("usage metrics mutex");
-        counters.attempts_total += 1;
-        counters.attempts_unknown += 1;
+        self.attempts_total.fetch_add(1, Ordering::Relaxed);
+        self.attempts_unknown.fetch_add(1, Ordering::Relaxed);
         UsageAttempt(self.clone())
     }
 
     pub fn snapshot(&self) -> UsageSnapshot {
-        self.0.lock().expect("usage metrics mutex").clone()
+        UsageSnapshot {
+            attempts_total: self.attempts_total.load(Ordering::Relaxed),
+            attempts_unknown: self.attempts_unknown.load(Ordering::Relaxed),
+            attempts_provider_reported: self.attempts_provider_reported.load(Ordering::Relaxed),
+            prompt_tokens: self.prompt_tokens.load(Ordering::Relaxed),
+            completion_tokens: self.completion_tokens.load(Ordering::Relaxed),
+        }
     }
 }
 
@@ -43,17 +57,31 @@ impl UsageAttempt {
         ) else {
             return;
         };
-        let mut counters = self.0.0.lock().expect("usage metrics mutex");
-        let (Some(prompt_total), Some(completion_total)) = (
-            counters.prompt_tokens.checked_add(prompt),
-            counters.completion_tokens.checked_add(completion),
-        ) else {
+        if self
+            .0
+            .prompt_tokens
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
+                cur.checked_add(prompt)
+            })
+            .is_err()
+        {
             return;
-        };
-        counters.prompt_tokens = prompt_total;
-        counters.completion_tokens = completion_total;
-        counters.attempts_unknown -= 1;
-        counters.attempts_provider_reported += 1;
+        }
+        if self
+            .0
+            .completion_tokens
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
+                cur.checked_add(completion)
+            })
+            .is_err()
+        {
+            self.0.prompt_tokens.fetch_sub(prompt, Ordering::Relaxed);
+            return;
+        }
+        self.0.attempts_unknown.fetch_sub(1, Ordering::Relaxed);
+        self.0
+            .attempts_provider_reported
+            .fetch_add(1, Ordering::Relaxed);
     }
 }
 
