@@ -33,7 +33,9 @@ pub(crate) fn requested(body: &Value) -> bool {
             })
         })
 }
-pub(crate) fn definitions(body: &Value) -> Option<BTreeMap<String, jsonschema::Validator>> {
+pub(crate) fn definitions(
+    body: &Value,
+) -> Option<BTreeMap<String, std::sync::Arc<jsonschema::Validator>>> {
     let tools = body["tools"]
         .as_array()
         .filter(|t| !t.is_empty() && t.len() <= 64)?;
@@ -134,7 +136,7 @@ pub(crate) fn valid(body: &Value) -> bool {
 /// Only called after the complete request has passed `valid`.
 pub(crate) fn project(
     part: &Value,
-    defs: &BTreeMap<String, jsonschema::Validator>,
+    defs: &BTreeMap<String, std::sync::Arc<jsonschema::Validator>>,
 ) -> Option<Value> {
     if !fields(part, &["type", "id", "name", "input", "caller"])
         || part["type"] != "tool_use"
@@ -159,7 +161,7 @@ pub(crate) fn project(
 
 /// Owned compiled schemas and selection constraints for one dispatched stream.
 pub(crate) struct StreamTools {
-    definitions: BTreeMap<String, jsonschema::Validator>,
+    definitions: BTreeMap<String, std::sync::Arc<jsonschema::Validator>>,
     choice: Value,
 }
 impl StreamTools {

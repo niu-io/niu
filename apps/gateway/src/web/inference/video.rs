@@ -2144,7 +2144,7 @@ pub(super) async fn create_as(
         body = original;
     }
     crate::request_payloads::remove_credentials(&mut body);
-    if serde_json::to_vec(&body).is_ok_and(|bytes| bytes.len() <= 1_048_576) {
+    if crate::inference_schema::json_serialized_len_within(&body, 1_048_576).is_ok() {
         response
             .extensions_mut()
             .insert(crate::request_payloads::InspectedRequestPayload(body));

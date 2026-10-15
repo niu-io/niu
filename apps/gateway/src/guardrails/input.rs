@@ -604,9 +604,13 @@ pub fn inspect_text(text: &str, rules: &[TextRule]) -> Result<String, Inspection
         .iter()
         .filter(|rule| matches!(rule.action, Action::Redact))
     {
-        let mut transformed = String::new();
+        let mut matches = rule.expression.find_iter(&output).peekable();
+        if matches.peek().is_none() {
+            continue;
+        }
+        let mut transformed = String::with_capacity(output.len());
         let mut offset = 0;
-        for found in rule.expression.find_iter(&output) {
+        for found in matches {
             let additional = found.start() - offset + "[REDACTED]".len();
             if transformed
                 .len()

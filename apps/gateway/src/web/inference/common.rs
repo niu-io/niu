@@ -520,7 +520,7 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
     if !(0..=1_000_000).contains(&output) {
         return None;
     }
-    i64::try_from(serde_json::to_vec(body).ok()?.len())
+    i64::try_from(crate::inference_schema::json_serialized_len(body).ok()?)
         .ok()?
         .checked_add(output)
 }
@@ -888,31 +888,72 @@ pub(super) fn request_task_id(headers: &HeaderMap) -> Result<Option<String>, Api
 
 pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
     use sha2::{Digest, Sha256};
-    format!(
-        "{:x}",
-        Sha256::digest(
-            serde_json::to_vec(&json!({
-                "provider": model.provider,
-                "model": model.upstream_model,
-                "endpoint": model.api_base,
-                "credential_reference": model.api_key_env,
-                "supports_embeddings": model.supports_embeddings,
-                "supports_embedding_dimensions": model.supports_embedding_dimensions,
-                "supports_embedding_base64": model.supports_embedding_base64,
-                "supports_tool_calls": model.supports_tool_calls,
-                "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
-                "supports_structured_output": model.supports_structured_output,
-                "supports_messages": model.supports_messages,
-                "supports_messages_streaming": model.supports_messages_streaming,
-                "supports_messages_tools": model.supports_messages_tools,
-                "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
-                "supports_generate_content": model.supports_generate_content,
-                "supports_responses": model.supports_responses,
-                "pricing": model.pricing
-            }))
-            .expect("route serialization")
-        )
+
+    #[derive(serde::Serialize)]
+    struct RoutePricingPayload<'a> {
+        api_completion_rate: i64,
+        api_prompt_rate: i64,
+        cash_completion_rate: i64,
+        cash_prompt_rate: i64,
+        currency: &'a str,
+        max_input_tokens: i64,
+        max_output_tokens: i64,
+    }
+
+    #[derive(serde::Serialize)]
+    struct RouteRevisionPayload<'a> {
+        credential_reference: &'a str,
+        endpoint: &'a Option<String>,
+        model: &'a str,
+        pricing: Option<RoutePricingPayload<'a>>,
+        provider: &'a str,
+        supports_embedding_base64: bool,
+        supports_embedding_dimensions: bool,
+        supports_embeddings: bool,
+        supports_generate_content: bool,
+        supports_messages: bool,
+        supports_messages_streaming: bool,
+        supports_messages_streaming_tools: bool,
+        supports_messages_tools: bool,
+        supports_responses: bool,
+        supports_streaming_tool_calls: bool,
+        supports_structured_output: bool,
+        supports_tool_calls: bool,
+    }
+
+    let mut hasher = Sha256::new();
+    serde_json::to_writer(
+        &mut hasher,
+        &RouteRevisionPayload {
+            credential_reference: &model.api_key_env,
+            endpoint: &model.api_base,
+            model: &model.upstream_model,
+            pricing: model.pricing.as_ref().map(|p| RoutePricingPayload {
+                api_completion_rate: p.api_completion_rate,
+                api_prompt_rate: p.api_prompt_rate,
+                cash_completion_rate: p.cash_completion_rate,
+                cash_prompt_rate: p.cash_prompt_rate,
+                currency: &p.currency,
+                max_input_tokens: p.max_input_tokens,
+                max_output_tokens: p.max_output_tokens,
+            }),
+            provider: &model.provider,
+            supports_embedding_base64: model.supports_embedding_base64,
+            supports_embedding_dimensions: model.supports_embedding_dimensions,
+            supports_embeddings: model.supports_embeddings,
+            supports_generate_content: model.supports_generate_content,
+            supports_messages: model.supports_messages,
+            supports_messages_streaming: model.supports_messages_streaming,
+            supports_messages_streaming_tools: model.supports_messages_streaming_tools,
+            supports_messages_tools: model.supports_messages_tools,
+            supports_responses: model.supports_responses,
+            supports_streaming_tool_calls: model.supports_streaming_tool_calls,
+            supports_structured_output: model.supports_structured_output,
+            supports_tool_calls: model.supports_tool_calls,
+        },
     )
+    .expect("route serialization");
+    format!("{:x}", hasher.finalize())
 }
 
 #[cfg(test)]

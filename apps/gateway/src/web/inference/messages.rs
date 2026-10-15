@@ -738,12 +738,13 @@ async fn execute(
         &mut body,
     )
     .await?;
-    validate(&body)?;
+    if snapshot.input_outcome.as_deref() == Some("redacted") {
+        validate(&body)?;
+    }
     if let Some(price) = &model.pricing
         && (bound > price.max_output_tokens
-            || serde_json::to_vec(&body)
+            || crate::inference_schema::json_serialized_len(&body)
                 .map_err(|_| ApiError::invalid_request("Invalid Messages request"))?
-                .len()
                 > price.max_input_tokens as usize)
     {
         return Err(ApiError::invalid_request(
@@ -965,7 +966,7 @@ fn validate(body: &Value) -> Result<i64, ApiError> {
     }) {
         return Err(invalid());
     }
-    if serde_json::to_vec(body).map_err(|_| invalid())?.len() > 1_048_576 {
+    if crate::inference_schema::json_serialized_len_within(body, 1_048_576).is_err() {
         return Err(invalid());
     }
     if !crate::native_messages_tools::valid(body) {

@@ -774,12 +774,13 @@ async fn execute(
         &mut body,
     )
     .await?;
-    validate(&body)?;
+    if snapshot.input_outcome.as_deref() == Some("redacted") {
+        validate(&body)?;
+    }
     if let Some(price) = &model.pricing
         && (bound > price.max_output_tokens
-            || serde_json::to_vec(&body)
+            || crate::inference_schema::json_serialized_len(&body)
                 .map_err(|_| ApiError::invalid_request("Invalid GenerateContent request"))?
-                .len()
                 > price.max_input_tokens as usize)
     {
         return Err(ApiError::invalid_request(

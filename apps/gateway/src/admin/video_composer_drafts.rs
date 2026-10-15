@@ -137,7 +137,7 @@ fn validate(payload: &Payload) -> Result<(), ApiError> {
             return Err(invalid());
         }
     }
-    if serde_json::to_vec(payload).map_err(|_| invalid())?.len() > 60 * 1024 {
+    if crate::inference_schema::json_serialized_len_within(payload, 60 * 1024).is_err() {
         return Err(invalid());
     }
     Ok(())

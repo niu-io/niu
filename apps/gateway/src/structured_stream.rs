@@ -126,7 +126,7 @@ struct Choice {
 }
 
 pub struct StructuredStream {
-    schema: Option<jsonschema::Validator>,
+    schema: Option<std::sync::Arc<jsonschema::Validator>>,
     json_required: bool,
     choices: BTreeMap<u64, Choice>,
     bytes: usize,
@@ -137,7 +137,7 @@ pub struct StructuredStream {
 }
 
 impl StructuredStream {
-    pub fn new(schema: Option<jsonschema::Validator>) -> Self {
+    pub fn new(schema: Option<std::sync::Arc<jsonschema::Validator>>) -> Self {
         Self {
             schema,
             json_required: true,

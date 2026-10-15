@@ -468,9 +468,7 @@ impl Collector {
         if expected != self.response_text {
             return Err("Responses terminal differs from streamed content");
         }
-        if serde_json::to_vec(&result)
-            .map_err(|_| "invalid output")?
-            .len()
+        if crate::inference_schema::json_serialized_len(&result).map_err(|_| "invalid output")?
             > TEXT_LIMIT
         {
             return Err("complete output limit exceeded");

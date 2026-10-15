@@ -9,9 +9,8 @@ pub fn inspect(
     body: &Value,
     rules: &[TextRule],
 ) -> Result<Value, InspectionError> {
-    if serde_json::to_vec(body)
+    if crate::inference_schema::json_serialized_len(body)
         .map_err(|_| InspectionError::UnsupportedContent)?
-        .len()
         > 1024 * 1024
     {
         return Err(InspectionError::ResourceLimit);
@@ -334,9 +333,8 @@ pub fn inspect(
     if matches!(protocol, Protocol::Responses) {
         inspect_response_metadata(&transformed, &mut Vec::new())?;
     }
-    if serde_json::to_vec(&transformed)
+    if crate::inference_schema::json_serialized_len(&transformed)
         .map_err(|_| InspectionError::UnsupportedContent)?
-        .len()
         > 1024 * 1024
     {
         return Err(InspectionError::ResourceLimit);
