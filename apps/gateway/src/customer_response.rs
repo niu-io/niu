@@ -257,6 +257,7 @@ impl CustomerSse {
                 if terminal_response {
                     self.done = true;
                     self.pending.clear();
+                    self.pending.shrink_to_fit();
                     return Ok(output);
                 }
                 continue;
@@ -265,11 +266,15 @@ impl CustomerSse {
             if terminal_response {
                 self.done = true;
                 self.pending.clear();
+                self.pending.shrink_to_fit();
                 return Ok(output);
             }
         }
         if consumed > 0 {
             self.pending.drain(..consumed);
+            if self.pending.capacity() > 65_536 && self.pending.len() <= 16_384 {
+                self.pending.shrink_to(65_536);
+            }
         }
         if self.pending.len() > limit {
             return Err("upstream SSE event exceeds inspection limit");

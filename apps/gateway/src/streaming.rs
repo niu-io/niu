@@ -233,14 +233,37 @@ impl ChatEvidence {
     }
 
     fn finish_line(&mut self) -> Result<(), &'static str> {
-        let owned = std::mem::take(&mut self.line);
+        let mut owned = std::mem::take(&mut self.line);
         let line = if self.first_line {
             owned.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(&owned)
         } else {
             &owned
         };
         self.first_line = false;
-        if line.is_empty() {
+        let is_empty = line.is_empty();
+        if !is_empty && !line.starts_with(b":") {
+            let split = line.iter().position(|&b| b == b':').unwrap_or(line.len());
+            let field = &line[..split];
+            let value = if split < line.len() {
+                &line[split + 1..]
+            } else {
+                &[]
+            };
+            let value = value.strip_prefix(b" ").unwrap_or(value);
+            if field == b"data" {
+                self.data.extend_from_slice(value);
+                self.data.push(b'\n');
+            }
+            if field == b"event" {
+                self.error_event = value == b"error";
+            }
+        }
+        owned.clear();
+        if owned.capacity() > 65_536 {
+            owned.shrink_to(65_536);
+        }
+        self.line = owned;
+        if is_empty {
             self.event_bytes = 0;
             if self.error_event {
                 return Err("upstream returned an SSE error event");
@@ -255,11 +278,15 @@ impl ChatEvidence {
                 }
                 self.done = true;
                 self.data.clear();
+                self.data.shrink_to_fit();
                 return Ok(());
             }
             let value: Value =
                 serde_json::from_slice(&self.data).map_err(|_| "invalid upstream SSE JSON")?;
             self.data.clear();
+            if self.data.capacity() > 65_536 {
+                self.data.shrink_to(65_536);
+            }
             if self.responses {
                 return self.observe_response_event(&value);
             }
@@ -329,22 +356,6 @@ impl ChatEvidence {
                         })
                     });
             self.error_event = false;
-        } else if !line.starts_with(b":") {
-            let split = line.iter().position(|&b| b == b':').unwrap_or(line.len());
-            let field = &line[..split];
-            let value = if split < line.len() {
-                &line[split + 1..]
-            } else {
-                &[]
-            };
-            let value = value.strip_prefix(b" ").unwrap_or(value);
-            if field == b"data" {
-                self.data.extend_from_slice(value);
-                self.data.push(b'\n');
-            }
-            if field == b"event" {
-                self.error_event = value == b"error";
-            }
         }
         Ok(())
     }
