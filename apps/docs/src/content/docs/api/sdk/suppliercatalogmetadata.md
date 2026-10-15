@@ -17,6 +17,7 @@ export type SupplierCatalogMetadata = {
     max_completion_tokens: number | null;
     input_modalities: string[];
     output_modalities: string[];
+    supported_parameters?: string[];
     input_price: string | null;
     output_price: string | null;
 };
