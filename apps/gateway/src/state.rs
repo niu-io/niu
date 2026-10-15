@@ -35,7 +35,7 @@ pub struct AppState {
     pub store: niu_storage::Store,
     pub(crate) gateway_writes: crate::admission::GatewayWrites,
     pub(crate) diagnostic_writes: tokio_util::task::TaskTracker,
-    price_revisions: Arc<tokio::sync::RwLock<HashMap<PriceRevisionKey, uuid::Uuid>>>,
+    price_revisions: Arc<tokio::sync::RwLock<PriceRevisionCache>>,
     pub admin_tokens: Arc<TokenSet>,
     pub requests: Arc<AtomicU64>,
     pub failures: Arc<AtomicU64>,
@@ -43,12 +43,119 @@ pub struct AppState {
     pub usage: Arc<crate::usage::UsageMetrics>,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+const MAX_CACHED_PRICE_REVISIONS: usize = 4096;
+
+#[derive(Default)]
+struct PriceRevisionCache {
+    entries: HashMap<PriceRevisionKey, uuid::Uuid>,
+    order: std::collections::VecDeque<PriceRevisionKey>,
+}
+
+impl PriceRevisionCache {
+    fn get(
+        &self,
+        scope: niu_storage::TenantScope,
+        resource_id: &str,
+        offer_revision: &str,
+    ) -> Option<uuid::Uuid> {
+        let lookup = BorrowedPriceRevisionKey {
+            organization_id: scope.organization_id,
+            project_id: scope.project_id,
+            resource_id,
+            offer_revision,
+        };
+        self.entries
+            .get(&lookup as &dyn PriceRevisionLookup)
+            .copied()
+    }
+
+    fn insert(&mut self, key: PriceRevisionKey, id: uuid::Uuid) {
+        if self.entries.contains_key(&key) {
+            return;
+        }
+        while self.entries.len() >= MAX_CACHED_PRICE_REVISIONS {
+            if let Some(evicted) = self.order.pop_front() {
+                self.entries.remove(&evicted);
+            } else {
+                break;
+            }
+        }
+        self.order.push_back(key.clone());
+        self.entries.insert(key, id);
+    }
+}
+
+#[derive(Clone, Debug, Eq)]
 struct PriceRevisionKey {
     organization_id: uuid::Uuid,
     project_id: uuid::Uuid,
     resource_id: String,
     offer_revision: String,
+}
+
+impl PartialEq for PriceRevisionKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_tuple() == other.as_tuple()
+    }
+}
+
+impl std::hash::Hash for PriceRevisionKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_tuple().hash(state);
+    }
+}
+
+trait PriceRevisionLookup {
+    fn as_tuple(&self) -> (uuid::Uuid, uuid::Uuid, &str, &str);
+}
+
+impl PriceRevisionLookup for PriceRevisionKey {
+    fn as_tuple(&self) -> (uuid::Uuid, uuid::Uuid, &str, &str) {
+        (
+            self.organization_id,
+            self.project_id,
+            &self.resource_id,
+            &self.offer_revision,
+        )
+    }
+}
+
+struct BorrowedPriceRevisionKey<'a> {
+    organization_id: uuid::Uuid,
+    project_id: uuid::Uuid,
+    resource_id: &'a str,
+    offer_revision: &'a str,
+}
+
+impl PriceRevisionLookup for BorrowedPriceRevisionKey<'_> {
+    fn as_tuple(&self) -> (uuid::Uuid, uuid::Uuid, &str, &str) {
+        (
+            self.organization_id,
+            self.project_id,
+            self.resource_id,
+            self.offer_revision,
+        )
+    }
+}
+
+impl PartialEq for dyn PriceRevisionLookup + '_ {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_tuple() == other.as_tuple()
+    }
+}
+
+impl Eq for dyn PriceRevisionLookup + '_ {}
+
+impl std::hash::Hash for dyn PriceRevisionLookup + '_ {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_tuple().hash(state);
+    }
+}
+
+impl<'a> std::borrow::Borrow<dyn PriceRevisionLookup + 'a> for PriceRevisionKey {
+    fn borrow(&self) -> &(dyn PriceRevisionLookup + 'a) {
+        self
+    }
 }
 
 impl AppState {
@@ -222,7 +329,7 @@ impl AppState {
             store,
             gateway_writes,
             diagnostic_writes: tokio_util::task::TaskTracker::new(),
-            price_revisions: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            price_revisions: Arc::new(tokio::sync::RwLock::new(PriceRevisionCache::default())),
             admin_tokens: Arc::new(admin_tokens),
             requests: Arc::new(AtomicU64::new(0)),
             failures: Arc::new(AtomicU64::new(0)),
@@ -250,13 +357,12 @@ impl AppState {
         offer_revision: &str,
         input: niu_storage::PriceInput<'_>,
     ) -> Result<uuid::Uuid, niu_storage::StoreError> {
-        let key = PriceRevisionKey {
-            organization_id: scope.organization_id,
-            project_id: scope.project_id,
-            resource_id: resource_id.to_owned(),
-            offer_revision: offer_revision.to_owned(),
-        };
-        if let Some(id) = self.price_revisions.read().await.get(&key).copied() {
+        if let Some(id) = self
+            .price_revisions
+            .read()
+            .await
+            .get(scope, resource_id, offer_revision)
+        {
             return Ok(id);
         }
 
@@ -264,12 +370,15 @@ impl AppState {
         // revision, then avoid a serialized project-row lookup on every call.
         let id = self.store.publish_price(scope, input).await?;
         let mut revisions = self.price_revisions.write().await;
-        if let Some(id) = revisions.get(&key).copied() {
+        if let Some(id) = revisions.get(scope, resource_id, offer_revision) {
             return Ok(id);
         }
-        if revisions.len() >= 4096 {
-            revisions.clear();
-        }
+        let key = PriceRevisionKey {
+            organization_id: scope.organization_id,
+            project_id: scope.project_id,
+            resource_id: resource_id.to_owned(),
+            offer_revision: offer_revision.to_owned(),
+        };
         revisions.insert(key, id);
         Ok(id)
     }
