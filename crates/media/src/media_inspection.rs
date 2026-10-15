@@ -97,6 +97,13 @@ impl PreparedMedia {
         &self,
         contract: &MediaInspectionContract,
     ) -> Result<serde_json::Value, MediaInspectionError> {
+        self.validate_contract(contract)?;
+        Ok(self.build_inspection_request(&contract.detector_revision, STANDARD.encode(&self.bytes)))
+    }
+    fn validate_contract(
+        &self,
+        contract: &MediaInspectionContract,
+    ) -> Result<(), MediaInspectionError> {
         if self.kind != contract.kind
             || !(1..=crate::workspace_asset_validation::MAX_ASSET_BYTES)
                 .contains(&contract.maximum_encoded_bytes)
@@ -105,11 +112,22 @@ impl PreparedMedia {
         {
             return Err(MediaInspectionError::InvalidConfiguration);
         }
-        Ok(
-            serde_json::json!({"schema_version":3,"detector_revision":contract.detector_revision,
-            "kind":self.kind,"content_type":self.content_type,"byte_length":self.bytes.len(),
-            "content_sha256":self.content_sha256,"media":{"encoding":"base64","data":STANDARD.encode(&self.bytes)}}),
-        )
+        Ok(())
+    }
+    fn build_inspection_request(
+        &self,
+        detector_revision: &str,
+        encoded_data: String,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "schema_version": 3,
+            "detector_revision": detector_revision,
+            "kind": self.kind,
+            "content_type": self.content_type,
+            "byte_length": self.bytes.len(),
+            "content_sha256": self.content_sha256,
+            "media": { "encoding": "base64", "data": encoded_data }
+        })
     }
 }
 /// Only a genuine exact version-3 Clear response can construct this type.
@@ -149,7 +167,23 @@ pub async fn inspect(
     timeout: Duration,
 ) -> Result<ApprovedMedia, MediaInspectionError> {
     validate_transport(&contract.detector_revision, credential, timeout).map_err(media_error)?;
-    let request = input.inspection_request(contract)?;
+    input.validate_contract(contract)?;
+    let (input, request) = if input.bytes.len() >= 32 * 1024 {
+        let revision = contract.detector_revision.clone();
+        tokio::task::spawn_blocking(move || {
+            let encoded = STANDARD.encode(&input.bytes);
+            let req = input.build_inspection_request(&revision, encoded);
+            (input, req)
+        })
+        .await
+        .map_err(|_| MediaInspectionError::ServiceFailure)?
+    } else {
+        let req = input.build_inspection_request(
+            &contract.detector_revision,
+            STANDARD.encode(&input.bytes),
+        );
+        (input, req)
+    };
     inspect_exact(
         endpoint,
         credential,

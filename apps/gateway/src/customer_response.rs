@@ -101,6 +101,17 @@ pub fn sanitize_retained(content_type: &str, text: &str, truncated: bool) -> Opt
 // Only usage metadata is traversed recursively. Generated JSON and tool arguments
 // may legitimately contain cost fields and are never rewritten by this boundary.
 fn sanitize_usage(value: &mut Value) -> bool {
+    sanitize_usage_bounded(value, 0)
+}
+
+fn sanitize_usage_bounded(value: &mut Value, depth: usize) -> bool {
+    if depth >= 64 {
+        let was_compound = matches!(value, Value::Object(_) | Value::Array(_));
+        if was_compound {
+            *value = Value::Null;
+        }
+        return was_compound;
+    }
     let mut changed = false;
     match value {
         Value::Object(object) => {
@@ -108,12 +119,12 @@ fn sanitize_usage(value: &mut Value) -> bool {
                 changed |= object.remove(key).is_some();
             }
             for nested in object.values_mut() {
-                changed |= sanitize_usage(nested);
+                changed |= sanitize_usage_bounded(nested, depth + 1);
             }
         }
         Value::Array(values) => {
             for nested in values {
-                changed |= sanitize_usage(nested);
+                changed |= sanitize_usage_bounded(nested, depth + 1);
             }
         }
         _ => {}

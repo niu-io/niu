@@ -579,38 +579,71 @@ fn valid_data_url(value: &str, rule: &InputRule, kind: &str) -> bool {
     if !rule.data_mime_types.iter().any(|v| v == mime) {
         return false;
     }
-    base64::engine::general_purpose::STANDARD
-        .decode(encoded)
-        .is_ok_and(|bytes| {
-            !bytes.is_empty()
-                && bytes.len() <= rule.maximum_bytes
-                && (kind != "image_url" || inline_image_format(mime, &bytes))
-        })
+    let raw = encoded.as_bytes();
+    if raw.len() < 4 || !raw.len().is_multiple_of(4) {
+        return false;
+    }
+    let mut tail = [0u8; 3];
+    let Ok(tail_len) = base64::engine::general_purpose::STANDARD
+        .decode_slice(&raw[raw.len() - 4..], &mut tail)
+    else {
+        return false;
+    };
+    let decoded_len = (raw.len() / 4 - 1) * 3 + tail_len;
+    if decoded_len == 0 || decoded_len > rule.maximum_bytes {
+        return false;
+    }
+    let head_encoded_len = raw.len().min(32);
+    let mut head = [0u8; 24];
+    let Ok(head_len) = base64::engine::general_purpose::STANDARD
+        .decode_slice(&raw[..head_encoded_len], &mut head)
+    else {
+        return false;
+    };
+    if kind == "image_url"
+        && !inline_image_format_parts(mime, decoded_len, &head[..head_len], &tail[..tail_len])
+    {
+        return false;
+    }
+    raw[head_encoded_len..raw.len().saturating_sub(4)]
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || *b == b'+' || *b == b'/')
 }
 
 // Container header checks are not image decoding, content inspection or a
 // qualification of remote media. Unknown inline image formats fail closed.
 pub(crate) fn inline_image_format(mime: &str, bytes: &[u8]) -> bool {
+    let head_len = bytes.len().min(24);
+    let tail_start = bytes.len().saturating_sub(3);
+    inline_image_format_parts(mime, bytes.len(), &bytes[..head_len], &bytes[tail_start..])
+}
+
+fn inline_image_format_parts(mime: &str, total_len: usize, head: &[u8], tail: &[u8]) -> bool {
     match mime {
         "image/png" => {
-            bytes.len() >= 33
-                && bytes.starts_with(b"\x89PNG\r\n\x1a\n")
-                && bytes[8..12] == 13u32.to_be_bytes()
-                && &bytes[12..16] == b"IHDR"
-                && bytes[16..20] != [0; 4]
-                && bytes[20..24] != [0; 4]
+            total_len >= 33
+                && head.len() >= 24
+                && head.starts_with(b"\x89PNG\r\n\x1a\n")
+                && head[8..12] == 13u32.to_be_bytes()
+                && &head[12..16] == b"IHDR"
+                && head[16..20] != [0; 4]
+                && head[20..24] != [0; 4]
         }
         "image/jpeg" => {
-            bytes.len() >= 4
-                && bytes.starts_with(&[0xff, 0xd8, 0xff])
-                && bytes.ends_with(&[0xff, 0xd9])
+            let eoi = if tail.len() >= 2 {
+                tail.ends_with(&[0xff, 0xd9])
+            } else {
+                head.len() >= 4 && head.ends_with(&[0xff, 0xd9])
+            };
+            total_len >= 4 && head.starts_with(&[0xff, 0xd8, 0xff]) && eoi
         }
         "image/webp" => {
-            bytes.len() >= 20
-                && bytes.starts_with(b"RIFF")
-                && &bytes[8..12] == b"WEBP"
-                && matches!(&bytes[12..16], b"VP8 " | b"VP8L" | b"VP8X")
-                && u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize == bytes.len() - 8
+            total_len >= 20
+                && head.len() >= 16
+                && head.starts_with(b"RIFF")
+                && &head[8..12] == b"WEBP"
+                && matches!(&head[12..16], b"VP8 " | b"VP8L" | b"VP8X")
+                && u32::from_le_bytes(head[4..8].try_into().unwrap()) as usize == total_len - 8
         }
         _ => false,
     }

@@ -309,6 +309,8 @@ struct ErrorCode {
     #[serde(default)]
     code: Option<String>,
 }
+const MAX_JSON_DEPTH: usize = 64;
+
 fn parse_response(
     action: FastRouterAction,
     status: StatusCode,
@@ -316,8 +318,9 @@ fn parse_response(
     secret: &str,
 ) -> Result<FastRouterActionResponse, FastRouterActionError> {
     let unique = serde_json::from_slice::<UniqueValue>(body).map(|v| v.0);
+    let has_escapes = body.contains(&b'\\');
     let unique = unique.and_then(|value| {
-        if contains_secret(&value, secret) {
+        if has_escapes && contains_secret(&value, secret, 0) {
             return Err(<serde_json::Error as serde::de::Error>::custom(
                 "private credential echo",
             ));
@@ -381,70 +384,101 @@ fn parse_response(
 }
 // Check decoded strings too: JSON Unicode escapes must not bypass the private
 // credential-echo guard. Neither values nor property names may disclose it.
-fn contains_secret(value: &Value, secret: &str) -> bool {
+fn contains_secret(value: &Value, secret: &str, depth: usize) -> bool {
+    if depth > MAX_JSON_DEPTH {
+        return true;
+    }
     match value {
         Value::String(text) => text.contains(secret),
-        Value::Array(items) => items.iter().any(|item| contains_secret(item, secret)),
+        Value::Array(items) => items
+            .iter()
+            .any(|item| contains_secret(item, secret, depth + 1)),
         Value::Object(items) => items
             .iter()
-            .any(|(key, value)| key.contains(secret) || contains_secret(value, secret)),
+            .any(|(key, value)| key.contains(secret) || contains_secret(value, secret, depth + 1)),
         _ => false,
     }
 }
 
 /// Reject duplicate keys at every depth before typed identity/error decoding.
 struct UniqueValue(Value);
-impl<'de> Deserialize<'de> for UniqueValue {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct UniqueVisitor;
+
+struct UniqueValueSeed {
+    depth: usize,
+}
+
+impl<'de> serde::de::DeserializeSeed<'de> for UniqueValueSeed {
+    type Value = Value;
+
+    fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
+        if self.depth > MAX_JSON_DEPTH {
+            return Err(serde::de::Error::custom("JSON nesting depth exceeded"));
+        }
+        struct UniqueVisitor {
+            depth: usize,
+        }
         impl<'de> Visitor<'de> for UniqueVisitor {
-            type Value = UniqueValue;
+            type Value = Value;
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.write_str("unique-key JSON")
             }
             fn visit_bool<E: serde::de::Error>(self, v: bool) -> Result<Self::Value, E> {
-                Ok(UniqueValue(Value::Bool(v)))
+                Ok(Value::Bool(v))
             }
             fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
-                Ok(UniqueValue(Value::from(v)))
+                Ok(Value::from(v))
             }
             fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
-                Ok(UniqueValue(Value::from(v)))
+                Ok(Value::from(v))
             }
             fn visit_f64<E: serde::de::Error>(self, v: f64) -> Result<Self::Value, E> {
                 serde_json::Number::from_f64(v)
-                    .map(|n| UniqueValue(Value::Number(n)))
+                    .map(Value::Number)
                     .ok_or_else(|| E::custom("invalid number"))
             }
             fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-                Ok(UniqueValue(Value::String(v.to_owned())))
+                Ok(Value::String(v.to_owned()))
             }
             fn visit_string<E: serde::de::Error>(self, v: String) -> Result<Self::Value, E> {
-                Ok(UniqueValue(Value::String(v)))
+                Ok(Value::String(v))
             }
             fn visit_none<E: serde::de::Error>(self) -> Result<Self::Value, E> {
-                Ok(UniqueValue(Value::Null))
+                Ok(Value::Null)
             }
             fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
-                Ok(UniqueValue(Value::Null))
+                Ok(Value::Null)
             }
             fn visit_seq<A: SeqAccess<'de>>(self, mut input: A) -> Result<Self::Value, A::Error> {
                 let mut v = Vec::new();
-                while let Some(item) = input.next_element::<UniqueValue>()? {
-                    v.push(item.0)
+                while let Some(item) = input.next_element_seed(UniqueValueSeed {
+                    depth: self.depth + 1,
+                })? {
+                    v.push(item);
                 }
-                Ok(UniqueValue(Value::Array(v)))
+                Ok(Value::Array(v))
             }
             fn visit_map<A: MapAccess<'de>>(self, mut input: A) -> Result<Self::Value, A::Error> {
                 let mut v = Map::new();
-                while let Some((key, value)) = input.next_entry::<String, UniqueValue>()? {
-                    if v.insert(key, value.0).is_some() {
+                while let Some((key, value)) = input.next_entry_seed(
+                    std::marker::PhantomData::<String>,
+                    UniqueValueSeed {
+                        depth: self.depth + 1,
+                    },
+                )? {
+                    if v.insert(key, value).is_some() {
                         return Err(serde::de::Error::custom("duplicate JSON field"));
                     }
                 }
-                Ok(UniqueValue(Value::Object(v)))
+                Ok(Value::Object(v))
             }
         }
-        deserializer.deserialize_any(UniqueVisitor)
+        deserializer.deserialize_any(UniqueVisitor { depth: self.depth })
+    }
+}
+
+impl<'de> Deserialize<'de> for UniqueValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        serde::de::DeserializeSeed::deserialize(UniqueValueSeed { depth: 0 }, deserializer)
+            .map(UniqueValue)
     }
 }
