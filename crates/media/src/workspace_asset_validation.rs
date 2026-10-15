@@ -42,6 +42,9 @@ static IMAGES: LazyLock<
     )
 });
 
+static NON_IMAGE_VALIDATION: LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
+    LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+
 /// Callers must bound body collection and retained concurrent uploads before
 /// calling. Non-image parsing runs off the async executor and copies at most 8 MiB.
 pub async fn validate(
@@ -65,15 +68,25 @@ pub async fn validate(
                 _ => AssetValidationError::InvalidMedia,
             })?;
     } else {
+        let permit = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            NON_IMAGE_VALIDATION.clone().acquire_owned(),
+        )
+        .await
+        .map_err(|_| AssetValidationError::Capacity)?
+        .map_err(|_| AssetValidationError::Capacity)?;
         let body = bytes.to_vec();
         let content_type = content_type.to_owned();
-        let valid = tokio::task::spawn_blocking(move || match content_type.as_str() {
-            "video/mp4" => mp4(&body),
-            "video/webm" => webm(&body),
-            "audio/wav" => wav(&body),
-            "audio/mpeg" => mpeg(&body),
-            "audio/ogg" => ogg(&body),
-            _ => false,
+        let valid = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            match content_type.as_str() {
+                "video/mp4" => mp4(&body),
+                "video/webm" => webm(&body),
+                "audio/wav" => wav(&body),
+                "audio/mpeg" => mpeg(&body),
+                "audio/ogg" => ogg(&body),
+                _ => false,
+            }
         })
         .await
         .map_err(|_| AssetValidationError::Capacity)?;
@@ -208,13 +221,42 @@ pub(crate) fn mpeg(bytes: &[u8]) -> bool {
     frames >= 2
 }
 
+const OGG_CRC32_TABLE: [u32; 256] = {
+    let mut table = [0u32; 256];
+    let mut i = 0;
+    while i < 256 {
+        let mut crc = (i as u32) << 24;
+        let mut bit = 0;
+        while bit < 8 {
+            crc = if crc & 0x8000_0000 != 0 {
+                (crc << 1) ^ 0x04c1_1db7
+            } else {
+                crc << 1
+            };
+            bit += 1;
+        }
+        table[i] = crc;
+        i += 1;
+    }
+    table
+};
+
+fn ogg_crc32_update(mut crc: u32, slice: &[u8]) -> u32 {
+    for &byte in slice {
+        let idx = ((crc >> 24) as u8) ^ byte;
+        crc = (crc << 8) ^ OGG_CRC32_TABLE[idx as usize];
+    }
+    crc
+}
+
 fn ogg(bytes: &[u8]) -> bool {
     let mut offset = 0;
     let mut serial = None;
     let mut sequence = 0;
     let mut first = true;
     let mut packets = 0;
-    let mut packet = Vec::new();
+    let mut packet_len = 0usize;
+    let mut header_prefix = Vec::with_capacity(32);
     let mut eos = false;
     while offset < bytes.len() {
         let Some(h) = bytes.get(offset..offset + 27) else {
@@ -233,7 +275,7 @@ fn ogg(bytes: &[u8]) -> bool {
         } else if Some(current_serial) != serial || seq != sequence {
             return false;
         }
-        if (h[5] & 1 != 0) == packet.is_empty() {
+        if (h[5] & 1 != 0) == (packet_len == 0) {
             return false;
         }
         let Some(lacing) = bytes.get(offset + 27..offset + 27 + usize::from(h[26])) else {
@@ -245,43 +287,42 @@ fn ogg(bytes: &[u8]) -> bool {
             return false;
         };
         let expected = u32::from_le_bytes(h[22..26].try_into().unwrap());
-        let mut crc = 0u32;
-        for (i, byte) in page.iter().enumerate() {
-            crc ^= u32::from(if (22..26).contains(&i) { 0 } else { *byte }) << 24;
-            for _ in 0..8 {
-                crc = if crc & 0x80000000 != 0 {
-                    (crc << 1) ^ 0x04c11db7
-                } else {
-                    crc << 1
-                };
-            }
-        }
+        let crc = ogg_crc32_update(
+            ogg_crc32_update(ogg_crc32_update(0, &page[..22]), &[0; 4]),
+            &page[26..],
+        );
         if crc != expected {
             return false;
         }
         let mut pos = offset + 27 + lacing.len();
         for size in lacing {
-            packet.extend_from_slice(&bytes[pos..pos + usize::from(*size)]);
-            pos += usize::from(*size);
+            let seg_len = usize::from(*size);
+            if packets == 0 && header_prefix.len() < 32 {
+                let take = (32 - header_prefix.len()).min(seg_len);
+                header_prefix.extend_from_slice(&bytes[pos..pos + take]);
+            }
+            packet_len += seg_len;
+            pos += seg_len;
             if *size < 255 {
                 if packets == 0 {
-                    let opus = packet.len() >= 19
-                        && packet.starts_with(b"OpusHead")
-                        && packet[8] == 1
-                        && (1..=8).contains(&packet[9]);
-                    let vorbis = packet.len() >= 30
-                        && packet.starts_with(b"\x01vorbis")
-                        && packet[11] > 0
-                        && packet[29] & 1 == 1;
+                    let opus = packet_len >= 19
+                        && header_prefix.starts_with(b"OpusHead")
+                        && header_prefix[8] == 1
+                        && (1..=8).contains(&header_prefix[9]);
+                    let vorbis = packet_len >= 30
+                        && header_prefix.starts_with(b"\x01vorbis")
+                        && header_prefix[11] > 0
+                        && header_prefix[29] & 1 == 1;
                     if !opus && !vorbis {
                         return false;
                     }
                 }
-                if packet.is_empty() {
+                if packet_len == 0 {
                     return false;
                 }
                 packets += 1;
-                packet.clear();
+                packet_len = 0;
+                header_prefix.clear();
             }
         }
         eos = h[5] & 4 != 0;
@@ -292,7 +333,7 @@ fn ogg(bytes: &[u8]) -> bool {
         };
         offset = end;
     }
-    eos && packet.is_empty() && packets >= 3
+    eos && packet_len == 0 && packets >= 3
 }
 
 #[derive(Default)]
