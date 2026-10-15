@@ -221,6 +221,7 @@ impl Store {
         let intent = json!({"action":"published","input":input});
         let mut tx = self.begin_route_write().await?;
         if let Some(saved) = retry(&mut tx, input.idempotency_key, &intent).await? {
+            tx.commit().await?;
             return Ok(saved);
         }
         lock_offer(&mut tx, &input.identity).await?;
@@ -293,6 +294,7 @@ impl Store {
             "effective_until":until.to_string(),"expected_version":expected.to_string(),"reason":input.reason});
         let mut tx = self.begin_route_write().await?;
         if let Some(saved) = retry(&mut tx, input.idempotency_key, &intent).await? {
+            tx.commit().await?;
             return Ok(saved);
         }
         let row:Option<(Uuid,Value,i64)>=sqlx::query_as("SELECT h.id,h.identity,q.effective_until FROM media_liability_qualification_heads h JOIN media_liability_qualifications q ON q.head_id=h.id WHERE q.id=$1 AND h.supplier_id=$2 AND h.offer_id=$3")

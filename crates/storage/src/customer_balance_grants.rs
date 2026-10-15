@@ -119,7 +119,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         // Follow existing funding/account-creation lock order. Serialize both
         // exact retries and first publication without competing account inserts.
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR NO KEY UPDATE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?
@@ -150,6 +150,7 @@ impl Store {
                 && saved_reason == reason
                 && saved_policy == policy.as_str()
             {
+                tx.commit().await?;
                 Ok(id)
             } else {
                 Err(StoreError::Conflict)

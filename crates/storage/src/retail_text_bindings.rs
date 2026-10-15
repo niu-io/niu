@@ -100,6 +100,7 @@ impl Store {
         .await?;
         if let Some((id, version, saved)) = prior {
             return if saved == intent {
+                tx.commit().await?;
                 Ok(json!({"revision":id,"version":version.to_string(),
                     "model_alias":input.model_alias,"price_id":input.price_id}))
             } else {

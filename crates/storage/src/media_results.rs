@@ -62,6 +62,7 @@ impl Store {
         if Self::media_job_status_on(scope, attempt, &mut *snapshot).await?
             != Some(MediaJobStatus::Succeeded)
         {
+            snapshot.commit().await?;
             return Ok(None);
         }
         let ciphertext = sqlx::query_scalar("SELECT ciphertext FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND kind=$4 AND deleted_at IS NULL AND expires_at>clock_timestamp()")
@@ -108,6 +109,7 @@ impl Store {
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let Some(status) = Self::media_job_status_on(scope, attempt, &mut *snapshot).await? else {
+            snapshot.commit().await?;
             return Ok(None);
         };
         let rows:Vec<(String,String)>=sqlx::query_as("SELECT kind,CASE WHEN deleted_at IS NOT NULL OR expires_at<=clock_timestamp() THEN 'unavailable' ELSE 'available' END FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3").bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut *snapshot).await?;

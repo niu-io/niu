@@ -187,6 +187,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         lock_key(&mut tx, input.idempotency_key).await?;
         if let Some(result) = retry(&mut tx, input.idempotency_key, &intent).await? {
+            tx.commit().await?;
             return Ok(result);
         }
         let registered:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM vendor_models m WHERE m.alias=$1 AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=m.vendor_id) UNION ALL SELECT 1 FROM model_route_pools WHERE alias=$1)")
@@ -262,6 +263,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         lock_key(&mut tx, input.idempotency_key).await?;
         if let Some(result) = retry(&mut tx, input.idempotency_key, &intent).await? {
+            tx.commit().await?;
             return Ok(result);
         }
         let next = lock_version(&mut tx, head, expected).await?;
@@ -331,6 +333,7 @@ impl Store {
         let mut tx = self.begin_bounded_recording().await?;
         lock_key(&mut tx, input.idempotency_key).await?;
         if let Some(result) = retry(&mut tx, input.idempotency_key, &intent).await? {
+            tx.commit().await?;
             return Ok(result);
         }
         let next = lock_version(&mut tx, head, expected).await?;

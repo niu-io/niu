@@ -79,6 +79,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(input.idempotency_key).fetch_optional(&mut *tx).await?;
         if let Some((id, version, saved)) = prior {
             return if saved == intent {
+                tx.commit().await?;
                 Ok(
                     json!({"revision":id,"version":version.to_string(),"dimensions":input.dimensions,"meter":input.meter,"price_id":input.price_id}),
                 )

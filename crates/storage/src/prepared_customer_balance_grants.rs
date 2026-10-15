@@ -15,7 +15,7 @@ impl Store {
     ) -> Result<Uuid, StoreError> {
         publication.validate()?;
         let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR NO KEY UPDATE")
             .bind(organization)
             .fetch_optional(&mut *tx)
             .await?
@@ -30,6 +30,7 @@ impl Store {
             {
                 return Err(StoreError::Conflict);
             }
+            tx.commit().await?;
             return Ok(id);
         }
         let published: Option<(String,i64,String,String)>=sqlx::query_as("SELECT g.currency,g.amount_nanos,g.reason,COALESCE(p.policy,'future_only') FROM customer_balance_grants g LEFT JOIN customer_grant_policies p ON p.grant_id=g.id WHERE g.organization_id=$1 AND g.idempotency_key=$2")
