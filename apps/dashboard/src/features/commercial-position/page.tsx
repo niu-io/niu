@@ -10,6 +10,7 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
+import { useBranding } from '@/app/branding';
 import { request } from '@/features/vendors/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -451,6 +452,7 @@ export default function CommercialPositionPage() {
 }
 
 function CommercialStatement({ token }: { token: string }) {
+  const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
   const months = useMemo(() => buildRecentMonths(12), []);
   const rawCurrency = (search.get('currency') ?? 'USD').toUpperCase();
@@ -649,20 +651,49 @@ function CommercialStatement({ token }: { token: string }) {
 
   return (
     <section className="commercial-statement min-w-0 space-y-6" aria-label="Financial statements">
-      {/* Print-only executive header */}
-      <header className="commercial-print-only hidden border-b pb-4">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Niu Financial Statements</h1>
-            <p className="text-sm text-muted-foreground">
-              Period: {interval.label} ({formatInstant(position?.from ?? interval.from)} to{' '}
-              {formatInstant(position?.until ?? interval.until)} UTC) · Currency:{' '}
-              {currencySymbol(currency)} {currency}
-            </p>
+      {/* Print-only formal branded document header */}
+      <header className="commercial-print-only commercial-print-header hidden">
+        <div className="commercial-print-header-top">
+          <div className="commercial-print-brand">
+            <img src={logo} alt={branding.display_name} className="commercial-print-logo" />
+            <div>
+              <div className="commercial-print-brand-eyebrow">
+                <span>{branding.display_name}</span>
+                <span className="commercial-print-brand-dot">·</span>
+                <span>PLATFORM FINANCIAL REPORTING</span>
+              </div>
+              <h1 className="commercial-print-title">Financial Statements</h1>
+              <p className="commercial-print-subtitle">
+                Statement of Operations (P&amp;L), Cash Receipts &amp; Wallet Position, and Provider Unit Economics
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Generated {formatInstant(new Date().toISOString())} UTC
-          </p>
+          <div className="commercial-print-meta-box">
+            <div className="commercial-print-classification">CONFIDENTIAL · PLATFORM ADMIN</div>
+            <dl className="commercial-print-meta-grid">
+              <div>
+                <dt>Reporting Period</dt>
+                <dd>{interval.label}</dd>
+              </div>
+              <div>
+                <dt>Comparison Baseline</dt>
+                <dd>{interval.comparisonLabel}</dd>
+              </div>
+              <div>
+                <dt>UTC Window</dt>
+                <dd>
+                  {formatInstant(position?.from ?? interval.from)} –{' '}
+                  {formatInstant(position?.until ?? interval.until)} UTC
+                </dd>
+              </div>
+              <div>
+                <dt>Reporting Currency</dt>
+                <dd>
+                  {currencySymbol(currency)} {currency}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </header>
 
@@ -846,7 +877,7 @@ function CommercialStatement({ token }: { token: string }) {
       </div>
 
       {/* Period Interval Subtitle */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="commercial-print-hide flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
           <strong className="font-medium text-foreground">{interval.label}</strong> · UTC window:{' '}
           {formatInstant(position?.from ?? interval.from)} to{' '}
@@ -871,7 +902,7 @@ function CommercialStatement({ token }: { token: string }) {
       {!loading && position && (
         <>
           {/* Layer 1: Executive Financial KPI Cards with Period-over-Period Comparison */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="commercial-kpi-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Net recognized revenue</span>
@@ -974,12 +1005,12 @@ function CommercialStatement({ token }: { token: string }) {
               <Table aria-label="Statement of operations" className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[44%]">Line item</TableHead>
-                    <TableHead className="w-[18%] text-right">Current</TableHead>
-                    <TableHead className="w-[18%] text-right hidden sm:table-cell">
+                    <TableHead className="w-[40%]">Line item</TableHead>
+                    <TableHead className="w-[17%] text-right">Current</TableHead>
+                    <TableHead className="w-[17%] text-right hidden sm:table-cell">
                       {interval.comparisonLabel}
                     </TableHead>
-                    <TableHead className="w-[20%] text-right">Change</TableHead>
+                    <TableHead className="w-[26%] text-right">Change</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1071,12 +1102,12 @@ function CommercialStatement({ token }: { token: string }) {
               <Table aria-label="Customer financial posting summary" className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[44%]">Measure</TableHead>
-                    <TableHead className="w-[18%] text-right">Current</TableHead>
-                    <TableHead className="w-[18%] text-right hidden sm:table-cell">
+                    <TableHead className="w-[40%]">Measure</TableHead>
+                    <TableHead className="w-[17%] text-right">Current</TableHead>
+                    <TableHead className="w-[17%] text-right hidden sm:table-cell">
                       {interval.comparisonLabel}
                     </TableHead>
-                    <TableHead className="w-[20%] text-right">Change / Status</TableHead>
+                    <TableHead className="w-[26%] text-right">Change / Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1375,6 +1406,28 @@ function CommercialStatement({ token }: { token: string }) {
               </Table>
             )}
           </div>
+
+          {/* Print-only formal document footer */}
+          <footer className="commercial-print-only commercial-print-footer hidden">
+            <div className="commercial-print-notes">
+              <strong>Accounting &amp; Attribution Notes:</strong> Accrual operating revenue is recognized net of recorded customer balance refunds and consumed promotional gift allowances. Cost of supply reflects accrued Provider payables for matched dispatch cohorts; personal owner-funded calls are excluded. Financial statement figures are rounded to 4 decimal places (.0000); model unit quotes retain full tariff precision.
+            </div>
+            <div className="commercial-print-footer-bar">
+              <div className="commercial-print-footer-brand">
+                <img src={logo} alt="" className="commercial-print-footer-logo" />
+                <strong>{branding.display_name}</strong>
+                <span>·</span>
+                <span>Platform Financial Reporting</span>
+                <span>·</span>
+                <span>Financial Statements ({currencySymbol(currency)} {currency})</span>
+              </div>
+              <div className="commercial-print-footer-meta">
+                <span>Confidential — Internal &amp; Audit Use Only</span>
+                <span>·</span>
+                <span>Generated {formatInstant(new Date().toISOString())} UTC</span>
+              </div>
+            </div>
+          </footer>
         </>
       )}
     </section>

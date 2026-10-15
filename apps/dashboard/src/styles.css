@@ -3032,11 +3032,21 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   padding: 12px 10px;
 }
 
+@page {
+  size: A4 portrait;
+  margin: 10mm 11mm 13mm 11mm;
+}
+
 @media print {
+  .dashboard-skip,
+  .skip-link,
   .app-rail,
   .app-rail-spacer,
   .niu-workspace-sidebar,
   .niu-workspace-sidebar-mobile,
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"],
   .mobile-product-navigation,
   .dashboard-page-header,
   .commercial-print-hide {
@@ -3045,24 +3055,216 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .commercial-print-only {
     display: block !important;
   }
+  html,
   body,
+  #root,
   .app-shell,
+  [data-slot="sidebar-wrapper"],
+  [data-slot="sidebar-inset"],
+  .main-panel,
   .page-content,
   .commercial-statement {
     display: block !important;
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  .commercial-statement article,
-  .commercial-statement > div {
+  .commercial-statement {
+    padding-bottom: 24px !important;
+  }
+  .commercial-statement > * + * {
+    margin-top: 8px !important;
+  }
+  .commercial-print-header {
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 8px;
+    margin-bottom: 8px !important;
+  }
+  .commercial-print-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .commercial-print-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .commercial-print-logo {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    border-radius: 7px;
+    flex-shrink: 0;
+  }
+  .commercial-print-brand-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+  .commercial-print-brand-dot {
+    color: #94a3b8;
+  }
+  .commercial-print-title {
+    margin: 1px 0 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    line-height: 1.15;
+  }
+  .commercial-print-subtitle {
+    margin: 1px 0 0;
+    font-size: 9.5px;
+    color: #475569;
+  }
+  .commercial-print-meta-box {
+    min-width: 255px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc !important;
+    padding: 5px 9px;
+  }
+  .commercial-print-classification {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #334155;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 2px;
+    margin-bottom: 3px;
+  }
+  .commercial-print-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 10px;
+    margin: 0;
+  }
+  .commercial-print-meta-grid dt {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+  }
+  .commercial-print-meta-grid dd {
+    margin: 0;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+  .commercial-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+  .commercial-kpi-grid > article {
+    padding: 7px 9px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 7px !important;
+    background: #ffffff !important;
     break-inside: avoid;
-    border: 1px solid #e5e7eb !important;
+  }
+  .commercial-kpi-grid > article > * + * {
+    margin-top: 3px !important;
+  }
+  .commercial-kpi-grid > article .text-xl {
+    font-size: 15px !important;
+    line-height: 1.2 !important;
+  }
+  .commercial-kpi-grid > article .text-xs {
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+  .commercial-statement > .grid {
+    gap: 8px !important;
+  }
+  .commercial-statement .bg-card {
+    break-inside: avoid;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 7px !important;
+    background: #ffffff !important;
+    padding: 8px 10px !important;
+  }
+  .commercial-statement .bg-card > * + * {
+    margin-top: 4px !important;
+  }
+  .commercial-statement h2 {
+    font-size: 12.5px !important;
+    line-height: 1.25 !important;
+  }
+  .commercial-statement th.hidden,
+  .commercial-statement td.hidden {
+    display: table-cell !important;
+  }
+  .commercial-statement th {
+    padding: 3.5px 6px !important;
+    font-size: 9.5px !important;
+    line-height: 1.2 !important;
+    height: auto !important;
+  }
+  .commercial-statement td {
+    padding: 3.5px 6px !important;
+    font-size: 9.5px !important;
+    line-height: 1.25 !important;
+  }
+  .commercial-print-footer {
+    margin-top: 8px !important;
+    break-inside: avoid;
+  }
+  .commercial-print-notes {
+    font-size: 8.5px;
+    line-height: 1.35;
+    color: #475569;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 5px 8px;
+    margin-bottom: 6px;
+  }
+  .commercial-print-footer-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 4px;
+    border-top: 1px solid #cbd5e1;
+    background: #ffffff !important;
+    font-size: 8.5px;
+    color: #475569;
+  }
+  .commercial-print-footer-brand,
+  .commercial-print-footer-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .commercial-print-footer-logo {
+    width: 12px;
+    height: 12px;
+    object-fit: contain;
+    border-radius: 3px;
   }
 }
 

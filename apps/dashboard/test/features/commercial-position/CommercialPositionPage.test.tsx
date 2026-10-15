@@ -168,6 +168,12 @@ it('renders a structured financial statement with period comparisons, active mod
   expect(screen.queryByRole('menuitemradio', { name: /EUR/i })).toBeNull();
   await user.keyboard('{Escape}');
 
+  // Formal branded PDF print header and footer are rendered in the statement DOM
+  expect(screen.getByText(/PLATFORM FINANCIAL REPORTING/)).toBeTruthy();
+  expect(screen.getByText('CONFIDENTIAL · PLATFORM ADMIN')).toBeTruthy();
+  expect(screen.getByText('Accounting & Attribution Notes:')).toBeTruthy();
+  expect(screen.getByText('Financial Statements ($ USD)')).toBeTruthy();
+
   // Export PDF button triggers window.print()
   await user.click(screen.getByRole('button', { name: 'Export PDF statement' }));
   expect(printSpy).toHaveBeenCalledTimes(1);
