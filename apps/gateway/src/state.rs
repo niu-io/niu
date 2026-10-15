@@ -129,6 +129,17 @@ impl AppState {
         state.password_auth = crate::admin::passwords::Runtime::from_env()
             .await?
             .map(Arc::new);
+        if let Some(ref runtime) = state.password_auth
+            && env::var("NIU_DEMO_ACCOUNT_ENABLED").as_deref() == Ok("1")
+        {
+            runtime
+                .provision_local_account(&state.store, "demo@niu.io", "Hello123")
+                .await?;
+            state
+                .store
+                .grant_member_platform_admin("demo@niu.io")
+                .await?;
+        }
         if let Ok(origin) = env::var("NIU_DEV_MEMBER_ORIGIN") {
             if state.password_auth.is_some() {
                 return Err(

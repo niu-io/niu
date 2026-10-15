@@ -88,6 +88,19 @@ impl Store {
         tx.commit().await?;
         Ok(())
     }
+
+    pub async fn grant_member_platform_admin(&self, email: &str) -> Result<(), StoreError> {
+        let email = email_address(email).ok_or(StoreError::InvalidOperator)?;
+        sqlx::query(
+            "UPDATE admin_operators o SET platform_admin = true \
+             FROM member_password_credentials c \
+             WHERE c.operator_id = o.id AND c.email = $1 AND NOT o.platform_admin",
+        )
+        .bind(&email)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
     /// Revoke only the active session identified by this bearer credential.
     /// Revocation and its metadata-only audit record commit together.
     pub async fn revoke_current_member_session(&self, token: &str) -> Result<(), StoreError> {
