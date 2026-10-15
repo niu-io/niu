@@ -16,14 +16,21 @@ export async function dispatch(
   client: GatewayClient,
   line: string,
 ): Promise<string | null> {
-  let message: RpcMessage;
+  let parsed: unknown;
   try {
-    message = JSON.parse(line) as RpcMessage;
+    parsed = JSON.parse(line);
   } catch {
     return respond(null, error(-32700, "Parse error"));
   }
-  if (message.jsonrpc !== "2.0" || typeof message.method !== "string") {
-    return respond(message.id ?? null, error(-32600, "Invalid request"));
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return respond(null, error(-32600, "Invalid request"));
+  }
+  const message = parsed as RpcMessage;
+  const validId = typeof message.id === "string" ||
+    (typeof message.id === "number" && Number.isFinite(message.id));
+  if (message.jsonrpc !== "2.0" || typeof message.method !== "string" ||
+      (message.id !== undefined && !validId)) {
+    return respond(validId ? message.id : null, error(-32600, "Invalid request"));
   }
   if (message.id === undefined) return null;
   try {

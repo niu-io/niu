@@ -22,6 +22,21 @@ jobs:
       - name: Generate structured Release Notes
         run: python3 scripts/release-version.py notes --tag "${GITHUB_REF_NAME}" --output /tmp/release-notes.md
 
+      - name: Set up Node for the standalone MCP package
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build and package the MCP client
+        working-directory: sdks/mcp
+        run: |
+          npm install --ignore-scripts --package-lock=false
+          npm run build
+          mkdir -p /tmp/mcp-release
+          npm pack --pack-destination /tmp/mcp-release
+          cd /tmp/mcp-release
+          sha256sum *.tgz > SHA256SUMS
+
       - name: Create or update GitHub Release with installer assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -34,12 +49,16 @@ jobs:
               compose.yaml \
               scripts/install.sh \
               config/niu.example.toml \
+              /tmp/mcp-release/*.tgz \
+              /tmp/mcp-release/SHA256SUMS \
               --clobber
           else
             gh release create "${GITHUB_REF_NAME}" \
               compose.yaml \
               scripts/install.sh \
               config/niu.example.toml \
+              /tmp/mcp-release/*.tgz \
+              /tmp/mcp-release/SHA256SUMS \
               --title "Niu ${GITHUB_REF_NAME}" \
               --notes-file /tmp/release-notes.md
           fi

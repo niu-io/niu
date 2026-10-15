@@ -2483,7 +2483,7 @@ dependencies = [
 
 [[package]]
 name = "niu-benchmark"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "niu-execution",
  "serde",
@@ -2494,11 +2494,11 @@ dependencies = [
 
 [[package]]
 name = "niu-cost"
-version = "0.2.3"
+version = "0.2.4"
 
 [[package]]
 name = "niu-execution"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "serde",
  "serde_json",
@@ -2506,7 +2506,7 @@ dependencies = [
 
 [[package]]
 name = "niu-gateway"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2554,7 +2554,7 @@ dependencies = [
 
 [[package]]
 name = "niu-media"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2575,7 +2575,7 @@ dependencies = [
 
 [[package]]
 name = "niu-metered-cost"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "serde",
  "serde_json",
@@ -2583,7 +2583,7 @@ dependencies = [
 
 [[package]]
 name = "niu-payments"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "futures-util",
@@ -2601,7 +2601,7 @@ dependencies = [
 
 [[package]]
 name = "niu-plugin-api"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "niu-execution",
  "serde",
@@ -2614,7 +2614,7 @@ dependencies = [
 
 [[package]]
 name = "niu-plugin-hello-echo"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "niu-plugin-api",
@@ -2626,7 +2626,7 @@ dependencies = [
 
 [[package]]
 name = "niu-plugin-request-tagger"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "niu-plugin-api",
@@ -2639,7 +2639,7 @@ dependencies = [
 
 [[package]]
 name = "niu-plugin-sdk"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2655,7 +2655,7 @@ dependencies = [
 
 [[package]]
 name = "niu-plugin-webhook-audit"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "niu-execution",
@@ -2669,7 +2669,7 @@ dependencies = [
 
 [[package]]
 name = "niu-reference-extension"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "niu-execution",
  "niu-plugin-api",
@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "niu-storage"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "argon2",
  "axum",
@@ -2703,7 +2703,7 @@ dependencies = [
 
 [[package]]
 name = "niu-upstream"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "reqwest 0.12.28",

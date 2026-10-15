@@ -14,7 +14,13 @@ start(process.argv.slice(2), process.env, {
   write(line) {
     process.stdout.write(`${line}\n`);
   },
-  fetch: globalThis.fetch,
+  // Never forward credentials through redirects or retry potentially billed calls.
+  // The signal also bounds consumption of a response body after headers arrive.
+  fetch: (url, init) => globalThis.fetch(url, {
+    ...init,
+    redirect: "error",
+    signal: AbortSignal.timeout(180_000),
+  }),
   async writeBinaryFile(targetPath, bytes) {
     const resolved = resolve(targetPath);
     await mkdir(dirname(resolved), { recursive: true });

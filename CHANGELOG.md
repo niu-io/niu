@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-15
+
+### Added
+
+- Ship the standalone `@niu-io/mcp` stdio client as a downloadable GitHub release package with a SHA-256 checksum.
+- Document coding-agent setup and workspace-key tools for model discovery, inference, generation diagnostics, video jobs and media assets.
+
+### Fixed
+
+- Reject malformed JSON-RPC envelopes without terminating the MCP process.
+- Bound MCP gateway requests and reject credential-bearing HTTP redirects without automatically retrying billed requests.
+
+### Verification boundary
+
+- The packaged stdio client was exercised against a running Niu gateway and OpenRouter: initialization, tool discovery, key inspection, model listing, chat completion and generation lookup. The saved attempt independently confirmed completion and provider-reported token usage.
+- Video and media wrappers are included; this release verification did not create a new paid video or validate every tool end to end. MCP runs locally over stdio; no remote MCP HTTP endpoint is introduced.
+
 ## [0.2.3] - 2026-10-15
 
 ### Added
