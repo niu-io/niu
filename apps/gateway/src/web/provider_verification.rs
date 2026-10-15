@@ -342,19 +342,9 @@ pub(super) async fn create(
         )
         .await
         .map_err(ApiError::from_store)?;
-    let dispatch = admit(&state, &principal, &input.model).await?;
-    if dispatch.vendor_id() != route.vendor_id()
-        || dispatch.vendor_revision() != route.vendor_revision()
-        || dispatch.model_revision() != route.model_revision()
-        || dispatch.credential_ciphertext() != route.credential_ciphertext()
-    {
-        return Err(ApiError::from_store(
-            niu_storage::StoreError::ManagedRouteChanged,
-        ));
-    }
     if state
         .store
-        .claim_workspace_provider_verification(&principal, prepared.id, &dispatch)
+        .claim_workspace_provider_verification(&principal, prepared.id, &route)
         .await
         .map_err(ApiError::from_store)?
     {
@@ -429,7 +419,7 @@ pub(super) async fn create(
     }
     Ok((
         StatusCode::ACCEPTED,
-        Json(json!({"data":saved(&state,&principal,prepared.id,&dispatch).await?})),
+        Json(json!({"data":saved(&state,&principal,prepared.id,&route).await?})),
     ))
 }
 /// ```openapi
@@ -897,11 +887,12 @@ pub(super) async fn refresh(
         {
             Ok(response) => match decode_verification_result(&response) {
                 Ok(result) => {
-                    state
+                    let updated = state
                         .store
                         .observe_workspace_provider_verification(&principal, id, &route, &result)
                         .await
                         .map_err(ApiError::from_store)?;
+                    return Ok(Json(json!({"data":updated})));
                 }
                 Err(_) => state
                     .store

@@ -530,26 +530,12 @@ async fn mutate_with_route(
             .await
             .map_err(ApiError::from_store)?;
     }
-    let operation = state
+    let (operation, group, asset) = state
         .store
-        .workspace_provider_asset_operation(&principal, operation_id)
+        .workspace_provider_asset_operation_bundle(&principal, operation_id)
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    let group = state
-        .store
-        .workspace_provider_asset_group(&principal, operation.group_id)
-        .await
-        .map_err(ApiError::from_store)?;
-    let asset = if let Some(id) = operation.asset_id {
-        state
-            .store
-            .workspace_provider_asset(&principal, id)
-            .await
-            .map_err(ApiError::from_store)?
-    } else {
-        None
-    };
     Ok((
         StatusCode::ACCEPTED,
         Json(json!({"data":operation,"group":group,"asset":asset})),

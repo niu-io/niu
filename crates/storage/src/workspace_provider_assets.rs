@@ -466,6 +466,38 @@ impl Store {
         tx.commit().await?;
         Ok(v)
     }
+    pub async fn workspace_provider_asset_operation_bundle(
+        &self,
+        p: &Principal,
+        id: Uuid,
+    ) -> Result<
+        Option<(
+            WorkspaceProviderAssetOperation,
+            Option<WorkspaceProviderAssetGroup>,
+            Option<WorkspaceProviderAsset>,
+        )>,
+        StoreError,
+    > {
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let scope = p.scope();
+        let Some(operation) = Self::provider_operation_using(&mut tx, scope, id).await? else {
+            tx.commit().await?;
+            return Ok(None);
+        };
+        Self::provider_asset_key_using(&mut tx, p, &operation.model, false).await?;
+        let group = Self::provider_group_using(&mut tx, scope, operation.group_id, false)
+            .await?
+            .filter(|v| v.status != "deleted");
+        let asset = if let Some(asset_id) = operation.asset_id {
+            Self::provider_asset_using(&mut tx, scope, asset_id, false)
+                .await?
+                .filter(|v| v.status != "deleted")
+        } else {
+            None
+        };
+        tx.commit().await?;
+        Ok(Some((operation, group, asset)))
+    }
     /// Saved operations only: absence is not proof that a request was not sent.
     pub async fn workspace_provider_asset_operation_by_idempotency(
         &self,
