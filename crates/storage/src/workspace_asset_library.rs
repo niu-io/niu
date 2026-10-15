@@ -153,7 +153,9 @@ impl Store {
     where
         F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
     {
-        let prepared = Self::prepare_workspace_asset_create(scope, &input, limits, seal)?;
+        let prepared = tokio::task::block_in_place(|| {
+            Self::prepare_workspace_asset_create(scope, &input, limits, seal)
+        })?;
         let mut tx = self.begin_bounded_recording().await?;
         let asset = Self::insert_prepared_workspace_asset_in_tx(&mut tx, scope, &input, limits, prepared).await?;
         tx.commit().await?;

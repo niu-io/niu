@@ -543,17 +543,20 @@ pub(crate) async fn upload(
         .to_owned();
     let kind = AssetLibraryKind::for_content_type(&content_type)
         .ok_or_else(|| ApiError::invalid_request("Unsupported workspace asset type"))?;
-    let _permit = UPLOADS
-        .try_acquire()
-        .map_err(|_| ApiError::asset_management_busy())?;
-    // Authentication and capacity precede body materialization. Never buffer an
-    // unbounded multipart/base64 envelope or wait in an upload admission queue.
+    if UPLOADS.available_permits() == 0 {
+        return Err(ApiError::asset_management_busy());
+    }
+    // Authentication and capacity check precede body materialization. Never buffer an
+    // unbounded multipart/base64 envelope or hold an upload slot across slow client reads.
     let bytes = to_bytes(
         request.into_body(),
         niu_media::workspace_asset_validation::MAX_ASSET_BYTES,
     )
     .await
     .map_err(|_| ApiError::request_too_large())?;
+    let _permit = UPLOADS
+        .try_acquire()
+        .map_err(|_| ApiError::asset_management_busy())?;
     niu_media::workspace_asset_validation::validate(&content_type, &bytes)
         .await
         .map_err(|e| match e {
@@ -570,9 +573,11 @@ pub(crate) async fn upload(
     let expected_aad = niu_storage::workspace_asset_content_aad(scope, id);
     // Encryption failure is a server availability error, not invalid input.
     // Pre-sealing also avoids holding the quota transaction during encryption.
-    let ciphertext = cipher
-        .seal_bytes_with_aad(&expected_aad, &bytes)
-        .map_err(|_| ApiError::unavailable())?;
+    let ciphertext = tokio::task::block_in_place(|| {
+        cipher
+            .seal_bytes_with_aad(&expected_aad, &bytes)
+            .map_err(|_| ApiError::unavailable())
+    })?;
     let asset = state
         .store
         .create_workspace_asset(
@@ -1235,15 +1240,18 @@ pub(crate) async fn content(
         .vendor_cipher
         .as_ref()
         .ok_or_else(ApiError::unavailable)?;
-    let bytes = cipher
-        .open_bytes_with_aad(&retained.aad, &retained.ciphertext)
-        .map_err(|_| ApiError::unavailable())?;
-    if bytes.len() > niu_media::workspace_asset_validation::MAX_ASSET_BYTES
-        || i64::try_from(bytes.len()).ok() != Some(retained.asset.byte_length)
-        || format!("{:x}", Sha256::digest(&bytes)) != retained.asset.content_sha256
-    {
-        return Err(ApiError::unavailable());
-    }
+    let bytes = tokio::task::block_in_place(|| -> Result<Vec<u8>, ApiError> {
+        let bytes = cipher
+            .open_bytes_with_aad(&retained.aad, &retained.ciphertext)
+            .map_err(|_| ApiError::unavailable())?;
+        if bytes.len() > niu_media::workspace_asset_validation::MAX_ASSET_BYTES
+            || i64::try_from(bytes.len()).ok() != Some(retained.asset.byte_length)
+            || format!("{:x}", Sha256::digest(&bytes)) != retained.asset.content_sha256
+        {
+            return Err(ApiError::unavailable());
+        }
+        Ok(bytes)
+    })?;
     let filename = match retained.asset.content_type.as_str() {
         "image/png" => "attachment; filename=workspace-image.png",
         "image/jpeg" => "attachment; filename=workspace-image.jpg",
