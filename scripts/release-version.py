@@ -40,6 +40,15 @@ def parse_version(raw: str) -> str:
     return cleaned
 
 
+CARGO_LOCK = ROOT / "Cargo.lock"
+CARGO_LOCK_NIU_PATTERN = re.compile(
+    r'(\[\[package\]\]\s*\nname\s*=\s*"niu-[^"]+"\s*\nversion\s*=\s*")([^"]+)(")'
+)
+CARGO_LOCK_GATEWAY_PATTERN = re.compile(
+    r'\[\[package\]\]\s*\nname\s*=\s*"niu-gateway"\s*\nversion\s*=\s*"([^"]+)"'
+)
+
+
 def read_versions() -> dict[str, str]:
     version_file = VERSION_FILE.read_text(encoding="utf-8").strip()
     cargo_text = CARGO_TOML.read_text(encoding="utf-8")
@@ -47,6 +56,12 @@ def read_versions() -> dict[str, str]:
     if not cargo_match:
         raise RuntimeError("could not find [workspace.package] version in Cargo.toml")
     cargo_version = cargo_match.group(2)
+
+    cargo_lock_text = CARGO_LOCK.read_text(encoding="utf-8")
+    cargo_lock_match = CARGO_LOCK_GATEWAY_PATTERN.search(cargo_lock_text)
+    if not cargo_lock_match:
+        raise RuntimeError("could not find niu-gateway package version in Cargo.lock")
+    cargo_lock_version = cargo_lock_match.group(1)
 
     package_data = json.loads(PACKAGE_JSON.read_text(encoding="utf-8"))
     package_version = str(package_data.get("version", ""))
@@ -60,6 +75,7 @@ def read_versions() -> dict[str, str]:
     return {
         "VERSION": version_file,
         "Cargo.toml": cargo_version,
+        "Cargo.lock": cargo_lock_version,
         "package.json": package_version,
         "compose.yaml": compose_version,
     }
@@ -312,6 +328,14 @@ def set_version(raw_version: str, create_tag: bool, update_changelog: bool) -> i
     if count != 1:
         raise RuntimeError("failed to update default image tag in compose.yaml")
     COMPOSE_YAML.write_text(compose_updated, encoding="utf-8")
+
+    cargo_lock_text = CARGO_LOCK.read_text(encoding="utf-8")
+    cargo_lock_updated, lock_count = CARGO_LOCK_NIU_PATTERN.subn(
+        rf"\g<1>{version}\g<3>", cargo_lock_text
+    )
+    if lock_count == 0:
+        raise RuntimeError("failed to update workspace package versions in Cargo.lock")
+    CARGO_LOCK.write_text(cargo_lock_updated, encoding="utf-8")
 
     import shutil
     cargo_bin = (

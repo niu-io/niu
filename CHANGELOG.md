@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-15
+
+### Added
+- **Website `/blog/` Channel Mount**: Mounted `/blog/` and `/blog/*` from `NIU_SITE_DIR` in `niu-gateway` alongside marketing landing routes.
+- **Unified Plugin Runtime & Built-in Plugins**: Unified `plugin-api` and `plugin-sdk` contracts with the gateway Plugin Host runtime and built-in reference plugins.
+
+### Changed
+- **Dashboard UX & Visual Design Refinements**:
+  - Standardized second-level navigation across Workspace, Provider Portal, and Installation Admin views on line-style tabs (`<TabsList variant="line">`), including Workspace Billing (`Spending`, `Statements`, `Rates`), Video (`Tasks`, `Materials`), Request Log detail drawers (`Request`, `Response`, `Raw`), Admin Commercial Overview (`Provider positions`, `Financial summary`), and Admin Customer Pricing (`Text pricing`, `Media pricing`).
+  - Unified Manus-inspired flat surface styling across all `Button`, `DialogTrigger`, `DropdownMenuTrigger`, and `PopoverTrigger` outline controls (`[data-variant="outline"]`) and disabled table header row hover highlights (`<thead><tr>`).
+  - Improved Dark Mode model and Provider badge contrast by rendering `.provider-logo-colored` containers on `var(--card)` instead of light-only surfaces.
+  - Streamlined Provider Portal header layout by removing the duplicate top-bar Provider switcher (retaining the sidebar switcher with section preservation) and keeping mobile period controls aligned on a single row.
+  - Standardized canvas width, top vertical rhythm, and tabular UTC timestamp formatting across Admin `Commercial overview`, `Customer pricing`, `Payment gateways`, `Branding & theme`, and `Audit logs`.
+  - Updated user-facing copy across Admin Customer Pricing and Provider Settlement views to consistently use `Provider` terminology.
+
+### Fixed
+- **Default Workspace Alias Resolution**: Resolved `/models?workspace=default` and `/workspaces/default/*` to the active user's preferred workspace instead of showing a workspace recovery error when no workspace is literally named `default`.
+- **Provider Sub-Route Fallbacks**: Added safe redirects and section fallbacks for unknown sub-routes under `/admin/suppliers/:supplierId/:section` and `/suppliers/:supplier/:section`.
+- **Responsive Header & Form Control Polish**: Fixed mobile breadcrumb truncation on Admin Provider detail pages, API Keys toolbar button alignment, API Key detail card and guardrail history action spacing, Settings profile hidden file input overflow, file input button vertical alignment, and installation login field spacing.
+
 ## [0.2.1] - 2026-10-15
 
 ### Added
@@ -41,7 +61,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/niu-io/niu/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/niu-io/niu/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/niu-io/niu/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/niu-io/niu/releases/tag/v0.1.0
