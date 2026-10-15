@@ -107,12 +107,44 @@ pub(super) async fn runtime(state: &AppState) -> Result<Option<Arc<EPayRuntime>>
 pub(super) async fn runtime_snapshot(
     state: &AppState,
 ) -> Result<(i64, Option<Arc<EPayRuntime>>), ApiError> {
-    let (revision, settings) = settings(state).await?;
-    if revision == 0 {
-        return Ok((0, state.epay_payments.clone()));
+    if let Some((revision, ciphertext)) = state
+        .store
+        .payment_gateway_configuration()
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        if let Some(cipher) = state.vendor_cipher.as_ref()
+            && let Ok(cache) = state.epay_runtime_cache.lock()
+            && let Some((cached_rev, cached_ct, cached_rt)) = cache.as_ref()
+            && *cached_rev == revision
+            && *cached_ct == ciphertext
+            && cipher.open_payment_configuration(&ciphertext).is_ok()
+        {
+            return Ok((revision, cached_rt.clone()));
+        }
+        let cipher = state
+            .vendor_cipher
+            .as_ref()
+            .ok_or_else(|| ApiError::upstream_message("Payment encryption is not configured"))?;
+        let plaintext = cipher
+            .open_payment_configuration(&ciphertext)
+            .map_err(|_| {
+                ApiError::upstream_message("Stored payment configuration could not be opened")
+            })?;
+        let settings: Settings = serde_json::from_str(&plaintext).map_err(|_| {
+            ApiError::upstream_message("Stored payment configuration is invalid")
+        })?;
+        let runtime = settings
+            .runtime()
+            .map_err(ApiError::invalid_request)?
+            .map(Arc::new);
+        if let Ok(mut cache) = state.epay_runtime_cache.lock() {
+            *cache = Some((revision, ciphertext, runtime.clone()));
+        }
+        Ok((revision, runtime))
+    } else {
+        Ok((0, state.epay_payments.clone()))
     }
-    let runtime = settings.runtime().map_err(ApiError::invalid_request)?;
-    Ok((revision, runtime.map(Arc::new)))
 }
 /// ```openapi
 /// {

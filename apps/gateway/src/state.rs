@@ -22,6 +22,9 @@ pub struct AppState {
     pub(crate) password_auth: Option<Arc<crate::admin::passwords::Runtime>>,
     pub(crate) payments: Option<Arc<crate::payments::Runtime>>,
     pub(crate) epay_payments: Option<Arc<crate::payments::EPayRuntime>>,
+    #[allow(clippy::type_complexity)]
+    pub(crate) epay_runtime_cache:
+        Arc<std::sync::Mutex<Option<(i64, Vec<u8>, Option<Arc<crate::payments::EPayRuntime>>)>>>,
     pub(crate) payment_configuration_guard: Arc<tokio::sync::RwLock<()>>,
     pub(crate) stripe_payments: Option<Arc<crate::payments::StripeRuntime>>,
     pub(crate) codex: Arc<crate::codex::Runtime>,
@@ -320,6 +323,7 @@ impl AppState {
             payments: None,
             stripe_payments: None,
             epay_payments: None,
+            epay_runtime_cache: Arc::new(std::sync::Mutex::new(None)),
             payment_configuration_guard: Arc::new(tokio::sync::RwLock::new(())),
             codex: Arc::new(crate::codex::Runtime::default()),
             config: Arc::new(config),

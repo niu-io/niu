@@ -711,7 +711,7 @@ pub(crate) async fn create_topup(
     // Reject unauthorized or malformed requests before joining the checkout
     // configuration queue. Concurrent checkouts share a read guard while
     // merchant configuration changes require exclusive access.
-    let _configuration_guard = state.payment_configuration_guard.read().await;
+    let configuration_guard = state.payment_configuration_guard.read().await;
     let (epay_revision, epay) = configuration::runtime_snapshot(&state).await?;
     if let Some(runtime) = epay.as_ref()
         && input
@@ -735,6 +735,7 @@ pub(crate) async fn create_topup(
         )
         .await;
     }
+    drop(configuration_guard);
     if let Some(runtime) = state.stripe_payments.as_ref()
         && input
             .payment_gateway

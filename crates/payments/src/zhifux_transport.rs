@@ -24,11 +24,20 @@ pub enum Error {
     Protocol(#[from] crate::zhifux::Error),
 }
 
+const DNS_TTL: Duration = Duration::from_secs(60);
+
+struct DnsState {
+    http: reqwest::Client,
+    addresses: Vec<std::net::SocketAddr>,
+    refreshed_at: std::time::Instant,
+}
+
 /// Not Debug: client configuration and signed request URLs are private.
 pub struct Client {
     base: Url,
     merchant: Merchant,
     http: reqwest::Client,
+    dns_state: Option<std::sync::Mutex<DnsState>>,
     checkout_origins: Vec<String>,
 }
 #[derive(Debug, PartialEq, Eq)]
@@ -130,14 +139,11 @@ fn public_address(address: IpAddr) -> bool {
     }
 }
 impl Client {
-    /// DNS addresses are checked and pinned for this instance; rebuild after endpoint changes.
-    pub async fn new(base: &str, merchant: Merchant, origins: &[String]) -> Result<Self, Error> {
-        let base = secure_url(base)?;
-        let origins = checkout_origins(origins)?;
-        let host = base.host_str().ok_or(Error::Configuration)?;
+    async fn resolve_public_addresses(base: &Url) -> Result<(String, Vec<std::net::SocketAddr>), Error> {
+        let host = base.host_str().ok_or(Error::Configuration)?.to_owned();
         let port = base.port_or_known_default().ok_or(Error::Configuration)?;
-        let addresses: Vec<_> =
-            tokio::time::timeout(TIMEOUT, tokio::net::lookup_host((host, port)))
+        let mut addresses: Vec<_> =
+            tokio::time::timeout(TIMEOUT, tokio::net::lookup_host((host.as_str(), port)))
                 .await
                 .map_err(|_| Error::Transport)?
                 .map_err(|_| Error::Transport)?
@@ -149,14 +155,29 @@ impl Client {
         {
             return Err(Error::Configuration);
         }
+        addresses.sort_unstable();
+        addresses.dedup();
+        Ok((host, addresses))
+    }
+
+    /// DNS addresses are checked and refreshed with a 60s TTL; warm pools are retained when IPs do not change.
+    pub async fn new(base: &str, merchant: Merchant, origins: &[String]) -> Result<Self, Error> {
+        let base = secure_url(base)?;
+        let origins = checkout_origins(origins)?;
+        let (host, addresses) = Self::resolve_public_addresses(&base).await?;
         let http = Self::builder()
-            .resolve_to_addrs(host, &addresses)
+            .resolve_to_addrs(&host, &addresses)
             .build()
             .map_err(|_| Error::Configuration)?;
         Ok(Self {
             base,
             merchant,
-            http,
+            http: http.clone(),
+            dns_state: Some(std::sync::Mutex::new(DnsState {
+                http,
+                addresses,
+                refreshed_at: std::time::Instant::now(),
+            })),
             checkout_origins: origins,
         })
     }
@@ -167,6 +188,40 @@ impl Client {
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(3))
             .timeout(TIMEOUT)
+    }
+    async fn client_for_request(&self) -> Result<reqwest::Client, Error> {
+        let Some(dns_mutex) = &self.dns_state else {
+            return Ok(self.http.clone());
+        };
+        {
+            let guard = dns_mutex.lock().unwrap_or_else(|e| e.into_inner());
+            if guard.refreshed_at.elapsed() < DNS_TTL {
+                return Ok(guard.http.clone());
+            }
+        }
+        match Self::resolve_public_addresses(&self.base).await {
+            Ok((host, addresses)) => {
+                let mut guard = dns_mutex.lock().unwrap_or_else(|e| e.into_inner());
+                if guard.addresses == addresses {
+                    guard.refreshed_at = std::time::Instant::now();
+                    return Ok(guard.http.clone());
+                }
+                let http = Self::builder()
+                    .resolve_to_addrs(&host, &addresses)
+                    .build()
+                    .map_err(|_| Error::Configuration)?;
+                guard.http = http.clone();
+                guard.addresses = addresses;
+                guard.refreshed_at = std::time::Instant::now();
+                Ok(http)
+            }
+            Err(Error::Configuration) => Err(Error::Configuration),
+            Err(_) => {
+                let mut guard = dns_mutex.lock().unwrap_or_else(|e| e.into_inner());
+                guard.refreshed_at = std::time::Instant::now();
+                Ok(guard.http.clone())
+            }
+        }
     }
     async fn request<T: serde::de::DeserializeOwned>(
         &self,
@@ -180,8 +235,8 @@ impl Client {
             endpoint
         ));
         url.set_query(Some(&parameters));
-        let mut response = self
-            .http
+        let http = self.client_for_request().await?;
+        let mut response = http
             .post(url)
             .header(
                 reqwest::header::CONTENT_TYPE,
@@ -368,6 +423,7 @@ mod tests {
             base: Url::parse(&format!("http://{address}/")).unwrap(),
             merchant: Merchant::new("12345".into(), "fixture-secret".into()).unwrap(),
             http: Client::builder().build().unwrap(),
+            dns_state: None,
             checkout_origins: vec!["https://checkout.example".into()],
         };
         (client, calls, handle)
@@ -593,6 +649,7 @@ mod tests {
                 base: Url::parse(&format!("http://{address}/")).unwrap(),
                 merchant: Merchant::new("12345".into(), "fixture-secret".into()).unwrap(),
                 http: Client::builder().build().unwrap(),
+                dns_state: None,
                 checkout_origins: vec!["https://checkout.example".into()],
             };
             let started = std::time::Instant::now();
