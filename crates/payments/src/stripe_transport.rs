@@ -91,7 +91,12 @@ impl Client {
             if !response.status().is_success() {
                 return Err(Error);
             }
-            let mut bytes = Vec::new();
+            let content_length = response.content_length();
+            if content_length.is_some_and(|n| n > 65536) {
+                return Err(Error);
+            }
+            let mut bytes =
+                Vec::with_capacity(content_length.unwrap_or(0).min(65536) as usize);
             while let Some(chunk) = response.chunk().await.map_err(|_| Error)? {
                 if bytes.len().saturating_add(chunk.len()) > 65536 {
                     return Err(Error);
@@ -226,7 +231,12 @@ impl Client {
             if !response.status().is_success() {
                 return Err(Error);
             }
-            let mut bytes = Vec::new();
+            let content_length = response.content_length();
+            if content_length.is_some_and(|n| n > 65536) {
+                return Err(Error);
+            }
+            let mut bytes =
+                Vec::with_capacity(content_length.unwrap_or(0).min(65536) as usize);
             while let Some(chunk) = response.chunk().await.map_err(|_| Error)? {
                 if bytes.len().saturating_add(chunk.len()) > 65536 {
                     return Err(Error);
