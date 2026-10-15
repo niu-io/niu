@@ -7,7 +7,8 @@ use uuid::Uuid;
 
 /// Encryption material is supplied by the deployment, never the database.
 /// Do not derive Debug or Serialize for this type.
-pub struct CredentialCipher(aead::LessSafeKey);
+#[derive(Clone)]
+pub struct CredentialCipher(std::sync::Arc<aead::LessSafeKey>);
 
 impl CredentialCipher {
     pub fn new(master_secret: &str) -> Result<Self, &'static str> {
@@ -23,7 +24,7 @@ impl CredentialCipher {
         let key = Sha256::digest(master_secret.as_bytes());
         let unbound = aead::UnboundKey::new(&aead::AES_256_GCM, &key)
             .map_err(|_| "vendor encryption is unavailable")?;
-        Ok(Self(aead::LessSafeKey::new(unbound)))
+        Ok(Self(std::sync::Arc::new(aead::LessSafeKey::new(unbound))))
     }
 
     /// Separate domain and exact revision/project binding from inference keys.
@@ -353,18 +354,20 @@ impl CredentialCipher {
         SystemRandom::new()
             .fill(&mut nonce)
             .map_err(|_| "credential encryption failed")?;
-        let mut encrypted = bytes.to_vec();
-        self.0
-            .seal_in_place_append_tag(
-                aead::Nonce::assume_unique_for_key(nonce),
-                aead::Aad::from(aad),
-                &mut encrypted,
-            )
-            .map_err(|_| "credential encryption failed")?;
-        let mut result = Vec::with_capacity(13 + encrypted.len());
+        let tag_len = self.0.algorithm().tag_len();
+        let mut result = Vec::with_capacity(13 + bytes.len() + tag_len);
         result.push(1);
         result.extend_from_slice(&nonce);
-        result.extend_from_slice(&encrypted);
+        result.extend_from_slice(bytes);
+        let tag = self
+            .0
+            .seal_in_place_separate_tag(
+                aead::Nonce::assume_unique_for_key(nonce),
+                aead::Aad::from(aad),
+                &mut result[13..],
+            )
+            .map_err(|_| "credential encryption failed")?;
+        result.extend_from_slice(tag.as_ref());
         Ok(result)
     }
 
@@ -390,15 +393,17 @@ impl CredentialCipher {
             .try_into()
             .map_err(|_| "vendor credential could not be decrypted")?;
         let mut encrypted = value[13..].to_vec();
-        let plaintext = self
+        let plaintext_len = self
             .0
             .open_in_place(
                 aead::Nonce::assume_unique_for_key(nonce),
                 aead::Aad::from(aad),
                 &mut encrypted,
             )
-            .map_err(|_| "vendor credential could not be decrypted")?;
-        Ok(plaintext.to_vec())
+            .map_err(|_| "vendor credential could not be decrypted")?
+            .len();
+        encrypted.truncate(plaintext_len);
+        Ok(encrypted)
     }
 }
 

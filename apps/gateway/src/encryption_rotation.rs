@@ -234,10 +234,6 @@ pub(crate) async fn run() -> Result<(), Failure> {
     inventory.scan().await?;
     inventory.phase = Phase::Verify;
     inventory.scan().await?;
-    crate::vendors::validate_saved_codex_credentials(&store, Some(&target)).await?;
-    crate::vendors::validate_saved_credentials(&store, Some(&target)).await?;
-    crate::payments::validate_saved_configuration(&store, Some(&target)).await?;
-    crate::vendors::validate_retained_content(&store, Some(&target)).await?;
     inventory
         .lease
         .ensure_connected()

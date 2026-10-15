@@ -80,57 +80,93 @@ pub(crate) async fn validate_retained_content(
                 break;
             }
             let cipher = cipher
-                .ok_or("NIU_VENDOR_ENCRYPTION_KEY is required for retained encrypted content")?;
-            for content in page {
-                let result = match domain {
-                    Domain::MediaResult => {
-                        let kind = match content.discriminator.as_str() {
-                            "video" => niu_storage::MediaResultKind::Video,
-                            "last_frame" => niu_storage::MediaResultKind::LastFrame,
-                            _ => return Err("Invalid retained media result binding".into()),
-                        };
-                        cipher
-                            .open_media_result(content.scope, content.id, kind, &content.ciphertext)
-                            .map(|_| ())
-                    }
-                    Domain::ProviderVerification => cipher
-                        .open_bytes_with_aad(
-                            &CredentialCipher::retained_content_aad(domain, &content)?,
-                            &content.ciphertext,
-                        )
-                        .map(|_| ()),
-                    Domain::WorkspaceAsset => cipher
-                        .open_bytes_with_aad(
-                            &niu_storage::workspace_asset_content_aad(content.scope, content.id),
-                            &content.ciphertext,
-                        )
-                        .map(|_| ()),
-                    Domain::AssetListing => cipher
-                        .open_asset_listing_result(content.scope, content.id, &content.ciphertext)
-                        .map(|_| ()),
-                    Domain::AssetLookup => cipher
-                        .open_asset_lookup_result(content.scope, content.id, &content.ciphertext)
-                        .map(|_| ()),
-                    Domain::AssetRead => cipher
-                        .open_asset_read_result(content.scope, content.id, &content.ciphertext)
-                        .map(|_| ()),
-                    Domain::AssetPatch => cipher
-                        .open_asset_update_patch(content.scope, content.id, &content.ciphertext)
-                        .map(|_| ()),
-                    Domain::InspectedImage => {
-                        let key = content
-                            .key_id
-                            .ok_or("Invalid retained image source binding")?;
-                        let aad =
-                            niu_storage::inspected_image_source_aad(content.scope, key, content.id);
-                        cipher
-                            .open_bytes_with_aad(&aad, &content.ciphertext)
-                            .map(|_| ())
-                    }
-                };
-                result.map_err(|_| "Cannot decrypt retained encrypted content with the configured encryption key")?;
-                after = Some((content.id, content.discriminator));
-            }
+                .ok_or("NIU_VENDOR_ENCRYPTION_KEY is required for retained encrypted content")?
+                .clone();
+            after = tokio::task::spawn_blocking(move || -> Result<Option<(uuid::Uuid, String)>, &'static str> {
+                let mut cursor = None;
+                for content in page {
+                    let result = match domain {
+                        Domain::MediaResult => {
+                            let kind = match content.discriminator.as_str() {
+                                "video" => niu_storage::MediaResultKind::Video,
+                                "last_frame" => niu_storage::MediaResultKind::LastFrame,
+                                _ => return Err("Invalid retained media result binding"),
+                            };
+                            cipher
+                                .open_media_result(
+                                    content.scope,
+                                    content.id,
+                                    kind,
+                                    &content.ciphertext,
+                                )
+                                .map(|_| ())
+                        }
+                        Domain::ProviderVerification => cipher
+                            .open_bytes_with_aad(
+                                &CredentialCipher::retained_content_aad(domain, &content)?,
+                                &content.ciphertext,
+                            )
+                            .map(|_| ()),
+                        Domain::WorkspaceAsset => cipher
+                            .open_bytes_with_aad(
+                                &niu_storage::workspace_asset_content_aad(
+                                    content.scope,
+                                    content.id,
+                                ),
+                                &content.ciphertext,
+                            )
+                            .map(|_| ()),
+                        Domain::AssetListing => cipher
+                            .open_asset_listing_result(
+                                content.scope,
+                                content.id,
+                                &content.ciphertext,
+                            )
+                            .map(|_| ()),
+                        Domain::AssetLookup => cipher
+                            .open_asset_lookup_result(
+                                content.scope,
+                                content.id,
+                                &content.ciphertext,
+                            )
+                            .map(|_| ()),
+                        Domain::AssetRead => cipher
+                            .open_asset_read_result(
+                                content.scope,
+                                content.id,
+                                &content.ciphertext,
+                            )
+                            .map(|_| ()),
+                        Domain::AssetPatch => cipher
+                            .open_asset_update_patch(
+                                content.scope,
+                                content.id,
+                                &content.ciphertext,
+                            )
+                            .map(|_| ()),
+                        Domain::InspectedImage => {
+                            let key = content
+                                .key_id
+                                .ok_or("Invalid retained image source binding")?;
+                            let aad = niu_storage::inspected_image_source_aad(
+                                content.scope,
+                                key,
+                                content.id,
+                            );
+                            cipher
+                                .open_bytes_with_aad(&aad, &content.ciphertext)
+                                .map(|_| ())
+                        }
+                    };
+                    result.map_err(|_| {
+                        "Cannot decrypt retained encrypted content with the configured encryption key"
+                    })?;
+                    cursor = Some((content.id, content.discriminator));
+                }
+                Ok(cursor)
+            })
+            .await
+            .map_err(|_| "Cannot decrypt retained encrypted content with the configured encryption key")??;
         }
     }
     Ok(())

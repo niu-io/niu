@@ -70,7 +70,7 @@ impl Store {
                     "SELECT organization_id,project_id,attempt_id AS id,kind AS discriminator,NULL::uuid AS key_id,ciphertext \
                      FROM media_result_references \
                      WHERE ciphertext IS NOT NULL AND ($1::uuid IS NULL OR (attempt_id,kind)>($1,$2)) \
-                     ORDER BY attempt_id,kind LIMIT 8",
+                     ORDER BY attempt_id,kind LIMIT 64",
                 )
                 .bind(id)
                 .bind(discriminator)
@@ -82,7 +82,7 @@ impl Store {
                     "SELECT organization_id,project_id,id,''::text AS discriminator,key_id,ciphertext \
                      FROM workspace_provider_verification_sessions \
                      WHERE ciphertext IS NOT NULL AND ($1::uuid IS NULL OR id>$1) \
-                     ORDER BY id LIMIT 8",
+                     ORDER BY id LIMIT 64",
                 )
                 .bind(id)
                 .fetch_all(&self.pool)
@@ -107,7 +107,7 @@ impl Store {
                      JOIN asset_listing_claims r ON r.id=c.listing_id \
                      JOIN asset_group_create_intents i ON i.id=r.intent_id \
                      WHERE c.ciphertext IS NOT NULL AND ($1::uuid IS NULL OR c.listing_id>$1) \
-                     ORDER BY c.listing_id LIMIT 8",
+                     ORDER BY c.listing_id LIMIT 64",
                 )
                 .bind(id)
                 .fetch_all(&self.pool)
@@ -121,7 +121,7 @@ impl Store {
                      JOIN asset_listing_claims l ON l.id=r.listing_id \
                      JOIN asset_group_create_intents i ON i.id=l.intent_id \
                      WHERE c.ciphertext IS NOT NULL AND ($1::uuid IS NULL OR c.lookup_id>$1) \
-                     ORDER BY c.lookup_id LIMIT 8",
+                     ORDER BY c.lookup_id LIMIT 64",
                 )
                 .bind(id)
                 .fetch_all(&self.pool)
@@ -134,7 +134,7 @@ impl Store {
                      JOIN asset_group_read_claims r ON r.id=c.read_id \
                      JOIN asset_group_create_intents i ON i.id=r.intent_id \
                      WHERE c.ciphertext IS NOT NULL AND ($1::uuid IS NULL OR c.read_id>$1) \
-                     ORDER BY c.read_id LIMIT 8",
+                     ORDER BY c.read_id LIMIT 64",
                 )
                 .bind(id)
                 .fetch_all(&self.pool)
@@ -147,7 +147,7 @@ impl Store {
                      JOIN asset_group_update_intents u ON u.id=c.update_id \
                      JOIN asset_group_create_intents i ON i.id=u.intent_id \
                      WHERE c.ciphertext IS NOT NULL AND ($1::uuid IS NULL OR c.update_id>$1) \
-                     ORDER BY c.update_id LIMIT 8",
+                     ORDER BY c.update_id LIMIT 64",
                 )
                 .bind(id)
                 .fetch_all(&self.pool)
