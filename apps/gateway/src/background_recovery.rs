@@ -93,6 +93,16 @@ pub(crate) fn spawn(
             {
                 tracing::warn!("Interrupted image readiness recovery requires retry");
             }
+            if *cleanup_shutdown.borrow() {
+                break;
+            }
+            if recovery_store
+                .purge_expired_workspace_provider_verification_sessions()
+                .await
+                .is_err()
+            {
+                tracing::warn!("Expired provider verification cleanup requires retry");
+            }
         }
     });
     let recovery_store = store;

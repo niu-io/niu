@@ -330,8 +330,9 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query("UPDATE workspace_provider_verification_sessions SET status=CASE WHEN $6 THEN query_previous_status ELSE 'unknown' END,query_previous_status=NULL,http_status=$4,request_id=$5,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND status='resolving'")
-            .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(http_status.map(i32::from)).bind(request_id).bind(not_dispatched).execute(&mut *tx).await?;
+        let _ = not_dispatched;
+        sqlx::query("UPDATE workspace_provider_verification_sessions SET status=CASE WHEN expires_at IS NOT NULL AND expires_at<=clock_timestamp() THEN 'expired' ELSE query_previous_status END,ciphertext=CASE WHEN expires_at IS NOT NULL AND expires_at<=clock_timestamp() THEN NULL ELSE ciphertext END,query_previous_status=NULL,http_status=$4,request_id=$5,updated_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND status='resolving'")
+            .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(http_status.map(i32::from)).bind(request_id).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -385,11 +386,30 @@ impl Store {
         } else {
             None
         };
-        sqlx::query("UPDATE workspace_provider_verification_sessions SET status=$2,group_id=$3,query_previous_status=NULL,updated_at=clock_timestamp() WHERE id=$1").bind(id).bind(status).bind(group_id).execute(&mut *tx).await?;
+        sqlx::query("UPDATE workspace_provider_verification_sessions SET status=$2,group_id=$3,ciphertext=CASE WHEN $2 IN ('verified','failed','expired') THEN NULL ELSE ciphertext END,query_previous_status=NULL,updated_at=clock_timestamp() WHERE id=$1").bind(id).bind(status).bind(group_id).execute(&mut *tx).await?;
         let session = Self::verification_using(&mut tx, scope, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
         tx.commit().await?;
         Ok(session)
+    }
+    pub async fn purge_expired_workspace_provider_verification_sessions(
+        &self,
+    ) -> Result<u64, StoreError> {
+        self.run_background_work(
+            crate::background_work::BackgroundWork::ContentRetention,
+            |tx| {
+                Box::pin(async move {
+                    let removed: i64 = sqlx::query_scalar(
+                        "SELECT niu_purge_workspace_provider_verification_page()",
+                    )
+                    .fetch_one(&mut **tx)
+                    .await?;
+                    Ok(removed as u64)
+                })
+            },
+        )
+        .await
+        .map(|removed| removed.unwrap_or(0))
     }
 }
