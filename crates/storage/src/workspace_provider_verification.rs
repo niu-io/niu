@@ -179,7 +179,16 @@ impl Store {
             }
             id
         } else {
-            let count:i64=sqlx::query_scalar("SELECT count(*) FROM workspace_provider_verification_sessions WHERE organization_id=$1 AND project_id=$2").bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
+            let count: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM workspace_provider_verification_sessions \
+                 WHERE organization_id=$1 AND project_id=$2 \
+                   AND status NOT IN ('verified','failed','expired','not_sent') \
+                   AND (expires_at IS NULL OR expires_at > clock_timestamp())",
+            )
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .fetch_one(&mut *tx)
+            .await?;
             if count >= 1024 {
                 return Err(StoreError::Conflict);
             }
