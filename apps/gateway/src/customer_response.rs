@@ -158,49 +158,73 @@ impl CustomerSse {
         }
         self.pending.extend_from_slice(bytes);
         let mut output = Vec::new();
-        while let Some(end) = self.boundary.find(&self.pending) {
-            if end > sse_event_limit(self.responses) {
+        let mut consumed = 0usize;
+        let limit = sse_event_limit(self.responses);
+        while let Some(end) = self.boundary.find(&self.pending[consumed..]) {
+            if end > limit {
+                self.pending.drain(..consumed);
                 return Err("upstream SSE event exceeds inspection limit");
             }
-            let frame: Vec<u8> = self.pending.drain(..end).collect();
+            let frame = &self.pending[consumed..consumed + end];
+            consumed += end;
             self.boundary = EventBoundary::default();
-            let text = std::str::from_utf8(&frame).map_err(|_| "invalid upstream SSE UTF-8")?;
+            let text = match std::str::from_utf8(frame) {
+                Ok(text) => text,
+                Err(_) => {
+                    self.pending.drain(..consumed);
+                    return Err("invalid upstream SSE UTF-8");
+                }
+            };
             let text = if self.started {
                 text
             } else {
                 self.started = true;
                 text.strip_prefix('\u{feff}').unwrap_or(text)
             };
-            let data = text
-                .split(['\r', '\n'])
-                .filter_map(|line| {
-                    line.strip_prefix("data:")
-                        .map(|s| s.strip_prefix(' ').unwrap_or(s))
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
+            let mut data_lines = text.split(['\r', '\n']).filter_map(|line| {
+                line.strip_prefix("data:")
+                    .map(|s| s.strip_prefix(' ').unwrap_or(s))
+            });
+            let data: std::borrow::Cow<'_, str> = match data_lines.next() {
+                None => std::borrow::Cow::Borrowed(""),
+                Some(first) => match data_lines.next() {
+                    None => std::borrow::Cow::Borrowed(first),
+                    Some(second) => {
+                        let mut joined = String::with_capacity(text.len());
+                        joined.push_str(first);
+                        joined.push('\n');
+                        joined.push_str(second);
+                        for rest in data_lines {
+                            joined.push('\n');
+                            joined.push_str(rest);
+                        }
+                        std::borrow::Cow::Owned(joined)
+                    }
+                },
+            };
             if data == "[DONE]" {
                 if !self.suppress_chat_terminal {
-                    output.extend_from_slice(&frame);
+                    output.extend_from_slice(frame);
                 }
                 self.done = true;
                 self.pending.clear();
-                break;
+                return Ok(output);
             }
             if data.is_empty() {
-                output.extend_from_slice(&frame);
+                output.extend_from_slice(frame);
                 continue;
             }
-            let mut value =
-                serde_json::from_str::<Value>(&data).map_err(|_| "invalid upstream SSE JSON")?;
+            let mut value = match serde_json::from_str::<Value>(&data) {
+                Ok(value) => value,
+                Err(_) => {
+                    self.pending.drain(..consumed);
+                    return Err("invalid upstream SSE JSON");
+                }
+            };
             let terminal_response = matches!(
                 value.get("type").and_then(Value::as_str),
                 Some("response.completed" | "response.incomplete" | "response.failed")
             );
-            if terminal_response {
-                self.done = true;
-                self.pending.clear();
-            }
             let mut changed = sanitize(&mut value);
             if let Some(model) = &self.public_model
                 && let Some(response) = value.get_mut("response").and_then(Value::as_object_mut)
@@ -209,7 +233,15 @@ impl CustomerSse {
                 response.insert("model".into(), Value::String(model.clone()));
                 changed = true;
             }
-            observer(&value)?;
+            if let Err(err) = observer(&value) {
+                if terminal_response {
+                    self.done = true;
+                    self.pending.clear();
+                } else if consumed > 0 {
+                    self.pending.drain(..consumed);
+                }
+                return Err(err);
+            }
             if changed {
                 // Preserve event fields, comments and identifiers; replace only data.
                 for line in text
@@ -220,19 +252,26 @@ impl CustomerSse {
                     output.push(b'\n');
                 }
                 output.extend_from_slice(b"data: ");
-                output.extend_from_slice(value.to_string().as_bytes());
+                let _ = serde_json::to_writer(&mut output, &value);
                 output.extend_from_slice(b"\n\n");
                 if terminal_response {
-                    break;
+                    self.done = true;
+                    self.pending.clear();
+                    return Ok(output);
                 }
                 continue;
             }
-            output.extend_from_slice(&frame);
+            output.extend_from_slice(frame);
             if terminal_response {
-                break;
+                self.done = true;
+                self.pending.clear();
+                return Ok(output);
             }
         }
-        if self.pending.len() > sse_event_limit(self.responses) {
+        if consumed > 0 {
+            self.pending.drain(..consumed);
+        }
+        if self.pending.len() > limit {
             return Err("upstream SSE event exceeds inspection limit");
         }
         Ok(output)
