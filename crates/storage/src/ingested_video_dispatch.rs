@@ -59,24 +59,59 @@ impl Store {
         // A deterministic order keeps multiple source/group locks consistent.
         let mut images: Vec<_> = dispatch.images.iter().collect();
         images.sort_by_key(|image| (image.reference.source_id(), image.input.ingestion_id));
-        for image in images {
-            Self::revalidate_ingested_image_reference_using(
-                &mut tx,
-                principal,
-                dispatch.snapshot,
-                image.input,
-                dispatch.route,
-                dispatch.detectors,
-                image.reference,
-            )
-            .await?;
-            sqlx::query("INSERT INTO ingested_video_request_bindings(organization_id,project_id,key_id,attempt_id,content_position,ingestion_id,readiness_id,body_sha256,binding_sha256,schema_revision,expires_at_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
-                .bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(attempt)
-                .bind(image.position as i32).bind(image.input.ingestion_id).bind(image.input.readiness_id)
-                .bind(&body_sha256).bind(image.reference.binding_sha256())
-                .bind(dispatch.request.schema_revision()).bind(image.reference.expires_at_ms())
-                .execute(&mut *tx).await?;
-        }
+        let revalidation_items: Vec<_> = images
+            .iter()
+            .map(|image| (image.input, image.reference))
+            .collect();
+        Self::revalidate_ingested_image_references_using(
+            &mut tx,
+            principal,
+            dispatch.snapshot,
+            dispatch.route,
+            dispatch.detectors,
+            &revalidation_items,
+        )
+        .await?;
+        let positions: Vec<i32> = images.iter().map(|image| image.position as i32).collect();
+        let ingestion_ids: Vec<Uuid> = images
+            .iter()
+            .map(|image| image.input.ingestion_id)
+            .collect();
+        let readiness_ids: Vec<Uuid> = images
+            .iter()
+            .map(|image| image.input.readiness_id)
+            .collect();
+        let binding_hashes: Vec<&str> = images
+            .iter()
+            .map(|image| image.reference.binding_sha256())
+            .collect();
+        let expires_at_ms: Vec<i64> = images
+            .iter()
+            .map(|image| image.reference.expires_at_ms())
+            .collect();
+        sqlx::query(
+            "INSERT INTO ingested_video_request_bindings(\
+                organization_id,project_id,key_id,attempt_id,\
+                content_position,ingestion_id,readiness_id,\
+                body_sha256,binding_sha256,schema_revision,expires_at_ms\
+             ) \
+             SELECT $1,$2,$3,$4,u.content_position,u.ingestion_id,u.readiness_id,$5,u.binding_sha256,$6,u.expires_at_ms \
+             FROM UNNEST($7::int4[],$8::uuid[],$9::uuid[],$10::text[],$11::int8[]) \
+               AS u(content_position,ingestion_id,readiness_id,binding_sha256,expires_at_ms)",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(principal.key_id())
+        .bind(attempt)
+        .bind(&body_sha256)
+        .bind(dispatch.request.schema_revision())
+        .bind(&positions)
+        .bind(&ingestion_ids)
+        .bind(&readiness_ids)
+        .bind(&binding_hashes)
+        .bind(&expires_at_ms)
+        .execute(&mut *tx)
+        .await?;
         if !Self::mark_dispatched_using(&mut tx, principal, attempt).await? {
             return Err(StoreError::Conflict);
         }

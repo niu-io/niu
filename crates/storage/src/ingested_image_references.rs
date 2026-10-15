@@ -151,6 +151,38 @@ impl Store {
         Ok(result)
     }
 
+    /// Bounded batch discovery snapshot for multi-image requests in a single read transaction.
+    pub async fn resolve_ingested_image_references(
+        &self,
+        principal: &Principal,
+        snapshot: &GuardrailSnapshot,
+        inputs: &[IngestedImageReuse],
+        route: &IngestedImageRoute<'_>,
+        detectors: &[(&str, &Runtime)],
+    ) -> Result<Vec<IngestedImageReferenceResolution>, StoreError> {
+        if inputs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let mut verified_snapshot = false;
+        let mut results = Vec::with_capacity(inputs.len());
+        for input in inputs {
+            let result = Self::resolve_ingested_image_reference_step_using(
+                &mut tx,
+                principal,
+                snapshot,
+                input,
+                route,
+                detectors,
+                &mut verified_snapshot,
+            )
+            .await?;
+            results.push(result);
+        }
+        tx.commit().await?;
+        Ok(results)
+    }
+
     /// Called INSIDE the bounded writable transaction which claims the video
     /// dispatch. Coordination locks are retained until that claim commits or
     /// rolls back. Do not call this on a pool connection outside a transaction.
@@ -164,11 +196,35 @@ impl Store {
         detectors: &[(&str, &Runtime)],
         reference: &IngestedImageReference,
     ) -> Result<(), StoreError> {
-        if reference.ingestion_id != input.ingestion_id
-            || reference.readiness_id != input.readiness_id
-            || reference.vendor_id != route.vendor_id
-        {
-            return Err(StoreError::Conflict);
+        Self::revalidate_ingested_image_references_using(
+            connection,
+            principal,
+            snapshot,
+            route,
+            detectors,
+            &[(input, reference)],
+        )
+        .await
+    }
+
+    pub(crate) async fn revalidate_ingested_image_references_using(
+        connection: &mut PgConnection,
+        principal: &Principal,
+        snapshot: &GuardrailSnapshot,
+        route: &IngestedImageRoute<'_>,
+        detectors: &[(&str, &Runtime)],
+        items: &[(&IngestedImageReuse, &IngestedImageReference)],
+    ) -> Result<(), StoreError> {
+        if items.is_empty() {
+            return Ok(());
+        }
+        for (input, reference) in items {
+            if reference.ingestion_id != input.ingestion_id
+                || reference.readiness_id != input.readiness_id
+                || reference.vendor_id != route.vendor_id
+            {
+                return Err(StoreError::Conflict);
+            }
         }
         let scope = principal.scope();
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
@@ -186,31 +242,54 @@ impl Store {
             .bind(route.vendor_id)
             .execute(&mut *connection)
             .await?;
-        sqlx::query("SELECT id FROM asset_image_ingestion_consents WHERE id=$1 FOR SHARE")
-            .bind(input.ingestion_id)
+
+        let mut ingestion_ids: Vec<Uuid> = items.iter().map(|(input, _)| input.ingestion_id).collect();
+        ingestion_ids.sort_unstable();
+        ingestion_ids.dedup();
+        sqlx::query("SELECT id FROM asset_image_ingestion_consents WHERE id=ANY($1) ORDER BY id FOR SHARE")
+            .bind(&ingestion_ids)
             .execute(&mut *connection)
             .await?;
-        sqlx::query("SELECT id FROM inspected_image_sources WHERE id=$1 FOR SHARE")
-            .bind(reference.source_id)
+
+        let mut source_ids: Vec<Uuid> = items.iter().map(|(_, reference)| reference.source_id).collect();
+        source_ids.sort_unstable();
+        source_ids.dedup();
+        sqlx::query("SELECT id FROM inspected_image_sources WHERE id=ANY($1) ORDER BY id FOR SHARE")
+            .bind(&source_ids)
             .execute(&mut *connection)
             .await?;
-        sqlx::query("SELECT id FROM asset_group_create_intents WHERE id=$1 FOR SHARE")
-            .bind(reference.group_intent_id)
+
+        let mut group_intent_ids: Vec<Uuid> = items
+            .iter()
+            .map(|(_, reference)| reference.group_intent_id)
+            .collect();
+        group_intent_ids.sort_unstable();
+        group_intent_ids.dedup();
+        sqlx::query("SELECT id FROM asset_group_create_intents WHERE id=ANY($1) ORDER BY id FOR SHARE")
+            .bind(&group_intent_ids)
             .execute(&mut *connection)
             .await?;
-        let result = Self::resolve_ingested_image_reference_using(
-            connection, principal, snapshot, input, route, detectors,
-        )
-        .await?;
-        match result {
-            IngestedImageReferenceResolution::Available(current)
-                if current.binding_sha256 == reference.binding_sha256
-                    && current.expires_at_ms == reference.expires_at_ms =>
-            {
-                Ok(())
+
+        let mut verified_snapshot = false;
+        for (input, reference) in items {
+            let result = Self::resolve_ingested_image_reference_step_using(
+                connection,
+                principal,
+                snapshot,
+                input,
+                route,
+                detectors,
+                &mut verified_snapshot,
+            )
+            .await?;
+            match result {
+                IngestedImageReferenceResolution::Available(current)
+                    if current.binding_sha256 == reference.binding_sha256
+                        && current.expires_at_ms == reference.expires_at_ms => {}
+                _ => return Err(StoreError::Conflict),
             }
-            _ => Err(StoreError::Conflict),
         }
+        Ok(())
     }
 
     async fn resolve_ingested_image_reference_using(
@@ -220,6 +299,28 @@ impl Store {
         input: &IngestedImageReuse,
         route: &IngestedImageRoute<'_>,
         detectors: &[(&str, &Runtime)],
+    ) -> Result<IngestedImageReferenceResolution, StoreError> {
+        let mut verified_snapshot = false;
+        Self::resolve_ingested_image_reference_step_using(
+            connection,
+            principal,
+            snapshot,
+            input,
+            route,
+            detectors,
+            &mut verified_snapshot,
+        )
+        .await
+    }
+
+    async fn resolve_ingested_image_reference_step_using(
+        connection: &mut PgConnection,
+        principal: &Principal,
+        snapshot: &GuardrailSnapshot,
+        input: &IngestedImageReuse,
+        route: &IngestedImageRoute<'_>,
+        detectors: &[(&str, &Runtime)],
+        verified_snapshot: &mut bool,
     ) -> Result<IngestedImageReferenceResolution, StoreError> {
         use IngestedImageReferenceResolution::{Available, Unavailable};
         use IngestedImageReferenceUnavailable::*;
@@ -233,11 +334,14 @@ impl Store {
             return Err(StoreError::Unauthorized);
         }
         let scope = principal.scope();
-        let current = Self::guardrail_snapshot_using(&mut *connection, scope, principal.key_id())
-            .await?
-            .ok_or(StoreError::Unauthorized)?;
-        if !crate::image_processing::same_policy(&current, snapshot) {
-            return Err(StoreError::Conflict);
+        if !*verified_snapshot {
+            let current = Self::guardrail_snapshot_using(&mut *connection, scope, principal.key_id())
+                .await?
+                .ok_or(StoreError::Unauthorized)?;
+            if !crate::image_processing::same_policy(&current, snapshot) {
+                return Err(StoreError::Conflict);
+            }
+            *verified_snapshot = true;
         }
         let Some(row) = sqlx::query(RESOLVE)
             .bind(input.ingestion_id)

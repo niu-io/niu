@@ -164,19 +164,22 @@ pub(super) async fn resolve(
         .collect();
     let mut body = prepared.body.clone();
     let mut images = Vec::with_capacity(prepared.images.len());
-    for image in &prepared.images {
-        let reference = match state
-            .store
-            .resolve_ingested_image_reference(
-                principal,
-                snapshot,
-                &image.input,
-                &selected,
-                &detectors,
-            )
-            .await
-            .map_err(ApiError::from_store)?
-        {
+    let reuse_inputs: Vec<IngestedImageReuse> = prepared
+        .images
+        .iter()
+        .map(|image| IngestedImageReuse {
+            ingestion_id: image.input.ingestion_id,
+            readiness_id: image.input.readiness_id,
+            consent_to_reuse: image.input.consent_to_reuse,
+        })
+        .collect();
+    let resolutions = state
+        .store
+        .resolve_ingested_image_references(principal, snapshot, &reuse_inputs, &selected, &detectors)
+        .await
+        .map_err(ApiError::from_store)?;
+    for (image, resolution) in prepared.images.iter().zip(resolutions) {
+        let reference = match resolution {
             IngestedImageReferenceResolution::Available(reference) => reference,
             IngestedImageReferenceResolution::Unavailable(
                 IngestedImageReferenceUnavailable::ConsentRequired,
