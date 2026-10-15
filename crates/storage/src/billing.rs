@@ -964,7 +964,7 @@ SELECT jsonb_build_object(
         }
         // Serialize with future admission/funding changes on this account. Read
         // the immutable charge, never a client price or Supplier expense.
-        let account: Option<Uuid> = sqlx::query_scalar("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.attempt_id=$1 FOR UPDATE OF c")
+        let account: Option<Uuid> = sqlx::query_scalar("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.attempt_id=$1 FOR NO KEY UPDATE OF c")
             .bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(account) = account {
             sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key,project_id,attempt_id) SELECT $1,c.organization_id,b.account_id,c.currency,'charge',-c.amount_nanos,c.attempt_id,c.project_id,c.attempt_id FROM customer_charges c JOIN customer_attempt_balance_accounts b ON b.attempt_id=c.attempt_id AND b.organization_id=c.organization_id AND b.project_id=c.project_id AND b.currency=c.currency WHERE c.attempt_id=$2 AND b.account_id=$3 AND c.amount_nanos>0 ON CONFLICT (attempt_id) WHERE kind='charge' DO NOTHING")

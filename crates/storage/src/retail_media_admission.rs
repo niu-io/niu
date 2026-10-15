@@ -154,20 +154,22 @@ async fn platform_rate(
     if media.dimensions != identity.dimensions || media.meter != identity.meter {
         return Err(StoreError::Conflict);
     }
-    Store::select_media_liability_qualification_at_in_tx(tx, identity, at)
+    let qualified = Store::select_media_liability_qualification_at_in_tx(tx, identity, at)
         .await?
         .ok_or(StoreError::AccountUnavailable)?;
     // Obtain one time after both sets of locks even in advisory selection.
-    let at = if let Some(at) = at {
-        at
+    let (at, selected, qualified) = if let Some(at) = at {
+        (at, selected, qualified)
     } else {
-        clock(tx).await?
+        let at = clock(tx).await?;
+        let selected =
+            Store::select_retail_price_at_in_tx(tx, head, scope.organization_id, Some(at)).await?;
+        let qualified =
+            Store::select_media_liability_qualification_at_in_tx(tx, identity, Some(at))
+                .await?
+                .ok_or(StoreError::AccountUnavailable)?;
+        (at, selected, qualified)
     };
-    let selected =
-        Store::select_retail_price_at_in_tx(tx, head, scope.organization_id, Some(at)).await?;
-    let qualified = Store::select_media_liability_qualification_at_in_tx(tx, identity, Some(at))
-        .await?
-        .ok_or(StoreError::AccountUnavailable)?;
     let RetailSchedule::Media(ref media) = selected.schedule else {
         return Err(StoreError::InvalidPrice);
     };

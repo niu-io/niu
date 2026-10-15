@@ -76,7 +76,7 @@ impl Store {
             .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let account: (Uuid,String) = sqlx::query_as("SELECT c.id,c.currency FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.organization_id=$1 AND b.project_id=$2 AND b.attempt_id=$3 FOR UPDATE OF c")
+        let account: (Uuid,String) = sqlx::query_as("SELECT c.id,c.currency FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.organization_id=$1 AND b.project_id=$2 AND b.attempt_id=$3 FOR NO KEY UPDATE OF c")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let execution: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
