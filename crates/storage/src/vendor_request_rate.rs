@@ -68,6 +68,21 @@ impl Store {
         let next = expected + 1;
         sqlx::query("UPDATE vendor_request_rate_limits SET requests_per_minute=$2,revision=$3 WHERE vendor_id=$1")
             .bind(vendor).bind(rpm).bind(next).execute(&mut *tx).await?;
+        if rpm.is_some_and(|limit| limit > 0) {
+            sqlx::query(
+                "INSERT INTO vendor_request_rate_admissions(attempt_id,vendor_id,admitted_at) \
+                 SELECT b.attempt_id,b.vendor_id,a.dispatched_at FROM ( \
+                     SELECT attempt_id,vendor_id FROM managed_attempt_routes WHERE vendor_id=$1 \
+                     UNION SELECT attempt_id,vendor_id FROM personal_attempt_routes WHERE vendor_id=$1 \
+                     UNION SELECT attempt_id,vendor_id FROM media_recovery_routes WHERE vendor_id=$1 \
+                 ) b JOIN attempts a ON a.id=b.attempt_id \
+                 WHERE a.dispatched_at > clock_timestamp() - INTERVAL '60 seconds' \
+                 ON CONFLICT (attempt_id) DO NOTHING",
+            )
+            .bind(vendor)
+            .execute(&mut *tx)
+            .await?;
+        }
         sqlx::query("INSERT INTO vendor_request_rate_history(vendor_id,revision,requests_per_minute,actor_operator_id,actor_name) VALUES($1,$2,$3,$4,$5)")
             .bind(vendor).bind(next).bind(rpm).bind(actor_id).bind(name).execute(&mut *tx).await?;
         tx.commit().await?;

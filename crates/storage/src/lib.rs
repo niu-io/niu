@@ -887,7 +887,7 @@ impl Store {
     /// are retained, matching the single-request admission path.
     pub async fn admit_unpriced_gateway_batch(
         &self,
-        admissions: Vec<GatewayAdmission>,
+        mut admissions: Vec<GatewayAdmission>,
     ) -> Result<Vec<GatewayAdmissionStatus>, StoreError> {
         const MAX_BATCH_SIZE: usize = 64;
         if admissions.is_empty() || admissions.len() > MAX_BATCH_SIZE {
@@ -895,6 +895,16 @@ impl Store {
         }
 
         let admission_count = admissions.len();
+        let original_attempt_ids: Vec<_> = admissions.iter().map(|a| a.attempt_id).collect();
+        admissions.sort_unstable_by_key(|a| {
+            (
+                a.scope.organization_id,
+                a.scope.project_id,
+                a.key_id,
+                a.managed_route.as_ref().map(|r| r.vendor_id),
+                a.attempt_id,
+            )
+        });
         let rejection_scopes: Vec<_> = admissions.iter().map(|a| (a.scope, a.key_id)).collect();
         let mut operation_ids = Vec::with_capacity(admission_count);
         let mut attempt_ids = Vec::with_capacity(admission_count);
@@ -1121,7 +1131,7 @@ impl Store {
                 return Err(StoreError::InvalidGatewayAdmissionBatch);
             }
         }
-        attempt_ids
+        original_attempt_ids
             .iter()
             .map(|admission| {
                 statuses
