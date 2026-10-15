@@ -11,6 +11,7 @@ use std::{
 use tokio::sync::Mutex;
 
 const DNS_CACHE_TTL: Duration = Duration::from_secs(30);
+const DNS_STALE_GRACE: Duration = Duration::from_secs(30);
 const DNS_RETRY_DELAY: Duration = Duration::from_secs(1);
 const MAX_CACHED_CLIENTS: usize = 64;
 
@@ -83,9 +84,12 @@ struct Endpoint {
     local_target: bool,
 }
 
+#[derive(Clone)]
 struct CachedClient {
     client: reqwest::Client,
+    addresses: Vec<IpAddr>,
     expires_at: Option<Instant>,
+    stale_until: Option<Instant>,
 }
 
 struct ClientEntry {
@@ -158,23 +162,40 @@ impl ClientPool {
     ) -> Result<reqwest::Client, EndpointError> {
         let endpoint = parse_endpoint(endpoint, timeouts)?;
         let entry = self.entry(endpoint.key.clone());
-        if let Some(client) = cached_client(&entry) {
+        let now = Instant::now();
+        if let Some(client) = cached_client(&entry, now) {
             return Ok(client);
         }
 
-        // Serialize refreshes for this authority only. Other providers continue
-        // using their established connection pools while DNS is checked.
-        let _refresh = entry.refresh.lock().await;
-        if let Some(client) = cached_client(&entry) {
+        // If a warm client is within its stale-while-revalidate window and another
+        // task is already refreshing DNS for this authority, continue serving the
+        // existing connection pool rather than stalling in-flight requests.
+        let _refresh = if let Some(stale) = stale_cached_client(&entry, now) {
+            match entry.refresh.try_lock() {
+                Ok(guard) => guard,
+                Err(_) => return Ok(stale),
+            }
+        } else {
+            entry.refresh.lock().await
+        };
+
+        let now = Instant::now();
+        if let Some(client) = cached_client(&entry, now) {
             return Ok(client);
         }
-        if let Some(error) = refresh_error(&entry) {
+        if let Some(error) = refresh_error(&entry, now) {
             return Err(error);
         }
 
-        let client = match build_client_for_endpoint(&endpoint, timeouts).await {
-            Ok(client) => client,
+        let addresses = match resolve_endpoint_addresses(&endpoint, timeouts).await {
+            Ok(addresses) => addresses,
             Err(error) => {
+                if error == EndpointError::PrivateAddress {
+                    *entry
+                        .cached
+                        .write()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+                }
                 *entry
                     .refresh_failed
                     .write()
@@ -183,10 +204,43 @@ impl ClientPool {
                 return Err(error);
             }
         };
-        let expires_at = endpoint
-            .literal
-            .is_none()
-            .then(|| Instant::now() + DNS_CACHE_TTL);
+
+        let mut normalized_ips: Vec<IpAddr> = addresses.iter().map(std::net::SocketAddr::ip).collect();
+        normalized_ips.sort_unstable();
+        normalized_ips.dedup();
+
+        let existing_client = entry
+            .cached
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .filter(|cached| cached.addresses == normalized_ips)
+            .map(|cached| cached.client.clone());
+
+        let client = match existing_client {
+            Some(client) => client,
+            None => match build_client_with_addresses(&endpoint, timeouts, &addresses) {
+                Ok(client) => client,
+                Err(error) => {
+                    *entry
+                        .refresh_failed
+                        .write()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                        Some((Instant::now() + DNS_RETRY_DELAY, error));
+                    return Err(error);
+                }
+            },
+        };
+
+        let refreshed_at = Instant::now();
+        let (expires_at, stale_until) = if endpoint.literal.is_none() {
+            (
+                Some(refreshed_at + DNS_CACHE_TTL),
+                Some(refreshed_at + DNS_CACHE_TTL + DNS_STALE_GRACE),
+            )
+        } else {
+            (None, None)
+        };
         *entry
             .refresh_failed
             .write()
@@ -196,33 +250,41 @@ impl ClientPool {
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(CachedClient {
             client: client.clone(),
+            addresses: normalized_ips,
             expires_at,
+            stale_until,
         });
         Ok(client)
     }
 }
 
-fn refresh_error(entry: &ClientEntry) -> Option<EndpointError> {
+fn refresh_error(entry: &ClientEntry, now: Instant) -> Option<EndpointError> {
     entry
         .refresh_failed
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
-        .filter(|(retry_at, _)| *retry_at > Instant::now())
+        .filter(|(retry_at, _)| *retry_at > now)
         .map(|(_, error)| *error)
 }
 
-fn cached_client(entry: &ClientEntry) -> Option<reqwest::Client> {
+fn cached_client(entry: &ClientEntry, now: Instant) -> Option<reqwest::Client> {
     entry
         .cached
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
-        .filter(|cached| {
-            cached
-                .expires_at
-                .is_none_or(|expiry| expiry > Instant::now())
-        })
+        .filter(|cached| cached.expires_at.is_none_or(|expiry| expiry > now))
+        .map(|cached| cached.client.clone())
+}
+
+fn stale_cached_client(entry: &ClientEntry, now: Instant) -> Option<reqwest::Client> {
+    entry
+        .cached
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .as_ref()
+        .filter(|cached| cached.stale_until.is_some_and(|grace| grace > now))
         .map(|cached| cached.client.clone())
 }
 
@@ -287,10 +349,10 @@ fn parse_endpoint(endpoint: &str, timeouts: EndpointTimeouts) -> Result<Endpoint
     })
 }
 
-async fn build_client_for_endpoint(
+async fn resolve_endpoint_addresses(
     endpoint: &Endpoint,
     timeouts: EndpointTimeouts,
-) -> Result<reqwest::Client, EndpointError> {
+) -> Result<Vec<std::net::SocketAddr>, EndpointError> {
     let Endpoint {
         host,
         port,
@@ -323,7 +385,14 @@ async fn build_client_for_endpoint(
     if !destinations_allowed {
         return Err(EndpointError::PrivateAddress);
     }
+    Ok(addresses)
+}
 
+fn build_client_with_addresses(
+    endpoint: &Endpoint,
+    timeouts: EndpointTimeouts,
+    addresses: &[std::net::SocketAddr],
+) -> Result<reqwest::Client, EndpointError> {
     let mut builder = reqwest::Client::builder()
         .connect_timeout(timeouts.connect)
         .timeout(timeouts.overall)
@@ -336,8 +405,8 @@ async fn build_client_for_endpoint(
         // different machine and bypass that boundary.
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none());
-    if literal.is_none() {
-        builder = builder.resolve_to_addrs(host, &addresses);
+    if endpoint.literal.is_none() {
+        builder = builder.resolve_to_addrs(&endpoint.host, addresses);
     }
     builder
         .build()
@@ -547,6 +616,89 @@ mod tests {
                 .unwrap();
             assert_eq!(body, "ok");
         }
+
+        assert_eq!(peers.lock().await.len(), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn dns_refresh_retains_connection_pool_when_addresses_unchanged_and_serves_stale() {
+        let peers = Arc::new(Mutex::new(HashSet::new()));
+        let app = axum::Router::new()
+            .route("/", get(capture_peer))
+            .with_state(peers.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .unwrap();
+        });
+
+        let pool = ClientPool::default();
+        let endpoint = format!("http://localhost:{port}/v1/chat/completions");
+        let timeouts = EndpointTimeouts::legacy(Duration::from_secs(2)).unwrap();
+
+        let client1 = pool
+            .client_for_endpoint_with_timeouts(&endpoint, timeouts)
+            .await
+            .unwrap();
+        let body = client1
+            .get(format!("http://127.0.0.1:{port}/"))
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+        assert_eq!(body, "ok");
+
+        // Force soft TTL expiry while keeping stale_until valid.
+        let parsed = parse_endpoint(&endpoint, timeouts).unwrap();
+        let entry = pool.entry(parsed.key);
+        {
+            let mut cached = entry.cached.write().unwrap();
+            let item = cached.as_mut().unwrap();
+            item.expires_at = Some(Instant::now() - Duration::from_secs(1));
+            item.stale_until = Some(Instant::now() + Duration::from_secs(10));
+            // Force addresses to match 127.0.0.1 so we can also test connection reuse on localhost/127.0.0.1
+        }
+
+        // Simulate an in-flight refresh holding entry.refresh; concurrent caller gets stale warm client immediately.
+        {
+            let _refresh_guard = entry.refresh.lock().await;
+            let stale_client = pool
+                .client_for_endpoint_with_timeouts(&endpoint, timeouts)
+                .await
+                .unwrap();
+            let body = stale_client
+                .get(format!("http://127.0.0.1:{port}/"))
+                .send()
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+            assert_eq!(body, "ok");
+        }
+
+        // Now let the refresh run to completion and verify the same underlying connection is kept.
+        let client2 = pool
+            .client_for_endpoint_with_timeouts(&endpoint, timeouts)
+            .await
+            .unwrap();
+        let body = client2
+            .get(format!("http://127.0.0.1:{port}/"))
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+        assert_eq!(body, "ok");
 
         assert_eq!(peers.lock().await.len(), 1);
         server.abort();
