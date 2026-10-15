@@ -11,6 +11,8 @@ pub struct CatalogMetadata {
     pub max_completion_tokens: Option<u64>,
     pub input_modalities: Vec<String>,
     pub output_modalities: Vec<String>,
+    /// Explicitly advertised request parameters; absence means unknown.
+    pub supported_parameters: Vec<String>,
     /// Provider-advertised USD per token, preserved separately from settlement rates.
     pub input_price: Option<String>,
     pub output_price: Option<String>,
@@ -27,6 +29,7 @@ impl CatalogMetadata {
             "max_completion_tokens": self.max_completion_tokens,
             "input_modalities": self.input_modalities,
             "output_modalities": self.output_modalities,
+            "supported_parameters": self.supported_parameters,
         })
     }
 
@@ -40,6 +43,11 @@ impl CatalogMetadata {
                 .all(|items| {
                     items.len() <= 16 && items.iter().all(|s| !s.is_empty() && s.len() <= 40)
                 })
+            && self.supported_parameters.len() <= 64
+            && self
+                .supported_parameters
+                .iter()
+                .all(|s| !s.is_empty() && s.len() <= 80)
             && [&self.input_price, &self.output_price].iter().all(|price| {
                 price.as_ref().is_none_or(|s| {
                     s.len() <= 64 && s.parse::<f64>().is_ok_and(|v| v.is_finite() && v >= 0.0)
@@ -80,6 +88,13 @@ impl CatalogMetadata {
                 .filter(|n| *n > 0),
             input_modalities: modalities(&model["architecture"]["input_modalities"]),
             output_modalities: modalities(&model["architecture"]["output_modalities"]),
+            supported_parameters: model["supported_parameters"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .take(64)
+                .filter_map(|value| text(value, 80))
+                .collect(),
             input_price: price(&model["pricing"]["prompt"]),
             output_price: price(&model["pricing"]["completion"]),
         }
@@ -104,6 +119,29 @@ mod tests {
         assert!(customer.get("output_price").is_none());
         assert!(!customer.to_string().contains("0.12345"));
         assert_eq!(metadata.input_price.as_deref(), Some("0.12345"));
+    }
+
+    #[test]
+    fn advertised_parameters_survive_storage_and_customer_serialization() {
+        let metadata = CatalogMetadata::from_provider(&json!({
+            "supported_parameters": ["tools", "structured_outputs", "reasoning", 1, ""],
+            "pricing": {"prompt": "0.12345"}
+        }));
+        assert!(metadata.valid());
+        let saved = serde_json::to_value(&metadata).unwrap();
+        let restored: CatalogMetadata = serde_json::from_value(saved).unwrap();
+        assert_eq!(
+            restored.customer_metadata()["supported_parameters"],
+            json!(["tools", "structured_outputs", "reasoning"])
+        );
+        assert!(restored.customer_metadata().get("input_price").is_none());
+        let legacy: CatalogMetadata = serde_json::from_value(json!({"name": "Legacy"})).unwrap();
+        assert!(legacy.supported_parameters.is_empty());
+        let oversized: CatalogMetadata = serde_json::from_value(json!({
+            "supported_parameters": vec!["tools"; 65]
+        }))
+        .unwrap();
+        assert!(!oversized.valid());
     }
 
     #[test]

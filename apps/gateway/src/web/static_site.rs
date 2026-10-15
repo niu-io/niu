@@ -49,6 +49,15 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         .route_service("/login", ServeFile::new(dashboard_index.clone()))
         .route_service("/installation", ServeFile::new(dashboard_index.clone()))
         .route_service("/admin", ServeFile::new(dashboard_index.clone()))
+        .route_service("/admin/commercial", ServeFile::new(dashboard_index.clone()))
+        .route_service(
+            "/admin/customer-accounts",
+            ServeFile::new(dashboard_index.clone()),
+        )
+        .route_service("/admin/pricing", ServeFile::new(dashboard_index.clone()))
+        .route_service("/admin/audit-logs", ServeFile::new(dashboard_index.clone()))
+        .route_service("/admin/branding", ServeFile::new(dashboard_index.clone()))
+        .route_service("/admin/payments", ServeFile::new(dashboard_index.clone()))
         .nest(
             "/admin/suppliers",
             Router::new().fallback_service(ServeFile::new(dashboard_index.clone())),

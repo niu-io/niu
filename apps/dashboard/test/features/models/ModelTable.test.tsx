@@ -164,3 +164,52 @@ it.each([['123456789', 'USD 0.123456789 /M tokens'], ['0', 'USD 0.00 /M tokens']
     expect(screen.queryByText('Cache read price')).toBeNull();
   }
 });
+
+it('keeps developer and provider facets separate without treating access namespaces as companies', async () => {
+  const user=userEvent.setup();
+  const routes=[
+    {id:'fastrouter/seedance-2.0-mini',provider:'fastrouter',public_catalog:false},
+    {id:'byok/claude-sonnet-4',provider:'openrouter',public_catalog:false},
+    {id:'team/custom',provider:'byok',public_catalog:false},
+    {id:'anthropic/claude-haiku',provider:'fastrouter',public_catalog:true},
+  ];
+  render(<MemoryRouter><SidebarProvider><ModelTable models={routes}/></SidebarProvider></MemoryRouter>);
+  const developers=within(screen.getByRole('region',{name:'Model developer filters'}));
+  const connections=within(screen.getByRole('region',{name:'Provider filters'}));
+  expect(developers.queryByRole('checkbox',{name:/byok|fastrouter|team/i})).toBeNull();
+  expect(connections.queryByRole('checkbox',{name:/byok/i})).toBeNull();
+  expect(developers.getByRole('checkbox',{name:'ByteDance'})).toBeTruthy();
+  expect(screen.queryByText('by byok')).toBeNull();
+  expect(screen.queryByText('by team')).toBeNull();
+  await user.click(developers.getByRole('checkbox',{name:'Anthropic'}));
+  expect(screen.getAllByRole('article')).toHaveLength(2);
+  await user.click(connections.getByRole('checkbox',{name:'FastRouter'}));
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  expect(screen.getByRole('link',{name:'anthropic/claude-haiku',exact:true})).toBeTruthy();
+  expect(screen.getByText('Developer: Anthropic')).toBeTruthy();
+  expect(screen.getByText('Provider: FastRouter')).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Clear filters'}));
+  expect(screen.getAllByRole('article')).toHaveLength(4);
+});
+
+it('filters explicit modalities and capabilities together, shows tags, and clears selections', async () => {
+  const user = userEvent.setup();
+  const tagged = [
+    {id:'openai/vision',provider:'openrouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['text'],supported_parameters:['tools','structured_outputs']}},
+    {id:'google/video',provider:'openrouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['video']}},
+    {id:'unknown',public_catalog:true},
+  ];
+  render(<MemoryRouter><SidebarProvider><ModelTable models={tagged}/></SidebarProvider></MemoryRouter>);
+  await user.click(within(screen.getByRole('region',{name:'Input modalities filters'})).getByRole('checkbox',{name:'Image',exact:true}));
+  expect(screen.getAllByRole('article')).toHaveLength(2);
+  await user.click(within(screen.getByRole('region',{name:'Capabilities filters'})).getByRole('checkbox',{name:'Tool calling',exact:true}));
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  expect(within(screen.getByRole('article')).getByText('Structured output')).toBeTruthy();
+  await user.click(within(screen.getByRole('region',{name:'Output modalities filters'})).getByRole('checkbox',{name:'Video',exact:true}));
+  expect(screen.getByText('No matching models')).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Remove Video output filter'}));
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  await user.click(screen.getByRole('button',{name:'Clear filters'}));
+  expect(screen.getAllByRole('article')).toHaveLength(3);
+  expect(screen.queryByRole('button',{name:'Remove Image input filter'})).toBeNull();
+});

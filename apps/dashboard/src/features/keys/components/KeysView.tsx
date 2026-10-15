@@ -75,7 +75,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const navigate = useNavigate();
   const [keys, setKeys] = useState<ProjectKey[]>([]);
   const [keyQuery, setKeyQuery] = useState('');
-  const visibleKeys = keys.filter(key => key.name.toLocaleLowerCase().includes(keyQuery.trim().toLocaleLowerCase()));
+  const visibleKeys = keys.filter(key => key.name.toLocaleLowerCase().includes(keyQuery.trim().toLocaleLowerCase())).sort((a, b) => Number(Boolean(a.revoked || a.expired)) - Number(Boolean(b.revoked || b.expired)));
   useEffect(() => { setKeyQuery(''); }, [initialScope?.organizationId, initialScope?.projectId]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);

@@ -13,7 +13,7 @@ const definitions = [
   ['xai', 'xAI', 'xai', ['x-ai', 'xai', 'grok']],
   ['cohere', 'Cohere', 'cohere-color', ['cohere', 'command']],
   ['nvidia', 'NVIDIA', 'nvidia-color', ['nvidia', 'nemotron']],
-  ['bytedance', 'ByteDance', 'bytedance-color', ['bytedance', 'bytedance-seed', 'seed', 'doubao']],
+  ['bytedance', 'ByteDance', 'bytedance-color', ['bytedance', 'bytedance-seed', 'seed', 'seedance', 'seedream', 'doubao']],
   ['openrouter', 'OpenRouter', 'openrouter', ['openrouter']],
   ['qiniu', 'Qiniu', 'qiniu-color', ['qiniu']],
   ['aion-labs', 'Aion Labs', 'aionlabs', ['aion-labs']],
@@ -49,12 +49,32 @@ export function identifyProvider(value?: string): ProviderIdentity | undefined {
   const index = definitions.findIndex(([, , , aliases]) => aliases.some(alias => normalized === alias || normalized.startsWith(`${alias}/`) || normalized.startsWith(`${alias}-`)));
   return providers[index];
 }
-// Model author and routing connection are deliberately separate identities.
-export function modelIdentity(model: { id: string; upstream_model?: string }): ProviderIdentity {
-  const known = identifyProvider(model.upstream_model) ?? identifyProvider(model.id);
-  if (known) return known;
-  const namespace = (model.upstream_model ?? model.id).split('/');
-  return namespace.length > 1 && namespace[0] ? { id: `custom:${namespace[0]}`, name: namespace[0] } : { id: 'other', name: 'Other models' };
+type ModelIdentityInput = { id: string; upstream_model?: string };
+// Route namespaces describe access or transport, not model authorship.
+const routingNamespaces = new Set(['byok', 'fastrouter', 'openrouter']);
+export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | undefined {
+  for (const source of [model.upstream_model, model.id]) {
+    if (!source?.trim()) continue;
+    const parts = source.trim().toLowerCase().split('/');
+    while (parts.length > 1 && routingNamespaces.has(parts[0])) parts.shift();
+    const candidate = parts.join('/');
+    if (routingNamespaces.has(candidate)) continue;
+    const known = identifyProvider(candidate);
+    if (known) return known;
+  }
+  // An arbitrary alias prefix is not evidence of a model developer.
+  return undefined;
+}
+export function modelIdentity(model: ModelIdentityInput): ProviderIdentity {
+  return modelDeveloper(model) ?? { id: 'other', name: 'Other models' };
+}
+export function modelProviderName(model: { provider?: string }): string | undefined {
+  const value = model.provider?.trim();
+  if (!value || /^byok$/i.test(value) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return;
+  if (value.toLowerCase() === 'fastrouter') return 'FastRouter';
+  // Preserve named connections; only normalize an exact registered service name.
+  const definition = definitions.find(([, , , aliases]) => aliases.some(alias => alias === value.toLowerCase()));
+  return definition?.[1] ?? value;
 }
 export function connectionIdentity(vendor: { name: string; api_base: string; adapter: string }): ProviderIdentity {
   let host = '';

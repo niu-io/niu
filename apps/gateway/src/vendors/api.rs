@@ -905,6 +905,11 @@ pub async fn update(
 ///             "maxLength": 40
 ///           }
 ///         },
+///         "supported_parameters": {
+///           "type": "array",
+///           "maxItems": 64,
+///           "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+///         },
 ///         "input_price": {
 ///           "type": [
 ///             "string",

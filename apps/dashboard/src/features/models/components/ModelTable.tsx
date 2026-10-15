@@ -12,12 +12,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity } from '@/lib/providers';
+import { modelIdentity, modelDeveloper, modelProviderName } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilities, modelCapabilityTags, type CapabilityGroup } from '../model-capabilities';
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import type { Model } from '@/app/dashboard-context';
@@ -63,10 +65,17 @@ export default function ModelTable({ models, header }: { models: Model[]; header
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [authorsSelected, setAuthorsSelected] = useState<string[]>([]);
   const [providersSelected, setProvidersSelected] = useState<string[]>([]);
-  const providers = [...new Set(models.map(model => model.provider).filter((provider): provider is string => Boolean(provider)))].sort();
+  const [capabilities, setCapabilities] = useState(emptyCapabilities);
+  const hasCapabilities = Object.values(capabilities).some(values => values.length > 0);
+  function toggleCapability(group: CapabilityGroup, value: string) {
+    setCapabilities(current => ({ ...current, [group]: current[group].includes(value) ? current[group].filter(item => item !== value) : [...current[group], value] }));
+    setLimit(20);
+  }
+  const availableCapabilities = capabilityGroups.map(group => ({ ...group, options: group.options.filter(([value]) => models.some(model => capabilityValues(model, group.id).includes(value))) }));
+  const providers = [...new Set(models.map(modelProviderName).filter((provider): provider is string => Boolean(provider)))].sort();
   const [allAuthors, setAllAuthors] = useState(false);
   const [sort, setSort] = useState('recommended');
-  const authors = useMemo(() => [...new Map(models.map(model => { const identity = modelIdentity(model); return [identity.id, identity]; })).values()].sort((a, b) => a.name.localeCompare(b.name)), [models]);
+  const authors = useMemo(() => [...new Map(models.flatMap(model => { const identity = modelDeveloper(model); return identity ? [[identity.id, identity] as const] : []; })).values()].sort((a, b) => a.name.localeCompare(b.name)), [models]);
   const [limit, setLimit] = useState(20);
   const params = useParams();
   const selectedId = params['*'] || null;
@@ -90,9 +99,9 @@ export default function ModelTable({ models, header }: { models: Model[]; header
 
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
-    const matches = popularModels.filter(model => (!authorsSelected.length || authorsSelected.includes(modelIdentity(model).id)) && (!providersSelected.length || providersSelected.includes(model.provider ?? '')) && (!value || `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''} ${modelIdentity(model).name}`.toLowerCase().includes(value)));
+    const matches = popularModels.filter(model => matchesCapabilities(model, capabilities) && (!authorsSelected.length || authorsSelected.includes(modelIdentity(model).id)) && (!providersSelected.length || providersSelected.includes(modelProviderName(model) ?? '')) && (!value || `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''} ${modelIdentity(model).name}`.toLowerCase().includes(value)));
     return sort === 'name' ? [...matches].sort((a, b) => (a.catalog?.name || a.id).localeCompare(b.catalog?.name || b.id, 'en', {numeric:true,sensitivity:'base'}) || a.id.localeCompare(b.id)) : matches;
-  }, [popularModels, query, authorsSelected, providersSelected, sort]);
+  }, [popularModels, query, authorsSelected, providersSelected, capabilities, sort]);
   const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -160,14 +169,24 @@ export default function ModelTable({ models, header }: { models: Model[]; header
       }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }} mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }}>
         <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">Filters</h2></SidebarHeader>
         <SidebarContent><SidebarGroup><SidebarGroupContent>
-          <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">Model developer<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content">
+          {availableCapabilities.filter(group => group.options.length > 0).map(group => <Collapsible key={group.id} className="models-filter-group" defaultOpen>
+            <CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{group.label}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger>
+            <CollapsibleContent className="models-filter-content" role="region" aria-label={`${group.label} filters`}>
+              {group.id === 'features' && <p className="text-xs text-muted-foreground mt-2">Match all selected capabilities</p>}
+              <div className="models-filter-options">{group.options.map(([value, label]) => <Label key={value}>
+                <Checkbox aria-label={label} checked={capabilities[group.id].includes(value)} onCheckedChange={() => toggleCapability(group.id, value)} />
+                {label}<span>{models.filter(model => capabilityValues(model, group.id).includes(value)).length}</span>
+              </Label>)}</div>
+            </CollapsibleContent>
+          </Collapsible>)}
+          <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">Model developer<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label="Model developer filters">
           <div className="models-filter-options">
             {(allAuthors ? authors : authors.slice(0, 10)).map(identity => <Label key={identity.id}><Checkbox aria-label={identity.name} checked={authorsSelected.includes(identity.id)} onCheckedChange={() => chooseAuthor(identity.id)} />{identity.name}<span>{models.filter(model => modelIdentity(model).id === identity.id).length}</span></Label>)}
           </div>
           {authors.length > 10 && <Button variant="ghost" size="sm" onClick={() => setAllAuthors(value => !value)}>{allAuthors ? 'Show fewer' : 'Show all developers'}</Button>}
           </CollapsibleContent></Collapsible>
-          {providers.length > 0 && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">Provider<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content"><div className="models-filter-options">
-            {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]); setLimit(20); }} />{provider}<span>{models.filter(model => model.provider === provider).length}</span></Label>)}
+          {providers.length > 0 && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">Providers<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label="Provider filters"><div className="models-filter-options">
+            {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]); setLimit(20); }} />{provider}<span>{models.filter(model => modelProviderName(model) === provider).length}</span></Label>)}
           </div></CollapsibleContent></Collapsible>}
         </SidebarGroupContent></SidebarGroup></SidebarContent>
       </Sidebar>
@@ -182,16 +201,18 @@ export default function ModelTable({ models, header }: { models: Model[]; header
           </DropdownMenu></div>
         </div>
 
-        {(authorsSelected.length > 0 || providersSelected.length > 0) && <div className="flex flex-wrap gap-2 px-5" aria-label="Active model filters">
-          {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={`Remove ${author.name} developer filter`} onClick={() => chooseAuthor(author.id)}>{author.name}<X size={12} aria-hidden="true" /></Button>)}
-          {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={`Remove ${provider} provider filter`} onClick={() => { setProvidersSelected(current => current.filter(value => value !== provider)); setLimit(20); }}>{provider}<X size={12} aria-hidden="true" /></Button>)}
+        {(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label="Active model filters">
+          {capabilityGroups.flatMap(group => group.options.filter(([value]) => capabilities[group.id].includes(value)).map(([value, label]) => <Button key={`${group.id}-${value}`} variant="secondary" size="sm" aria-label={`Remove ${label} ${group.id} filter`} onClick={() => toggleCapability(group.id, value)}>{group.id === 'features' ? label : `${group.id === 'input' ? 'Input' : 'Output'}: ${label}`}<X size={12} aria-hidden="true" /></Button>))}
+          {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={`Remove ${author.name} developer filter`} onClick={() => chooseAuthor(author.id)}>Developer: {author.name}<X size={12} aria-hidden="true" /></Button>)}
+          {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={`Remove ${provider} provider filter`} onClick={() => { setProvidersSelected(current => current.filter(value => value !== provider)); setLimit(20); }}>Provider: {provider}<X size={12} aria-hidden="true" /></Button>)}
         </div>}
-        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString()} {filtered.length === 1 ? 'model' : 'models'}</span>{(authorsSelected.length > 0 || providersSelected.length > 0 || query) && <Button variant="ghost" size="sm" onClick={() => { setAuthorsSelected([]); setProvidersSelected([]); setQuery(''); setLimit(20); searchInputRef.current?.focus(); }}>Clear filters</Button>}</div>
-        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>No matching models</EmptyTitle><EmptyDescription>Try a different name or developer.</EmptyDescription></EmptyHeader></Empty> : <div className="models-cards">
+        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString()} {filtered.length === 1 ? 'model' : 'models'}</span>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={() => { setAuthorsSelected([]); setProvidersSelected([]); setCapabilities(emptyCapabilities()); setQuery(''); setLimit(20); searchInputRef.current?.focus(); }}>Clear filters</Button>}</div>
+        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>No matching models</EmptyTitle><EmptyDescription>Try another search or remove a filter.</EmptyDescription></EmptyHeader></Empty> : <div className="models-cards">
           {visible.map(model => <article className="models-card" key={model.id}>
             <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{model.catalog?.name || model.id}</Link></div>
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
-            <div className="models-card-meta"><span>by {modelIdentity(model).name}</span>{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span>}{model.provider && <span>via {model.provider}</span>}<Link to={generationHref(model)}>{isVideoModel(model) ? 'Try in Video' : 'Try in Chat'}</Link></div>
+            {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label="Model capabilities">{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
+            <div className="models-card-meta">{modelDeveloper(model) && <span>by {modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span>}{modelProviderName(model) && <span>via {modelProviderName(model)}</span>}<Link to={generationHref(model)}>{isVideoModel(model) ? 'Try in Video' : 'Try in Chat'}</Link></div>
           </article>)}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>Show more models</Button><span>{visible.length} of {filtered.length}</span></div>}
@@ -212,7 +233,8 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         {!!selected.catalog?.input_modalities?.length && <div><dt>Input modalities</dt><dd>{selected.catalog.input_modalities.join(', ')}</dd></div>}
         {!!selected.catalog?.output_modalities?.length && <div><dt>Output modalities</dt><dd>{selected.catalog.output_modalities.join(', ')}</dd></div>}
 
-        {selected.provider && <div><dt>Provider</dt><dd>{selected.provider}</dd></div>}
+        {modelDeveloper(selected) && <div><dt>Model developer</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
+        {modelProviderName(selected) && <div><dt>Provider</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>Upstream model</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
       <div className="model-route-cta">

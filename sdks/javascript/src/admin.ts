@@ -120,7 +120,7 @@ export type SupplierModelCheck = {
 export type SupplierCatalogMetadata = {
   name: string | null; description: string | null;
   context_length: number | null; max_completion_tokens: number | null;
-  input_modalities: string[]; output_modalities: string[];
+  input_modalities: string[]; output_modalities: string[]; supported_parameters?: string[];
   input_price: string | null; output_price: string | null;
 };
 export type SupplierCatalogModel = {
