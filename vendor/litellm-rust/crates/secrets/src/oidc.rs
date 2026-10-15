@@ -248,11 +248,26 @@ fn required_env(environment: &dyn Lookup, name: &str) -> Result<String, Error> {
     environment.get(name).ok_or(Error::MissingEnvironment)
 }
 
-async fn read_file(path: &str) -> Result<SecretValue, Error> {
-    tokio::fs::read_to_string(path)
+const MAX_OIDC_FILE_BYTES: usize = 64 * 1024;
+
+async fn read_file(path: impl AsRef<Path>) -> Result<SecretValue, Error> {
+    use tokio::io::AsyncReadExt;
+
+    let file = tokio::fs::File::open(path.as_ref())
         .await
-        .map(|value| SecretValue::new(value.replace("\r\n", "\n").replace('\r', "\n")))
-        .map_err(|_| Error::OidcFile)
+        .map_err(|_| Error::OidcFile)?;
+    let mut buffer = Vec::new();
+    file.take((MAX_OIDC_FILE_BYTES + 1) as u64)
+        .read_to_end(&mut buffer)
+        .await
+        .map_err(|_| Error::OidcFile)?;
+    if buffer.len() > MAX_OIDC_FILE_BYTES {
+        return Err(Error::OidcFile);
+    }
+    let value = String::from_utf8(buffer).map_err(|_| Error::OidcFile)?;
+    Ok(SecretValue::new(
+        value.replace("\r\n", "\n").replace('\r', "\n"),
+    ))
 }
 
 async fn read_allowed_file(
@@ -273,10 +288,7 @@ async fn read_allowed_file(
         if let Ok(directory) = tokio::fs::canonicalize(directory).await
             && resolved.starts_with(directory)
         {
-            return tokio::fs::read_to_string(&resolved)
-                .await
-                .map(|value| SecretValue::new(value.replace("\r\n", "\n").replace('\r', "\n")))
-                .map_err(|_| Error::OidcFile);
+            return read_file(&resolved).await;
         }
     }
     Err(Error::UnsafeOidcPath)
