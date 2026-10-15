@@ -208,6 +208,7 @@ mod vendor_request_rate;
 mod workspace_spending;
 pub use topups::{TopupInput, TopupOrder};
 mod keys;
+pub use keys::{KeyMetadataUpdate, KeySpendingLimitUpdate, UnifiedKeyPoliciesInput};
 mod media_liability_qualifications;
 mod media_pricing;
 pub use media_liability_qualifications::{

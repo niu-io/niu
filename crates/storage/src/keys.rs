@@ -51,6 +51,28 @@ impl Principal {
     }
 }
 
+pub struct KeySpendingLimitUpdate {
+    pub currency: String,
+    pub amount: Option<i64>,
+    pub expected_revision: i64,
+}
+
+#[derive(Default)]
+pub struct UnifiedKeyPoliciesInput {
+    pub spending_limit: Option<KeySpendingLimitUpdate>,
+    pub request_rate_limit: Option<(Option<i64>, i64)>,
+    pub token_rate_limit: Option<(Option<i64>, i64)>,
+    pub concurrency_limit: Option<(Option<i64>, i64)>,
+    pub ip_policy: Option<(Option<Vec<String>>, i64)>,
+}
+
+pub struct KeyMetadataUpdate<'a> {
+    pub name: &'a str,
+    pub models: &'a [String],
+    pub expected_revision: i64,
+    pub actor: &'a str,
+}
+
 impl Store {
     pub async fn issue_key(
         &self,
@@ -72,6 +94,97 @@ impl Store {
         models: &[String],
         ttl_seconds: Option<i64>,
     ) -> Result<IssuedKey, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        let issued =
+            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
+        tx.commit().await?;
+        Ok(issued)
+    }
+
+    pub async fn issue_key_with_policies(
+        &self,
+        scope: TenantScope,
+        name: &str,
+        models: &[String],
+        ttl_seconds: Option<i64>,
+        policies: UnifiedKeyPoliciesInput,
+        actor: crate::OperatorAuditActor,
+    ) -> Result<IssuedKey, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        let issued =
+            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
+        Self::apply_key_policies_in_tx(&mut tx, scope, issued.id, policies, actor).await?;
+        tx.commit().await?;
+        Ok(issued)
+    }
+
+    pub async fn update_key_with_policies(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+        metadata: Option<KeyMetadataUpdate<'_>>,
+        policies: UnifiedKeyPoliciesInput,
+        actor: crate::OperatorAuditActor,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        if let Some(meta) = metadata {
+            Self::update_key_metadata_in_tx(
+                &mut tx,
+                scope,
+                id,
+                meta.name,
+                meta.models,
+                meta.expected_revision,
+                meta.actor,
+            )
+            .await?;
+        }
+        Self::apply_key_policies_in_tx(&mut tx, scope, id, policies, actor).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn apply_key_policies_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        key: Uuid,
+        policies: UnifiedKeyPoliciesInput,
+        actor: crate::OperatorAuditActor,
+    ) -> Result<(), StoreError> {
+        if let Some(spending) = policies.spending_limit {
+            Self::set_customer_key_spending_limit_in_tx(
+                tx,
+                scope,
+                key,
+                &spending.currency,
+                spending.amount,
+                spending.expected_revision,
+                actor,
+            )
+            .await?;
+        }
+        if let Some((rpm, expected)) = policies.request_rate_limit {
+            Self::set_key_request_rate_policy_in_tx(tx, scope, key, rpm, expected, actor).await?;
+        }
+        if let Some((tpm, expected)) = policies.token_rate_limit {
+            Self::set_key_token_rate_policy_in_tx(tx, scope, key, tpm, expected, actor).await?;
+        }
+        if let Some((conc, expected)) = policies.concurrency_limit {
+            Self::set_key_concurrency_policy_in_tx(tx, scope, key, conc, expected, actor).await?;
+        }
+        if let Some((networks, expected)) = policies.ip_policy {
+            Self::set_key_ip_policy_in_tx(tx, scope, key, networks, expected, actor).await?;
+        }
+        Ok(())
+    }
+
+    async fn issue_key_with_expiry_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        name: &str,
+        models: &[String],
+        ttl_seconds: Option<i64>,
+    ) -> Result<IssuedKey, StoreError> {
         if name.trim().is_empty()
             || name.len() > 200
             || models.is_empty()
@@ -88,13 +201,11 @@ impl Store {
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         // Issuance and its audit record commit together; bound contention on
         // either write so a failed request never leaves an undisclosed key.
-        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at) VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $7::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $7 * interval '1 second' END)")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64))
-            .execute(&mut *tx).await?;
+            .execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'issued')")
-            .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut **tx).await?;
         Ok(IssuedKey { id, token })
     }
 
@@ -653,6 +764,30 @@ impl Store {
         expected_revision: i64,
         actor: &str,
     ) -> Result<i64, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        let next = Self::update_key_metadata_in_tx(
+            &mut tx,
+            scope,
+            id,
+            name,
+            models,
+            expected_revision,
+            actor,
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(next)
+    }
+
+    pub(crate) async fn update_key_metadata_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        id: Uuid,
+        name: &str,
+        models: &[String],
+        expected_revision: i64,
+        actor: &str,
+    ) -> Result<i64, StoreError> {
         let name = name.trim();
         if name.is_empty()
             || name.len() > 200
@@ -663,10 +798,9 @@ impl Store {
         {
             return Err(StoreError::InvalidKey);
         }
-        let mut tx = self.begin_bounded_recording().await?;
         let row = sqlx::query("SELECT name,allowed_models,revision FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp() FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let revision: i64 = row.get("revision");
         if revision != expected_revision {
             return Err(StoreError::Conflict);
@@ -682,14 +816,13 @@ impl Store {
         .bind(name)
         .bind(models)
         .bind(id)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action,actor,previous_metadata,updated_metadata) VALUES ($1,$2,$3,$4,'updated',$5,$6,$7)")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).bind(actor)
             .bind(serde_json::json!({"name":previous_name,"allowed_models":previous_models,"revision":revision}))
             .bind(serde_json::json!({"name":name,"allowed_models":models,"revision":revision+1}))
-            .execute(&mut *tx).await?;
-        tx.commit().await?;
+            .execute(&mut **tx).await?;
         Ok(revision + 1)
     }
     /// Rotation revokes the old key and creates its replacement atomically.

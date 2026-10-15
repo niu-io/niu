@@ -50,6 +50,27 @@ impl Store {
             return Err(StoreError::InvalidKey);
         }
         let mut tx = self.begin_bounded_recording().await?;
+        let next =
+            Self::set_key_request_rate_policy_in_tx(&mut tx, scope, key, rpm, expected, actor)
+                .await?;
+        tx.commit().await?;
+        Ok(next)
+    }
+
+    pub(crate) async fn set_key_request_rate_policy_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        key: Uuid,
+        rpm: Option<i64>,
+        expected: i64,
+        actor: OperatorAuditActor,
+    ) -> Result<i64, StoreError> {
+        if expected < 0
+            || expected == i64::MAX
+            || rpm.is_some_and(|v| !(0..=1_000_000).contains(&v))
+        {
+            return Err(StoreError::InvalidKey);
+        }
         let (kind, name, actor_id) = match actor {
             OperatorAuditActor::Installation => (
                 "installation",
@@ -58,27 +79,26 @@ impl Store {
             ),
             OperatorAuditActor::Operator(id) => {
                 let name:String=sqlx::query_scalar("SELECT name FROM admin_operators WHERE id=$1 AND organization_id=$2 AND (project_id IS NULL OR project_id=$3) AND role='owner' AND revoked_at IS NULL FOR SHARE")
-                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Unauthorized)?;
+                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Unauthorized)?;
                 ("member", name, Some(id))
             }
         };
         let root:Uuid=sqlx::query_scalar("SELECT root.id FROM api_keys k JOIN api_keys root ON root.id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3 FOR UPDATE OF root")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let current: Option<i64> = sqlx::query_scalar(
             "SELECT revision FROM key_request_rate_limits WHERE spending_root_id=$1",
         )
         .bind(root)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?;
         if current.unwrap_or(0) != expected {
             return Err(StoreError::Conflict);
         }
         let next = expected + 1;
         sqlx::query("INSERT INTO key_request_rate_limits(organization_id,project_id,spending_root_id,requests_per_minute,revision) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,spending_root_id) DO UPDATE SET requests_per_minute=EXCLUDED.requests_per_minute,revision=EXCLUDED.revision")
-            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(rpm).bind(next).execute(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(rpm).bind(next).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_request_rate_history(organization_id,project_id,spending_root_id,revision,requests_per_minute,actor_kind,actor_name,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(next).bind(rpm).bind(kind).bind(name).bind(actor_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(next).bind(rpm).bind(kind).bind(name).bind(actor_id).execute(&mut **tx).await?;
         Ok(next)
     }
 }

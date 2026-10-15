@@ -57,6 +57,26 @@ impl Store {
             return Err(StoreError::InvalidPrice);
         }
         let mut tx = self.begin_bounded_recording().await?;
+        let next = Self::set_customer_key_spending_limit_in_tx(
+            &mut tx, scope, key, currency, amount, expected, actor,
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(next)
+    }
+
+    pub(crate) async fn set_customer_key_spending_limit_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        key: Uuid,
+        currency: &str,
+        amount: Option<i64>,
+        expected: i64,
+        actor: OperatorAuditActor,
+    ) -> Result<i64, StoreError> {
+        if amount.is_some_and(|v| v < 0) || expected < 0 || expected == i64::MAX {
+            return Err(StoreError::InvalidPrice);
+        }
         let (actor_kind, actor_name, actor_id) = match actor {
             OperatorAuditActor::Installation => (
                 "installation",
@@ -65,22 +85,22 @@ impl Store {
             ),
             OperatorAuditActor::Operator(id) => {
                 let name: String=sqlx::query_scalar("SELECT name FROM admin_operators WHERE id=$1 AND role='owner' AND revoked_at IS NULL AND organization_id=$2 AND (project_id IS NULL OR project_id=$3) FOR SHARE")
-                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Unauthorized)?;
+                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Unauthorized)?;
                 ("member", name, Some(id))
             }
         };
         let account: Uuid=sqlx::query_scalar("SELECT a.id FROM customer_balance_accounts a JOIN projects p ON p.organization_id=a.organization_id WHERE a.organization_id=$1 AND a.currency=$2 AND p.id=$3 FOR UPDATE OF a")
-            .bind(scope.organization_id).bind(currency).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(scope.organization_id).bind(currency).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let root: Uuid=sqlx::query_scalar("SELECT spending_root_id FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR SHARE")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let current: Option<i64>=sqlx::query_scalar("SELECT revision FROM customer_key_spending_limits WHERE spending_root_id=$1 AND account_id=$2")
-            .bind(root).bind(account).fetch_optional(&mut *tx).await?;
+            .bind(root).bind(account).fetch_optional(&mut **tx).await?;
         if current.unwrap_or(0) != expected {
             return Err(StoreError::Conflict);
         }
         if let Some(amount) = amount {
             let unattributed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_reservations r JOIN attempts a ON a.id=r.attempt_id WHERE r.account_id=$1 AND a.project_id=$2 AND r.released_at IS NULL AND niu_customer_attempt_spending_root(r.attempt_id) IS NULL)")
-                .bind(account).bind(scope.project_id).fetch_one(&mut *tx).await?;
+                .bind(account).bind(scope.project_id).fetch_one(&mut **tx).await?;
             if unattributed {
                 return Err(StoreError::Unresolved);
             }
@@ -88,7 +108,7 @@ impl Store {
                 .bind(root)
                 .bind(account)
                 .bind(amount)
-                .fetch_one(&mut *tx)
+                .fetch_one(&mut **tx)
                 .await?;
             if exceeds {
                 return Err(StoreError::KeySpendingLimitExceeded);
@@ -97,14 +117,13 @@ impl Store {
         let next = expected + 1;
         if current.is_none() {
             sqlx::query("INSERT INTO customer_key_spending_limits(organization_id,project_id,spending_root_id,account_id,currency,limit_nanos,revision) VALUES($1,$2,$3,$4,$5,$6,$7)")
-                .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(account).bind(currency).bind(amount).bind(next).execute(&mut *tx).await?;
+                .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(account).bind(currency).bind(amount).bind(next).execute(&mut **tx).await?;
         } else {
             sqlx::query("UPDATE customer_key_spending_limits SET limit_nanos=$3,revision=$4 WHERE spending_root_id=$1 AND account_id=$2")
-                .bind(root).bind(account).bind(amount).bind(next).execute(&mut *tx).await?;
+                .bind(root).bind(account).bind(amount).bind(next).execute(&mut **tx).await?;
         }
         sqlx::query("INSERT INTO customer_key_limit_history(organization_id,project_id,spending_root_id,currency,revision,limit_nanos,actor_kind,actor_name,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(currency).bind(next).bind(amount).bind(actor_kind).bind(actor_name).bind(actor_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(currency).bind(next).bind(amount).bind(actor_kind).bind(actor_name).bind(actor_id).execute(&mut **tx).await?;
         Ok(next)
     }
 }

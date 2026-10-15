@@ -546,14 +546,21 @@ pub async fn create_key(
     if has_policies {
         require_owner_for_policy(auth)?;
     }
-    if let Some(ref spending) = input.spending_limit {
+    let spending_limit = if let Some(spending) = input.spending_limit {
         validate_currency(&spending.currency)?;
-        let _ = spending
+        let amount = spending
             .limit_nanos
             .as_deref()
             .map(parse_nonnegative_decimal)
             .transpose()?;
-    }
+        Some(niu_storage::KeySpendingLimitUpdate {
+            currency: spending.currency,
+            amount,
+            expected_revision: 0,
+        })
+    } else {
+        None
+    };
     let mut models = crate::vendors::scoped_models(&state, scope.organization_id).await?;
     models.extend(crate::codex::private_models(&state, scope).await?);
     let all_models = input.allowed_models.len() == 1 && input.allowed_models[0] == "*";
@@ -562,53 +569,29 @@ pub async fn create_key(
     {
         return Err(ApiError::invalid_request("Every granted model must exist"));
     }
+    let actor = super::audit_actor(auth);
+    let policies = niu_storage::UnifiedKeyPoliciesInput {
+        spending_limit,
+        request_rate_limit: input.requests_per_minute.map(|rpm| (Some(rpm), 0)),
+        token_rate_limit: input.tokens_per_minute.map(|tpm| (Some(tpm), 0)),
+        concurrency_limit: input.max_concurrent_requests.map(|conc| (Some(conc), 0)),
+        ip_policy: input.allowed_cidrs.map(|cidrs| {
+            let nets = if cidrs.is_empty() { None } else { Some(cidrs) };
+            (nets, 0)
+        }),
+    };
     let issued = state
         .store
-        .issue_key_with_expiry(scope, &input.name, &input.allowed_models, input.ttl_seconds)
+        .issue_key_with_policies(
+            scope,
+            &input.name,
+            &input.allowed_models,
+            input.ttl_seconds,
+            policies,
+            actor,
+        )
         .await
         .map_err(ApiError::from_store)?;
-    let actor = super::audit_actor(auth);
-    if let Some(spending) = input.spending_limit {
-        let amount = spending
-            .limit_nanos
-            .as_deref()
-            .map(parse_nonnegative_decimal)
-            .transpose()?;
-        state
-            .store
-            .set_customer_key_spending_limit(scope, issued.id, &spending.currency, amount, 0, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(rpm) = input.requests_per_minute {
-        state
-            .store
-            .set_key_request_rate_policy(scope, issued.id, Some(rpm), 0, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(tpm) = input.tokens_per_minute {
-        state
-            .store
-            .set_key_token_rate_policy(scope, issued.id, Some(tpm), 0, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(conc) = input.max_concurrent_requests {
-        state
-            .store
-            .set_key_concurrency_policy(scope, issued.id, Some(conc), 0, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(cidrs) = input.allowed_cidrs {
-        let nets = if cidrs.is_empty() { None } else { Some(cidrs) };
-        state
-            .store
-            .set_key_ip_policy(scope, issued.id, nets, 0, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
     let detail = state
         .store
         .key_detail(scope, issued.id)
@@ -747,12 +730,23 @@ pub async fn update_key(
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
 
-    if input.name.is_some() || input.allowed_models.is_some() {
+    let has_policies = input.spending_limit.is_some()
+        || input.request_rate_limit.is_some()
+        || input.token_rate_limit.is_some()
+        || input.concurrency_limit.is_some()
+        || input.ip_policy.is_some();
+    if has_policies {
+        require_owner_for_policy(auth)?;
+    }
+    let actor = super::audit_actor(auth);
+
+    let metadata_inputs = if input.name.is_some() || input.allowed_models.is_some() {
         let name = input
             .name
             .as_deref()
             .or_else(|| current.get("name").and_then(Value::as_str))
-            .ok_or_else(|| ApiError::invalid_request("Key name is required"))?;
+            .ok_or_else(|| ApiError::invalid_request("Key name is required"))?
+            .to_owned();
         let allowed_models: Vec<String> = match input.allowed_models {
             Some(models) => models,
             None => current
@@ -781,31 +775,12 @@ pub async fn update_key(
             AdminAuthorization::Installation => "installation".to_owned(),
             AdminAuthorization::Operator(operator) => format!("operator:{}", operator.id),
         };
-        state
-            .store
-            .update_key_metadata(
-                scope,
-                key,
-                name,
-                &allowed_models,
-                expected_revision,
-                &actor_label,
-            )
-            .await
-            .map_err(ApiError::from_store)?;
-    }
+        Some((name, allowed_models, expected_revision, actor_label))
+    } else {
+        None
+    };
 
-    let has_policies = input.spending_limit.is_some()
-        || input.request_rate_limit.is_some()
-        || input.token_rate_limit.is_some()
-        || input.concurrency_limit.is_some()
-        || input.ip_policy.is_some();
-    if has_policies {
-        require_owner_for_policy(auth)?;
-    }
-    let actor = super::audit_actor(auth);
-
-    if let Some(spending) = input.spending_limit {
+    let spending_limit = if let Some(spending) = input.spending_limit {
         validate_currency(&spending.currency)?;
         let amount = spending
             .limit_nanos
@@ -827,20 +802,15 @@ pub async fn update_key(
                 .and_then(|rev| rev.parse::<i64>().ok())
                 .unwrap_or(0),
         };
-        state
-            .store
-            .set_customer_key_spending_limit(
-                scope,
-                key,
-                &spending.currency,
-                amount,
-                expected,
-                actor,
-            )
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(rate) = input.request_rate_limit {
+        Some(niu_storage::KeySpendingLimitUpdate {
+            currency: spending.currency,
+            amount,
+            expected_revision: expected,
+        })
+    } else {
+        None
+    };
+    let request_rate_limit = if let Some(rate) = input.request_rate_limit {
         let expected = match rate.expected_revision {
             Some(ref rev) => parse_nonnegative_decimal(rev)?,
             None => current
@@ -849,13 +819,11 @@ pub async fn update_key(
                 .and_then(|rev| rev.parse::<i64>().ok())
                 .unwrap_or(0),
         };
-        state
-            .store
-            .set_key_request_rate_policy(scope, key, rate.requests_per_minute, expected, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(token_rate) = input.token_rate_limit {
+        Some((rate.requests_per_minute, expected))
+    } else {
+        None
+    };
+    let token_rate_limit = if let Some(token_rate) = input.token_rate_limit {
         let expected = match token_rate.expected_revision {
             Some(ref rev) => parse_nonnegative_decimal(rev)?,
             None => current
@@ -864,13 +832,11 @@ pub async fn update_key(
                 .and_then(|rev| rev.parse::<i64>().ok())
                 .unwrap_or(0),
         };
-        state
-            .store
-            .set_key_token_rate_policy(scope, key, token_rate.tokens_per_minute, expected, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(conc) = input.concurrency_limit {
+        Some((token_rate.tokens_per_minute, expected))
+    } else {
+        None
+    };
+    let concurrency_limit = if let Some(conc) = input.concurrency_limit {
         let expected = match conc.expected_revision {
             Some(ref rev) => parse_nonnegative_decimal(rev)?,
             None => current
@@ -879,13 +845,11 @@ pub async fn update_key(
                 .and_then(|rev| rev.parse::<i64>().ok())
                 .unwrap_or(0),
         };
-        state
-            .store
-            .set_key_concurrency_policy(scope, key, conc.max_concurrent_requests, expected, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Some(ip) = input.ip_policy {
+        Some((conc.max_concurrent_requests, expected))
+    } else {
+        None
+    };
+    let ip_policy = if let Some(ip) = input.ip_policy {
         let expected = match ip.expected_revision {
             Some(ref rev) => parse_nonnegative_decimal(rev)?,
             None => current
@@ -898,12 +862,31 @@ pub async fn update_key(
             Some(cidrs) if cidrs.is_empty() => None,
             other => other,
         };
-        state
-            .store
-            .set_key_ip_policy(scope, key, nets, expected, actor)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
+        Some((nets, expected))
+    } else {
+        None
+    };
+
+    let metadata = metadata_inputs.as_ref().map(
+        |(name, allowed_models, expected_revision, actor_label)| niu_storage::KeyMetadataUpdate {
+            name,
+            models: allowed_models,
+            expected_revision: *expected_revision,
+            actor: actor_label,
+        },
+    );
+    let policies = niu_storage::UnifiedKeyPoliciesInput {
+        spending_limit,
+        request_rate_limit,
+        token_rate_limit,
+        concurrency_limit,
+        ip_policy,
+    };
+    state
+        .store
+        .update_key_with_policies(scope, key, metadata, policies, actor)
+        .await
+        .map_err(ApiError::from_store)?;
 
     let updated = state
         .store

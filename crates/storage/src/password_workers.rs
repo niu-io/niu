@@ -6,6 +6,7 @@ use tokio::sync::Semaphore;
 #[derive(Clone)]
 pub struct PasswordWorkers {
     permits: Arc<Semaphore>,
+    queue_permits: Arc<Semaphore>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -29,9 +30,11 @@ impl PasswordWorkers {
         }
         Ok(Self {
             permits: Arc::new(Semaphore::new(limit)),
+            queue_permits: Arc::new(Semaphore::new(limit.saturating_mul(4))),
         })
     }
 
+    #[cfg(test)]
     async fn execute<T: Send + 'static>(
         &self,
         work: impl FnOnce() -> T + Send + 'static,
@@ -54,19 +57,51 @@ impl PasswordWorkers {
         .map_err(|_| PasswordWorkError::Unavailable)
     }
 
+    async fn execute_queued<T: Send + 'static>(
+        &self,
+        wait: std::time::Duration,
+        work: impl FnOnce() -> T + Send + 'static,
+    ) -> Result<T, PasswordWorkError> {
+        let permit = match self.permits.clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(_) => {
+                let _queue_permit = self
+                    .queue_permits
+                    .clone()
+                    .try_acquire_owned()
+                    .map_err(|_| PasswordWorkError::Capacity)?;
+                tokio::time::timeout(wait, self.permits.clone().acquire_owned())
+                    .await
+                    .map_err(|_| PasswordWorkError::Capacity)?
+                    .map_err(|_| PasswordWorkError::Unavailable)?
+            }
+        };
+        tokio::task::spawn_blocking(move || {
+            let result = work();
+            drop(permit);
+            result
+        })
+        .await
+        .map_err(|_| PasswordWorkError::Unavailable)
+    }
+
     pub async fn hash(&self, password: String) -> Result<String, PasswordWorkError> {
-        self.execute(move || crate::passwords::hash_password(&password))
-            .await?
-            .map_err(PasswordWorkError::Credential)
+        self.execute_queued(std::time::Duration::from_millis(500), move || {
+            crate::passwords::hash_password(&password)
+        })
+        .await?
+        .map_err(PasswordWorkError::Credential)
     }
 
     pub async fn hash_development_seed(
         &self,
         password: String,
     ) -> Result<String, PasswordWorkError> {
-        self.execute(move || crate::passwords::hash_development_password(&password))
-            .await?
-            .map_err(PasswordWorkError::Credential)
+        self.execute_queued(std::time::Duration::from_millis(500), move || {
+            crate::passwords::hash_development_password(&password)
+        })
+        .await?
+        .map_err(PasswordWorkError::Credential)
     }
 
     pub async fn verify(
@@ -74,7 +109,10 @@ impl PasswordWorkers {
         credential: PasswordLoginCredential,
         password: String,
     ) -> Result<Option<VerifiedPasswordLogin>, PasswordWorkError> {
-        self.execute(move || credential.verify(&password)).await
+        self.execute_queued(std::time::Duration::from_millis(500), move || {
+            credential.verify(&password)
+        })
+        .await
     }
 
     /// Used for the same bounded verification work when an identity is unknown.
@@ -83,8 +121,10 @@ impl PasswordWorkers {
         encoded: String,
         password: String,
     ) -> Result<bool, PasswordWorkError> {
-        self.execute(move || crate::passwords::verify_password(&password, &encoded))
-            .await
+        self.execute_queued(std::time::Duration::from_millis(250), move || {
+            crate::passwords::verify_password(&password, &encoded)
+        })
+        .await
     }
 }
 

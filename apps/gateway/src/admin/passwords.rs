@@ -16,6 +16,7 @@ use uuid::Uuid;
 pub(crate) struct Runtime {
     origin: String,
     workers: PasswordWorkers,
+    unknown_identity_permits: std::sync::Arc<tokio::sync::Semaphore>,
     dummy_hash: String,
     local_development: bool,
 }
@@ -56,6 +57,7 @@ impl Runtime {
         Ok(Self {
             origin: url.origin().ascii_serialization(),
             workers,
+            unknown_identity_permits: std::sync::Arc::new(tokio::sync::Semaphore::new(2)),
             dummy_hash,
             local_development: false,
         })
@@ -79,6 +81,7 @@ impl Runtime {
         Ok(Self {
             origin: url.origin().ascii_serialization(),
             workers,
+            unknown_identity_permits: std::sync::Arc::new(tokio::sync::Semaphore::new(2)),
             dummy_hash,
             local_development: true,
         })
@@ -305,6 +308,13 @@ pub async fn login(
             .await
             .map_err(worker_error)?
     } else {
+        let _unknown_permit = tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            runtime.unknown_identity_permits.clone().acquire_owned(),
+        )
+        .await
+        .map_err(|_| ApiError::sign_in_limited())?
+        .map_err(|_| ApiError::storage_unavailable())?;
         runtime
             .workers
             .verify_encoded(runtime.dummy_hash.clone(), input.password)
@@ -341,20 +351,22 @@ pub async fn set_password(
     if input.email.len() > 254 {
         return Err(ApiError::invalid_request("Invalid password configuration"));
     }
-    let hash =
-        if input.email.trim().eq_ignore_ascii_case("demo@niu.io") && input.password == "Hello123" {
-            runtime
-                .workers
-                .hash_development_seed(input.password)
-                .await
-                .map_err(worker_error)?
-        } else {
-            runtime
-                .workers
-                .hash(input.password)
-                .await
-                .map_err(worker_error)?
-        };
+    let hash = if runtime.is_local()
+        && input.email.trim().eq_ignore_ascii_case("demo@niu.io")
+        && input.password == "Hello123"
+    {
+        runtime
+            .workers
+            .hash_development_seed(input.password)
+            .await
+            .map_err(worker_error)?
+    } else {
+        runtime
+            .workers
+            .hash(input.password)
+            .await
+            .map_err(worker_error)?
+    };
     let revision = state
         .store
         .set_member_password(

@@ -55,10 +55,22 @@ impl Store {
         expected: i64,
         actor: OperatorAuditActor,
     ) -> Result<i64, StoreError> {
+        let networks = Self::validate_ip_networks(networks, expected)?;
+        let mut tx = self.begin_bounded_recording().await?;
+        let next =
+            Self::set_key_ip_policy_in_tx(&mut tx, scope, key, networks, expected, actor).await?;
+        tx.commit().await?;
+        Ok(next)
+    }
+
+    pub(crate) fn validate_ip_networks(
+        networks: Option<Vec<String>>,
+        expected: i64,
+    ) -> Result<Option<Vec<String>>, StoreError> {
         if expected < 0 || expected == i64::MAX || networks.as_ref().is_some_and(|n| n.len() > 64) {
             return Err(StoreError::InvalidKey);
         }
-        let networks = networks
+        networks
             .map(|values| {
                 values
                     .into_iter()
@@ -75,8 +87,18 @@ impl Store {
                     })
                     .collect::<Result<Vec<_>, StoreError>>()
             })
-            .transpose()?;
-        let mut tx = self.begin_bounded_recording().await?;
+            .transpose()
+    }
+
+    pub(crate) async fn set_key_ip_policy_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        key: Uuid,
+        networks: Option<Vec<String>>,
+        expected: i64,
+        actor: OperatorAuditActor,
+    ) -> Result<i64, StoreError> {
+        let networks = Self::validate_ip_networks(networks, expected)?;
         let (kind, name, actor_id) = match actor {
             OperatorAuditActor::Installation => (
                 "installation",
@@ -85,26 +107,25 @@ impl Store {
             ),
             OperatorAuditActor::Operator(id) => {
                 let name:String=sqlx::query_scalar("SELECT name FROM admin_operators WHERE id=$1 AND organization_id=$2 AND (project_id IS NULL OR project_id=$3) AND role='owner' AND revoked_at IS NULL FOR SHARE")
-                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Unauthorized)?;
+                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Unauthorized)?;
                 ("member", name, Some(id))
             }
         };
         let root:Uuid=sqlx::query_scalar("SELECT root.id FROM api_keys k JOIN api_keys root ON root.id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3 FOR UPDATE OF root")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let current: Option<i64> =
             sqlx::query_scalar("SELECT revision FROM key_ip_policies WHERE spending_root_id=$1")
                 .bind(root)
-                .fetch_optional(&mut *tx)
+                .fetch_optional(&mut **tx)
                 .await?;
         if current.unwrap_or(0) != expected {
             return Err(StoreError::Conflict);
         }
         let next = expected + 1;
         sqlx::query("INSERT INTO key_ip_policies(organization_id,project_id,spending_root_id,allowed_cidrs,revision) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,spending_root_id) DO UPDATE SET allowed_cidrs=EXCLUDED.allowed_cidrs,revision=EXCLUDED.revision")
-            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(&networks).bind(next).execute(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(&networks).bind(next).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_ip_policy_history(organization_id,project_id,spending_root_id,revision,allowed_cidrs,actor_kind,actor_name,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(next).bind(networks).bind(kind).bind(name).bind(actor_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(next).bind(networks).bind(kind).bind(name).bind(actor_id).execute(&mut **tx).await?;
         Ok(next)
     }
 }
