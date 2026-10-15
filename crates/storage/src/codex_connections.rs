@@ -95,7 +95,7 @@ impl Store {
         {
             return Err(StoreError::InvalidAccount);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         if replacing {
             let changed=sqlx::query("UPDATE codex_connections SET name=$4,credential_ciphertext=$5,models=$6,cooldown_until=NULL WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 AND subject=$7 AND client_id=$8 AND lease_owner IS NULL")
                 .bind(scope.organization_id).bind(scope.project_id).bind(input.id).bind(input.name).bind(input.credential_ciphertext).bind(input.models).bind(input.subject).bind(input.client_id).execute(&mut *tx).await?.rows_affected();
@@ -122,7 +122,7 @@ impl Store {
         model: &str,
         owner: Uuid,
     ) -> Result<CodexConnectionSecret, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let secret: CodexConnectionSecret=sqlx::query_as("SELECT c.account_id,c.subject,c.client_id,c.credential_ciphertext FROM codex_connections c JOIN supplier_accounts a ON a.id=c.account_id WHERE c.organization_id=$1 AND c.project_id=$2 AND a.health IN ('ready','cooldown') AND a.refresh_owner IS NULL AND c.lease_owner IS NULL AND (c.cooldown_until IS NULL OR c.cooldown_until<=clock_timestamp()) AND c.models @> $3 ORDER BY c.last_used_at NULLS FIRST,c.account_id FOR UPDATE OF c,a SKIP LOCKED LIMIT 1")
             .bind(scope.organization_id).bind(scope.project_id).bind(serde_json::json!([{ "slug":model }])).fetch_optional(&mut *tx).await?.ok_or(StoreError::AccountUnavailable)?;
         sqlx::query("UPDATE codex_connections SET lease_owner=$2,last_used_at=clock_timestamp() WHERE account_id=$1")
@@ -138,7 +138,7 @@ impl Store {
         owner: Uuid,
         ciphertext: &[u8],
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let changed=sqlx::query("UPDATE codex_connections SET credential_ciphertext=$5 WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 AND lease_owner=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(owner).bind(ciphertext).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {
@@ -161,7 +161,7 @@ impl Store {
         owner: Uuid,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let revision:i64=sqlx::query_scalar("SELECT a.credential_revision FROM codex_connections c JOIN supplier_accounts a ON a.id=c.account_id WHERE c.organization_id=$1 AND c.project_id=$2 AND c.account_id=$3 AND c.lease_owner=$4 AND a.health IN ('ready','cooldown') AND a.refresh_owner IS NULL AND (c.cooldown_until IS NULL OR c.cooldown_until<=clock_timestamp()) FOR UPDATE OF c,a")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(owner).fetch_optional(&mut *tx).await?.ok_or(StoreError::AccountUnavailable)?;
         sqlx::query("INSERT INTO account_assignments(attempt_id,organization_id,project_id,account_id,credential_revision) VALUES($1,$2,$3,$4,$5)")
@@ -183,7 +183,7 @@ impl Store {
         {
             return Err(StoreError::InvalidAccount);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let changed=sqlx::query("UPDATE codex_connections SET lease_owner=NULL,cooldown_until=CASE WHEN $5>0 THEN clock_timestamp()+make_interval(secs=>$5) ELSE NULL END WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 AND lease_owner=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(owner).bind(cooldown_seconds).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {

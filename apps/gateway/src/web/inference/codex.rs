@@ -15,6 +15,53 @@ pub(super) enum Protocol {
     Responses,
 }
 
+struct PreDispatchCodexLeaseGuard {
+    store: niu_storage::Store,
+    diagnostic_writes: tokio_util::task::TaskTracker,
+    scope: niu_storage::TenantScope,
+    account_id: Uuid,
+    owner: Uuid,
+    armed: bool,
+}
+
+impl Drop for PreDispatchCodexLeaseGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        let store = self.store.clone();
+        let scope = self.scope;
+        let account_id = self.account_id;
+        let owner = self.owner;
+        self.diagnostic_writes.spawn(async move {
+            let _ = store
+                .finish_codex_lease(scope, account_id, owner, "ready", 0)
+                .await;
+        });
+    }
+}
+
+async fn finish_lease_durable(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    account_id: Uuid,
+    owner: Uuid,
+    health: &'static str,
+    cooldown: i32,
+) -> Result<(), ApiError> {
+    let store = state.store.clone();
+    state
+        .diagnostic_writes
+        .spawn(async move {
+            store
+                .finish_codex_lease(scope, account_id, owner, health, cooldown)
+                .await
+        })
+        .await
+        .map_err(|_| ApiError::storage_unavailable())?
+        .map_err(ApiError::from_store)
+}
+
 pub(super) async fn infer(
     state: AppState,
     headers: HeaderMap,
@@ -68,15 +115,27 @@ pub(super) async fn infer(
     let credentials = match codex::decrypt(&state, &secret) {
         Ok(credentials) => credentials,
         Err(error) => {
-            state
-                .store
-                .finish_codex_lease(scope, secret.account_id, owner, "authentication_expired", 0)
-                .await
-                .map_err(ApiError::from_store)?;
+            finish_lease_durable(
+                &state,
+                scope,
+                secret.account_id,
+                owner,
+                "authentication_expired",
+                0,
+            )
+            .await?;
             return Err(error);
         }
     };
     let credentials = codex::refresh(&state, scope, &secret, owner, credentials).await?;
+    let mut lease_guard = PreDispatchCodexLeaseGuard {
+        store: state.store.clone(),
+        diagnostic_writes: state.diagnostic_writes.clone(),
+        scope,
+        account_id: secret.account_id,
+        owner,
+        armed: true,
+    };
     let dispatch = match begin_attempt(
         &state,
         &principal,
@@ -98,11 +157,8 @@ pub(super) async fn infer(
         Ok(dispatch) => dispatch,
         Err(error) => {
             // Admission failed before any upstream execution was initiated.
-            state
-                .store
-                .finish_codex_lease(scope, secret.account_id, owner, "ready", 0)
-                .await
-                .map_err(ApiError::from_store)?;
+            lease_guard.armed = false;
+            finish_lease_durable(&state, scope, secret.account_id, owner, "ready", 0).await?;
             return Err(error);
         }
     };
@@ -114,13 +170,11 @@ pub(super) async fn infer(
         .bind_codex_attempt(scope, secret.account_id, owner, dispatch.attempt)
         .await
     {
-        state
-            .store
-            .finish_codex_lease(scope, secret.account_id, owner, "ready", 0)
-            .await
-            .map_err(ApiError::from_store)?;
+        lease_guard.armed = false;
+        finish_lease_durable(&state, scope, secret.account_id, owner, "ready", 0).await?;
         return Ok(finalize_response(&state, dispatch, Err(ApiError::from_store(error))).await);
     }
+    lease_guard.armed = false;
     let usage_attempt = state.usage.begin();
     let result=async {
         // No retries or fallback after dispatch: completion may be uncertain.
@@ -128,14 +182,14 @@ pub(super) async fn infer(
         if upstream.status().is_client_error() {
             let health=if upstream.status()==reqwest::StatusCode::UNAUTHORIZED || upstream.status()==reqwest::StatusCode::FORBIDDEN {"authentication_expired"} else if upstream.status()==reqwest::StatusCode::TOO_MANY_REQUESTS {"cooldown"} else {"ready"};
             let cooldown=if health=="cooldown" {upstream.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<i32>().ok()).unwrap_or(60).clamp(1,86400)} else {0};
-            state.store.finish_codex_lease(scope,secret.account_id,owner,health,cooldown).await.map_err(ApiError::from_store)?;
+            finish_lease_durable(&state,scope,secret.account_id,owner,health,cooldown).await?;
             return Err(ApiError::upstream());
         }
         if !upstream.status().is_success() || !upstream.headers().get("content-type").and_then(|v| v.to_str().ok()).is_some_and(|v| v.starts_with("text/event-stream")) {return Err(ApiError::upstream());}
         let terminal=read_terminal(upstream).await?;
         // A well-formed terminal event proves provider execution ended.
         let (health,cooldown)=if terminal.limit {("cooldown",60)} else {("ready",0)};
-        state.store.finish_codex_lease(scope,secret.account_id,owner,health,cooldown).await.map_err(ApiError::from_store)?;
+        finish_lease_durable(&state,scope,secret.account_id,owner,health,cooldown).await?;
         let mut response=terminal.response.ok_or_else(ApiError::upstream)?;
         if !super::responses::valid_responses_response(&response) || response["status"]!="completed" {return Err(ApiError::upstream());}
         let provider_model=provider_reported_model(&response);
