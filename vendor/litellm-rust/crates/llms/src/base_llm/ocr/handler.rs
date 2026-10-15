@@ -250,6 +250,7 @@ pub async fn transform_request_body<C: BaseOcrConfig, B: Serialize>(
         }
     }
     config.validate_request_body(&composed)?;
+    let composed_document = composed.get("document").cloned();
     let changed = hooks
         .before_send(wire_request(url, headers, composed))
         .await?;
@@ -258,7 +259,9 @@ pub async fn transform_request_body<C: BaseOcrConfig, B: Serialize>(
             path: "guardrail.body".into(),
         });
     }
-    config.validate_request_body(&changed.body)?;
+    if changed.body.get("document") != composed_document.as_ref() {
+        config.validate_request_body(&changed.body)?;
+    }
     let timeout = Some(request.connection.timeout);
     Ok(match signer {
         Some(signer) => OutboundRequest::signed_json(

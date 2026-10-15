@@ -74,12 +74,16 @@ pub async fn inline_remote_document(
         )
         .await
         .map_err(map_media_error)?;
+    if downloaded.bytes.len() > OCR_INLINE_MAX_BYTES {
+        return Err(Error::InlineDocumentTooLarge);
+    }
+    let header_probe = format!("data:{};base64,", downloaded.content_type);
+    InlineDocument::parse(&header_probe)?.ok_or(Error::InvalidDataUri)?;
     let result = document.with_source(format!(
         "data:{};base64,{}",
         downloaded.content_type,
         STANDARD.encode(downloaded.bytes)
     ));
-    validate_inline_document(&result)?;
     Ok(result)
 }
 

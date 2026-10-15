@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::{
     base_llm::ocr::{
-        document::{inline_remote_document, validate_inline_document},
+        document::{InlineDocument, inline_remote_document},
         error::Error,
         handler::OcrClient,
         transformation::{
@@ -94,7 +94,17 @@ impl BaseOcrConfig for AzureAICohereParseConfig {
         headers: &[(String, String)],
         context: OcrRequestContext<'_>,
     ) -> Result<CohereRequest, Error> {
-        validate_document(&document)?;
+        let OcrDocument::ImageUrl { image_url, .. } = &document else {
+            return Err(Error::CohereImageOnly);
+        };
+        if image_url.is_empty() {
+            return Err(Error::CohereImageOnly);
+        }
+        if let Some(inline) = crate::base_llm::ocr::document::InlineDocument::parse(image_url)?
+            && !inline.mime_type().type_.eq_ignore_ascii_case("image")
+        {
+            return Err(Error::CohereImageOnly);
+        }
         let document = inline_remote_document(
             context.client.document_fetcher(),
             document,
@@ -116,7 +126,10 @@ impl BaseOcrConfig for AzureAICohereParseConfig {
     fn validate_request_body(&self, body: &Value) -> Result<(), Error> {
         let document = crate::base_llm::ocr::handler::body_document(body)?;
         validate_document(&document)?;
-        validate_inline_document(&document)
+        if crate::base_llm::ocr::document::InlineDocument::parse(document.source())?.is_none() {
+            return Err(Error::InvalidDataUri);
+        }
+        Ok(())
     }
 }
 
