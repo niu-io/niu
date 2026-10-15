@@ -178,55 +178,74 @@ impl Store {
         let RetailSchedule::Text(ref result) = selected.schedule else {
             return Err(StoreError::InvalidPrice);
         };
-        // A scoped tariff hosts immutable materializations but its legacy
-        // current revision remains unchanged, including an initially null head.
-        sqlx::query("INSERT INTO customer_tariffs(id,organization_id,project_id,model_alias) VALUES($1,$2,$3,$4) ON CONFLICT(organization_id,project_id,model_alias) DO NOTHING")
-            .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(alias)
-            .execute(&mut **tx).await?;
-        let tariff:Uuid=sqlx::query_scalar("SELECT id FROM customer_tariffs WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3 FOR NO KEY UPDATE")
-            .bind(scope.organization_id).bind(scope.project_id).bind(alias).fetch_one(&mut **tx).await?;
-        let baseline_document: Value = sqlx::query_scalar(
-            "SELECT schedule FROM platform_retail_standard_revisions WHERE head_id=$1 AND id=$2",
+        let existing_revision: Option<Uuid> = sqlx::query_scalar(
+            "SELECT m.revision_id FROM retail_text_materializations m \
+             JOIN customer_tariffs t ON t.id=m.tariff_id \
+             WHERE t.organization_id=$1 AND t.project_id=$2 AND t.model_alias=$3 \
+             AND m.price_id=$4 AND m.standard_revision=$5 \
+             AND m.promotion_revision IS NOT DISTINCT FROM $6",
         )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(alias)
         .bind(head)
         .bind(selected.baseline_revision)
-        .fetch_one(&mut **tx)
+        .bind(selected.promotion_revision)
+        .fetch_optional(&mut **tx)
         .await?;
-        let baseline: RetailSchedule =
-            serde_json::from_value(baseline_document).map_err(|_| StoreError::InvalidPrice)?;
-        let RetailSchedule::Text(baseline) = baseline else {
-            return Err(StoreError::InvalidPrice);
-        };
-        let baseline_revision = materialize(
-            tx,
-            Materialization {
-                tariff,
-                head,
-                standard: selected.baseline_revision,
-                promotion: None,
-                currency: &selected.currency,
-                schedule: &baseline,
-                baseline: None,
-            },
-        )
-        .await?;
-        let revision = if let Some(promotion) = selected.promotion_revision {
-            result.validate_discount_from(&baseline)?;
-            materialize(
+        let revision = if let Some(revision) = existing_revision {
+            revision
+        } else {
+            // A scoped tariff hosts immutable materializations but its legacy
+            // current revision remains unchanged, including an initially null head.
+            sqlx::query("INSERT INTO customer_tariffs(id,organization_id,project_id,model_alias) VALUES($1,$2,$3,$4) ON CONFLICT(organization_id,project_id,model_alias) DO NOTHING")
+                .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(alias)
+                .execute(&mut **tx).await?;
+            let tariff:Uuid=sqlx::query_scalar("SELECT id FROM customer_tariffs WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3 FOR NO KEY UPDATE")
+                .bind(scope.organization_id).bind(scope.project_id).bind(alias).fetch_one(&mut **tx).await?;
+            let baseline_document: Value = sqlx::query_scalar(
+                "SELECT schedule FROM platform_retail_standard_revisions WHERE head_id=$1 AND id=$2",
+            )
+            .bind(head)
+            .bind(selected.baseline_revision)
+            .fetch_one(&mut **tx)
+            .await?;
+            let baseline: RetailSchedule =
+                serde_json::from_value(baseline_document).map_err(|_| StoreError::InvalidPrice)?;
+            let RetailSchedule::Text(baseline) = baseline else {
+                return Err(StoreError::InvalidPrice);
+            };
+            let baseline_revision = materialize(
                 tx,
                 Materialization {
                     tariff,
                     head,
                     standard: selected.baseline_revision,
-                    promotion: Some(promotion),
+                    promotion: None,
                     currency: &selected.currency,
-                    schedule: result,
-                    baseline: Some(baseline_revision),
+                    schedule: &baseline,
+                    baseline: None,
                 },
             )
-            .await?
-        } else {
-            baseline_revision
+            .await?;
+            if let Some(promotion) = selected.promotion_revision {
+                result.validate_discount_from(&baseline)?;
+                materialize(
+                    tx,
+                    Materialization {
+                        tariff,
+                        head,
+                        standard: selected.baseline_revision,
+                        promotion: Some(promotion),
+                        currency: &selected.currency,
+                        schedule: result,
+                        baseline: Some(baseline_revision),
+                    },
+                )
+                .await?
+            } else {
+                baseline_revision
+            }
         };
         bind_revision(tx, attempt, revision).await?;
         let selected_at = selected
