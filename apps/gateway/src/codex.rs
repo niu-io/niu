@@ -486,6 +486,55 @@ pub(crate) fn valid_slug(slug: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
 }
 
+fn extract_token_kid(token: &str) -> Result<String, ApiError> {
+    let parts: Vec<_> = token.split('.').collect();
+    if parts.len() != 3 || token.len() > 32 * 1024 {
+        return Err(ApiError::unauthorized());
+    }
+    let header_bytes = URL_SAFE_NO_PAD
+        .decode(parts[0])
+        .map_err(|_| ApiError::unauthorized())?;
+    let header: Value =
+        serde_json::from_slice(&header_bytes).map_err(|_| ApiError::unauthorized())?;
+    if header["alg"] != "RS256" {
+        return Err(ApiError::unauthorized());
+    }
+    header
+        .get("kid")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .ok_or_else(ApiError::unauthorized)
+}
+
+fn jwks_contains_kid(jwks: &Value, kid: &str) -> bool {
+    jwks.get("keys")
+        .and_then(Value::as_array)
+        .is_some_and(|keys| {
+            keys.iter().any(|k| {
+                k["kid"] == kid
+                    && k["kty"] == "RSA"
+                    && k.get("use").is_none_or(|v| v == "sig")
+                    && k.get("alg").is_none_or(|v| v == "RS256")
+            })
+        })
+}
+
+async fn verify_identity_async(
+    token: &str,
+    jwks: &Value,
+    audience: &str,
+    nonce: &str,
+) -> Result<Value, ApiError> {
+    let token = token.to_owned();
+    let jwks = jwks.clone();
+    let audience = audience.to_owned();
+    let nonce = nonce.to_owned();
+    tokio::task::spawn_blocking(move || verify_identity(&token, &jwks, &audience, &nonce))
+        .await
+        .map_err(|_| ApiError::unavailable())?
+}
+
 async fn validate_identity(
     state: &AppState,
     client: &reqwest::Client,
@@ -493,20 +542,21 @@ async fn validate_identity(
     audience: &str,
     nonce: &str,
 ) -> Result<Value, ApiError> {
+    let kid = extract_token_kid(token)?;
     let base = auth_base(state);
     let cached_jwks = {
         let guard = state.codex.jwks_cache.lock().await;
         guard
             .as_ref()
-            .filter(|(cached_base, fetched_at, _)| {
-                cached_base == base && fetched_at.elapsed() < Duration::from_secs(300)
+            .filter(|(cached_base, fetched_at, jwks)| {
+                cached_base == base
+                    && fetched_at.elapsed() < Duration::from_secs(300)
+                    && jwks_contains_kid(jwks, &kid)
             })
             .map(|(_, _, jwks)| jwks.clone())
     };
-    if let Some(jwks) = cached_jwks
-        && let Ok(claims) = verify_identity(token, &jwks, audience, nonce)
-    {
-        return Ok(claims);
+    if let Some(jwks) = cached_jwks {
+        return verify_identity_async(token, &jwks, audience, nonce).await;
     }
     let discovery = client
         .get(format!("{base}/.well-known/openid-configuration"))
@@ -537,7 +587,7 @@ async fn validate_identity(
         return Err(ApiError::upstream());
     }
     let jwks = bounded_json(response).await?;
-    let claims = verify_identity(token, &jwks, audience, nonce)?;
+    let claims = verify_identity_async(token, &jwks, audience, nonce).await?;
     *state.codex.jwks_cache.lock().await = Some((base.to_owned(), Instant::now(), jwks));
     Ok(claims)
 }
