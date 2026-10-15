@@ -371,6 +371,10 @@ struct StreamCompletion {
 
 impl StreamAttempt {
     /// Protocol inspection supplies evidence; this boundary owns durable completion.
+    /// Spawning onto `diagnostic_writes` before awaiting ensures that if the
+    /// downstream HTTP client disconnects while completion is being persisted
+    /// (after `PendingStreamAttempt::take()` has already consumed the drop guard),
+    /// the database write runs to completion instead of being cancelled mid-flight.
     async fn complete(self, evidence: &ChatEvidence) {
         let observation = StreamCompletion {
             usage: evidence.usage(),
@@ -382,7 +386,8 @@ impl StreamAttempt {
                 .as_ref()
                 .is_some_and(|output| !output.valid()),
         };
-        self.complete_observation(observation).await;
+        let writes = self.diagnostic_writes.clone();
+        let _ = writes.spawn(self.complete_observation(observation)).await;
     }
 
     async fn complete_observation(self, observation: StreamCompletion) {
@@ -467,7 +472,7 @@ impl Drop for PendingStreamAttempt {
     fn drop(&mut self) {
         if let Some(context) = self.take() {
             let writes = context.diagnostic_writes.clone();
-            writes.spawn(persist_stream_failure(
+            writes.spawn(persist_stream_failure_inner(
                 context,
                 niu_storage::RequestFailureKind::ResponseStreamCancelled,
             ));
@@ -476,6 +481,14 @@ impl Drop for PendingStreamAttempt {
 }
 
 async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::RequestFailureKind) {
+    let writes = context.diagnostic_writes.clone();
+    let _ = writes.spawn(persist_stream_failure_inner(context, kind)).await;
+}
+
+async fn persist_stream_failure_inner(
+    context: StreamAttempt,
+    kind: niu_storage::RequestFailureKind,
+) {
     // This helper runs only after upstream response headers were accepted.
     // A body timeout is therefore a request-phase failure, never a connect one.
     let transport_phase = (kind == niu_storage::RequestFailureKind::UpstreamTimeout)
