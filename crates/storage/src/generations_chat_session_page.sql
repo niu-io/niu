@@ -1,8 +1,9 @@
 -- Stable creation timestamp/UUID cursor; archive changes do not invalidate it.
 SELECT jsonb_build_object(
     'id', id, 'workspace_id', project_id, 'owner', owner, 'category', 'chat',
-    'title', CASE WHEN jsonb_typeof(payload->'title')='string'
-                      AND btrim(payload->>'title')<>'' THEN payload->>'title' ELSE NULL END,
+    'title', CASE WHEN payload_bytes IS NOT NULL THEN title
+                  WHEN jsonb_typeof(payload->'title')='string'
+                       AND btrim(payload->>'title')<>'' THEN payload->>'title' ELSE NULL END,
     'revision', write_revision::text, 'archived', archived,
     'created_at', created_at, 'updated_at', updated_at
 )

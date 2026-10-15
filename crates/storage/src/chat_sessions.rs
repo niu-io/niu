@@ -81,7 +81,7 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let metadata: Option<(bool, i64, i64, bool)> = sqlx::query_as("SELECT archived,octet_length(payload::text)::bigint,write_revision,guarded_writes FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+        let metadata: Option<(bool, i64, i64, bool)> = sqlx::query_as("SELECT archived,COALESCE(payload_bytes,octet_length(payload::text)::bigint),write_revision,guarded_writes FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
             .fetch_optional(&mut *snapshot).await?;
         let Some((archived, bytes, revision, guarded)) = metadata else {
@@ -140,7 +140,7 @@ impl Store {
         archived: bool,
     ) -> Result<Vec<Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let rows: Vec<(Uuid, i64)> = sqlx::query_as("SELECT id,octet_length(payload::text)::bigint FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 ORDER BY updated_at DESC,id DESC LIMIT 100")
+        let rows: Vec<(Uuid, i64)> = sqlx::query_as("SELECT id,COALESCE(payload_bytes,octet_length(payload::text)::bigint) FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 ORDER BY updated_at DESC,id DESC LIMIT 100")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived)
             .fetch_all(&mut *snapshot).await?;
         if rows.iter().map(|(_, bytes)| bytes).sum::<i64>() > CHAT_HISTORY_PAYLOAD_BYTES {
@@ -197,7 +197,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT id,encode(sha256(convert_to(extract(epoch FROM updated_at)::text,'UTF8')),'hex') AS revision,octet_length(payload::text)::bigint AS bytes FROM chat_sessions WHERE organization_id=",
+            "SELECT id,encode(sha256(convert_to(extract(epoch FROM updated_at)::text,'UTF8')),'hex') AS revision,COALESCE(payload_bytes,octet_length(payload::text)::bigint) AS bytes FROM chat_sessions WHERE organization_id=",
         );
         query
             .push_bind(scope.organization_id)
@@ -271,8 +271,24 @@ impl Store {
     pub(crate) async fn hydrate_chat_charges(
         connection: &mut sqlx::PgConnection,
         scope: TenantScope,
-        mut sessions: Vec<Value>,
+        sessions: Vec<Value>,
     ) -> Result<Vec<Value>, StoreError> {
+        let (sessions, _) =
+            Self::hydrate_chat_charges_and_executions(connection, scope, sessions).await?;
+        Ok(sessions)
+    }
+
+    pub(crate) async fn hydrate_chat_charges_and_executions(
+        connection: &mut sqlx::PgConnection,
+        scope: TenantScope,
+        mut sessions: Vec<Value>,
+    ) -> Result<
+        (
+            Vec<Value>,
+            std::collections::HashMap<(Uuid, String), String>,
+        ),
+        StoreError,
+    > {
         let mut attempts = std::collections::HashSet::new();
         for session in &mut sessions {
             visit_results(session, |result| {
@@ -299,16 +315,22 @@ impl Store {
             });
         }
         if attempts.is_empty() {
-            return Ok(sessions);
+            return Ok((sessions, std::collections::HashMap::new()));
         }
-        let charges: Vec<(Uuid, String, Value)> = sqlx::query_as(
-            "SELECT a.id,o.model_alias,jsonb_build_object('customerChargeNanos',c.amount_nanos::text,'customerChargeCurrency',c.currency,'customerChargeStatus',CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' WHEN EXISTS(SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' WHEN EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id) THEN 'pending' ELSE 'unpriced' END) FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id LEFT JOIN customer_charges c ON c.attempt_id=a.id AND c.organization_id=a.organization_id AND c.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempts.into_iter().collect::<Vec<_>>())
-            .fetch_all(&mut *connection).await?;
-        let charges: std::collections::HashMap<_, _> = charges
-            .into_iter()
-            .map(|(id, model, value)| ((id, model), value))
-            .collect();
+        let rows: Vec<(Uuid, String, String, Value)> = sqlx::query_as(
+            "SELECT a.id,o.model_alias,a.execution,jsonb_build_object('customerChargeNanos',c.amount_nanos::text,'customerChargeCurrency',c.currency,'customerChargeStatus',CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' WHEN EXISTS(SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' WHEN EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id) THEN 'pending' ELSE 'unpriced' END) FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id LEFT JOIN customer_charges c ON c.attempt_id=a.id AND c.organization_id=a.organization_id AND c.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)"
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempts.into_iter().collect::<Vec<_>>())
+        .fetch_all(&mut *connection)
+        .await?;
+        let mut charges = std::collections::HashMap::with_capacity(rows.len());
+        let mut executions = std::collections::HashMap::with_capacity(rows.len());
+        for (id, model, execution, value) in rows {
+            executions.insert((id, model.clone()), execution);
+            charges.insert((id, model), value);
+        }
         for session in &mut sessions {
             visit_results(session, |result| {
                 let id = result
@@ -326,7 +348,7 @@ impl Store {
                 }
             });
         }
-        Ok(sessions)
+        Ok((sessions, executions))
     }
 
     pub async fn save_chat_session(

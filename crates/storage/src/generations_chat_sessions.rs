@@ -231,40 +231,12 @@ impl Store {
             .as_bool()
             .ok_or(StoreError::InvalidGenerationsInput)?;
         let payloads = Self::load_chat_payloads(&mut tx, scope, owner, archived, vec![id]).await?;
-        let mut payloads = Self::hydrate_chat_charges(&mut tx, scope, payloads).await?;
+        let (mut payloads, attempts) =
+            Self::hydrate_chat_charges_and_executions(&mut tx, scope, payloads).await?;
         let Some(payload) = payloads.pop() else {
             return Err(StoreError::Conflict);
         };
-        let saved_refs: Vec<&Value> = match payload.get("turns").and_then(Value::as_array) {
-            Some(turns) => turns.iter().collect(),
-            None => vec![&payload],
-        };
-        let attempt_ids: Vec<Uuid> = saved_refs
-            .iter()
-            .flat_map(|turn| {
-                turn.get("results")
-                    .and_then(Value::as_array)
-                    .into_iter()
-                    .flatten()
-            })
-            .filter_map(|branch| {
-                branch
-                    .get("attemptId")
-                    .and_then(Value::as_str)
-                    .and_then(|value| Uuid::parse_str(value).ok())
-            })
-            .collect();
-        let attempts:Vec<(Uuid,String,String)>=if attempt_ids.is_empty(){
-            Vec::new()
-        }else{
-            sqlx::query_as("SELECT a.id,o.model_alias,a.execution FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)")
-                .bind(scope.organization_id).bind(scope.project_id).bind(attempt_ids).fetch_all(&mut *tx).await?
-        };
         tx.commit().await?;
-        let attempts: HashMap<_, _> = attempts
-            .into_iter()
-            .map(|(id, model, execution)| ((id, model), execution))
-            .collect();
         let projected = if bytes >= 64 * 1024 {
             let owner = owner.to_owned();
             tokio::task::spawn_blocking(move || {
