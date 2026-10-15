@@ -209,13 +209,8 @@ impl Store {
             .bind(owner).bind(connection).bind(key).fetch_optional(&mut *tx).await?;
         let mut id = Uuid::new_v4();
         let mut segment = 1;
-        let mut projection = PersonalAgentTraceInput {
-            name: input.name.clone(),
-            record: input.record.clone(),
-            span_names: input.span_names.clone(),
-            session_key: input.session_key.clone(),
-        };
-        if let Some((old_id, old_segment, old_record, old_names)) = latest {
+        let mut already_size_checked = false;
+        let mut projection = if let Some((old_id, old_segment, old_record, old_names)) = latest {
             let previous = PersonalAgentTraceInput {
                 name: input.name.clone(),
                 record: serde_json::from_value::<ExecutionRecord>(old_record)
@@ -224,25 +219,44 @@ impl Store {
                     .map_err(|_| StoreError::InvalidObservation)?,
                 session_key: input.session_key.clone(),
             };
-            let combined = merge(&previous, input)?;
+            let mut combined = merge(&previous, input)?;
+            combined.record.record_id = format!("session-{key}-{old_segment}");
             // Long conversations continue in another bounded trace instead of losing history.
             if combined.record.spans.len() > 1000
-                || serde_json::to_vec(&combined)
-                    .map_err(|_| StoreError::InvalidObservation)?
-                    .len()
-                    > 1_048_576
+                || !crate::agent_traces::serialized_within_limit(&combined, 1_048_576)?
             {
                 segment = old_segment
                     .checked_add(1)
                     .ok_or(StoreError::InvalidObservation)?;
+                let mut next = PersonalAgentTraceInput {
+                    name: input.name.clone(),
+                    record: input.record.clone(),
+                    span_names: input.span_names.clone(),
+                    session_key: input.session_key.clone(),
+                };
+                next.record.record_id = format!("session-{key}-{segment}");
+                next
             } else {
                 id = old_id;
                 segment = old_segment;
-                projection = combined;
+                already_size_checked = true;
+                combined
             }
+        } else {
+            let mut initial = PersonalAgentTraceInput {
+                name: input.name.clone(),
+                record: input.record.clone(),
+                span_names: input.span_names.clone(),
+                session_key: input.session_key.clone(),
+            };
+            initial.record.record_id = format!("session-{key}-{segment}");
+            initial
+        };
+        if already_size_checked {
+            projection.validate_structure()?;
+        } else {
+            projection.validate()?;
         }
-        projection.record.record_id = format!("session-{key}-{segment}");
-        projection.validate()?;
         let root = projection
             .record
             .spans

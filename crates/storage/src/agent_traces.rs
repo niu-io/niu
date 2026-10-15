@@ -74,8 +74,44 @@ impl PersonalAgentTraceQuery {
         Ok(())
     }
 }
+pub(crate) fn serialized_within_limit<T: serde::Serialize>(
+    value: &T,
+    limit: usize,
+) -> Result<bool, StoreError> {
+    struct BoundedCounter {
+        count: usize,
+        limit: usize,
+    }
+    impl std::io::Write for BoundedCounter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.count = self.count.saturating_add(buf.len());
+            if self.count > self.limit {
+                return Err(std::io::Error::other("exceeded limit"));
+            }
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut counter = BoundedCounter { count: 0, limit };
+    match serde_json::to_writer(&mut counter, value) {
+        Ok(()) => Ok(counter.count <= limit),
+        Err(err) if err.is_io() => Ok(false),
+        Err(_) => Err(StoreError::InvalidObservation),
+    }
+}
+
 impl PersonalAgentTraceInput {
     pub fn validate(&self) -> Result<(), StoreError> {
+        self.validate_structure()?;
+        if !serialized_within_limit(self, 1_048_576)? {
+            return Err(StoreError::InvalidObservation);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_structure(&self) -> Result<(), StoreError> {
         self.record
             .validate()
             .map_err(|_| StoreError::InvalidObservation)?;
@@ -89,14 +125,15 @@ impl PersonalAgentTraceInput {
             })
             || self.record.spans.len() > 1000
             || self.record.spans.iter().any(|s| s.charge_ref.is_some())
-            || self
-                .span_names
-                .iter()
-                .any(|(id, name)| !label(name) || !self.record.spans.iter().any(|s| &s.id == id))
-            || serde_json::to_vec(self)
-                .map_err(|_| StoreError::InvalidObservation)?
-                .len()
-                > 1_048_576
+        {
+            return Err(StoreError::InvalidObservation);
+        }
+        let span_ids: std::collections::HashSet<&str> =
+            self.record.spans.iter().map(|s| s.id.as_str()).collect();
+        if self
+            .span_names
+            .iter()
+            .any(|(id, name)| !label(name) || !span_ids.contains(id.as_str()))
         {
             return Err(StoreError::InvalidObservation);
         }
@@ -192,7 +229,7 @@ impl Store {
         input: &PersonalAgentTraceInput,
     ) -> Result<(Uuid, bool), StoreError> {
         input.validate()?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let connection: Option<(Uuid,Uuid,String)> = sqlx::query_as("SELECT id,owner_id,source FROM personal_agent_connections WHERE token_hash=$1 AND NOT paused AND NOT revoked AND expires_at>now() FOR UPDATE")
             .bind(Sha256::digest(token.as_bytes()).to_vec()).fetch_optional(&mut *tx).await?;
         let (connection, owner, source) = connection.ok_or(StoreError::Unauthorized)?;
@@ -294,10 +331,7 @@ impl Store {
         q: &PersonalAgentTraceQuery,
     ) -> Result<Value, StoreError> {
         q.validate()?;
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-            .execute(&mut *tx)
-            .await?;
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let filter = format!(
             "owner_id=$1 AND superseded_by IS NULL {} AND occurred_at>=to_timestamp($2::double precision/1000) AND occurred_at<to_timestamp($3::double precision/1000) AND ($4::text IS NULL OR source=$4) AND ($5::text IS NULL OR strpos(lower(name),lower($5))>0) AND ($6::text IS NULL OR status=$6)",
             if q.include_unassembled {
@@ -316,3 +350,18 @@ impl Store {
         Ok(json!({"rows":rows,"summary":summary,"by_day":by_day,"offset":q.offset,"limit":q.limit}))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::serialized_within_limit;
+    use serde_json::json;
+
+    #[test]
+    fn serialized_within_limit_enforces_exact_byte_bound_without_allocation() {
+        let value = json!({"a": "hello", "b": 123});
+        let exact = serde_json::to_vec(&value).unwrap().len();
+        assert!(serialized_within_limit(&value, exact).unwrap());
+        assert!(!serialized_within_limit(&value, exact - 1).unwrap());
+    }
+}
+
