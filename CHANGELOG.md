@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-10-17
+
+### Security
+
+- Preserve explicit empty IP allowlists in unified workspace-key creation and updates: `[]` denies every source, matching the independent IP policy endpoint. Explicit `null` remains unrestricted, and omitting the policy in an update leaves it unchanged.
+- Existing saved null policies are not rewritten because their original intent cannot be recovered. Review affected keys and explicitly save the intended policy.
+
+### Documentation
+
+- Clarify the same IP policy values in handler-generated OpenAPI, SDK comments and the IP policy reference.
+
+### Verification boundary
+
+- Check actual create/update authorization, saved policy/history, source denial, rotation and restart behavior; fixture outcomes provide no acceptance signal. This patch does not qualify upstream inference, billing, browser interactions or the complete release.
+
 ## [0.2.7] - 2026-10-17
 
 ### Security
@@ -152,7 +167,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/niu-io/niu/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/niu-io/niu/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/niu-io/niu/compare/v0.2.5...v0.2.6
 [0.2.2]: https://github.com/niu-io/niu/compare/v0.2.1...v0.2.2

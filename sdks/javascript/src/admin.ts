@@ -607,6 +607,7 @@ export type WorkspaceKeyConcurrencyLimitPatch = {
   expected_revision?: string;
 };
 export type WorkspaceKeyIpPolicyPatch = {
+  /** Empty array denies all sources; null permits any source. */
   allowed_cidrs: string[] | null;
   expected_revision?: string;
 };
@@ -630,6 +631,7 @@ export type WorkspaceKeyCreateInput = {
   requests_per_minute?: number | null;
   tokens_per_minute?: number | null;
   max_concurrent_requests?: number | null;
+  /** Empty array denies all sources; null or omission leaves sources unrestricted. */
   allowed_cidrs?: string[] | null;
 };
 export type WorkspaceKeyMetadataInput = {

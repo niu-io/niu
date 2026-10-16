@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `PATCH /api/v1/workspaces/{workspace}/keys/{key}`
 
-Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail.
+Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted.
 
 Operation: `updateWorkspaceKey`.
 
@@ -89,6 +89,6 @@ Content type: `application/json`.
 
 ## Behavior and supported scope
 
-Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail.
+Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted.
 
 **Supported scope:** implemented

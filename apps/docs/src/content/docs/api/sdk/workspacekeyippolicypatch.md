@@ -10,6 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type WorkspaceKeyIpPolicyPatch = {
+    /** Empty array denies all sources; null permits any source. */
     allowed_cidrs: string[] | null;
     expected_revision?: string;
 };

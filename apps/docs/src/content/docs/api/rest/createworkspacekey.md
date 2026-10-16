@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/workspaces/{workspace}/keys`
 
-Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call.
+Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint.
 
 Operation: `createWorkspaceKey`.
 
@@ -123,6 +123,7 @@ Location: **path**. **Required.**
         "array",
         "null"
       ],
+      "description": "Empty array denies every source; null or omission leaves sources unrestricted.",
       "items": {
         "type": "string"
       }
@@ -164,6 +165,6 @@ Content type: `application/json`.
 
 ## Behavior and supported scope
 
-Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call.
+Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint.
 
 **Supported scope:** implemented

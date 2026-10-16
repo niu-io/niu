@@ -25,6 +25,14 @@ uses operator authorization, allowing an owner to repair a deny-all policy.
 The JavaScript admin SDK exposes `getKeyIpPolicy`, `setKeyIpPolicy` and
 `listKeyIpPolicyHistory`.
 
+The unified workspace-key endpoints use the same values: creating a key with
+`allowed_cidrs: []`, or updating it with `ip_policy: { allowed_cidrs: [] }`, denies
+every source. Explicit `null` permits any source; omitting `ip_policy` in a PATCH
+leaves the existing policy unchanged. Versions before 0.2.8 incorrectly converted
+empty arrays to unrestricted policies in these unified writes. Upgrading does
+not rewrite saved null policies: review affected keys and explicitly set the
+intended policy through either endpoint. Secret rotation retains the saved policy.
+
 ## Request source and enforcement
 
 The gateway uses the TCP peer address by default and ignores forwarding headers.

@@ -5246,7 +5246,7 @@ Content type: `application/json`.
 
 `POST /api/v1/workspaces/{workspace}/keys`
 
-Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call.
+Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint.
 
 Implementation: `implemented`. Operation: `createWorkspaceKey`.
 
@@ -5346,6 +5346,7 @@ Content type: `application/json`.
         "array",
         "null"
       ],
+      "description": "Empty array denies every source; null or omission leaves sources unrestricted.",
       "items": {
         "type": "string"
       }
@@ -5439,7 +5440,7 @@ Content type: `application/json`.
 
 `PATCH /api/v1/workspaces/{workspace}/keys/{key}`
 
-Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail.
+Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted.
 
 Implementation: `implemented`. Operation: `updateWorkspaceKey`.
 

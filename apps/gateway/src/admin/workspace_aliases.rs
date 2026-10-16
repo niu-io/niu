@@ -455,7 +455,7 @@ pub async fn list_keys(
 ///   "operation": {
 ///     "operationId": "createWorkspaceKey",
 ///     "summary": "Create a workspace API key with optional initial limits and policies",
-///     "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call.",
+///     "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -500,6 +500,7 @@ pub async fn list_keys(
 ///               "max_concurrent_requests": { "type": ["integer", "null"] },
 ///               "allowed_cidrs": {
 ///                 "type": ["array", "null"],
+///                 "description": "Empty array denies every source; null or omission leaves sources unrestricted.",
 ///                 "items": { "type": "string" }
 ///               }
 ///             }
@@ -575,10 +576,7 @@ pub async fn create_key(
         request_rate_limit: input.requests_per_minute.map(|rpm| (Some(rpm), 0)),
         token_rate_limit: input.tokens_per_minute.map(|tpm| (Some(tpm), 0)),
         concurrency_limit: input.max_concurrent_requests.map(|conc| (Some(conc), 0)),
-        ip_policy: input.allowed_cidrs.map(|cidrs| {
-            let nets = if cidrs.is_empty() { None } else { Some(cidrs) };
-            (nets, 0)
-        }),
+        ip_policy: input.allowed_cidrs.map(|cidrs| (Some(cidrs), 0)),
     };
     let issued = state
         .store
@@ -673,7 +671,7 @@ pub async fn get_key(
 ///   "operation": {
 ///     "operationId": "updateWorkspaceKey",
 ///     "summary": "Update workspace API key metadata and policies",
-///     "description": "Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail.",
+///     "description": "Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -858,11 +856,7 @@ pub async fn update_key(
                 .and_then(|rev| rev.parse::<i64>().ok())
                 .unwrap_or(0),
         };
-        let nets = match ip.allowed_cidrs {
-            Some(cidrs) if cidrs.is_empty() => None,
-            other => other,
-        };
-        Some((nets, expected))
+        Some((ip.allowed_cidrs, expected))
     } else {
         None
     };

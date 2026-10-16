@@ -18,6 +18,7 @@ export type WorkspaceKeyCreateInput = {
     requests_per_minute?: number | null;
     tokens_per_minute?: number | null;
     max_concurrent_requests?: number | null;
+    /** Empty array denies all sources; null or omission leaves sources unrestricted. */
     allowed_cidrs?: string[] | null;
 };
 ```
