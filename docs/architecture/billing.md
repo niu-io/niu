@@ -14,6 +14,12 @@ Niu calculates customer charges and Supplier earnings in the public gateway. Pre
 
 No ledger is inferred from another. A provider can earn a different amount from the customer's charge. There is no default platform fee, revenue share or foreign-exchange conversion. Existing cost budgets remain upstream-cost limits, not prepaid customer credit limits. Upstream costs and these budgets are installation-only accounting APIs, with no consumer navigation; customer Usage shows operational metrics and Billing shows retail charges.
 
+Billing Rates resolves current customer prices through the same selector as model
+discovery: direct workspace tariffs, standard-price enrollment and applicable
+customer/global promotions. It reads those prices in the billing overview's
+snapshot and excludes enabled personally funded routes. This does not publish a
+duplicate tariff, change historical pinned charges or grant dispatch authority.
+
 ## Rates and arithmetic
 
 Installation administrators publish explicit rates per model alias: customer selling rates are scoped to an organization/project; supplier payout rates are scoped to a provider offer. Updating a rate requires its current revision, creates an immutable revision, and does not rewrite historical usage.
