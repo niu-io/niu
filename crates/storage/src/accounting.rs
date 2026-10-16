@@ -338,6 +338,7 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
         Some("P0006" | "P0010" | "P0011") => StoreError::Conflict,
         Some("P0007") => StoreError::AccountUnavailable,
         Some("P0008") => StoreError::BudgetExceeded,
+        Some("P0039") => StoreError::ProcurementUnavailable,
         Some("P0009") => StoreError::InvalidPrice,
         _ => StoreError::Database(error),
     }
@@ -1102,7 +1103,7 @@ impl Store {
         let changed = sqlx::query("UPDATE project_budgets SET reserved_nanos = reserved_nanos + $4 WHERE organization_id=$1 AND project_id=$2 AND currency=$3 AND limit_nanos::numeric - spent_nanos::numeric - reserved_nanos::numeric >= $4")
             .bind(scope.organization_id).bind(scope.project_id).bind(price.get::<String,_>("currency")).bind(amount).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {
-            return Err(StoreError::BudgetExceeded);
+            return Err(StoreError::ProcurementUnavailable);
         }
         sqlx::query("INSERT INTO cost_reservations (attempt_id, organization_id, project_id, price_revision_id, reserved_nanos, prompt_bound, completion_bound) VALUES ($1,$2,$3,$4,$5,$6,$7)")
             .bind(attempt_id).bind(scope.organization_id).bind(scope.project_id).bind(price_id).bind(amount).bind(prompt_bound).bind(completion_bound).execute(&mut *tx).await?;

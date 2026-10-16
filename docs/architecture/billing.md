@@ -14,6 +14,24 @@ Niu calculates customer charges and Supplier earnings in the public gateway. Pre
 
 No ledger is inferred from another. A provider can earn a different amount from the customer's charge. There is no default platform fee, revenue share or foreign-exchange conversion. Existing cost budgets remain upstream-cost limits, not prepaid customer credit limits. Upstream costs and these budgets are installation-only accounting APIs, with no consumer navigation; customer Usage shows operational metrics and Billing shows retail charges.
 
+Commercial workspace provisioning has two independent prerequisites: customer
+pricing and spending capacity, and platform procurement capacity. Before opening
+a commercial workspace for requests, installation administrators explicitly
+configure its procurement budget in the route's currency using the platform-only
+budget API. Workspace creation, customer gifts, credit approval and standard-price
+enrollment do not create or increase that budget. No automatic unlimited budget or
+conversion from customer credit is permitted. Administrators must also monitor
+and replenish procurement capacity independently of customer balances.
+
+Missing or exhausted platform procurement capacity returns HTTP 503
+`service_not_ready`, with a safe instruction to contact the platform administrator.
+The customer response contains no procurement amounts or configuration details.
+Installation administrators inspect the workspace's procurement budget and route
+currency through platform administration and provision or increase it as needed.
+Insufficient customer balance remains HTTP 402 `budget_exceeded`; adding customer
+funds is not the remedy for a platform readiness failure. Rejected atomic
+admission does not commit a procurement reservation or dispatch intent.
+
 Billing Rates resolves current customer prices through the same selector as model
 discovery: direct workspace tariffs, standard-price enrollment and applicable
 customer/global promotions. It reads those prices in the billing overview's

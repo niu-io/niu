@@ -39,6 +39,12 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::ProcurementUnavailable => Self {
+                failure: None,
+                status: StatusCode::SERVICE_UNAVAILABLE,
+                kind: "service_not_ready",
+                message: "This service is not ready to process the request; contact the platform administrator",
+            },
             niu_storage::StoreError::UnconfirmedGeneration => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,

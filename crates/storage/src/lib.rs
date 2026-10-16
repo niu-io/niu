@@ -428,6 +428,8 @@ pub enum StoreError {
     InvalidLedgerHistoryQuery,
     #[error("budget has insufficient available funds")]
     BudgetExceeded,
+    #[error("platform procurement is unavailable")]
+    ProcurementUnavailable,
     #[error("customer workspace spending limit exceeded")]
     WorkspaceSpendingLimitExceeded,
     #[error("key customer spending limit exceeded")]
