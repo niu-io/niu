@@ -473,6 +473,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/models", get(public_models))
         .route("/v1/key", get(inspect_key))
         .route("/v1/generations/{id}", get(get_generation))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operation-models", get(super::provider_assets::historical_models))
+        .route("/api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models", get(super::provider_assets::historical_models))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations", get(super::provider_assets::list_historical_operations).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/api/v1/organizations/{organization}/projects/{project}/media/asset-operations", get(super::provider_assets::list_historical_operations).layer(DefaultBodyLimit::max(16 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}", get(super::provider_assets::get_historical_operation).layer(DefaultBodyLimit::max(16 * 1024)))
@@ -1088,7 +1090,7 @@ async fn public_models(
 ///   "operation": {
 ///     "operationId": "getCurrentKey",
 ///     "summary": "Inspect the current workspace API key",
-///     "description": "Returns customer-safe metadata, model grants, expiration, spending limits and remaining allowance, request/token/concurrency rate limits, 60-second usage window, and IP allowlist for the authenticated API key (or the workspace key selected via X-Niu-Key-Id with a console session). Never returns the secret token or internal platform UUIDs.",
+///     "description": "Returns the existing customer-safe key projection: object, label, allowed_models, expires_at_ms and last_used_at_ms (Unix milliseconds), revoked/expired flags, spending_limits (limit_nanos, committed_nanos, remaining_nanos), flat rate_limits, usage_window and allowed_cidrs. Does not rename fields or change the HTTP response. Workspace policies and live authorization still apply. Unknown usage remains explicit and model grants do not establish upstream availability. Authenticates an inference API key, or the workspace key selected via X-Niu-Key-Id with an authorized console session. Never returns the secret token, internal platform UUIDs or Provider procurement costs.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1104,133 +1106,191 @@ async fn public_models(
 ///           "application/json": {
 ///             "schema": {
 ///               "type": "object",
-///               "required": ["data"],
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
 ///               "properties": {
 ///                 "data": {
 ///                   "type": "object",
+///                   "additionalProperties": false,
 ///                   "required": [
+///                     "object",
 ///                     "label",
 ///                     "allowed_models",
-///                     "expires_at",
+///                     "expires_at_ms",
+///                     "last_used_at_ms",
+///                     "revoked",
+///                     "expired",
 ///                     "spending_limits",
-///                     "request_rate_limit",
-///                     "token_rate_limit",
-///                     "concurrency_limit",
+///                     "rate_limits",
 ///                     "usage_window",
-///                     "ip_policy"
+///                     "allowed_cidrs"
 ///                   ],
 ///                   "properties": {
-///                     "label": { "type": "string" },
+///                     "object": {
+///                       "type": "string",
+///                       "const": "api_key"
+///                     },
+///                     "label": {
+///                       "type": "string"
+///                     },
 ///                     "allowed_models": {
 ///                       "type": "array",
-///                       "items": { "type": "string" }
+///                       "items": {
+///                         "type": "string"
+///                       }
 ///                     },
-///                     "expires_at": {
-///                       "type": ["integer", "null"],
-///                       "format": "int64"
+///                     "expires_at_ms": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ],
+///                       "format": "int64",
+///                       "description": "Unix milliseconds, never seconds. Null means no automatic expiration; revocation and policies still apply."
+///                     },
+///                     "last_used_at_ms": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ],
+///                       "format": "int64",
+///                       "description": "Last dispatch time in Unix milliseconds, or null when no dispatch is recorded."
+///                     },
+///                     "revoked": {
+///                       "type": "boolean"
+///                     },
+///                     "expired": {
+///                       "type": "boolean"
 ///                     },
 ///                     "spending_limits": {
 ///                       "type": "array",
+///                       "description": "Customer spending policies by currency. A null limit is unlimited; a null remaining value is not a zero allowance. Amounts are exact integer nanounit strings.",
 ///                       "items": {
 ///                         "type": "object",
+///                         "additionalProperties": false,
 ///                         "required": [
 ///                           "currency",
-///                           "enabled",
-///                           "max_amount_nanos",
-///                           "settled_amount_nanos",
-///                           "reserved_amount_nanos",
-///                           "remaining_allowance_nanos"
+///                           "limit_nanos",
+///                           "committed_nanos",
+///                           "remaining_nanos"
 ///                         ],
 ///                         "properties": {
-///                           "currency": { "type": "string" },
-///                           "enabled": { "type": "boolean" },
-///                           "max_amount_nanos": { "type": ["string", "null"] },
-///                           "settled_amount_nanos": { "type": "string" },
-///                           "reserved_amount_nanos": { "type": "string" },
-///                           "remaining_allowance_nanos": { "type": ["string", "null"] }
+///                           "currency": {
+///                             "type": "string"
+///                           },
+///                           "limit_nanos": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "committed_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "remaining_nanos": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$"
+///                           }
 ///                         }
 ///                       }
 ///                     },
-///                     "request_rate_limit": {
+///                     "rate_limits": {
 ///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "description": "Null policy limits mean unlimited; a known zero blocks requests under that policy.",
 ///                       "required": [
-///                         "enabled",
 ///                         "requests_per_minute",
-///                         "window_seconds",
-///                         "observed_requests_in_window",
-///                         "remaining_requests_in_window"
-///                       ],
-///                       "properties": {
-///                         "enabled": { "type": "boolean" },
-///                         "requests_per_minute": { "type": ["integer", "null"] },
-///                         "window_seconds": { "type": "integer" },
-///                         "observed_requests_in_window": { "type": "integer" },
-///                         "remaining_requests_in_window": { "type": ["integer", "null"] }
-///                       }
-///                     },
-///                     "token_rate_limit": {
-///                       "type": "object",
-///                       "required": [
-///                         "enabled",
 ///                         "tokens_per_minute",
-///                         "window_seconds",
-///                         "observed_tokens_in_window",
-///                         "remaining_tokens_in_window"
-///                       ],
-///                       "properties": {
-///                         "enabled": { "type": "boolean" },
-///                         "tokens_per_minute": { "type": ["string", "null"] },
-///                         "window_seconds": { "type": "integer" },
-///                         "observed_tokens_in_window": { "type": "string" },
-///                         "remaining_tokens_in_window": { "type": ["string", "null"] }
-///                       }
-///                     },
-///                     "concurrency_limit": {
-///                       "type": "object",
-///                       "required": [
-///                         "enabled",
 ///                         "max_concurrent_requests",
-///                         "in_flight_requests",
-///                         "remaining_concurrent_requests"
+///                         "active_requests"
 ///                       ],
 ///                       "properties": {
-///                         "enabled": { "type": "boolean" },
-///                         "max_concurrent_requests": { "type": ["integer", "null"] },
-///                         "in_flight_requests": { "type": "integer" },
-///                         "remaining_concurrent_requests": { "type": ["integer", "null"] }
+///                         "requests_per_minute": {
+///                           "type": [
+///                             "integer",
+///                             "null"
+///                           ],
+///                           "minimum": 0
+///                         },
+///                         "tokens_per_minute": {
+///                           "type": [
+///                             "integer",
+///                             "null"
+///                           ],
+///                           "minimum": 0
+///                         },
+///                         "max_concurrent_requests": {
+///                           "type": [
+///                             "integer",
+///                             "null"
+///                           ],
+///                           "minimum": 0
+///                         },
+///                         "active_requests": {
+///                           "type": "integer",
+///                           "minimum": 0
+///                         }
 ///                       }
 ///                     },
 ///                     "usage_window": {
 ///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "description": "Known token subtotals are not complete usage when unknown_usage_requests is positive.",
 ///                       "required": [
 ///                         "window_seconds",
-///                         "request_count",
+///                         "window_end",
+///                         "requests",
 ///                         "known_usage_requests",
 ///                         "unknown_usage_requests",
-///                         "prompt_tokens",
-///                         "completion_tokens",
-///                         "total_tokens"
+///                         "known_prompt_tokens",
+///                         "known_completion_tokens"
 ///                       ],
 ///                       "properties": {
-///                         "window_seconds": { "type": "integer" },
-///                         "request_count": { "type": "integer" },
-///                         "known_usage_requests": { "type": "integer" },
-///                         "unknown_usage_requests": { "type": "integer" },
-///                         "prompt_tokens": { "type": "string" },
-///                         "completion_tokens": { "type": "string" },
-///                         "total_tokens": { "type": "string" }
-///                       }
-///                     },
-///                     "ip_policy": {
-///                       "type": "object",
-///                       "required": ["enabled", "allowed_cidrs"],
-///                       "properties": {
-///                         "enabled": { "type": "boolean" },
-///                         "allowed_cidrs": {
-///                           "type": "array",
-///                           "items": { "type": "string" }
+///                         "window_seconds": {
+///                           "type": "integer",
+///                           "const": 60
+///                         },
+///                         "window_end": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         },
+///                         "requests": {
+///                           "type": "integer",
+///                           "minimum": 0
+///                         },
+///                         "known_usage_requests": {
+///                           "type": "integer",
+///                           "minimum": 0
+///                         },
+///                         "unknown_usage_requests": {
+///                           "type": "integer",
+///                           "minimum": 0
+///                         },
+///                         "known_prompt_tokens": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]+$"
+///                         },
+///                         "known_completion_tokens": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]+$"
 ///                         }
 ///                       }
+///                     },
+///                     "allowed_cidrs": {
+///                       "type": [
+///                         "array",
+///                         "null"
+///                       ],
+///                       "items": {
+///                         "type": "string"
+///                       },
+///                       "description": "Current source-IP allowlist, or null for no allowlist restriction."
 ///                     }
 ///                   }
 ///                 }

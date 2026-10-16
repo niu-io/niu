@@ -24,6 +24,14 @@ The `niu-io/enterprise` distribution pins immutable `niu` and `plugins` commits 
 
 Keep cross-product navigation relative to the origin: `/models/`, `/docs/`, and `/workspaces/default/`. Production canonical URLs use `https://niu.io`. Website brand snapshots retain attribution and record the Niu revision from which they were copied; the Niu `branding/` directory remains the shared theme source.
 
+The unscoped `/models/` root is the standalone public catalog. Authenticated
+dashboard model browsing uses `/models?workspace={workspace-route-slug}` and keeps
+that scope on model-detail links and return navigation. The Gateway serves the
+dashboard artifact for these explicitly scoped URLs, including direct entry and
+refresh; the workspace query is routing context, never an authorization grant.
+Signed-out dashboard links to the public catalog use document navigation so
+client routing cannot substitute the authenticated model browser at that URL.
+
 Public header geometry and navigation are owned by `branding/public-header.css` and `branding/public-navigation.json`. Docs and catalog import them directly; the independent website snapshots these contracts and the Niu-specific public header composition, recording the public revision, working-tree state and exact file hashes. Its synchronization command takes an explicit public source checkout; regular website builds verify the snapshot without needing that checkout. All public sections use one-row headers and collapse navigation into a floating menu below the shared narrow-width breakpoint.
 
 Both `niu-io/cloud` and `niu-io/enterprise` compose independently versioned private plugins from `niu-io/plugins` alongside the public core and its built-in open-source plugins. The plugin boundary, capability facets, `plugin-sdk`, manifest registration, health checks and tenant context are specified in [Enterprise and Cloud plugin composition](enterprise-composition.md). Community operation requires no private plugin or license service.

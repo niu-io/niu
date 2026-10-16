@@ -78,7 +78,9 @@ export default function ModelTable({ models, header }: { models: Model[]; header
   const authors = useMemo(() => [...new Map(models.flatMap(model => { const identity = modelDeveloper(model); return identity ? [[identity.id, identity] as const] : []; })).values()].sort((a, b) => a.name.localeCompare(b.name)), [models]);
   const [limit, setLimit] = useState(20);
   const params = useParams();
-  const selectedId = params['*'] || null;
+  const requestedId = params['*'] || null;
+  const selectedId = requestedId && !models.some(model => model.id === requestedId)
+    ? requestedId.replace(/\/+$/, '') || requestedId : requestedId;
   const catalogPath = '/models';
   const catalogSearch = workspace ? `?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : '';
   function generationHref(model: Model) {

@@ -40,6 +40,11 @@ export function workspacePathSegment(workspace: Workspace, workspaces: Workspace
   return workspace.route_slug || legacyWorkspacePathSegment(workspace, workspaces);
 }
 
+/** Explicit scope selects dashboard browsing; the unscoped root is the public catalog. */
+export function workspaceModelsHref(workspace: Workspace | null | undefined, workspaces: Workspace[]) {
+  return `/models?workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace, workspaces) : 'default')}`;
+}
+
 export function resolveWorkspacePathSegment(segment: string, workspaces: Workspace[]) {
   const slugMatches = workspaces.filter(item => workspacePathSegment(item, workspaces) === segment);
   if (slugMatches.length === 1) return slugMatches[0];

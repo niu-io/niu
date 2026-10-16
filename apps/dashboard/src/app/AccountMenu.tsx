@@ -13,6 +13,7 @@ import { IconPlugConnected as SupplierConnection } from "@tabler/icons-react";
 import { IconBook as CircleHelp } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { settingsHref } from '@/features/account/settings-page';
+import { workspaceModelsHref } from './workspace-route';
 import { IconChartLine, IconSettings, IconShieldLock } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
     return () => media.removeEventListener('change', update);
   }, [theme]);
   const { session, token, signOut, organizations, organization, selectOrganization, workspaceLoading, workspaceError } = context;
+  const modelsHref = token ? workspaceModelsHref(context.workspace, context.workspaces) : '/models/';
   const installation = session?.kind === 'installation';
   const platformAdmin = installation || Boolean(session?.permissions.platform_admin);
   const supplierOnly = supplierArea && !installation && !session?.operator;
@@ -53,7 +55,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={workspacePath}><FolderKey />Workspace</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/generations"><IconSparkles />Generations</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine />Activity</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/models"><Boxes />Models</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref} reloadDocument={!token}><Boxes />Models</Link></DropdownMenuItem>
             </>}
             {((platformAdmin && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/suppliers' : session?.provider_memberships?.length ? `/suppliers/${session.provider_memberships[0].id}` : '/suppliers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? "Admin" : "Providers"}</Link></DropdownMenuItem>}
             <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />Documentation</Link></DropdownMenuItem>
