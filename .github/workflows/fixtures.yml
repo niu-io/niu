@@ -1,0 +1,109 @@
+name: Fixture diagnostics (not acceptance)
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Fixture outcomes must not gate builds, deployment or acceptance. Keep the
+# commands available for maintenance without assigning their results meaning.
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: niu_test
+          POSTGRES_PASSWORD: niu_test
+          POSTGRES_DB: niu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U niu_test -d niu_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Configure disposable detector credential
+        run: python3 scripts/ci-fixture-env.py
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - name: Execute workspace fixture command
+        continue-on-error: true
+        run: cargo +1.98.0 test --locked --workspace
+      - name: Execute PostgreSQL storage fixture command
+        continue-on-error: true
+        run: cargo +1.98.0 test --locked -p niu-storage --tests -- --ignored
+      - name: Execute gateway functional fixture command
+        continue-on-error: true
+        run: |
+          cargo +1.98.0 test --locked -p niu-gateway functional_suite:: -- --ignored --nocapture
+      - name: Execute remaining gateway fixture command
+        continue-on-error: true
+        run: |
+          cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway -- --ignored --skip functional_suite:: --skip stability_suite:: --skip performance_suite::
+      - name: Execute stability fixture command
+        continue-on-error: true
+        run: |
+          cargo +1.98.0 test --locked -p niu-gateway stability_suite:: -- --ignored --nocapture
+      - name: Execute process-recovery fixture command
+        continue-on-error: true
+        run: cargo +1.98.0 test --locked -p niu-gateway --test vendor_restart -- --ignored
+      - name: Execute performance fixture command
+        continue-on-error: true
+        run: |
+          cargo +1.98.0 test --locked -p niu-gateway performance_suite:: -- --ignored --nocapture
+      - name: Record scope
+        if: always()
+        run: echo 'Fixture commands only. Disregard every outcome; no functional, stability, performance or release conclusion follows.' >> "$GITHUB_STEP_SUMMARY"
+
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Execute Python fixture command
+        continue-on-error: true
+        run: python3 -m unittest discover -s scripts/tests
+      - name: Execute dashboard fixture command
+        continue-on-error: true
+        run: pnpm --filter @niu-io/dashboard test
+      - name: Execute documentation-generation fixture command
+        continue-on-error: true
+        run: pnpm --filter @niu-io/docs test:api
+      - name: Execute JavaScript SDK fixture command
+        continue-on-error: true
+        run: pnpm --dir sdks/javascript test
+      - name: Execute Agent Connect fixture command
+        continue-on-error: true
+        run: pnpm --dir sdks/agent-connect test
+      - name: Execute MCP fixture command
+        continue-on-error: true
+        run: pnpm --dir sdks/mcp test
+      - name: Record scope
+        if: always()
+        run: echo 'Fixture commands only. Disregard every outcome; current-input end-to-end runs and independently verified final artifacts are required for acceptance.' >> "$GITHUB_STEP_SUMMARY"

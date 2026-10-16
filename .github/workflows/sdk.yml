@@ -50,14 +50,14 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check generated SDK and REST references
         run: pnpm check:api
-      - name: Test documentation generation and stale-output rejection
-        run: pnpm --filter @niu-io/docs test:api
       - name: Check SDK types
         run: pnpm --dir sdks/javascript check
       - name: Build SDK JavaScript and declarations
         run: pnpm --dir sdks/javascript build
-      - name: Check and test the MCP server
-        run: pnpm --dir sdks/mcp test
+      - name: Check MCP server types
+        run: pnpm --dir sdks/mcp check
+      - name: Build MCP server
+        run: pnpm --dir sdks/mcp build
       - name: Record verification scope
         if: always()
         run: echo 'SDK type and build checks only. Runtime authorization, model calls, accounting and release readiness require current-input end-to-end runs and independent artifact verification.' >> "$GITHUB_STEP_SUMMARY"

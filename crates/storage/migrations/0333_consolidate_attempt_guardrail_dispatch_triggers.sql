@@ -2,12 +2,9 @@
 -- WHEN predicates so completion updates skip dispatch-only PL/pgSQL functions.
 
 CREATE OR REPLACE FUNCTION niu_guardrail_rejection_detail(org UUID, workspace UUID, key UUID, reason TEXT)
-RETURNS TEXT LANGUAGE sql VOLATILE AS $$
+RETURNS TEXT LANGUAGE sql STABLE AS $$
     SELECT jsonb_build_object(
         'reason', reason,
-        'organization_id', org,
-        'project_id', workspace,
-        'key_id', key,
         'workspace_revision', (
             SELECT NULLIF(revision, 0)
             FROM workspace_guardrail_heads

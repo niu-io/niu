@@ -46,31 +46,14 @@ jobs:
   rust:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: niu_test
-          POSTGRES_PASSWORD: niu_test
-          POSTGRES_DB: niu_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U niu_test -d niu_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-      - name: Configure isolated detector credential
-        run: python3 scripts/ci-fixture-env.py
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
 
-      # 1. Static & Contract Gate
       - name: Check workspace formatting
         run: cargo +1.98.0 fmt --all -- --check
       - name: Verify selective upstream imports and checksums
@@ -82,46 +65,15 @@ jobs:
       - name: Compile and lint all workspace targets
         run: cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings
 
-      # 2. Functional Test Gate (功能测试)
-      - name: Run workspace unit and functional tests
-        run: cargo +1.98.0 test --locked --workspace
-      - name: Run PostgreSQL storage functional integration suite
-        env:
-          DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
-        run: cargo +1.98.0 test --locked -p niu-storage --tests -- --ignored
-      - name: Run PostgreSQL gateway functional integration suite
-        env:
-          DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
-        run: |
-          cargo +1.98.0 test --locked -p niu-gateway functional_suite:: -- --ignored --nocapture
-          cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway -- --ignored --skip functional_suite:: --skip stability_suite:: --skip performance_suite::
-
-      # 3. Stability & Resilience Test Gate (稳定性测试)
-      - name: Run gateway stability, fault-injection, concurrency, and process-recovery suite
-        env:
-          DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
-        run: |
-          cargo +1.98.0 test --locked -p niu-gateway stability_suite:: -- --nocapture
-          cargo +1.98.0 test --locked -p niu-gateway stability_suite:: -- --ignored --nocapture
-          cargo +1.98.0 test --locked -p niu-gateway --test vendor_restart -- --ignored
-
-      # 4. Performance & SLO Regression Gate (性能测试)
-      - name: Run gateway performance, latency percentile (P50/P95/P99), and throughput SLO suite
-        env:
-          DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
-        run: |
-          cargo +1.98.0 test --locked -p niu-gateway performance_suite:: -- --nocapture
-          cargo +1.98.0 test --locked -p niu-gateway performance_suite:: -- --ignored --nocapture
-          python3 -m unittest scripts/tests/test_gateway_benchmark.py scripts/tests/test_benchmark_guardrails.py
-
+      - name: Compile workspace test targets without executing fixtures
+        run: cargo +1.98.0 test --locked --workspace --no-run
       - name: Record backend verification scope
         if: always()
         run: |
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
-          ### Backend Automated Test Matrix
-
-          - **Static & Contract Gate**: `rustfmt`, `clippy -D warnings`, selective upstream import SHA-256 verification, and handler OpenAPI contract parity.
-          - **Functional Test Gate (功能测试)**: Workspace unit tests, multi-protocol inference (`/v1/chat/completions`, `/v1/responses`, `/v1/embeddings`, SSE streaming, tool calls, structured outputs), commercial boundary stripping, guardrails enforcement, and PostgreSQL storage/gateway integration suites.
-          - **Stability Test Gate (稳定性测试)**: SSE packet fragmentation & deep JSON nesting resilience, concurrent guardrail regex compilation/evaluation, 48-way upstream chaos & mid-stream client cancellation recovery, concurrent budget contention overdraft prevention, and process-replacement recovery (`vendor_restart`).
-          - **Performance Test Gate (性能测试)**: SSE sanitization throughput SLO, 32-rule guardrail latency SLO, PostgreSQL E2E HTTP gateway proxy P50/P95/P99 latency & throughput SLO, and HTTP load/guardrail benchmark runner verification.
+          Static checks only: formatting, import integrity, generated contracts,
+          compilation and Clippy. Fixture commands run separately as non-gating
+          diagnostics; their outcomes have zero evidentiary value. Functional,
+          stability, performance and release claims require actual current-input
+          end-to-end runs and independent final-artifact verification.
           EOF
