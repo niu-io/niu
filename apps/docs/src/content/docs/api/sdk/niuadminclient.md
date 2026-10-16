@@ -445,7 +445,7 @@ cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: str
 }>;
 ```
 
-### mediaOperationHistory
+### mediaOperationModels
 
 ```typescript
 /** Read saved native operations with current workspace Read access.
@@ -453,6 +453,19 @@ cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: str
  * its account binding; omitting it reads all saved accounts for this key/model.
  * This helper never dispatches, refreshes upstream state or restores key grants.
  */
+mediaOperationModels(scope: TenantScope, keyId: string, query?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: string[];
+    next_cursor: string | null;
+}>;
+```
+
+### mediaOperationHistory
+
+```typescript
+/** Read exact saved key/model history without restoring inference authority. */
 mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext): {
     list: (query?: MediaOperationHistoryQuery, options?: RequestOptions) => Promise<MediaAssetPage<MediaAssetOperation>>;
     retrieve: (operationId: string, options?: RequestOptions) => Promise<{
@@ -797,26 +810,23 @@ setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, opt
 
 ```typescript
 /** Retrieve one workspace API key with its unified limits and 60s usage window. */
-getWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<{
-    data: WorkspaceKeyDetail;
-}>;
+getWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<WorkspaceKeyDetail>;
 ```
 
 ### createWorkspaceKey
 
 ```typescript
 /** Workspace owner/admin write access. Requires an explicit finite or null lifetime. */
-createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey>;
+createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey & {
+    key: WorkspaceKeyDetail;
+}>;
 ```
 
 ### updateWorkspaceKey
 
 ```typescript
-/** Changes metadata, expiration, or policy limits; preserves secret. */
-updateWorkspaceKey(scope: TenantScope | string, keyId: string, input: WorkspaceKeyUpdateInput, options?: RequestOptions): Promise<{
-    revision: number;
-    data: WorkspaceKeyDetail;
-}>;
+/** Changes metadata or policy limits; preserves expiration and secret. */
+updateWorkspaceKey(scope: TenantScope | string, keyId: string, input: WorkspaceKeyUpdateInput, options?: RequestOptions): Promise<WorkspaceKeyDetail>;
 ```
 
 ### rotateWorkspaceKey

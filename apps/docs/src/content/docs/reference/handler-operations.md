@@ -8172,7 +8172,7 @@ Content type: `application/json`.
               },
               "request_count": {
                 "type": "integer",
-                "minimum": 1
+                "minimum": 0
               }
             }
           }
@@ -13063,7 +13063,7 @@ HTTP 503: Storage or credential decryption unavailable.
 
 `GET /api/v1/organizations/{organization}/projects/{project}/billing`
 
-Requires workspace read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
+Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
 
 Implementation: `implemented`. Operation: `getCustomerBilling`.
 
@@ -13309,6 +13309,33 @@ Content type: `application/json`.
                 ],
                 "format": "uuid",
                 "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+              },
+              "pricing_source": {
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "platform"
+                ]
+              },
+              "promotion_scope": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "customer",
+                  "global",
+                  null
+                ]
+              },
+              "price_version": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "selected_at": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Selection cutoff as Unix seconds; informational, not a pinned request quote."
               }
             }
           }
@@ -17338,7 +17365,7 @@ HTTP 503: Storage unavailable
 
 `PATCH /api/v1/providers/{provider}`
 
-Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.
+Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and atomically records the authorized actor and resulting Provider name in its audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.
 
 Implementation: `implemented`. Operation: `renameProviderBusiness`.
 
@@ -17551,7 +17578,7 @@ HTTP 503: Storage unavailable.
 
 `PUT /api/v1/providers/{provider}/members/{operator}`
 
-Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
+Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
 
 Implementation: `implemented`. Operation: `setProviderMembership`.
 
@@ -29151,6 +29178,116 @@ HTTP 409: Unknown, acknowledged, foreign or mismatched model preparation
 
 HTTP 503: Storage unavailable
 
+## Discover saved native-operation model contexts
+
+`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models`
+
+Requires current workspace Read permission. Lists distinct recorded public model aliases for the original scoped key, including expired or revoked keys and deleted resources. Never consults current model grants, restores inference authority, selects a Provider account or calls upstream. Each alias may have several saved account bindings; it grants historical inspection only. Alias pagination is lexical and includes all recorded operation statuses.
+
+Implementation: `implemented`. Operation: `listHistoricalWorkspaceProviderAssetModels`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+Workspace under the legacy API field name.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key_id` (query, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 512
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Recorded aliases and exclusive lexical continuation cursor.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid filters.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Workspace Read permission required.
+
+HTTP 409: Original key does not belong to this workspace.
+
 ## List historical native material operations
 
 `GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operations`
@@ -30163,7 +30300,7 @@ HTTP 503: Storage or route configuration unavailable.
 
 `GET /v1/key`
 
-Returns customer-safe metadata, model grants, expiration, spending limits and remaining allowance, request/token/concurrency rate limits, 60-second usage window, and IP allowlist for the authenticated API key (or the workspace key selected via X-Niu-Key-Id with a console session). Never returns the secret token or internal platform UUIDs.
+Returns the existing customer-safe key projection: object, label, allowed_models, expires_at_ms and last_used_at_ms (Unix milliseconds), revoked/expired flags, spending_limits (limit_nanos, committed_nanos, remaining_nanos), flat rate_limits, usage_window and allowed_cidrs. Does not rename fields or change the HTTP response. Workspace policies and live authorization still apply. Unknown usage remains explicit and model grants do not establish upstream availability. Authenticates an inference API key, or the workspace key selected via X-Niu-Key-Id with an authorized console session. Never returns the secret token, internal platform UUIDs or Provider procurement costs.
 
 Implementation: `implemented`. Operation: `getCurrentKey`.
 
@@ -30191,24 +30328,32 @@ Content type: `application/json`.
 ```json
 {
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "data"
   ],
   "properties": {
     "data": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
+        "object",
         "label",
         "allowed_models",
-        "expires_at",
+        "expires_at_ms",
+        "last_used_at_ms",
+        "revoked",
+        "expired",
         "spending_limits",
-        "request_rate_limit",
-        "token_rate_limit",
-        "concurrency_limit",
+        "rate_limits",
         "usage_window",
-        "ip_policy"
+        "allowed_cidrs"
       ],
       "properties": {
+        "object": {
+          "type": "string",
+          "const": "api_key"
+        },
         "label": {
           "type": "string"
         },
@@ -30218,200 +30363,156 @@ Content type: `application/json`.
             "type": "string"
           }
         },
-        "expires_at": {
+        "expires_at_ms": {
           "type": [
             "integer",
             "null"
           ],
-          "format": "int64"
+          "format": "int64",
+          "description": "Unix milliseconds, never seconds. Null means no automatic expiration; revocation and policies still apply."
+        },
+        "last_used_at_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "Last dispatch time in Unix milliseconds, or null when no dispatch is recorded."
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "expired": {
+          "type": "boolean"
         },
         "spending_limits": {
           "type": "array",
+          "description": "Customer spending policies by currency. A null limit is unlimited; a null remaining value is not a zero allowance. Amounts are exact integer nanounit strings.",
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "required": [
               "currency",
-              "enabled",
-              "max_amount_nanos",
-              "settled_amount_nanos",
-              "reserved_amount_nanos",
-              "remaining_allowance_nanos"
+              "limit_nanos",
+              "committed_nanos",
+              "remaining_nanos"
             ],
             "properties": {
               "currency": {
                 "type": "string"
               },
-              "enabled": {
-                "type": "boolean"
-              },
-              "max_amount_nanos": {
+              "limit_nanos": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "pattern": "^[0-9]+$"
               },
-              "settled_amount_nanos": {
-                "type": "string"
+              "committed_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
               },
-              "reserved_amount_nanos": {
-                "type": "string"
-              },
-              "remaining_allowance_nanos": {
+              "remaining_nanos": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "pattern": "^[0-9]+$"
               }
             }
           }
         },
-        "request_rate_limit": {
+        "rate_limits": {
           "type": "object",
+          "additionalProperties": false,
+          "description": "Null policy limits mean unlimited; a known zero blocks requests under that policy.",
           "required": [
-            "enabled",
             "requests_per_minute",
-            "window_seconds",
-            "observed_requests_in_window",
-            "remaining_requests_in_window"
+            "tokens_per_minute",
+            "max_concurrent_requests",
+            "active_requests"
           ],
           "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
             "requests_per_minute": {
               "type": [
                 "integer",
                 "null"
-              ]
-            },
-            "window_seconds": {
-              "type": "integer"
-            },
-            "observed_requests_in_window": {
-              "type": "integer"
-            },
-            "remaining_requests_in_window": {
-              "type": [
-                "integer",
-                "null"
-              ]
-            }
-          }
-        },
-        "token_rate_limit": {
-          "type": "object",
-          "required": [
-            "enabled",
-            "tokens_per_minute",
-            "window_seconds",
-            "observed_tokens_in_window",
-            "remaining_tokens_in_window"
-          ],
-          "properties": {
-            "enabled": {
-              "type": "boolean"
+              ],
+              "minimum": 0
             },
             "tokens_per_minute": {
               "type": [
-                "string",
+                "integer",
                 "null"
-              ]
-            },
-            "window_seconds": {
-              "type": "integer"
-            },
-            "observed_tokens_in_window": {
-              "type": "string"
-            },
-            "remaining_tokens_in_window": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          }
-        },
-        "concurrency_limit": {
-          "type": "object",
-          "required": [
-            "enabled",
-            "max_concurrent_requests",
-            "in_flight_requests",
-            "remaining_concurrent_requests"
-          ],
-          "properties": {
-            "enabled": {
-              "type": "boolean"
+              ],
+              "minimum": 0
             },
             "max_concurrent_requests": {
               "type": [
                 "integer",
                 "null"
-              ]
+              ],
+              "minimum": 0
             },
-            "in_flight_requests": {
-              "type": "integer"
-            },
-            "remaining_concurrent_requests": {
-              "type": [
-                "integer",
-                "null"
-              ]
+            "active_requests": {
+              "type": "integer",
+              "minimum": 0
             }
           }
         },
         "usage_window": {
           "type": "object",
+          "additionalProperties": false,
+          "description": "Known token subtotals are not complete usage when unknown_usage_requests is positive.",
           "required": [
             "window_seconds",
-            "request_count",
+            "window_end",
+            "requests",
             "known_usage_requests",
             "unknown_usage_requests",
-            "prompt_tokens",
-            "completion_tokens",
-            "total_tokens"
+            "known_prompt_tokens",
+            "known_completion_tokens"
           ],
           "properties": {
             "window_seconds": {
-              "type": "integer"
+              "type": "integer",
+              "const": 60
             },
-            "request_count": {
-              "type": "integer"
+            "window_end": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "requests": {
+              "type": "integer",
+              "minimum": 0
             },
             "known_usage_requests": {
-              "type": "integer"
+              "type": "integer",
+              "minimum": 0
             },
             "unknown_usage_requests": {
-              "type": "integer"
+              "type": "integer",
+              "minimum": 0
             },
-            "prompt_tokens": {
-              "type": "string"
+            "known_prompt_tokens": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
             },
-            "completion_tokens": {
-              "type": "string"
-            },
-            "total_tokens": {
-              "type": "string"
+            "known_completion_tokens": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
             }
           }
         },
-        "ip_policy": {
-          "type": "object",
-          "required": [
-            "enabled",
-            "allowed_cidrs"
+        "allowed_cidrs": {
+          "type": [
+            "array",
+            "null"
           ],
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "allowed_cidrs": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
+          "items": {
+            "type": "string"
+          },
+          "description": "Current source-IP allowlist, or null for no allowlist restriction."
         }
       }
     }
@@ -34838,6 +34939,38 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ]
     },
+    "diagnostic": {
+      "description": "Sanitized observed failure category and phase. Null for older records or when no diagnostic was saved. Does not establish nonexecution or authorize replay.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "phase"
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "transport",
+            "timeout",
+            "response_too_large",
+            "invalid_response",
+            "upstream_rejected"
+          ]
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "exchange",
+            "response",
+            "acknowledgement"
+          ]
+        }
+      }
+    },
     "created_at_ms": {
       "type": "integer",
       "format": "int64"
@@ -35979,7 +36112,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "balance_grant",
         "credit_policy",
         "grant_preparation",
-        "media_liability"
+        "media_liability",
+        "procurement_configuration"
       ]
     },
     "category": {

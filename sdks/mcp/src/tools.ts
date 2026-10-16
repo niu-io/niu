@@ -1524,7 +1524,7 @@ export const toolDefinitions = [
   {
     name: "inspect_key",
     description:
-      "Inspect the current workspace API key: label, allowed_models, expiration, spending_limits (with remaining_allowance_nanos), request/token/concurrency rate limits, 60-second usage_window, and ip_policy. Never exposes the secret token or Provider procurement costs.",
+      "Inspect the current workspace API key: label, allowed_models, expires_at_ms (Unix milliseconds; null means no automatic expiration), spending_limits (with remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second usage_window, and allowed_cidrs. Never exposes the secret token or Provider procurement costs.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {

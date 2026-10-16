@@ -145,7 +145,8 @@ Content type: `application/json`.
               "balance_grant",
               "credit_policy",
               "grant_preparation",
-              "media_liability"
+              "media_liability",
+              "procurement_configuration"
             ]
           },
           "category": {

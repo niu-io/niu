@@ -100,11 +100,11 @@ export function getPrompt(
   if (name === "check_key_budget") {
     const search = optionalStringArg(args, "search");
     const text = [
-      "1. Call inspect_key to check the workspace API key label, allowed_models, spending_limits (remaining_allowance_nanos), request/token/concurrency rate limits, and 60s usage_window.",
+      "1. Call inspect_key to read label, allowed_models, expires_at_ms (Unix milliseconds), spending_limits (limit_nanos, committed_nanos, remaining_nanos), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), usage_window and allowed_cidrs.",
       search
         ? `2. Call list_models with {"search": ${JSON.stringify(search)}} to inspect matching models and their customer_pricing.`
         : "2. Call list_models to inspect accessible models and their customer_pricing.",
-      "3. Report the current budget and rate-limit headroom clearly. Keep customer charges distinct from unpriced models.",
+      "3. Report spending by currency and distinguish null unlimited limits from known zero. A null expires_at_ms means no automatic expiration. Report rate policies and known usage without inferring complete RPM/TPM headroom when pending or unknown usage is not available. Keep customer charges distinct from unpriced models; a missing price is not zero.",
     ].join("\n");
     return {
       description: "Inspect workspace key limits, budget, and accessible models",

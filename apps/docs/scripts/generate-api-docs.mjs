@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import YAML from 'yaml';
+import { isDeepStrictEqual } from 'node:util';
 import { addOpenApiNavigation } from './openapi-navigation.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const check = process.argv.includes('--check');
@@ -27,6 +28,24 @@ const registered = new Map();
 function bundle(value, file) {
   if (Array.isArray(value)) return value.map(v => bundle(v, file));
   if (!value || typeof value !== 'object') return value;
+  // Security requirements refer to components by name, rather than by $ref.
+  // Preserve those names across contract boundaries and reject ambiguous merges.
+  if (Array.isArray(value.security)) for (const requirement of value.security) {
+    for (const name of Object.keys(requirement)) {
+      const definition = read(file).components?.securitySchemes?.[name]
+        ?? read(source).components?.securitySchemes?.[name];
+      if (!definition) throw new Error(`Undefined security scheme ${name} in ${file}`);
+      const scheme = bundle(definition, file);
+      const rootDefinition = read(source).components?.securitySchemes?.[name];
+      if (rootDefinition && !isDeepStrictEqual(bundle(rootDefinition, source), scheme)) {
+        throw new Error(`Conflicting security scheme ${name} in ${file}`);
+      }
+      components.securitySchemes ??= {};
+      const previous = components.securitySchemes[name];
+      if (previous && !isDeepStrictEqual(previous, scheme)) throw new Error(`Conflicting security scheme ${name} in ${file}`);
+      components.securitySchemes[name] = scheme;
+    }
+  }
   if (value.$ref) {
     const [relative, rawFragment = ''] = value.$ref.split('#');
     const target = path.resolve(path.dirname(file), relative || path.basename(file));
@@ -59,6 +78,11 @@ function validateRefs(value) {
   Object.values(value).forEach(validateRefs);
 }
 validateRefs(spec);
+for (const item of [spec, ...Object.values(spec.paths).flatMap(item => Object.values(item))]) {
+  for (const requirement of item?.security ?? []) for (const name of Object.keys(requirement)) {
+    if (!spec.components?.securitySchemes?.[name]) throw new Error(`Undefined bundled security scheme ${name}`);
+  }
+}
 addOpenApiNavigation(spec);
 outputs.set('contracts/generated/public-openapi.json', JSON.stringify(spec, null, 2) + '\n');
 const generated = 'Generated from the checked-in source. Do not edit this reference by hand.';

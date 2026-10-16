@@ -212,7 +212,14 @@ export type ContextPriceTier = {
   cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null; reasoning_completion_rate?: string | null;
 };
 export type CustomerTariffInput = SupplierRateInput & { discount_baseline_revision?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string };
-export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
+export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & {
+  revision: string;
+  /** Present on effective billing/model prices; publication history can omit it. */
+  pricing_source?: 'workspace' | 'platform';
+  promotion_scope?: 'customer' | 'global' | null;
+  price_version?: string;
+  selected_at?: string;
+};
 export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; is_current: boolean };
 export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */
@@ -613,11 +620,11 @@ export type WorkspaceKeyCreateInput = {
   name: string;
   ttl_seconds: number | null;
   allowed_models?: string[];
-  spending_limit?: WorkspaceKeySpendingLimitPatch;
-  request_rate_limit?: WorkspaceKeyRequestRateLimitPatch;
-  token_rate_limit?: WorkspaceKeyTokenRateLimitPatch;
-  concurrency_limit?: WorkspaceKeyConcurrencyLimitPatch;
-  ip_policy?: WorkspaceKeyIpPolicyPatch;
+  spending_limit?: Omit<WorkspaceKeySpendingLimitPatch, 'expected_revision'>;
+  requests_per_minute?: number | null;
+  tokens_per_minute?: number | null;
+  max_concurrent_requests?: number | null;
+  allowed_cidrs?: string[] | null;
 };
 export type WorkspaceKeyMetadataInput = {
   name: string;
@@ -629,7 +636,6 @@ export type WorkspaceKeyUpdateInput = {
   name?: string;
   allowed_models?: string[];
   expected_revision?: number;
-  ttl_seconds?: number | null;
   spending_limit?: WorkspaceKeySpendingLimitPatch;
   request_rate_limit?: WorkspaceKeyRequestRateLimitPatch;
   token_rate_limit?: WorkspaceKeyTokenRateLimitPatch;
@@ -1374,6 +1380,16 @@ export class NiuAdminClient {
    * its account binding; omitting it reads all saved accounts for this key/model.
    * This helper never dispatches, refreshes upstream state or restores key grants.
    */
+  mediaOperationModels(scope: TenantScope, keyId: string, query: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: string[]; next_cursor: string | null }> {
+    if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) throw new TypeError('History limit must be an integer from 1 to 100');
+    if (query.after !== undefined && (!query.after.length || query.after.length > 512)) throw new TypeError('Invalid model cursor');
+    const parameters = new URLSearchParams({ key_id: uuid(keyId) });
+    if (query.after !== undefined) parameters.set('after', query.after);
+    if (query.limit !== undefined) parameters.set('limit', String(query.limit));
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operation-models?${parameters}`, undefined, options, 'GET');
+  }
+
+  /** Read exact saved key/model history without restoring inference authority. */
   mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext) {
     if (!context.model.trim()) throw new TypeError('A model is required');
     const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operations`;
@@ -1610,12 +1626,12 @@ export class NiuAdminClient {
   }
 
   /** Retrieve one workspace API key with its unified limits and 60s usage window. */
-  getWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<{ data: WorkspaceKeyDetail }> {
+  getWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<WorkspaceKeyDetail> {
     return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys/${uuid(keyId)}`, undefined, options);
   }
 
   /** Workspace owner/admin write access. Requires an explicit finite or null lifetime. */
-  createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
+  createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey & { key: WorkspaceKeyDetail }> {
     if (typeof input.name !== 'string' || !input.name.trim()) throw new TypeError('Key name is required');
     if (input.ttl_seconds !== null && (!Number.isSafeInteger(input.ttl_seconds) || input.ttl_seconds < 1 || input.ttl_seconds > 31_536_000)) {
       throw new TypeError('Key lifetime must be explicit null or an integer from 1 to 31536000');
@@ -1623,8 +1639,8 @@ export class NiuAdminClient {
     return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys`, input, options, 'POST');
   }
 
-  /** Changes metadata, expiration, or policy limits; preserves secret. */
-  updateWorkspaceKey(scope: TenantScope | string, keyId: string, input: WorkspaceKeyUpdateInput, options?: RequestOptions): Promise<{ revision: number; data: WorkspaceKeyDetail }> {
+  /** Changes metadata or policy limits; preserves expiration and secret. */
+  updateWorkspaceKey(scope: TenantScope | string, keyId: string, input: WorkspaceKeyUpdateInput, options?: RequestOptions): Promise<WorkspaceKeyDetail> {
     if (input.name !== undefined && (typeof input.name !== 'string' || !input.name.trim())) throw new TypeError('Key name is required');
     if (input.expected_revision !== undefined && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new TypeError('Key metadata revision must be a positive safe integer');
     return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys/${uuid(keyId)}`, input, options, 'PATCH');

@@ -90,7 +90,7 @@ impl Store {
             }
         };
         let account: Uuid=sqlx::query_scalar("SELECT a.id FROM customer_balance_accounts a JOIN projects p ON p.organization_id=a.organization_id WHERE a.organization_id=$1 AND a.currency=$2 AND p.id=$3 FOR NO KEY UPDATE OF a")
-            .bind(scope.organization_id).bind(currency).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(scope.organization_id).bind(currency).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::KeySpendingCurrencyUnavailable)?;
         let root: Uuid=sqlx::query_scalar("SELECT spending_root_id FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR SHARE")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let current: Option<i64>=sqlx::query_scalar("SELECT revision FROM customer_key_spending_limits WHERE spending_root_id=$1 AND account_id=$2")

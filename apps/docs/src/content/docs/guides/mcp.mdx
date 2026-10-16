@@ -65,7 +65,7 @@ Omit `--hosted` and set `NIU_BASE_URL` to that gateway's `/v1` address:
 ## Tools
 
 ### Key introspection, model discovery & telemetry
-- `inspect_key` — Reads `GET /v1/key` for the key's label, `allowed_models`, expiration, `spending_limits` (including `remaining_allowance_nanos`), request/token/concurrency rate limits, 60-second `usage_window`, and `ip_policy`.
+- `inspect_key` — Reads `GET /v1/key` for the key's label, `allowed_models`, `expires_at_ms` (Unix milliseconds; null means no automatic expiration), `spending_limits` (including `remaining_nanos`), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second `usage_window` (requests, known_usage_requests, unknown_usage_requests, known_prompt_tokens, known_completion_tokens), and `allowed_cidrs`.
 - `list_models` — Reads `GET /v1/models` for accessible models and published `customer_pricing`, with optional `search` and `priced_only` filters.
 - `list_catalog_models` — Reads `GET /catalog/v1/models` for public catalog metadata and protocol `capabilities` (`chat_completions`, `streaming`, `embeddings`, `messages`, `messages_streaming`, `generate_content`, `responses`), with optional `search` and `capability` filters.
 - `get_generation` — Reads `GET /v1/generations/{id}` using the `attempt_id` returned by inference calls to inspect token breakdowns (cached input, cache write, reasoning output), phase latency timings, `output_guardrail_outcome`, and settled `customer_charge`.

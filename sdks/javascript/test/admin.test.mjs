@@ -170,21 +170,21 @@ test('unified workspace key lifecycle sends /api/v1/workspaces/{workspace}/keys 
   const admin = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
     calls.push({ url, init });
     if (init.method === 'DELETE') return new Response(null, { status: 204 });
-    if (init.method === 'GET') return Response.json({ data: { id, name: 'App Key', allowed_models: ['*'], expires_at_ms: null, last_used_at_ms: null, revoked: false, expired: false, spending_limits: [], request_rate_limit: { requests_per_minute: 60, revision: '1' }, token_rate_limit: { tokens_per_minute: null, revision: '0' }, concurrency_limit: { max_concurrent_requests: 5, revision: '1' }, token_usage_window: { window_seconds: 60, prompt_tokens: '0', completion_tokens: '0', total_tokens: '0', unknown_usage_requests: '0' }, ip_policy: { allowed_cidrs: null, revision: '0' } } });
+    if (init.method === 'GET') return Response.json({ id, name: 'App Key', allowed_models: ['*'], expires_at_ms: null, last_used_at_ms: null, revoked: false, expired: false, spending_limits: [], request_rate_limit: { requests_per_minute: 60, revision: '1' }, token_rate_limit: { tokens_per_minute: null, revision: '0' }, concurrency_limit: { max_concurrent_requests: 5, revision: '1' }, token_usage_window: { window_seconds: 60, prompt_tokens: '0', completion_tokens: '0', total_tokens: '0', unknown_usage_requests: '0' }, ip_policy: { allowed_cidrs: null, revision: '0' } });
     return Response.json({ id, token: 'niu-key-secret' });
   }});
   const created = await admin.createWorkspaceKey(scope, {
     name: 'App Key',
     ttl_seconds: null,
     allowed_models: ['*'],
-    request_rate_limit: { requests_per_minute: 60 },
-    concurrency_limit: { max_concurrent_requests: 5 },
+    requests_per_minute: 60,
+    max_concurrent_requests: 5,
   });
   assert.equal(created.id, id);
   assert.equal(calls[0].url, `http://localhost:2555/api/v1/workspaces/${id}/keys`);
   assert.equal(calls[0].init.method, 'POST');
   const detail = await admin.getWorkspaceKey(scope, id);
-  assert.equal(detail.data.request_rate_limit.requests_per_minute, 60);
+  assert.equal(detail.request_rate_limit.requests_per_minute, 60);
   assert.equal(calls[1].url, `http://localhost:2555/api/v1/workspaces/${id}/keys/${id}`);
   await admin.updateWorkspaceKey(scope, id, {
     name: 'Updated Key',

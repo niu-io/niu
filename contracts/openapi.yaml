@@ -885,21 +885,42 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1messages'
   /v1/responses:
     $ref: './generated/handler-operations.json#/paths/~1v1~1responses'
+  /api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operation-models'
   /api/v1/models:
     get:
       operationId: adminListModels
       summary: List configured model routes
-      description: Account-scoped sessions automatically include their own enabled personal models. Installation administrators may select an account with organization_id; without it only shared models are returned. Personal models remain excluded from the public catalog. Customer responses omit upstream names and credentials.
+      description: Company-scoped member sessions automatically include their own enabled personal models. Installation administrators may select a company with organization_id; without it only shared models are returned. Supply project_id to select an authorized workspace and resolve its effective customer selling prices. Without workspace scope customer_pricing is null; null is not a zero price and does not establish whether a workspace has a configured tariff. Personal routes also have null customer_pricing because they do not incur a Niu customer tariff. Model metadata and prices are advisory and do not qualify paid execution. Member responses omit Provider mappings, upstream names, procurement prices and credentials. Installation responses additionally include configured Provider and upstream model mappings and expose capability flags at the row root.
       parameters:
         - name: organization_id
           in: query
           required: false
+          description: Company scope. Member sessions default to their own company; installation administrators must provide this when selecting a workspace.
+          schema: { type: string, format: uuid }
+        - name: project_id
+          in: query
+          required: false
+          description: Workspace scope under the legacy API field name. Must belong to the selected company and authenticated member scope. Enables effective workspace customer pricing; it does not grant access to that workspace.
           schema: { type: string, format: uuid }
       security:
         - adminBearerAuth: []
       responses:
         '200':
-          description: Public and upstream model names with provider identifiers and catalog visibility.
+          description: Authorized model metadata. Member and installation projections differ; customer_pricing contains customer selling rates only.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: '#/components/schemas/MemberModelMetadata'
+                        - $ref: '#/components/schemas/InstallationModelMetadata'
         '401':
           description: Missing or invalid administrator credentials.
         '404':
@@ -2372,6 +2393,66 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1rotate'
 components:
   schemas:
+    ModelMetadataBase:
+      type: object
+      required: [id, public_catalog, catalog, customer_pricing]
+      properties:
+        id: { type: string, description: Public model alias. }
+        public_catalog: { type: boolean }
+        catalog:
+          type: object
+          additionalProperties: false
+          required: [name, description, context_length, max_completion_tokens, input_modalities, output_modalities, supported_parameters]
+          properties:
+            name: { type: [string, 'null'] }
+            description: { type: [string, 'null'] }
+            context_length: { type: [integer, 'null'], minimum: 1 }
+            max_completion_tokens: { type: [integer, 'null'], minimum: 1 }
+            input_modalities: { type: array, items: { type: string } }
+            output_modalities: { type: array, items: { type: string } }
+            supported_parameters: { type: array, items: { type: string } }
+        customer_pricing:
+          description: Effective workspace customer selling tariff, or null when no workspace is selected, no tariff is resolved, or the route is personal. Null never means free. Excludes procurement rates.
+          anyOf:
+            - $ref: './generated/handler-operations.json#/components/schemas/WorkspaceCustomerModelPrice'
+            - { type: 'null' }
+    ModelMetadataCapabilities:
+      type: object
+      required: [supports_embeddings, supports_embedding_dimensions, supports_embedding_base64, supports_tool_calls, supports_streaming_tool_calls, supports_structured_output, supports_messages, supports_messages_streaming, supports_messages_tools, supports_messages_streaming_tools, supports_generate_content, supports_responses]
+      properties:
+        supports_embeddings: { type: boolean }
+        supports_embedding_dimensions: { type: boolean }
+        supports_embedding_base64: { type: boolean }
+        supports_tool_calls: { type: boolean }
+        supports_streaming_tool_calls: { type: boolean }
+        supports_structured_output: { type: boolean }
+        supports_messages: { type: boolean }
+        supports_messages_streaming: { type: boolean }
+        supports_messages_tools: { type: boolean }
+        supports_messages_streaming_tools: { type: boolean }
+        supports_generate_content: { type: boolean }
+        supports_responses: { type: boolean }
+    MemberModelMetadata:
+      description: Member projection; no private Provider mapping or procurement information.
+      allOf:
+        - $ref: '#/components/schemas/ModelMetadataBase'
+        - type: object
+          required: [capabilities]
+          properties:
+            capabilities:
+              $ref: '#/components/schemas/ModelMetadataCapabilities'
+      unevaluatedProperties: false
+    InstallationModelMetadata:
+      description: Installation-only projection with configured Provider/upstream mapping. Credentials and procurement prices are excluded.
+      allOf:
+        - $ref: '#/components/schemas/ModelMetadataBase'
+        - $ref: '#/components/schemas/ModelMetadataCapabilities'
+        - type: object
+          required: [provider, upstream_model]
+          properties:
+            provider: { type: string }
+            upstream_model: { type: string }
+      unevaluatedProperties: false
     MediaVerificationSession:
       $ref: './generated/handler-operations.json#/components/schemas/MediaVerificationSession'
     MediaAssetGroup:
@@ -3395,6 +3476,11 @@ components:
       $ref: './generated/handler-operations.json#/components/schemas/WorkspaceKey'
     KeyInput:
       $ref: './generated/handler-operations.json#/components/schemas/KeyInput'
+  securitySchemes:
+    memberCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-niu_member_session
     bearerAuth:
       type: http
       scheme: bearer

@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/organizations/{organization}/projects/{project}/billing`
 
-Requires workspace read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
+Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
 
 Operation: `getCustomerBilling`.
 
@@ -273,6 +273,33 @@ Content type: `application/json`.
                 ],
                 "format": "uuid",
                 "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+              },
+              "pricing_source": {
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "platform"
+                ]
+              },
+              "promotion_scope": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "customer",
+                  "global",
+                  null
+                ]
+              },
+              "price_version": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "selected_at": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Selection cutoff as Unix seconds; informational, not a pinned request quote."
               }
             }
           }
@@ -348,6 +375,6 @@ Workspace outside authorized scope
 
 ## Behavior and supported scope
 
-Requires workspace read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
+Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
 
 **Supported scope:** implemented

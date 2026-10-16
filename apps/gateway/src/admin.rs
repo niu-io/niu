@@ -1785,7 +1785,7 @@ pub async fn create_account(
     headers: HeaderMap,
     Json(input): Json<niu_storage::AccountInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    authorize_project(
+    let authorization = authorize_project(
         &state,
         &headers,
         AdminPermission::Write,
@@ -1795,12 +1795,13 @@ pub async fn create_account(
     .await?;
     let id = state
         .store
-        .create_account(
+        .create_account_with_actor(
             TenantScope {
                 organization_id,
                 project_id,
             },
             &input,
+            audit_actor(authorization),
         )
         .await
         .map_err(ApiError::from_store)?;
@@ -3890,7 +3891,7 @@ pub async fn gateway_request(
 ///                           },
 ///                           "request_count": {
 ///                             "type": "integer",
-///                             "minimum": 1
+///                             "minimum": 0
 ///                           }
 ///                         }
 ///                       }
@@ -4464,7 +4465,7 @@ pub async fn create_budget(
     Json(input): Json<BudgetInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     authorize_platform(&state, &headers).await?;
-    authorize_project(
+    let authorization = authorize_project(
         &state,
         &headers,
         AdminPermission::Write,
@@ -4483,13 +4484,14 @@ pub async fn create_budget(
     })?;
     state
         .store
-        .create_budget(
+        .create_budget_with_actor(
             TenantScope {
                 organization_id,
                 project_id,
             },
             &input.currency,
             limit,
+            audit_actor(authorization),
         )
         .await
         .map_err(ApiError::from_store)?;

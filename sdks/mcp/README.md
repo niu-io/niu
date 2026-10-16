@@ -31,7 +31,7 @@ node sdks/mcp/bin/niu-mcp.mjs
 ## Exposed MCP capabilities
 
 ### 1. Key introspection, model discovery & generation telemetry
-- `inspect_key` (`GET /v1/key`): Inspect the current key label, `allowed_models`, expiration, `spending_limits` (with `remaining_allowance_nanos`), request/token/concurrency rate limits, 60-second `usage_window`, and `ip_policy`.
+- `inspect_key` (`GET /v1/key`): Inspect the current key label, `allowed_models`, `expires_at_ms` (Unix milliseconds; null means no automatic expiration), `spending_limits` (with `remaining_nanos`), rate_limits (requests_per_minute, tokens_per_minute, max_concurrent_requests, active_requests), 60-second `usage_window` (requests, known_usage_requests, unknown_usage_requests, known_prompt_tokens, known_completion_tokens), and `allowed_cidrs`.
 - `list_models` (`GET /v1/models`): List models accessible to this workspace key and their published `customer_pricing`, with optional `search` and `priced_only` filters.
 - `list_catalog_models` (`GET /catalog/v1/models`): List public catalog models with customer metadata and supported protocol capabilities (`chat_completions`, `streaming`, `embeddings`, `messages`, `messages_streaming`, `generate_content`, `responses`).
 - `get_generation` (`GET /v1/generations/{id}`): Retrieve exact token breakdown (`prompt_tokens`, `completion_tokens`, `cached_input_tokens`, `cache_write_input_tokens`, `reasoning_output_tokens`), latency phases (`dispatch_ms`, `headers_ms`, `first_output_ms`, `total_ms`), `output_guardrail_outcome`, and settled `customer_charge` for an `attempt_id`.

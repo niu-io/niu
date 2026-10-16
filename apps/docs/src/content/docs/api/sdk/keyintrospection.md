@@ -10,9 +10,12 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type KeyIntrospection = {
+    object: 'api_key';
     label: string;
     allowed_models: string[];
+    /** Unix milliseconds; null means no automatic expiration. */
     expires_at_ms: number | null;
+    /** Last recorded dispatch in Unix milliseconds. */
     last_used_at_ms: number | null;
     revoked: boolean;
     expired: boolean;
@@ -22,22 +25,13 @@ export type KeyIntrospection = {
         committed_nanos: string;
         remaining_nanos: string | null;
     }>;
-    request_rate_limit: {
+    rate_limits: {
         requests_per_minute: number | null;
-    };
-    token_rate_limit: {
-        snapshot_at: string;
-        known_tokens: string;
-        reserved_tokens: string;
-        unbounded_requests: number;
-        committed_tokens: string | null;
         tokens_per_minute: number | null;
-    };
-    concurrency_limit: {
-        active_requests: number;
         max_concurrent_requests: number | null;
+        active_requests: number;
     };
-    token_usage_window: {
+    usage_window: {
         window_seconds: 60;
         window_end: string;
         requests: number;
@@ -46,8 +40,6 @@ export type KeyIntrospection = {
         known_prompt_tokens: string;
         known_completion_tokens: string;
     };
-    ip_policy: {
-        allowed_cidrs: string[] | null;
-    };
+    allowed_cidrs: string[] | null;
 };
 ```

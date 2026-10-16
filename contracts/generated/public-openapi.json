@@ -23329,7 +23329,7 @@
         ],
         "operationId": "getCustomerBilling",
         "summary": "Read workspace customer charges, tariffs and latest 100 invoices",
-        "description": "Requires workspace read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.",
+        "description": "Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.",
         "responses": {
           "200": {
             "description": "Billing overview",
@@ -23538,6 +23538,33 @@
                                 ],
                                 "format": "uuid",
                                 "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+                              },
+                              "pricing_source": {
+                                "type": "string",
+                                "enum": [
+                                  "workspace",
+                                  "platform"
+                                ]
+                              },
+                              "promotion_scope": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "customer",
+                                  "global",
+                                  null
+                                ]
+                              },
+                              "price_version": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              },
+                              "selected_at": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$",
+                                "description": "Selection cutoff as Unix seconds; informational, not a pinned request quote."
                               }
                             }
                           }
@@ -24950,7 +24977,7 @@
       "patch": {
         "operationId": "renameProviderBusiness",
         "summary": "Update Provider business profile",
-        "description": "Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.",
+        "description": "Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and atomically records the authorized actor and resulting Provider name in its audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -25348,7 +25375,7 @@
       "put": {
         "operationId": "setProviderMembership",
         "summary": "Grant, change or disable a Provider membership",
-        "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
+        "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
         "tags": [
           "Providers"
         ],
@@ -29343,16 +29370,134 @@
         ]
       }
     },
+    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models": {
+      "get": {
+        "operationId": "listHistoricalWorkspaceProviderAssetModels",
+        "summary": "Discover saved native-operation model contexts",
+        "description": "Requires current workspace Read permission. Lists distinct recorded public model aliases for the original scoped key, including expired or revoked keys and deleted resources. Never consults current model grants, restores inference authority, selects a Provider account or calls upstream. Each alias may have several saved account bindings; it grants historical inspection only. Alias pagination is lexical and includes all recorded operation statuses.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "Workspace under the legacy API field name.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recorded aliases and exclusive lexical continuation cursor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filters."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Workspace Read permission required."
+          },
+          "409": {
+            "description": "Original key does not belong to this workspace."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Media assets and verification"
+        ]
+      }
+    },
     "/api/v1/models": {
       "get": {
         "operationId": "adminListModels",
         "summary": "List configured model routes",
-        "description": "Account-scoped sessions automatically include their own enabled personal models. Installation administrators may select an account with organization_id; without it only shared models are returned. Personal models remain excluded from the public catalog. Customer responses omit upstream names and credentials.",
+        "description": "Company-scoped member sessions automatically include their own enabled personal models. Installation administrators may select a company with organization_id; without it only shared models are returned. Supply project_id to select an authorized workspace and resolve its effective customer selling prices. Without workspace scope customer_pricing is null; null is not a zero price and does not establish whether a workspace has a configured tariff. Personal routes also have null customer_pricing because they do not incur a Niu customer tariff. Model metadata and prices are advisory and do not qualify paid execution. Member responses omit Provider mappings, upstream names, procurement prices and credentials. Installation responses additionally include configured Provider and upstream model mappings and expose capability flags at the row root.",
         "parameters": [
           {
             "name": "organization_id",
             "in": "query",
             "required": false,
+            "description": "Company scope. Member sessions default to their own company; installation administrators must provide this when selecting a workspace.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "description": "Workspace scope under the legacy API field name. Must belong to the selected company and authenticated member scope. Enables effective workspace customer pricing; it does not grant access to that workspace.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -29366,7 +29511,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Public and upstream model names with provider identifiers and catalog visibility."
+            "description": "Authorized model metadata. Member and installation projections differ; customer_pricing contains customer selling rates only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/MemberModelMetadata"
+                          },
+                          {
+                            "$ref": "#/components/schemas/InstallationModelMetadata"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or invalid administrator credentials."
@@ -35387,7 +35558,7 @@
                               },
                               "request_count": {
                                 "type": "integer",
-                                "minimum": 1
+                                "minimum": 0
                               }
                             }
                           }
@@ -38688,7 +38859,7 @@
       "get": {
         "operationId": "getCurrentKey",
         "summary": "Inspect the current workspace API key",
-        "description": "Returns customer-safe metadata, model grants, expiration, spending limits and remaining allowance, request/token/concurrency rate limits, 60-second usage window, and IP allowlist for the authenticated API key (or the workspace key selected via X-Niu-Key-Id with a console session). Never returns the secret token or internal platform UUIDs.",
+        "description": "Returns the existing customer-safe key projection: object, label, allowed_models, expires_at_ms and last_used_at_ms (Unix milliseconds), revoked/expired flags, spending_limits (limit_nanos, committed_nanos, remaining_nanos), flat rate_limits, usage_window and allowed_cidrs. Does not rename fields or change the HTTP response. Workspace policies and live authorization still apply. Unknown usage remains explicit and model grants do not establish upstream availability. Authenticates an inference API key, or the workspace key selected via X-Niu-Key-Id with an authorized console session. Never returns the secret token, internal platform UUIDs or Provider procurement costs.",
         "security": [
           {
             "bearerAuth": []
@@ -38704,24 +38875,32 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": false,
                   "required": [
                     "data"
                   ],
                   "properties": {
                     "data": {
                       "type": "object",
+                      "additionalProperties": false,
                       "required": [
+                        "object",
                         "label",
                         "allowed_models",
-                        "expires_at",
+                        "expires_at_ms",
+                        "last_used_at_ms",
+                        "revoked",
+                        "expired",
                         "spending_limits",
-                        "request_rate_limit",
-                        "token_rate_limit",
-                        "concurrency_limit",
+                        "rate_limits",
                         "usage_window",
-                        "ip_policy"
+                        "allowed_cidrs"
                       ],
                       "properties": {
+                        "object": {
+                          "type": "string",
+                          "const": "api_key"
+                        },
                         "label": {
                           "type": "string"
                         },
@@ -38731,200 +38910,156 @@
                             "type": "string"
                           }
                         },
-                        "expires_at": {
+                        "expires_at_ms": {
                           "type": [
                             "integer",
                             "null"
                           ],
-                          "format": "int64"
+                          "format": "int64",
+                          "description": "Unix milliseconds, never seconds. Null means no automatic expiration; revocation and policies still apply."
+                        },
+                        "last_used_at_ms": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "format": "int64",
+                          "description": "Last dispatch time in Unix milliseconds, or null when no dispatch is recorded."
+                        },
+                        "revoked": {
+                          "type": "boolean"
+                        },
+                        "expired": {
+                          "type": "boolean"
                         },
                         "spending_limits": {
                           "type": "array",
+                          "description": "Customer spending policies by currency. A null limit is unlimited; a null remaining value is not a zero allowance. Amounts are exact integer nanounit strings.",
                           "items": {
                             "type": "object",
+                            "additionalProperties": false,
                             "required": [
                               "currency",
-                              "enabled",
-                              "max_amount_nanos",
-                              "settled_amount_nanos",
-                              "reserved_amount_nanos",
-                              "remaining_allowance_nanos"
+                              "limit_nanos",
+                              "committed_nanos",
+                              "remaining_nanos"
                             ],
                             "properties": {
                               "currency": {
                                 "type": "string"
                               },
-                              "enabled": {
-                                "type": "boolean"
-                              },
-                              "max_amount_nanos": {
+                              "limit_nanos": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "pattern": "^[0-9]+$"
                               },
-                              "settled_amount_nanos": {
-                                "type": "string"
+                              "committed_nanos": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
                               },
-                              "reserved_amount_nanos": {
-                                "type": "string"
-                              },
-                              "remaining_allowance_nanos": {
+                              "remaining_nanos": {
                                 "type": [
                                   "string",
                                   "null"
-                                ]
+                                ],
+                                "pattern": "^[0-9]+$"
                               }
                             }
                           }
                         },
-                        "request_rate_limit": {
+                        "rate_limits": {
                           "type": "object",
+                          "additionalProperties": false,
+                          "description": "Null policy limits mean unlimited; a known zero blocks requests under that policy.",
                           "required": [
-                            "enabled",
                             "requests_per_minute",
-                            "window_seconds",
-                            "observed_requests_in_window",
-                            "remaining_requests_in_window"
+                            "tokens_per_minute",
+                            "max_concurrent_requests",
+                            "active_requests"
                           ],
                           "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
                             "requests_per_minute": {
                               "type": [
                                 "integer",
                                 "null"
-                              ]
-                            },
-                            "window_seconds": {
-                              "type": "integer"
-                            },
-                            "observed_requests_in_window": {
-                              "type": "integer"
-                            },
-                            "remaining_requests_in_window": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ]
-                            }
-                          }
-                        },
-                        "token_rate_limit": {
-                          "type": "object",
-                          "required": [
-                            "enabled",
-                            "tokens_per_minute",
-                            "window_seconds",
-                            "observed_tokens_in_window",
-                            "remaining_tokens_in_window"
-                          ],
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
+                              ],
+                              "minimum": 0
                             },
                             "tokens_per_minute": {
                               "type": [
-                                "string",
+                                "integer",
                                 "null"
-                              ]
-                            },
-                            "window_seconds": {
-                              "type": "integer"
-                            },
-                            "observed_tokens_in_window": {
-                              "type": "string"
-                            },
-                            "remaining_tokens_in_window": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
-                          }
-                        },
-                        "concurrency_limit": {
-                          "type": "object",
-                          "required": [
-                            "enabled",
-                            "max_concurrent_requests",
-                            "in_flight_requests",
-                            "remaining_concurrent_requests"
-                          ],
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
+                              ],
+                              "minimum": 0
                             },
                             "max_concurrent_requests": {
                               "type": [
                                 "integer",
                                 "null"
-                              ]
+                              ],
+                              "minimum": 0
                             },
-                            "in_flight_requests": {
-                              "type": "integer"
-                            },
-                            "remaining_concurrent_requests": {
-                              "type": [
-                                "integer",
-                                "null"
-                              ]
+                            "active_requests": {
+                              "type": "integer",
+                              "minimum": 0
                             }
                           }
                         },
                         "usage_window": {
                           "type": "object",
+                          "additionalProperties": false,
+                          "description": "Known token subtotals are not complete usage when unknown_usage_requests is positive.",
                           "required": [
                             "window_seconds",
-                            "request_count",
+                            "window_end",
+                            "requests",
                             "known_usage_requests",
                             "unknown_usage_requests",
-                            "prompt_tokens",
-                            "completion_tokens",
-                            "total_tokens"
+                            "known_prompt_tokens",
+                            "known_completion_tokens"
                           ],
                           "properties": {
                             "window_seconds": {
-                              "type": "integer"
+                              "type": "integer",
+                              "const": 60
                             },
-                            "request_count": {
-                              "type": "integer"
+                            "window_end": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "requests": {
+                              "type": "integer",
+                              "minimum": 0
                             },
                             "known_usage_requests": {
-                              "type": "integer"
+                              "type": "integer",
+                              "minimum": 0
                             },
                             "unknown_usage_requests": {
-                              "type": "integer"
+                              "type": "integer",
+                              "minimum": 0
                             },
-                            "prompt_tokens": {
-                              "type": "string"
+                            "known_prompt_tokens": {
+                              "type": "string",
+                              "pattern": "^[0-9]+$"
                             },
-                            "completion_tokens": {
-                              "type": "string"
-                            },
-                            "total_tokens": {
-                              "type": "string"
+                            "known_completion_tokens": {
+                              "type": "string",
+                              "pattern": "^[0-9]+$"
                             }
                           }
                         },
-                        "ip_policy": {
-                          "type": "object",
-                          "required": [
-                            "enabled",
-                            "allowed_cidrs"
+                        "allowed_cidrs": {
+                          "type": [
+                            "array",
+                            "null"
                           ],
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "allowed_cidrs": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          }
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Current source-IP allowlist, or null for no allowlist restriction."
                         }
                       }
                     }
@@ -39739,6 +39874,196 @@
   },
   "components": {
     "schemas": {
+      "ModelMetadataBase": {
+        "type": "object",
+        "required": [
+          "id",
+          "public_catalog",
+          "catalog",
+          "customer_pricing"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Public model alias."
+          },
+          "public_catalog": {
+            "type": "boolean"
+          },
+          "catalog": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "description",
+              "context_length",
+              "max_completion_tokens",
+              "input_modalities",
+              "output_modalities",
+              "supported_parameters"
+            ],
+            "properties": {
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "context_length": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "max_completion_tokens": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "input_modalities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "output_modalities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "supported_parameters": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "customer_pricing": {
+            "description": "Effective workspace customer selling tariff, or null when no workspace is selected, no tariff is resolved, or the route is personal. Null never means free. Excludes procurement rates.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/handler_operations_json_WorkspaceCustomerModelPrice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ModelMetadataCapabilities": {
+        "type": "object",
+        "required": [
+          "supports_embeddings",
+          "supports_embedding_dimensions",
+          "supports_embedding_base64",
+          "supports_tool_calls",
+          "supports_streaming_tool_calls",
+          "supports_structured_output",
+          "supports_messages",
+          "supports_messages_streaming",
+          "supports_messages_tools",
+          "supports_messages_streaming_tools",
+          "supports_generate_content",
+          "supports_responses"
+        ],
+        "properties": {
+          "supports_embeddings": {
+            "type": "boolean"
+          },
+          "supports_embedding_dimensions": {
+            "type": "boolean"
+          },
+          "supports_embedding_base64": {
+            "type": "boolean"
+          },
+          "supports_tool_calls": {
+            "type": "boolean"
+          },
+          "supports_streaming_tool_calls": {
+            "type": "boolean"
+          },
+          "supports_structured_output": {
+            "type": "boolean"
+          },
+          "supports_messages": {
+            "type": "boolean"
+          },
+          "supports_messages_streaming": {
+            "type": "boolean"
+          },
+          "supports_messages_tools": {
+            "type": "boolean"
+          },
+          "supports_messages_streaming_tools": {
+            "type": "boolean"
+          },
+          "supports_generate_content": {
+            "type": "boolean"
+          },
+          "supports_responses": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MemberModelMetadata": {
+        "description": "Member projection; no private Provider mapping or procurement information.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ModelMetadataBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "capabilities"
+            ],
+            "properties": {
+              "capabilities": {
+                "$ref": "#/components/schemas/ModelMetadataCapabilities"
+              }
+            }
+          }
+        ],
+        "unevaluatedProperties": false
+      },
+      "InstallationModelMetadata": {
+        "description": "Installation-only projection with configured Provider/upstream mapping. Credentials and procurement prices are excluded.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ModelMetadataBase"
+          },
+          {
+            "$ref": "#/components/schemas/ModelMetadataCapabilities"
+          },
+          {
+            "type": "object",
+            "required": [
+              "provider",
+              "upstream_model"
+            ],
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "upstream_model": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "unevaluatedProperties": false
+      },
       "MediaVerificationSession": {
         "$ref": "#/components/schemas/handler_operations_json_MediaVerificationSession"
       },
@@ -43111,19 +43436,6 @@
       "KeyInput": {
         "$ref": "#/components/schemas/handler_operations_json_KeyInput"
       },
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
-      },
-      "niuApiKeyAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-Niu-API-Key"
-      },
-      "adminBearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
-      },
       "handler_operations_json_RetailSelection": {
         "type": "object",
         "additionalProperties": false,
@@ -43793,6 +44105,38 @@
               "string",
               "null"
             ]
+          },
+          "diagnostic": {
+            "description": "Sanitized observed failure category and phase. Null for older records or when no diagnostic was saved. Does not establish nonexecution or authorize replay.",
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "category",
+              "phase"
+            ],
+            "properties": {
+              "category": {
+                "type": "string",
+                "enum": [
+                  "transport",
+                  "timeout",
+                  "response_too_large",
+                  "invalid_response",
+                  "upstream_rejected"
+                ]
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "exchange",
+                  "response",
+                  "acknowledgement"
+                ]
+              }
+            }
           },
           "created_at_ms": {
             "type": "integer",
@@ -45332,7 +45676,8 @@
               "balance_grant",
               "credit_policy",
               "grant_preparation",
-              "media_liability"
+              "media_liability",
+              "procurement_configuration"
             ]
           },
           "category": {
@@ -51348,6 +51693,26 @@
             "maximum": 32
           }
         }
+      }
+    },
+    "securitySchemes": {
+      "memberCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-niu_member_session"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "niuApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Niu-API-Key"
+      },
+      "adminBearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
       }
     },
     "parameters": {

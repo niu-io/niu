@@ -13,7 +13,6 @@ export type WorkspaceKeyUpdateInput = {
     name?: string;
     allowed_models?: string[];
     expected_revision?: number;
-    ttl_seconds?: number | null;
     spending_limit?: WorkspaceKeySpendingLimitPatch;
     request_rate_limit?: WorkspaceKeyRequestRateLimitPatch;
     token_rate_limit?: WorkspaceKeyTokenRateLimitPatch;

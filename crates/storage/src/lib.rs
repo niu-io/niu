@@ -17,9 +17,11 @@ pub use workspace_provider_asset_dispatch::{
 };
 mod workspace_provider_assets;
 pub use workspace_provider_assets::{
-    WorkspaceProviderAsset, WorkspaceProviderAssetGroup, WorkspaceProviderAssetMutation,
-    WorkspaceProviderAssetOperation, WorkspaceProviderAssetOutcome, WorkspaceProviderAssetPage,
-    WorkspaceProviderAssetPrepared, WorkspaceProviderAssetRoute,
+    WorkspaceProviderAsset, WorkspaceProviderAssetDiagnostic,
+    WorkspaceProviderAssetFailureCategory, WorkspaceProviderAssetFailurePhase,
+    WorkspaceProviderAssetGroup, WorkspaceProviderAssetMutation, WorkspaceProviderAssetOperation,
+    WorkspaceProviderAssetOutcome, WorkspaceProviderAssetPage, WorkspaceProviderAssetPrepared,
+    WorkspaceProviderAssetRoute,
 };
 mod workspace_asset_library;
 pub use workspace_asset_library::{
@@ -388,6 +390,9 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("company balance account is not configured for the spending-limit currency")]
+    KeySpendingCurrencyUnavailable,
+
     #[error("saved Chat history exceeds the materialization limit")]
     ChatHistoryCapacityExceeded,
 

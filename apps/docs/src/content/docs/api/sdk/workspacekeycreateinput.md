@@ -14,10 +14,10 @@ export type WorkspaceKeyCreateInput = {
     name: string;
     ttl_seconds: number | null;
     allowed_models?: string[];
-    spending_limit?: WorkspaceKeySpendingLimitPatch;
-    request_rate_limit?: WorkspaceKeyRequestRateLimitPatch;
-    token_rate_limit?: WorkspaceKeyTokenRateLimitPatch;
-    concurrency_limit?: WorkspaceKeyConcurrencyLimitPatch;
-    ip_policy?: WorkspaceKeyIpPolicyPatch;
+    spending_limit?: Omit<WorkspaceKeySpendingLimitPatch, 'expected_revision'>;
+    requests_per_minute?: number | null;
+    tokens_per_minute?: number | null;
+    max_concurrent_requests?: number | null;
+    allowed_cidrs?: string[] | null;
 };
 ```

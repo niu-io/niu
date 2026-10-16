@@ -1162,7 +1162,7 @@ Content type: `application/json`.
               },
               "request_count": {
                 "type": "integer",
-                "minimum": 1
+                "minimum": 0
               }
             }
           }

@@ -150,6 +150,38 @@ Content type: `application/json`.
             "null"
           ]
         },
+        "diagnostic": {
+          "description": "Sanitized observed failure category and phase. Null for older records or when no diagnostic was saved. Does not establish nonexecution or authorize replay.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "category",
+            "phase"
+          ],
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "transport",
+                "timeout",
+                "response_too_large",
+                "invalid_response",
+                "upstream_rejected"
+              ]
+            },
+            "phase": {
+              "type": "string",
+              "enum": [
+                "exchange",
+                "response",
+                "acknowledgement"
+              ]
+            }
+          }
+        },
         "created_at_ms": {
           "type": "integer",
           "format": "int64"

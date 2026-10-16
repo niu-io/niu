@@ -308,6 +308,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit` — Set API key token rate policy](/docs/api/rest/setkeytokenratelimit/)
 - [`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history` — List API key token rate policy history](/docs/api/rest/listkeytokenratelimithistory/)
 - [`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window` — Read API key token usage window](/docs/api/rest/getkeytokenusagewindow/)
+- [`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models` — Discover saved native-operation model contexts](/docs/api/rest/listhistoricalworkspaceproviderassetmodels/)
 - [`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operations` — List historical native material operations](/docs/api/rest/listhistoricalworkspaceproviderassetoperations/)
 - [`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}` — Read historical native material operations](/docs/api/rest/gethistoricalworkspaceproviderassetoperation/)
 - [`POST /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel` — Abandon an unclaimed native operation after key expiry](/docs/api/rest/cancelpreparedworkspaceproviderassetoperation/)
