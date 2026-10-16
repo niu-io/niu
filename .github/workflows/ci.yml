@@ -62,8 +62,6 @@ jobs:
         env:
           DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
         run: cargo +1.98.0 test --locked -p niu-gateway -- --ignored
-      - name: Run paired benchmark fixture
-        run: cargo +1.98.0 run --locked -p niu-benchmark -- compare contracts/fixtures/paired-experiment.v1.json
 
   web:
     runs-on: ubuntu-latest

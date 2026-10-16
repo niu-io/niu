@@ -347,12 +347,13 @@ export type PreparedCustomerBalanceGrant = {
   application_policy: 'future_only' | 'unpaid_credit_first'; created_at: string; status: 'prepared' | 'issued';
   result: { id: string; application_policy: 'future_only' | 'unpaid_credit_first'; applied_to_credit_nanos: string; retained_for_future_consumption_nanos: string } | null;
 };
-/** Noncash gift; issuance is neither a receipt nor revenue. */
+/** Full original amount only; correction is neither a cash refund nor revenue adjustment. */
 export type CustomerBalanceGiftCorrectionInput = { amount_nanos: string; reason: string; idempotency_key: string };
 export type IssuedCustomerBalanceGrant = {
   id: string; amount_nanos: string; reason: string; currency: string; created_at: string;
   correction: { id: string; amount_nanos: string; reason: string; created_at: string; actor_kind: 'installation' | 'operator'; actor_label: string } | null;
 };
+/** Noncash gift; issuance is neither a receipt nor revenue. */
 export type CustomerBalanceGrantInput = { amount_nanos: string; reason: string; idempotency_key: string; application_policy?: 'future_only' | 'unpaid_credit_first' };
 function checkedBalanceGrantInput(currency: string, input: CustomerBalanceGrantInput): CustomerBalanceGrantInput {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
