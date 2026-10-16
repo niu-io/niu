@@ -90,11 +90,9 @@ Dashboard sign-in is a member password session. The installation administrator t
 
 ## Outside the current product
 
-These surfaces still exist. They are not the product boundary in [product focus](docs/product/product-focus.md):
+Paired-benchmark analysis and external execution-record import are retired from the current product surface. The Gateway does not register their HTTP routes, and the dashboard does not mount their tools. Historical database rows remain retained; retiring the workflow does not delete them or their referenced accounting history.
 
-- `POST /admin/v1/benchmarks/compare` and the dashboard benchmarks page analyze an uploaded paired dataset. The analyzer does not scope that dataset to the caller’s stored traffic.
-- Execution-record import stores metadata-only task observations. Importing one does not create an attempt or a charge.
-- The extension crate and its reference extension are tested alone. The gateway does not load extensions, and it does not run a task sandbox.
+Retained execution-observation types are compatibility artifacts, not supported ingestion APIs or a task investigation product. External orchestration products own task execution and acceptance. Niu Chat, Activity and request Logs describe requests Niu handled. The Gateway does not load legacy extension task adapters or run a task sandbox; supported Plugins use the explicit public Plugin contracts.
 
 ## Open implementation and qualification work
 

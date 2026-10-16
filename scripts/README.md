@@ -1,21 +1,9 @@
-# Explicit execution metadata import
+# Repository scripts
 
-Requires Python 3.10 or newer; no external packages. This imports a selected Niu v1 JSON export into an existing project. It does not discover agent files, read account credentials, convert arbitrary provider logs or replay model requests.
+Run the public development stack with `pnpm dev`; `pnpm dev:stop` stops the launcher while retaining its database. See the [local development guide](../apps/docs/src/content/docs/guides/local-development.mdx) for private runtime configuration and setup.
 
-Set NIU_ADMIN_TOKEN using your normal secret-management workflow, then run:
+`pnpm generate:api` extracts handler annotations and regenerates the bundled OpenAPI and SDK/REST reference. `pnpm check:api` checks those artifacts for source drift. These checks do not qualify live API behavior; use actual current inputs and independently reopen the final records or artifacts.
 
-```sh
-python3 scripts/import_execution.py path/to/execution.json --organization YOUR_ORGANIZATION_UUID --project YOUR_PROJECT_UUID
-```
+Release version commands are exposed as `pnpm version:check`, `pnpm version:set` and `pnpm version:notes`. The release workflow runs `release-guard.py` against actual GitHub state before publication. It refuses an existing release or a tag/source mismatch, and never replaces published assets. Credentials belong in private environment configuration.
 
-The default origin is http://127.0.0.1:2555. Use --url for a remote HTTPS gateway. HTTP is allowed only on loopback. Redirects are rejected and environment HTTP proxies are not used. --token-env selects another environment variable; token values are never command-line arguments or printed by the script.
-
-Exports follow the [execution observation contract](../docs/architecture/execution-observation.md). Only metadata belongs in these files. The gateway performs full schema and graph validation. The parallel-task fixture in contracts/fixtures is a synthetic example, not a source connector. The importer prints the stable import ID; the admin API can retrieve or delete it. Identical re-imports are idempotent; conflicting source/record identities fail.
-
-This is the first supported import path. Collection from specific external agent products remains unimplemented. Credentials and source exports should remain outside the public repository.
-
-Run transport tests with:
-
-```sh
-python3 -m unittest discover -s scripts/tests -v
-```
+External execution-record import and paired-benchmark analysis are retired from the current product surface. There is no supported import CLI or current Gateway import/read/delete API. Historical database records remain retained; see the [archived interchange contract](../docs/architecture/execution-observation.md) for their meaning.
