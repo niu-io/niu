@@ -83,6 +83,7 @@ impl FastRouterActionLimits {
 /// endpoint, credential, checkout or verification-session token is retained here.
 #[derive(Debug)]
 pub struct FastRouterActionFailure {
+    pub timed_out: bool,
     pub http_status: Option<u16>,
     pub request_id: Option<String>,
     pub error_code: Option<String>,
@@ -207,7 +208,11 @@ impl FastRouterActionClient {
                 .body(body)
                 .send()
                 .await
-                .map_err(|_| FastRouterActionError::Transport(failure(action, None, None, None)))?;
+                .map_err(|error| {
+                    let mut detail = failure(action, None, None, None);
+                    detail.timed_out = error.is_timeout();
+                    FastRouterActionError::Transport(detail)
+                })?;
             let status = response.status();
             observed_status = Some(status.as_u16());
             let content_length = response.content_length();
@@ -224,8 +229,10 @@ impl FastRouterActionClient {
                     .unwrap_or(0)
                     .min(limits.maximum_response_bytes as u64) as usize,
             );
-            while let Some(chunk) = response.chunk().await.map_err(|_| {
-                FastRouterActionError::Transport(failure(action, observed_status, None, None))
+            while let Some(chunk) = response.chunk().await.map_err(|error| {
+                let mut detail = failure(action, observed_status, None, None);
+                detail.timed_out = error.is_timeout();
+                FastRouterActionError::Transport(detail)
             })? {
                 if chunk.len() > limits.maximum_response_bytes.saturating_sub(bytes.len()) {
                     return Err(FastRouterActionError::ResponseTooLarge(failure(
@@ -259,7 +266,9 @@ impl FastRouterActionClient {
             parse_response(action, status, &bytes, secret)
         };
         tokio::time::timeout_at(deadline, work).await.map_err(|_| {
-            FastRouterActionError::Transport(failure(action, observed_status, None, None))
+            let mut detail = failure(action, observed_status, None, None);
+            detail.timed_out = true;
+            FastRouterActionError::Transport(detail)
         })?
     }
 }
@@ -278,6 +287,7 @@ fn failure(
     code: Option<String>,
 ) -> FastRouterActionFailure {
     FastRouterActionFailure {
+        timed_out: false,
         http_status: status,
         request_id: correlation(request_id),
         error_code: correlation(code),

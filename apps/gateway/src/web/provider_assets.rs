@@ -19,8 +19,9 @@ use niu_media::fastrouter_domain::{
     decode_created_reference, decode_group_update_acknowledgement,
 };
 use niu_storage::{
-    Principal, WorkspaceProviderAssetMutation, WorkspaceProviderAssetOutcome,
-    WorkspaceProviderAssetRoute,
+    Principal, WorkspaceProviderAssetDiagnostic, WorkspaceProviderAssetFailureCategory,
+    WorkspaceProviderAssetFailurePhase, WorkspaceProviderAssetMutation,
+    WorkspaceProviderAssetOutcome, WorkspaceProviderAssetRoute,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -490,6 +491,10 @@ async fn mutate_with_route(
                             provider_reference: Some(reference),
                         },
                         Err(_) => WorkspaceProviderAssetOutcome::Unknown {
+                            diagnostic: WorkspaceProviderAssetDiagnostic {
+                                category: WorkspaceProviderAssetFailureCategory::InvalidResponse,
+                                phase: WorkspaceProviderAssetFailurePhase::Acknowledgement,
+                            },
                             http_status: Some(response.http_status()),
                             request_id: response.request_id().map(str::to_owned),
                         },
@@ -513,6 +518,10 @@ async fn mutate_with_route(
                     }
                 } else {
                     WorkspaceProviderAssetOutcome::Unknown {
+                        diagnostic: WorkspaceProviderAssetDiagnostic {
+                            category: WorkspaceProviderAssetFailureCategory::InvalidResponse,
+                            phase: WorkspaceProviderAssetFailurePhase::Acknowledgement,
+                        },
                         http_status: Some(response.http_status()),
                         request_id: response.request_id().map(str::to_owned),
                     }
@@ -523,15 +532,41 @@ async fn mutate_with_route(
                 | FastRouterActionError::InvalidRequest
                 | FastRouterActionError::EndpointUnavailable,
             ) => WorkspaceProviderAssetOutcome::NotDispatched,
-            Err(
-                FastRouterActionError::Transport(failure)
-                | FastRouterActionError::ResponseTooLarge(failure)
-                | FastRouterActionError::InvalidResponse(failure)
-                | FastRouterActionError::UpstreamRejected(failure),
-            ) => WorkspaceProviderAssetOutcome::Unknown {
-                http_status: failure.http_status,
-                request_id: failure.request_id,
-            },
+            Err(error) => {
+                use WorkspaceProviderAssetFailureCategory as Category;
+                let (category, failure) = match error {
+                    FastRouterActionError::Transport(failure) => (
+                        if failure.timed_out {
+                            Category::Timeout
+                        } else {
+                            Category::Transport
+                        },
+                        failure,
+                    ),
+                    FastRouterActionError::ResponseTooLarge(failure) => {
+                        (Category::ResponseTooLarge, failure)
+                    }
+                    FastRouterActionError::InvalidResponse(failure) => {
+                        (Category::InvalidResponse, failure)
+                    }
+                    FastRouterActionError::UpstreamRejected(failure) => {
+                        (Category::UpstreamRejected, failure)
+                    }
+                    _ => unreachable!("pre-dispatch errors handled above"),
+                };
+                WorkspaceProviderAssetOutcome::Unknown {
+                    diagnostic: WorkspaceProviderAssetDiagnostic {
+                        category,
+                        phase: if failure.http_status.is_some() {
+                            WorkspaceProviderAssetFailurePhase::Response
+                        } else {
+                            WorkspaceProviderAssetFailurePhase::Exchange
+                        },
+                    },
+                    http_status: failure.http_status,
+                    request_id: failure.request_id,
+                }
+            }
         };
         state
             .store
@@ -843,6 +878,16 @@ async fn mutate_with_route(
 ///             "string",
 ///             "null"
 ///           ]
+///         },
+///         "diagnostic": {
+///           "description": "Sanitized observed failure category and phase. Null for older records or when no diagnostic was saved. Does not establish nonexecution or authorize replay.",
+///           "type": ["object", "null"],
+///           "additionalProperties": false,
+///           "required": ["category", "phase"],
+///           "properties": {
+///             "category": {"type": "string", "enum": ["transport", "timeout", "response_too_large", "invalid_response", "upstream_rejected"]},
+///             "phase": {"type": "string", "enum": ["exchange", "response", "acknowledgement"]}
+///           }
 ///         },
 ///         "created_at_ms": {
 ///           "type": "integer",
@@ -3664,6 +3709,68 @@ pub(super) struct HistoricalOperationQuery {
     key_id: Uuid,
     model: String,
     context_group_id: Option<Uuid>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct HistoricalModelQuery {
+    key_id: Uuid,
+    after: Option<String>,
+    limit: Option<u32>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listHistoricalWorkspaceProviderAssetModels",
+///     "summary": "Discover saved native-operation model contexts",
+///     "description": "Requires current workspace Read permission. Lists distinct recorded public model aliases for the original scoped key, including expired or revoked keys and deleted resources. Never consults current model grants, restores inference authority, selects a Provider account or calls upstream. Each alias may have several saved account bindings; it grants historical inspection only. Alias pagination is lexical and includes all recorded operation statuses.",
+///     "security": [{"bearerAuth": []}],
+///     "parameters": [
+///       {"name":"organization","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"project","in":"path","required":true,"description":"Workspace under the legacy API field name.","schema":{"type":"string","format":"uuid"}},
+///       {"name":"key_id","in":"query","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"after","in":"query","schema":{"type":"string","minLength":1,"maxLength":512}},
+///       {"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}}
+///     ],
+///     "responses": {
+///       "200":{"description":"Recorded aliases and exclusive lexical continuation cursor.","content":{"application/json":{"schema":{"type":"object","required":["data","next_cursor"],"properties":{"data":{"type":"array","items":{"type":"string"}},"next_cursor":{"type":["string","null"]}}}}}},
+///       "400":{"description":"Invalid filters."},
+///       "401":{"description":"Authentication required."},
+///       "403":{"description":"Workspace Read permission required."},
+///       "409":{"description":"Original key does not belong to this workspace."}
+///     },
+///     "x-niu-implementation":"implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn historical_models(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path((organization_id, project_id)): axum::extract::Path<(Uuid, Uuid)>,
+    input: Result<Query<HistoricalModelQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    let scope = niu_storage::TenantScope {
+        organization_id,
+        project_id,
+    };
+    authorize_historical_operations(&state, &headers, scope).await?;
+    let input = query(input)?;
+    let (models, next) = state
+        .store
+        .historical_workspace_provider_asset_models(
+            scope,
+            input.key_id,
+            input.after.as_deref(),
+            page_limit(input.limit)?,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((
+        operation_read_headers(),
+        Json(json!({"data":models,"next_cursor":next})),
+    ))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

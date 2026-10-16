@@ -16,3 +16,41 @@ and nonempty key rotation have independent acceptance records. Saved-image
 request parsing and safe unsupported-channel refusal are verified; qualified
 fresh-inspection generation remains unverified. This page does not claim a
 complete Seedance workflow.
+
+## Unconfirmed native Provider operations
+
+Native Provider materials are separate from the encrypted local library. Their
+saved operation history is available to authorized workspace administrators and
+through the SDK's `mediaOperationHistory` methods, including after the original
+inference key is revoked. Reading history never dispatches a mutation.
+Use `mediaOperationModels(scope, keyId)` to discover the saved public model aliases
+without relying on the key's current model grants or catalog discovery. Follow
+its continuation cursor to recover all saved contexts, then open the exact alias
+with `mediaOperationHistory(scope, { keyId, model })`. Multiple saved account
+bindings for an alias remain historical contexts and are not a live route grant.
+
+An `unknown` operation may include `diagnostic.category` and `diagnostic.phase`.
+Categories distinguish transport failure, timeout, response size limit, invalid
+response and Provider rejection. The exchange phase does not establish whether
+the Provider received the request; the response phase means an HTTP status was
+observed, and acknowledgement means the domain acknowledgement could not be
+validated. No category proves nonexecution or authorizes replay. Older records
+and interrupted completions retain null diagnostics; their cause is unavailable.
+
+For an unconfirmed operation:
+
+1. Read the original saved operation through workspace administration. Retain its
+   original request reference and any known HTTP/correlation metadata privately.
+2. If the original Provider object reference is known, perform an explicit status
+   refresh. This saves a separate observation and does not reconcile the mutation.
+   An Active object or a missing object alone cannot prove what the mutation did.
+3. Ask the Provider to investigate the original request using authorized private
+   operational tooling. Never publish credentials, source URLs or raw responses.
+4. Keep the operation and its history until evidence supports a reviewed
+   reconciliation. Current native APIs do not finalize an unknown mutation from
+   a status read. Do not edit database state, cancel an unknown operation, delete
+   its parent group, resubmit the mutation or replace its idempotency key to
+   bypass that boundary. Only an unclaimed `prepared` operation can be canceled.
+
+For incidents created before diagnostic retention, a null category stays null;
+new software cannot recover the original cause from absent evidence.

@@ -134,6 +134,7 @@ pub struct WorkspaceProviderAssetOperation {
     pub status: String,
     pub http_status: Option<i32>,
     pub request_id: Option<String>,
+    pub diagnostic: Option<Value>,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
     #[serde(skip)]
@@ -258,6 +259,27 @@ impl WorkspaceProviderAssetPrepared {
         &self.body
     }
 }
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspaceProviderAssetFailureCategory {
+    Transport,
+    Timeout,
+    ResponseTooLarge,
+    InvalidResponse,
+    UpstreamRejected,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspaceProviderAssetFailurePhase {
+    Exchange,
+    Response,
+    Acknowledgement,
+}
+#[derive(Serialize)]
+pub struct WorkspaceProviderAssetDiagnostic {
+    pub category: WorkspaceProviderAssetFailureCategory,
+    pub phase: WorkspaceProviderAssetFailurePhase,
+}
 pub enum WorkspaceProviderAssetOutcome {
     Acknowledged {
         provider_reference: Option<FastRouterProviderReference>,
@@ -265,6 +287,7 @@ pub enum WorkspaceProviderAssetOutcome {
     Unknown {
         http_status: Option<u16>,
         request_id: Option<String>,
+        diagnostic: WorkspaceProviderAssetDiagnostic,
     },
     /// Only a proven failure before HTTP dispatch; no HTTP refusal implies this.
     NotDispatched,
@@ -273,13 +296,44 @@ const GROUP_COLUMNS: &str = "g.id,g.model_alias AS model,g.name,g.description,g.
 const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,CASE WHEN a.observed_at IS NULL THEN NULL ELSE jsonb_build_object('source','provider_get','status',a.observed_status,'name',a.observed_name,'observed_at_ms',floor(extract(epoch FROM a.observed_at)*1000)::bigint) END AS observation,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model,EXISTS(SELECT 1 FROM workspace_provider_asset_operations created WHERE created.organization_id=a.organization_id AND created.project_id=a.project_id AND created.group_id=a.group_id AND created.asset_id=a.id AND created.action='create_asset' AND created.status='acknowledged') AS create_acknowledged";
 // Original key and model select recorded history; optional group pins its immutable account context.
 const HISTORICAL_OPERATION_FILTER: &str = "o.organization_id=$1 AND o.project_id=$2 AND o.key_id=$3 AND g.model_alias=$4 AND ($5::uuid IS NULL OR EXISTS(SELECT 1 FROM workspace_provider_asset_groups context WHERE context.organization_id=$1 AND context.project_id=$2 AND context.id=$5 AND context.model_alias=g.model_alias AND context.vendor_id=g.vendor_id AND context.vendor_revision=g.vendor_revision AND context.model_revision=g.model_revision AND context.upstream_model=g.upstream_model))";
-const OP_COLUMNS: &str = "o.id,o.group_id,o.asset_id,g.model_alias AS model,o.action,o.status,o.http_status,o.request_id,floor(extract(epoch FROM o.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM o.updated_at)*1000)::bigint AS updated_at_ms,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
+const OP_COLUMNS: &str = "o.id,o.group_id,o.asset_id,g.model_alias AS model,o.action,o.status,o.http_status,o.request_id,o.diagnostic,floor(extract(epoch FROM o.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM o.updated_at)*1000)::bigint AS updated_at_ms,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
 #[derive(Serialize)]
 pub struct WorkspaceProviderAssetPage<T: Serialize> {
     pub data: Vec<T>,
     pub next_cursor: Option<Uuid>,
 }
 impl Store {
+    /// Recorded aliases only. Does not restore inference authority or select a Provider.
+    pub async fn historical_workspace_provider_asset_models(
+        &self,
+        scope: TenantScope,
+        key: Uuid,
+        after: Option<&str>,
+        limit: i64,
+    ) -> Result<(Vec<String>, Option<String>), StoreError> {
+        if key.is_nil()
+            || !(1..=100).contains(&limit)
+            || after.is_some_and(|value| value.is_empty() || value.len() > 512)
+        {
+            return Err(StoreError::InvalidObservation);
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_one(&mut *tx).await?;
+        if !exists {
+            return Err(StoreError::Conflict);
+        }
+        let mut models: Vec<String> = sqlx::query_scalar("SELECT DISTINCT g.model_alias COLLATE \"C\" FROM workspace_provider_asset_operations o JOIN workspace_provider_asset_groups g ON g.organization_id=o.organization_id AND g.project_id=o.project_id AND g.id=o.group_id WHERE o.organization_id=$1 AND o.project_id=$2 AND o.key_id=$3 AND ($4::text IS NULL OR g.model_alias>$4 COLLATE \"C\") ORDER BY g.model_alias COLLATE \"C\" LIMIT $5")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(after).bind(i64::from(limit)+1).fetch_all(&mut *tx).await?;
+        let next = if models.len() > limit as usize {
+            models.truncate(limit as usize);
+            models.last().cloned()
+        } else {
+            None
+        };
+        tx.commit().await?;
+        Ok((models, next))
+    }
     pub(crate) async fn provider_asset_key_using(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         p: &Principal,
@@ -1213,10 +1267,11 @@ impl Store {
         let prior: String = row.get("prior_status");
         let name: Option<String> = row.get("requested_name");
         let description: Option<String> = row.get("requested_description");
-        let (status, http, request) = match outcome {
+        let (status, http, request, diagnostic) = match outcome {
             WorkspaceProviderAssetOutcome::Unknown {
                 http_status,
                 request_id,
+                diagnostic,
             } => {
                 // Request identifiers are diagnostics, never arbitrary upstream prose.
                 let request = request_id.filter(|v| {
@@ -1231,6 +1286,10 @@ impl Store {
                         .filter(|v| (100..=599).contains(v))
                         .map(i32::from),
                     request,
+                    Some(
+                        serde_json::to_value(diagnostic)
+                            .map_err(|_| StoreError::InvalidObservation)?,
+                    ),
                 )
             }
             WorkspaceProviderAssetOutcome::NotDispatched => {
@@ -1244,7 +1303,7 @@ impl Store {
                 } else {
                     sqlx::query("UPDATE workspace_provider_asset_groups SET status=$2,revision=revision+1,updated_at=now() WHERE id=$1").bind(op.group_id).bind(restored).execute(&mut *tx).await?;
                 }
-                ("not_sent", None, None)
+                ("not_sent", None, None, None)
             }
             WorkspaceProviderAssetOutcome::Acknowledged { provider_reference } => {
                 let reference = provider_reference.as_ref().map(|v| v.private_ref());
@@ -1272,10 +1331,10 @@ impl Store {
                     }
                     _ => return Err(StoreError::InvalidObservation),
                 }
-                ("acknowledged", None, None)
+                ("acknowledged", None, None, None)
             }
         };
-        sqlx::query("UPDATE workspace_provider_asset_operations SET status=$2,http_status=$3,request_id=$4,updated_at=now() WHERE id=$1").bind(id).bind(status).bind(http).bind(request).execute(&mut *tx).await?;
+        sqlx::query("UPDATE workspace_provider_asset_operations SET status=$2,http_status=$3,request_id=$4,diagnostic=COALESCE(diagnostic,$5),updated_at=now() WHERE id=$1").bind(id).bind(status).bind(http).bind(request).bind(diagnostic).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }

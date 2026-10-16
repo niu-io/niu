@@ -19,7 +19,7 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  const [revision,setRevision]=useState(0);
  const requested=nativeContext??selection;
  const discoveryIdentity=JSON.stringify([context.token,workspace?.organization_id,workspace?.id]);
- const [discovery,setDiscovery]=useState<{identity:string;loading:boolean;keys:ProjectKey[];choices:NativeContextChoice[];errors:string[]}>({identity:'',loading:true,keys:[],choices:[],errors:[]});
+ const [discovery,setDiscovery]=useState<{identity:string;loading:boolean;keys:ProjectKey[];choices:NativeContextChoice[];historyModels:Record<string,string[]>;errors:string[]}>({identity:'',loading:true,keys:[],choices:[],historyModels:{},errors:[]});
  const identity=JSON.stringify([context.token,context.session?.operator?.id??context.session?.kind,workspace?.organization_id,workspace?.id,preferredModel,requested?.keyId,requested?.model]);
  const liveIdentity=useRef(identity);liveIdentity.current=identity;
  const [binding,setBinding]=useState<{identity:string;model:string;keyId:string;module:NativeProviderModule}|null>(null);
@@ -29,14 +29,19 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  const admin=useMemo(()=>new NiuAdminClient({adminToken:context.token,baseURL:new URL('/api/v1',window.location.origin).href}),[context.token]);
  useEffect(()=>{
   if(nativeContext)return;
-  const controller=new AbortController();setDiscovery({identity:discoveryIdentity,loading:true,keys:[],choices:[],errors:[]});
-  if(!workspace){setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],errors:[]});return()=>controller.abort();}
+  const controller=new AbortController();setDiscovery({identity:discoveryIdentity,loading:true,keys:[],choices:[],historyModels:{},errors:[]});
+  if(!workspace){setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],historyModels:{},errors:[]});return()=>controller.abort();}
   void(async()=>{
-   const page=await keyRequest<{data:ProjectKey[]}>(context.token,workspaceKeyPath(workspace.id),'GET',undefined,controller.signal);
-   const keys=page.data,queue=keys.filter(key=>!key.revoked&&!key.expired),choices:NativeContextChoice[]=[],errors:string[]=[];
+   const page=await allPages(after=>keyRequest<{data:ProjectKey[];next_cursor:string|null}>(context.token,workspaceKeyPath(workspace.id)+'?limit=100'+(after?'&after='+encodeURIComponent(after):''),'GET',undefined,controller.signal));
+   const keys=page.data,queue=[...keys],choices:NativeContextChoice[]=[],historyModels:Record<string,string[]>={},errors:string[]=[];
    await Promise.all(Array.from({length:Math.min(4,queue.length)},async()=>{
     while(queue.length&&!controller.signal.aborted){
      const key=queue.shift()!;
+     try{
+      const saved=await allPages(after=>admin.mediaOperationModels({organizationId:workspace.organization_id,projectId:workspace.id},key.id,{limit:100,after},{signal:controller.signal}));
+      historyModels[key.id]=saved.data;
+     }catch(error){if(!controller.signal.aborted)errors.push(`${key.name}: saved model history could not be discovered.`);}
+     if(key.revoked||key.expired)continue;
      try{
       const found=await admin.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},key.id).capabilities(undefined,{signal:controller.signal});
       if(!found.complete)throw new Error('Native tool discovery did not complete.');
@@ -47,8 +52,8 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
      }catch(error){if(!controller.signal.aborted)errors.push(`${key.name}: ${error instanceof Error?error.message:'Discovery failed.'}`);}
     }
    }));
-   if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys,choices,errors});
-  })().catch(error=>{if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],errors:[error instanceof Error?error.message:'Native tool discovery failed.']});});
+   if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys,choices,historyModels,errors});
+  })().catch(error=>{if(!controller.signal.aborted)setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],historyModels:{},errors:[error instanceof Error?error.message:'Native tool discovery failed.']});});
   return()=>controller.abort();
  },[discoveryIdentity,admin,revision,Boolean(nativeContext)]);
  const discoveryPending=!nativeContext&&(discovery.identity!==discoveryIdentity||discovery.loading);
@@ -86,8 +91,11 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   void(async()=>{
    if(!requested?.keyId||!requested.model||discoveryPending)return;
    if(!nativeContext){
-    if(!discovery.keys.some(key=>key.id===requested.keyId&&!key.revoked&&!key.expired))throw new Error('The selected API key is not active in this workspace.');
+    const selectedKey=discovery.keys.find(key=>key.id===requested.keyId);
+    if(!selectedKey)throw new Error('The selected API key is not in this workspace.');
+    if(selectedKey.revoked||selectedKey.expired)return;
     const choices=discovery.choices.filter(choice=>choice.keyId===requested.keyId&&choice.module.model_alias===requested.model);
+    if(choices.length===0&&discovery.historyModels[requested.keyId]?.includes(requested.model))return;
     if(choices.length!==1)throw new Error(choices.length>1?'This model has ambiguous native contexts; no account was selected.':'The selected model has no discovered native tools. Check discovery errors or choose a supported model.');
    }
    const api=admin.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},requested.keyId);
@@ -118,5 +126,5 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   if(!workspace||!context.session?.permissions.write)throw new Error('Workspace Write access is required.');
   return admin.cancelPreparedMediaOperation({organizationId:workspace.organization_id,projectId:workspace.id},id,model);
  };
- return {historyClient,historyModel:requested?.model,historyKey:discovery.identity===discoveryIdentity?discovery.keys.find(key=>key.id===requested?.keyId):undefined,cancelPreparedOperation,operations,operationsReady,operationsLoading,operationsError,reloadOperations,checkOperation,discoveryLoading:discoveryPending,contextKeys:discovery.identity===discoveryIdentity?discovery.keys:[],contextChoices:discovery.identity===discoveryIdentity?discovery.choices:[],discoveryErrors:discovery.identity===discoveryIdentity?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
+ return {historyModels:discovery.identity===discoveryIdentity?discovery.historyModels:{},historyClient,historyModel:requested?.model,historyKey:discovery.identity===discoveryIdentity?discovery.keys.find(key=>key.id===requested?.keyId):undefined,cancelPreparedOperation,operations,operationsReady,operationsLoading,operationsError,reloadOperations,checkOperation,discoveryLoading:discoveryPending,contextKeys:discovery.identity===discoveryIdentity?discovery.keys:[],contextChoices:discovery.identity===discoveryIdentity?discovery.choices:[],discoveryErrors:discovery.identity===discoveryIdentity?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
 }

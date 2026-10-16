@@ -1,0 +1,2 @@
+CREATE INDEX workspace_provider_operation_key_context
+ ON workspace_provider_asset_operations(organization_id,project_id,key_id,group_id);
