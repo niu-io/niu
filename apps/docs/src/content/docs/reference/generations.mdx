@@ -47,6 +47,21 @@ Saved intent drafts accept text, typed `provider_asset { id }` references to Niu
 
 Create/associate recover independently: after a Video submission response is lost, recover its original saved intent/task identity and attach that task. A failed session write is never permission to send another paid request. Read the session to recover a lost association response. Archive hides the session from the default directory without cancelling tasks or deleting their outputs, history or billing.
 
+### Manage saved Video sessions in the dashboard
+
+Generations history lists saved Video sessions using their backend titles alongside
+Chat sessions. Opening a Video session restores its retained instructions and links
+to the original saved requests and tasks. A note without an associated request or
+task remains a note; opening it does not start generation. Bound requests and tasks
+are represented by their session rather than duplicated as standalone history rows.
+Older unbound history remains accessible.
+
+Use the session action menu to rename or archive a Video session. **Archived
+sessions** contains separate Chat and Video lists and lets you restore a session.
+Archiving changes directory visibility only. It does not cancel a task, remove
+instructions, change dispatch identity or delete output. Concurrent metadata edits
+require explicitly reloading the current revision before saving again.
+
 ### Restore history after a key becomes unavailable
 
 The dashboard can restore retained Video input and saved task state after its original inference key is revoked or expires. Historical reads still require current workspace Read permission and the original actor-owned intent. Returned key references are context, not authorization to generate, estimate or query a Provider. An unavailable key leads to API-key management rather than Provider configuration.

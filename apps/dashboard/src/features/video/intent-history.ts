@@ -6,6 +6,7 @@ export type VideoIntentHistoryRow = VideoIntentIndexEntry & {
   title: string;
   jobId?: string;
   keyId?: string;
+  sessionId?: string;
 };
 export function videoSessionTitle(data: Pick<VideoSubmissionIntent, 'request' | 'model'>): string {
   const prompt=data.request?.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n').split('\n').find(line=>line.trim())?.trim();
@@ -61,6 +62,7 @@ export async function videoIntentHistory(client: HistoryClient, scope: TenantSco
         row.expires_at_ms = data.expires_at_ms;
         row.jobId = data.job?.id;
         row.keyId = data.key_id;
+        row.sessionId = data.session_binding?.session_id;
       } catch (error) {
         options.signal?.throwIfAborted();
         if (!(error instanceof NiuAPIError && [403, 404].includes(error.status))) incomplete = true;

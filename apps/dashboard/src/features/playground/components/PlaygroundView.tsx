@@ -1,6 +1,6 @@
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
 import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import VideoArchivedSessions from '@/features/generations/VideoArchivedSessions';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1027,9 +1027,11 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     </div>
 
     <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
-      <DialogContent className="sm:max-w-lg" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>Archived chats</DialogTitle><DialogDescription>Restore a conversation to your chat history.</DialogDescription></DialogHeader>
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>Archived sessions</DialogTitle><DialogDescription>Restore a Chat or Video session to Generations history.</DialogDescription></DialogHeader>
+        <h3 className="text-sm font-medium">Chats</h3>
         {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{archiveError}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>Retry</Button>}</div>}
-        {archiveLoading ? <p role="status">Loading archived chats…</p> : archivedChats.length === 0 ? (archiveError ? null : <Empty><EmptyHeader><EmptyMedia variant="icon"><Archive aria-hidden="true"/></EmptyMedia><EmptyTitle>No archived chats</EmptyTitle></EmptyHeader></Empty>) : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>Chat</TableHead><TableHead className="w-32 text-right">Action</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={`Restore ${sessionTitle(item)}`}>Restore</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
+        {archiveLoading ? <p role="status">Loading archived chats…</p> : archivedChats.length === 0 ? (archiveError ? null : <p className="text-sm text-muted-foreground">No archived chats</p>) : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>Chat</TableHead><TableHead className="w-32 text-right">Action</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={`Restore ${sessionTitle(item)}`}>Restore</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
+        <VideoArchivedSessions context={dashboard} open={archiveOpen} disabled={running||archiveBusy}/>
       </DialogContent>
     </Dialog>
 

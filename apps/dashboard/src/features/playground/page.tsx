@@ -3,6 +3,7 @@ import VideoView from '../video/VideoView';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { useModelPopularity } from '@/app/useModelPopularity';
 import PlaygroundView from './components/PlaygroundView';
+import VideoSessionView from '../generations/VideoSessionView';
 
 export default function PlaygroundRoute() {
   const context = useDashboardContext();
@@ -23,6 +24,8 @@ export default function PlaygroundRoute() {
   } : null;
 
   const videoSession = Boolean(search.get('intent') || search.get('job') || search.get('new') === 'video');
+  const savedVideoSession=search.get('video-session');
+  if(savedVideoSession)return <VideoSessionView key={`${token}:${workspace?.id??''}:${savedVideoSession}`} context={context} id={savedVideoSession}/>;
   return <>
     {videoSession ? <VideoView key={`${token}:${workspace?.id ?? ''}`} context={context} /> : <PlaygroundView
       key={`${token}:${workspace?.id ?? ''}`}

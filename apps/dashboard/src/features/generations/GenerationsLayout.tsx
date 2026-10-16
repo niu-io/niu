@@ -34,9 +34,9 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
       <div ref={attachList} style={{ display: 'contents' }} />
       {content?.extra}
     </SidebarContent>
-    <SidebarFooter><Button variant="ghost" className="justify-start" onClick={event => { if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />Archived chats</Button></SidebarFooter>
+    <SidebarFooter><Button variant="ghost" className="justify-start" onClick={event => { if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />Archived sessions</Button></SidebarFooter>
   </Sidebar>
-    {content && <SessionHistory {...content.history} listTarget={listTarget} key={JSON.stringify([content.history.context.token, content.history.context.workspace?.id])} />}
+    {content && <SessionHistory {...content.history} focusFallback={toggle} listTarget={listTarget} key={JSON.stringify([content.history.context.token, content.history.context.workspace?.id])} />}
   </>;
 }
 
