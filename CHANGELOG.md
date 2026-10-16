@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-10-17
+
+### Security
+
+- Keep built-in demo sign-in scoped to its customer account; startup no longer grants platform administration.
+- Revoke the built-in account's previously implicit platform grant through an appended, audited migration. Existing passwords, sessions, workspace membership, encrypted credentials and financial history remain intact.
+
+### Verification boundary
+
+- Verify existing and fresh demo sessions against the upgraded application, including denied platform configuration and financial access, preserved installation administration and restart behavior.
+- This security patch does not establish complete demo-data isolation, commercial qualification or full release acceptance. Fixture outcomes provide no acceptance signal.
+
 ## [0.2.6] - 2026-10-16
 
 ### Fixed
@@ -140,7 +152,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/niu-io/niu/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/niu-io/niu/compare/v0.2.5...v0.2.6
 [0.2.2]: https://github.com/niu-io/niu/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/niu-io/niu/compare/v0.2.0...v0.2.1
