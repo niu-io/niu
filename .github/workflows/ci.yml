@@ -2,8 +2,11 @@ name: Public release qualification
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -52,16 +55,20 @@ jobs:
         run: cargo deny check licenses
       - name: Lint workspace
         run: cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings
-      - name: Test workspace
+      - name: Test workspace (functional, stability, and performance unit suites)
         run: cargo +1.98.0 test --locked --workspace
-      - name: Test PostgreSQL storage integration
+      - name: Test PostgreSQL storage integration (functional suite)
         env:
           DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
         run: cargo +1.98.0 test --locked -p niu-storage --tests -- --ignored
-      - name: Test PostgreSQL gateway integration
+      - name: Test PostgreSQL gateway functional, stability, and performance suites
         env:
           DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
-        run: cargo +1.98.0 test --locked -p niu-gateway -- --ignored
+        run: |
+          cargo +1.98.0 test --locked -p niu-gateway functional_suite:: -- --ignored --nocapture
+          cargo +1.98.0 test --locked -p niu-gateway stability_suite:: -- --ignored --nocapture
+          cargo +1.98.0 test --locked -p niu-gateway performance_suite:: -- --ignored --nocapture
+          cargo +1.98.0 test --locked -p niu-gateway -- --ignored --skip functional_suite:: --skip stability_suite:: --skip performance_suite::
 
   web:
     runs-on: ubuntu-latest

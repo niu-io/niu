@@ -358,6 +358,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (token || health?.status !== 'ok') return;
+    try { if (sessionStorage.getItem('niu.signed-out') === '1') { setSessionChecked(true); return; } } catch { /* Storage is optional. */ }
     if (location.pathname === '/installation') { setSessionChecked(true); return; }
     const controller = new AbortController();
     const revision = connectionRevision.current;

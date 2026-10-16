@@ -267,12 +267,15 @@ mod accounting;
 mod admin;
 mod codex_connections;
 mod executions;
+mod functional_suite;
 mod inference;
 mod operator_audit;
 mod operators;
 mod passwords;
+mod performance_suite;
 mod profile;
 mod request_exports;
+mod stability_suite;
 mod video;
 mod video_images;
 

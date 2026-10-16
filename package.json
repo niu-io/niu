@@ -26,6 +26,10 @@
     "dev:stop": "python3 scripts/dev.py --stop",
     "generate:api": "python3 scripts/extract-handler-openapi.py && pnpm --filter @niu-io/docs generate:api",
     "check:api": "python3 scripts/extract-handler-openapi.py --check && pnpm --filter @niu-io/docs check:api",
+    "test:backend": "cargo test --locked --workspace",
+    "test:backend:functional": "cargo test --locked -p niu-gateway functional_suite:: -- --nocapture",
+    "test:backend:stability": "cargo test --locked -p niu-gateway stability_suite:: -- --nocapture",
+    "test:backend:performance": "cargo test --locked -p niu-gateway performance_suite:: -- --nocapture",
     "version:check": "python3 scripts/release-version.py check",
     "version:set": "python3 scripts/release-version.py set",
     "version:notes": "python3 scripts/release-version.py notes"

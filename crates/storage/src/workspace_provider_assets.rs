@@ -324,7 +324,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let mut models: Vec<String> = sqlx::query_scalar("SELECT DISTINCT g.model_alias COLLATE \"C\" FROM workspace_provider_asset_operations o JOIN workspace_provider_asset_groups g ON g.organization_id=o.organization_id AND g.project_id=o.project_id AND g.id=o.group_id WHERE o.organization_id=$1 AND o.project_id=$2 AND o.key_id=$3 AND ($4::text IS NULL OR g.model_alias>$4 COLLATE \"C\") ORDER BY g.model_alias COLLATE \"C\" LIMIT $5")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(after).bind(limit+1).fetch_all(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(after).bind(limit + 1).fetch_all(&mut *tx).await?;
         let next = if models.len() > limit as usize {
             models.truncate(limit as usize);
             models.last().cloned()
