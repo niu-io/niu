@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-16
+
+### Fixed
+
+- Publish the release-qualification documentation route linked from the website, with a navigation entry and built-artifact check.
+- Include OpenAPI contracts and SDK TypeScript configuration in container documentation builds; rebuild the previous-source upgrade baseline with the corrected recipe.
+- Preserve released migration `0333` byte-for-byte and append its guardrail diagnostic-context correction as `0352`.
+
+### Changed
+
+- Keep compilation, contracts, licenses, migration history, builds and runtime-asset checks blocking; run fixture commands separately as non-gating diagnostics and disregard their outcomes.
+
+### Verification boundary
+
+- Static checks, actual image construction and runtime-asset inspection qualify only their build/artifact scope. An isolated PostgreSQL 17 upgrade and independent catalog inspection verify the appended schema transition.
+- Desktop/narrow browser checks verify the new documentation page locally. Hosted availability is checked after cloud deployment, not inferred from a pushed commit.
+- This patch does not establish fresh model conformance, cash receipt, commercial settlement, performance or complete production acceptance. Unknown operations and financial liabilities must remain preserved. Fixture outcomes provide no acceptance signal.
+- The standalone MCP client remains included in the release assets with source provenance and checksums.
+
 ## [0.2.5] - 2026-10-16
 
 ### Added
@@ -121,7 +140,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/niu-io/niu/compare/v0.2.5...v0.2.6
 [0.2.2]: https://github.com/niu-io/niu/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/niu-io/niu/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/niu-io/niu/compare/v0.1.0...v0.2.0
