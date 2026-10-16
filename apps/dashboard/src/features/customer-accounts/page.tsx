@@ -10,12 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { request, writeMayHaveCommitted } from '@/features/vendors/api';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { GrantEditor, GrantHistory } from './grants';
+import { GiftCorrectionEditor } from './gift-corrections';
 import { amountFromNanos, amountToNanos, money } from '@/lib/money';
-import type { CustomerBalance, PreparedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerBalance, PreparedCustomerBalanceGrant, IssuedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
 
 type Company = { organization_id: string; organization_name: string; accounts: CustomerBalance[] };
 type AccountPage = { data: Company[]; next_after: string | null };
-export type Editor = { kind: 'credit' | 'grant' | 'history'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant };
+export type Editor = { kind: 'credit' | 'grant' | 'history' | 'correction'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant; gift?:IssuedCustomerBalanceGrant };
 
 export default function CustomerAccountsRoute() {
   const { token } = useDashboardContext();
@@ -60,7 +61,8 @@ function Accounts({ token }: { token: string }) {
     </Table>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? 'Loading…' : 'More companies'}</Button>}
     {editor?.kind === 'grant' && <GrantEditor token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onIssued={() => { setNotice('Noncash grant issuance confirmed. This is not a cash receipt.'); void load(); }} />}
-    {editor?.kind === 'history' && <GrantHistory token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onOpen={prepared => setEditor({ ...editor, kind: 'grant', prepared })} />}
+    {editor?.kind === 'history' && <GrantHistory token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onOpen={prepared => setEditor({ ...editor, kind: 'grant', prepared })} onCorrect={gift=>setEditor({...editor,kind:'correction',gift})} />}
+    {editor?.kind === 'correction' && editor.gift && <GiftCorrectionEditor token={token} editor={{...editor,gift:editor.gift}} onClose={()=>{setEditor({...editor,kind:'history'});void load();}} onCorrected={()=>{setNotice('Noncash gift correction confirmed. No cash refund was recorded.');void load();}}/>}
     {editor?.kind === 'credit' && <CreditEditor token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onSaved={() => { setEditor(null); setNotice('Credit policy saved.'); void load(); }} />}
   </section>;
 }

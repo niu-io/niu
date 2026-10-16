@@ -8713,6 +8713,7 @@ Content type: `application/json`.
     "cash_receipt_reference_conflicts",
     "recorded_funding_reversals_nanos",
     "issued_gifts_nanos",
+    "corrected_unused_gifts_nanos",
     "recognized_revenue_nanos",
     "consumed_gift_allowance_nanos",
     "balance_credit_sources",
@@ -8816,6 +8817,11 @@ Content type: `application/json`.
       "type": "string",
       "pattern": "^-?[0-9]+$",
       "description": "Ledger reversals of verified funding; not proof of an external refund transfer."
+    },
+    "corrected_unused_gifts_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Corrections of wholly unused noncash gifts in this interval; separate from gross issuance, cash refunds and revenue."
     },
     "issued_gifts_nanos": {
       "type": "string",
@@ -10776,6 +10782,441 @@ HTTP 403: Platform administration required
 HTTP 409: Intent conflict, unknown company or invalid cursor
 
 HTTP 404: No saved intent for this company/currency/key
+
+## Correct a wholly unused noncash gift
+
+`POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}/correction`
+
+Explicit platform administration only. Corrects the full original gift on an account with no paid request history, consumption, refunds, open reservations or unknown financial sources. Atomically appends a negative balance adjustment and an immutable noncash correction with original grant, reason and authenticated actor. Does not change credit, create a merchant refund, cash receipt, consumption allowance or revenue. Partial, consumed, uncertain, duplicate or changed idempotency intent is refused. Exact same company/currency/grant/amount/reason/key retry returns the original correction. On uncertain response inspect issued gifts and retry only the exact original input, never replace the key. No automatic retry.
+
+Implementation: `implemented`. Operation: `correctUnusedCustomerBalanceGrant`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`grant` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amount_nanos",
+    "reason",
+    "idempotency_key"
+  ],
+  "properties": {
+    "amount_nanos": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Correction committed or identical original returned
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid exact amount, currency or reason
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Gift is unavailable, not wholly unused, has uncertain sources or open liabilities, or intent conflicts
+
+## List issued noncash gifts and corrections
+
+`GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/issued`
+
+Platform-only immutable gift history, including gifts predating durable preparation. Original issuance remains unchanged; correction is separate. Ordered by immutable creation time and reference. Follow next_before; no mutation or automatic retry. Reasons and actor labels remain platform-only. Internal references are routing metadata, never product labels.
+
+Implementation: `implemented`. Operation: `listIssuedCustomerBalanceGrants`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 25
+}
+```
+
+### Responses
+
+HTTP 200: Issued gifts and their correction, if any
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "amount_nanos",
+          "reason",
+          "created_at",
+          "currency",
+          "correction"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount_nanos": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "correction": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "id",
+              "amount_nanos",
+              "reason",
+              "created_at",
+              "actor_kind",
+              "actor_label"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "amount_nanos": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "actor_kind": {
+                "type": "string",
+                "enum": [
+                  "installation",
+                  "operator"
+                ]
+              },
+              "actor_label": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency or page size
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Cursor is unavailable or out of scope
+
+## Read one original noncash gift and its correction
+
+`GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}`
+
+Platform-only current snapshot of one original gift and its immutable correction. Use to recover a lost correction response. An absent correction in this read does not prove an in-flight request failed; retry only the exact original correction input and key. No mutation.
+
+Implementation: `implemented`. Operation: `getIssuedCustomerBalanceGrant`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`grant` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Issued gifts and their correction, if any
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id",
+        "amount_nanos",
+        "reason",
+        "created_at",
+        "currency",
+        "correction"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "amount_nanos": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "correction": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "id",
+            "amount_nanos",
+            "reason",
+            "created_at",
+            "actor_kind",
+            "actor_label"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "amount_nanos": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,18}$"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "actor_kind": {
+              "type": "string",
+              "enum": [
+                "installation",
+                "operator"
+              ]
+            },
+            "actor_label": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency or page size
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Cursor is unavailable or out of scope
+
+HTTP 404: No issued gift in this company and currency
 
 ## Discover named customer accounts for platform financial administration
 
@@ -36105,6 +36546,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "retail_text_enrollment",
         "retail_media_enrollment",
         "balance_grant",
+        "gift_correction",
         "credit_policy",
         "grant_preparation",
         "media_liability",

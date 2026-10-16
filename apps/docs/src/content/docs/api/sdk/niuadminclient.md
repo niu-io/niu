@@ -1065,6 +1065,39 @@ grantCustomerBalance(organizationId: string, currency: string, input: CustomerBa
 }>;
 ```
 
+### correctUnusedCustomerBalanceGrant
+
+```typescript
+/** Platform-only full unused-gift correction. Retain the original key on an uncertain response; no automatic retry. */
+correctUnusedCustomerBalanceGrant(organizationId: string, currency: string, grantId: string, input: CustomerBalanceGiftCorrectionInput, options?: RequestOptions): Promise<{
+    data: {
+        id: string;
+    };
+}>;
+```
+
+### getIssuedCustomerBalanceGrant
+
+```typescript
+/** Read one original gift and its correction to recover an uncertain response. */
+getIssuedCustomerBalanceGrant(organizationId: string, currency: string, grantId: string, options?: RequestOptions): Promise<{
+    data: IssuedCustomerBalanceGrant;
+}>;
+```
+
+### listIssuedCustomerBalanceGrants
+
+```typescript
+/** Platform-only original gifts with separate correction history; internal references are not display labels. */
+listIssuedCustomerBalanceGrants(organizationId: string, currency: string, page?: {
+    before?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: IssuedCustomerBalanceGrant[];
+    next_before: string | null;
+}>;
+```
+
 ### setCustomerBalanceWarning
 
 ```typescript

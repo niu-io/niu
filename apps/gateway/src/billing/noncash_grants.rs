@@ -799,3 +799,522 @@ pub async fn prepared_by_key(
         .ok_or_else(ApiError::not_found)?;
     Ok(Json(serde_json::json!({"data":result})))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CorrectionInput {
+    amount_nanos: String,
+    reason: String,
+    idempotency_key: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}/correction",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "correctUnusedCustomerBalanceGrant",
+///     "summary": "Correct a wholly unused noncash gift",
+///     "description": "Explicit platform administration only. Corrects the full original gift on an account with no paid request history, consumption, refunds, open reservations or unknown financial sources. Atomically appends a negative balance adjustment and an immutable noncash correction with original grant, reason and authenticated actor. Does not change credit, create a merchant refund, cash receipt, consumption allowance or revenue. Partial, consumed, uncertain, duplicate or changed idempotency intent is refused. Exact same company/currency/grant/amount/reason/key retry returns the original correction. On uncertain response inspect issued gifts and retry only the exact original input, never replace the key. No automatic retry.",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "currency",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       },
+///       {
+///         "name": "grant",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "amount_nanos",
+///               "reason",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "amount_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$"
+///               },
+///               "reason": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 500
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Correction committed or identical original returned",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "id"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid exact amount, currency or reason"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Gift is unavailable, not wholly unused, has uncertain sources or open liabilities, or intent conflicts"
+///       }
+///     },
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn correct_unused(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, currency, grant)): Path<(Uuid, String, Uuid)>,
+    Json(input): Json<CorrectionInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let actor = match auth {
+        crate::state::AdminAuthorization::Installation => OperatorAuditActor::Installation,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            OperatorAuditActor::Operator(operator.id)
+        }
+    };
+    let amount = super::exact_nonnegative_integer(&input.amount_nanos)?;
+    if amount == 0 || input.amount_nanos.starts_with('0') {
+        return Err(ApiError::invalid_request(
+            "Use the exact positive original gift amount without leading zeroes",
+        ));
+    }
+    let id = state
+        .store
+        .correct_unused_customer_balance_grant(
+            organization,
+            grant,
+            CustomerBalanceGrantPublication {
+                currency: &currency,
+                amount_nanos: amount,
+                reason: &input.reason,
+                idempotency_key: input.idempotency_key,
+            },
+            actor,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(serde_json::json!({"data":{"id":id}})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/issued",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listIssuedCustomerBalanceGrants",
+///     "summary": "List issued noncash gifts and corrections",
+///     "description": "Platform-only immutable gift history, including gifts predating durable preparation. Original issuance remains unchanged; correction is separate. Ordered by immutable creation time and reference. Follow next_before; no mutation or automatic retry. Reasons and actor labels remain platform-only. Internal references are routing metadata, never product labels.",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "currency",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       },
+///       {
+///         "name": "before",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 25
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Issued gifts and their correction, if any",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_before"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "id",
+///                       "amount_nanos",
+///                       "reason",
+///                       "created_at",
+///                       "currency",
+///                       "correction"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "amount_nanos": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]{0,18}$"
+///                       },
+///                       "reason": {
+///                         "type": "string"
+///                       },
+///                       "created_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "currency": {
+///                         "type": "string"
+///                       },
+///                       "correction": {
+///                         "type": [
+///                           "object",
+///                           "null"
+///                         ],
+///                         "required": [
+///                           "id",
+///                           "amount_nanos",
+///                           "reason",
+///                           "created_at",
+///                           "actor_kind",
+///                           "actor_label"
+///                         ],
+///                         "properties": {
+///                           "id": {
+///                             "type": "string",
+///                             "format": "uuid"
+///                           },
+///                           "amount_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]{0,18}$"
+///                           },
+///                           "reason": {
+///                             "type": "string"
+///                           },
+///                           "created_at": {
+///                             "type": "string",
+///                             "format": "date-time"
+///                           },
+///                           "actor_kind": {
+///                             "type": "string",
+///                             "enum": [
+///                               "installation",
+///                               "operator"
+///                             ]
+///                           },
+///                           "actor_label": {
+///                             "type": "string"
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "next_before": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid currency or page size"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Cursor is unavailable or out of scope"
+///       }
+///     },
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn issued(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, currency)): Path<(Uuid, String)>,
+    Query(page): Query<PreparedPage>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let result = state
+        .store
+        .issued_customer_balance_grants(
+            organization,
+            &currency,
+            page.before,
+            page.limit.unwrap_or(25),
+            None,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(result))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getIssuedCustomerBalanceGrant",
+///     "summary": "Read one original noncash gift and its correction",
+///     "description": "Platform-only current snapshot of one original gift and its immutable correction. Use to recover a lost correction response. An absent correction in this read does not prove an in-flight request failed; retry only the exact original correction input and key. No mutation.",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "currency",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       },
+///       {
+///         "name": "grant",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Issued gifts and their correction, if any",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "id",
+///                     "amount_nanos",
+///                     "reason",
+///                     "created_at",
+///                     "currency",
+///                     "correction"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "amount_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$"
+///                     },
+///                     "reason": {
+///                       "type": "string"
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "currency": {
+///                       "type": "string"
+///                     },
+///                     "correction": {
+///                       "type": [
+///                         "object",
+///                         "null"
+///                       ],
+///                       "required": [
+///                         "id",
+///                         "amount_nanos",
+///                         "reason",
+///                         "created_at",
+///                         "actor_kind",
+///                         "actor_label"
+///                       ],
+///                       "properties": {
+///                         "id": {
+///                           "type": "string",
+///                           "format": "uuid"
+///                         },
+///                         "amount_nanos": {
+///                           "type": "string",
+///                           "pattern": "^[1-9][0-9]{0,18}$"
+///                         },
+///                         "reason": {
+///                           "type": "string"
+///                         },
+///                         "created_at": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         },
+///                         "actor_kind": {
+///                           "type": "string",
+///                           "enum": [
+///                             "installation",
+///                             "operator"
+///                           ]
+///                         },
+///                         "actor_label": {
+///                           "type": "string"
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid currency or page size"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Cursor is unavailable or out of scope"
+///       },
+///       "404": {
+///         "description": "No issued gift in this company and currency"
+///       }
+///     },
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn issued_detail(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, currency, grant)): Path<(Uuid, String, Uuid)>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let page = state
+        .store
+        .issued_customer_balance_grants(organization, &currency, None, 1, Some(grant))
+        .await
+        .map_err(ApiError::from_store)?;
+    let row = page["data"]
+        .as_array()
+        .and_then(|rows| rows.first())
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(serde_json::json!({"data":row})))
+}

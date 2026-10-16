@@ -143,6 +143,7 @@ Content type: `application/json`.
               "retail_text_enrollment",
               "retail_media_enrollment",
               "balance_grant",
+              "gift_correction",
               "credit_policy",
               "grant_preparation",
               "media_liability",

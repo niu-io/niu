@@ -26,6 +26,7 @@ export type CustomerFinancialSummary = {
     cash_receipt_reference_conflicts: string;
     recorded_funding_reversals_nanos: string;
     issued_gifts_nanos: string;
+    corrected_unused_gifts_nanos: string;
     recognized_revenue_nanos: string | null;
     consumed_gift_allowance_nanos: string | null;
     verified_cash_receipts_nanos: string | null;

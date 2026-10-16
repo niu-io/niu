@@ -62,3 +62,5 @@ if (first.next_cursor) {
 Use the repository SDK build and its exported `NiuAdminClient` entrypoint. Tokens belong in private server configuration, never frontend build variables or committed examples.
 
 The response allowlist excludes configuration values, credentials, password hashes, request contents and procurement amounts. Audit reads cannot change settings or delete events. See [implemented operation schemas](/docs/reference/handler-operations/) and [the generated OpenAPI JSON](/docs/openapi/handler-operations.json).
+
+Unused noncash gift corrections appear as separate Configuration events, preserving the authenticated administrator and named company/currency target. Original issuance remains unchanged. Financial reasons and exact original linkage remain in the platform-only gift history; customer workspace membership does not authorize this administration history.

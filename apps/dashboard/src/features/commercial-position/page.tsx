@@ -1165,6 +1165,14 @@ function CommercialStatement({ token }: { token: string }) {
                     muted
                   />
                   <StatementRow
+                    label="Memo: Unused noncash gifts corrected"
+                    current={summary?.corrected_unused_gifts_nanos != null ? BigInt(summary.corrected_unused_gifts_nanos) : null}
+                    prior={priorSummary?.corrected_unused_gifts_nanos != null ? BigInt(priorSummary.corrected_unused_gifts_nanos) : null}
+                    currency={currency}
+                    indented
+                    muted
+                  />
+                  <StatementRow
                     label="Settled with Providers"
                     current={currentCohort.settledPayable}
                     prior={priorCohort?.settledPayable ?? null}

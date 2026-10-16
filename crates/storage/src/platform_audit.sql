@@ -138,6 +138,17 @@ WITH events AS (
 
  UNION ALL
  (SELECT * FROM (
+ SELECT 'gift_correction', e.id::text, 'configuration', 'unused_noncash_gift_corrected', e.actor_kind,
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(a.name,'Unknown actor') END,
+   o.name || ' / ' || e.currency, NULL::bigint, NULL::text, NULL::text, e.created_at
+ FROM customer_balance_grant_corrections e JOIN organizations o ON o.id=e.organization_id LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
+ WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
+ ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
+ AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ ORDER BY created_at DESC,event_id DESC LIMIT $5)
+
+ UNION ALL
+ (SELECT * FROM (
  SELECT 'media_liability', e.id::text, 'supplier', 'media_liability_' || e.action, e.actor_kind,
    CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(a.name,'Unknown actor') END,
    b.name || ' / ' || (h.identity->>'model_alias') || ' / ' || (h.identity->'dimensions'->>'resolution') || ' / ' || (h.identity->'dimensions'->>'channel') || CASE WHEN (h.identity->'dimensions'->>'reference_video')::boolean THEN ' / With reference video' ELSE ' / Without reference video' END || ' / ' || (h.identity->>'meter'), e.version, NULL::text, NULL::text, e.created_at

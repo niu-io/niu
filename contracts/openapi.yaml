@@ -55,6 +55,12 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices~1{price}~1history'
   /api/v1/pricing/standard-prices/{price}/preview:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pricing~1standard-prices~1{price}~1preview'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/issued:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1issued'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1{grant}'
+  /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}/correction:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1{grant}~1correction'
   /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepare'
   /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared:

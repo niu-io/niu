@@ -103,6 +103,7 @@ impl Store {
                 "grant_preparation" => ("prepared_customer_balance_grants", "id", "uuid"),
                 "credit_policy" => ("customer_credit_policy_events", "id", "uuid"),
                 "balance_grant" => ("customer_balance_grants", "id", "uuid"),
+                "gift_correction" => ("customer_balance_grant_corrections", "id", "uuid"),
                 "media_liability" => ("media_liability_qualification_changes", "id", "uuid"),
                 _ => return Err(StoreError::InvalidPlatformAuditQuery),
             };
@@ -149,7 +150,8 @@ impl Store {
                     | "retail_price"
                     | "retail_text_enrollment"
                     | "retail_media_enrollment"
-                    | "balance_grant" => "configuration",
+                    | "balance_grant"
+                    | "gift_correction" => "configuration",
                     "supplier" | "media_liability" => "supplier",
                     _ => "access",
                 };

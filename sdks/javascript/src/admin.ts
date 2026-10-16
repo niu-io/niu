@@ -348,6 +348,11 @@ export type PreparedCustomerBalanceGrant = {
   result: { id: string; application_policy: 'future_only' | 'unpaid_credit_first'; applied_to_credit_nanos: string; retained_for_future_consumption_nanos: string } | null;
 };
 /** Noncash gift; issuance is neither a receipt nor revenue. */
+export type CustomerBalanceGiftCorrectionInput = { amount_nanos: string; reason: string; idempotency_key: string };
+export type IssuedCustomerBalanceGrant = {
+  id: string; amount_nanos: string; reason: string; currency: string; created_at: string;
+  correction: { id: string; amount_nanos: string; reason: string; created_at: string; actor_kind: 'installation' | 'operator'; actor_label: string } | null;
+};
 export type CustomerBalanceGrantInput = { amount_nanos: string; reason: string; idempotency_key: string; application_policy?: 'future_only' | 'unpaid_credit_first' };
 function checkedBalanceGrantInput(currency: string, input: CustomerBalanceGrantInput): CustomerBalanceGrantInput {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
@@ -988,6 +993,7 @@ export type CustomerFinancialSummary = {
   cash_receipt_reference_conflicts: string;
   recorded_funding_reversals_nanos: string;
   issued_gifts_nanos: string;
+  corrected_unused_gifts_nanos: string;
   recognized_revenue_nanos: string | null;
   consumed_gift_allowance_nanos: string | null;
   verified_cash_receipts_nanos: string | null;
@@ -1838,6 +1844,27 @@ export class NiuAdminClient {
   grantCustomerBalance(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{ data: { id: string; application_policy: 'future_only' | 'unpaid_credit_first'; applied_to_credit_nanos: string; retained_for_future_consumption_nanos: string } }> {
     const body = checkedBalanceGrantInput(currency, input);
     return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants`, body, options, 'POST');
+  }
+
+  /** Platform-only full unused-gift correction. Retain the original key on an uncertain response; no automatic retry. */
+  correctUnusedCustomerBalanceGrant(organizationId: string, currency: string, grantId: string, input: CustomerBalanceGiftCorrectionInput, options?: RequestOptions): Promise<{data:{id:string}}> {
+    const body = checkedBalanceGrantInput(currency, {...input, application_policy:'future_only'});
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/${uuid(grantId)}/correction`, {amount_nanos:body.amount_nanos,reason:body.reason,idempotency_key:body.idempotency_key},options,'POST');
+  }
+
+  /** Read one original gift and its correction to recover an uncertain response. */
+  getIssuedCustomerBalanceGrant(organizationId:string,currency:string,grantId:string,options?:RequestOptions):Promise<{data:IssuedCustomerBalanceGrant}> {
+    if(!/^[A-Z]{3}$/.test(currency))throw new TypeError('Use an uppercase currency code');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/${uuid(grantId)}`,undefined,options);
+  }
+
+  /** Platform-only original gifts with separate correction history; internal references are not display labels. */
+  listIssuedCustomerBalanceGrants(organizationId:string,currency:string,page:{before?:string;limit?:number}={},options?:RequestOptions):Promise<{data:IssuedCustomerBalanceGrant[];next_before:string|null}> {
+    if(!/^[A-Z]{3}$/.test(currency))throw new TypeError('Use an uppercase currency code');
+    const query=new URLSearchParams();
+    if(page.before!==undefined)query.set('before',uuid(page.before));
+    if(page.limit!==undefined){if(!Number.isInteger(page.limit)||page.limit<1||page.limit>100)throw new TypeError('Choose a page size from 1 to 100');query.set('limit',String(page.limit));}
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/issued${query.size?'?'+query:''}`,undefined,options);
   }
 
   /** Company warning preference only; cannot alter funds or approved credit. */

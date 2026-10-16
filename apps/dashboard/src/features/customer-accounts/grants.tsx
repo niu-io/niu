@@ -8,9 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { IssuedGiftHistory } from './gift-corrections';
 import { request } from '@/features/vendors/api';
 import { amountFromNanos, amountToNanos, money } from '@/lib/money';
-import type { CustomerBalanceGrantInput, PreparedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerBalanceGrantInput, PreparedCustomerBalanceGrant, IssuedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
 import type { Editor } from './page';
 
 type Intent = PreparedCustomerBalanceGrant;
@@ -118,7 +120,7 @@ export function GrantEditor({ token, editor, onClose, onIssued }: { token: strin
 }
 
 /** Durable preparation/issuance history, rather than browser-only drafts. */
-export function GrantHistory({ token, editor, onClose, onOpen }: { token: string; editor: Editor; onClose: () => void; onOpen: (intent: Intent) => void }) {
+export function GrantHistory({ token, editor, onClose, onOpen, onCorrect }: { token: string; editor: Editor; onClose: () => void; onOpen: (intent: Intent) => void; onCorrect:(gift:IssuedCustomerBalanceGrant)=>void }) {
   const [rows, setRows] = useState<Intent[]>([]), [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState('');
   const [failedCursor, setFailedCursor] = useState<string>();
@@ -136,13 +138,15 @@ export function GrantHistory({ token, editor, onClose, onOpen }: { token: string
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token, editor.company.organization_id, currency]);
-  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-5xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Noncash grants</DialogTitle><DialogDescription>{editor.company.organization_name || 'Unnamed company'} · {currency}. Saved publication intents and original issuance allocations. Older direct API grants without preparation are outside this list. Prepared intents do not add funds; nothing issues automatically.</DialogDescription></DialogHeader>
+  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-5xl max-h-[90dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto"><DialogHeader><DialogTitle>Noncash grants</DialogTitle><DialogDescription>{editor.company.organization_name || 'Unnamed company'} · {currency}. Issued gifts, separate corrections and saved publication intents. Prepared intents do not add funds; nothing issues automatically.</DialogDescription></DialogHeader>
+    <Tabs defaultValue="issued" className="min-w-0"><TabsList><TabsTrigger value="issued">Issued gifts</TabsTrigger><TabsTrigger value="intents">Saved intents</TabsTrigger></TabsList><TabsContent value="issued"><IssuedGiftHistory token={token} organization={editor.company.organization_id} currency={currency} onCorrect={onCorrect}/></TabsContent><TabsContent value="intents" className="space-y-3">
     <div><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh history</Button></div>
     {loading && !rows.length && <p role="status">Loading grant history…</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry history</Button></AlertDescription></Alert>}
     {!loading && !error && !rows.length && <p>No saved noncash grant intents in this currency.</p>}
     {!!rows.length && <Table aria-label="Saved noncash grant intents"><TableHeader><TableRow>{['Prepared (UTC)', 'Reason', 'Gift amount', 'Application policy', 'State', 'Actions'].map(label => <TableHead key={label} className="whitespace-nowrap">{label}</TableHead>)}</TableRow></TableHeader><TableBody>{rows.map(row => <TableRow key={row.id}><TableCell className="whitespace-nowrap">{createdAt(row.created_at)}</TableCell><TableCell className="min-w-44 max-w-64 whitespace-normal break-words">{row.reason}</TableCell><TableCell className="whitespace-nowrap tabular-nums">{money(row.amount_nanos, row.currency)}</TableCell><TableCell className="whitespace-nowrap">{policyLabel(row.application_policy)}</TableCell><TableCell><Badge variant="outline">{row.status === 'issued' ? 'Issued' : 'Prepared'}</Badge></TableCell><TableCell><Button variant="outline" disabled={loading || !!error} onClick={() => onOpen(row)}>{row.status === 'issued' ? 'View grant' : 'Resume grant'}</Button></TableCell></TableRow>)}</TableBody></Table>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? 'Loading…' : 'More grants'}</Button>}
+    </TabsContent></Tabs>
     <div className="flex justify-end"><Button variant="outline" onClick={onClose}>Close</Button></div>
   </DialogContent></Dialog>;
 }

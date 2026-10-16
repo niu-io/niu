@@ -136,6 +136,10 @@ WITH raw_bounds AS MATERIALIZED (
     SELECT COALESCE(sum(amount_nanos::numeric),0) AS amount
     FROM customer_balance_grants CROSS JOIN bounds
     WHERE currency=$1 AND created_at>=bounds.since AND created_at<bounds.until
+), gift_corrections AS (
+    SELECT COALESCE(sum(amount_nanos::numeric),0) AS amount
+    FROM customer_balance_grant_corrections CROSS JOIN bounds
+    WHERE currency=$1 AND created_at>=bounds.since AND created_at<bounds.until
 ), reversals AS (
     SELECT COALESCE(sum(-entry.amount_nanos::numeric),0) AS amount
     FROM customer_balance_entries entry CROSS JOIN bounds
@@ -159,6 +163,7 @@ SELECT currency.known,
         'cash_receipt_reference_conflicts',receipt_conflicts.count::text,
         'recorded_funding_reversals_nanos',reversals.amount::text,
         'issued_gifts_nanos',gifts.amount::text,
+        'corrected_unused_gifts_nanos',gift_corrections.amount::text,
         'balance_credit_sources',jsonb_build_object(
             'as_of',bounds.until,
             'uncovered_accounts',credit_positions.uncovered_accounts::text,
@@ -166,4 +171,4 @@ SELECT currency.known,
             'outstanding_credit_nanos',CASE WHEN credit_positions.uncovered_accounts=0 THEN credit_positions.known_outstanding_credit::text END,
             'known_prepaid_cash_subtotal_nanos',credit_positions.known_prepaid_cash::text,
             'known_outstanding_credit_subtotal_nanos',credit_positions.known_outstanding_credit::text))
-FROM bounds,currency,totals,credit_positions,receipts,invoice_receipts,receipt_conflicts,gifts,reversals;
+FROM bounds,currency,totals,credit_positions,receipts,invoice_receipts,receipt_conflicts,gifts,gift_corrections,reversals;

@@ -289,3 +289,103 @@ impl Store {
         Ok((id, result))
     }
 }
+
+impl Store {
+    /// Correct the entire original gift only on an account with no consumption,
+    /// refunds, open reservations or unknown financial sources. Never a cash refund.
+    pub async fn correct_unused_customer_balance_grant(
+        &self,
+        organization: Uuid,
+        grant: Uuid,
+        publication: CustomerBalanceGrantPublication<'_>,
+        actor: OperatorAuditActor,
+    ) -> Result<Uuid, StoreError> {
+        publication.validate()?;
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR NO KEY UPDATE")
+            .bind(organization)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        let original: Option<(Uuid, i64)> = sqlx::query_as("SELECT g.account_id,g.amount_nanos FROM customer_balance_grants g JOIN customer_balance_accounts a ON a.id=g.account_id WHERE g.id=$1 AND g.organization_id=$2 AND g.currency=$3 FOR NO KEY UPDATE OF a")
+            .bind(grant).bind(organization).bind(publication.currency).fetch_optional(&mut *tx).await?;
+        let (account, original_amount) = original.ok_or(StoreError::Conflict)?;
+        let prior: Option<(Uuid, Uuid, i64, String, String)> = sqlx::query_as("SELECT id,grant_id,amount_nanos,currency,reason FROM customer_balance_grant_corrections WHERE organization_id=$1 AND idempotency_key=$2")
+            .bind(organization).bind(publication.idempotency_key).fetch_optional(&mut *tx).await?;
+        if let Some((id, saved_grant, amount, currency, reason)) = prior {
+            return if saved_grant == grant
+                && amount == publication.amount_nanos
+                && currency == publication.currency
+                && reason == publication.reason
+            {
+                Ok(id)
+            } else {
+                Err(StoreError::Conflict)
+            };
+        }
+        if original_amount != publication.amount_nanos {
+            return Err(StoreError::Conflict);
+        }
+        let occupied: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_entries WHERE account_id=$1 AND idempotency_key=$2 AND kind<>'charge') OR EXISTS(SELECT 1 FROM customer_balance_grant_corrections WHERE grant_id=$3)")
+            .bind(account).bind(publication.idempotency_key).bind(grant).fetch_one(&mut *tx).await?;
+        if occupied {
+            return Err(StoreError::Conflict);
+        }
+        let entry = Uuid::new_v4();
+        sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key) VALUES($1,$2,$3,$4,'adjustment',$5,$6)")
+            .bind(entry).bind(organization).bind(account).bind(publication.currency).bind(-publication.amount_nanos).bind(publication.idempotency_key).execute(&mut *tx).await?;
+        let id = Uuid::new_v4();
+        let (kind, operator) = actor.kind_and_id();
+        sqlx::query("INSERT INTO customer_balance_grant_corrections(id,organization_id,account_id,currency,grant_id,entry_id,amount_nanos,noncash_offset_nanos,idempotency_key,reason,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11)")
+            .bind(id).bind(organization).bind(account).bind(publication.currency).bind(grant).bind(entry).bind(publication.amount_nanos).bind(publication.idempotency_key).bind(publication.reason).bind(kind).bind(operator).execute(&mut *tx).await.map_err(|error| {
+                if error.as_database_error().is_some_and(|e| e.code().is_some_and(|c| c=="P0040" || c=="23505")) { StoreError::Conflict } else { StoreError::Database(error) }
+            })?;
+        tx.commit().await?;
+        Ok(id)
+    }
+
+    /// Platform-only issued gifts with their immutable correction, including
+    /// gifts issued before durable preparation was introduced.
+    pub async fn issued_customer_balance_grants(
+        &self,
+        organization: Uuid,
+        currency: &str,
+        before: Option<Uuid>,
+        limit: i64,
+        grant: Option<Uuid>,
+    ) -> Result<serde_json::Value, StoreError> {
+        if currency.len() != 3
+            || !currency.bytes().all(|b| b.is_ascii_uppercase())
+            || !(1..=100).contains(&limit)
+        {
+            return Err(StoreError::InvalidPrice);
+        }
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
+        if let Some(cursor) = before {
+            let found:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_grants WHERE id=$1 AND organization_id=$2 AND currency=$3)").bind(cursor).bind(organization).bind(currency).fetch_one(&mut *tx).await?;
+            if !found {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let mut rows:Vec<serde_json::Value>=sqlx::query_scalar(r#"SELECT jsonb_build_object(
+            'id',g.id,'amount_nanos',g.amount_nanos::text,'reason',g.reason,'created_at',g.created_at,
+            'currency',g.currency,'correction',CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
+                'id',c.id,'amount_nanos',c.amount_nanos::text,'reason',c.reason,'created_at',c.created_at,
+                'actor_kind',c.actor_kind,'actor_label',CASE WHEN c.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(NULLIF(a.name,''),'Member') END) END)
+            FROM customer_balance_grants g LEFT JOIN customer_balance_grant_corrections c ON c.grant_id=g.id
+            LEFT JOIN admin_operators a ON a.id=c.actor_operator_id
+            WHERE g.organization_id=$1 AND g.currency=$2 AND ($5::uuid IS NULL OR g.id=$5) AND ($3::uuid IS NULL OR (g.created_at,g.id)<(SELECT created_at,id FROM customer_balance_grants WHERE id=$3))
+            ORDER BY g.created_at DESC,g.id DESC LIMIT $4"#)
+            .bind(organization).bind(currency).bind(before).bind(limit+1).bind(grant).fetch_all(&mut *tx).await?;
+        let next = if rows.len() > limit as usize {
+            rows.truncate(limit as usize);
+            rows.last()
+                .and_then(|v| v["id"].as_str())
+                .map(str::to_owned)
+        } else {
+            None
+        };
+        tx.commit().await?;
+        Ok(serde_json::json!({"data":rows,"next_before":next}))
+    }
+}

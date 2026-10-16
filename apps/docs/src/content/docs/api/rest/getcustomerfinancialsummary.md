@@ -115,6 +115,7 @@ Content type: `application/json`.
     "cash_receipt_reference_conflicts",
     "recorded_funding_reversals_nanos",
     "issued_gifts_nanos",
+    "corrected_unused_gifts_nanos",
     "recognized_revenue_nanos",
     "consumed_gift_allowance_nanos",
     "balance_credit_sources",
@@ -218,6 +219,11 @@ Content type: `application/json`.
       "type": "string",
       "pattern": "^-?[0-9]+$",
       "description": "Ledger reversals of verified funding; not proof of an external refund transfer."
+    },
+    "corrected_unused_gifts_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Corrections of wholly unused noncash gifts in this interval; separate from gross issuance, cash refunds and revenue."
     },
     "issued_gifts_nanos": {
       "type": "string",
