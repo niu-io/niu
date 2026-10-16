@@ -1155,6 +1155,7 @@ pub(in crate::web) async fn submit(
     headers: HeaderMap,
     Json(input): Json<Revision>,
 ) -> Result<axum::response::Response, ApiError> {
+    crate::request_payloads::payload_capture_enabled(&headers)?;
     if input.expected_revision <= 0 || input.expected_revision == i64::MAX {
         return Err(ApiError::invalid_request(
             "Expected revision must be a positive incrementable integer",

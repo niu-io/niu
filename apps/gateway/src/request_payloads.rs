@@ -104,7 +104,7 @@ fn remove_credentials_bounded(value: &mut Value, depth: usize) {
     }
 }
 
-fn payload_capture_enabled(headers: &axum::http::HeaderMap) -> Result<bool, ApiError> {
+pub(crate) fn payload_capture_enabled(headers: &axum::http::HeaderMap) -> Result<bool, ApiError> {
     let mut values = headers.get_all("x-niu-log-payloads").iter();
     let Some(value) = values.next() else {
         return Ok(true);
@@ -129,7 +129,13 @@ pub async fn capture(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
-    let video = path == "/v1/video/jobs";
+    let saved_video_submit = request
+        .extensions()
+        .get::<axum::extract::MatchedPath>()
+        .is_some_and(|route| matches!(route.as_str(),
+            "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit"
+            | "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit"));
+    let video = path == "/v1/video/jobs" || saved_video_submit;
     let inference = video
         || matches!(
             path,
