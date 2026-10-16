@@ -453,6 +453,26 @@ impl Store {
         provider: Uuid,
         input: &SupplierProfileUpdate,
     ) -> Result<SupplierProfile, StoreError> {
+        self.update_supplier_profile_recorded(provider, input, None)
+            .await
+    }
+
+    pub async fn update_supplier_profile_audited(
+        &self,
+        provider: Uuid,
+        input: &SupplierProfileUpdate,
+        actor: OperatorAuditActor,
+    ) -> Result<SupplierProfile, StoreError> {
+        self.update_supplier_profile_recorded(provider, input, Some(actor))
+            .await
+    }
+
+    async fn update_supplier_profile_recorded(
+        &self,
+        provider: Uuid,
+        input: &SupplierProfileUpdate,
+        actor: Option<OperatorAuditActor>,
+    ) -> Result<SupplierProfile, StoreError> {
         let description = input.description.as_deref().map(str::trim);
         let website = input.website_url.as_deref().map(str::trim);
         let logo = input.logo_url.as_deref().map(str::trim);
@@ -472,7 +492,8 @@ impl Store {
         let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($6::bigint IS NULL OR profile_revision=$6) RETURNING id,name,description,website_url,logo_url,profile_revision AS revision")
             .bind(provider).bind(input.name.trim()).bind(description).bind(website).bind(logo).bind(input.expected_revision)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
-        sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'supplier_profile_updated',$1)").bind(provider).execute(&mut *tx).await?;
+        let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
+        sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id,provider_label) VALUES($1,'supplier_profile_updated',$1,$2,$3,$4)").bind(provider).bind(actor_kind).bind(actor_id).bind(input.name.trim()).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(profile)
     }
@@ -580,26 +601,55 @@ impl Store {
         role: &str,
         active: bool,
     ) -> Result<(), StoreError> {
+        self.set_provider_member_recorded(provider, operator, role, active, None)
+            .await
+    }
+
+    pub async fn set_provider_member_audited(
+        &self,
+        provider: Uuid,
+        operator: Uuid,
+        role: &str,
+        active: bool,
+        actor: OperatorAuditActor,
+    ) -> Result<(), StoreError> {
+        self.set_provider_member_recorded(provider, operator, role, active, Some(actor))
+            .await
+    }
+
+    async fn set_provider_member_recorded(
+        &self,
+        provider: Uuid,
+        operator: Uuid,
+        role: &str,
+        active: bool,
+        actor: Option<OperatorAuditActor>,
+    ) -> Result<(), StoreError> {
         if !matches!(role, "manager" | "viewer") {
             return Err(StoreError::InvalidOperator);
         }
         let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query(
-            "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+        let provider_label: String = sqlx::query_scalar(
+            "SELECT name FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
         .bind(provider)
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::Conflict)?;
-        sqlx::query("SELECT id FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR SHARE")
-            .bind(operator)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(StoreError::Conflict)?;
+        let affected_member_label: String = sqlx::query_scalar(
+            "SELECT name FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR SHARE",
+        )
+        .bind(operator)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        let before_role: Option<String> = sqlx::query_scalar("SELECT role FROM provider_memberships WHERE provider_id=$1 AND operator_id=$2 AND active")
+            .bind(provider).bind(operator).fetch_optional(&mut *tx).await?;
         sqlx::query("INSERT INTO provider_memberships(provider_id,operator_id,role,active) VALUES($1,$2,$3,$4) ON CONFLICT(provider_id,operator_id) DO UPDATE SET role=EXCLUDED.role,active=EXCLUDED.active")
             .bind(provider).bind(operator).bind(role).bind(active).execute(&mut *tx).await?;
+        let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
         sqlx::query(
-            "INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,$2,$3)",
+            "INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id,provider_label,affected_member_label,before_role,after_role) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
         )
         .bind(provider)
         .bind(format!(
@@ -608,6 +658,12 @@ impl Store {
             if active { "granted" } else { "revoked" }
         ))
         .bind(operator)
+        .bind(actor_kind)
+        .bind(actor_id)
+        .bind(provider_label)
+        .bind(affected_member_label)
+        .bind(before_role)
+        .bind(active.then_some(role))
         .execute(&mut *tx)
         .await?;
         tx.commit().await?;

@@ -1021,6 +1021,28 @@ impl Store {
         currency: &str,
         limit_nanos: i64,
     ) -> Result<(), StoreError> {
+        self.create_budget_recorded(scope, currency, limit_nanos, None)
+            .await
+    }
+
+    pub async fn create_budget_with_actor(
+        &self,
+        scope: TenantScope,
+        currency: &str,
+        limit_nanos: i64,
+        actor: crate::OperatorAuditActor,
+    ) -> Result<(), StoreError> {
+        self.create_budget_recorded(scope, currency, limit_nanos, Some(actor))
+            .await
+    }
+
+    async fn create_budget_recorded(
+        &self,
+        scope: TenantScope,
+        currency: &str,
+        limit_nanos: i64,
+        actor: Option<crate::OperatorAuditActor>,
+    ) -> Result<(), StoreError> {
         if !currency_valid(currency) || limit_nanos < 0 {
             return Err(StoreError::InvalidPrice);
         }
@@ -1036,6 +1058,7 @@ impl Store {
         if inserted != 1 {
             return Err(StoreError::Conflict);
         }
+        Self::record_procurement_configuration_in_tx(&mut tx, scope, None, actor).await?;
         tx.commit().await?;
         Ok(())
     }

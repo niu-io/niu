@@ -11,12 +11,24 @@ Open **Admin → Audit logs** to inspect saved operation metadata. This is platf
 | --- | --- |
 | Authentication | Password login success, session issuance and revocation, password changes |
 | Access | Account creation/revocation and database administrator platform grants/revocations |
-| Configuration | Provider API configurations and model bindings, branding/theme saves, payment gateway saves |
+| Configuration | Provider API configurations and model bindings, branding/theme saves, payment gateway saves, procurement budget creation and upstream-account registration |
 | Provider | Provider profile, qualification, offer and settlement operations recorded by the Provider journal |
 
-The view combines six existing journals rather than copying their state. Successful password login commits its session and `password_login_succeeded` event together. Administrator-issued sessions remain `session_created`; issuance alone does not prove interactive login. Failed login attempts, read requests, rejected configuration saves and uncommitted drafts are not recorded by this version. Do not use an absent event to infer that an action did not occur.
+The view combines durable operation journals. Successful password login commits its session and `password_login_succeeded` event together. Administrator-issued sessions remain `session_created`; issuance alone does not prove interactive login. Failed login attempts, read requests, rejected configuration saves and uncommitted drafts are not recorded by this version. Do not use an absent event to infer that an action did not occur.
 
-Historical journals have different actor coverage. The API returns an explicit unknown actor when no identity was saved; the page displays **Not recorded**. Older API-configuration events retain the recorded installation role, marked **(recorded)**, without asserting a particular human identity. Actor and target names are resolved from their current saved names rather than immutable name snapshots. The migration protects the API-configuration journal against future updates/deletions; it does not establish completeness of older records.
+Historical journals have different actor coverage. The API returns an explicit unknown actor when no identity was saved; the page displays **Not recorded**. Older API-configuration events retain the recorded installation role, marked **(recorded)**, without asserting a particular human identity. Linked actor names are current; target names may be current linked names or recorded labels, depending on the journal. Protected journals cannot be updated or deleted; their presence does not establish completeness of older records.
+
+New procurement budget and upstream-account API writes commit their audit event
+in the same transaction. These events record the authorized installation or
+member actor and a meaningful workspace/account label, excluding budget amounts,
+purchase prices, plan details and credential references. Rejected or duplicate
+budget creation does not produce a successful creation event. Existing
+configuration is not backfilled with invented actors or operation times.
+
+New Provider profile and membership API writes also record the authorized actor
+atomically. Membership events retain the Provider and affected member names at
+the time of the change, plus the active role before and after it. A null role
+means no active membership. Older events retain their original unknown context.
 
 ## Read API and SDK
 

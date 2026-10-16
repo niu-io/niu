@@ -27,6 +27,45 @@ pub struct PlatformAuditPage {
 }
 
 impl Store {
+    pub(crate) async fn record_procurement_configuration_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: crate::TenantScope,
+        account: Option<(uuid::Uuid, &str)>,
+        actor: Option<crate::OperatorAuditActor>,
+    ) -> Result<(), StoreError> {
+        let (kind, operator) = match actor {
+            Some(crate::OperatorAuditActor::Installation) => ("installation", None),
+            Some(crate::OperatorAuditActor::Operator(id)) => ("operator", Some(id)),
+            None => ("unknown", None),
+        };
+        let workspace: String =
+            sqlx::query_scalar("SELECT name FROM projects WHERE organization_id=$1 AND id=$2")
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .fetch_optional(&mut **tx)
+                .await?
+                .ok_or(StoreError::Conflict)?;
+        let workspace = if workspace == "Default project" {
+            "Default workspace"
+        } else {
+            &workspace
+        };
+        let (action, account_id, target) = match account {
+            Some((id, provider)) => (
+                "upstream_account_registered",
+                Some(id),
+                format!("Upstream account / {provider} / {workspace}"),
+            ),
+            None => (
+                "procurement_budget_created",
+                None,
+                format!("Procurement budget / {workspace}"),
+            ),
+        };
+        sqlx::query("INSERT INTO procurement_configuration_events(organization_id,project_id,action,account_id,actor_kind,actor_operator_id,target_label) VALUES($1,$2,$3,$4,$5,$6,$7)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(action).bind(account_id).bind(kind).bind(operator).bind(target).execute(&mut **tx).await?;
+        Ok(())
+    }
     /// List saved platform operations, newest first, with a source-qualified cursor.
     /// Linked actor names are current; system roles are recorded and missing identities remain unknown.
     pub async fn platform_audit_events(
@@ -53,6 +92,7 @@ impl Store {
             let (table, column, cast) = match source {
                 "operator" => ("operator_audit_events", "id", "uuid"),
                 "vendor" => ("vendor_audit_events", "id", "bigint"),
+                "procurement_configuration" => ("procurement_configuration_events", "id", "bigint"),
                 "supplier" => ("provider_audit_events", "id", "bigint"),
                 "branding" => ("branding_configuration_events", "revision", "bigint"),
                 "payment_gateway" => ("payment_gateway_configuration_events", "id", "bigint"),
@@ -103,6 +143,7 @@ impl Store {
                 let timestamp = timestamp.ok_or(StoreError::InvalidPlatformAuditQuery)?;
                 let category = match source {
                     "vendor"
+                    | "procurement_configuration"
                     | "branding"
                     | "payment_gateway"
                     | "retail_price"

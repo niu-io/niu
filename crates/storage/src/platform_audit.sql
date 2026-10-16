@@ -1,7 +1,19 @@
 -- Project only audited operation metadata. Never select configuration payloads,
 -- credentials, purchase prices, or customer request content.
--- Bound each indexed source before the final merge; thirteen bounded pages are sorted.
+-- Bound each indexed source before the final merge; fourteen bounded pages are sorted.
 WITH events AS (
+ (SELECT * FROM (
+ SELECT 'procurement_configuration'::text AS source, e.id::text AS event_id,
+   'configuration'::text AS category, e.action, e.actor_kind,
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator'
+        WHEN e.actor_kind='operator' THEN COALESCE(a.name,'Unknown actor') ELSE 'Unknown actor' END AS actor_label,
+   e.target_label, NULL::bigint AS revision, NULL::text AS before_role, NULL::text AS after_role, e.created_at
+ FROM procurement_configuration_events e LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
+ WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
+ ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
+ AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ ORDER BY created_at DESC,event_id DESC LIMIT $5)
+ UNION ALL
  (SELECT * FROM (
  SELECT 'operator'::text AS source, e.id::text AS event_id,
    CASE WHEN e.action LIKE 'session_%' OR e.action LIKE 'password_%' THEN 'authentication' ELSE 'access' END AS category,
@@ -31,7 +43,9 @@ WITH events AS (
  (SELECT * FROM (
  SELECT 'supplier', e.id::text, 'supplier', e.action,
    CASE WHEN e.actor_kind='installation' THEN 'installation' WHEN e.actor_operator_id IS NOT NULL THEN 'operator' ELSE 'unknown' END,
-   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(a.name,'Unknown actor') END, p.name, NULL::bigint, NULL::text, NULL::text, e.created_at
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(a.name,'Unknown actor') END,
+   COALESCE(e.provider_label,p.name) || CASE WHEN e.affected_member_label IS NOT NULL THEN ' / ' || e.affected_member_label ELSE '' END,
+   NULL::bigint, e.before_role, e.after_role, e.created_at
  FROM provider_audit_events e JOIN provider_businesses p ON p.id=e.provider_id
  LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
  WHERE ($1::text IS NULL OR $1='supplier') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)

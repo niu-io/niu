@@ -92,6 +92,25 @@ impl Store {
         scope: TenantScope,
         input: &AccountInput,
     ) -> Result<Uuid, StoreError> {
+        self.create_account_recorded(scope, input, None).await
+    }
+
+    pub async fn create_account_with_actor(
+        &self,
+        scope: TenantScope,
+        input: &AccountInput,
+        actor: crate::OperatorAuditActor,
+    ) -> Result<Uuid, StoreError> {
+        self.create_account_recorded(scope, input, Some(actor))
+            .await
+    }
+
+    async fn create_account_recorded(
+        &self,
+        scope: TenantScope,
+        input: &AccountInput,
+        actor: Option<crate::OperatorAuditActor>,
+    ) -> Result<Uuid, StoreError> {
         if !label_valid(&input.provider, 100)
             || !label_valid(&input.plan, 200)
             || !reference_valid(&input.credential_reference)
@@ -100,8 +119,17 @@ impl Store {
             return Err(StoreError::InvalidAccount);
         }
         let id = Uuid::new_v4();
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO supplier_accounts (id,organization_id,project_id,provider,plan,authentication_mode,billing_mode,credential_reference,concurrency_limit) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(&input.provider).bind(&input.plan).bind(input.authentication_mode.as_str()).bind(input.billing_mode.as_str()).bind(&input.credential_reference).bind(input.concurrency_limit).execute(&self.pool).await?;
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(&input.provider).bind(&input.plan).bind(input.authentication_mode.as_str()).bind(input.billing_mode.as_str()).bind(&input.credential_reference).bind(input.concurrency_limit).execute(&mut *tx).await?;
+        Self::record_procurement_configuration_in_tx(
+            &mut tx,
+            scope,
+            Some((id, &input.provider)),
+            actor,
+        )
+        .await?;
+        tx.commit().await?;
         Ok(id)
     }
 

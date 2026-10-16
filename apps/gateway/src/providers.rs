@@ -431,7 +431,7 @@ pub async fn profile(
 ///   "operation": {
 ///     "operationId": "renameProviderBusiness",
 ///     "summary": "Update Provider business profile",
-///     "description": "Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.",
+///     "description": "Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and atomically records the authorized actor and resulting Provider name in its audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -576,10 +576,10 @@ pub async fn rename(
     Path(provider): Path<Uuid>,
     Json(input): Json<SupplierProfileUpdate>,
 ) -> Result<Json<Value>, ApiError> {
-    state.authorize_platform_headers(&headers).await?;
+    let authorization = state.authorize_platform_headers(&headers).await?;
     let data = state
         .store
-        .update_supplier_profile(provider, &input)
+        .update_supplier_profile_audited(provider, &input, supplier_audit_actor(authorization))
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":data})))
@@ -679,7 +679,7 @@ pub struct Membership {
 ///   "operation": {
 ///     "operationId": "setProviderMembership",
 ///     "summary": "Grant, change or disable a Provider membership",
-///     "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
+///     "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
 ///     "tags": [
 ///       "Providers"
 ///     ],
@@ -791,10 +791,16 @@ pub async fn set_member(
     Path((provider, operator)): Path<(Uuid, Uuid)>,
     Json(input): Json<Membership>,
 ) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
+    let authorization = state.authorize_platform_headers(&headers).await?;
     state
         .store
-        .set_provider_member(provider, operator, &input.role, input.active)
+        .set_provider_member_audited(
+            provider,
+            operator,
+            &input.role,
+            input.active,
+            supplier_audit_actor(authorization),
+        )
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"active":input.active}})))
