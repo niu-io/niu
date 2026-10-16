@@ -25,6 +25,22 @@ import WorkspaceKeyConnection, {
 } from "./WorkspaceKeyConnection";
 import { displayName } from "./session";
 
+// Only known Niu admission reasons are shown; unexpected upstream bodies may
+// contain private data and are never rendered as error prose.
+const admissionReasons: Record<string, string> = {
+  workspace_spending_limit_exceeded: "This request exceeds the workspace spending limit.",
+  key_spending_limit_exceeded: "This API key's customer spending limit is exhausted.",
+  key_request_rate_disabled: "This API key's request rate is configured as zero.",
+  key_request_rate_exceeded: "This API key's rolling request limit is exhausted.",
+  key_token_rate_exceeded: "This API key's token budget is exhausted. Wait for known usage to expire or resolve unknown usage.",
+  key_token_bound_required: "Token admission requires supported text input with an explicit output limit and bounded prior usage.",
+  key_concurrency_exceeded: "This API key has reached its concurrent request limit. Wait for active work to finish or resolve uncertain requests.",
+  key_ip_not_allowed: "This API key does not allow the request source address.",
+  budget_exceeded: "The selected route could not admit this request under its funding configuration. Contact an administrator.",
+  authentication_error: "The session or API key is invalid, expired or revoked. Sign in again or refresh access.",
+  permission_denied: "The selected key or session is not permitted to make this request.",
+};
+
 /** A real SDK call on this origin, using the existing session/key authorization path. */
 export default function LiveApiConsole() {
   const [selection, setSelection] = useState<DocsKeySelection | null>(null);
@@ -36,6 +52,7 @@ export default function LiveApiConsole() {
   const [prompt, setPrompt] = useState("Say hello in one sentence.");
   const [output, setOutput] = useState(""),
     [error, setError] = useState("");
+  const [remedy, setRemedy] = useState<{ href: string; label: string } | null>(null);
   const [busy, setBusy] = useState(false),
     [status, setStatus] = useState("");
   const [elapsed, setElapsed] = useState<number | null>(null);
@@ -60,6 +77,7 @@ export default function LiveApiConsole() {
     setModelError("");
     setOutput("");
     setError("");
+    setRemedy(null);
     setStatus("");
     setElapsed(null);
     setGeneration(null);
@@ -115,6 +133,7 @@ export default function LiveApiConsole() {
     setBusy(true);
     setOutput("");
     setError("");
+    setRemedy(null);
     setStatus("Running");
     setGeneration(null);
     setElapsed(null);
@@ -176,14 +195,26 @@ export default function LiveApiConsole() {
           ? "Stopped · outcome may be incomplete"
           : "Failed",
       );
-      setError(
-        failure instanceof NiuAPIError
-          ? "Request failed (HTTP " +
-              failure.status +
-              "). Inspect saved diagnostics or workspace Logs."
-          : controller.signal.aborted
+      if (failure instanceof NiuAPIError) {
+        attempt ??= failure.attemptId ?? null;
+        const envelope = failure.responseBody as { error?: { type?: unknown } } | null;
+        const type = typeof envelope?.error?.type === "string" ? envelope.error.type : "";
+        const reason = Object.hasOwn(admissionReasons, type) ? admissionReasons[type] : undefined;
+        setError(`${reason ?? "Request failed."} (HTTP ${failure.status}). ${attempt
+          ? "A saved attempt reference was returned. Check saved diagnostics or workspace Logs."
+          : reason ? "No saved attempt reference was returned." : "No saved attempt reference was returned; the outcome is unconfirmed. Do not automatically retry."}`);
+        const workspaceRoot = "/workspaces/" + encodeURIComponent(selection.workspace.route_slug);
+        if (reason && type.startsWith("key_")) {
+          setRemedy({ href: workspaceRoot + "/keys/" + encodeURIComponent(selection.keyId), label: "Review API key limits" });
+        } else if (type === "workspace_spending_limit_exceeded" || type === "budget_exceeded") {
+          setRemedy({ href: workspaceRoot + "/billing", label: type === "workspace_spending_limit_exceeded" ? "Review workspace spending limit" : "Review workspace billing" });
+        }
+      } else setError(
+        controller.signal.aborted
             ? "Stopped waiting. Upstream work and billing may still continue; do not automatically repeat the request."
-            : "The stream did not complete. Partial output is provisional; check Logs before submitting again.",
+            : attempt
+              ? "The stream did not complete. Partial output is provisional; check the saved attempt before submitting again."
+              : "The request could not be confirmed. No saved attempt reference was returned; do not automatically retry.",
       );
     } finally {
       clearTimeout(timeout);
@@ -353,7 +384,10 @@ export default function LiveApiConsole() {
           )}
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                <span>{error}</span>
+                {remedy && <Button variant="outline" size="sm" asChild><a href={remedy.href}>{remedy.label}</a></Button>}
+              </AlertDescription>
             </Alert>
           )}
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
