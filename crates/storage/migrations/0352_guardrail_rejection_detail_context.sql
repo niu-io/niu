@@ -20,4 +20,3 @@ RETURNS TEXT LANGUAGE sql VOLATILE AS $$
     LEFT JOIN key_guardrail_assignments a
       ON a.organization_id = org AND a.project_id = workspace AND a.key_id = key;
 $$;
-
