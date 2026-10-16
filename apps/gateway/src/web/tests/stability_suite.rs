@@ -461,7 +461,9 @@ async fn stability_concurrent_priced_budget_contention_never_overdrafts(pool: sq
     for handle in handles {
         match handle.await.unwrap() {
             StatusCode::OK => ok_count += 1,
-            StatusCode::PAYMENT_REQUIRED | StatusCode::TOO_MANY_REQUESTS => rejected_count += 1,
+            StatusCode::PAYMENT_REQUIRED
+            | StatusCode::TOO_MANY_REQUESTS
+            | StatusCode::SERVICE_UNAVAILABLE => rejected_count += 1,
             other => panic!("unexpected status under budget contention: {other}"),
         }
     }

@@ -318,7 +318,7 @@ async fn prepared_attempt_rechecks_current_workspace_and_key_model_policy(pool: 
         assert_eq!(metadata.as_object().unwrap().len(), 7);
         assert!(matches!(
             store.mark_dispatched(&principal, attempt).await,
-            Err(niu_storage::StoreError::Conflict)
+            Err(niu_storage::StoreError::GuardrailAdmissionConflict)
         ));
         let audits: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('reason',reason,'workspace_revision',workspace_revision,'key_policy_revision',key_policy_revision) FROM dispatch_guardrail_rejections WHERE attempt_id=$1")
             .bind(attempt).fetch_all(&pool).await.unwrap();
@@ -395,7 +395,7 @@ async fn prepared_attempt_rechecks_provider_rules_with_recorded_identity(pool: P
         }
         assert!(matches!(
             store.mark_dispatched(&principal, attempt).await,
-            Err(niu_storage::StoreError::Conflict)
+            Err(niu_storage::StoreError::GuardrailAdmissionConflict)
         ));
         assert_eq!(
             store
@@ -603,7 +603,7 @@ async fn priced_policy_rejection_commits_audit_without_reservation_or_budget_eff
         store
             .reserve_and_dispatch_gateway(&principal, attempt, &reservation)
             .await,
-        Err(niu_storage::StoreError::Conflict)
+        Err(niu_storage::StoreError::GuardrailAdmissionConflict)
     ));
     assert_eq!(
         store
@@ -707,7 +707,7 @@ async fn rejection_metadata_observes_activation_committed_while_dispatch_waits(p
     activation.commit().await.unwrap();
     assert!(matches!(
         dispatch.await.unwrap(),
-        Err(niu_storage::StoreError::Conflict)
+        Err(niu_storage::StoreError::GuardrailAdmissionConflict)
     ));
     let revision: Option<i64> = sqlx::query_scalar(
         "SELECT workspace_revision FROM dispatch_guardrail_rejections WHERE attempt_id=$1",

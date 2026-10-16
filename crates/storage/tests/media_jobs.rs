@@ -1445,7 +1445,27 @@ async fn result_retention_hardening_upgrades_saved_references_without_extending_
     old.run(&pool).await.unwrap();
     let store = Store::from_pool(pool.clone());
     let scope = store.default_workspace().await.unwrap();
-    configure_video(&store).await;
+    let vendor_id = uuid::Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO vendors(id,name,adapter,api_base,enabled,credential_ciphertext) VALUES($1,'Video recovery fixture','openai','https://fixture.example/v1',true,$2)",
+    )
+    .bind(vendor_id)
+    .bind(vec![17_u8; 48])
+    .execute(&pool)
+    .await
+    .unwrap();
+    let schema = serde_json::json!({"version":1,"revision":"schema-1","model_alias":"fixture-video","upstream_model":"upstream-video","channel":"fixture-channel",
+        "maximum_body_bytes":4096,"maximum_content_items":1,
+        "inputs":{"text":{"maximum_items":1,"maximum_bytes":256,"https":false,"data_mime_types":[],"roles":[],"role_required":false}},
+        "controls":{},"required_controls":[],"exclusive_controls":[],"callbacks_qualified":false});
+    sqlx::query(
+        "INSERT INTO vendor_models(vendor_id,alias,upstream_model,public_catalog,enabled,capabilities) VALUES($1,'fixture-video','upstream-video',false,true,$2)",
+    )
+    .bind(vendor_id)
+    .bind(serde_json::json!({"video_schema":schema}))
+    .execute(&pool)
+    .await
+    .unwrap();
     let operation = store
         .create_operation(scope, "fixture-video")
         .await

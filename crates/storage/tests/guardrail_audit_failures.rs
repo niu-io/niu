@@ -218,7 +218,10 @@ async fn denial_audit_write_failure_is_fail_closed_and_recoverable(pool: PgPool)
                 .await
                 .unwrap();
         }
-        assert!(matches!(admit(&store, &f).await, Err(StoreError::Conflict)));
+        assert!(matches!(
+            admit(&store, &f).await,
+            Err(StoreError::GuardrailAdmissionConflict)
+        ));
         assert_no_dispatch(&store, &pool, &f).await;
         let denials = store.guardrail_dispatch_denials(f.scope).await.unwrap();
         assert_eq!(denials.len(), 1);
@@ -272,7 +275,10 @@ async fn database_cancellation_before_admission_keeps_denied_work_unsent(pool: P
                 .is_empty(),
             "cancelled precheck must not fabricate a checked policy denial"
         );
-        assert!(matches!(admit(&store, &f).await, Err(StoreError::Conflict)));
+        assert!(matches!(
+            admit(&store, &f).await,
+            Err(StoreError::GuardrailAdmissionConflict)
+        ));
         assert_no_dispatch(&store, &pool, &f).await;
         assert_eq!(
             store.guardrail_dispatch_denials(scope).await.unwrap().len(),
@@ -314,7 +320,10 @@ async fn prepaid_policy_denial_commits_audit_and_releases_customer_hold(pool: Pg
         .bind_customer_tariff(f.scope, f.attempt, "fast")
         .await
         .unwrap();
-    assert!(matches!(admit(&store, &f).await, Err(StoreError::Conflict)));
+    assert!(matches!(
+        admit(&store, &f).await,
+        Err(StoreError::GuardrailAdmissionConflict)
+    ));
     assert_no_dispatch(&store, &pool, &f).await;
     assert_eq!(
         store

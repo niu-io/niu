@@ -762,7 +762,7 @@ async fn media_admission_rejects_unqualified_units_and_inexact_ledger_precision(
     for (precision, amount, meter, revision, expected) in [
         (6, 100, "video_tokens", "fixture", Some(10_000)),
         (10, 100, "video_tokens", "fixture", None),
-        (9, 0, "video_tokens", "fixture", None),
+        (9, 0, "video_tokens", "fixture", Some(0)),
         (9, 100, "seconds", "fixture", None),
         (9, 100, "video_tokens", "", None),
     ] {

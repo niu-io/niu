@@ -90,7 +90,7 @@ async fn inspected_revision_change_blocks_even_when_access_still_allows(pool: Pg
     stale.inspected_guardrails = Some(old);
     assert!(matches!(
         store.admit_unpriced_gateway_batch(vec![stale]).await,
-        Err(niu_storage::StoreError::Conflict)
+        Err(niu_storage::StoreError::GuardrailAdmissionConflict)
     ));
     let count: i64 = sqlx::query_scalar("SELECT count(*) FROM inspected_guardrail_bindings")
         .fetch_one(&pool)
@@ -137,7 +137,7 @@ async fn inspected_revision_change_blocks_even_when_access_still_allows(pool: Pg
     stale_key.inspected_guardrails = Some(current);
     assert!(matches!(
         store.admit_unpriced_gateway_batch(vec![stale_key]).await,
-        Err(niu_storage::StoreError::Conflict)
+        Err(niu_storage::StoreError::GuardrailAdmissionConflict)
     ));
 }
 
@@ -169,7 +169,7 @@ async fn prepared_binding_rejects_new_allowing_policy_and_retains_not_sent(pool:
     store.activate_workspace_guardrail(scope, 0, &serde_json::json!({"schema_version":1,"name":"New allowing policy","models":{"mode":"inherit"},"providers":{"mode":"inherit"}})).await.unwrap();
     assert!(matches!(
         store.mark_dispatched(&principal, attempt).await,
-        Err(niu_storage::StoreError::Conflict)
+        Err(niu_storage::StoreError::GuardrailAdmissionConflict)
     ));
     assert_eq!(
         store
@@ -201,7 +201,7 @@ async fn live_input_policy_rejects_compatibility_admission_without_inspection(po
         store
             .admit_unpriced_gateway_batch(vec![request(scope, key.id)])
             .await,
-        Err(niu_storage::StoreError::Conflict)
+        Err(niu_storage::StoreError::GuardrailAdmissionConflict)
     ));
 }
 
@@ -310,7 +310,7 @@ async fn unqualified_image_requirements_cannot_bypass_storage_dispatch(pool: PgP
         admission.inspected_guardrails = Some(snapshot);
         assert!(matches!(
             store.admit_unpriced_gateway_batch(vec![admission]).await,
-            Err(niu_storage::StoreError::Conflict)
+            Err(niu_storage::StoreError::GuardrailAdmissionConflict)
         ));
         let sent:i64=sqlx::query_scalar("SELECT count(*) FROM attempts WHERE organization_id=$1 AND project_id=$2 AND execution='may_have_executed'").bind(scope.organization_id).bind(scope.project_id).fetch_one(&pool).await.unwrap();
         assert_eq!(

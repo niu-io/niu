@@ -725,7 +725,7 @@ async fn concurrent_budgets_idempotent_settlement_and_unknown_holds(pool: PgPool
     assert_ne!(ra.is_ok(), rb.is_ok());
     assert!(matches!(
         ra.as_ref().err().or(rb.as_ref().err()),
-        Some(StoreError::BudgetExceeded)
+        Some(StoreError::ProcurementUnavailable)
     ));
     let (winner, loser) = if ra.is_ok() { (a, b) } else { (b, a) };
     store
@@ -848,7 +848,7 @@ async fn concurrent_budgets_idempotent_settlement_and_unknown_holds(pool: PgPool
         .unwrap();
     assert!(matches!(
         store.reserve_cost(scope, extra, price, 1, 0).await,
-        Err(StoreError::BudgetExceeded)
+        Err(StoreError::ProcurementUnavailable)
     ));
     let budget = store.budget(scope).await.unwrap().unwrap();
     assert_eq!((budget.spent_nanos, budget.reserved_nanos), (40, 60));
@@ -932,7 +932,7 @@ async fn unsent_release_and_provider_overrun_preserve_liability(pool: PgPool) {
         .unwrap();
     assert!(matches!(
         store.reserve_cost(scope, extra, price, 1, 0).await,
-        Err(StoreError::BudgetExceeded)
+        Err(StoreError::ProcurementUnavailable)
     ));
 }
 

@@ -202,6 +202,7 @@ async fn categories_are_scoped_bounded_immutable_and_preserve_unknowns(pool: PgP
     assert_eq!(
         summary.token_categories,
         serde_json::json!({
+            "cache_write_input_tokens":null,"cache_write_input_requests":0,"cache_write_input_unknown_requests":2,
             "cached_input_tokens":"4","cached_input_requests":2,"cached_input_unknown_requests":0,
             "reasoning_output_tokens":"2","reasoning_output_requests":1,"reasoning_output_unknown_requests":1
         })

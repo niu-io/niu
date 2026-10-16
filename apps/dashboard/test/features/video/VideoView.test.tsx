@@ -38,6 +38,7 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
       }
       return Response.json({data:prior});
     }
+    if(path.includes('/generations-sessions?'))return Response.json({data:[],has_more:false,next_before:null});
     if(path.includes('/generations-sessions/')){
       const match=path.match(/\/organizations\/[^/]+\/projects\/([^/]+)\/generations-sessions\/([^/?]+)(?:\/turns\/([^/?]+)(\/intent)?)?/);
       if(!match)return Response.json({error:{message:'Not found'}},{status:404});
@@ -359,6 +360,7 @@ it('retries a failed API-key read before loading models without submitting a vid
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
    calls.push(path);
    if(path.endsWith('/video-draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
+   if(path.includes('/generations-sessions?'))return Response.json({data:[],has_more:false,next_before:null});
    if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
    if(path.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
@@ -445,7 +447,7 @@ it('does not navigate from an unmounted Video workspace when its create response
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'Original request');
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
-  await waitFor(()=>expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(([path])=>String(path).endsWith('/submit'))).toBe(true));
+  await waitFor(()=>{expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(([path])=>String(path).endsWith('/submit'))).toBe(true);expect(screen.getByLabelText('Current route').textContent).toContain('intent=');});
   const savedRoute=screen.getByLabelText('Current route').textContent;
   view.rerender(tree(other));await screen.findByText('Intent unavailable');
   await act(async()=>{finish(Response.json({id:job,object:'video.job',model:model.id,status:'queued'}));await pending;});

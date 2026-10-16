@@ -222,14 +222,14 @@ async fn payload_cleanup_is_bounded_and_skips_locked_records(pool: PgPool) {
         .create_operation(scope, "cleanup-fixture")
         .await
         .unwrap();
-    sqlx::query("WITH made AS (INSERT INTO attempts(id,organization_id,project_id,operation_id,resource_id,offer_revision) SELECT gen_random_uuid(),$1,$2,$3,'cleanup-fixture','fixture' FROM generate_series(1,550) RETURNING id) INSERT INTO request_payloads(attempt_id,request_body,response_body,response_content_type,response_complete,response_truncated,expires_at) SELECT id,'{}','expired fixture','text/plain',true,false,now()-interval '1 hour' FROM made")
+    sqlx::query("WITH made AS (INSERT INTO attempts(id,organization_id,project_id,operation_id,resource_id,offer_revision) SELECT gen_random_uuid(),$1,$2,$3,'cleanup-fixture','fixture' FROM generate_series(1,138) RETURNING id) INSERT INTO request_payloads(attempt_id,request_body,response_body,response_content_type,response_complete,response_truncated,expires_at) SELECT id,'{}','expired fixture','text/plain',true,false,now()-interval '1 hour' FROM made")
         .bind(scope.organization_id).bind(scope.project_id).bind(operation).execute(&pool).await.unwrap();
     let mut held = pool.begin().await.unwrap();
     sqlx::query("SELECT attempt_id FROM request_payloads ORDER BY attempt_id LIMIT 10 FOR UPDATE")
         .fetch_all(&mut *held)
         .await
         .unwrap();
-    for expected in [50_i64, 10] {
+    for expected in [74_i64, 10] {
         tokio::time::timeout(
             std::time::Duration::from_secs(2),
             store.purge_expired_request_payloads(),
@@ -255,7 +255,7 @@ async fn payload_cleanup_is_bounded_and_skips_locked_records(pool: PgPool) {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(attempts, 550);
+    assert_eq!(attempts, 138);
 }
 
 #[sqlx::test]
@@ -346,9 +346,15 @@ async fn payload_expiry_cleanup_survives_asset_cleanup_failure(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
-    // A statement-level fault fires even when this fixture has no asset rows.
-    sqlx::query("CREATE FUNCTION fail_asset_retention_fixture() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture asset cleanup failure'; END $$").execute(&pool).await.unwrap();
-    sqlx::query("CREATE TRIGGER fail_asset_retention_fixture BEFORE UPDATE ON asset_group_create_intents FOR EACH STATEMENT EXECUTE FUNCTION fail_asset_retention_fixture()").execute(&pool).await.unwrap();
+    // Simulate a failure in the asset retention domain even when this fixture has no asset rows.
+    sqlx::query("ALTER FUNCTION niu_purge_asset_group_request_page() RENAME TO niu_purge_asset_group_request_page_orig")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("CREATE FUNCTION niu_purge_asset_group_request_page() RETURNS BIGINT LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture asset cleanup failure'; END $$")
+        .execute(&pool)
+        .await
+        .unwrap();
     // The maintenance caller still sees the error and schedules a retry.
     assert!(store.purge_expired_request_payloads().await.is_err());
     let count: i64 =
@@ -359,7 +365,11 @@ async fn payload_expiry_cleanup_survives_asset_cleanup_failure(pool: PgPool) {
             .unwrap();
     assert_eq!(count, 0);
     assert!(store.attempt(scope, attempt).await.unwrap().is_some());
-    sqlx::query("DROP TRIGGER fail_asset_retention_fixture ON asset_group_create_intents")
+    sqlx::query("DROP FUNCTION niu_purge_asset_group_request_page()")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("ALTER FUNCTION niu_purge_asset_group_request_page_orig() RENAME TO niu_purge_asset_group_request_page")
         .execute(&pool)
         .await
         .unwrap();

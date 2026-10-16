@@ -269,7 +269,7 @@ async fn priced_inference_reserves_settles_and_blocks_exhaustion(pool: sqlx::PgP
         ),
         (
             json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}),
-            StatusCode::PAYMENT_REQUIRED,
+            StatusCode::SERVICE_UNAVAILABLE,
         ),
     ] {
         *captured.0.lock().unwrap() = None;

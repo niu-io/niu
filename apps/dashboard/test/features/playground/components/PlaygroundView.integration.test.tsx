@@ -159,11 +159,11 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async () => jsonResponse({ data: [] })));
     const user = userEvent.setup();
     renderPlayground();
-    await user.click(screen.getByRole('button', { name: 'Archived chats', exact: true }));
-    const dialog = screen.getByRole('dialog', { name: 'Archived chats' });
+    await user.click(screen.getByRole('button', { name: 'Archived sessions', exact: true }));
+    const dialog = screen.getByRole('dialog', { name: 'Archived sessions' });
     await user.click(within(dialog).getByRole('button', { name: 'Close', exact: true }));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Archived chats', exact: true })));
-    expect(screen.queryByRole('dialog', { name: 'Archived chats' })).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Archived sessions', exact: true })));
+    expect(screen.queryByRole('dialog', { name: 'Archived sessions' })).toBeNull();
   });
 
   it('lets settings close after a draft conflict without discarding local edits',async()=>{
@@ -910,8 +910,8 @@ it('archives and restores backend history without deleting conversation content'
   await user.click(screen.getByRole('menuitem',{name:'Archive',exact:true}));
   await screen.findByText('Chat archived.');
   expect(screen.queryByRole('button',{name:'Actions for Saved diagnosis'})).toBeNull();
-  await user.click(screen.getByRole('button',{name:'Archived chats',exact:true}));
-  const dialog=screen.getByRole('dialog',{name:'Archived chats'});
+  await user.click(screen.getByRole('button',{name:'Archived sessions',exact:true}));
+  const dialog=screen.getByRole('dialog',{name:'Archived sessions'});
   await user.click(await within(dialog).findByRole('button',{name:'Restore Saved diagnosis'}));
   await within(dialog).findByText('No archived chats');
   await user.click(within(dialog).getByRole('button',{name:'Close',exact:true}));
@@ -940,13 +940,13 @@ it('keeps archived content when restore fails and distinguishes archive read err
   }));
   const user=userEvent.setup();renderPlayground();
   await screen.findByText('No sessions yet');
-  await user.click(screen.getByRole('button',{name:'Archived chats',exact:true}));
-  let dialog=screen.getByRole('dialog',{name:'Archived chats'});
+  await user.click(screen.getByRole('button',{name:'Archived sessions',exact:true}));
+  let dialog=screen.getByRole('dialog',{name:'Archived sessions'});
   await within(dialog).findByText('Could not load archived chats.');
   expect(within(dialog).queryByText('No archived chats')).toBeNull();
   readFails=false;
   await user.click(within(dialog).getByRole('button',{name:'Retry',exact:true}));
-  expect(screen.getByRole('dialog',{name:'Archived chats'})).toBe(dialog);
+  expect(screen.getByRole('dialog',{name:'Archived sessions'})).toBe(dialog);
   await user.click(await within(dialog).findByRole('button',{name:'Restore Archived diagnosis'}));
   await within(dialog).findByText('Could not restore this chat. Try again.');
   expect(within(dialog).getByText('Archived diagnosis')).toBeTruthy();

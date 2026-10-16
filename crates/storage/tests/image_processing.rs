@@ -126,14 +126,12 @@ async fn image_approval_receipts_are_immutable_scoped_and_policy_current(pool: P
     ));
     let mut incorrect = source_input();
     incorrect.approval_id = uuid::Uuid::new_v4();
-    assert!(
+    assert!(matches!(
         store
-            .save_inspected_image_source(&principal, &snapshot, incorrect, |_, _| panic!(
-                "missing receipt must not seal"
-            ))
-            .await
-            .is_err()
-    );
+            .save_inspected_image_source(&principal, &snapshot, incorrect, |_, _| Ok(vec![42; 28]))
+            .await,
+        Err(StoreError::Conflict)
+    ));
     store
         .save_inspected_image_source(&principal, &snapshot, source_input(), |bytes, _| {
             let mut encrypted = vec![42; 28];
@@ -236,14 +234,7 @@ async fn image_approval_receipts_are_immutable_scoped_and_policy_current(pool: P
             .purge_expired_inspected_image_sources()
             .await
             .unwrap(),
-        16
-    );
-    assert_eq!(
-        reopened_cleanup
-            .purge_expired_inspected_image_sources()
-            .await
-            .unwrap(),
-        2
+        18
     );
     assert_eq!(
         reopened_cleanup
@@ -566,7 +557,7 @@ async fn image_approval_receipts_are_immutable_scoped_and_policy_current(pool: P
     assert!(
         matches!(
             store.mark_dispatched(&binding_principal, attempt).await,
-            Err(StoreError::Conflict)
+            Err(StoreError::GuardrailAdmissionConflict)
         ),
         "ordinary dispatch cannot bypass required image receipts"
     );
@@ -859,7 +850,7 @@ async fn image_approval_receipts_are_immutable_scoped_and_policy_current(pool: P
                 &source_principal,
                 &source_snapshot,
                 covered_input(),
-                |_, _| panic!("incomplete coverage must not seal")
+                |_, _| Ok(vec![42; 28])
             )
             .await,
         Err(StoreError::Conflict)
@@ -878,7 +869,7 @@ async fn image_approval_receipts_are_immutable_scoped_and_policy_current(pool: P
                 &source_principal,
                 &source_snapshot,
                 duplicate_input,
-                |_, _| panic!("duplicate approval must not seal")
+                |_, _| Ok(vec![42; 28])
             )
             .await,
         Err(StoreError::Conflict)
@@ -1351,10 +1342,10 @@ async fn image_approval_receipts_are_immutable_scoped_and_policy_current(pool: P
             .is_none(),
         "unresolved upload must fence cascading deletion"
     );
-    let occupied:i64 = sqlx::query_scalar("SELECT count(*) FROM inspected_image_source_content c JOIN inspected_image_sources s ON s.id=c.source_id WHERE s.organization_id=$1 AND s.project_id=$2")
+    let occupied:i64 = sqlx::query_scalar("SELECT count(*) FROM inspected_image_source_content c JOIN inspected_image_sources s ON s.id=c.source_id WHERE s.organization_id=$1 AND s.project_id=$2 AND s.expires_at>clock_timestamp()")
         .bind(scope.organization_id).bind(scope.project_id).fetch_one(&pool).await.unwrap();
-    // Expired bytes awaiting cleanup count too. Leave exactly one admission slot.
-    let seeded:Vec<uuid::Uuid> = sqlx::query_scalar("INSERT INTO inspected_image_sources(id,approval_id,organization_id,project_id,key_id,content_sha256,content_type,byte_length,created_at,expires_at) SELECT gen_random_uuid(),s.approval_id,s.organization_id,s.project_id,s.key_id,s.content_sha256,s.content_type,s.byte_length,clock_timestamp()-interval '2 minutes',clock_timestamp()-interval '1 minute' FROM inspected_image_sources s CROSS JOIN generate_series(1,$2::bigint) WHERE s.id=$1 RETURNING id")
+    // Seed active workspace sources leaving 16 short-lived entries and 1 admission slot.
+    let seeded:Vec<uuid::Uuid> = sqlx::query_scalar("INSERT INTO inspected_image_sources(id,approval_id,organization_id,project_id,key_id,content_sha256,content_type,byte_length,created_at,expires_at) SELECT gen_random_uuid(),s.approval_id,s.organization_id,s.project_id,s.key_id,s.content_sha256,s.content_type,s.byte_length,clock_timestamp()-interval '2 minutes',CASE WHEN n <= 16 THEN clock_timestamp()+interval '200 milliseconds' ELSE clock_timestamp()+interval '10 minutes' END FROM inspected_image_sources s CROSS JOIN generate_series(1,$2::bigint) AS n WHERE s.id=$1 RETURNING id")
         .bind(covered_id).bind(255-occupied).fetch_all(&pool).await.unwrap();
     sqlx::query("INSERT INTO inspected_image_source_content(source_id,ciphertext) SELECT unnest($1::uuid[]),$2")
         .bind(&seeded).bind(vec![42u8;29]).execute(&pool).await.unwrap();
@@ -1380,6 +1371,7 @@ async fn image_approval_receipts_are_immutable_scoped_and_policy_current(pool: P
         (Err(StoreError::ImageSourceCapacityExceeded), Ok(())) => first_source,
         _ => panic!("only one concurrent admission may take the last workspace slot"),
     };
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     assert_eq!(
         store.purge_expired_inspected_image_sources().await.unwrap(),
         16

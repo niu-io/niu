@@ -561,7 +561,15 @@ async fn asset_management_intent_upgrade_preserves_history_without_fabricating_r
     old.run(&pool).await.unwrap();
     let store = Store::from_pool(pool.clone());
     let scope = store.default_workspace().await.unwrap();
-    let account = vendor(&store, "Legacy asset account").await;
+    let account = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO vendors(id,name,adapter,api_base,enabled,credential_ciphertext) VALUES($1,'Legacy asset account','openai','https://ark.cn-beijing.volcengineapi.com/api/v3',false,$2)",
+    )
+    .bind(account)
+    .bind(vec![0x44_u8; 48])
+    .execute(&pool)
+    .await
+    .unwrap();
     store
         .save_asset_management_credential(
             account,

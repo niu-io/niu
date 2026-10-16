@@ -10,7 +10,7 @@ export default function VideoArchivedSessions({context,open,disabled=false}:{con
   const {token,workspace}=context;
   const identity=JSON.stringify([token,workspace?.organization_id,workspace?.id,open]);
   const current=useRef(identity);current.current=identity;
-  const client=useMemo(()=>new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',location.origin).href}),[token]);
+  const client=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',location.origin).href}) : null,[token]);
   const [rows,setRows]=useState<VideoGenerationsSessionSummary[]>([]);
   const [cursor,setCursor]=useState<string|null>(null);
   const [error,setError]=useState('');
@@ -19,11 +19,11 @@ export default function VideoArchivedSessions({context,open,disabled=false}:{con
   const [busy,setBusy]=useState(false);
   const [revision,setRevision]=useState(0);
   const requests=useRef<AbortController|null>(null);
-  const api=workspace?client.generations({organizationId:workspace.organization_id,projectId:workspace.id}).sessions:null;
+  const api=workspace&&client?client.generations({organizationId:workspace.organization_id,projectId:workspace.id}).sessions:null;
   useEffect(()=>{
     const request=new AbortController();requests.current=request;
     setRows([]);setCursor(null);setError('');setNotice('');setBusy(false);setLoading(false);
-    if(!open||!workspace)return()=>request.abort();
+    if(!open||!workspace||!client)return()=>request.abort();
     setLoading(true);
     void client.generations({organizationId:workspace.organization_id,projectId:workspace.id}).sessions.list({archived:true,limit:25},{signal:request.signal})
       .then(page=>{if(!request.signal.aborted){setRows(page.data);setCursor(page.next_before);}})
