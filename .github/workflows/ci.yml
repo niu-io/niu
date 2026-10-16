@@ -135,7 +135,9 @@ jobs:
         run: python3 scripts/check-migration-history.py previous-source/crates/storage/migrations crates/storage/migrations
       - name: Build previous package for upgrade qualification
         if: ${{ steps.previous.outputs.sha != '' }}
-        run: docker buildx build --load --tag niu-io/niu:previous ./previous-source
+        # Keep released source and migrations intact; use the corrected build
+        # recipe so missing build inputs in an old Dockerfile do not block CI.
+        run: docker buildx build --load --file Dockerfile --tag niu-io/niu:previous ./previous-source
       - name: Build single-container product
         run: docker buildx build --load --tag niu-io/niu:ci .
       - name: Inspect runtime package contents

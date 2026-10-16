@@ -21,6 +21,12 @@ catalog inspection confirmed the resulting function's volatility and diagnostic
 scope/revision fields. This verifies that bounded schema transition, not a
 deployed gateway's behavior or a complete release.
 
+The browser-image build explicitly includes the public contracts and JavaScript
+SDK TypeScript configuration consumed by documentation generation. The upgrade
+baseline uses the current build recipe with the previous release's unmodified
+source tree. It is a rebuilt baseline, not the original published image; report
+that distinction when interpreting any independently verified upgrade run.
+
 ## Fixture diagnostics
 
 The reusable `fixtures.yml` workflow executes the existing Rust, PostgreSQL,

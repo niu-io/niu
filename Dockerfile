@@ -15,6 +15,8 @@ COPY apps/dashboard apps/dashboard
 COPY apps/docs apps/docs
 COPY apps/catalog apps/catalog
 COPY sdks/javascript/src sdks/javascript/src
+COPY sdks/javascript/tsconfig.json sdks/javascript/tsconfig.json
+COPY contracts contracts
 COPY branding branding
 RUN pnpm build:dashboard && pnpm build:docs && pnpm build:catalog
 
