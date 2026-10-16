@@ -34,18 +34,19 @@ outside the public repository.
 | #44 | Timeline histogram schema accepts zero counts; the generated and served artifacts agree. | Actual populated/zero-bucket timeline reconciliation. |
 | #45–47 | Financial tables scroll without overlapping amounts; Refresh advances relative cutoffs; reversed bounds normalize controls and URL. Actual reports, open month menu and desktop/narrow geometry inspected. | Production rollout. Empty-model print output does not qualify populated PDF acceptance. |
 | #48 | Installation credential entry takes precedence over asynchronous member restoration. Actual credential entry with a valid member cookie checked. | The original production race remains unverified. |
-| #49 | Audited correction workflow for wholly unused noncash gifts (`POST .../grants/{grant}/correction`) with immutable original grant linkage, idempotency, request-history guard, platform audit projection, and dashboard/SDK controls. | Production rollout. |
+| #49 | Full unused-gift correction appends an independently audited noncash adjustment. Actual SDK, concurrent replay, browser confirmation, named platform-member correction, Owner refusal, held-liability refusal and independent ledger/pool/report reconciliation checked. Original gifts remain; temporary platform permission/member were revoked. | Deployed rollout. Partial and consumed-gift correction are outside the initial conservative contract. |
 | #50 | Long material-group choices stay inside the viewport. A real saved preparation name was inspected closed/open at desktop/narrow widths. | Production rollout. |
 | #51 | Ready materials expose sanitized inspection details, revision-checked rename and deletion controls, and group status check and deletion actions in the workspace Materials UI. | Production rollout and live upstream asset mutation verification. |
 | #52 | Scoped, paginated saved-model discovery works for revoked keys without restoring upstream authority. Actual preparation, key revocation, fresh history discovery and cancellation agree across API, UI and storage. | Production rollout; no native mutation was dispatched. |
 | #53 | New uncertain operations can retain bounded diagnostic category/phase; historical unknown causes stay unknown. Migration and actual preparation/cancellation reads checked. | A genuine uncertain operation and corresponding diagnostic UI. No uncertainty was fabricated or replayed. |
 | #54 | Exact zero and movements below display precision differ; exact amounts remain available through tooltips. Actual report movement and desktop/narrow rendering inspected. | Production rollout. |
 
-Temporary verification keys and completed verification members were revoked,
-including the temporary platform grant. The scoped Video verification member
-remains active while follow-up browser checks continue. Saved histories and audit events are retained. No upstream
+Temporary verification keys and members were revoked, including the temporary
+platform grants and the completed Video verification member. Saved histories and audit events are retained. No successful upstream
 generation, native mutation, payment, release publication or deployment was
-performed in this checkpoint. Builds, type checks, formatting and generated
+performed in this checkpoint. One actual text request reached an external Provider
+and was refused; its uncertain attempt and hold remain, as recorded in
+[procurement readiness](procurement-readiness-current.md). Builds, type checks, formatting and generated
 contract checks supplement the actual observations; they do not establish the
 unverified integrated paths above.
 
@@ -54,3 +55,7 @@ explicitly require **Provider**, including supply businesses and memberships.
 Its requested Supplier terminology would violate those instructions.
 
 Issues #1 and #4 were closed as not planned for the current release scope per `docs/product/product-focus.md` and `docs/releases/first-release.md`.
+
+Issue closure does not extend these bounded observations to every conditional
+production path. [Unused gift correction](unused-gift-correction-current.md) records
+the additional exact financial reconciliation and initial contract limits.
