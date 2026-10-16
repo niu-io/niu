@@ -9,17 +9,19 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 
-import type { MediaAssetOperationInput } from '../../../../../../sdks/javascript/src/media-assets';
+import type { MediaAsset, MediaAssetOperationInput } from '../../../../../../sdks/javascript/src/media-assets';
 import { NiuAPIError } from '../../../../../../sdks/javascript/src/index';
 import {useMaterials,type NativeMaterialsContext} from './useMaterials';
 import {Table,TableHeader,TableRow,TableHead,TableBody,TableCell} from '@/components/ui/table';
+type DialogKind = 'group'|'edit'|'delete-group'|'material'|'inspect-asset'|'rename-asset'|'delete-asset'|'verification';
 export default function VolcengineView({workspaceName, model:preferredModel, nativeContext, selection, onContextChange, initialSection='materials'}:{workspaceName:string;model?:string;nativeContext?:NativeMaterialsContext;selection?:NativeMaterialsContext;onContextChange?:(selection:NativeMaterialsContext)=>void;initialSection?:string}) {
   const [section,setSection]=useState(initialSection);
-  const [dialog,setDialog]=useState<'group'|'edit'|'material'|'verification'|null>(null);
+  const [dialog,setDialog]=useState<DialogKind|null>(null);
+  const [targetAsset,setTargetAsset]=useState<MediaAsset|null>(null);
   const [name,setName]=useState('');
   const [attempt,setAttempt]=useState('');
   const [dialogError,setDialogError]=useState('');
-  const [pendingOperation,setPendingOperation]=useState<{id:string|null;verification:boolean;status:string;form:'group'|'edit'|'material'|'verification'}|null>(null);
+  const [pendingOperation,setPendingOperation]=useState<{id:string|null;verification:boolean;status:string;form:DialogKind}|null>(null);
   const [busy,setBusy]=useState(false),[url,setUrl]=useState(''),[kind,setKind]=useState<'image'|'video'|'audio'>('image');
   const contextLocked=busy||dialog!==null||pendingOperation!==null;
   const retainedSelection=useRef(selection);
@@ -31,6 +33,7 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
   const modelChoices=[...new Set([...choices.map(choice=>choice.module.model_alias),...(data.historyModels[chosenKey]??[])])];
   const modelLabel=(model:string)=>{const active=choices.find(choice=>choice.module.model_alias===model);return active?(active.module.display_name??active.module.context_label??model):`${model} · Saved history`;};
   const selected=data.groups.find(g=>g.id===data.group);
+  const visibleAssets=data.assets.filter(a=>a.status!=='deleted');
   const [visibleOperations,setVisibleOperations]=useState(25);
   useEffect(()=>setVisibleOperations(25),[data.client,data.model]);
   const savedUnconfirmed=data.operations.some(operation=>operation.status==='prepared'||operation.status==='unknown');
@@ -38,10 +41,30 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
   const operationLabels={create_group:'Create group',update_group:'Edit group',delete_group:'Delete group',create_asset:'Add material',rename_asset:'Rename material',delete_asset:'Delete material'};
   const diagnosticLabels={transport:'Transport failure',timeout:'Request timed out',response_too_large:'Response exceeded size limit',invalid_response:'Invalid Provider response',upstream_rejected:'Provider rejected the request'};
   const phaseLabels={exchange:'Request/response exchange',response:'Reading Provider response',acknowledgement:'Validating acknowledgement'};
+  const assetStatusDescriptions:Record<MediaAsset['status'],string>={
+    active:'Active — ready for generation',
+    processing:'Processing — upload acknowledged; Provider processing is still in progress',
+    pending:'Pending — awaiting Provider acknowledgement',
+    failed:'Failed — Provider reported processing failure',
+    unknown:'Unknown — outcome unconfirmed; check status before modifying',
+    deleted:'Deleted',
+  };
   const unresolved = pendingOperation !== null && !['not_sent','failed','expired'].includes(pendingOperation.status);
-  function open(value:'group'|'edit'|'material'|'verification'){if(pendingOperation){setDialog(pendingOperation.form);return;}setName(value==='edit'?selected?.name??'':'');setUrl('');setAttempt(crypto.randomUUID());setDialogError('');setDialog(value);}
+  function open(value:DialogKind, asset?:MediaAsset){
+    if(pendingOperation){setDialog(pendingOperation.form);return;}
+    const nextAsset=asset??null;
+    setTargetAsset(nextAsset);
+    setName(value==='edit'?selected?.name??'':value==='rename-asset'?nextAsset?.name??'':'');
+    setUrl('');
+    setAttempt(crypto.randomUUID());
+    setDialogError('');
+    setDialog(value);
+    if(value==='inspect-asset'&&nextAsset&&data.client&&data.model){
+      void data.client.assets.retrieve(nextAsset.id,data.model).then(res=>setTargetAsset(curr=>curr?.id===nextAsset.id?res.data:curr)).catch(()=>{});
+    }
+  }
   async function act(work:()=>Promise<unknown>){if(busy)return;setBusy(true);data.setError('');try{await work();await data.reload();}catch(e){data.setError(e instanceof Error?e.message:'Request failed');}finally{setBusy(false);}}
-  async function complete(){setDialog(null);setPendingOperation(null);setDialogError('');try{await data.reload();}catch(e){data.setError(e instanceof Error?e.message:'The operation was confirmed, but the list could not be refreshed.');}}
+  async function complete(){setDialog(null);setTargetAsset(null);setPendingOperation(null);setDialogError('');try{await data.reload();}catch(e){data.setError(e instanceof Error?e.message:'The operation was confirmed, but the list could not be refreshed.');}}
   function savedStatus(id:string,verification:boolean,status:string){
     setPendingOperation({id,verification,status,form:dialog??pendingOperation?.form??'material'});
     setDialogError(['not_sent','failed','expired'].includes(status)
@@ -49,7 +72,7 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
       : status==='prepared' ? 'The preparation is saved and has not been sent upstream. You can cancel it; checking status will never dispatch it.' : 'The operation is not confirmed. Check its saved status before starting another attempt.');
   }
   async function save(){
-    if(!data.client||!data.model||busy||pendingOperation||(dialog!=='verification'&&materialWritesLocked))return;
+    if(!data.client||!data.model||busy||pendingOperation||dialog==='inspect-asset'||(dialog!=='verification'&&materialWritesLocked))return;
     if(dialog==='material'){
       try{if(new URL(url).protocol!=='https:')throw new Error('Invalid material URL');}
       catch{setDialogError('Use a public HTTPS material URL.');return;}
@@ -60,21 +83,30 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
         const result=await api.verification.create({model,subjectName:name},{idempotencyKey:attempt});
         if(['prepared','unknown','not_sent','failed','expired'].includes(result.data.status)){savedStatus(result.data.id,true,result.data.status);return;}
       }else{
-        const input:MediaAssetOperationInput=dialog==='material'
-          ? {action:'create_asset',model,group_id:data.group,url,name,kind}
-          : dialog==='edit'&&selected
-            ? {action:'update_group',model,group_id:selected.id,name,expected_revision:selected.revision}
-            : {action:'create_group',model,name};
+        let input:MediaAssetOperationInput;
+        if(dialog==='material'){
+          input={action:'create_asset',model,group_id:data.group,url,name,kind};
+        }else if(dialog==='edit'&&selected){
+          input={action:'update_group',model,group_id:selected.id,name,expected_revision:selected.revision};
+        }else if(dialog==='delete-group'&&selected){
+          input={action:'delete_group',model,group_id:selected.id,expected_revision:selected.revision};
+        }else if(dialog==='rename-asset'&&targetAsset){
+          input={action:'rename_asset',model,asset_id:targetAsset.id,name:name.trim(),expected_revision:targetAsset.revision};
+        }else if(dialog==='delete-asset'&&targetAsset){
+          input={action:'delete_asset',model,asset_id:targetAsset.id,expected_revision:targetAsset.revision};
+        }else{
+          input={action:'create_group',model,name};
+        }
         const prepared=await api.operations.prepare(input,{idempotencyKey:attempt});
         if(prepared.data.status!=='prepared'){savedStatus(prepared.data.id,false,prepared.data.status);return;}
         const result=await api.operations.dispatch(prepared.data.id,input,{idempotencyKey:attempt});
         if(result.data.status!=='acknowledged'){savedStatus(result.data.id,false,result.data.status);return;}
-        if(result.group)data.setGroup(result.group.id);
+        if(result.group&&dialog!=='delete-group')data.setGroup(result.group.id);
       }
       await complete();
     }catch(e){
       const message=e instanceof Error?e.message:'The request could not be confirmed.';
-      if(e instanceof NiuAPIError && !e.operationId && [400,401,403,404,422].includes(e.status))setDialogError(message);
+      if(e instanceof NiuAPIError && !e.operationId && [400,401,403,404,409,422].includes(e.status))setDialogError(message);
       else{
         setPendingOperation({id:e instanceof NiuAPIError?e.operationId??null:null,verification:dialog==='verification',status:'unknown',form:dialog??'material'});
         setDialogError(`${message} The outcome is unconfirmed. Your draft is preserved; do not submit another attempt.${e instanceof NiuAPIError&&e.operationId?' Check the saved operation status.':dialog==='verification'?' A saved verification reference was not returned, so status recovery is unavailable here.':' Check the saved operation using its original request reference.'}`);
@@ -111,6 +143,8 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
     finally{setBusy(false);}
   }
   async function openVerification(id:string){await act(async()=>{const link=await data.client!.verification.link(id,data.model!);const target=new URL(link.verification_url);if(target.protocol!=='https:')throw new Error('Invalid verification link');window.open(target.href,'_blank','noopener,noreferrer');});}
+  const requiresNameInput = dialog==='group'||dialog==='edit'||dialog==='material'||dialog==='rename-asset'||dialog==='verification';
+  const isDestructiveDialog = dialog==='delete-group'||dialog==='delete-asset';
   return <div className="w-full min-w-0">
     {pendingOperation&&!dialog&&<div role="alert" className="flex flex-wrap items-center gap-3 py-3 text-sm"><span>The previous operation remains unconfirmed. Review its saved status before starting another attempt.</span><Button variant="outline" onClick={()=>setDialog(pendingOperation.form)}>Review saved operation</Button></div>}
     <Tabs value={section==='verification' ? 'verification':'materials'} onValueChange={setSection} className="gap-4">
@@ -125,8 +159,8 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
       {!nativeContext&&!data.discoveryLoading&&!chosenModel&&<p className="text-sm text-muted-foreground">{chosenKey&&modelChoices.length===0 ? data.discoveryErrors.length>0 ? 'Native tool discovery is incomplete. Retry discovery or choose a discovered context.':'No native model context was discovered for this key.':'Choose an API key and model to read its materials.'}</p>}
       {data.error&&<div role="alert" className="flex items-center justify-between gap-3 py-3 text-sm"><span>{data.error}</span><Button variant="outline" onClick={data.retry}>Retry</Button></div>}
       <TabsContent value="materials"><section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="min-w-0 max-w-full" aria-label="Material group" disabled={data.loading||!data.client||contextLocked}><span className="min-w-0 truncate">{selected?.name??'Choose group'}</span><IconChevronDown className="shrink-0" size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-w-[calc(100vw-2rem)]"><DropdownMenuRadioGroup value={data.group} onValueChange={data.setGroup}>{data.groups.filter(g=>g.status!=='deleted').map(g=><DropdownMenuRadioItem key={g.id} value={g.id}><span className="min-w-0 whitespace-normal break-all">{g.name}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup><DropdownMenuSeparator/><DropdownMenuItem disabled={!data.client||!data.canWrite||materialWritesLocked} onSelect={()=>open('group')}><IconPlus size={16}/>New group</DropdownMenuItem><DropdownMenuItem disabled={!data.client||!selected||!data.canWrite||materialWritesLocked||selected.kind==='person'} onSelect={()=>open('edit')}>Edit group</DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button variant="outline" disabled={!data.client||!selected||selected.status!=='ready'||!data.canWrite||materialWritesLocked} onClick={()=>open('material')}><IconPlus size={14}/>Add material</Button></div>
-        {data.assets.length?<Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead/></TableRow></TableHeader><TableBody>{data.assets.map(a=><TableRow key={a.id}><TableCell>{a.name||'Untitled material'}</TableCell><TableCell>{a.kind}</TableCell><TableCell>{a.status}</TableCell><TableCell><Button variant="ghost" disabled={busy||!data.canWrite} onClick={()=>void act(()=>data.client!.assets.refresh(a.id,data.model!))}>Check status</Button></TableCell></TableRow>)}</TableBody></Table>:data.error?<p className="text-sm text-muted-foreground">Materials could not be loaded. Retry before continuing.</p>:<Empty className="min-h-40 border-0 py-10"><EmptyHeader><IconFolder className="mx-auto mb-2 text-muted-foreground" size={28} stroke={1.5}/><EmptyTitle className="text-sm">{data.loading?'Loading materials…':!data.client&&data.historyClient?'Current materials unavailable':!nativeContext&&!chosenModel?'Choose an API key and model':selected?'No materials in this group':'No material groups yet'}</EmptyTitle></EmptyHeader>{!data.loading&&data.client&&data.canWrite&&!selected&&<Button variant="outline" disabled={materialWritesLocked} onClick={()=>open('group')}>Create group</Button>}</Empty>}
+        <div className="flex flex-wrap items-center justify-between gap-3"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="min-w-0 max-w-full" aria-label="Material group" disabled={data.loading||!data.client||contextLocked}><span className="min-w-0 truncate">{selected?.name??'Choose group'}</span><IconChevronDown className="shrink-0" size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-w-[calc(100vw-2rem)]"><DropdownMenuRadioGroup value={data.group} onValueChange={data.setGroup}>{data.groups.filter(g=>g.status!=='deleted').map(g=><DropdownMenuRadioItem key={g.id} value={g.id}><span className="min-w-0 whitespace-normal break-all">{g.name}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup><DropdownMenuSeparator/><DropdownMenuItem disabled={!data.client||!data.canWrite||materialWritesLocked} onSelect={()=>open('group')}><IconPlus size={16}/>New group</DropdownMenuItem><DropdownMenuItem disabled={!data.client||!selected||!data.canWrite||materialWritesLocked||selected.kind==='person'} onSelect={()=>open('edit')}>Edit group</DropdownMenuItem><DropdownMenuItem disabled={!data.client||!selected||!data.canWrite||busy} onSelect={()=>void act(()=>data.client!.groups.refresh(selected!.id,data.model!))}>Check group status</DropdownMenuItem><DropdownMenuItem variant="destructive" disabled={!data.client||!selected||!data.canWrite||materialWritesLocked||selected.kind==='person'||selected.status==='unknown'} onSelect={()=>open('delete-group')}>Delete group</DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button variant="outline" disabled={!data.client||!selected||selected.status!=='ready'||!data.canWrite||materialWritesLocked} onClick={()=>open('material')}><IconPlus size={14}/>Add material</Button></div>
+        {visibleAssets.length?<Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead/></TableRow></TableHeader><TableBody>{visibleAssets.map(a=><TableRow key={a.id}><TableCell className="whitespace-normal break-words">{a.name||'Untitled material'}</TableCell><TableCell>{a.kind}</TableCell><TableCell>{a.status}</TableCell><TableCell><div className="flex flex-wrap items-center justify-end gap-1.5"><Button variant="ghost" disabled={busy||!data.client} onClick={()=>open('inspect-asset',a)}>Inspect</Button><Button variant="ghost" disabled={busy||!data.canWrite} onClick={()=>void act(()=>data.client!.assets.refresh(a.id,data.model!))}>Check status</Button><Button variant="ghost" disabled={busy||!data.client||!data.canWrite||materialWritesLocked||a.status==='unknown'} onClick={()=>open('rename-asset',a)}>Rename</Button><Button variant="ghost" disabled={busy||!data.client||!data.canWrite||materialWritesLocked||a.status==='unknown'} onClick={()=>open('delete-asset',a)}>Delete</Button></div></TableCell></TableRow>)}</TableBody></Table>:data.error?<p className="text-sm text-muted-foreground">Materials could not be loaded. Retry before continuing.</p>:<Empty className="min-h-40 border-0 py-10"><EmptyHeader><IconFolder className="mx-auto mb-2 text-muted-foreground" size={28} stroke={1.5}/><EmptyTitle className="text-sm">{data.loading?'Loading materials…':!data.client&&data.historyClient?'Current materials unavailable':!nativeContext&&!chosenModel?'Choose an API key and model':selected?'No materials in this group':'No material groups yet'}</EmptyTitle></EmptyHeader>{!data.loading&&data.client&&data.canWrite&&!selected&&<Button variant="outline" disabled={materialWritesLocked} onClick={()=>open('group')}>Create group</Button>}</Empty>}
 
 
         {data.historyClient&&<section className="space-y-3" aria-labelledby="saved-operations-heading">
@@ -142,10 +176,24 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
       </section></TabsContent>
       <TabsContent value="verification" className="space-y-4"><div className="flex justify-end"><Button disabled={busy||!data.client||!data.canWrite||pendingOperation!==null} onClick={()=>open('verification')}><IconPlus size={16}/>Start verification</Button></div>{data.sessions.length?<Table><TableHeader><TableRow><TableHead>Person</TableHead><TableHead>Status</TableHead><TableHead/></TableRow></TableHeader><TableBody>{data.sessions.map(v=><TableRow key={v.id}><TableCell>{v.subject_name||'Unnamed person'}</TableCell><TableCell>{v.status.replaceAll('_',' ')}</TableCell><TableCell>{['waiting_user','processing'].includes(v.status)&&<Button variant="ghost" disabled={busy} onClick={()=>void openVerification(v.id)}>Open verification</Button>}<Button variant="ghost" disabled={busy||!data.canWrite} onClick={()=>void act(()=>data.client!.verification.refresh(v.id,data.model!))}>Check status</Button></TableCell></TableRow>)}</TableBody></Table>:<Unavailable heading="Verification sessions" title={!data.client ? data.loading?'Loading native context…':'Choose an API key and model':'Verify a person'} description={!data.client ? 'Select a discovered native context before reading or starting verification.':'The person verifies on Volcengine’s page. A separate status check confirms the result.'}/>}</TabsContent>
     </Tabs>
-    <Dialog open={dialog!==null} onOpenChange={value=>{if(!value&&!busy){setDialog(null);if(!unresolved)setPendingOperation(null);}}}><DialogContent><DialogHeader><DialogTitle>{dialog==='group'?'New material group':dialog==='edit'?'Edit group':dialog==='material'?'Add material':'Human verification'}</DialogTitle><DialogDescription>{dialog==='verification'?'The person completes verification on Volcengine’s page. Niu then checks the result.':'Manage materials in this workspace.'}</DialogDescription></DialogHeader>
-      <div className="space-y-4"><div className="space-y-2"><Label htmlFor="volcengine-name">{dialog==='verification'?'Person name':dialog==='material'?'Material name':'Group name'}</Label><Input id="volcengine-name" disabled={busy||!!pendingOperation} value={name} onChange={e=>setName(e.target.value)} maxLength={64}/></div>{dialog==='material'&&<><div className="space-y-2"><Label htmlFor="material-url">Material URL</Label><Input id="material-url" aria-invalid={dialogError==='Use a public HTTPS material URL.'} aria-describedby={dialogError?'volcengine-dialog-error':undefined} disabled={busy||!!pendingOperation} type="url" value={url} onChange={e=>setUrl(e.target.value)}/></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy||!!pendingOperation}>{kind}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={kind} onValueChange={v=>setKind(v as typeof kind)}>{['image','video','audio'].map(k=><DropdownMenuRadioItem key={k} value={k}>{k}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></>}<p className="text-sm text-muted-foreground">Workspace: {workspaceName}</p></div>
+    <Dialog open={dialog!==null} onOpenChange={value=>{if(!value&&!busy){setDialog(null);setTargetAsset(null);if(!unresolved)setPendingOperation(null);}}}><DialogContent><DialogHeader><DialogTitle>{dialog==='group'?'New material group':dialog==='edit'?'Edit group':dialog==='delete-group'?'Delete material group':dialog==='material'?'Add material':dialog==='inspect-asset'?'Material details':dialog==='rename-asset'?'Rename material':dialog==='delete-asset'?'Delete material':'Human verification'}</DialogTitle><DialogDescription>{dialog==='verification'?'The person completes verification on Volcengine’s page. Niu then checks the result.':dialog==='inspect-asset'?'Inspect saved material readiness and Provider observation status. Source URLs and opaque Provider references remain private.':dialog==='delete-asset'?'Confirm material deletion from this Provider group.':dialog==='delete-group'?'Confirm material group deletion from the Provider.':'Manage materials in this workspace.'}</DialogDescription></DialogHeader>
+      {dialog==='inspect-asset'&&targetAsset ? <div className="space-y-3 text-sm">
+        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div><dt className="text-xs text-muted-foreground">Name</dt><dd className="font-medium break-words">{targetAsset.name||'Untitled material'}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Material type</dt><dd className="font-medium">{targetAsset.kind}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Group</dt><dd className="font-medium break-words">{selected?.name??'Current group'}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Readiness status</dt><dd className="font-medium">{assetStatusDescriptions[targetAsset.status]}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Saved revision</dt><dd className="font-medium">Revision {targetAsset.revision}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Last updated</dt><dd className="font-medium">{new Date(targetAsset.updated_at_ms).toLocaleString()}</dd></div>
+          <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Provider observation</dt><dd className="font-medium">{targetAsset.observation ? `Observed ${targetAsset.observation.status}${targetAsset.observation.name ? ` (“${targetAsset.observation.name}”)` : ''} at ${new Date(targetAsset.observation.observed_at_ms).toLocaleString()}` : 'No Provider status observation recorded yet. Use Check status to query the Provider.'}</dd></div>
+        </dl>
+        <p className="text-xs text-muted-foreground">Workspace: {workspaceName}</p>
+      </div> : isDestructiveDialog ? <div className="space-y-3 text-sm">
+        <p>{dialog==='delete-asset' ? `Delete material “${targetAsset?.name||'Untitled material'}” (revision ${targetAsset?.revision??'1'}) from ${selected?.name??'this group'}? This removes the material from the Provider and cannot be undone.` : `Delete material group “${selected?.name??'Untitled group'}” (revision ${selected?.revision??'1'})? This removes the group from the Provider and cannot be undone.`}</p>
+        <p className="text-muted-foreground">Workspace: {workspaceName}</p>
+      </div> : <div className="space-y-4"><div className="space-y-2"><Label htmlFor="volcengine-name">{dialog==='verification'?'Person name':dialog==='material'||dialog==='rename-asset'?'Material name':'Group name'}</Label><Input id="volcengine-name" disabled={busy||!!pendingOperation} value={name} onChange={e=>setName(e.target.value)} maxLength={64}/></div>{dialog==='material'&&<><div className="space-y-2"><Label htmlFor="material-url">Material URL</Label><Input id="material-url" aria-invalid={dialogError==='Use a public HTTPS material URL.'} aria-describedby={dialogError?'volcengine-dialog-error':undefined} disabled={busy||!!pendingOperation} type="url" value={url} onChange={e=>setUrl(e.target.value)}/></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy||!!pendingOperation}>{kind}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={kind} onValueChange={v=>setKind(v as typeof kind)}>{['image','video','audio'].map(k=><DropdownMenuRadioItem key={k} value={k}>{k}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></>}<p className="text-sm text-muted-foreground">Workspace: {workspaceName}</p></div>}
       {dialogError&&<p id="volcengine-dialog-error" role="alert" className="text-sm text-destructive">{dialogError}</p>}
-      <DialogFooter className="flex-wrap gap-2 sm:flex-wrap"><Button variant="ghost" disabled={busy} onClick={()=>{setDialog(null);if(!unresolved)setPendingOperation(null);}}>{pendingOperation?'Close':'Cancel'}</Button>{pendingOperation&&(pendingOperation.id||!pendingOperation.verification)&&<Button variant="outline" disabled={busy} onClick={()=>void checkSavedOperation()}>{busy?'Checking…':'Check saved operation status'}</Button>}{pendingOperation?.status==='prepared'&&!pendingOperation.verification&&pendingOperation.id&&data.historyModel&&<Button variant="outline" disabled={busy||!data.canWrite} onClick={()=>void cancelPreparation(pendingOperation.id!,data.historyModel!)}>Cancel preparation</Button>}{!pendingOperation&&<Button disabled={busy||!!pendingOperation||(dialog!=='verification'&&materialWritesLocked)||!name.trim()||(dialog==='material'&&!url.trim())} onClick={()=>void save()}>{busy?'Saving…':dialog==='verification'?'Start verification':dialog==='group'?'Create group':'Save'}</Button>}</DialogFooter>
+      <DialogFooter className="flex-wrap gap-2 sm:flex-wrap">{dialog==='inspect-asset'&&targetAsset ? <><Button variant="ghost" disabled={busy} onClick={()=>{setDialog(null);setTargetAsset(null);}}>Close</Button><Button variant="outline" disabled={busy||!data.canWrite||!data.client} onClick={()=>void act(async()=>{const refreshed=await data.client!.assets.refresh(targetAsset.id,data.model!);setTargetAsset(refreshed.data);})}>{busy?'Checking…':'Check status'}</Button><Button variant="outline" disabled={busy||!data.canWrite||materialWritesLocked||targetAsset.status==='unknown'} onClick={()=>open('rename-asset',targetAsset)}>Rename material</Button><Button variant="destructive" disabled={busy||!data.canWrite||materialWritesLocked||targetAsset.status==='unknown'} onClick={()=>open('delete-asset',targetAsset)}>Delete material</Button></> : <><Button variant="ghost" disabled={busy} onClick={()=>{setDialog(null);setTargetAsset(null);if(!unresolved)setPendingOperation(null);}}>{pendingOperation?'Close':'Cancel'}</Button>{pendingOperation&&(pendingOperation.id||!pendingOperation.verification)&&<Button variant="outline" disabled={busy} onClick={()=>void checkSavedOperation()}>{busy?'Checking…':'Check saved operation status'}</Button>}{pendingOperation?.status==='prepared'&&!pendingOperation.verification&&pendingOperation.id&&data.historyModel&&<Button variant="outline" disabled={busy||!data.canWrite} onClick={()=>void cancelPreparation(pendingOperation.id!,data.historyModel!)}>Cancel preparation</Button>}{!pendingOperation&&<Button variant={isDestructiveDialog?'destructive':'default'} disabled={busy||!!pendingOperation||(dialog!=='verification'&&materialWritesLocked)||(requiresNameInput&&!name.trim())||(dialog==='material'&&!url.trim())} onClick={()=>void save()}>{busy?(isDestructiveDialog?'Deleting…':'Saving…'):dialog==='verification'?'Start verification':dialog==='group'?'Create group':dialog==='delete-group'?'Delete group':dialog==='delete-asset'?'Delete material':'Save'}</Button>}</>}</DialogFooter>
     </DialogContent></Dialog>
   </div>;
 }

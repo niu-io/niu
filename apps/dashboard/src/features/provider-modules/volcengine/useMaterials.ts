@@ -116,8 +116,12 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   try{
    const [g,s]=await Promise.all([allPages(after=>client.groups.list({model:binding.model,limit:100,after},{signal:controller.signal})),allPages(after=>client.verification.list({model:binding.model,limit:100,after},{signal:controller.signal}))]);
    if(controller.signal.aborted||liveIdentity.current!==identity)return;
+   const activeGroups=g.data.filter(gr=>gr.status!=='deleted');
+   const nextGroup=activeGroups.find(gr=>gr.id===group)?.id??activeGroups[0]?.id??'';
    setGroups(g.data);setSessions(s.data);
-   if(group){const a=await allPages(after=>client.assets.list({model:binding.model,group_id:group,limit:100,after},{signal:controller.signal}));if(!controller.signal.aborted&&liveIdentity.current===identity)setAssets(a.data);}
+   if(nextGroup!==group)setGroup(nextGroup);
+   if(nextGroup){const a=await allPages(after=>client.assets.list({model:binding.model,group_id:nextGroup,limit:100,after},{signal:controller.signal}));if(!controller.signal.aborted&&liveIdentity.current===identity)setAssets(a.data);}
+   else setAssets([]);
   }finally{if(reloadController.current===controller)reloadController.current=null;}
  }
 
