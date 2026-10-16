@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   github-release:
     name: Publish GitHub Release & Notes
@@ -18,6 +22,11 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Refuse replacement of an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --commit "$(git rev-parse HEAD)"
 
       - name: Generate structured Release Notes
         run: python3 scripts/release-version.py notes --tag "${GITHUB_REF_NAME}" --output /tmp/release-notes.md
@@ -34,31 +43,21 @@ jobs:
           npm run build
           mkdir -p /tmp/mcp-release
           npm pack --pack-destination /tmp/mcp-release
-          cd /tmp/mcp-release
-          sha256sum *.tgz > SHA256SUMS
+          mkdir -p /tmp/niu-release
+          cp "$GITHUB_WORKSPACE/compose.yaml" "$GITHUB_WORKSPACE/scripts/install.sh" "$GITHUB_WORKSPACE/config/niu.example.toml" /tmp/niu-release/
+          cp /tmp/mcp-release/*.tgz /tmp/niu-release/
+          git rev-parse HEAD > /tmp/niu-release/SOURCE_COMMIT
+          cd /tmp/niu-release
+          sha256sum compose.yaml install.sh niu.example.toml *.tgz SOURCE_COMMIT > SHA256SUMS
 
-      - name: Create or update GitHub Release with installer assets
+      - name: Publish a new GitHub Release with immutable assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release edit "${GITHUB_REF_NAME}" \
-              --title "Niu ${GITHUB_REF_NAME}" \
-              --notes-file /tmp/release-notes.md
-            gh release upload "${GITHUB_REF_NAME}" \
-              compose.yaml \
-              scripts/install.sh \
-              config/niu.example.toml \
-              /tmp/mcp-release/*.tgz \
-              /tmp/mcp-release/SHA256SUMS \
-              --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" \
-              compose.yaml \
-              scripts/install.sh \
-              config/niu.example.toml \
-              /tmp/mcp-release/*.tgz \
-              /tmp/mcp-release/SHA256SUMS \
-              --title "Niu ${GITHUB_REF_NAME}" \
-              --notes-file /tmp/release-notes.md
-          fi
+          python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --commit "$(git rev-parse HEAD)"
+          printf '\nSource commit: `%s`. See SOURCE_COMMIT and SHA256SUMS for asset provenance.\n' "$(git rev-parse HEAD)" >> /tmp/release-notes.md
+          gh release create "${GITHUB_REF_NAME}" \
+            /tmp/niu-release/* \
+            --verify-tag \
+            --title "Niu ${GITHUB_REF_NAME}" \
+            --notes-file /tmp/release-notes.md
