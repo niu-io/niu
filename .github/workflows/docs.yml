@@ -58,13 +58,13 @@ jobs:
         run: pnpm --dir apps/docs check
       - name: Build documentation
         run: pnpm --dir apps/docs build
-      - name: Verify built API entrypoints
+      - name: Verify built documentation entrypoints
         run: |
           node --input-type=module <<'JS'
           import { readFileSync } from 'node:fs';
           import { deepStrictEqual, ok } from 'node:assert/strict';
           const root = 'apps/docs/dist/';
-          for (const file of ['index.html', 'reference/api/index.html', 'reference/handler-operations/index.html']) {
+          for (const file of ['index.html', 'reference/api/index.html', 'reference/handler-operations/index.html', 'releases/first-release/index.html']) {
             ok(readFileSync(root + file, 'utf8').includes('<html'), `Missing HTML entrypoint: ${file}`);
           }
           deepStrictEqual(
