@@ -15,6 +15,7 @@ import { request } from '@/features/vendors/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -269,34 +270,15 @@ function resolveInterval(
 async function fetchPeriodBundle(
   token: string,
   currency: string,
-  opts: { days?: 7 | 30 | 90; from: string; until: string; allowFallback?: boolean },
+  opts: { from: string; until: string },
   signal: AbortSignal,
 ): Promise<{ position: CommercialPosition; summary: CustomerFinancialSummary }> {
-  const query = new URLSearchParams({ currency });
-  if (opts.days) {
-    query.set('days', String(opts.days));
-  } else {
-    query.set('from', opts.from);
-    query.set('until', opts.until);
-  }
-  try {
-    const [position, summary] = await Promise.all([
-      request<CommercialPosition>(token, '/api/v1/commercial-position?' + query, 'GET', undefined, signal),
-      request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + query, 'GET', undefined, signal),
-    ]);
-    return { position, summary };
-  } catch (err) {
-    // Fallback to rolling 30d if custom calendar bounds are unsupported by a mock/older server
-    if (opts.allowFallback && !opts.days && !signal.aborted) {
-      const fallbackQuery = new URLSearchParams({ currency, days: '30' });
-      const [position, summary] = await Promise.all([
-        request<CommercialPosition>(token, '/api/v1/commercial-position?' + fallbackQuery, 'GET', undefined, signal),
-        request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + fallbackQuery, 'GET', undefined, signal),
-      ]);
-      return { position, summary };
-    }
-    throw err;
-  }
+  const query = new URLSearchParams({ currency, from: opts.from, until: opts.until });
+  const [position, summary] = await Promise.all([
+    request<CommercialPosition>(token, '/api/v1/commercial-position?' + query, 'GET', undefined, signal),
+    request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + query, 'GET', undefined, signal),
+  ]);
+  return { position, summary };
 }
 
 type CohortAggregates = {
@@ -410,12 +392,12 @@ function formatDeltaBadge(
   invertSentiment = false,
 ) {
   if (current === null || prior === null) {
-    return <span className="whitespace-nowrap shrink-0 text-xs text-muted-foreground">No prior baseline</span>;
+    return <span className="whitespace-nowrap shrink-0 text-xs text-muted-foreground">{current === null ? 'Change unavailable' : 'No prior baseline'}</span>;
   }
   const diff = current - prior;
   const absDiff = diff < 0n ? -diff : diff;
   const roundedDiff4 = (absDiff + 50_000n) / 100_000n;
-  if (diff === 0n || roundedDiff4 === 0n) {
+  if (diff === 0n) {
     return (
       <span className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
         <IconMinus size={13} /> No change
@@ -423,6 +405,19 @@ function formatDeltaBadge(
     );
   }
   const isPositive = diff > 0n;
+  if (roundedDiff4 === 0n) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={0} className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
+            {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
+            {isPositive ? '+' : '-'}&lt;{currencySymbol(currency)}0.0001
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Exact change: {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
+      </Tooltip>
+    );
+  }
   const pct =
     prior >= 50_000n
       ? `${isPositive ? '+' : ''}${(Number((diff * 10000n) / prior) / 100).toFixed(1)}%`
@@ -454,10 +449,27 @@ export default function CommercialPositionPage() {
 function CommercialStatement({ token }: { token: string }) {
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
-  const months = useMemo(() => buildRecentMonths(12), []);
+  const [refresh, setRefresh] = useState(0);
+  const asOf = useMemo(() => new Date(), [search, refresh]);
+  const months = useMemo(() => buildRecentMonths(12, asOf), [asOf]);
+  const normalizedSearch = useMemo(() => {
+    const next = new URLSearchParams(search);
+    if (next.get('mode') === 'range') {
+      const start = next.get('start_month');
+      const end = next.get('end_month');
+      if (start && end && parseMonthKey(start) && parseMonthKey(end) && start > end) {
+        next.set('start_month', end);
+        next.set('end_month', start);
+      }
+    }
+    return next;
+  }, [search]);
+  useEffect(() => {
+    if (search.toString() !== normalizedSearch.toString()) setSearch(normalizedSearch, { replace: true });
+  }, [search, normalizedSearch, setSearch]);
   const rawCurrency = (search.get('currency') ?? 'USD').toUpperCase();
   const currency = rawCurrency === 'CNY' ? 'CNY' : 'USD';
-  const interval = useMemo(() => resolveInterval(search, months), [search, months]);
+  const interval = useMemo(() => resolveInterval(normalizedSearch, months, asOf), [normalizedSearch, months, asOf]);
 
   const [position, setPosition] = useState<CommercialPosition | null>(null);
   const [summary, setSummary] = useState<CustomerFinancialSummary | null>(null);
@@ -466,7 +478,6 @@ function CommercialStatement({ token }: { token: string }) {
   const [modelFilter, setModelFilter] = useState<'active' | 'all'>('active');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -480,13 +491,13 @@ function CommercialStatement({ token }: { token: string }) {
     const currentPromise = fetchPeriodBundle(
       token,
       currency,
-      { days: interval.days, from: interval.from, until: interval.until, allowFallback: true },
+      { from: interval.from, until: interval.until },
       controller.signal,
     );
     const priorPromise = fetchPeriodBundle(
       token,
       currency,
-      { from: interval.priorFrom, until: interval.priorUntil, allowFallback: false },
+      { from: interval.priorFrom, until: interval.priorUntil },
       controller.signal,
     ).catch(() => null);
 
@@ -510,7 +521,7 @@ function CommercialStatement({ token }: { token: string }) {
       });
 
     return () => controller.abort();
-  }, [token, currency, interval.mode, interval.days, interval.from, interval.until, interval.priorFrom, interval.priorUntil, refresh]);
+  }, [token, currency, interval.mode, interval.days, interval.from, interval.until, interval.priorFrom, interval.priorUntil, asOf]);
 
   function updateParams(patch: Record<string, string | null>) {
     setSearch(current => {
@@ -639,8 +650,8 @@ function CommercialStatement({ token }: { token: string }) {
   }, [priorPosition]);
 
   const selectedMonthKey = search.get('month') ?? months[1]?.key ?? months[0].key;
-  const selectedStartMonthKey = search.get('start_month') ?? months[Math.min(2, months.length - 1)]?.key ?? months[0].key;
-  const selectedEndMonthKey = search.get('end_month') ?? months[0].key;
+  const selectedStartMonthKey = normalizedSearch.get('start_month') ?? months[Math.min(2, months.length - 1)]?.key ?? months[0].key;
+  const selectedEndMonthKey = normalizedSearch.get('end_month') ?? months[0].key;
 
   const modeLabels: Record<PeriodMode, string> = {
     mtd: 'Month to date (Current month)',
@@ -892,7 +903,7 @@ function CommercialStatement({ token }: { token: string }) {
         <Alert variant="destructive">
           <AlertDescription className="flex items-center justify-between gap-3">
             <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>
+          <Button variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>
               Retry
             </Button>
           </AlertDescription>
@@ -1002,7 +1013,7 @@ function CommercialStatement({ token }: { token: string }) {
                   Amounts in {currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label="Statement of operations" className="table-fixed">
+              <Table aria-label="Statement of operations" className="table-auto">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">Line item</TableHead>
@@ -1099,7 +1110,7 @@ function CommercialStatement({ token }: { token: string }) {
                   Amounts in {currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label="Customer financial posting summary" className="table-fixed">
+              <Table aria-label="Customer financial posting summary" className="table-auto">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">Measure</TableHead>
@@ -1466,10 +1477,20 @@ function StatementRow({
         {label}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
-        {formatVal(current)}
+        {current === null ? formatVal(current) : (
+          <Tooltip>
+            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(current)}</span></TooltipTrigger>
+            <TooltipContent>Exact amount: {formatRateMoney(negateDisplay ? -current : current, currency)}</TooltipContent>
+          </Tooltip>
+        )}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums hidden sm:table-cell text-muted-foreground">
-        {formatVal(prior)}
+        {prior === null ? formatVal(prior) : (
+          <Tooltip>
+            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(prior)}</span></TooltipTrigger>
+            <TooltipContent>Exact amount: {formatRateMoney(negateDisplay ? -prior : prior, currency)}</TooltipContent>
+          </Tooltip>
+        )}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap">
         {formatDeltaBadge(current, prior, currency, invertSentiment)}
