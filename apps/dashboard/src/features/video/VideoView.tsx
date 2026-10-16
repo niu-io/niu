@@ -33,7 +33,7 @@ import VideoLifecycle from './VideoLifecycle';
 import ImageReferences, { type NamedImageReference } from './ImageReferences';
 import './video.css';
 import VolcengineView from '@/features/provider-modules/volcengine/VolcengineView';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const statusLabel: Record<string,string> = {submission_unknown:'Submission uncertain',queued:'Queued',running:'Running',succeeded:'Succeeded',failed:'Failed',unknown:'Status unavailable',reconciliation_required:'Needs reconciliation'};
 function message(error: unknown) { return error instanceof Error ? error.message : 'The request could not be completed.'; }
@@ -75,9 +75,11 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const [timings,setTimings]=useState<VideoTransportTimings|null>(null);
   const [quote,setQuote]=useState<VideoEstimate|null>(null);
   const [quotedBody,setQuotedBody]=useState('');
+  const [unquotedConfirmation,setUnquotedConfirmation]=useState<{body:string;generation:number;job:string;intent:string}|null>(null);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
+  const [catalogError,setCatalogError]=useState('');
   const [detailError,setDetailError]=useState('');
   const [revision,setRevision]=useState(0);
   const [uncertain,setUncertain]=useState(false);
@@ -144,6 +146,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   useEffect(()=>{setSubmittedPrompt('');setPrompt('');setDraftReferences([]);setDraftSessionId(null);setComposerEdited(false);restoredComposer.current=null;},[composerIdentity]);
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const savedModel=intentDocument?.model??savedTask?.model;
+  const submissionStopped=intentDocument?.submission_state==='not_dispatched';
   const originalKey=allKeys.find(key=>key.id===keyId);
   const keyCanReadModel=keys.some(key=>key.id===keyId&&(!savedModel||!key.allowed_models||key.allowed_models.includes('*')||key.allowed_models.includes(savedModel)));
   const base=keyId && keysScope===keyScopeIdentity && keyCanReadModel ? keyId : '';
@@ -156,6 +159,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     lock.current=false;setBusy('');setUncertain(false);
     return () => { responseScope.current.generation += 1; };
   }, [token, base]);
+  useEffect(()=>{setError('');},[token,keyId,scopePath]);
   const model=models.find(item=>item.id === modelId);
   const canManageSuppliers=session?.kind === 'installation' || Boolean(session?.permissions.platform_admin);
   const workspacePath=workspace ? `/workspaces/${workspacePathSegment(workspace,workspaces)}` : '/workspaces/default';
@@ -170,10 +174,15 @@ export default function VideoView({context}:{context:DashboardContext}) {
   useEffect(()=>{setImages([]);},[base,modelId]);
 
   const quoteMatches = Boolean(quote && quotedBody === JSON.stringify(form.body));
+  const unquotedOwnerFunded = model?.mode === 'owner_funded' && model.output === null;
+  const confirmationMatches = Boolean(unquotedConfirmation && unquotedOwnerFunded && unquotedConfirmation.body === JSON.stringify(form.body) && unquotedConfirmation.generation === currentGeneration() && unquotedConfirmation.job === selected && unquotedConfirmation.intent === intentId);
 
   useEffect(()=>{document.title=`Video · Generations · ${branding.display_name}`;return()=>{document.title=`Generations · ${branding.display_name}`;};},[branding.display_name]);
 
   useEffect(()=>{
+    // Preparing an intent changes the URL before its writes finish. Rechecking
+    // the key then would clear base and invalidate our own in-flight operation.
+    if(busy==='create')return;
     const controller=new AbortController();
     setLoading(true); setKeysError('');setKeys([]);setAllKeys([]);setKeysScope('');
     if (!scopePath || !composerReady) {setLoading(false);return;}
@@ -192,7 +201,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     return()=>controller.abort();
     // URL key restoration applies only when loading this workspace.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[token,scopePath,keysRevision,composerReady,composerIdentity]);
+  },[token,scopePath,keysRevision,composerReady,composerIdentity,selected,intentId,busy==='create']);
 
   const requestedKey=search.get('key');
   useEffect(()=>{if(requestedKey && (selected||intentId||(composerReady&&keys.some(key=>key.id===requestedKey))))setKeyId(requestedKey);},[requestedKey,keys,selected,intentId,composerReady]);
@@ -200,8 +209,9 @@ export default function VideoView({context}:{context:DashboardContext}) {
     const controller=new AbortController(); const changedScope=loadedBase.current !== base;
     if(changedScope)setModels([]);
     setQuote(null);
+    setCatalogError('');
     if (!base || !composerReady) return;
-    setLoading(changedScope);setError('');
+    setLoading(changedScope);
     void Promise.allSettled([
       request<VideoModelList>(token,base,'/v1/video/models',undefined,controller.signal),
     ]).then(([catalog])=>{
@@ -216,7 +226,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
         if(reset&&!intentId&&!restored)setControls(selectedModel?initialControls(selectedModel):{});
         loadedBase.current=base;
       }
-      else setError(message(catalog.reason));
+      else setCatalogError(message(catalog.reason));
     }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
   },[token,base,revision,composerReady]);
@@ -257,7 +267,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       }
       if(document.key_id && document.key_id!==keyId)setKeyId(document.key_id);
       setUncertain(document.content_state!=='retained' || (document.submission_state!=='saved' && !document.job));
-      if(document.job){setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',document.job!.id);next.set('key',document.key_id);return next;},{replace:true});}
+      if(document.job&&document.submission_state!=='not_dispatched'){setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',document.job!.id);next.set('key',document.key_id);return next;},{replace:true});}
     }).catch(error=>{if(!controller.signal.aborted)setIntentError(message(error));}).finally(()=>{if(!controller.signal.aborted)setRestoringIntent(false);});
     return()=>controller.abort();
   },[retainedIntent,revision,busy === 'create']);
@@ -265,6 +275,10 @@ export default function VideoView({context}:{context:DashboardContext}) {
   // changing the intent identity. Recover only its server-associated job.
   useEffect(()=>{
     const restoredJob=intentDocument?.job;
+    if(intentDocument?.id===intentId&&intentDocument.submission_state==='not_dispatched'){
+      if(selected&&selected===restoredJob?.id)setSearch(previous=>{const next=new URLSearchParams(previous);next.delete('job');return next;},{replace:true});
+      return;
+    }
     if(!intentId || intentDocument?.id!==intentId || !restoredJob || selected===restoredJob.id)return;
     setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',restoredJob.id);next.set('key',intentDocument.key_id);return next;},{replace:true});
   },[intentId,intentDocument,selected,setSearch]);
@@ -310,9 +324,9 @@ export default function VideoView({context}:{context:DashboardContext}) {
     catch(error){if(!controller.signal.aborted)setError(message(error));}
     finally{if(estimateController.current === controller)setBusy('');}
   }
-  async function saveOrSubmitRequest(action:'save'|'submit') {
+  async function saveOrSubmitRequest(action:'save'|'submit',confirmedOwnerFunded=false) {
     const submit=action==='submit';
-    if(!form.body || (submit&&!quoteMatches) || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent || draftBlocked)return;
+    if(!form.body || (submit&&(submissionStopped||(!quoteMatches&&!(confirmedOwnerFunded&&unquotedOwnerFunded)))) || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent || draftBlocked)return;
     const generation=currentGeneration();
     let ownedIntentId='';
     let draftTicket:VideoDraftTicket|null=null;
@@ -369,14 +383,15 @@ export default function VideoView({context}:{context:DashboardContext}) {
   }
 
 
+  function reloadSaved() {setKeysRevision(value=>value+1);setRevision(value=>value+1);}
   const epoch=timings?.data[0]?.started_unix_ms ?? 0;
   const total=Math.max(1,...(timings?.data.map(span=>span.started_unix_ms-epoch+span.elapsed_ms) ?? []));
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={historyTriggerRef} title={intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'} actions={<DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-key-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || readingImages || draftBlocked || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ' · Revoked':originalKey.expired ? ' · Expired':''}` : (loading ? 'Loading keys…':'No active API key')}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(chosen.workspace.id)}&key=${encodeURIComponent(id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>} history={{context: (context), currentKeys: (keys), videoKeyId: (keyId), activeVideo: (selected), activeIntent: (intentId), onIntentDeleted: (id=>{if(id===intentId)setRevision(value=>value+1);}), disabled: (Boolean(busy))}} />
+    <GenerationSessionBindings trigger={historyTriggerRef} title={intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'} actions={<DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-key-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || readingImages || draftBlocked || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ' · Revoked':originalKey.expired ? ' · Expired':''}` : (loading ? 'Loading keys…':'No active API key')}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(chosen.workspace.id)}&key=${encodeURIComponent(id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>} history={{context: (context), currentKeys: (keys), videoKeyId: (keyId), activeVideo: (selected), activeIntent: (intentId), activeVideoSession: (search.get('session')??''), onIntentDeleted: (id=>{if(id===intentId)setRevision(value=>value+1);}), disabled: (Boolean(busy))}} />
     <section className="video-main" aria-label="Video generation">
 
       <div className="video-content">
-        {(keysError || intentError || error) && <div role="alert" className="video-error">{keysError || intentError || error}<Button variant="ghost" onClick={()=>keysError ? setKeysRevision(value=>value+1) : setRevision(value=>value+1)} disabled={Boolean(busy) || loading}>Reload</Button></div>}
+        {(keysError || intentError || error || catalogError) && <div role="alert" className="video-error">{keysError || intentError || error || catalogError}<Button variant="ghost" onClick={reloadSaved} disabled={Boolean(busy) || loading}>Reload</Button></div>}
         {!workspace ? <p>Add an API key to generate videos.</p> : <>
         <div className="video-conversation" aria-label="Video conversation">
           {!selected && !intentId ? <Empty className="video-welcome"><EmptyHeader><EmptyTitle>Create a video</EmptyTitle><EmptyDescription>Describe the scene you want to bring to life.</EmptyDescription></EmptyHeader></Empty> : <div className="video-turn">
@@ -384,17 +399,17 @@ export default function VideoView({context}:{context:DashboardContext}) {
             <article className="video-response" aria-label="Video result">
               <div className="video-result-heading"><span className="video-response-model">{job?.model ?? intentDocument?.model ?? 'Video'}</span>{job && <Badge variant="secondary">{statusLabel[job.status]}</Badge>}</div>
             {detailError && <p role="alert" className="video-error">{detailError}</p>}
-            {selected && !job && detailError && <Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button>}
+            {selected && !job && detailError && <Button variant="outline" onClick={reloadSaved} disabled={Boolean(busy)}>Reload status</Button>}
             {historicalReadOnly&&<p role="status" className="video-muted">Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Provider checks are disabled.</p>}
-            {!selected ? <p className="video-muted">{intentDocument?.submission_state==='saved' ? 'This saved request has not been submitted.':'Submit a video or select a saved job.'}</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
+            {!selected ? <p className="video-muted">{submissionStopped ? 'This request was not dispatched. Resolve the admission error before starting a new generation.' : intentDocument?.submission_state==='saved' ? 'This saved request has not been submitted.':'Submit a video or select a saved job.'}</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
               {(job.status === 'submission_unknown' || job.status === 'reconciliation_required') && <p>The outcome is unresolved. Do not resubmit this generation.</p>}
                   {job.status === 'succeeded' && intentClient && workspace && <VideoResult key={`${workspace.id}/${selected}`} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} task={selected} keyId={base ? keyId:undefined} canWrite={canWrite}/>}
 
               {job.status !== 'succeeded' && <div className="video-artifact-placeholder">{(job.status==='queued'||job.status==='running')&&<Loader className="animate-spin"/>}<h3 role="status">{job.status==='queued'?'Waiting to generate':job.status==='running'?'Generating your video…':job.status==='failed'?'Video generation failed':'Waiting for a confirmed status'}</h3><p>{job.status==='queued'?'Your request is queued. This conversation updates automatically.':job.status==='running'?'Your video will appear here when it is ready.':job.status==='failed'?'Open video details to inspect the recorded failure.':'The original task is being checked. Do not submit it again.'}</p></div>}
               <Sheet><SheetTrigger asChild><Button variant="ghost" size="icon" className="video-details-trigger" aria-label="Video details"><InfoCircle size={18}/></Button></SheetTrigger><SheetContent className="overflow-y-auto"><SheetHeader><SheetTitle>Video details</SheetTitle><SheetDescription>Generation status, timing and customer charges.</SheetDescription></SheetHeader><div className="video-details p-4">
-                  <div className="video-actions"><Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || !base || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Provider'}</Button></div>
+                  <div className="video-actions"><Button variant="outline" onClick={reloadSaved} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || !base || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Provider'}</Button></div>
                   {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle}/>}
-                  {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission and status requests; Provider queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission':'Status query'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
+                  {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission, status queries and result transfers; Provider queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission' : span.phase === 'query' ? 'Status query' : span.phase === 'result' ? 'Result transfer' : 'Other transport'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
                   <h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
               </div></SheetContent></Sheet>
 
@@ -403,7 +418,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
             </article>
           </div>}
         </div>
-        {historicalReadOnly ? <div className="video-composer"><Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button></div> : <form className="video-composer" onSubmit={event=>{event.preventDefault();void (quoteMatches ? saveOrSubmitRequest('submit') : estimate());}}>
+        {historicalReadOnly ? <div className="video-composer"><Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button></div> : <form className="video-composer" onSubmit={event=>{event.preventDefault();if(unquotedOwnerFunded){if(form.body&&base&&canWrite&&!busy&&!uncertain&&!draftBlocked&&!readingImages&&!restoringIntent&&!submissionStopped)setUnquotedConfirmation({body:JSON.stringify(form.body),generation:currentGeneration(),job:selected,intent:intentId});return;}void (quoteMatches ? saveOrSubmitRequest('submit') : estimate());}}>
           <div className="video-composer-surface">
             {mutableComposer&&!draft.ready&&!draft.error&&<p role="status" className="video-muted">Loading saved Video draft…</p>}
             {mutableComposer&&draft.error&&<div role="alert" className="video-error">{draft.error}<Button type="button" variant="ghost" onClick={draft.reload} disabled={Boolean(busy)}>Load saved draft</Button></div>}
@@ -419,6 +434,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
               {prompt && form.error && <p role="alert" className="video-error">{form.error}</p>}
               {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Provider account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
 
+              {unquotedOwnerFunded && <p role="status" className="video-muted">Estimate unavailable. Your Provider may charge your account.</p>}
               {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? 'The saved input has expired or been deleted. Task history remains available.':'Reload this saved request to confirm its input and original submission status before continuing.'}</p>}
             </>
             <div className="video-composer-toolbar"><div className="video-composer-options">
@@ -438,12 +454,13 @@ export default function VideoView({context}:{context:DashboardContext}) {
                 </div><Button type="button" variant="ghost" disabled={toolsState==='loading'||toolsState==='unsupported'} onClick={()=>toolsState==='error' ? setToolsRevision(value=>value+1) : setProviderToolsOpen(true)}>{toolsState==='loading'?'Checking Provider tools…':toolsState==='error'?'Retry Provider tools':'Provider tools'}</Button>{toolsState==='unsupported'&&<p className="video-muted">This model has no native Provider tools.</p>}{toolsState==='error'&&<p role="alert" className="video-error">{nativeTools.error}</p>}</PopoverContent></Popover>
               </>}
             </div>
-            {model && <Button type="submit" size="icon" aria-label={quoteMatches ? 'Generate video':'Estimate'} title={quoteMatches ? 'Generate video':'Estimate generation cost'} disabled={!base || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || draftBlocked || (quoteMatches && !canWrite)}><ArrowUp size={20}/></Button>}
+            {model && <Button type="submit" size="icon" aria-label={quoteMatches || unquotedOwnerFunded ? 'Generate video':'Estimate'} title={quoteMatches || unquotedOwnerFunded ? 'Generate video':'Estimate generation cost'} disabled={!base || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || draftBlocked || ((quoteMatches || unquotedOwnerFunded) && !canWrite) || submissionStopped}><ArrowUp size={20}/></Button>}
             </div>
             {!loading && !keys.length && <Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button>}
-            {!canWrite && <small className="video-muted">Read access can estimate; generation needs write access.</small>}
+            {!canWrite && <small className="video-muted">{unquotedOwnerFunded ? 'Generation needs write access.' : 'Read access can estimate; generation needs write access.'}</small>}
           </div>
         </form>}
+        <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent><DialogHeader><DialogTitle>Generate video with your Provider account</DialogTitle><DialogDescription>No output estimate is configured for this model. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">The request or access changed. Close this dialog and review the current request.</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>Cancel</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent||draftBlocked} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>Generate video</Button></DialogFooter></DialogContent></Dialog>
         <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Provider tools</DialogTitle><DialogDescription>Tools available for the selected video model.</DialogDescription></DialogHeader>{toolsModule&&<VolcengineView key={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={modelId} nativeContext={{keyId,model:modelId}}/>}</DialogContent></Dialog>
         </>}
       </div>
