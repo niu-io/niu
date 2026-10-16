@@ -15,7 +15,7 @@ import { request } from '@/features/vendors/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -291,7 +291,7 @@ type CohortAggregates = {
   providerPayable: bigint;
   settledPayable: bigint;
   unpaidPayable: bigint;
-  recordedUpstreamCost: bigint;
+  recordedUpstreamCost: bigint | null;
   netContribution: bigint | null;
   matchedAttempts: bigint;
   unresolvedAttempts: bigint;
@@ -311,6 +311,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
   let settledPayable = 0n;
   let unpaidPayable = 0n;
   let recordedUpstreamCost = 0n;
+  let hasRecordedUpstreamCost = false;
   let netContribution = 0n;
   let contributionKnown = true;
   let matchedAttempts = 0n;
@@ -346,6 +347,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
     if (row.unsettled_earning_nanos !== null) unpaidPayable += BigInt(row.unsettled_earning_nanos);
     if (row.known_upstream_cost_subtotal_nanos !== null) {
       recordedUpstreamCost += BigInt(row.known_upstream_cost_subtotal_nanos);
+      hasRecordedUpstreamCost = true;
     }
 
     if (row.customer_charge_nanos !== null || row.earning_nanos !== null) {
@@ -371,7 +373,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
     providerPayable,
     settledPayable,
     unpaidPayable,
-    recordedUpstreamCost,
+    recordedUpstreamCost: hasRecordedUpstreamCost ? recordedUpstreamCost : null,
     netContribution: contributionKnown ? netContribution : null,
     matchedAttempts,
     unresolvedAttempts,
@@ -443,7 +445,11 @@ function formatDeltaBadge(
 /** Procurement and financial statements remain in Admin, behind the central platform permission boundary. */
 export default function CommercialPositionPage() {
   const { token } = useDashboardContext();
-  return <CommercialStatement key={token} token={token} />;
+  return (
+    <TooltipProvider>
+      <CommercialStatement key={token} token={token} />
+    </TooltipProvider>
+  );
 }
 
 function CommercialStatement({ token }: { token: string }) {
@@ -1247,7 +1253,10 @@ function CommercialStatement({ token }: { token: string }) {
                     <TableHead className="hidden md:table-cell">Agreed offer quote</TableHead>
                     <TableHead className="text-right">Gross charges</TableHead>
                     <TableHead className="text-right">Net revenue</TableHead>
+                    <TableHead className="text-right">Customer cash applied</TableHead>
+                    <TableHead className="text-right">Customer unpaid credit</TableHead>
                     <TableHead className="text-right">Provider payable</TableHead>
+                    <TableHead className="text-right">Recorded upstream cost</TableHead>
                     <TableHead className="text-right">Net contribution</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1264,8 +1273,20 @@ function CommercialStatement({ token }: { token: string }) {
                       priorRow?.net_customer_revenue_nanos != null
                         ? BigInt(priorRow.net_customer_revenue_nanos)
                         : null;
+                    const rowCashApplied =
+                      row.customer_cash_applied_nanos !== null
+                        ? BigInt(row.customer_cash_applied_nanos)
+                        : null;
+                    const rowUnpaidCredit =
+                      row.customer_outstanding_credit_nanos !== null
+                        ? BigInt(row.customer_outstanding_credit_nanos)
+                        : null;
                     const rowPayable =
                       row.earning_nanos !== null ? BigInt(row.earning_nanos) : null;
+                    const rowUpstreamCost =
+                      row.known_upstream_cost_subtotal_nanos !== null
+                        ? BigInt(row.known_upstream_cost_subtotal_nanos)
+                        : null;
                     const rowContrib =
                       row.net_contribution_nanos !== null
                         ? BigInt(row.net_contribution_nanos)
@@ -1278,6 +1299,10 @@ function CommercialStatement({ token }: { token: string }) {
                       row.customer_refunds_nanos !== null ? BigInt(row.customer_refunds_nanos) : 0n;
                     const unresolved = BigInt(row.unresolved_attempts || '0');
                     const matched = BigInt(row.matched_attempts || '0');
+                    const revenueUncovered = BigInt(row.revenue_uncovered_attempts || '0');
+                    const cashUncovered = BigInt(row.cash_source_uncovered_attempts || '0');
+                    const costRecorded = BigInt(row.upstream_cost_recorded_attempts || '0');
+                    const costKnown = BigInt(row.cost_known_attempts || '0');
 
                     return (
                       <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
@@ -1338,7 +1363,7 @@ function CommercialStatement({ token }: { token: string }) {
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCharge === null ? (
-                              <span className="text-muted-foreground">—</span>
+                              <span className="text-muted-foreground" aria-label="Unavailable">—</span>
                             ) : (
                               formatFinancialMoney(rowCharge, row.currency)
                             )}
@@ -1356,13 +1381,18 @@ function CommercialStatement({ token }: { token: string }) {
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowNetRev === null ? (
-                              <span className="text-muted-foreground">
-                                {unresolved > 0n ? 'Pending' : '—'}
+                              <span className="text-muted-foreground" aria-label="Unavailable">
+                                {unresolved > 0n ? 'Pending' : revenueUncovered > 0n ? 'Unavailable' : '—'}
                               </span>
                             ) : (
                               formatFinancialMoney(rowNetRev, row.currency)
                             )}
                           </div>
+                          {revenueUncovered > 0n && (
+                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                              {revenueUncovered.toString()} revenue uncovered
+                            </div>
+                          )}
                           {rowNetRev !== null && priorNetRev !== null && (
                             <div className="mt-0.5">
                               {formatDeltaBadge(rowNetRev, priorNetRev, row.currency)}
@@ -1371,8 +1401,43 @@ function CommercialStatement({ token }: { token: string }) {
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          <div>
+                            {rowCashApplied === null ? (
+                              <span className="text-muted-foreground" aria-label="Unavailable">
+                                {unresolved > 0n ? 'Pending' : cashUncovered > 0n ? 'Unavailable' : '—'}
+                              </span>
+                            ) : (
+                              formatFinancialMoney(rowCashApplied, row.currency)
+                            )}
+                          </div>
+                          {(cashUncovered > 0n || rowCashApplied !== null) && (
+                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                              {cashUncovered.toString()} uncovered cash{' '}
+                              {cashUncovered === 1n ? 'request' : 'requests'}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          <div>
+                            {rowUnpaidCredit === null ? (
+                              <span className="text-muted-foreground" aria-label="Unavailable">
+                                {unresolved > 0n ? 'Pending' : cashUncovered > 0n ? 'Unavailable' : '—'}
+                              </span>
+                            ) : (
+                              formatFinancialMoney(rowUnpaidCredit, row.currency)
+                            )}
+                          </div>
+                          {cashUncovered > 0n && (
+                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                              {cashUncovered.toString()} cash uncovered
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowPayable === null ? (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground" aria-label="Unavailable">—</span>
                           ) : (
                             <div>
                               <div>{formatFinancialMoney(rowPayable, row.currency)}</div>
@@ -1395,6 +1460,22 @@ function CommercialStatement({ token }: { token: string }) {
                         </TableCell>
 
                         <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          <div>
+                            {rowUpstreamCost === null ? (
+                              <span className="text-muted-foreground" aria-label="Unavailable">—</span>
+                            ) : (
+                              formatFinancialMoney(rowUpstreamCost, row.currency)
+                            )}
+                          </div>
+                          {(costRecorded > 0n || matched > 0n) && (
+                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                              {costRecorded.toString()} recorded · {costKnown.toString()}/{matched.toString()}{' '}
+                              matched covered
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowContrib !== null ? (
                             <div>
                               <div className="font-medium">
@@ -1407,7 +1488,7 @@ function CommercialStatement({ token }: { token: string }) {
                           ) : unresolved > 0n ? (
                             <Badge variant="outline">Pending ({unresolved.toString()} unresolved)</Badge>
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground" aria-label="Unavailable">—</span>
                           )}
                         </TableCell>
                       </TableRow>

@@ -154,8 +154,13 @@ it('renders a structured financial statement with period comparisons, active mod
 
   // Active model is shown by default with full-precision offer quote (In $0.003 · Out $2.40 / 1M)
   const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
+  expect(within(unitTable).getByColumnHeader ? true : within(unitTable).getByText('Customer cash applied')).toBeTruthy();
+  expect(within(unitTable).getByText('Customer unpaid credit')).toBeTruthy();
+  expect(within(unitTable).getByText('Recorded upstream cost')).toBeTruthy();
   expect(within(unitTable).getByText('deepseek/deepseek-v4.1-flash')).toBeTruthy();
   expect(within(unitTable).getByText('In $0.003 · Out $2.40 / 1M')).toBeTruthy();
+  expect(within(unitTable).getByText('0 uncovered cash requests')).toBeTruthy();
+  expect(within(unitTable).getByText('3 recorded · 3/3 matched covered')).toBeTruthy();
   expect(within(unitTable).queryByText('anthropic/claude-fable-5')).toBeNull();
 
   await user.click(screen.getByRole('button', { name: 'All configured (2)' }));
