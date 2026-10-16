@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-16
+
+### Added
+
+- Manage persisted Video sessions through Generations history, rename, archive and restore controls.
+- Correct wholly unused administrator noncash gifts with immutable audit records, exact replay protection, SDK methods and dashboard controls.
+- Inspect native material details and access revision-checked rename and explicit deletion controls.
+- Record Provider membership actors and procurement configuration changes in platform audit history.
+
+### Fixed
+
+- Preserve workspace scope in Models navigation and restore valid shared browser sessions and installation credential entry.
+- Align API-key SDK envelopes, key introspection, model projections, authentication schemes and zero-count timeline contracts.
+- Support explicit owner-funded Video confirmation without an estimator, revalidate revoked keys and distinguish transfer timing phases.
+- Report unavailable platform procurement as service readiness rather than customer balance exhaustion; resolve effective customer Billing rates consistently.
+- Correct financial table scrolling, reporting cutoffs, calendar bounds and below-precision movements, and expose separate cash, credit and upstream-cost measures.
+- Preserve native-operation diagnostics and revoked-key history; harden bounded storage, transport, cancellation and background processing.
+- Refuse replacement of existing release tags/assets and publish source identity with complete asset checksums.
+
+### Verification boundary
+
+- Actual HTTP, compiled SDK, desktop/narrow browser workflows and independent persisted records qualify only the scenarios recorded in the [local verification checkpoint](https://github.com/niu-io/niu/blob/v0.2.5/docs/reference/open-issue-local-verification.md) and [unused gift correction](https://github.com/niu-io/niu/blob/v0.2.5/docs/reference/unused-gift-correction-current.md).
+- Conditional merchant funding, commercial supply/settlement, identity verification, successful fresh upstream generation and broader production acceptance remain unverified by this patch release. Existing uncertain operations and financial holds are retained. Fixture outcomes supply no acceptance signal.
+- This publishes a new immutable source release; it does not claim a production deployment or completion of the feature-complete milestone.
+
 ## [0.2.4] - 2026-10-15
 
 ### Added
@@ -101,3 +126,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 [0.2.1]: https://github.com/niu-io/niu/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/niu-io/niu/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/niu-io/niu/releases/tag/v0.1.0
+
+[0.2.5]: https://github.com/niu-io/niu/compare/v0.2.4...v0.2.5

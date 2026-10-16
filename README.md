@@ -36,7 +36,7 @@ This repository is the complete self-hosted monorepo: single-process Rust gatewa
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKEN`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.0`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKEN`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.5`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
 ./scripts/install.sh install --version v0.2.0 --dir /opt/niu
