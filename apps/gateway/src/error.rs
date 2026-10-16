@@ -190,6 +190,12 @@ impl ApiError {
                 kind: "chat_history_capacity_exceeded",
                 message: "Saved Chat history is too large for one response. Use continuation paging or export one conversation",
             },
+            niu_storage::StoreError::KeySpendingCurrencyUnavailable => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "spending_currency_unavailable",
+                message: "Configure a company balance account for the spending-limit currency, or choose a configured currency",
+            },
             niu_storage::StoreError::Conflict => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,

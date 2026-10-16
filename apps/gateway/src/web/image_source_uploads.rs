@@ -157,7 +157,9 @@ pub(crate) async fn prepare(
     let inspected =
         super::inference::video_images::inspect(&state, &principal, &snapshot, &mut body).await?;
     let proofs: Vec<_> = inspected.iter().map(|image| image.binding()).collect();
-    let primary = proofs.first().ok_or_else(ApiError::forbidden)?;
+    let primary = proofs
+        .first()
+        .ok_or_else(ApiError::image_inspection_required)?;
     let id = Uuid::new_v4();
     state
         .store
