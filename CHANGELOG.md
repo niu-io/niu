@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-10-17
+
+### Fixed
+
+- Keep JIT compilation out of bounded activity/reporting reads so PostgreSQL does not spend the request deadline compiling a small result's many subplans. The setting is local to the read-only snapshot transaction; existing lock and statement deadlines remain unchanged.
+
+### Verification boundary
+
+- Paired executions of the actual production list query isolate compilation overhead: approximately 3.63 seconds with JIT, including 3.61 seconds compiling, versus 1.67 milliseconds without JIT. Diagnostic sessions enforce read-only operation and temporary access is removed afterward.
+- Actual native HTTP baseline/candidate responses on a retained real backup agree, named request/accounting row hashes remain unchanged, and single-connection checks preserve the original pooled settings after page and export reads. Hosted API verification follows deployment; full platform acceptance remains incomplete.
+
 ## [0.2.15] - 2026-10-17
 
 ### Fixed
@@ -250,7 +261,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.15...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.16...HEAD
+[0.2.16]: https://github.com/niu-io/niu/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/niu-io/niu/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/niu-io/niu/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/niu-io/niu/compare/v0.2.12...v0.2.13
