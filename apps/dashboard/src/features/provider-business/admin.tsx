@@ -549,7 +549,7 @@ function Administration({ token }: { token: string }) {
           </div>}
           {section === "members" && members.length > 0 && <div className="provider-members-summary">
             <IconUsers size={20} aria-hidden="true" />
-            <strong>{members.length}</strong>
+            <strong>{members.filter(member => member.active && !member.revoked).length}</strong>
             <span>accounts with portal access</span>
           </div>}
           {section === "members" && (membersLoading ? <p role="status" className="px-6 pb-6">Loading members…</p> : members.length ? <ShadcnTable className="provider-ledger">
