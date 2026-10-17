@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.19] - 2026-10-18
+
+### Fixed
+
+- Redesign the interactive API reference connection bar (`/help/api/` and `/docs/api/`) into a single-row segmented control bar using shadcn `DropdownMenu` primitives, automatically connecting the active workspace and default API key on page load without exposing internal UUIDs.
+- Enforce pre-dispatch customer pricing bounds and surface below-cost configuration warnings across platform pricing management (#61).
+- Normalize public catalog filtering, search, and model metadata display across desktop and mobile viewports (#64).
+
+### Verification boundary
+
+- Full unit and integration suites pass across `@niu-io/dashboard` (96 test files, 768 tests) and `@niu-io/docs` (`tsc`, `astro check`, and `test:api`), alongside backend contract and pricing checks.
+- Native browser checks at desktop (`1440px`) and narrow (`390px`) viewports verify anonymous Sign-In CTA, signed-in auto-selection of Workspace and API Key, workspace switching with automatic key re-binding, manual raw Bearer key override and reset, one-click key creation (`POST /api/v1/keys`), and live Scalar `Test Request` header injection (`Authorization: Bearer niu-browser-member-session` and `x-niu-key-id`).
+
 ## [0.2.18] - 2026-10-17
 
 ### Fixed
@@ -285,7 +298,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.18...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.19...HEAD
+[0.2.19]: https://github.com/niu-io/niu/compare/v0.2.18...v0.2.19
 [0.2.18]: https://github.com/niu-io/niu/compare/v0.2.17...v0.2.18
 [0.2.17]: https://github.com/niu-io/niu/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/niu-io/niu/compare/v0.2.15...v0.2.16
