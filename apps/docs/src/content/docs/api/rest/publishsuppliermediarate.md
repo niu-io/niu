@@ -14,10 +14,14 @@ Operation: `publishSupplierMediaRate`.
 
 ## Authentication
 
-No OpenAPI security scheme is required. Other request validation still applies.
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
 
 ```json
-[]
+[
+  {
+    "operatorBearer": []
+  }
+]
 ```
 
 ## HTTP request
@@ -26,6 +30,7 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path place
 
 ```sh
 curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/media-rates" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

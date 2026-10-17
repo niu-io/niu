@@ -23753,6 +23753,11 @@
             "description": "Unknown organization or conflicting payment reference"
           }
         },
+        "security": [
+          {
+            "adminBearerAuth": []
+          }
+        ],
         "tags": [
           "Customer balances"
         ]
@@ -26015,6 +26020,11 @@
             "description": "Durable storage unavailable"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -26124,6 +26134,11 @@
             "description": "Durable storage unavailable"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -26193,6 +26208,11 @@
             "description": "Durable storage unavailable"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -26321,6 +26341,11 @@
             "description": "Durable storage unavailable"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -26464,6 +26489,11 @@
             "description": "Durable storage unavailable"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -26596,6 +26626,11 @@
             "description": "Durable storage unavailable"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -26687,6 +26722,11 @@
             "description": "Durable storage unavailable"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -27179,6 +27219,11 @@
             "description": "Offer unavailable in Provider scope"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -27211,6 +27256,11 @@
             "description": "No active membership for this provider"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -27240,6 +27290,11 @@
             "description": "Provider is missing or deleted"
           }
         },
+        "security": [
+          {
+            "operatorBearer": []
+          }
+        ],
         "tags": [
           "Providers"
         ]
@@ -27767,6 +27822,7 @@
             "description": "The Niu process is serving requests."
           }
         },
+        "security": [],
         "tags": [
           "Service health"
         ]
@@ -27782,6 +27838,7 @@
             "description": "The gateway loaded its configuration and can accept requests."
           }
         },
+        "security": [],
         "tags": [
           "Service health"
         ]
@@ -27800,6 +27857,7 @@
             "description": "At least one required Enterprise module is unavailable or incompatible."
           }
         },
+        "security": [],
         "tags": [
           "Service health"
         ]
@@ -27902,6 +27960,7 @@
             "description": "Public model aliases and declared capabilities."
           }
         },
+        "security": [],
         "tags": [
           "Model discovery"
         ]
@@ -52151,6 +52210,10 @@
         "name": "X-Niu-API-Key"
       },
       "adminBearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "operatorBearer": {
         "type": "http",
         "scheme": "bearer"
       }

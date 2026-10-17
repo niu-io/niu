@@ -25,9 +25,37 @@ function pointer(doc, fragment) {
 const source = path.join(root, 'contracts/openapi.yaml');
 const components = {};
 const registered = new Map();
-function bundle(value, file) {
-  if (Array.isArray(value)) return value.map(v => bundle(v, file));
+const methods = new Set(['get','post','put','patch','delete','head','options','trace']);
+function bundle(value, file, location = [], inheritSecurity = true) {
+  if (Array.isArray(value)) return value.map(v => bundle(v, file, location));
   if (!value || typeof value !== 'object') return value;
+  if (value.$ref) {
+    const [relative, rawFragment = ''] = value.$ref.split('#');
+    const target = path.resolve(path.dirname(file), relative || path.basename(file));
+    if (!target.startsWith(path.join(root, 'contracts') + path.sep)) throw new Error('Contract reference escapes public contracts');
+    const fragment = decodeURIComponent(rawFragment);
+    const object = pointer(read(target), fragment);
+    const parts = fragment.split('/');
+    if (parts[1] !== 'components') return { ...bundle(object, target, location), ...bundle(Object.fromEntries(Object.entries(value).filter(([k]) => k !== '$ref')), file, location, false) };
+    const category = parts[2];
+    const key = target + '#' + fragment;
+    if (!registered.has(key)) {
+      const name = target === source ? parts[3] : path.basename(target).replace(/[^a-zA-Z0-9]/g, '_') + '_' + parts[3];
+      registered.set(key, `#/components/${category}/${name}`);
+      components[category] ??= {};
+      components[category][name] = null;
+      components[category][name] = bundle(object, target);
+    }
+    return { $ref: registered.get(key), ...bundle(Object.fromEntries(Object.entries(value).filter(([k]) => k !== '$ref')), file) };
+  }
+  // Materialize the owning document's default at each operation. A referenced
+  // operation must not inherit the importing document's unrelated default.
+  // Explicit empty requirements stay public; Reference Object siblings override
+  // the resolved target only when they actually declare security.
+  if (inheritSecurity && location.length === 3 && location[0] === 'paths'
+      && methods.has(location[2]) && !Object.hasOwn(value, 'security')) {
+    value = { ...value, security: read(file).security ?? [] };
+  }
   // Security requirements refer to components by name, rather than by $ref.
   // Preserve those names across contract boundaries and reject ambiguous merges.
   if (Array.isArray(value.security)) for (const requirement of value.security) {
@@ -46,26 +74,7 @@ function bundle(value, file) {
       components.securitySchemes[name] = scheme;
     }
   }
-  if (value.$ref) {
-    const [relative, rawFragment = ''] = value.$ref.split('#');
-    const target = path.resolve(path.dirname(file), relative || path.basename(file));
-    if (!target.startsWith(path.join(root, 'contracts') + path.sep)) throw new Error('Contract reference escapes public contracts');
-    const fragment = decodeURIComponent(rawFragment);
-    const object = pointer(read(target), fragment);
-    const parts = fragment.split('/');
-    if (parts[1] !== 'components') return { ...bundle(object, target), ...bundle(Object.fromEntries(Object.entries(value).filter(([k]) => k !== '$ref')), file) };
-    const category = parts[2];
-    const key = target + '#' + fragment;
-    if (!registered.has(key)) {
-      const name = target === source ? parts[3] : path.basename(target).replace(/[^a-zA-Z0-9]/g, '_') + '_' + parts[3];
-      registered.set(key, `#/components/${category}/${name}`);
-      components[category] ??= {};
-      components[category][name] = null;
-      components[category][name] = bundle(object, target);
-    }
-    return { $ref: registered.get(key), ...bundle(Object.fromEntries(Object.entries(value).filter(([k]) => k !== '$ref')), file) };
-  }
-  return Object.fromEntries(Object.entries(value).map(([k,v]) => [k, bundle(v, file)]));
+  return Object.fromEntries(Object.entries(value).map(([k,v]) => [k, bundle(v, file, [...location, k])]));
 }
 const spec = bundle(read(source), source);
 for (const [category, values] of Object.entries(components)) spec.components[category] = { ...spec.components[category], ...values };
@@ -98,7 +107,6 @@ function resolveSchema(schema, seen = new Set()) {
   return Object.fromEntries(Object.entries(schema).map(([k,v])=>[k, typeof v==='object' ? resolveSchema(v, seen) : v]));
 }
 const restIndex = ['[Download the full OpenAPI JSON](/docs/openapi/public.json). Authentication, parameters, request bodies and response schemas below come from that same contract.', '', 'The contract includes endpoints with explicit limitations or stub status. Read the scope on each operation.', ''];
-const methods = new Set(['get','post','put','patch','delete','head','options']);
 const restGroups = new Map();
 let operations = 0;
 for (const [route,item] of Object.entries(spec.paths)) for (const [method,operation] of Object.entries(item)) {

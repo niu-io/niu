@@ -14,10 +14,14 @@ Operation: `listSupplierMediaRateModels`.
 
 ## Authentication
 
-No OpenAPI security scheme is required. Other request validation still applies.
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
 
 ```json
-[]
+[
+  {
+    "operatorBearer": []
+  }
+]
 ```
 
 ## HTTP request
@@ -25,7 +29,8 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-rate-models"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-rate-models" \
+  -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 
 ## Parameters
