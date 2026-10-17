@@ -318,7 +318,7 @@ paths:
       - { name: operator, in: path, required: true, schema: { type: string, format: uuid } }
     put:
       operationId: setProviderMembership
-      summary: Installation-only grant, change, or revoke of explicit supplier membership
+      summary: Installation-only grant, change, or revoke of explicit Provider membership
       requestBody:
         required: true
         content:
@@ -349,7 +349,7 @@ paths:
       - { name: offer, in: path, required: true, schema: { type: string, format: uuid } }
     patch:
       operationId: setProviderOfferAvailability
-      summary: A supplier manager can pause or resume an owned offer
+      summary: A Provider manager can pause or resume an owned offer
       description: Pausing prevents new admissions. Already dispatched requests may complete and accrue earnings. Viewers and unrelated operators cannot mutate offers.
       requestBody:
         required: true
@@ -363,8 +363,8 @@ paths:
                 active: { type: boolean }
       responses:
         '200': { description: Availability saved and audited }
-        '404': { description: No eligible supplier membership }
-        '409': { description: Offer unavailable in supplier scope }
+        '404': { description: No eligible Provider membership }
+        '409': { description: Offer unavailable in Provider scope }
   /api/v1/providers/{provider}/dashboard:
     parameters:
       - $ref: '#/components/parameters/provider'
@@ -376,7 +376,7 @@ paths:
       responses:
         '200': { description: Provider dashboard in data }
         '400': { description: "Period must be 7, 30, or 90 days" }
-        '403': { description: Installation sessions do not imply supplier membership }
+        '403': { description: Installation sessions do not imply Provider membership }
         '404': { description: No active membership for this provider }
   /api/v1/providers/{provider}/administration:
     parameters:
@@ -384,11 +384,11 @@ paths:
       - $ref: '#/components/parameters/days'
     get:
       operationId: getProviderAdministrationDashboard
-      summary: Explicit installation oversight of the supplier dashboard
+      summary: Explicit installation oversight of the Provider dashboard
       description: Only an active Provider is readable. Soft-deleted and missing Providers return the existing unavailable-resource conflict; audit history is retained.
       responses:
         '409': { description: Provider is missing or deleted }
-        '200': { description: Same dashboard snapshot as the supplier endpoint }
+        '200': { description: Same dashboard snapshot as the Provider endpoint }
         '403': { description: Installation access required }
   /api/v1/providers/{provider}/earnings:
     get:

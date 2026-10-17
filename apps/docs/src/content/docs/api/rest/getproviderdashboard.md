@@ -73,7 +73,7 @@ Period must be 7, 30, or 90 days
 
 ### HTTP 403
 
-Installation sessions do not imply supplier membership
+Installation sessions do not imply Provider membership
 
 ### HTTP 404
 

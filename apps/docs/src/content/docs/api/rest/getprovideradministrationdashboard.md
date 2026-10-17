@@ -1,5 +1,5 @@
 ---
-title: "Explicit installation oversight of the supplier dashboard"
+title: "Explicit installation oversight of the Provider dashboard"
 description: "GET /api/v1/providers/{provider}/administration"
 tableOfContents: false
 ---
@@ -65,7 +65,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Same dashboard snapshot as the supplier endpoint
+Same dashboard snapshot as the Provider endpoint
 
 ### HTTP 403
 

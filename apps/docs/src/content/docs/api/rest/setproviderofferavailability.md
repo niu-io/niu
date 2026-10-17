@@ -1,5 +1,5 @@
 ---
-title: "A supplier manager can pause or resume an owned offer"
+title: "A Provider manager can pause or resume an owned offer"
 description: "PATCH /api/v1/providers/{provider}/offers/{offer}"
 tableOfContents: false
 ---
@@ -85,11 +85,11 @@ Availability saved and audited
 
 ### HTTP 404
 
-No eligible supplier membership
+No eligible Provider membership
 
 ### HTTP 409
 
-Offer unavailable in supplier scope
+Offer unavailable in Provider scope
 
 ## Behavior and supported scope
 
