@@ -346,11 +346,13 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
 
 impl Store {
     /// Bound reporting contention without changing later work on the pooled connection.
+    /// These short reporting queries have many subplans: cost-based JIT can spend
+    /// their entire deadline compiling even when the result contains only a few rows.
     async fn begin_activity_read(&self) -> Result<sqlx::Transaction<'_, Postgres>, StoreError> {
         Ok(self
             .pool
             .begin_with(
-                "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL lock_timeout = '1s'; SET LOCAL statement_timeout = '5s'",
+                "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL lock_timeout = '1s'; SET LOCAL statement_timeout = '5s'; SET LOCAL jit = off",
             )
             .await?)
     }
