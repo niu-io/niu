@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-10-17
+
+### Fixed
+
+- Document installation of the published MCP package for hosted and self-hosted gateways. Agent configuration uses the installed executable instead of a path relative to the Niu source checkout, with absolute-path guidance when the editor does not inherit PATH.
+- Keep building the MCP server from source as a separate development option.
+
+### Verification boundary
+
+- The actual v0.2.14 MCP release asset is checked against its published checksum and source commit, installed with npm into an isolated prefix, and invoked outside the Niu checkout. Current hosted discovery and admission-error forwarding are independently checked against saved request, task and balance records.
+- The built guide is inspected at desktop and narrow widths. Hosted documentation verification follows deployment. Successful estimates remain unavailable for the inspected personal video route; this release does not qualify full platform acceptance.
+
 ## [0.2.14] - 2026-10-17
 
 ### Fixed
@@ -238,7 +250,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.14...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.15...HEAD
+[0.2.15]: https://github.com/niu-io/niu/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/niu-io/niu/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/niu-io/niu/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/niu-io/niu/compare/v0.2.11...v0.2.12
