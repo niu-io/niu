@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.17] - 2026-10-17
+
+### Fixed
+
+- Keep embedded Help publicly accessible without a dashboard session, including direct article entry and reload. Add direct public model catalog and documentation links to the sign-in page.
+
+### Verification boundary
+
+- Actual anonymous browser navigation checks the built Help index, article navigation and reload, plus the sign-in page at desktop and narrow widths. Public resource links use document navigation to their separate artifacts. Hosted verification follows deployment; complete platform acceptance remains open.
+
 ## [0.2.16] - 2026-10-17
 
 ### Fixed
@@ -261,7 +271,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.16...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.17...HEAD
+[0.2.17]: https://github.com/niu-io/niu/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/niu-io/niu/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/niu-io/niu/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/niu-io/niu/compare/v0.2.13...v0.2.14
