@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.14] - 2026-10-17
+
+### Fixed
+
+- Hide the video-result action and saved-task guidance for requests rejected during admission. Keep the rejection reason, gateway status and customer charge state visible, and preserve result navigation for actual video jobs.
+
+### Verification boundary
+
+- A single current-input video request with a zero-RPM key returns an explicit 429 and creates a durable not-sent, not-charged admission record. Independent reads find no video task and no balance change; the temporary key is revoked. The actual refused request and an existing completed video record are the browser verification inputs.
+- Hosted verification follows deployment. This does not qualify other usage limits, successful commercial video billing or full platform acceptance.
+
 ## [0.2.13] - 2026-10-17
 
 ### Fixed
@@ -227,7 +238,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.13...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.14...HEAD
+[0.2.14]: https://github.com/niu-io/niu/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/niu-io/niu/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/niu-io/niu/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/niu-io/niu/compare/v0.2.10...v0.2.11
