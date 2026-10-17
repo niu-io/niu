@@ -143,7 +143,7 @@ jobs:
       - name: Inspect runtime package contents
         run: |
           test "$(docker image inspect --format '{{.Config.User}}' niu-io/niu:ci)" = "10001:10001"
-          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/dashboard/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/dashboard/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/catalog/models/index.html && set -- /app/catalog/_catalog/*.css && test -s "$1" && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test -s /app/catalog/catalog-assets/models.js && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
+          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/dashboard/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/dashboard/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/catalog/models/index.html && set -- /app/catalog/_catalog/*.css && test -s "$1" && set -- /app/catalog/_catalog/PublicModelCatalog.*.js && test -s "$1" && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
       - name: Scan final runtime assets
         run: |
           container=$(docker create niu-io/niu:ci)

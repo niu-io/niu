@@ -841,14 +841,17 @@ def main():
     assert catalog_status == 200 and "text/html" in catalog_type
     assert "Public model catalog" in catalog_html
     assert 'href="https://niu.io/models/"' in catalog_html
-    assert "/catalog-assets/models.js" in catalog_html
+    catalog_script_path = re.search(
+        r'component-url="(/_catalog/PublicModelCatalog\.[^\"]+\.js)"', catalog_html
+    )
+    assert catalog_script_path, "the public catalog omitted its model browser bundle"
     catalog_css_path = re.search(r'href="(/_catalog/[^\"]+\.css)"', catalog_html)
     assert catalog_css_path, "the public catalog omitted its stylesheet"
     _, catalog_css, catalog_css_type = request("GET", catalog_css_path.group(1))
     assert catalog_css_type.startswith("text/css") and "--oxhide" in catalog_css
     _, catalog_mark, catalog_mark_type = request("GET", "/catalog-assets/brand/niu-mark.png")
     assert catalog_mark_type.startswith("image/") and len(catalog_mark) > 100
-    _, catalog_script, _ = request("GET", "/catalog-assets/models.js")
+    _, catalog_script, _ = request("GET", catalog_script_path.group(1))
     catalog_script_text = (
         catalog_script.decode("utf-8")
         if isinstance(catalog_script, bytes)
