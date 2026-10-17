@@ -34,13 +34,14 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         ServeDir::new(docs_dir).not_found_service(ServeFile::new(format!("{docs_dir}/404.html"))),
     );
     let models = Router::new().fallback_service(ServeDir::new(format!("{catalog_dir}/models")));
-    let workspaces = Router::new()
-        .route("/", get(default_workspace))
-        .fallback_service(
-            ServeDir::new(dashboard_dir).fallback(ServeFile::new(dashboard_index.clone())),
-        );
+    let workspaces = Router::new().fallback_service(
+        ServeDir::new(dashboard_dir).fallback(ServeFile::new(dashboard_index.clone())),
+    );
 
     let app = Router::new()
+        // Directory entries must survive a browser reload just like scoped workspace pages.
+        .route_service("/workspaces", ServeFile::new(dashboard_index.clone()))
+        .route_service("/workspaces/", ServeFile::new(dashboard_index.clone()))
         .route("/help", get(|| async { Redirect::temporary("/help/") }))
         .route_service(
             "/help/",
