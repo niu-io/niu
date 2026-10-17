@@ -7,16 +7,26 @@ A coding agent (such as Claude Code, Cursor, Windsurf, Zed, or Codex) can connec
 
 Each model call is a normal Niu request and uses the exact model the agent specifies. The server never guesses or substitutes another model, does not sign in to the dashboard, and never exposes Provider purchase costs or platform margins.
 
-## Hosted niu.io
+## Install the released server
 
-The hosted configuration is pinned in the repository at `sdks/mcp/hosted/niu.io.json`. It sets the gateway address to `https://niu.io/v1`. Create a workspace API key in the dashboard and pass it only in the agent's environment. Do not put the key in the pinned file or the deployment image.
+Install the built MCP package with npm. A Niu source checkout and a running local gateway are not required for hosted use. This command pins the package asset from [Niu v0.2.14](https://github.com/niu-io/niu/releases/tag/v0.2.14):
+
+```sh
+npm install --global https://github.com/niu-io/niu/releases/download/v0.2.14/niu-io-mcp-0.1.0.tgz
+```
+
+Use `niu-mcp` as the command in your agent's MCP configuration. It can start from your application's workspace. If the editor does not inherit your shell's PATH, replace the command with the absolute executable path returned by `command -v niu-mcp`; JSON configuration does not expand shell variables or `~`. Do not use a path relative to the Niu repository.
+
+## Hosted Niu
+
+Create a workspace API key in the dashboard and pass it only in the agent's environment. The installed package's `--hosted` configuration pins `https://niu.io/v1`. Do not put customer keys in the package, a shared configuration file, or the deployment image.
 
 ```json
 {
   "mcpServers": {
     "niu": {
-      "command": "node",
-      "args": ["sdks/mcp/bin/niu-mcp.mjs", "--hosted"],
+      "command": "niu-mcp",
+      "args": ["--hosted"],
       "env": {
         "NIU_API_KEY": "your-workspace-api-key",
         "NIU_LOG_PAYLOADS": "false"
@@ -24,12 +34,6 @@ The hosted configuration is pinned in the repository at `sdks/mcp/hosted/niu.io.
     }
   }
 }
-```
-
-Build the server from this checkout first:
-
-```sh
-pnpm --dir sdks/mcp build
 ```
 
 `--hosted` refuses a different `NIU_BASE_URL`. The `niu.io` deployment publishes this origin and does not store customer keys.
@@ -42,8 +46,8 @@ Omit `--hosted` and set `NIU_BASE_URL` to that gateway's `/v1` address:
 {
   "mcpServers": {
     "niu": {
-      "command": "node",
-      "args": ["sdks/mcp/bin/niu-mcp.mjs"],
+      "command": "niu-mcp",
+      "args": [],
       "env": {
         "NIU_API_KEY": "your-workspace-api-key",
         "NIU_BASE_URL": "http://127.0.0.1:2555/v1"
@@ -52,6 +56,17 @@ Omit `--hosted` and set `NIU_BASE_URL` to that gateway's `/v1` address:
   }
 }
 ```
+
+### Build from source
+
+For MCP development, install dependencies from the Niu checkout root and build the server:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --dir sdks/mcp build
+```
+
+Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp/bin/niu-mcp.mjs` as the first argument, followed by `--hosted` when appropriate. The agent can then run in a different workspace without relying on its working directory.
 
 ### Environment options
 

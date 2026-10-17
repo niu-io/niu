@@ -4,20 +4,26 @@
 
 ## Quick start
 
-The hosted `niu.io` client uses the pinned origin in [`hosted/niu.io.json`](hosted/niu.io.json) (`https://niu.io/v1`). A customer key is never stored in that file.
+Install the built package from the immutable Niu release; a source checkout is not required:
 
 ```sh
-pnpm --dir sdks/mcp build
-NIU_API_KEY='your-workspace-api-key' node sdks/mcp/bin/niu-mcp.mjs --hosted
+npm install --global https://github.com/niu-io/niu/releases/download/v0.2.14/niu-io-mcp-0.1.0.tgz
+NIU_API_KEY='your-workspace-api-key' niu-mcp --hosted
 ```
 
-For a self-hosted or local Niu gateway, set `NIU_BASE_URL` to its `/v1` endpoint and omit `--hosted`:
+In an agent's MCP configuration, use `"command": "niu-mcp"` and `"args": ["--hosted"]`. The executable works from your application's workspace. If the editor does not inherit PATH, use the absolute path returned by `command -v niu-mcp`; JSON does not expand shell variables or `~`.
+
+The hosted client pins `https://niu.io/v1` in [`hosted/niu.io.json`](hosted/niu.io.json). A customer key is never stored in that file.
+
+For a self-hosted or local Niu gateway, set its `/v1` address and omit `--hosted`:
 
 ```sh
 NIU_API_KEY='your-workspace-api-key' \
 NIU_BASE_URL='http://127.0.0.1:2555/v1' \
-node sdks/mcp/bin/niu-mcp.mjs
+niu-mcp
 ```
+
+For MCP development, run `pnpm install --frozen-lockfile` from the Niu checkout root, then `pnpm --dir sdks/mcp build`. Configure `node` with the absolute path to that checkout's `sdks/mcp/bin/niu-mcp.mjs` and optional `--hosted`; a relative path fails when the agent runs in a different workspace.
 
 ### Optional environment variables
 
