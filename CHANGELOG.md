@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-10-17
+
+### Fixed
+
+- Label Provider qualification separately from supply readiness on Models & pricing. An approved Provider review does not establish approved model offers or sellable inventory.
+- Preserve the standard Badge foreground and typography inside Provider section headings in light and dark themes.
+- Count only active, non-revoked accounts in the Provider portal access summary while retaining historical membership rows.
+
+### Verification boundary
+
+- Actual desktop and narrow browser checks use authenticated current production reads. Provider qualification states, light/dark Badge presentation, and the effective access count are inspected without changing credentials, memberships or commercial records. Hosted verification follows deployment.
+- This release does not resolve intermittent request-read storage failures or establish complete platform acceptance.
+
 ## [0.2.10] - 2026-10-17
 
 ### Fixed
@@ -192,7 +205,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.11...HEAD
+[0.2.11]: https://github.com/niu-io/niu/compare/v0.2.10...v0.2.11
 [0.2.8]: https://github.com/niu-io/niu/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/niu-io/niu/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/niu-io/niu/compare/v0.2.5...v0.2.6
