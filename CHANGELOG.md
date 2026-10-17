@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.18] - 2026-10-17
+
+### Fixed
+
+- Return unscoped model-catalog sign-ins to the public artifact; retain dashboard navigation for workspace-scoped models. Canonicalize public directory entries while preserving query parameters.
+- Use Provider terminology in contract descriptions and regenerate REST and handler documentation without changing compatibility identifiers.
+- Preserve referenced contracts' default authentication in the bundled OpenAPI and generated request examples. Explicit public operations retain their overrides; backend authorization is unchanged.
+
+### Verification boundary
+
+- Actual native browser sign-ins and refreshes distinguish public and workspace model destinations; direct HTTP reads verify query-preserving redirects and retained request/financial records.
+- Independent resolution of the current source contracts agrees with all generated operation security requirements, including inherited protected and explicit public operations. The served local OpenAPI bytes match the generated artifact. Actual hosted reads distinguish anonymous refusal, authorized administration, and public authentication configuration.
+- Updated examples are inspected at desktop and narrow widths. Hosted verification follows deployment. Pricing integrity, commercial settlement, capacity and complete platform acceptance remain outside this release's verified scope.
+
 ## [0.2.17] - 2026-10-17
 
 ### Fixed
@@ -271,7 +285,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.17...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.18...HEAD
+[0.2.18]: https://github.com/niu-io/niu/compare/v0.2.17...v0.2.18
 [0.2.17]: https://github.com/niu-io/niu/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/niu-io/niu/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/niu-io/niu/compare/v0.2.14...v0.2.15
