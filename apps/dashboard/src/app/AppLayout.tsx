@@ -789,14 +789,14 @@ export default function AppLayout() {
     return () => window.removeEventListener('resize', closeOnCompactViewport);
   }, []);
   useEffect(() => {
-    if (!loginArea && !token && sessionChecked) {
+    if (!loginArea && !helpArea && !token && sessionChecked) {
       navigate('/login', { state: { from: location.pathname + location.search + location.hash }, replace: true });
     }
-  }, [loginArea, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
+  }, [loginArea, helpArea, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
   const signOutFailure = signOutFailed && <Dialog open onOpenChange={setSignOutFailed}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Could not sign out</DialogTitle><DialogDescription>Your session has not been confirmed revoked. Try again when the connection is available.</DialogDescription></DialogHeader><DialogFooter><Button onClick={() => { void signOut(); }}>Try again</Button></DialogFooter></DialogContent></Dialog>;
   const gatewayOutage = !helpArea && gatewayStatus === 'offline' && <Dialog open><DialogContent showCloseButton={false} onEscapeKeyDown={event => event.preventDefault()} onInteractOutside={event => event.preventDefault()} className="sm:max-w-md"><DialogHeader><WifiOff className="mb-2 size-6 text-muted-foreground" aria-hidden="true" /><DialogTitle>Gateway unavailable</DialogTitle><DialogDescription>We couldn’t reach the gateway. We’ll reconnect automatically when the service returns.</DialogDescription></DialogHeader><DialogFooter><Button disabled={gateway.checking} onClick={() => { void gateway.check(); }}>{gateway.checking ? 'Checking…' : 'Try again'}</Button></DialogFooter></DialogContent></Dialog>;
-  if (!loginArea && !token && !sessionChecked) return <>{gatewayOutage}{signOutFailure}<RouterPending /></>;
-  if (!loginArea && !token) return <p role="status">Redirecting to sign in…</p>;
+  if (!loginArea && !helpArea && !token && !sessionChecked) return <>{gatewayOutage}{signOutFailure}<RouterPending /></>;
+  if (!loginArea && !helpArea && !token) return <p role="status">Redirecting to sign in…</p>;
   if (loginArea) return <div className="dashboard-login-shell"><Outlet context={context} /></div>;
   return <SidebarProvider
     open={sidebarOpen}
