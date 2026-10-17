@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconChevronDown, IconKey, IconRefresh, IconUnlink } from "@tabler/icons-react";
 import { Badge } from "../../../../dashboard/src/components/ui/badge";
 import { Button } from "../../../../dashboard/src/components/ui/button";
@@ -53,6 +53,8 @@ export default function WorkspaceKeyConnection({
   const [keys, setKeys] = useState<Key[]>([]);
   const [keyId, setKeyId] = useState("");
   const [disconnected, setDisconnected] = useState(false);
+  const disconnectedRef = useRef(false);
+  disconnectedRef.current = disconnected;
   const [loading, setLoading] = useState(false);
   const [keysLoading, setKeysLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,15 +63,22 @@ export default function WorkspaceKeyConnection({
     ? JSON.stringify([session.kind, session.operator, session.permissions])
     : "";
   useEffect(() => {
-    const controller = new AbortController();
     setWorkspaces([]);
     setWorkspaceId("");
     setKeys([]);
     setKeyId("");
+    disconnectedRef.current = false;
     setDisconnected(false);
     setError("");
     setLoading(false);
-    if (!identity) return;
+  }, [identity]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setError("");
+    if (!identity) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     void (async () => {
       const rows: Workspace[] = [],
@@ -103,11 +112,16 @@ export default function WorkspaceKeyConnection({
             /* Storage is optional. */
           }
           const operatorProjectId = session?.operator?.project_id;
-          const preferred =
-            rows.find((row) => row.id === operatorProjectId) ??
-            rows.find((row) => row.id === storedId) ??
-            rows[0];
-          if (preferred) setWorkspaceId(preferred.id);
+          setWorkspaceId((current) => {
+            if (rows.some((row) => row.id === current)) return current;
+            const preferred =
+              rows.find((row) => row.id === operatorProjectId) ??
+              rows.find((row) => row.id === storedId) ??
+              rows[0];
+            return preferred ? preferred.id : "";
+          });
+        } else {
+          setWorkspaceId("");
         }
       }
     })()
@@ -137,7 +151,7 @@ export default function WorkspaceKeyConnection({
           setKeys(active);
           if (active.length > 0) {
             setKeyId((current) =>
-              disconnected
+              disconnectedRef.current
                 ? ""
                 : active.some((item) => item.id === current)
                   ? current
@@ -245,6 +259,7 @@ export default function WorkspaceKeyConnection({
                 <DropdownMenuRadioGroup
                   value={workspaceId}
                   onValueChange={(nextId) => {
+                    disconnectedRef.current = false;
                     setDisconnected(false);
                     setWorkspaceId(nextId);
                     try {
@@ -321,6 +336,7 @@ export default function WorkspaceKeyConnection({
                 <DropdownMenuRadioGroup
                   value={keyId}
                   onValueChange={(nextKeyId) => {
+                    disconnectedRef.current = false;
                     setDisconnected(false);
                     setKeyId(nextKeyId);
                   }}
@@ -358,6 +374,7 @@ export default function WorkspaceKeyConnection({
                 className="text-muted-foreground hover:text-foreground"
                 disabled={disabled}
                 onClick={() => {
+                  disconnectedRef.current = true;
                   setDisconnected(true);
                   setKeyId("");
                 }}
