@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-10-17
+
+### Fixed
+
+- Serve the workspace directory at both `/workspaces` and `/workspaces/` so direct navigation and browser reload retain the directory instead of redirecting to the default workspace or returning 404.
+
+### Verification boundary
+
+- Actual native gateway and built-dashboard browser checks use an isolated existing restored backup, normal short-lived owner sign-in, cookie-preserving reload, and desktop/narrow layouts. Independent HTTP reads match the real entry artifact and preserve scoped routes, cache policy and the community home redirect. Named request and accounting records remain unchanged; the temporary owner is revoked.
+- Hosted directory verification follows deployment. Full platform acceptance and the intermittent hosted request-read storage failure remain open.
+
 ## [0.2.12] - 2026-10-17
 
 ### Fixed
@@ -216,7 +227,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.12...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.13...HEAD
+[0.2.13]: https://github.com/niu-io/niu/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/niu-io/niu/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/niu-io/niu/compare/v0.2.10...v0.2.11
 [0.2.8]: https://github.com/niu-io/niu/compare/v0.2.7...v0.2.8
