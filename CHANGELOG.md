@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-10-17
+
+### Fixed
+
+- Distinguish observed asynchronous task duration from gateway latency in request lists and details; name the mixed column Duration and its sort Longest duration. Gateway latency summaries retain their existing complete-transport boundary.
+
+### Operational diagnostics
+
+- Log a sanitized database error category and SQLSTATE for unexpected storage failures while retaining generic customer errors. New diagnostic fields contain no SQL, values, credentials or database messages.
+
+### Verification boundary
+
+- Actual browser checks use current production reads for desktop and narrow request lists, duration labels and sorting. An isolated restored-backup gateway run verifies a controlled lock failure, safe operational metadata, recovery and unchanged named request/accounting records.
+- These diagnostics do not resolve or identify the cause of intermittent hosted request-read storage failures. Production diagnosis and the complete platform acceptance remain open.
+
 ## [0.2.9] - 2026-10-17
 
 ### Fixed

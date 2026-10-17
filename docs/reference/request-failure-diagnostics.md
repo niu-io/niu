@@ -1,5 +1,25 @@
 # Durable request failure diagnostics
 
+## Gateway storage failures
+
+An unexpected storage failure keeps the customer-facing `storage_error` response
+generic. The gateway emits an operational log with `database_error_category` and
+`sqlstate` when a database cause is available. Categories distinguish pool timeout,
+closed pool, I/O, TLS, protocol, row, column, decoding, configuration and database
+failures. An unavailable SQLSTATE is recorded as `unavailable`.
+
+Only a five-character uppercase alphanumeric SQLSTATE is accepted. These new
+diagnostic fields omit server messages, SQL, bound values, connection strings and
+row contents. They belong in restricted operational logs, not customer response
+bodies or workspace exports. Existing slow-query logging is a separate facility.
+
+Correlate the category and SQLSTATE with the failed request and database state
+before changing a query, timeout or pool setting. A later successful retry does
+not establish that an intermittent failure is resolved. These diagnostics do not
+change transaction boundaries, readiness checks or the recorded request charge.
+
+## Request execution failures
+
 Workspace request records expose nullable `failure` independently of optional
 request/response payload retention. The CSV export appends `Failure kind` and
 `Upstream HTTP status` columns. The JavaScript SDK exports `RequestFailure`;
