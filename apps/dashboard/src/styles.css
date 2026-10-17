@@ -3224,6 +3224,41 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
     font-size: 9.5px !important;
     line-height: 1.25 !important;
   }
+  /* Printed tables cannot rely on the screen's horizontal scrolling. */
+  .commercial-statement [data-slot="table-container"] {
+    overflow: visible !important;
+  }
+  .commercial-position-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .commercial-position-table th,
+  .commercial-position-table td {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  .commercial-position-table th:first-child {
+    width: 18%;
+  }
+  .commercial-position-table th:nth-child(2) {
+    width: 14%;
+  }
+  .commercial-position-table td :where(div, span, a) {
+    font-size: inherit !important;
+    line-height: inherit;
+  }
+  .commercial-position-table [data-slot="badge"] {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: normal;
+    font-size: 8px !important;
+  }
+  .commercial-position-table th:last-child {
+    width: 12%;
+  }
+  .commercial-position-table tr {
+    break-inside: avoid;
+  }
   .commercial-print-footer {
     margin-top: 8px !important;
     break-inside: avoid;

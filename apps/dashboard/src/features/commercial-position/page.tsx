@@ -1254,7 +1254,7 @@ function CommercialStatement({ token }: { token: string }) {
                 No commercial model configurations or activity in {currency} for this period.
               </p>
             ) : (
-              <Table aria-label="Provider commercial positions">
+              <Table className="commercial-position-table" aria-label="Provider commercial positions">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Provider / model</TableHead>
