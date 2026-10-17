@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { IconChevronDown } from "@tabler/icons-react";
+import { IconChevronDown, IconKey, IconRefresh, IconUnlink } from "@tabler/icons-react";
+import { Badge } from "../../../../dashboard/src/components/ui/badge";
 import { Button } from "../../../../dashboard/src/components/ui/button";
-import { Label } from "../../../../dashboard/src/components/ui/label";
 import {
   Alert,
   AlertDescription,
@@ -10,6 +10,8 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../../../../dashboard/src/components/ui/dropdown-menu";
@@ -39,15 +41,18 @@ export type DocsKeySelection = {
 export default function WorkspaceKeyConnection({
   onChange,
   disabled = false,
+  description,
 }: {
   onChange: (selection: DocsKeySelection | null) => void;
   disabled?: boolean;
+  description?: string;
 }) {
   const { session, checking, error: sessionError, refresh } = useDocsSession();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [keys, setKeys] = useState<Key[]>([]);
   const [keyId, setKeyId] = useState("");
+  const [disconnected, setDisconnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [keysLoading, setKeysLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,6 +66,7 @@ export default function WorkspaceKeyConnection({
     setWorkspaceId("");
     setKeys([]);
     setKeyId("");
+    setDisconnected(false);
     setError("");
     setLoading(false);
     if (!identity) return;
@@ -89,7 +95,20 @@ export default function WorkspaceKeyConnection({
       } while (after);
       if (!controller.signal.aborted) {
         setWorkspaces(rows);
-        if (rows.length === 1) setWorkspaceId(rows[0]!.id);
+        if (rows.length > 0) {
+          let storedId: string | null = null;
+          try {
+            storedId = window.localStorage.getItem("niu.active-workspace");
+          } catch {
+            /* Storage is optional. */
+          }
+          const operatorProjectId = session?.operator?.project_id;
+          const preferred =
+            rows.find((row) => row.id === operatorProjectId) ??
+            rows.find((row) => row.id === storedId) ??
+            rows[0];
+          if (preferred) setWorkspaceId(preferred.id);
+        }
       }
     })()
       .catch((failure) => {
@@ -113,8 +132,19 @@ export default function WorkspaceKeyConnection({
       controller.signal,
     )
       .then((page) => {
-        if (!controller.signal.aborted)
-          setKeys(page.data.filter((key) => !key.revoked && !key.expired));
+        if (!controller.signal.aborted) {
+          const active = page.data.filter((key) => !key.revoked && !key.expired);
+          setKeys(active);
+          if (active.length > 0) {
+            setKeyId((current) =>
+              disconnected
+                ? ""
+                : active.some((item) => item.id === current)
+                  ? current
+                  : active[0]!.id,
+            );
+          }
+        }
       })
       .catch((failure) => {
         if (!controller.signal.aborted) setError(failure.message);
@@ -138,143 +168,259 @@ export default function WorkspaceKeyConnection({
         : null,
     );
   }, [workspace, key, checking, sessionError, identity, onChange]);
-  if (checking) return <p role="status">Checking your login…</p>;
-  if (!session)
+
+  const distinctOrganizations =
+    new Set(workspaces.map((row) => row.organization_name)).size > 1;
+
+  if (checking) {
     return (
-      <div className="flex flex-col gap-3">
-        <p>
-          {sessionError ||
-            "Sign in to test requests with your own workspace. Your API key stays on the server."}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-xs text-muted-foreground">
+          Checking your login…
         </p>
-        <Button asChild>
-          <a href={docsLoginHref()}>Sign in to try the API</a>
-        </Button>
-        {sessionError && (
-          <Button variant="outline" onClick={refresh}>
-            Retry login check
-          </Button>
-        )}
       </div>
     );
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-0 flex flex-col gap-2">
-          <Label>Workspace</Label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                disabled={disabled || loading}
-                className="max-w-full"
-                aria-label="API test workspace"
-              >
-                <span className="truncate">
-                  {workspace
-                    ? displayName(workspace.name, "Unnamed workspace")
-                    : "Choose workspace"}
-                </span>
-                <IconChevronDown size={16} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              collisionPadding={8}
-              align="start"
-              className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"
-            >
-              <DropdownMenuRadioGroup
-                value={workspaceId}
-                onValueChange={setWorkspaceId}
-              >
-                {workspaces.map((row) => (
-                  <DropdownMenuRadioItem key={row.id} value={row.id}>
-                    <span className="break-words">
-                      {displayName(row.name, "Unnamed workspace")}
-                      <span className="block text-xs text-muted-foreground">
-                        {displayName(row.organization_name, "Company")} ·
-                        Created {new Date(row.created_at_ms).toLocaleString()}
-                      </span>
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+  }
+
+  if (!session) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {sessionError ||
+            description ||
+            "Sign in to test requests with your workspace key. Your API key secret stays on the server."}
+        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button asChild size="sm">
+            <a href={docsLoginHref()}>Sign in to try the API</a>
+          </Button>
+          {sessionError && (
+            <Button variant="outline" size="sm" onClick={refresh}>
+              Retry login check
+            </Button>
+          )}
         </div>
-        <div className="min-w-0 flex flex-col gap-2">
-          <Label>API key</Label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                disabled={disabled || !workspace || keysLoading}
-                className="max-w-full"
-                aria-label="API test key"
-              >
-                <span className="truncate">
-                  {key
-                    ? displayName(key.name, "Unnamed API key")
-                    : "Choose API key"}
-                </span>
-                <IconChevronDown size={16} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              collisionPadding={8}
-              align="start"
-              className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"
-            >
-              <DropdownMenuRadioGroup value={keyId} onValueChange={setKeyId}>
-                {keys.map((row) => (
-                  <DropdownMenuRadioItem key={row.id} value={row.id}>
-                    {displayName(row.name, "Unnamed API key")}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <Button
-          variant="ghost"
-          disabled={disabled || loading || keysLoading}
-          onClick={() => {
-            refresh();
-            setRevision((value) => value + 1);
-          }}
-        >
-          Refresh access
-        </Button>
       </div>
-      {(loading || keysLoading) && (
-        <p role="status">Loading your configuration…</p>
-      )}
-      {!loading && !workspaces.length && (
-        <p>
-          No accessible workspaces.{" "}
-          <a href="/workspaces/default/">Open dashboard</a> to configure access.
-        </p>
-      )}
-      {workspace && !keysLoading && !keys.length && (
-        <p>
-          No active API keys in this workspace.{" "}
-          <a
-            href={
-              "/workspaces/" +
-              encodeURIComponent(workspace.route_slug) +
-              "/keys/"
-            }
-          >
-            Manage keys
-          </a>
-          .
-        </p>
-      )}
-      {!session.permissions.write && (
-        <p>
-          Your role allows discovery only. Request execution requires workspace
-          write access.
-        </p>
-      )}
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">
+              Workspace
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled || loading || !workspaces.length}
+                  className="max-w-56 justify-between gap-2 font-normal"
+                  aria-label="API test workspace"
+                >
+                  <span className="truncate font-medium">
+                    {loading
+                      ? "Loading workspaces…"
+                      : workspace
+                        ? displayName(workspace.name, "Unnamed workspace")
+                        : workspaces.length
+                          ? "Choose workspace"
+                          : "No workspaces"}
+                  </span>
+                  <IconChevronDown size={14} className="text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                collisionPadding={8}
+                align="start"
+                className="max-h-72 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto"
+              >
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Workspaces
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={workspaceId}
+                  onValueChange={(nextId) => {
+                    setDisconnected(false);
+                    setWorkspaceId(nextId);
+                    try {
+                      window.localStorage.setItem(
+                        "niu.active-workspace",
+                        nextId,
+                      );
+                    } catch {
+                      /* Storage is optional. */
+                    }
+                  }}
+                >
+                  {workspaces.map((row) => {
+                    const wsName = displayName(row.name, "Unnamed workspace");
+                    const orgName = displayName(
+                      row.organization_name,
+                      "Organization",
+                    );
+                    return (
+                      <DropdownMenuRadioItem key={row.id} value={row.id}>
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="block truncate font-medium">
+                            {wsName}
+                          </span>
+                          {(distinctOrganizations || orgName !== wsName) && (
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {orgName}
+                            </span>
+                          )}
+                        </span>
+                      </DropdownMenuRadioItem>
+                    );
+                  })}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">
+              API key
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled || !workspace || keysLoading || !keys.length}
+                  className="max-w-56 justify-between gap-2 font-normal"
+                  aria-label="API test key"
+                >
+                  <IconKey size={14} className="text-muted-foreground" />
+                  <span className="truncate font-medium">
+                    {keysLoading
+                      ? "Loading keys…"
+                      : key
+                        ? displayName(key.name, "Unnamed API key")
+                        : keys.length
+                          ? "Choose API key"
+                          : "No active keys"}
+                  </span>
+                  <IconChevronDown size={14} className="text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                collisionPadding={8}
+                align="start"
+                className="max-h-72 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto"
+              >
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Active API keys
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={keyId}
+                  onValueChange={(nextKeyId) => {
+                    setDisconnected(false);
+                    setKeyId(nextKeyId);
+                  }}
+                >
+                  {keys.map((row) => (
+                    <DropdownMenuRadioItem key={row.id} value={row.id}>
+                      <span className="truncate">
+                        {displayName(row.name, "Unnamed API key")}
+                      </span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              disabled={disabled || loading || keysLoading}
+              onClick={() => {
+                refresh();
+                setRevision((value) => value + 1);
+              }}
+            >
+              <IconRefresh size={14} />
+              <span>Refresh access</span>
+            </Button>
+            {key && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                disabled={disabled}
+                onClick={() => {
+                  setDisconnected(true);
+                  setKeyId("");
+                }}
+              >
+                <IconUnlink size={14} />
+                <span>Disconnect reference</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {loading || keysLoading ? (
+            <span role="status">Loading your configuration…</span>
+          ) : !workspaces.length ? (
+            <span>
+              No accessible workspaces.{" "}
+              <a
+                href="/workspaces/default/"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Open dashboard
+              </a>{" "}
+              to configure access.
+            </span>
+          ) : workspace && !keys.length ? (
+            <span>
+              No active API keys in this workspace.{" "}
+              <a
+                href={
+                  "/workspaces/" +
+                  encodeURIComponent(workspace.route_slug) +
+                  "/keys/"
+                }
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Manage keys
+              </a>
+              .
+            </span>
+          ) : !session.permissions.write ? (
+            <Badge variant="outline">
+              Discovery only · write access required to execute requests
+            </Badge>
+          ) : key ? (
+            <>
+              <Badge variant="secondary" className="gap-1.5 font-normal">
+                <span
+                  className="inline-block size-2 shrink-0 rounded-full bg-emerald-500"
+                  aria-hidden="true"
+                />
+                Connected
+              </Badge>
+              {description && (
+                <span className="hidden xl:inline">{description}</span>
+              )}
+            </>
+          ) : (
+            description && <span>{description}</span>
+          )}
+        </div>
+      </div>
+
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>

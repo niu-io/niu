@@ -426,7 +426,7 @@ describe('gateway activity', () => {
     view.unmount();
     render(<MemoryRouter initialEntries={['/workspaces/demo/executions?columns=time,latency,invalid']}><GatewayActivity token="test" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
     expect(await screen.findByRole('columnheader',{name:'Time'})).toBeTruthy();
-    expect(screen.getByRole('columnheader',{name:'Latency'})).toBeTruthy();
+    expect(screen.getByRole('columnheader',{name:'Duration'})).toBeTruthy();
     expect(screen.queryByRole('columnheader',{name:'invalid'})).toBeNull();
     expect(screen.queryByRole('columnheader',{name:'Customer charge'})).toBeNull();
   });

@@ -93,7 +93,16 @@ export default function LiveApiConsole() {
     void client.models
       .list({ signal: controller.signal })
       .then((page) => {
-        if (!controller.signal.aborted) setModels(page.data);
+        if (!controller.signal.aborted) {
+          setModels(page.data);
+          if (page.data.length > 0) {
+            setModel((current) =>
+              page.data.some((item) => item.id === current)
+                ? current
+                : page.data[0]!.id,
+            );
+          }
+        }
       })
       .catch(() => {
         if (!controller.signal.aborted)
@@ -274,51 +283,76 @@ export default function LiveApiConsole() {
       {selection && (
         <>
           <div className="flex flex-col gap-2">
-            <Label>Model</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  aria-label="API test model"
-                  disabled={busy || loading}
-                  className="max-w-full"
-                >
-                  <span className="truncate">
-                    {displayName(model, "Choose model")}
-                  </span>
-                  <IconChevronDown size={16} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                collisionPadding={8}
-                align="start"
-                className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Model
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label="API test model"
+                      disabled={busy || loading || !models.length}
+                      className="max-w-64 justify-between gap-2 font-normal"
+                    >
+                      <span className="truncate font-medium">
+                        {loading
+                          ? "Loading models…"
+                          : displayName(model, "Choose model")}
+                      </span>
+                      <IconChevronDown
+                        size={14}
+                        className="text-muted-foreground"
+                      />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    collisionPadding={8}
+                    align="start"
+                    className="max-h-72 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto"
+                  >
+                    <DropdownMenuRadioGroup
+                      value={model}
+                      onValueChange={setModel}
+                    >
+                      {models.map((row) => (
+                        <DropdownMenuRadioItem key={row.id} value={row.id}>
+                          <span className="truncate">
+                            {displayName(row.id, "Model name unavailable")}
+                          </span>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                disabled={busy || loading}
+                onClick={() => setModelRevision((value) => value + 1)}
               >
-                <DropdownMenuRadioGroup value={model} onValueChange={setModel}>
-                  {models.map((row) => (
-                    <DropdownMenuRadioItem key={row.id} value={row.id}>
-                      {displayName(row.id, "Model name unavailable")}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {loading && <p role="status">Loading models…</p>}
-            {!loading && !models.length && !modelError && (
-              <p>No models are currently available to this key.</p>
-            )}
+                Refresh models
+              </Button>
+              {loading && (
+                <span role="status" className="text-xs text-muted-foreground">
+                  Loading models…
+                </span>
+              )}
+              {!loading && !models.length && !modelError && (
+                <span className="text-xs text-muted-foreground">
+                  No models are currently available to this key.
+                </span>
+              )}
+            </div>
             {modelError && (
               <Alert variant="destructive">
                 <AlertDescription>{modelError}</AlertDescription>
               </Alert>
             )}
-            <Button
-              variant="ghost"
-              disabled={busy || loading}
-              onClick={() => setModelRevision((value) => value + 1)}
-            >
-              Refresh models
-            </Button>
           </div>
           <p className="text-sm text-muted-foreground">
             Chat Completions · streaming · maximum 64 output tokens. Model

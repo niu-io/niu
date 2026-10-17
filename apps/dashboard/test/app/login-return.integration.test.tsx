@@ -6,7 +6,7 @@ import LoginRoute from '../../src/features/login/page';
 
 describe('sign-in destination restoration', () => {
   it.each([
-    ['/login?returnTo=%2Fmodels%3Fsearch%3Dflash%23pricing', null, '/models', '?search=flash', '#pricing'],
+    ['/login?returnTo=%2Fmodels%3Fworkspace%3Dresearch%26search%3Dflash%23pricing', null, '/models', '?workspace=research&search=flash', '#pricing'],
     ['/login?returnTo=%2Fmodels', { from: '/workspaces/research/keys?sort=activity' }, '/workspaces/research/keys', '?sort=activity', ''],
     ['/login?returnTo=%2F%2Fexample.invalid', null, '/workspaces/default/', '', ''],
     ['/login?returnTo=%2Flogin', null, '/workspaces/default/', '', ''],
@@ -28,5 +28,26 @@ describe('sign-in destination restoration', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(pathname));
     expect(router.state.location.search).toBe(search);
     expect(router.state.location.hash).toBe(hash);
+  });
+
+  it('redirects public /models returnTo outside the dashboard router', async () => {
+    const replace = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, origin: 'http://localhost', replace },
+    });
+    vi.stubGlobal('fetch', vi.fn(async input => {
+      const path = String(input);
+      return new Response(JSON.stringify(path === '/healthz' ? { status: 'ok' }
+        : path === '/api/v1/auth/config' ? { password_login: true }
+        : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
+        : { data: [] }));
+    }));
+    const router = createMemoryRouter([{ element: <AppLayout />, children: [
+      { path: '/login', element: <LoginRoute /> },
+      { path: '*', element: <p>Destination</p> },
+    ] }], { initialEntries: ['/login?returnTo=%2Fmodels%3Fsearch%3Dflash%23pricing'] });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/models?search=flash#pricing'));
   });
 });

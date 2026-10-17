@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceKeyConnection, { type DocsKeySelection } from '../../../../docs/src/components/live-api/WorkspaceKeyConnection';
 import { useNavigate } from 'react-router';
 import { ApiReferenceReact, type AnyApiReferenceConfiguration } from '@scalar/api-reference-react';
-import { Button } from '@/components/ui/button';
 import PublicHeader from '../../../../docs/src/components/PublicHeader';
 import '../../../../../branding/public-header.css';
 import '@scalar/api-reference-react/style.css';
@@ -12,7 +11,6 @@ import './api-reference.css';
 export default function ApiReference() {
   const navigate = useNavigate();
   const [selection, setSelection] = useState<DocsKeySelection | null>(null);
-  const [connectionRevision, setConnectionRevision] = useState(0);
   const selectedKey = useRef(selection); selectedKey.current = selection;
   const [mode, setMode] = useState<'dark' | 'light'>(() => document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   useEffect(() => {
@@ -63,7 +61,12 @@ export default function ApiReference() {
     navigate('/help/' + url.pathname.slice('/docs/'.length) + url.search + url.hash);
   }}>
     <PublicHeader path="/docs/api/rest/" brandSrc="" embedded />
-    <section className="space-y-3 px-4 py-4 sm:px-6" aria-label="Connect API reference"><p className="text-sm text-muted-foreground">Use your signed-in workspace key without revealing its secret. Requests can incur real charges. This connection applies to same-origin inference APIs only.</p><WorkspaceKeyConnection key={connectionRevision} onChange={setSelection}/>{selection && <Button variant="outline" onClick={() => { setSelection(null); setConnectionRevision(value => value + 1); }}>Disconnect reference</Button>}</section>
+    <section className="niu-api-connection-bar" aria-label="Connect API reference">
+      <WorkspaceKeyConnection
+        onChange={setSelection}
+        description="Same-origin inference APIs only · key secret stays on the server · requests can incur real charges"
+      />
+    </section>
     <div className="niu-api-reference" aria-label="Niu OpenAPI reference"><ApiReferenceReact configuration={configuration} /></div>
   </div>;
 }
