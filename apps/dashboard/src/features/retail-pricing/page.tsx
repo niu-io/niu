@@ -1,3 +1,4 @@
+import { PricingHealthNotice, type PricingHealth } from './pricing-health';
 import { useEffect, useRef, useState } from 'react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import PageHeader from '@/components/PageHeader';
@@ -25,7 +26,7 @@ export default function RetailPricingRoute() {
   return <Tabs defaultValue="standards" className="w-full"><TabsList variant="line"><TabsTrigger value="standards">Standard prices</TabsTrigger><TabsTrigger value="workspaces">Workspace tariffs</TabsTrigger></TabsList><TabsContent value="standards"><Standards key={token} token={token} /></TabsContent><TabsContent value="workspaces"><WorkspacePricing /></TabsContent></Tabs>;
 }
 function Standards({ token }: { token: string }) {
-  const [rows, setRows] = useState<RetailPriceRecord[]>([]), [cursor, setCursor] = useState<string | null>(null);
+  const [rows, setRows] = useState<(RetailPriceRecord & { pricing_health?: PricingHealth })[]>([]), [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState(''), [filter, setFilter] = useState('');
   const [failed, setFailed] = useState<string>(), [selected, setSelected] = useState<RetailPriceRecord | null>(null);
   const [editor, setEditor] = useState<{ kind: 'text' | 'media'; previous: RetailPriceRecord | null } | null>(null);
@@ -37,7 +38,7 @@ function Standards({ token }: { token: string }) {
     active.current?.abort(); const controller = new AbortController(); active.current = controller;
     setLoading(true); setError(''); setFailed(undefined);
     try {
-      const result = await request<{ data: RetailPriceRecord[]; next_after: string | null }>(token, base + '?limit=50' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
+      const result = await request<{ data: (RetailPriceRecord & { pricing_health?: PricingHealth })[]; next_after: string | null }>(token, base + '?limit=50' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
       if (!Array.isArray(result.data) || result.next_after === after) throw new Error('Price page did not advance. Refresh prices.');
       setRows(current => after ? [...current, ...result.data.filter(row => !current.some(item => item.price_id === row.price_id))] : result.data); setCursor(result.next_after);
@@ -51,7 +52,7 @@ function Standards({ token }: { token: string }) {
     {notice && <p role="status">{notice}</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failed)}>Retry prices</Button></AlertDescription></Alert>}
     {loading && !rows.length && <p role="status">Loading standard prices…</p>}
-    {!!rows.length && <Table aria-label="Platform standard selling prices"><TableHeader><TableRow>{['Model', 'Currency', 'Billing', 'Standard price', 'Published', 'Actions'].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="font-medium">{row.model_alias}</TableCell><TableCell>{row.currency}</TableCell><TableCell><Badge variant="outline">{row.schedule.kind === 'text' ? 'Text tokens' : row.schedule.meter}</Badge></TableCell><TableCell><SellingSchedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell className="whitespace-nowrap">{date(row.published_at)}</TableCell><TableCell><div className="flex gap-2"><Button variant="outline" disabled={loading || !!error} onClick={() => setSelected(row)}>Prices &amp; history</Button>{<Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: row.schedule.kind, previous: row })}>Revise standard</Button>}<Button variant="outline" disabled={loading || !!error} onClick={() => setManaged(row)}>Promotions</Button></div></TableCell></TableRow>)}</TableBody></Table>}
+    {!!rows.length && <Table aria-label="Platform standard selling prices"><TableHeader><TableRow>{['Model', 'Standard price', 'Price checks', 'Actions'].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="max-w-64 whitespace-normal"><p className="font-medium break-words">{row.model_alias}</p><p className="mt-1 text-xs text-muted-foreground">{row.currency} · {row.schedule.kind === 'text' ? 'Text tokens' : row.schedule.meter}</p><p className="mt-1 text-xs text-muted-foreground">Published {date(row.published_at)}</p></TableCell><TableCell className="whitespace-normal"><SellingSchedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell><div className="flex flex-col items-start gap-1"><Button variant="outline" disabled={loading || !!error} onClick={() => setSelected(row)}>Prices &amp; history</Button>{<Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: row.schedule.kind, previous: row })}>Revise standard</Button>}<Button variant="outline" disabled={loading || !!error} onClick={() => setManaged(row)}>Promotions</Button></div></TableCell></TableRow>)}</TableBody></Table>}
     {!loading && !error && !visible.length && <p>{rows.length ? 'No loaded prices match this filter.' : 'No platform standard prices have been published.'}</p>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>More prices</Button>}
     {editor?.kind === 'text' && <TextStandardEditor token={token} previous={editor.previous} onClose={() => { setEditor(null); void load(); }} onSaved={() => { setEditor(null); setNotice('Text standard price published. Refresh confirmed configuration before the next change.'); void load(); }} />}

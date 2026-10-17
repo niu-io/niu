@@ -11687,6 +11687,9 @@ Content type: `application/json`.
             ],
             "format": "uuid",
             "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+          },
+          "pricing_health": {
+            "$ref": "#/components/schemas/PlatformPricingHealth"
           }
         }
       }
@@ -12071,7 +12074,7 @@ HTTP 422: Malformed JSON or unsupported schedule shape
 
 `GET /api/v1/pricing/standard-prices`
 
-Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Provider costs. Internal references are API identifiers, never display names. Cache-Control: no-store.
+Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or numeric Provider costs; confidential relative cost diagnostics are platform-only. Internal references are API identifiers, never display names. Cache-Control: no-store.
 
 Implementation: `implemented`. Operation: `listRetailStandards`.
 
@@ -13141,6 +13144,9 @@ Content type: `application/json`.
               "within_period",
               "ended"
             ]
+          },
+          "pricing_health": {
+            "$ref": "#/components/schemas/PlatformPricingHealth"
           }
         }
       }
@@ -36645,6 +36651,78 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### PlatformPricingHealth
+
+```json
+{
+  "type": "object",
+  "description": "Confidential platform-only advisory comparison against current Provider quotes; not admission authorization or a realized margin. Refresh after publication.",
+  "required": [
+    "advisory",
+    "checks"
+  ],
+  "properties": {
+    "advisory": {
+      "type": "boolean"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "status",
+          "dimensions"
+        ],
+        "properties": {
+          "route": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "below_cost",
+              "missing_provider_price",
+              "comparison_unavailable",
+              "no_lower_unit_rates"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "dimension",
+                "minimum_input_tokens"
+              ],
+              "properties": {
+                "dimension": {
+                  "type": "string"
+                },
+                "minimum_input_tokens": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### ProviderCatalogModel
 
 ```json
@@ -37386,6 +37464,9 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "published_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "pricing_health": {
+      "$ref": "#/components/schemas/PlatformPricingHealth"
     }
   },
   "required": [

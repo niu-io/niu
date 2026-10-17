@@ -552,6 +552,9 @@ pub struct PreviewQuery {
 ///         "published_at": {
 ///           "type": "string",
 ///           "format": "date-time"
+///         },
+///         "pricing_health": {
+///           "$ref": "#/components/schemas/PlatformPricingHealth"
 ///         }
 ///       },
 ///       "required": [
@@ -702,6 +705,73 @@ pub struct PreviewQuery {
 ///           "pattern": "^[0-9]+$"
 ///         }
 ///       }
+///     },
+///     "PlatformPricingHealth": {
+///       "type": "object",
+///       "description": "Confidential platform-only advisory comparison against current Provider quotes; not admission authorization or a realized margin. Refresh after publication.",
+///       "required": [
+///         "advisory",
+///         "checks"
+///       ],
+///       "properties": {
+///         "advisory": {
+///           "type": "boolean"
+///         },
+///         "checks": {
+///           "type": "array",
+///           "items": {
+///             "type": "object",
+///             "required": [
+///               "status",
+///               "dimensions"
+///             ],
+///             "properties": {
+///               "route": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ]
+///               },
+///               "provider": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ]
+///               },
+///               "status": {
+///                 "type": "string",
+///                 "enum": [
+///                   "below_cost",
+///                   "missing_provider_price",
+///                   "comparison_unavailable",
+///                   "no_lower_unit_rates"
+///                 ]
+///               },
+///               "message": {
+///                 "type": "string"
+///               },
+///               "dimensions": {
+///                 "type": "array",
+///                 "items": {
+///                   "type": "object",
+///                   "required": [
+///                     "dimension",
+///                     "minimum_input_tokens"
+///                   ],
+///                   "properties": {
+///                     "dimension": {
+///                       "type": "string"
+///                     },
+///                     "minimum_input_tokens": {
+///                       "type": "string"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
 ///     }
 ///   }
 /// }
@@ -727,7 +797,7 @@ pub async fn publish_standard(
 ///   "operation": {
 ///     "operationId": "listRetailStandards",
 ///     "summary": "List current platform standard prices",
-///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current revision only, one database snapshot, UUID keyset order. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or Provider costs. Internal references are API identifiers, never display names. Cache-Control: no-store.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or numeric Provider costs; confidential relative cost diagnostics are platform-only. Internal references are API identifiers, never display names. Cache-Control: no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -809,11 +879,18 @@ pub async fn list(
     Query(query): Query<PricePage>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     actor(&state, &headers).await?;
-    let result = state
+    let mut result = state
         .store
         .platform_retail_prices(query.after, query.limit.unwrap_or(50))
         .await
         .map_err(ApiError::from_store)?;
+    if let Some(rows) = result["data"].as_array_mut() {
+        state
+            .store
+            .annotate_platform_pricing(rows)
+            .await
+            .map_err(ApiError::from_store)?;
+    }
     Ok(([("cache-control", "no-store")], Json(result)))
 }
 
@@ -1978,6 +2055,9 @@ pub async fn customers(
 ///                           "within_period",
 ///                           "ended"
 ///                         ]
+///                       },
+///                       "pricing_health": {
+///                         "$ref": "#/components/schemas/PlatformPricingHealth"
 ///                       }
 ///                     }
 ///                   }
@@ -2028,10 +2108,29 @@ pub async fn promotions(
             "Choose a positive cursor and a page size from 1 to 100",
         ));
     }
-    let result = state
+    let mut result = state
         .store
         .platform_retail_promotions(price, before, limit)
         .await
         .map_err(ApiError::from_store)?;
+    let alias = result["model_alias"].clone();
+    let currency = result["currency"].clone();
+    if let Some(rows) = result["data"].as_array_mut() {
+        for row in rows.iter_mut() {
+            row["model_alias"] = alias.clone();
+            row["currency"] = currency.clone();
+        }
+        state
+            .store
+            .annotate_platform_pricing(rows)
+            .await
+            .map_err(ApiError::from_store)?;
+        for row in rows {
+            if let Some(object) = row.as_object_mut() {
+                object.remove("model_alias");
+                object.remove("currency");
+            }
+        }
+    }
     Ok(([("cache-control", "no-store")], Json(result)))
 }

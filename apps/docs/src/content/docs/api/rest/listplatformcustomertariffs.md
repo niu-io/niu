@@ -238,6 +238,73 @@ Content type: `application/json`.
             ],
             "format": "uuid",
             "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+          },
+          "pricing_health": {
+            "type": "object",
+            "description": "Confidential platform-only advisory comparison against current Provider quotes; not admission authorization or a realized margin. Refresh after publication.",
+            "required": [
+              "advisory",
+              "checks"
+            ],
+            "properties": {
+              "advisory": {
+                "type": "boolean"
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "dimensions"
+                  ],
+                  "properties": {
+                    "route": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "provider": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "below_cost",
+                        "missing_provider_price",
+                        "comparison_unavailable",
+                        "no_lower_unit_rates"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "dimensions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "dimension",
+                          "minimum_input_tokens"
+                        ],
+                        "properties": {
+                          "dimension": {
+                            "type": "string"
+                          },
+                          "minimum_input_tokens": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

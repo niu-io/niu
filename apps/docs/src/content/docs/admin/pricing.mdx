@@ -111,3 +111,45 @@ Account actions include Set credit, Grant noncash balance and Noncash grants. En
 Use [prepareCustomerBalanceGrant](/docs/api/rest/preparecustomerbalancegrant/) before publication to save the amount, reason, currency, application policy and original idempotency key. Preparation adds no funds or revenue. Saved intent is available through its exact-key read and paged history after refreshing or changing browsers. Publish the saved exact input through `grantCustomerBalance`; changing a prepared amount, reason, currency or policy conflicts. Never choose another key because a publication response was lost. `prepared` means no matching grant in the read snapshot, not proof that a request still in flight failed. `issued` returns the original allocation, not current spendable balance. Nothing publishes automatically. Preparation and issuance have distinct authenticated audit records. The browser form rechecks saved state when resuming an intent. If an outcome is unconfirmed, use Check saved status or retry the same saved grant; do not create another grant to replace a missing response. Closing the dialog leaves prepared intent available in the backend list.
 
 The posting summary reports `corrected_unused_gifts_nanos` separately from gross `issued_gifts_nanos`. Financial statements show each as its own noncash memorandum row. Correction is excluded from verified cash receipts, consumption refunds and recognized revenue. Platform Audit logs retain its administrator and named company/currency target.
+
+## Pricing checks before dispatch
+
+Shared text routes require an explicit Provider cost bound and an applicable
+customer selling tariff. Missing configuration returns `service_not_ready`
+before upstream dispatch; a missing selling tariff rolls back admission without
+a reservation or charge. An explicitly configured zero price remains valid.
+Personal routes funded by the customer's own API key retain their separate
+owner-funded behavior. Media admission continues to require its applicable
+customer and Provider rate-card snapshots and liability qualification.
+
+Platform **Customer pricing** shows **Price checks** for standard prices,
+workspace tariffs and promotion schedules. **Below Provider cost** identifies
+lower input, output, cache read/write or reasoning unit rates, including context
+thresholds from either schedule. It is advisory: intentionally discounted prices
+can still be published. Fixed request fees, minimum charges and usage mix mean a
+lower unit rate is not proof that every request loses money. Standard-price
+checks do not replace checks of an applicable promotion or workspace tariff.
+
+Matching media currencies, meters, dimensions, minimum quantities and rounding
+can be compared using exact rational unit prices. Provider discounts or
+incompatible/missing dimensions produce **Comparison unavailable**. No exchange
+rate, absent price or missing category is invented. **No lower unit rates** is
+not a supply-readiness or profitability guarantee. These comparisons use current
+Provider configuration and must be refreshed after edits; they do not authorize
+dispatch or reprice existing requests. Relative cost diagnostics, like purchase
+amounts, are restricted to platform administration.
+
+## Price changes during a request
+
+The billing boundary is admission, not completion time. Customer selling prices
+and applicable Provider purchase terms are stored as immutable revisions bound
+to the admitted attempt. Settlement and delayed usage reconciliation use those
+bindings, even if a new price is published while generation is running. New
+operations admitted after publication select the newly applicable schedule.
+
+Retries within an operation preserve its original customer selling revision;
+each selected upstream attempt binds its own Provider terms. A changed route or
+quote during admission must be revalidated or rejected before sending upstream,
+not silently mixed with an earlier bound. Asynchronous media jobs retain their
+saved customer and Provider pricing snapshots through recovery. Publishing,
+retiring or expiring a promotion does not retroactively change an admitted job.

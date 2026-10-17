@@ -69,6 +69,18 @@ impl Store {
         )
         .await?;
         Self::bind_customer_tariff_in_tx(&mut tx, scope, attempt, &admission.model).await?;
+        // A commercial request cannot dispatch without a pinned selling price.
+        // Check inside the admission transaction so rejection rolls back all
+        // attempt bindings and never reserves funds or records dispatch intent.
+        let selling_price_bound: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM customer_attempt_tariffs WHERE attempt_id=$1)",
+        )
+        .bind(attempt)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !selling_price_bound {
+            return Err(StoreError::ProcurementUnavailable);
+        }
         Self::bind_provider_offer_in_tx(
             &mut tx,
             scope,

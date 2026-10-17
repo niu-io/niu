@@ -338,6 +338,9 @@ pub async fn targets(
 ///                         ],
 ///                         "format": "uuid",
 ///                         "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+///                       },
+///                       "pricing_health": {
+///                         "$ref": "#/components/schemas/PlatformPricingHealth"
 ///                       }
 ///                     }
 ///                   }
@@ -382,7 +385,7 @@ pub async fn tariffs(
     Query(page): Query<TariffPage>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     state.authorize_platform_headers(&headers).await?;
-    let data = state
+    let mut data = state
         .store
         .platform_customer_tariffs(
             TenantScope {
@@ -395,6 +398,13 @@ pub async fn tariffs(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    if let Some(rows) = data["data"].as_array_mut() {
+        state
+            .store
+            .annotate_platform_pricing(rows)
+            .await
+            .map_err(ApiError::from_store)?;
+    }
     Ok(([("cache-control", "no-store")], Json(data)))
 }
 

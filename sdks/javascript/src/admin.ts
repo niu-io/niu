@@ -1060,7 +1060,17 @@ export type RetailPromotionPublication = {
   effective_from: string; effective_until: string; expected_version: string; idempotency_key: string; reason: string;
 };
 export type RetailPromotionRetirement = { effective_until: string; expected_version: string; idempotency_key: string; reason: string };
-export type RetailPriceRecord = RetailPublicationResult & { model_alias: string; currency: string; schedule: RetailSchedule; published_at: string };
+/** Confidential platform-only advice; never a realized margin or dispatch authorization. */
+export type PlatformPricingHealth = {
+  advisory: boolean;
+  checks: Array<{
+    route?: string | null; provider?: string | null;
+    status: 'below_cost' | 'missing_provider_price' | 'comparison_unavailable' | 'no_lower_unit_rates';
+    message?: string;
+    dimensions: Array<{ dimension: string; minimum_input_tokens: string }>;
+  }>;
+};
+export type RetailPriceRecord = RetailPublicationResult & { model_alias: string; currency: string; schedule: RetailSchedule; published_at: string; pricing_health?: PlatformPricingHealth };
 /** Advice only; request admission must select and pin again under its transaction. */
 export type RetailSelection = {
   price_id: string; model_alias: string; currency: string; version: string; current_standard_revision: string;
@@ -1087,7 +1097,7 @@ export type RetailPromotionPage = {
     original_schedule: RetailSchedule; schedule: RetailSchedule; scope: 'global' | 'customer';
     customer_organization_id: string | null; customer_name: string | null; customer_created_at: string | null;
     effective_from: string; effective_until: string; retirement_effective_until: string | null; eligibility_until: string;
-    state: 'scheduled' | 'within_period' | 'ended';
+    state: 'scheduled' | 'within_period' | 'ended'; pricing_health?: PlatformPricingHealth;
   }>;
 };
 
@@ -2056,7 +2066,7 @@ export class NiuAdminClient {
   }
 
   /** Current selling prices only; pass next_after unchanged to continue. */
-  listPlatformCustomerTariffs(scope: TenantScope, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: (CustomerTariff & { created_at: string })[]; next_after: string | null }> {
+  listPlatformCustomerTariffs(scope: TenantScope, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: (CustomerTariff & { created_at: string; pricing_health?: PlatformPricingHealth })[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.after !== undefined) {
       if (!page.after || [...page.after].length > 200) throw new TypeError('Invalid tariff cursor');

@@ -1358,6 +1358,7 @@ listPlatformCustomerTariffs(scope: TenantScope, page?: {
 }, options?: RequestOptions): Promise<{
     data: (CustomerTariff & {
         created_at: string;
+        pricing_health?: PlatformPricingHealth;
     })[];
     next_after: string | null;
 }>;

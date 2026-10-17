@@ -21,6 +21,12 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCap
   </TableBody>
 </Table>
 
+## Performance benchmark
+
+The [published Niu / New API / LiteLLM Proxy benchmark](/docs/guides/gateway-benchmarks/) covers throughput and tail latency, native Anthropic requests, SSE streaming, simulated multi-turn coding sessions, and memory. It records Niu v0.2.4, New API 45fbb14 and LiteLLM Proxy v1.104.0 on Apple M4 with PostgreSQL 17.11 and a deterministic zero-delay mock upstream. OpenRouter was not included.
+
+These historical synthetic measurements are unverified for the current release and do not establish current end-to-end performance or production capacity. Read the [configuration, full measurement tables and reproduction steps](https://github.com/niu-io/niu/blob/main/docs/reference/gateway-performance-benchmark.md) alongside the results; the gateways used different database logging configurations and PostgreSQL synchronous commit was disabled.
+
 ## Explore the comparisons
 
 ### [Niu vs New API](/docs/compare/new-api/)

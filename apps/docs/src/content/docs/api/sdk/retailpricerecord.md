@@ -14,5 +14,6 @@ export type RetailPriceRecord = RetailPublicationResult & {
     currency: string;
     schedule: RetailSchedule;
     published_at: string;
+    pricing_health?: PlatformPricingHealth;
 };
 ```

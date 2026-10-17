@@ -1,8 +1,9 @@
+import type { PricingHealth } from '@/features/retail-pricing/pricing-health';
 import { request, writeMayHaveCommitted, type Vendor, type VendorModel } from '@/features/vendors/api';
 import type { CustomerTariffHistory, CustomerTariffInput, CustomerTariff } from '../../../../../sdks/javascript/src/admin';
 
 export type PricingTarget = { organization_id: string; organization_name: string; workspace_id: string; workspace_name: string };
-export type CurrentTariff = CustomerTariff & { created_at: string };
+export type CurrentTariff = CustomerTariff & { created_at: string; pricing_health?: PricingHealth };
 export type PricingPage<T> = { data: T[]; next_after: string | null };
 export class PublicationUnconfirmedError extends Error {}
 const maximum = 9_223_372_036_854_775_807n;

@@ -37,6 +37,7 @@ export type RetailPromotionPage = {
         retirement_effective_until: string | null;
         eligibility_until: string;
         state: 'scheduled' | 'within_period' | 'ended';
+        pricing_health?: PlatformPricingHealth;
     }>;
 };
 ```

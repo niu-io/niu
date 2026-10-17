@@ -200,6 +200,7 @@ mod key_spending;
 mod key_token_rate;
 mod ledger_history;
 mod platform_pricing;
+mod pricing_health;
 mod provider_offer_history;
 mod provider_settlement_history;
 pub use ledger_history::LedgerHistoryQuery;

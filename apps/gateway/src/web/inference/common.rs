@@ -550,23 +550,15 @@ pub(super) async fn begin_retry_attempt(
         request_body,
         protocol,
     } = request;
-    if retry.is_some() && personal_route.is_none() && model.pricing.is_none() {
-        return Err(ApiError::unavailable());
+    // Every shared route needs an explicit cost bound, including first attempts
+    // and non-prepaid workspaces. Personal credentials remain owner-funded.
+    if personal_route.is_none() && model.pricing.is_none() {
+        return Err(ApiError::from_store(
+            niu_storage::StoreError::ProcurementUnavailable,
+        ));
     }
     let token_bound = request_token_bound(request_body, &protocol);
     let scope = principal.scope();
-    if personal_route.is_none()
-        && model.pricing.is_none()
-        && state
-            .store
-            .customer_balance_enabled(scope.organization_id)
-            .await
-            .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::invalid_request(
-            "This model has no qualified cost bound for prepaid billing. Choose a priced model.",
-        ));
-    }
     let retained_input = [&snapshot.workspace_policy, &snapshot.key_policy]
         .into_iter()
         .flatten()
