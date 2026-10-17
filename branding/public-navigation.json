@@ -1,6 +1,22 @@
 [
-  { "label": "Docs", "href": "/docs/" },
-  { "label": "API", "href": "/docs/api/rest/" },
-  { "label": "SDK", "href": "/docs/api/sdk/" },
-  { "label": "Compare", "href": "/compare/" }
+  {
+    "label": "Why Niu?",
+    "href": "https://niu.io/blog/why-niu/"
+  },
+  {
+    "label": "Docs",
+    "href": "/docs/"
+  },
+  {
+    "label": "API",
+    "href": "/docs/api/rest/"
+  },
+  {
+    "label": "SDK",
+    "href": "/docs/api/sdk/"
+  },
+  {
+    "label": "Compare",
+    "href": "/compare/"
+  }
 ]

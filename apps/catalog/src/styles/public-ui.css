@@ -1,5 +1,6 @@
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
 @source '../../../dashboard/src/components/ui/button.tsx';
 @source '../../../dashboard/src/components/ui/dropdown-menu.tsx';
@@ -15,3 +16,11 @@
 }
 
 @source '../../../docs/src/components/PublicHeader.tsx';
+
+@source '../../../dashboard/src/components/ui/input.tsx';
+@source '../../../dashboard/src/components/ui/badge.tsx';
+@source '../components/PublicModelCatalog.tsx';
+@theme inline {
+ --color-input:var(--input); --color-primary:var(--primary); --color-primary-foreground:var(--primary-foreground);
+ --color-secondary:var(--secondary); --color-secondary-foreground:var(--secondary-foreground); --color-muted:var(--muted);
+}

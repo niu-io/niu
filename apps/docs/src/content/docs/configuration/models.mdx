@@ -9,6 +9,8 @@ The current development configuration is TOML. The example file is [`config/niu.
 
 Set `public_catalog = true` on a route to publish its alias, declared capabilities and descriptive model metadata at `/models/` and `GET /catalog/v1/models`. This is an explicit public disclosure. The catalog omits provider names, upstream model identifiers, endpoints, credentials and pricing. Routes default to hidden.
 
+The public model directory filters published aliases by alias, display name, input/output modality, and declared API capability. Entries show available descriptions, context and output limits, and links to the supported protocol references. Missing metadata is omitted rather than estimated. Public discovery does not grant workspace access or establish live Provider verification; workspace keys and customer prices remain separate.
+
 ```toml
 [models.fast]
 provider = "openrouter"

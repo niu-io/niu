@@ -190,108 +190,36 @@ summary:focus-visible {
   margin-bottom: 16px;
 }
 .catalog-main h1 {
+  font-weight: 600;
   margin-bottom: 18px;
-  font-size: clamp(42px, 5vw, 62px);
+  font-size: 32px;
   line-height: 1.04;
   letter-spacing: -0.05em;
 }
 .catalog-lede {
   max-width: 620px;
-  margin-bottom: 38px;
+  margin-bottom: 24px;
   font-size: 16px;
 }
-.catalog-surface {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--card);
-}
-.catalog-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 88px;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border);
-}
-.catalog-kicker,
-.catalog-count {
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-.catalog-heading h2 {
-  margin: 6px 0 0;
-  font-size: 20px;
-  font-weight: 570;
-}
-.catalog-table-wrap {
-  overflow-x: auto;
-}
-.catalog-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-.catalog-table th,
-.catalog-table td {
-  padding: 17px 24px;
-  border-bottom: 1px solid var(--border);
-}
-.catalog-table thead th {
-  color: var(--muted-foreground);
-  font-size: 13px;
-  font-weight: 520;
-}
-.catalog-table tbody th {
-  color: var(--foreground);
-  font-size: 14px;
-  font-weight: 580;
-}
-.catalog-table tbody td {
-  color: var(--secondary-foreground);
-  font-size: 13px;
-}
-.catalog-table tbody tr:last-child th,
-.catalog-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-.catalog-empty {
-  padding-block: 34px !important;
-  color: var(--muted-foreground) !important;
-}
-.capability-list {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-}
-.catalog-capability {
-  padding: 5px 8px;
-  border: 1px solid color-mix(in oklab, var(--pasture) 32%, transparent);
-  border-radius: 6px;
-  color: color-mix(in oklab, var(--pasture) 72%, var(--foreground));
-  font-size: 12px;
-  white-space: nowrap;
-}
-.catalog-action {
-  text-align: right;
-  white-space: nowrap;
-}
-.catalog-action a,
-.catalog-help a {
-  color: var(--brand-ink);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in oklab, var(--brand-ink) 42%, transparent);
-  text-underline-offset: 4px;
-}
-.catalog-footnote {
-  margin: 0;
-  padding: 16px 24px;
-  border-top: 1px solid var(--border);
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
+.catalog-browser { margin-bottom: 28px; }
+.catalog-toolbar { display: flex; align-items: center; gap: 12px; }
+.catalog-filter { position: relative; flex: 1; }
+.catalog-filter > svg { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
+.catalog-filter [data-slot="input"] { padding-left: 38px; }
+.catalog-result-count { margin: 18px 0; font-size: 14px; color: var(--muted-foreground); }
+.catalog-model { padding: 24px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.catalog-model h2 { font-weight: 600; font-size: 20px; line-height: 1.4; letter-spacing: -.02em; }
+.catalog-model-alias, .catalog-model-limits, .catalog-streaming { color: var(--muted-foreground); font-size: 13px; }
+.catalog-model-alias { margin-top: 3px; }
+.catalog-description { margin-top: 12px; white-space: pre-line; }
+.catalog-description-preview { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.catalog-description-toggle { padding: 0; height: auto; margin-top: 6px; font-size: 13px; }
+.catalog-model-modalities { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.catalog-model-footer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; }
+.catalog-model-guides { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; }
+.catalog-model-guides a, .catalog-help a { text-decoration: underline; text-underline-offset: 3px; }
+.catalog-streaming { margin-top: 6px; }
+.catalog-footnote { margin-top: 24px; font-size: 13px; }
 .catalog-help {
   margin-top: 20px;
   font-size: 14px;
@@ -317,10 +245,6 @@ summary:focus-visible {
   .nav-workspace, .menu-toggle { display: none; }
   .footer { align-items: flex-start; flex-direction: column; }
   .catalog-main { padding: 34px 0 56px; }
-  .catalog-main h1 { font-size: clamp(40px, 10vw, 52px); }
-  .catalog-table th, .catalog-table td { padding: 14px; }
-}
-@media (max-width: 420px) {
-  .catalog-action { display: none; }
-  .catalog-table tbody th { min-width: 114px; }
+  .catalog-main h1 { font-size: 28px; }
+
 }
