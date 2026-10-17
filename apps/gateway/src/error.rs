@@ -208,12 +208,23 @@ impl ApiError {
                 kind: "conflict_error",
                 message: "The record is unavailable or its state changed",
             },
-            _ => Self {
-                failure: None,
-                status: StatusCode::SERVICE_UNAVAILABLE,
-                kind: "storage_error",
-                message: "Durable storage is unavailable",
-            },
+            error => {
+                if let Some(diagnostic) = error.database_diagnostic() {
+                    tracing::error!(
+                        database_error_category = diagnostic.category,
+                        sqlstate = diagnostic.sqlstate.as_deref().unwrap_or("unavailable"),
+                        "Durable storage operation failed"
+                    );
+                } else {
+                    tracing::error!("Durable storage operation failed without a database cause");
+                }
+                Self {
+                    failure: None,
+                    status: StatusCode::SERVICE_UNAVAILABLE,
+                    kind: "storage_error",
+                    message: "Durable storage is unavailable",
+                }
+            }
         }
     }
 

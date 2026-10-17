@@ -486,6 +486,45 @@ pub enum StoreError {
     InvalidGatewayAdmissionBatch,
 }
 
+/// Safe operational metadata. Never includes SQL, bound values, server messages,
+/// connection strings or row contents.
+pub struct DatabaseDiagnostic {
+    pub category: &'static str,
+    pub sqlstate: Option<String>,
+}
+
+impl StoreError {
+    pub fn database_diagnostic(&self) -> Option<DatabaseDiagnostic> {
+        let Self::Database(error) = self else {
+            return None;
+        };
+        let category = match error {
+            sqlx::Error::Database(_) => "database",
+            sqlx::Error::PoolTimedOut => "pool_timeout",
+            sqlx::Error::PoolClosed => "pool_closed",
+            sqlx::Error::Io(_) => "io",
+            sqlx::Error::Tls(_) => "tls",
+            sqlx::Error::Protocol(_) => "protocol",
+            sqlx::Error::RowNotFound => "row_not_found",
+            sqlx::Error::ColumnNotFound(_) | sqlx::Error::ColumnIndexOutOfBounds { .. } => "column",
+            sqlx::Error::ColumnDecode { .. } | sqlx::Error::Decode(_) => "decode",
+            sqlx::Error::Configuration(_) => "configuration",
+            _ => "driver",
+        };
+        let sqlstate = error
+            .as_database_error()
+            .and_then(|error| error.code())
+            .filter(|code| {
+                code.len() == 5
+                    && code
+                        .bytes()
+                        .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+            })
+            .map(|code| code.into_owned());
+        Some(DatabaseDiagnostic { category, sqlstate })
+    }
+}
+
 impl Store {
     pub async fn connect(url: &str) -> Result<Self, StoreError> {
         Self::connect_with_max_connections(url, 32).await
