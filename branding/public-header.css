@@ -15,8 +15,9 @@
 .docs-header-tools site-search button > :not(svg) { display:none; }
 @media(max-width:49.999rem) {
  .public-header { padding:.75rem 1rem; }
+ .public-header .docs-header { gap:.75rem; }
  .public-header .docs-header nav, .public-header .docs-header-tools { display:none; }
- .public-mobile-menu { display:block; }
+ .public-mobile-menu { display:block; margin-inline-start:0; }
 }
 .docs-header nav a { line-height:1.5; }
 @layer base {

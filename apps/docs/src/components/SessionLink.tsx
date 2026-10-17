@@ -1,3 +1,4 @@
+import { IconLayoutDashboard } from "@tabler/icons-react";
 import { Button } from "../../../dashboard/src/components/ui/button";
 import { docsLoginHref, useDocsSession } from "./live-api/session";
 
@@ -17,13 +18,9 @@ export default function SessionLink() {
       </Button>
     );
   return (
-    <Button
-      asChild
-      variant="ghost"
-      size="sm"
-      className="text-foreground no-underline"
-    >
+    <Button asChild size="sm" className="public-session-action no-underline">
       <a href={session ? "/workspaces/default/" : docsLoginHref()}>
+        {session && <IconLayoutDashboard aria-hidden="true" />}
         {session ? "Dashboard" : "Sign in"}
       </a>
     </Button>
