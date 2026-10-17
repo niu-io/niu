@@ -12,9 +12,23 @@ const links = navigation;
   <a class="docs-brand" href="/" aria-label="Niu home"><img src={brandMark.src} alt="" width="28" height="28" /><span class="docs-public-name">Niu</span><span class="docs-embedded-name">Niu Documentation</span></a>
   <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={section === label ? 'page' : undefined}>{label}</a>)}</nav>
   <div class="public-session"><SessionLink client:load /></div>
-  <div class="docs-header-tools"><Search /><ThemeSelect /></div>
+  <div class="docs-header-tools">
+    <!-- Starlight initializes search on DOMContentLoaded. Keep that instance
+         across ClientRouter swaps, including navigation inside dashboard Help. -->
+    <div class="contents" data-docs-search transition:persist="docs-search"><Search /></div>
+    <ThemeSelect />
+  </div>
 </div>
 <script>
+  import type { TransitionBeforeSwapEvent } from 'astro:transitions/client';
+
+  document.addEventListener('astro:before-swap', (event: TransitionBeforeSwapEvent) => {
+    // Astro inserts the incoming tree before moving persisted elements. Do not
+    // briefly upgrade a discarded site-search: its global shortcut has no teardown.
+    if (document.querySelector('[data-docs-search]')) {
+      event.newDocument.querySelector('[data-docs-search]')?.replaceChildren();
+    }
+  });
   document.addEventListener('astro:page-load', () => {
     const url = new URL(location.href);
     if (url.searchParams.get('search') !== '1') return;
