@@ -22,6 +22,16 @@ pub fn router() -> Router<AppState> {
     from_directories(site_dir.as_deref(), &catalog_dir, &docs_dir, &dashboard_dir)
 }
 
+// Canonicalize public directory entries without losing filters or login return context.
+async fn canonical_public_root(uri: axum::http::Uri) -> Redirect {
+    let mut destination = format!("{}/", uri.path());
+    if let Some(query) = uri.query() {
+        destination.push('?');
+        destination.push_str(query);
+    }
+    Redirect::permanent(&destination)
+}
+
 fn from_directories<S: Clone + Send + Sync + 'static>(
     site_dir: Option<&str>,
     catalog_dir: &str,
@@ -121,6 +131,10 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                         Ok(response) => response.into_response(),
                         Err(never) => match never {},
                     }
+                } else if path == "/models" {
+                    canonical_public_root(request.uri().clone())
+                        .await
+                        .into_response()
                 } else {
                     next.run(request).await
                 }
@@ -132,6 +146,8 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     // it must not capture product routes, API failures, or workspace deep links.
     let app = match site_dir {
         Some(directory) => app
+            .route("/blog", get(canonical_public_root))
+            .route("/compare", get(canonical_public_root))
             .route(
                 "/docs/compare/",
                 get(|| async { Redirect::permanent("/compare/") }),

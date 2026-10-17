@@ -52,8 +52,10 @@ export default function LoginRoute() {
   useEffect(() => {
     if (context.token) {
       // Public pages are served as static artifacts; leave the dashboard router after login.
-      const publicPath = new URL(returnTo, window.location.origin).pathname;
-      if (publicPath === '/' || /^\/(?:docs|blog|compare)(?:\/|$)/.test(publicPath)) window.location.replace(returnTo);
+      const destination = new URL(returnTo, window.location.origin);
+      const publicPath = destination.pathname;
+      const publicModels = /^\/models\/?$/.test(publicPath) && !destination.searchParams.get('workspace');
+      if (publicModels || publicPath === '/' || /^\/(?:docs|blog|compare)(?:\/|$)/.test(publicPath)) window.location.replace(returnTo);
       else navigate(returnTo, { replace: true });
     }
   }, [context.token, navigate, returnTo]);
