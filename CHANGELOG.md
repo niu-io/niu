@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-10-17
+
+### Fixed
+
+- Keep all nine Provider commercial position columns within printed financial statements, wrap long content and pending labels, and preserve complete rows across pages. Screen tables retain their existing scrolling layout.
+
+### Verification boundary
+
+- Actual current-data browser exports cover active model rows and all configured models at A4 size. Every rendered page is inspected; independent PDF column geometry checks retain complete model names, headers and pending states without text beyond page width.
+- This verifies the browser print stylesheet and resulting PDF artifacts. The native operating-system print dialog and complete platform acceptance remain unverified.
+
 ## [0.2.11] - 2026-10-17
 
 ### Fixed
@@ -205,7 +216,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.11...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.12...HEAD
+[0.2.12]: https://github.com/niu-io/niu/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/niu-io/niu/compare/v0.2.10...v0.2.11
 [0.2.8]: https://github.com/niu-io/niu/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/niu-io/niu/compare/v0.2.6...v0.2.7
