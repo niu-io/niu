@@ -2367,7 +2367,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .provider-admin-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 20px 0 28px; }
 .provider-admin-panel h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
 .provider-admin-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px 12px; }
-.provider-admin-section-heading > span { color: var(--muted-foreground); font-size: 14px; }
+.provider-admin-section-heading > span:not([data-slot="badge"]) { color: var(--muted-foreground); font-size: 14px; }
 .provider-admin-panel > h2 { margin: 20px 24px 12px; }
 .provider-balance-list { padding: 0 24px; }
 .provider-balance-list > .provider-admin-section-heading { margin: 0 -24px; }

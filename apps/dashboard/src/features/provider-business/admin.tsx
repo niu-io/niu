@@ -570,7 +570,7 @@ function Administration({ token }: { token: string }) {
           {(section === "overview" || section === "models") && <>
           <div className={section === "models" ? "supplier-qualification-strip" : "provider-admin-block"}>
             <div className="provider-admin-section-heading">
-              <h2>{section === "models" ? "Supply readiness" : "Provider qualification"}</h2>
+              <h2>Provider qualification</h2>
               <Badge variant={supplierQualified ? "default" : "secondary"}>
                 {supplierQualified ? "Qualified" : "Qualification required"}
               </Badge>
