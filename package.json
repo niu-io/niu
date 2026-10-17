@@ -1,6 +1,6 @@
 {
   "name": "@niu-io/workspace",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "scripts": {

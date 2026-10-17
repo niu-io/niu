@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-10-17
+
+### Fixed
+
+- Keep documentation search initialized across article navigation and prevent discarded search elements from leaving global keyboard shortcuts behind.
+
+### Verification boundary
+
+- Actual built-page browser checks cover article navigation, search results, result navigation and keyboard reopening at desktop and narrow widths. Hosted Help is checked after deployment; this patch does not establish complete platform acceptance.
+
 ## [0.2.8] - 2026-10-17
 
 ### Security
