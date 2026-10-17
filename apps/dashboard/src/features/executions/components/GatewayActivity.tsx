@@ -773,7 +773,9 @@ export default function GatewayActivity({ token, models, initialScope, compact =
             <div><span>Output tokens</span><strong className="break-all">{selectedRequest.completion_tokens == null ? '—' : BigInt(selectedRequest.completion_tokens).toLocaleString()}</strong><small className="text-xs text-muted-foreground">Reasoning: {selectedRequest.reasoning_output_tokens == null ? 'Unknown' : BigInt(selectedRequest.reasoning_output_tokens).toLocaleString()}</small></div>
             </>}
           </div>
-          {selectedRequest.request_kind === 'video' ? <div className="grid justify-items-start gap-2"><p className="text-sm text-muted-foreground">Video generation is asynchronous. Inspect saved status, lifecycle timing and the original charge in Video.</p><Button asChild variant="outline"><Link to={`/generations?${new URLSearchParams({workspace:location.pathname.match(/^\/workspaces\/([^/]+)/)?.[1] ?? project,job:selectedRequest.attempt_id,...(selectedRequest.api_key_id ? {key:selectedRequest.api_key_id}:{})})}`}>Open video result</Link></Button></div> : <RequestTiming timing={selectedRequest.timing} outputTokens={selectedRequest.completion_tokens} />}
+          {/* Admission refusals are request records, not saved video jobs. */}
+          {selectedRequest.request_kind === 'video' && !selectedRequest.admission_denial && <div className="grid justify-items-start gap-2"><p className="text-sm text-muted-foreground">Video generation is asynchronous. Inspect saved status, lifecycle timing and the original charge in Video.</p><Button asChild variant="outline"><Link to={`/generations?${new URLSearchParams({workspace:location.pathname.match(/^\/workspaces\/([^/]+)/)?.[1] ?? project,job:selectedRequest.attempt_id,...(selectedRequest.api_key_id ? {key:selectedRequest.api_key_id}:{})})}`}>Open video result</Link></Button></div>}
+          {selectedRequest.request_kind !== 'video' && <RequestTiming timing={selectedRequest.timing} outputTokens={selectedRequest.completion_tokens} />}
           <RequestGuardrails
             key={`${token}:${organization}:${project}:${selectedRequest.attempt_id}`}
             token={token}
