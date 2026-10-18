@@ -172,13 +172,23 @@ impl<'a> std::borrow::Borrow<dyn PriceRevisionLookup + 'a> for PriceRevisionKey 
 fn require_demo_account_loopback_bind(
     niu_bind: Option<&str>,
     port: Option<&str>,
+    auth_public_origin: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if auth_public_origin
+        .map(str::trim)
+        .is_some_and(|origin| origin.starts_with("https://"))
+    {
+        return Ok(());
+    }
     let bind = niu_bind
         .map(str::to_owned)
         .unwrap_or_else(|| format!("0.0.0.0:{}", port.unwrap_or("2555")));
     let addr: std::net::SocketAddr = bind.parse()?;
     if !addr.ip().is_loopback() {
-        return Err("NIU_DEMO_ACCOUNT_ENABLED requires a loopback bind".into());
+        return Err(
+            "NIU_DEMO_ACCOUNT_ENABLED requires a loopback bind or an https:// NIU_AUTH_PUBLIC_ORIGIN"
+                .into(),
+        );
     }
     Ok(())
 }
@@ -268,9 +278,14 @@ impl AppState {
             require_demo_account_loopback_bind(
                 env::var("NIU_BIND").ok().as_deref(),
                 env::var("PORT").ok().as_deref(),
+                env::var("NIU_AUTH_PUBLIC_ORIGIN").ok().as_deref(),
             )?;
+            let demo_password = env::var("NIU_DEMO_ACCOUNT_PASSWORD")
+                .ok()
+                .filter(|v| !v.trim().is_empty())
+                .unwrap_or_else(|| "Hello123".to_owned());
             runtime
-                .provision_local_account(&state.store, "demo@niu.io", "Hello123")
+                .provision_local_account(&state.store, "demo@niu.io", &demo_password)
                 .await?;
         }
         if let Ok(origin) = env::var("NIU_DEV_MEMBER_ORIGIN") {
@@ -892,10 +907,23 @@ mod tests {
 
     #[test]
     fn demo_account_requires_loopback_bind() {
-        assert!(super::require_demo_account_loopback_bind(Some("127.0.0.1:2555"), None).is_ok());
-        assert!(super::require_demo_account_loopback_bind(Some("[::1]:2555"), None).is_ok());
-        assert!(super::require_demo_account_loopback_bind(None, Some("2555")).is_err());
-        assert!(super::require_demo_account_loopback_bind(Some("0.0.0.0:2555"), None).is_err());
+        assert!(
+            super::require_demo_account_loopback_bind(Some("127.0.0.1:2555"), None, None).is_ok()
+        );
+        assert!(super::require_demo_account_loopback_bind(Some("[::1]:2555"), None, None).is_ok());
+        assert!(
+            super::require_demo_account_loopback_bind(None, Some("10000"), Some("https://niu.io"))
+                .is_ok()
+        );
+        assert!(super::require_demo_account_loopback_bind(None, Some("2555"), None).is_err());
+        assert!(
+            super::require_demo_account_loopback_bind(
+                Some("0.0.0.0:2555"),
+                None,
+                Some("http://niu.io")
+            )
+            .is_err()
+        );
     }
 
     fn operator_authorization(
