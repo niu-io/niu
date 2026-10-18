@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.20] - 2026-10-18
+
+### Added
+- **public-shell**: filled Dashboard/Sign in header action and right-aligned mobile session control
+
+### Fixed
+- **gateway**: allow NIU_DEMO_ACCOUNT_ENABLED behind https:// NIU_AUTH_PUBLIC_ORIGIN container binds (#92)
+- **dashboard,docs**: workspace slugs, secondary search popovers, playground cancellation race, and UI polish (#75, #76, #77, #93)
+- **storage,gateway,media,plugins**: ledger concurrency, recovery indexes, AI protocols, video pipeline, and security hardening (#79, #85, #86, #87, #88, #89, #90, #92)
+- **gateway**: bound graceful shutdown drain and make /v1/messages stream completion cancellation-safe (#81)
+- **gateway**: support trailing-slash SPA routes, parallelize batch fallbacks, persist Codex PKCE state, and optimize hot-path caches (#74, #82, #83, #84)
+- **openapi**: align security schemes and replace residual Supplier/project prose (#80)
+- **sdks**: fix MCP video diagnostics cursor, confine binary outputs, parallelize stdio, and harden scripts (#78, #94)
+- **litellm-rust**: cache AWS WebIdentity STS credentials, surface Anthropic SSE errors, and harden HTTP clients (#91)
+
 ## [0.2.19] - 2026-10-18
 
 ### Fixed
@@ -298,7 +313,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.19...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.20...HEAD
+[0.2.20]: https://github.com/niu-io/niu/compare/v0.2.19...v0.2.20
 [0.2.19]: https://github.com/niu-io/niu/compare/v0.2.18...v0.2.19
 [0.2.18]: https://github.com/niu-io/niu/compare/v0.2.17...v0.2.18
 [0.2.17]: https://github.com/niu-io/niu/compare/v0.2.16...v0.2.17
