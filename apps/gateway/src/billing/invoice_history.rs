@@ -14,9 +14,6 @@ use super::{
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [

@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/operators`
 
-Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one project. The bearer token is returned once and is never retrievable from list APIs.
+Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one workspace. The bearer token is returned once and is never retrievable from list APIs.
 
 Operation: `adminCreateOperator`.
 
@@ -65,7 +65,7 @@ No path, query, or header parameters are declared.
     "project_id": {
       "type": "string",
       "format": "uuid",
-      "description": "Optional project-level restriction within the organization."
+      "description": "Optional workspace-level restriction within the organization."
     },
     "name": {
       "type": "string",
@@ -109,4 +109,4 @@ The authenticated operator is not an owner.
 
 ## Behavior and supported scope
 
-Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one project. The bearer token is returned once and is never retrievable from list APIs.
+Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one workspace. The bearer token is returned once and is never retrievable from list APIs.

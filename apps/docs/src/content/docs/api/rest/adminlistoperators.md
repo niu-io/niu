@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/operators`
 
-Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/project unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/workspace unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
 
 Operation: `adminListOperators`.
 
@@ -57,4 +57,4 @@ The authenticated operator is not an owner.
 
 ## Behavior and supported scope
 
-Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/project unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/workspace unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.

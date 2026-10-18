@@ -2780,9 +2780,6 @@ pub async fn offer_history(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2962,9 +2959,6 @@ pub async fn settlement_history(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -3221,9 +3215,6 @@ pub struct CurrentOfferPage {
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [

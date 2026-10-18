@@ -26,9 +26,6 @@ pub struct TariffPage {
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -149,9 +146,6 @@ pub async fn targets(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [

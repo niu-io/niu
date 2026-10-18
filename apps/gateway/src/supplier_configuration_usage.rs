@@ -313,7 +313,7 @@ pub(crate) async fn read(
         .await
         .map_err(|error| match error {
             niu_storage::StoreError::InvalidObservation => ApiError::invalid_request(
-                "Invalid Supplier usage interval, model boundary or page limit",
+                "Invalid Provider usage interval, model boundary or page limit",
             ),
             other => ApiError::from_store(other),
         })?

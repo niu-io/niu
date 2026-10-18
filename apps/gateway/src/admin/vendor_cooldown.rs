@@ -12,9 +12,6 @@ use super::{AdminPermission, ApiError, AppState, HeaderMap, Json, Path, State, U
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [

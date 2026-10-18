@@ -3687,9 +3687,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -4379,6 +4376,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -4491,6 +4491,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -4612,6 +4615,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -4804,6 +4810,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -4909,6 +4918,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5130,6 +5142,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5229,6 +5244,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5330,6 +5348,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5409,6 +5430,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5488,6 +5512,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5589,6 +5616,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5683,6 +5713,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5768,6 +5801,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5874,6 +5910,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -5965,6 +6004,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6047,6 +6089,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6129,6 +6174,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6238,6 +6286,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6332,6 +6383,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6435,6 +6489,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6526,6 +6583,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6608,6 +6668,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -6690,6 +6753,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -8014,9 +8080,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -8180,9 +8243,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -8302,9 +8362,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -8453,9 +8510,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -8619,9 +8673,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -8781,9 +8832,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -8947,9 +8995,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -10759,9 +10804,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -11088,9 +11130,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -11322,9 +11361,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -11909,9 +11945,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -12030,9 +12063,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -12154,9 +12184,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -12248,9 +12275,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -12382,9 +12406,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -17421,6 +17442,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Recover this API key's saved ingestion history",
@@ -17480,6 +17504,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Observe accepted image status using its original account",
@@ -17526,6 +17553,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Retrieve one persisted readiness observation without an upstream request",
@@ -17651,6 +17681,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Erase this API key's retained source bytes",
@@ -17685,6 +17718,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Claim and dispatch one inspected image ingestion",
@@ -17755,6 +17791,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Consent to ingestion of one inspected image into one ordinary asset group",
@@ -17829,6 +17868,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Read customer-safe ingestion status under the original API key",
@@ -17852,6 +17894,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "summary": "Revoke source publication consent without erasing immutable history",
@@ -18333,6 +18378,9 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -19763,9 +19811,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -24340,9 +24385,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -26746,9 +26788,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -27314,9 +27353,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -27549,9 +27585,6 @@
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "niuApiKeyAuth": []
           }
         ],
         "parameters": [
@@ -33407,7 +33440,7 @@
       "get": {
         "operationId": "getAdminSessionIdentity",
         "summary": "Read the current administrator's scope and permissions",
-        "description": "Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/project scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.",
+        "description": "Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/workspace scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.",
         "security": [
           {
             "adminBearerAuth": []
@@ -33442,7 +33475,7 @@
                         },
                         "provider_memberships": {
                           "type": "array",
-                          "description": "Explicit active supplier grants only; installation identity returns an empty array.",
+                          "description": "Explicit active Provider grants only; installation identity returns an empty array.",
                           "items": {
                             "type": "object",
                             "required": [
@@ -33552,7 +33585,7 @@
       "get": {
         "operationId": "adminListOperators",
         "summary": "List operator identities without session credentials",
-        "description": "Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/project unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.",
+        "description": "Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/workspace unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.",
         "security": [
           {
             "adminBearerAuth": []
@@ -33576,7 +33609,7 @@
       "post": {
         "operationId": "adminCreateOperator",
         "summary": "Create an operator and issue its first session token",
-        "description": "Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one project. The bearer token is returned once and is never retrievable from list APIs.",
+        "description": "Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one workspace. The bearer token is returned once and is never retrievable from list APIs.",
         "security": [
           {
             "adminBearerAuth": []
@@ -35163,7 +35196,7 @@
             "description": "Administrator authentication required."
           },
           "409": {
-            "description": "Budget already exists or the project is absent from the organization."
+            "description": "Budget already exists or the workspace is absent from the organization."
           },
           "422": {
             "description": "JSON does not match the required schema."
@@ -35575,7 +35608,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Gateway activity wrapped in data, nullable next_cursor, and summary. Each entry includes attempt_id, operation_id, optional project api_key_id/key_name and task_id, an optional summary of the latest supplemental execution record for that task, public model alias and nullable provider-reported model, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable customer charge currency/amount/status and request phase timing. Integer quantities and amounts are decimal strings. Pages follow the requested sort; next_cursor is the last attempt_id when further matching entries remain. summary covers all rows matching the filters, not only the current page.",
+            "description": "Gateway activity wrapped in data, nullable next_cursor, and summary. Each entry includes attempt_id, operation_id, optional workspace api_key_id/key_name and task_id, an optional summary of the latest supplemental execution record for that task, public model alias and nullable provider-reported model, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable customer charge currency/amount/status and request phase timing. Integer quantities and amounts are decimal strings. Pages follow the requested sort; next_cursor is the last attempt_id when further matching entries remain. summary covers all rows matching the filters, not only the current page.",
             "content": {
               "application/json": {
                 "schema": {
@@ -41619,7 +41652,7 @@
           "project_id": {
             "type": "string",
             "format": "uuid",
-            "description": "Optional project-level restriction within the organization."
+            "description": "Optional workspace-level restriction within the organization."
           },
           "name": {
             "type": "string",
@@ -42967,7 +43000,7 @@
           },
           "configured_rate_cash_by_currency": {
             "type": "array",
-            "description": "Niu configured-rate settlement amounts; not supplier invoice amounts.",
+            "description": "Niu configured-rate settlement amounts; not Provider invoice amounts.",
             "items": {
               "$ref": "#/components/schemas/CurrencyAmountV1"
             }
@@ -43504,7 +43537,7 @@
               "null"
             ],
             "maxLength": 200,
-            "description": "Reference to canonical accounting evidence; does not create another charge. An attempt UUID can resolve to an assigned supplier account."
+            "description": "Reference to canonical accounting evidence; does not create another charge. An attempt UUID can resolve to an assigned Provider account."
           }
         }
       },
@@ -43864,11 +43897,11 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Project ID used to address this workspace."
+            "description": "Workspace ID used to address this workspace."
           },
           "name": {
             "type": "string",
-            "description": "Workspace name (stored as the project name)."
+            "description": "Workspace name."
           },
           "route_slug": {
             "type": "string",

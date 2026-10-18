@@ -23,9 +23,6 @@ pub struct PositionQuery {
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
-///       },
-///       {
-///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [

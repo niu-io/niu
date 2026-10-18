@@ -22,7 +22,7 @@ impl ApiError {
                 Self::invalid_request("Invalid ledger history filters, time range or page size")
             }
             niu_storage::StoreError::InvalidSupplierHistoryQuery => {
-                Self::invalid_request("Invalid Supplier history filters, time range or page size")
+                Self::invalid_request("Invalid Provider history filters, time range or page size")
             }
             niu_storage::StoreError::InvalidPrice => {
                 Self::invalid_request("Invalid price, currency or monetary amount")
@@ -426,12 +426,12 @@ impl ApiError {
             ResultError::HttpStatus(410) => (
                 StatusCode::BAD_GATEWAY,
                 "media_result_gone",
-                "The Supplier download endpoint reports that this result is no longer available.",
+                "The Provider download endpoint reports that this result is no longer available.",
             ),
             ResultError::Unavailable | ResultError::HttpStatus(403 | 404) => (
                 StatusCode::BAD_GATEWAY,
                 "media_result_unavailable",
-                "The Supplier cannot currently serve this saved result. Its link may have expired.",
+                "The Provider cannot currently serve this saved result. Its link may have expired.",
             ),
             ResultError::TooLarge => (
                 StatusCode::BAD_GATEWAY,
@@ -441,7 +441,7 @@ impl ApiError {
             ResultError::InvalidMedia => (
                 StatusCode::BAD_GATEWAY,
                 "media_result_invalid",
-                "The Supplier returned an unsupported or invalid media file.",
+                "The Provider returned an unsupported or invalid media file.",
             ),
             ResultError::EndpointRejected => (
                 StatusCode::BAD_GATEWAY,
@@ -456,7 +456,7 @@ impl ApiError {
             ResultError::Transport | ResultError::HttpStatus(_) => (
                 StatusCode::BAD_GATEWAY,
                 "media_result_transport_error",
-                "The Supplier result request failed. Try again later.",
+                "The Provider result request failed. Try again later.",
             ),
         };
         Self {

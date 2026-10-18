@@ -154,6 +154,9 @@ fn failure(error: FastRouterActionError) -> (Option<u16>, Option<String>, bool) 
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -437,6 +440,9 @@ pub(super) async fn create(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -563,6 +569,9 @@ pub(super) async fn list(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -658,6 +667,9 @@ pub(super) async fn get(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -782,6 +794,9 @@ pub(super) async fn link(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [

@@ -492,7 +492,7 @@ pub async fn create(
     installation(&state, &headers).await?;
     if input.create_supplier && input.supplier_id.is_some() {
         return Err(ApiError::invalid_request(
-            "Choose a new or existing Supplier, not both",
+            "Choose a new or existing Provider, not both",
         ));
     }
     validate_model(

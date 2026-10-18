@@ -129,17 +129,17 @@ Summary `average_duration_ms` is the rounded mean of complete gateway request to
 
 Summary latency percentiles use completed gateway body-consumption durations across the full filtered range. `sample_count` excludes missing and incomplete timing measurements; no samples produce null P50/P95 values. These durations do not measure client receipt time or upstream-only generation time.
 
-Installation administrators can read a configured adapter's business association with `getSupplierAssociation(configurationId)` and set it with `associateSupplier(configurationId, supplierId, expectedRevision)`. The existing `/vendors` API path is preserved. Association requires the current configuration revision; conflicts propagate without retries or reassignment. The read returns a Supplier name or null, without configuration credentials. Customer and Supplier credentials cannot use these installation administration operations.
+Installation administrators can read a configured adapter's business association with `getSupplierAssociation(configurationId)` and set it with `associateSupplier(configurationId, supplierId, expectedRevision)`. The existing `/vendors` API path is preserved. Association requires the current configuration revision; conflicts propagate without retries or reassignment. The read returns a Provider name or null, without configuration credentials. Customer and Provider credentials cannot use these installation administration operations.
 
-`publishSupplierRates(supplierId, rates)` publishes agreed Supplier input/output rates through the installation-only `/providers/{provider}/offers` compatibility contract. `prompt_rate` and `completion_rate` are exact decimal integer strings in currency nanounits per million tokens; for example, USD `400000000` means $0.40 per million tokens. Publication creates an immutable revision and clears the offer's prior qualification and activation. Review and qualify the new revision before enabling it for dispatch. Set `expected_revision` to null for a new offer, or to its current opaque revision identifier for an update. Stale updates conflict without changing rates. The returned revision is an opaque identifier. This operation does not publish customer tariffs, establish a discount or retry failed writes.
+`publishSupplierRates(supplierId, rates)` publishes agreed Provider input/output rates through the installation-only `/providers/{provider}/offers` compatibility contract. `prompt_rate` and `completion_rate` are exact decimal integer strings in currency nanounits per million tokens; for example, USD `400000000` means $0.40 per million tokens. Publication creates an immutable revision and clears the offer's prior qualification and activation. Review and qualify the new revision before enabling it for dispatch. Set `expected_revision` to null for a new offer, or to its current opaque revision identifier for an update. Stale updates conflict without changing rates. The returned revision is an opaque identifier. This operation does not publish customer tariffs, establish a discount or retry failed writes.
 
-`listSupplierOffers(supplierId)` reads current agreed rates and their activation, qualification and route-readiness fields. It returns only offers from the installation administration response, excluding earnings and settlement records. To update a reviewed offer, pass its `revision` as `expected_revision`; never derive or increment this opaque identifier. Supplier managers can manage availability through their authorized API, but cannot publish agreed rates through this installation-only method.
+`listSupplierOffers(supplierId)` reads current agreed rates and their activation, qualification and route-readiness fields. It returns only offers from the installation administration response, excluding earnings and settlement records. To update a reviewed offer, pass its `revision` as `expected_revision`; never derive or increment this opaque identifier. Provider managers can manage availability through their authorized API, but cannot publish agreed rates through this installation-only method.
 
 `listChatSessions(scope)` reads the authenticated owner's latest 100 active saved sessions in a workspace. `listArchivedChatSessions(scope)` reads the corresponding archived history. `setChatSessionArchived(scope, sessionId, true)` archives and `false` restores a conversation; archive state is stored by the backend and survives autosave. Read access is required to list; write access is required to archive or restore, and missing or foreign-owner records return 404. These methods accept cancellation options and do not retry writes automatically. `deleteChatSession(scope, sessionId)` removes that owner's session durably; repeated deletion is safe. Workspace write access is required, and request accounting and billing records remain intact. Browser caches are not the source of truth for this history.
 
-Supplier review workflows use installation-only `qualifySupplier()` and `qualifySupplierOffer()`, followed by an explicit `setSupplierOfferActive()` call under installation or Supplier owner/admin access. Reviews contain lowercase SHA-256 digests of independently reviewed evidence and a future expiry; offer reviews pin the current immutable rate revision and protocol-matrix version. The SDK does not establish supply rights from a digest or upload the underlying private agreement. Revocation methods `revokeSupplierQualification()` and `revokeSupplierOfferQualification()` record a reason digest and pause affected supply. Qualification, activation and revocation are separate operations without automatic write retries. Personal use of an owned upstream key is distinct from commercial Supplier qualification; do not record fabricated resale evidence to enable a personal test connection.
+Provider review workflows use installation-only `qualifySupplier()` and `qualifySupplierOffer()`, followed by an explicit `setSupplierOfferActive()` call under installation or Provider owner/admin access. Reviews contain lowercase SHA-256 digests of independently reviewed evidence and a future expiry; offer reviews pin the current immutable rate revision and protocol-matrix version. The SDK does not establish supply rights from a digest or upload the underlying private agreement. Revocation methods `revokeSupplierQualification()` and `revokeSupplierOfferQualification()` record a reason digest and pause affected supply. Qualification, activation and revocation are separate operations without automatic write retries. Personal use of an owned upstream key is distinct from commercial Provider qualification; do not record fabricated resale evidence to enable a personal test connection.
 
-`assignPersonalCredentialOwner(configurationId, organizationId, expectedRevision)` assigns an installation-managed upstream credential to one immutable account owner. It requires installation administrator access and the current credential revision. Exact retries succeed without another assignment event; assigning another owner or a commercially qualified credential fails. It does not grant funds or activate Supplier offers. The owning account's workspace keys can discover and use its enabled models, subject to grants and guardrails, without Niu prepaid charges. The credential owner pays the upstream directly. These assignments are separate from Supplier memberships and commercial qualification, and the SDK does not retry writes automatically.
+`assignPersonalCredentialOwner(configurationId, organizationId, expectedRevision)` assigns an installation-managed upstream credential to one immutable account owner. It requires installation administrator access and the current credential revision. Exact retries succeed without another assignment event; assigning another owner or a commercially qualified credential fails. It does not grant funds or activate Provider offers. The owning account's workspace keys can discover and use its enabled models, subject to grants and guardrails, without Niu prepaid charges. The credential owner pays the upstream directly. These assignments are separate from Provider memberships and commercial qualification, and the SDK does not retry writes automatically.
 
 `exportChatSession(scope, sessionId)` reads one saved conversation directly, including older conversations outside the latest-100 list. It requires workspace read access and the same personal owner. The versioned `niu-chat` JSON contains title, creation time, ordered prompts, model response content/status and saved attachment content. Legacy single-turn sessions become one turn. Internal identifiers, settings, diagnostic errors, token/timing metrics and accounting fields are excluded. Conversation text and attachments are intentionally included; review their content before sharing the export. This does not export Logs or establish customer charges.
 
@@ -152,7 +152,7 @@ specific period, model or key, pass `fromMs` (inclusive), `toMs` (exclusive),
 `modelAlias`, `apiKeyId` or `status` to `listGatewayActivity`. Its `summary`
 covers all matching records, independently of pagination. Customer charge and
 token quantities remain decimal strings; avoid converting them to floating
-point. Supplier expenses and platform margins are not workspace charges.
+point. Provider expenses and platform margins are not workspace charges.
 
 `summary.charges_by_model` and `summary.charges_by_key` group customer ledger
 amounts separately by currency, across the full matching range. They preserve
@@ -168,7 +168,7 @@ Request queries and CSV export accept `httpStatus: 502` (any integer from 100 to
 
 Request listing and CSV export accept `sort: 'time_desc'` (default), `'time_asc'`, `'latency_desc'`, `'input_desc'` or `'output_desc'`. The backend sorts the full filtered range, with unknown measurements last and time/ID tie breaks. Keep sort and filters unchanged across cursor pages. This is a live traversal; new requests or measurements completing between pages can move rows. CSV reads the range in one database statement.
 
-`exportGatewayActivity(scope, filters, { signal })` returns the full filtered range as a CSV string. It accepts the same `fromMs`, `toMs`, `modelAlias`, `apiKeyId` and `status` filters, with no pagination. Workspace read permission is required; inference API keys cannot export Logs. HTTP 413 raises `NiuAPIError` with guidance to narrow ranges above 10,000 requests, without a partial file or automatic retry. Exact customer amounts remain decimal digits, unknown values are blank, and internal IDs, payloads and Supplier procurement fields are excluded. Formula-like text receives a leading apostrophe. Store exported customer data privately.
+`exportGatewayActivity(scope, filters, { signal })` returns the full filtered range as a CSV string. It accepts the same `fromMs`, `toMs`, `modelAlias`, `apiKeyId` and `status` filters, with no pagination. Workspace read permission is required; inference API keys cannot export Logs. HTTP 413 raises `NiuAPIError` with guidance to narrow ranges above 10,000 requests, without a partial file or automatic retry. Exact customer amounts remain decimal digits, unknown values are blank, and internal IDs, payloads and Provider procurement fields are excluded. Formula-like text receives a leading apostrophe. Store exported customer data privately.
 
 The appended `Cached input tokens` and `Reasoning output tokens` columns preserve exact reported subsets. Blank means unknown, while `0` means an explicitly reported zero. They are already included in the corresponding input/output totals; adding them again would double count tokens.
 
@@ -207,7 +207,7 @@ const collector = new NiuCollectorClient({
 await collector.observeQuota(accountId, providerObservation);
 ```
 
-The collector interface exposes only `observeQuota`. Its scope is copied at construction, and the server enforces project ownership, expiry and revocation on every ingestion. It cannot query quota or register accounts; use the admin client in the operator application for those operations. No retries, polling or credential refresh happen implicitly.
+The collector interface exposes only `observeQuota`. Its scope is copied at construction, and the server enforces workspace ownership, expiry and revocation on every ingestion. It cannot query quota or register accounts; use the admin client in the operator application for those operations. No retries, polling or credential refresh happen implicitly.
 ## Runnable usage investigation example
 
 After building the SDK, run `node examples/inspect-usage.mjs` from the SDK directory. Set `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/api/v1`), `NIU_ORGANIZATION_ID`, and `NIU_WORKSPACE_ID` through the environment. For local development, the base URL is `http://localhost:2566/api/v1`. Optionally set `NIU_MODEL_ALIAS` to filter requests, or `NIU_REQUEST_STATUS=output_withheld` to investigate recorded blocked/indeterminate output. Withheld output does not cancel incurred usage or customer charges.
@@ -233,7 +233,7 @@ For a client-wide opt-out, set `defaultHeaders: { 'x-niu-log-payloads': 'false' 
 
 ### Customer tariffs and billing
 
-`publishCustomerTariff(scope, rates)` publishes an explicit customer selling rate through installation administration. Rates use integer currency nanounits per million input/output tokens; pass `expected_revision: null` for a new tariff and the current tariff revision for an update. Publication creates an immutable revision for future admissions and does not reprice earlier requests. Conflicts propagate without retry. Choose customer rates explicitly: Supplier procurement rates are not a default or fallback.
+`publishCustomerTariff(scope, rates)` publishes an explicit customer selling rate through installation administration. Rates use integer currency nanounits per million input/output tokens; pass `expected_revision: null` for a new tariff and the current tariff revision for an update. Publication creates an immutable revision for future admissions and does not reprice earlier requests. Conflicts propagate without retry. Choose customer rates explicitly: Provider procurement rates are not a default or fallback.
 
 Inspect shared company funds with the packaged example (no workspace selection is required):
 
@@ -246,7 +246,7 @@ node node_modules/@niu-io/sdk/examples/inspect-account-balance.mjs
 node node_modules/@niu-io/sdk/examples/inspect-account-balance.mjs --all
 ```
 
-Use an organization-wide owner/admin credential. The example prints exact currency nanounits, available capacity, low-balance state and the latest 100 transactions. It does not print internal IDs or confidential Supplier fields or initiate payments. Default history is bounded to 100 entries. `--all` follows every returned cursor and fails without partial output on invalid/looping continuation or duplicate entries. History is a live view, not an atomic export snapshot or reconciliation with the separately read balance. Extremely large traversals are capped at 10,000 continuations and fail rather than claiming completion. In the dashboard, open Account menu → Settings → Billing & payments. Workspace spending limits constrain use of these shared funds; they do not create separate balances.
+Use an organization-wide owner/admin credential. The example prints exact currency nanounits, available capacity, low-balance state and the latest 100 transactions. It does not print internal IDs or confidential Provider fields or initiate payments. Default history is bounded to 100 entries. `--all` follows every returned cursor and fails without partial output on invalid/looping continuation or duplicate entries. History is a live view, not an atomic export snapshot or reconciliation with the separately read balance. Extremely large traversals are capped at 10,000 continuations and fail rather than claiming completion. In the dashboard, open Account menu → Settings → Billing & payments. Workspace spending limits constrain use of these shared funds; they do not create separate balances.
 
 `getCustomerBalance(organizationId)` reads shared company funds, reservations and available capacity. `getCustomerBalanceTransactions(organizationId)` reads up to 100 signed ledger entries per page, including top-ups, charges and reversals. Its response includes `next_cursor`; pass it as `{ before: next_cursor }` to retrieve older entries until it is null. Cursors must belong to the same organization. Both require organization-wide billing authorization; workspace-only access is insufficient. Amounts remain exact decimal nanounit strings. These read methods do not initiate or collect payments.
 
@@ -264,7 +264,7 @@ Run `node examples/inspect-topups.mjs --all` from an installed package with `NIU
 
 `getCustomerBilling(scope)` reads the workspace-authorized customer balances, current tariffs and invoice history. Amounts and counts remain decimal strings for exact arithmetic. `unresolved` counts requests still awaiting billing evidence; `unpriced` indicates absent selling tariffs, not an agreed zero rate. Confirmed nonexecution does not create a charge or block invoice closure. The backend enforces workspace access and excludes procurement costs and margins. Keep administration credentials server-side.
 
-Authenticated `listModels()` responses include `customer_pricing` when the key's workspace has a current selling tariff. It contains `currency`, immutable `revision`, `unit: "nanounits_per_million_tokens"`, and exact string `prompt_rate` / `completion_rate` amounts. A null value means no selling tariff is configured; it does not mean free inference. Supplier prices are never substituted. The revision advertised by discovery can change before a request: admission pins the tariff actually used for that request.
+Authenticated `listModels()` responses include `customer_pricing` when the key's workspace has a current selling tariff. It contains `currency`, immutable `revision`, `unit: "nanounits_per_million_tokens"`, and exact string `prompt_rate` / `completion_rate` amounts. A null value means no selling tariff is configured; it does not mean free inference. Provider prices are never substituted. The revision advertised by discovery can change before a request: admission pins the tariff actually used for that request.
 
 `getKeyGuardrail(scope, keyId)` reads a key's preserved policy revision and current assignment revision. `assignKeyGuardrail(scope, keyId, policyRevision, expectedAssignmentRevision)` assigns a validated policy from the same workspace to an active key. Pass zero for a first assignment; updates require its current assignment revision. Stale writes conflict without automatic retry. Workspace readers can inspect assignments; workspace write access is required to change them. Inference credentials cannot administer assignments. Assigned key restrictions intersect the current mandatory workspace policy and cannot expand it. Assignment changes retain immutable actor/policy history in the same transaction; session credentials are not recorded. Rotation preserves the assigned policy. `clearKeyGuardrail(scope, keyId, expectedAssignmentRevision)` removes only the optional key policy, retaining its incremented assignment revision and immutable history. This requires a positive current revision and sends an explicit null policy. Stale writers cannot recreate a cleared assignment with revision zero. Mandatory workspace restrictions remain enforced. `listKeyGuardrailHistory(scope, keyId, beforeAssignmentRevision)` reads up to 100 newest immutable events with readable actor/policy names and revision numbers. Use its exclusive `next_cursor` for older events. No history from before audit support is fabricated, and internal actor identifiers and credentials are excluded. The dashboard provides a read-only Assignment history view on key details, including inactive keys. Full role and large-history workflow qualification remains open.
 
@@ -391,7 +391,7 @@ reference and billing OpenAPI contract for current capability boundaries.
 
 Discover configured text-video controls with `await client.video.models.list()`.
 Signed-in members use `await admin.listDashboardVideoModels(scope, keyId)` without
-pasting an API key secret. Current key grants, workspace/key policy, Supplier
+pasting an API key secret. Current key grants, workspace/key policy, Provider
 availability and personal ownership apply. The projection excludes credentials,
 upstream mappings, procurement prices and unsupported inputs/callbacks/meters.
 Honor the returned resolution/ratio pairs. Discovery is not a quote or admission
@@ -411,7 +411,7 @@ not poll or resubmit generation, and uncertain submissions remain visible.
 
 Estimate a configured text-video request with `await client.video.estimate(request)`.
 This performs one authenticated POST to `/video/estimate` without creating a job,
-calling the Supplier, reserving funds or charging the account. The returned
+calling the Provider, reserving funds or charging the account. The returned
 estimated amount and independently reviewed maximum charge are exact decimal
 nanounit strings. Owner-funded amounts remain null. The estimate is nonbinding;
 submission rechecks current rates, configuration and available funds.
@@ -426,7 +426,7 @@ pending settlement and reconciliation requirements.
 identity. `estimate` retains estimated quantity/provenance and prices it using the
 job's original customer tariff; `estimate.amount_nanos` remains distinct from the
 reservation and final charge. Legacy output/estimate fields are null. Owner-funded
-or unpriceable estimated amounts remain null; missing prices never use Supplier
+or unpriceable estimated amounts remain null; missing prices never use Provider
 purchase costs. Saved reads neither regenerate video nor reprice it at current rates.
 
 
@@ -441,7 +441,7 @@ Read immutable selling history with
 `admin.listCustomerMediaRates(organizationId, { after, limit }, { signal })`.
 History returns exact string amounts, route revisions and effective timestamps;
 page limits are 1–100. This configuration read is installation-only and contains
-no Supplier purchase terms.
+no Provider purchase terms.
 
 For a customer media price replacement, use
 `admin.replaceCustomerMediaRate(organizationId, oldRevision, newCard, { signal })`.
@@ -454,18 +454,18 @@ automatic mutation retry. The separate
 remains available to end eligibility without a replacement.
 
 
-Installation administrators publish independent agreed Supplier media purchase
+Installation administrators publish independent agreed Provider media purchase
 terms with `admin.publishSupplierMediaRate(supplierId, card)`. Keep these terms
 out of customer selling configuration and customer responses. Commercial video
 requires eligible purchase and selling cards; publication does not establish live
 commercial qualification. The method performs one authenticated mutation without
-automatic retry. Supplier earnings accrue from pinned purchase terms and reported
+automatic retry. Provider earnings accrue from pinned purchase terms and reported
 media usage independently of customer payment.
 
 
 Use `admin.listSupplierMediaRates(supplierId, { after, limit })` for paginated
 purchase history. Read amounts and effective times are exact strings; missing
-historical publication dates remain null. Installation readers and the Supplier's
+historical publication dates remain null. Installation readers and the Provider's
 active members can read these terms. Installation readers use
 `admin.listSupplierMediaRateModels(supplierId, { after, limit })` for named current
 configuration choices; bindings are exact strings and do not qualify dispatch.
@@ -493,12 +493,12 @@ with null text prices from existing text offers; purchase cards remain separate.
 
 `client.video.jobs.results.retrieve(job.id, 'video', { signal })` returns an
 authenticated `Response` with the bounded media body, preserving streaming for
-the caller. Use `'last_frame'` for an optional PNG/JPEG frame. No signed Supplier
+the caller. Use `'last_frame'` for an optional PNG/JPEG frame. No signed Provider
 URL is exposed. Read or stream the body, or abort/cancel it when no longer needed.
 
 `await client.video.jobs.results.delete(job.id)` permanently removes Niu's saved
 result references, including preventing a later refresh from restoring them.
-Status and financial records remain. It does not delete Supplier copies or
+Status and financial records remain. It does not delete Provider copies or
 previous downloads. References expire locally 24 hours after first capture;
 upstream links may expire earlier. Requests do not retry automatically. See the
 [video API reference](../../docs/reference/video-jobs.md#saved-results-and-deletion)
@@ -507,7 +507,7 @@ for supported formats, limits, errors and remaining live qualification.
 
 `await client.video.jobs.results.status(job.id, { signal })` reads local result
 availability without downloading media. Each kind is `available`, `missing` or
-`unavailable`; an available reference does not guarantee a live Supplier link.
+`unavailable`; an available reference does not guarantee a live Provider link.
 
 Signed-in dashboard clients use `admin.getDashboardVideoResultsStatus(scope, keyId,
 jobId, options)`, `admin.getDashboardVideoResult(scope, keyId, jobId, kind, options)`
@@ -520,13 +520,13 @@ never automatically retry.
 `client.video.jobs.timings(reference)` can include `lifecycle` alongside transport
 spans. Its `gateway_observation` timestamps describe submission intent and first
 observed statuses, with explicit `conflicting_terminal`. They survive restart and
-duplicate polling, but do not establish exact Supplier queue/run durations.
+duplicate polling, but do not establish exact Provider queue/run durations.
 
 
 Video Billing's optional `settled_usage` describes the measured/billable quantity
 behind a posted customer charge. Exact quantities stay rational string pairs;
 Reported settlement evidence remains separate from current `usage`, estimates
-and later reconciliation conflicts. It does not expose Supplier procurement
+and later reconciliation conflicts. It does not expose Provider procurement
 rates or internal receipt revisions.
 
 
@@ -600,7 +600,7 @@ assets, credentials or backups. Repeated calls do not restore request content.
 `getAssetGroupRequest(scope, intentId, options)` reads only the saved status,
 creation time, retention status and retained name/description. It returns null
 for absent intents and hides expired or deleted content. It does not expose
-Supplier account bindings, credentials, fingerprints or procurement information.
+Provider account bindings, credentials, fingerprints or procurement information.
 
 `NiuAdminClient.prepareOrdinaryAssetGroupUpdate` prepares an encrypted metadata
 patch for a saved ordinary group using `organization_id`, `project_id`,
@@ -772,22 +772,22 @@ change. An exhausted positive rolling window reports the corresponding
 `*_request_rate_exceeded` code with `retryAfter === "60"`. A retry hint is not a
 guarantee that a later request will be admitted.
 
-### Supplier memberships
+### Provider memberships
 
-`admin.listSupplierMemberships()` returns every active Supplier membership for the
+`admin.listSupplierMemberships()` returns every active Provider membership for the
 signed-in operator, with its name, routing reference and viewer/manager role. The
 compatibility directory is not capped at 100 records and has no cursor. Installation
-sessions return an empty array; platform Supplier administration is separate.
-Company membership alone does not grant Supplier access. Re-read after grant or
+sessions return an empty array; platform Provider administration is separate.
+Company membership alone does not grant Provider access. Re-read after grant or
 revocation changes, and use names rather than routing IDs in product UI.
 
-### Current Supplier offers
+### Current Provider offers
 
 `listSupplierOffersPage(supplierId, { after, limit })` returns one bounded page and
 `next_after`. Follow that cursor until null. `listSupplierOffers(supplierId)` now
 traverses these pages automatically, retaining its array result and avoiding the
 management dashboard's 1000-row preview. Both accept cancellation options. An
-active member can read its own Supplier; company membership alone is insufficient.
+active member can read its own Provider; company membership alone is insufficient.
 The dashboard exposes `offers_has_more`; do not treat a truncated preview as a
 complete offer directory. Separate pages are not a frozen snapshot.
 
@@ -795,12 +795,12 @@ Platform administrators can read credential configurations with
 `admin.listSupplierCredentials()` or filter explicit business ownership with
 `admin.listSupplierCredentials({ supplierId })`. The `SupplierCredential` type
 contains metadata, independent configuration revision, enabled state, credential
-presence and optional Supplier identity; secret values are never returned.
+presence and optional Provider identity; secret values are never returned.
 Disabled configurations remain in the complete list. This read does not probe the
 upstream, qualify commercial supply, or grant customer access.
 
 Use `createSupplierCredential(input)` to save an independently configured key.
-Choose `create_supplier: true` or `supplier_id` for a new or existing Supplier;
+Choose `create_supplier: true` or `supplier_id` for a new or existing Provider;
 do not supply both. Supported adapter identifiers are `openrouter`, `openai`,
 `anthropic` and `gemini`. Creation does not validate upstream access or qualify
 commercial supply. Preserve its returned identity; creation has no automatic retry.
@@ -809,10 +809,10 @@ commercial supply. Preserve its returned identity; creation has no automatic ret
 Omit `api_key` to preserve the secret, or supply a new value to replace only that
 configuration's secret. Refresh after a 409 before deciding whether to retry.
 Adapter identity is immutable. Responses contain safe metadata, never secret
-values; the Supplier association is available through the list/association APIs.
+values; the Provider association is available through the list/association APIs.
 
 Current-input SDK verification created two disabled configurations for one
-Supplier, preserved both ciphertexts during a metadata-only update, rejected a
+Provider, preserved both ciphertexts during a metadata-only update, rejected a
 stale revision, and changed only the selected ciphertext during rotation. Restart
 and independent database reopening preserved both configurations and ownership.
 No upstream request, commercial qualification or balance funding was performed.
@@ -822,7 +822,7 @@ Model configuration uses `listSupplierModels(credentialId)` and
 updates supply the current revision. Send the intended complete capability and
 visibility/enabled settings. Omitted `pricing` preserves existing pricing on an
 update, while explicit `null` clears it. This is administrator upstream route
-configuration, not customer selling tariffs or a Supplier commercial rate card.
+configuration, not customer selling tariffs or a Provider commercial rate card.
 Use those separate billing APIs for agreed purchase and customer selling prices.
 
 The returned management inventory includes read-only `available` and
@@ -852,7 +852,7 @@ and settlement evidence remain separate from this catalog-only check.
 `discoverSupplierModels(credentialId)` reads the saved credential's bounded
 upstream inventory and returns typed `SupplierCatalogModel` entries. It does not
 create model aliases. `SupplierCatalogMetadata.input_price` and `output_price`
-are advertised USD-per-token strings, not customer tariffs or Supplier settlement
+are advertised USD-per-token strings, not customer tariffs or Provider settlement
 rates; missing values remain null.
 
 `refreshSupplierCatalog(credentialId)` returns `{ updated: number }` after updating

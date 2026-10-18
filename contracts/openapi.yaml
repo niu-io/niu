@@ -268,7 +268,7 @@ paths:
   /v1/media/image-ingestions:
     get:
       operationId: listImageIngestions
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Recover this API key's saved ingestion history
       description: Returns at most fifty newest records ordered by consent creation time and identity. Follow next_cursor as before until null. History includes revoked, expired and completed records without changing consent, publishing source capabilities or contacting an upstream service. A cursor from another key is unavailable. Later inserts do not shift continuation pages.
       parameters:
@@ -292,7 +292,7 @@ paths:
         schema: { type: string, format: uuid }
     post:
       operationId: refreshIngestedImageReadiness
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Observe accepted image status using its original account
       description: Separate current GetAsset permission and the original API key are required. One outstanding observation per ingestion, sixty per rolling hour and four concurrent gateway reads. One fixed bounded GetAsset request validates asset identity, group, project and image type before persisting status. The worker survives disconnect; interrupted reads record failure. This does not repeat creation, download media or grant reusable-reference rights. A claimed read_id is never replayed; use GET to inspect its saved outcome.
       requestBody:
@@ -310,7 +310,7 @@ paths:
         '503': { description: "Read capacity, credentials or persistence unavailable" }
     get:
       operationId: getIngestedImageReadiness
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Retrieve one persisted readiness observation without an upstream request
       responses:
         '200': { description: "Customer-safe observation; no upstream identifiers, raw response, credentials or commercial procurement data" }
@@ -321,7 +321,7 @@ paths:
   /v1/media/image-sources/{id}:
     delete:
       operationId: eraseInspectedImageSource
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Erase this API key's retained source bytes
       description: Idempotent and opaque for absent or foreign sources. Immutable provenance remains. Does not cancel an already accepted upstream asset or erase it upstream.
       parameters:
@@ -335,7 +335,7 @@ paths:
   /v1/media/image-ingestions/{id}/dispatch:
     post:
       operationId: dispatchImageIngestion
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Claim and dispatch one inspected image ingestion
       description: Requires original source API key, current policy, detector terms and reviewed CreateAsset permission. A trusted configured HTTPS origin serves the exact inspected bytes using an expiring capability. Four uploads may run concurrently. The bounded worker survives client disconnect; its immutable accepted or uncertain outcome is persisted. Never automatically replay an uncertain upload. Acceptance does not mean asset readiness. No client-supplied source URL, destination override or credential is accepted.
       parameters:
@@ -364,7 +364,7 @@ paths:
         schema: { type: string, format: uuid }
     put:
       operationId: prepareImageIngestionConsent
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Consent to ingestion of one inspected image into one ordinary asset group
       description: Requires the original source API key and current workspace policy. Repeating identical unexpired consent is idempotent; consent cannot be renewed or retargeted. The dispatch_available flag requires retained unexpired source bytes, unrevoked unclaimed consent, configured source origin and encryption; it is not an admission guarantee. Erasing the source disables dispatch without rewriting consent or accepted history. This endpoint neither claims nor dispatches an upload. Dispatch requires a configured public HTTPS source origin and separate admission checks.
       requestBody:
@@ -390,7 +390,7 @@ paths:
         '409': { description: "Source, destination or reviewed authorization unavailable; consent conflict" }
     get:
       operationId: getImageIngestionConsent
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Read customer-safe ingestion status under the original API key
       responses:
         '200': { description: "Consent status with nullable allowlisted reason, duration_ms and observed_at from its immutable outcome; no credentials, source tokens, upstream identifiers or procurement data" }
@@ -398,7 +398,7 @@ paths:
         '404': { description: Consent unavailable under this API key }
     delete:
       operationId: revokeImageIngestionConsent
-      security: [{ bearerAuth: [] }]
+      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       summary: Revoke source publication consent without erasing immutable history
       description: Idempotent for the original API key. Revocation does not cancel an upload already accepted upstream or resolve an uncertain outcome.
       responses:
@@ -1813,7 +1813,7 @@ paths:
     get:
       operationId: getAdminSessionIdentity
       summary: Read the current administrator's scope and permissions
-      description: Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/project scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.
+      description: Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/workspace scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.
       security:
         - adminBearerAuth: []
       responses:
@@ -1832,7 +1832,7 @@ paths:
                       kind: { type: string, enum: [installation, operator] }
                       provider_memberships:
                         type: array
-                        description: Explicit active supplier grants only; installation identity returns an empty array.
+                        description: Explicit active Provider grants only; installation identity returns an empty array.
                         items:
                           type: object
                           required: [id, name, role]
@@ -1866,7 +1866,7 @@ paths:
     get:
       operationId: adminListOperators
       summary: List operator identities without session credentials
-      description: Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/project unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+      description: Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/workspace unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
       security:
         - adminBearerAuth: []
       responses:
@@ -1879,7 +1879,7 @@ paths:
     post:
       operationId: adminCreateOperator
       summary: Create an operator and issue its first session token
-      description: Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one project. The bearer token is returned once and is never retrievable from list APIs.
+      description: Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one workspace. The bearer token is returned once and is never retrievable from list APIs.
       security:
         - adminBearerAuth: []
       requestBody:
@@ -2156,7 +2156,7 @@ paths:
         '401':
           description: Administrator authentication required.
         '409':
-          description: Budget already exists or the project is absent from the organization.
+          description: Budget already exists or the workspace is absent from the organization.
         '422':
           description: JSON does not match the required schema.
     get:
@@ -2768,7 +2768,7 @@ components:
       required: [organization_id, name, role, expires_in_seconds]
       properties:
         organization_id: { type: string, format: uuid }
-        project_id: { type: string, format: uuid, description: Optional project-level restriction within the organization. }
+        project_id: { type: string, format: uuid, description: Optional workspace-level restriction within the organization. }
         name: { type: string, minLength: 1, maxLength: 200 }
         role: { type: string, enum: [owner, admin, viewer] }
         expires_in_seconds: { type: integer, minimum: 60, maximum: 31536000 }
@@ -3198,7 +3198,7 @@ components:
           items: { $ref: '#/components/schemas/CurrencyAmountV1' }
         configured_rate_cash_by_currency:
           type: array
-          description: Niu configured-rate settlement amounts; not supplier invoice amounts.
+          description: Niu configured-rate settlement amounts; not Provider invoice amounts.
           items: { $ref: '#/components/schemas/CurrencyAmountV1' }
         api_equivalent_per_accepted_completion:
           type: array
@@ -3345,7 +3345,7 @@ components:
         ended_at_ms: { type: [integer, 'null'], minimum: 0 }
         requested_model: { type: [string, 'null'], maxLength: 200 }
         reported_model: { type: [string, 'null'], maxLength: 200, description: Provider-reported actual identity; absent means unknown. }
-        charge_ref: { type: [string, 'null'], maxLength: 200, description: Reference to canonical accounting evidence; does not create another charge. An attempt UUID can resolve to an assigned supplier account. }
+        charge_ref: { type: [string, 'null'], maxLength: 200, description: Reference to canonical accounting evidence; does not create another charge. An attempt UUID can resolve to an assigned Provider account. }
     ExecutionLinkV1:
       type: object
       additionalProperties: false
@@ -3459,8 +3459,8 @@ components:
       type: object
       required: [id, name, route_slug, organization_id, organization_name]
       properties:
-        id: { type: string, format: uuid, description: Project ID used to address this workspace. }
-        name: { type: string, description: Workspace name (stored as the project name). }
+        id: { type: string, format: uuid, description: Workspace ID used to address this workspace. }
+        name: { type: string, description: Workspace name. }
         route_slug: { type: string, maxLength: 81, pattern: "^[a-z0-9]+(-[a-z0-9]+)*$", description: Immutable globally unique routing reference assigned by the backend. Renaming preserves it. Use only in routes, never as a display label or authorization grant. }
         organization_id: { type: string, format: uuid }
         organization_name: { type: string }

@@ -105,7 +105,7 @@ Administrator authentication required.
 
 ### HTTP 409
 
-Budget already exists or the project is absent from the organization.
+Budget already exists or the workspace is absent from the organization.
 
 ### HTTP 422
 

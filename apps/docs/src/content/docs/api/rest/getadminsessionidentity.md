@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/session`
 
-Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/project scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.
+Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/workspace scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.
 
 Operation: `getAdminSessionIdentity`.
 
@@ -74,7 +74,7 @@ Content type: `application/json`.
         },
         "provider_memberships": {
           "type": "array",
-          "description": "Explicit active supplier grants only; installation identity returns an empty array.",
+          "description": "Explicit active Provider grants only; installation identity returns an empty array.",
           "items": {
             "type": "object",
             "required": [
@@ -177,4 +177,4 @@ Operator storage is unavailable.
 
 ## Behavior and supported scope
 
-Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/project scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.
+Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/workspace scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.

@@ -600,6 +600,9 @@ async fn mutate_with_route(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1092,6 +1095,9 @@ pub(super) async fn create_group(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1227,6 +1233,9 @@ pub(super) async fn update_group(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1345,6 +1354,9 @@ pub(super) async fn delete_group(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1487,6 +1499,9 @@ pub(super) async fn create_asset(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1618,6 +1633,9 @@ pub(super) async fn rename_asset(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1752,6 +1770,9 @@ fn page_limit(value: Option<u32>) -> Result<i64, ApiError> {
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1867,6 +1888,9 @@ pub(super) async fn list_groups(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -1987,6 +2011,9 @@ pub(super) async fn list_assets(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2096,6 +2123,9 @@ pub(super) async fn get_group(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2205,6 +2235,9 @@ pub(super) async fn get_asset(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2314,6 +2347,9 @@ pub(super) async fn get_operation(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2453,6 +2489,9 @@ pub(super) async fn refresh_group(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2610,6 +2649,9 @@ pub(super) struct OperationListQuery {
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2735,6 +2777,9 @@ pub(super) async fn list_operations(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -2995,6 +3040,9 @@ fn required_idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -3317,6 +3365,9 @@ pub(super) async fn prepare_operation(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
@@ -3467,6 +3518,9 @@ pub(super) async fn dispatch_operation(
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [

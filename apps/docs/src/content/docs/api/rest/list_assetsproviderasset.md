@@ -20,6 +20,9 @@ Use the credential and permission scope described above. Each object below is an
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```

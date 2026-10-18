@@ -733,9 +733,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -909,9 +906,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -1078,9 +1072,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -1203,9 +1194,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -1356,9 +1344,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -1525,9 +1510,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -1703,9 +1685,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -1871,9 +1850,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -4547,9 +4523,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -7669,7 +7642,7 @@ Exact gateway execution state, or output_withheld for recorded blocked/indetermi
 
 ### Responses
 
-HTTP 200: Gateway activity wrapped in data, nullable next_cursor, and summary. Each entry includes attempt_id, operation_id, optional project api_key_id/key_name and task_id, an optional summary of the latest supplemental execution record for that task, public model alias and nullable provider-reported model, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable customer charge currency/amount/status and request phase timing. Integer quantities and amounts are decimal strings. Pages follow the requested sort; next_cursor is the last attempt_id when further matching entries remain. summary covers all rows matching the filters, not only the current page.
+HTTP 200: Gateway activity wrapped in data, nullable next_cursor, and summary. Each entry includes attempt_id, operation_id, optional workspace api_key_id/key_name and task_id, an optional summary of the latest supplemental execution record for that task, public model alias and nullable provider-reported model, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable customer charge currency/amount/status and request phase timing. Integer quantities and amounts are decimal strings. Pages follow the requested sort; next_cursor is the last attempt_id when further matching entries remain. summary covers all rows matching the filters, not only the current page.
 
 Response header: `Cache-Control`.
 
@@ -8337,9 +8310,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -8878,9 +8848,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -11383,9 +11350,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -11492,9 +11456,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -19401,9 +19362,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -19569,9 +19527,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -19807,9 +19762,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -26993,9 +26945,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -27121,9 +27070,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -27219,9 +27165,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -27344,9 +27287,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -27482,9 +27422,6 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
-  },
-  {
-    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -27621,6 +27558,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -27887,6 +27827,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -27981,6 +27924,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28087,6 +28033,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28176,6 +28125,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28285,6 +28237,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28388,6 +28343,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28477,6 +28435,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28557,6 +28518,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28646,6 +28610,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28723,6 +28690,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28800,6 +28770,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28877,6 +28850,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -28954,6 +28930,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -29031,6 +29010,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -29132,6 +29114,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -29211,6 +29196,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -29324,6 +29312,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -29446,6 +29437,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -30218,6 +30212,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -30318,6 +30315,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -30415,6 +30415,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -30490,6 +30493,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```
@@ -30592,6 +30598,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 [
   {
     "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
   }
 ]
 ```

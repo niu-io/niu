@@ -45,6 +45,9 @@ impl ObservationQuery {
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
 ///       }
 ///     ],
 ///     "parameters": [
