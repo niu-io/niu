@@ -217,8 +217,8 @@ function resolveInterval(
     const pEnd = parseMonthKey(rawEnd) ?? { year: curYear, monthIndex: curMonth };
     const startIdx = pStart.year * 12 + pStart.monthIndex;
     const endIdx = pEnd.year * 12 + pEnd.monthIndex;
-    const minIdx = Math.min(startIdx, endIdx);
     const maxIdx = Math.max(startIdx, endIdx);
+    const minIdx = Math.max(Math.min(startIdx, endIdx), maxIdx - 11);
     const spanMonths = Math.min(12, Math.max(1, maxIdx - minIdx + 1));
     const startDate = new Date(Date.UTC(Math.floor(minIdx / 12), minIdx % 12, 1));
     const isEndCurrent = Math.floor(maxIdx / 12) === curYear && (maxIdx % 12) === curMonth;
@@ -227,12 +227,17 @@ function resolveInterval(
       : new Date(Date.UTC(Math.floor(maxIdx / 12), (maxIdx % 12) + 1, 1));
     const priorStartIdx = minIdx - spanMonths;
     const priorStartDate = new Date(Date.UTC(Math.floor(priorStartIdx / 12), ((priorStartIdx % 12) + 12) % 12, 1));
-    const priorEndDate = startDate;
+    const priorEndDate = isEndCurrent
+      ? new Date(Math.min(
+          startDate.getTime(),
+          priorStartDate.getTime() + Math.max(60_000, now.getTime() - startDate.getTime()),
+        ))
+      : startDate;
     const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' });
     return {
       mode: 'range',
       label: `${fmt.format(startDate)} – ${fmt.format(new Date(Date.UTC(Math.floor(maxIdx / 12), maxIdx % 12, 1)))} (${spanMonths} mo)`,
-      comparisonLabel: `Prior ${spanMonths} mo (${fmt.format(priorStartDate)} – ${fmt.format(new Date(priorEndDate.getTime() - 86_400_000))})`,
+      comparisonLabel: `Prior ${spanMonths} mo (${fmt.format(priorStartDate)} – ${fmt.format(new Date(startDate.getTime() - 86_400_000))})`,
       from: startDate.toISOString(),
       until: endDate.toISOString(),
       priorFrom: priorStartDate.toISOString(),
@@ -352,8 +357,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
 
     if (row.customer_charge_nanos !== null || row.earning_nanos !== null) {
       if (row.net_contribution_nanos === null) {
-        // If a row has unresolved attempts, still accumulate known net contribution from fully resolved rows
-        // while tracking that unresolved traffic exists.
+        contributionKnown = false;
       } else {
         netContribution += BigInt(row.net_contribution_nanos);
       }

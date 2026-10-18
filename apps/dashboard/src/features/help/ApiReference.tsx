@@ -2,14 +2,26 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceKeyConnection, { type DocsKeySelection } from '../../../../docs/src/components/live-api/WorkspaceKeyConnection';
 import { useNavigate } from 'react-router';
 import { ApiReferenceReact, type AnyApiReferenceConfiguration } from '@scalar/api-reference-react';
+import { useDashboardContext, type DashboardContext } from '../../app/dashboard-context';
 import PublicHeader from '../../../../docs/src/components/PublicHeader';
 import '../../../../../branding/public-header.css';
 import '@scalar/api-reference-react/style.css';
 import './api-reference.css';
 
 /** Scalar owns documentation navigation, schema rendering and code samples. */
-export default function ApiReference() {
+export default function ApiReference({
+  embedded = true,
+  token: propToken,
+}: {
+  embedded?: boolean;
+  token?: string;
+} = {}) {
   const navigate = useNavigate();
+  const context = useDashboardContext() as DashboardContext | undefined;
+  const sessionToken = propToken ?? context?.token;
+  const authToken = sessionToken || 'niu-browser-member-session';
+  const authTokenRef = useRef(authToken);
+  authTokenRef.current = authToken;
   const [selection, setSelection] = useState<DocsKeySelection | null>(null);
   const selectedKey = useRef(selection); selectedKey.current = selection;
   const [mode, setMode] = useState<'dark' | 'light'>(() => document.documentElement.classList.contains('dark') ? 'dark' : 'light');
@@ -42,7 +54,7 @@ export default function ApiReference() {
       }
       if (!['GET', 'HEAD'].includes(request.method) && !selected.canWrite) throw new Error('Your role does not permit request execution.');
       request.headers.delete('x-niu-api-key');
-      request.headers.set('authorization', 'Bearer niu-browser-member-session');
+      request.headers.set('authorization', `Bearer ${authTokenRef.current}`);
       request.headers.set('x-niu-key-id', selected.keyId);
     },
     telemetry: false,
@@ -60,10 +72,11 @@ export default function ApiReference() {
     event.preventDefault();
     navigate('/help/' + url.pathname.slice('/docs/'.length) + url.search + url.hash);
   }}>
-    <PublicHeader path="/docs/api/rest/" brandSrc="" embedded />
+    {!embedded && <PublicHeader path="/docs/api/rest/" brandSrc="" />}
     <section className="niu-api-connection-bar" aria-label="Connect API reference">
       <WorkspaceKeyConnection
         onChange={setSelection}
+        token={sessionToken}
         description="Same-origin inference APIs only · key secret stays on the server · requests can incur real charges"
       />
     </section>

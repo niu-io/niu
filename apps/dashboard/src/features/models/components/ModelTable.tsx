@@ -85,7 +85,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
   const catalogSearch = workspace ? `?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : '';
   function generationHref(model: Model) {
     const query = new URLSearchParams({new: isVideoModel(model) ? 'video' : '1', model: model.id});
-    if (workspace) query.set('workspace', workspace.id);
+    if (workspace) query.set('workspace', workspacePathSegment(workspace, workspaces));
     return `/generations?${query}`;
   }
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);

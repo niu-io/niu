@@ -1,5 +1,6 @@
 import { PricingHealthNotice, type PricingHealth } from './pricing-health';
 import { useEffect, useRef, useState } from 'react';
+import { IconSearch } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request } from '@/features/vendors/api';
@@ -48,7 +50,7 @@ function Standards({ token }: { token: string }) {
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
   return <div className="space-y-6 pt-4"><PageHeader title="Standard prices" /><p className="text-sm text-muted-foreground">Platform customer selling prices, independent of Provider purchase offers. Publication does not establish qualified supply or enroll a workspace. Publish or revise text and media standards here. Publish finite promotions from the current standard or an original price in history. Customer-specific rules override global rules without stacking.</p>
-    <div className="flex flex-wrap items-center gap-3"><Input aria-label="Filter standard models" placeholder="Filter models" className="max-w-sm" value={filter} onChange={event => setFilter(event.target.value)} /><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button><Button disabled={loading || !!error} onClick={() => setEditor({ kind: 'text', previous: null })}>Publish text price</Button><Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: 'media', previous: null })}>Publish media price</Button></div>
+    <div className="flex flex-wrap items-center gap-3"><Popover><PopoverTrigger asChild><Button type="button" variant={filter.trim() ? 'secondary' : 'outline'} size={filter.trim() ? 'sm' : 'icon'} aria-label={filter.trim() ? `Filter standard models: ${filter.trim()}` : 'Filter standard models'} title="Filter models"><IconSearch size={16} aria-hidden="true" />{filter.trim() && <span className="max-w-36 truncate">{filter.trim()}</span>}</Button></PopoverTrigger><PopoverContent align="start" className="w-72 space-y-2"><Input autoFocus type="search" aria-label="Filter standard models" placeholder="Filter models" value={filter} onChange={event => setFilter(event.target.value)} />{filter && <Button type="button" variant="ghost" size="sm" onClick={() => setFilter('')}>Reset search</Button>}</PopoverContent></Popover><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button><Button disabled={loading || !!error} onClick={() => setEditor({ kind: 'text', previous: null })}>Publish text price</Button><Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: 'media', previous: null })}>Publish media price</Button></div>
     {notice && <p role="status">{notice}</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failed)}>Retry prices</Button></AlertDescription></Alert>}
     {loading && !rows.length && <p role="status">Loading standard prices…</p>}

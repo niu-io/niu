@@ -33,9 +33,16 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
   const saveController = useRef<AbortController | null>(null);
   const readGeneration = useRef(0);
   const cancelFocusCurrency = useRef<string | null>(null);
+  const loadedScope = useRef('');
   useEffect(() => () => { saveController.current?.abort(); }, [token, base]);
   useEffect(() => {
     const controller = new AbortController();
+    const nextScope = `${token}:${base}`;
+    if (loadedScope.current !== nextScope) {
+      loadedScope.current = nextScope;
+      readGeneration.current += 1;
+      setAccounts(null); setEditing(null); setSaved(false); setSaveError(''); setReloadRequired(false);
+    }
     const generation = readGeneration.current;
     setLoading(true); setError(false);
     void request<{data: SpendingAccount[]}>(token, base, 'GET', undefined, controller.signal)

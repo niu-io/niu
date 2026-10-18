@@ -42,12 +42,14 @@ export default function WorkspaceKeyConnection({
   onChange,
   disabled = false,
   description,
+  token,
 }: {
   onChange: (selection: DocsKeySelection | null) => void;
   disabled?: boolean;
   description?: string;
+  token?: string;
 }) {
-  const { session, checking, error: sessionError, refresh } = useDocsSession();
+  const { session, checking, error: sessionError, refresh } = useDocsSession(token);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [keys, setKeys] = useState<Key[]>([]);
@@ -90,6 +92,7 @@ export default function WorkspaceKeyConnection({
             "/api/v1/workspaces?limit=100" +
               (after ? "&after=" + encodeURIComponent(after) : ""),
             controller.signal,
+            token,
           );
         if (
           !Array.isArray(page.data) ||
@@ -132,7 +135,7 @@ export default function WorkspaceKeyConnection({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [identity, revision]);
+  }, [identity, revision, token]);
   useEffect(() => {
     const controller = new AbortController();
     setKeys([]);
@@ -144,6 +147,7 @@ export default function WorkspaceKeyConnection({
     void metadata<{ data: Key[] }>(
       "/api/v1/workspaces/" + encodeURIComponent(workspaceId) + "/keys",
       controller.signal,
+      token,
     )
       .then((page) => {
         if (!controller.signal.aborted) {
@@ -167,7 +171,7 @@ export default function WorkspaceKeyConnection({
         if (!controller.signal.aborted) setKeysLoading(false);
       });
     return () => controller.abort();
-  }, [workspaceId, identity, revision]);
+  }, [workspaceId, identity, revision, token]);
   const workspace = workspaces.find((row) => row.id === workspaceId),
     key = keys.find((row) => row.id === keyId);
   useEffect(() => {

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { DashboardContext } from '@/app/dashboard-context';
+import { workspacePathSegment } from '@/app/workspace-route';
 import { keyRequest } from '@/features/keys/api';
 import type { VideoJobHistory } from '../../../../../sdks/javascript/src/index';
 import { NiuAdminClient, type GenerationTask, type TenantScope } from '../../../../../sdks/javascript/src/admin';
@@ -33,7 +34,9 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const metadataIdentity=JSON.stringify([token,workspace?.id,context.session?.permissions.write]);
   const metadataScope=useRef(metadataIdentity);metadataScope.current=metadataIdentity;
   const pagination=useRef<AbortController|null>(null);
-  const scopeIdentity=JSON.stringify([token,workspace?.id,context.workspaces?.map(item=>[item.organization_id,item.id]),currentKeys,videoKeyId]);
+  const availableWorkspaces=context.workspaces?.length ? context.workspaces : workspace ? [workspace] : [];
+  const workspaceListScope=availableWorkspaces.map(item=>`${item.organization_id}:${item.id}`).join(',');
+  const scopeIdentity=JSON.stringify([token,workspaceListScope,currentKeys,videoKeyId]);
   if(identity.current!==scopeIdentity){identity.current=scopeIdentity;generation.current+=1;}
   const [savedChats,setSavedChats]=useState<Array<Chat & {workspaceId:string}>>([]);
   const [savedVideos,setSavedVideos]=useState<Video[]>([]);
@@ -59,13 +62,12 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   useEffect(()=>{setEditingSession(null);setSessionError('');setSessionBusy(false);},[token,workspace?.id]);
   const [cursors,setCursors]=useState<VideoCursor[]>([]);
   const loadedScope=useRef('');
-  const scope=workspace ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}` : '';
   useEffect(()=>{
     const controller=new AbortController();
-    const nextScope=JSON.stringify([token,scope]);
+    const nextScope=JSON.stringify([token,workspaceListScope]);
     if(loadedScope.current!==nextScope){loadedScope.current=nextScope;setSavedChats([]);setSavedVideos([]);setSavedIntents([]);setSavedSessions([]);}
     setSessionCursors([]);setIntentCursors([]);setCursors([]);setError('');setLoading(false);setDeleting(null);setDeleteError('');
-    if(!scope || !token)return;
+    if(!workspaceListScope || !token)return;
     setLoading(true);
     let failedRead=false;
     const read=async<T,>(path:string):Promise<T|null>=>{
@@ -115,20 +117,28 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       if(!controller.signal.aborted && (failedRead||outcomes.some(item=>item.status==='rejected')))setError('Some sessions could not be loaded.');
     })().finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>{controller.abort();pagination.current?.abort();pagination.current=null;generation.current+=1;};
-  },[token,scope,revision,JSON.stringify(context.workspaces?.map(item=>item.id)),JSON.stringify(currentKeys)]);
+  },[token,workspaceListScope,revision,JSON.stringify(currentKeys)]);
   const entries=useMemo(()=>{
+    const knownWorkspaces=context.workspaces?.length ? context.workspaces : workspace ? [workspace] : [];
+    const workspaceSegment=(id?:string)=>{
+      if(!id)return '';
+      const found=knownWorkspaces.find(item=>item.id===id);
+      if(!found)return id;
+      if(!found.route_slug && found.name.length<=1)return found.id;
+      return workspacePathSegment(found,knownWorkspaces);
+    };
     const merged=new Map(savedVideos.filter(item=>!item.sessionId||unavailableSessionWorkspaces.has(item.workspaceId??'')).map(item=>[item.id,item]));
     for(const item of videos??[])if(!item.sessionId||unavailableSessionWorkspaces.has(workspace?.id??''))merged.set(item.id,{...item,workspaceId:workspace?.id});
     const legacyIntents=savedIntents.filter(item=>!item.sessionId||unavailableSessionWorkspaces.has(item.scope.projectId));
     const intentsByJob=new Map(legacyIntents.filter(item=>item.jobId).map(item=>[item.jobId,item]));
-    const intentHref=(item:VideoIntentHistoryRow)=>`/generations?workspace=${encodeURIComponent(item.scope.projectId)}&intent=${encodeURIComponent(item.id)}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}`;
+    const intentHref=(item:VideoIntentHistoryRow)=>`/generations?workspace=${encodeURIComponent(workspaceSegment(item.scope.projectId))}&intent=${encodeURIComponent(item.id)}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}`;
     return [
-      ...savedSessions.map(session=>({id:session.id,type:'video-session' as const,session,workspaceId:session.workspace_id,title:session.title,created:Date.parse(session.updated_at),href:`/generations?workspace=${encodeURIComponent(session.workspace_id)}&video-session=${encodeURIComponent(session.id)}`})),
-      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}&session=${encodeURIComponent(item.id)}`})),
-      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}&job=${encodeURIComponent(item.id)}`};}),
+      ...savedSessions.map(session=>({id:session.id,type:'video-session' as const,session,workspaceId:session.workspace_id,title:session.title,created:Date.parse(session.updated_at),href:`/generations?workspace=${encodeURIComponent(workspaceSegment(session.workspace_id))}&video-session=${encodeURIComponent(session.id)}`})),
+      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}&session=${encodeURIComponent(item.id)}`})),
+      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}&job=${encodeURIComponent(item.id)}`};}),
       ...legacyIntents.filter(item=>!item.jobId || !merged.has(item.jobId)).map(item=>({id:item.id,type:'video' as const,intent:item,workspaceId:item.scope.projectId,title:item.title,created:Number(item.expires_at_ms),href:intentHref(item)})),
     ].sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
-  },[chats,savedChats,savedVideos,savedIntents,savedSessions,unavailableSessionWorkspaces,videos,workspace?.id,pending]);
+  },[chats,savedChats,savedVideos,savedIntents,savedSessions,unavailableSessionWorkspaces,videos,workspace,context.workspaces,pending]);
   async function more(){
     if(loading||(!cursors.length&&!intentCursors.length&&!sessionCursors.length)||pagination.current)return;setLoading(true);setError('');
     const request=new AbortController();pagination.current=request;

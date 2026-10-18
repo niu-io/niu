@@ -13,7 +13,7 @@ import type { KeyIpPolicy } from '../../../../../../sdks/javascript/src/admin';
 type Mode = 'all' | 'listed' | 'blocked';
 const names = { all: 'Allow all sources', listed: 'Allow listed sources', blocked: 'Block all sources' };
 const modeOf = (policy: KeyIpPolicy): Mode => policy.allowed_cidrs === null ? 'all' : policy.allowed_cidrs.length ? 'listed' : 'blocked';
-export default function KeySourceAccess({token,endpoint,canWrite,active}:{token:string;endpoint:string;canWrite:boolean;active:boolean}) {
+export default function KeySourceAccess({token,endpoint,canWrite,active,onUpdated}:{token:string;endpoint:string;canWrite:boolean;active:boolean;onUpdated?:()=>void}) {
   const [policy,setPolicy]=useState<KeyIpPolicy|null>(null);
   const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [reload,setReload]=useState(0);
   const [open,setOpen]=useState(false);const [mode,setMode]=useState<Mode>('all');const [draft,setDraft]=useState('');
@@ -40,7 +40,7 @@ export default function KeySourceAccess({token,endpoint,canWrite,active}:{token:
     try{
       await keyRequest(token,endpoint,'PUT',{allowed_cidrs:value,expected_revision:policy.revision??'0'},controller.signal);
       if(controller.signal.aborted)return;
-      setOpen(false);setNotice('Source IP access saved.');setReload(current=>current+1);
+      setOpen(false);setNotice('Source IP access saved.');setReload(current=>current+1);onUpdated?.();
     }catch(cause){if(!controller.signal.aborted){const stale=cause instanceof KeyRequestError&&cause.status===409;setConflict(stale);setEditError(stale?'This policy changed. Reload the saved policy before trying again.':cause instanceof Error?cause.message:'Could not save source IP access.');}}
     finally{if(!controller.signal.aborted)setSaving(false);}
   }

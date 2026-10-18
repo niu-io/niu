@@ -112,9 +112,15 @@ export default function AccountBilling({token, organization, canConfigure = fals
   } catch (error) {if (!controller.signal.aborted) setSaveError(error instanceof Error ? error.message : 'Could not reload the account.');}
   finally {if (!controller.signal.aborted) setSaving(false);}
  };
+ const loadedScope = useRef('');
  useEffect(() => {
   const controller = new AbortController();
   olderController.current?.abort(); setLoadingOlder(false);
+  const nextScope = `${token}:${organization}`;
+  if (loadedScope.current !== nextScope) {
+   loadedScope.current = nextScope;
+   setAccounts(null); setTransactions(null); setNextCursor(null); setEditing(null);
+  }
   setAccountError(''); setTransactionError(''); setTransactionFailure(null); setTransactionsLoading(showTransactions);
   setRefreshing(true);
   void request<{data: Balance[]}>(token, `/api/v1/organizations/${organization}/billing/balance`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) setAccounts(checkedAccounts(r));}).catch(e => {if (!controller.signal.aborted) setAccountError(e.message);}).finally(() => {if (!controller.signal.aborted) setRefreshing(false);});

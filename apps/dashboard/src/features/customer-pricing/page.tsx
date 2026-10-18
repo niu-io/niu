@@ -1,7 +1,7 @@
 import { PricingHealthNotice } from '@/features/retail-pricing/pricing-health';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
+import { IconChevronDown, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { money } from '@/lib/money';
 import { VendorRequestError } from '@/features/vendors/api';
@@ -95,7 +96,21 @@ function Prices({ token, target }: { token: string; target: PricingTarget }) {
   }, [token, modelReload]);
   return <>
     <PageHeader title="Customer pricing" action={<Button disabled={!loaded || loading || !modelsReady || !modelNames.length} onClick={() => { setNotice(''); setEditor({previous:null}); }}>Publish price</Button>}/>
-    <div className="flex flex-wrap items-center gap-3"><Input aria-label="Filter customer models" placeholder="Filter models" className="max-w-sm" value={filter} onChange={event => setFilter(event.target.value)}/><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button></div>
+    <div className="flex flex-wrap items-center gap-3">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant={filter.trim() ? 'secondary' : 'outline'} size={filter.trim() ? 'sm' : 'icon'} aria-label={filter.trim() ? `Filter customer models: ${filter.trim()}` : 'Filter customer models'} title="Filter models">
+            <IconSearch size={16} aria-hidden="true" />
+            {filter.trim() && <span className="max-w-36 truncate">{filter.trim()}</span>}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-72 space-y-2">
+          <Input autoFocus type="search" aria-label="Filter customer models" placeholder="Filter models" value={filter} onChange={event => setFilter(event.target.value)} />
+          {filter && <Button type="button" variant="ghost" size="sm" onClick={() => setFilter('')}>Reset search</Button>}
+        </PopoverContent>
+      </Popover>
+      <Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button>
+    </div>
     {notice && <p role="status">{notice}</p>}
     {modelsError && <Alert variant="destructive"><AlertDescription>{modelsError}<Button variant="outline" onClick={() => setModelReload(value => value + 1)}>Retry models</Button></AlertDescription></Alert>}
     {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry prices</Button></AlertDescription></Alert>}

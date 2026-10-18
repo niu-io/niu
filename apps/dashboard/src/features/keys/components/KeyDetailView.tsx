@@ -233,8 +233,8 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         canWrite={canWrite}
         active={!key.revoked && !key.expired}
       />}
-      {initialScope && <KeyLimits key={`${token}:${key.id}:${revision}:limits`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}`} canWrite={canWrite} active={!key.revoked && !key.expired} />}
-      {initialScope && <KeySourceAccess key={`${token}:${key.id}:${revision}:source`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/ip-policy`} canWrite={canWrite} active={!key.revoked && !key.expired} />}
+      {initialScope && <KeyLimits key={`${token}:${key.id}:${revision}:limits`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}`} canWrite={canWrite} active={!key.revoked && !key.expired} onUpdated={() => setRevision(value => value + 1)} />}
+      {initialScope && <KeySourceAccess key={`${token}:${key.id}:${revision}:source`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/ip-policy`} canWrite={canWrite} active={!key.revoked && !key.expired} onUpdated={() => setRevision(value => value + 1)} />}
       {initialScope && <KeySpendingLimits key={`${token}:${key.id}:${revision}:spending`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/spending-limit`} canWrite={canConfigureSpending} active={!key.revoked && !key.expired} />}
       {initialScope && <GatewayActivity
         key={`${token}:${key.id}`}

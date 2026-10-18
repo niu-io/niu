@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { DashboardContext } from '@/app/dashboard-context';
+import { workspacePathSegment } from '@/app/workspace-route';
 import { useBranding } from '@/app/branding';
 import { NiuAdminClient } from '../../../../../sdks/javascript/src/admin';
 import type { VideoGenerationsSession } from '../../../../../sdks/javascript/src/generations-sessions';
@@ -33,7 +34,8 @@ export default function VideoSessionView({context,id}:{context:DashboardContext;
       .catch(()=>{if(!request.signal.aborted)setError('This Video session could not be loaded. Check workspace access and reload.');});
     return()=>request.abort();
   },[client,workspace?.organization_id,workspace?.id,id,revision]);
-  const query=new URLSearchParams({workspace:workspace?.id??'',session:id});
+  const workspaceSegment=workspace ? workspacePathSegment(workspace, context.workspaces ?? [workspace]) : '';
+  const query=new URLSearchParams({workspace:workspaceSegment,session:id});
   return <div className="video-shell">
     <GenerationSessionBindings trigger={trigger} title={session?.title??'Video session'} actions={<Button variant="ghost" onClick={()=>setRevision(value=>value+1)}>Refresh session</Button>} history={{context,activeVideoSession:id}}/>
     <section className="video-main" aria-label="Saved Video session"><div className="video-content"><div className="video-conversation">

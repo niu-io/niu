@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { IconPlus, IconArchive, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import logo from '../../../../../branding/assets/niu-mark.png';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, useSidebar } from '@/components/ui/sidebar';
+import { workspacePathSegment } from '@/app/workspace-route';
 import SessionHistory from './SessionHistory';
 import './generations.css';
 
@@ -13,8 +14,10 @@ const Host = createContext<((content: Content) => void) | null>(null);
 function GenerationsSidebar({ content, toggle }: { content: Content | null; toggle: RefObject<HTMLButtonElement | null> }) {
   const navigate = useNavigate();
   const { isMobile, setOpenMobile } = useSidebar();
-  const workspace = content?.history.context.workspace?.id;
-  const workspaceQuery = workspace ? `&workspace=${encodeURIComponent(workspace)}` : '';
+  const workspace = content?.history.context.workspace;
+  const workspaces = content?.history.context.workspaces ?? (workspace ? [workspace] : []);
+  const workspaceSegment = workspace ? (!workspace.route_slug && workspace.name.length <= 1 ? workspace.id : workspacePathSegment(workspace, workspaces)) : undefined;
+  const workspaceQuery = workspaceSegment ? `&workspace=${encodeURIComponent(workspaceSegment)}` : '';
   const [listTarget, setListTarget] = useState<HTMLDivElement | null>(null);
   const scrollNode = useRef<HTMLDivElement | null>(null);
   const scrollTop = useRef(0);
@@ -36,7 +39,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
     </SidebarContent>
     <SidebarFooter><Button variant="ghost" className="justify-start" onClick={event => { if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />Archived sessions</Button></SidebarFooter>
   </Sidebar>
-    {content && <SessionHistory {...content.history} focusFallback={toggle} listTarget={listTarget} key={JSON.stringify([content.history.context.token, content.history.context.workspace?.id])} />}
+    {content && <SessionHistory {...content.history} focusFallback={toggle} listTarget={listTarget} key={content.history.context.token} />}
   </>;
 }
 

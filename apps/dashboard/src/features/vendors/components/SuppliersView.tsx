@@ -387,7 +387,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, catalo
   }
 
   return <>
-    {supplierId && <div className="supplier-section-heading"><h2>API keys &amp; routes</h2><p>Configure API keys and the model routes they serve.</p></div>}
+    {supplierId && <div className="supplier-section-heading">{!routeSupplierId && <h2>API keys &amp; routes</h2>}<p>Configure API keys and the model routes they serve.</p></div>}
     <PageHeader title="Providers" action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={supplierId ? 'Add API key' : 'Add provider'} title={supplierId ? 'Add API key' : 'Add provider'} onClick={() => { setError(''); setAddingVendor(true); }}><Router size={16} aria-hidden="true" /><span>{supplierId ? 'Add API key' : 'Add provider'}</span></Button>}</>} />
     {error && !addingVendor && !editingVendor && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingVendors || loadingModels} onClick={() => void retryData()}>Retry</Button></div>}
     <div className="supplier-detail-layout">

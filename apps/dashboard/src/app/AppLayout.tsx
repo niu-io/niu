@@ -534,10 +534,10 @@ export default function AppLayout() {
     setWorkspace(next);
     setWorkspaceError(null);
     try { window.localStorage.setItem('niu.active-workspace', next.id); } catch { /* URL remains the source of truth. */ }
+    const knownWorkspaces = workspaces.some(item => item.id === next.id) ? workspaces : [...workspaces, next];
     if (usesSelectedWorkspace && !settingsArea && !workspaceDirectoryArea) {
       const search = new URLSearchParams(location.search);
-      search.set('workspace', location.pathname === '/models' || location.pathname.startsWith('/models/')
-        ? workspacePathSegment(next, workspaces) : next.id);
+      search.set('workspace', workspacePathSegment(next, knownWorkspaces));
       navigate({ pathname: location.pathname, search: `?${search.toString()}`, hash: location.hash }, { replace: true });
       return;
     }
@@ -546,7 +546,6 @@ export default function AppLayout() {
     const nestedPath = keyDetail ? 'keys' : currentSection;
     const nextSearch = new URLSearchParams(location.search);
     nextSearch.delete('keyId');
-    const knownWorkspaces = workspaces.some(item => item.id === next.id) ? workspaces : [...workspaces, next];
     navigate({
       pathname: `/workspaces/${workspacePathSegment(next, knownWorkspaces)}${nestedPath ? `/${nestedPath}` : ''}`,
       search: nextSearch.toString() ? `?${nextSearch}` : '',
@@ -656,6 +655,10 @@ export default function AppLayout() {
       if (!usesSelectedWorkspace && routeWorkspaceId !== preferredSegment) {
         const nestedPath = location.pathname.split('/').filter(Boolean).slice(2).join('/');
         navigate({ pathname: `/workspaces/${preferredSegment}${nestedPath ? `/${nestedPath}` : ''}`, search: location.search, hash: location.hash }, { replace: true });
+      } else if (usesSelectedWorkspace && requestedWorkspaceId && requestedWorkspaceId !== preferredSegment) {
+        const search = new URLSearchParams(location.search);
+        search.set('workspace', preferredSegment);
+        navigate({ pathname: location.pathname, search: `?${search.toString()}`, hash: location.hash }, { replace: true });
       }
     } else {
       setWorkspace(null);

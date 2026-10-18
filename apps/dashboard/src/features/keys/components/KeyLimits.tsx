@@ -24,10 +24,10 @@ function parseLimit(draft: string, maximum: number): number | null | undefined {
   const value = Number(draft.trim());
   return Number.isSafeInteger(value) && value <= maximum ? value : undefined;
 }
-export default function KeyLimits({ token, endpoint, canWrite, active }: { token: string; endpoint: string; canWrite: boolean; active: boolean }) {
-  return <Card><CardHeader><CardTitle>Limits</CardTitle><CardDescription>Throughput limits for this API key.</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} />)}<KeyTokenUsage token={token} endpoint={endpoint} /></CardContent></Card>;
+export default function KeyLimits({ token, endpoint, canWrite, active, onUpdated }: { token: string; endpoint: string; canWrite: boolean; active: boolean; onUpdated?: () => void }) {
+  return <Card><CardHeader><CardTitle>Limits</CardTitle><CardDescription>Throughput limits for this API key.</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} onUpdated={onUpdated} />)}<KeyTokenUsage token={token} endpoint={endpoint} /></CardContent></Card>;
 }
-function LimitPolicy({ token, endpoint, definition, canWrite }: { token: string; endpoint: string; definition: Definition; canWrite: boolean }) {
+function LimitPolicy({ token, endpoint, definition, canWrite, onUpdated }: { token: string; endpoint: string; definition: Definition; canWrite: boolean; onUpdated?: () => void }) {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,7 +64,7 @@ function LimitPolicy({ token, endpoint, definition, canWrite }: { token: string;
       const result = await keyRequest<{ data: { revision: string } }>(token, endpoint, 'PUT', { [definition.field]: parsed, expected_revision: policy.revision ?? '0' }, controller.signal);
       if (controller.signal.aborted) return;
       setPolicy({ ...policy, [definition.field]: parsed, revision: result.data.revision });
-      setOpen(false);setNotice('Limit saved.');setReload(value => value + 1);
+      setOpen(false);setNotice('Limit saved.');setReload(value => value + 1);onUpdated?.();
     } catch (cause) {
       if (!controller.signal.aborted) {
         const stale = cause instanceof KeyRequestError && cause.status === 409;

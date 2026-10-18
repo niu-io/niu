@@ -676,6 +676,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   }, [historyIdentity]);
 
   function startNewComparison() {
+    comparisonGeneration.current += 1;
     attachmentGeneration.current += 1;
     if (attachmentInput.current) attachmentInput.current.value = '';
     comparisonController.current?.abort();
@@ -692,6 +693,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   }
 
   function openComparison(item: SavedComparison) {
+    comparisonGeneration.current += 1;
     attachmentGeneration.current += 1;
     if (attachmentInput.current) attachmentInput.current.value = '';
     if (running) comparisonController.current?.abort();
@@ -823,10 +825,15 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       saved.results = completed;
       saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
       if (generation !== comparisonGeneration.current) return;
+      if (controller.signal.aborted) {
+        setResults(completed);
+        setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
+        return;
+      }
       const attemptIds = completed.flatMap(result => result.attemptId ? [result.attemptId] : []);
       try {
         const charges = await loadCharges(attemptIds, controller.signal);
-        if (generation !== comparisonGeneration.current) return;
+        if (controller.signal.aborted || generation !== comparisonGeneration.current) return;
         const priced = completed.map(result => {
           const entry = result.attemptId ? charges.get(result.attemptId) : undefined;
           return {
@@ -841,7 +848,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
         setResults(priced);
         setHistory(current => current.map(item => item.id === comparisonId ? { ...saved } : item));
       } catch {
-        if (generation !== comparisonGeneration.current) return;
+        if (controller.signal.aborted || generation !== comparisonGeneration.current) return;
         saved.results = completed;
         saved.turns = [...previousTurns, { ...currentTurn, results: completed }];
         setResults(completed);
@@ -870,7 +877,12 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   }
 
   function cancelComparison() {
-    comparisonController.current?.abort();
+    if (comparisonController.current) {
+      comparisonController.current.abort();
+    } else {
+      comparisonGeneration.current += 1;
+      setRunning(false);
+    }
   }
 
   async function copyResponse(model: string, content: string) {
@@ -888,6 +900,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const activeComparison = history.find(item => item.id === activeComparisonId);
   const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? (manualKey ? 'Workspace key added' : 'Choose API key');
   const visiblePromptExamples = promptExamples.filter(item => promptCategory === 'all' || item.category === promptCategory);
+  const currentWorkspaceSegment = workspace ? workspacePathSegment(workspace, workspaces) : workspaceId;
 
   return <div className="playground-view">
     <div className="playground-chat-layout">
@@ -895,7 +908,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
             <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={'API key: ' + selectedKeyLabel}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
-          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>Retry chat history</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);navigate(`/generations?workspace=${encodeURIComponent(workspaceId)}&session=${encodeURIComponent(id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
+          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>Retry chat history</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);navigate(`/generations?workspace=${encodeURIComponent(currentWorkspaceSegment)}&session=${encodeURIComponent(id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
               <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving || !draft.ready} aria-label={`Actions for ${sessionTitle(item)}`}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />Rename</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? 'Exporting…' : 'Export'}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />Archive</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />Delete</DropdownMenuItem></DropdownMenuContent>
               </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); }} />
@@ -912,7 +925,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
                 ? <div className="playground-first-run">
                   <div className="playground-first-run-heading"><h2>What would you like to create?</h2><p>Write, build, compare models or generate a video.</p>{modelsLoading ? <p role="status">Loading model catalog…</p> : !modelsError && modelAliases.length===0 ? <p>No text models are available. Ask a platform administrator to add a model route to the catalog.</p> : null}</div>
                   <div className="playground-starter-picker" aria-label="Example tasks">
-                    <Tabs value={promptCategory} onValueChange={value => {if(value==='video'){navigate(`/generations?new=video${workspaceId ? `&workspace=${encodeURIComponent(workspaceId)}`:''}`);return;}setPromptCategory(value as typeof promptCategory);}} className="playground-starter-tabs">
+                    <Tabs value={promptCategory} onValueChange={value => {if(value==='video'){navigate(`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}`:''}`);return;}setPromptCategory(value as typeof promptCategory);}} className="playground-starter-tabs">
                       <TabsList aria-label="Task category" className="playground-starter-categories">
                         {promptCategories.map(category => <TabsTrigger key={category.id} value={category.id} className="playground-starter-category">{category.label}</TabsTrigger>)}
                       </TabsList>
@@ -1103,7 +1116,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
           {availableKeys.error && <p role="alert" className="text-sm text-destructive">{availableKeys.error}</p>}
           {keyLoadError && <p role="alert" className="text-sm text-destructive">{keyLoadError}</p>}
           <div className="space-y-2"><Label htmlFor="playground-api-key">Key</Label>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label="API key" disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? 'Use another key'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId || 'manual'} onValueChange={value => {const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(chosen.workspace.id)}&key=${encodeURIComponent(value)}`);return;} setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label="API key" disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? 'Use another key'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId || 'manual'} onValueChange={value => {const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(value)}`);return;} setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
               {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}<DropdownMenuRadioItem value="manual">Use another key</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           </div>

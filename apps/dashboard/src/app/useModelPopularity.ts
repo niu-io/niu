@@ -20,7 +20,10 @@ function fallbackRank(model: Model, index: number) {
 
 export function useModelPopularity(models: Model[], token: string, organizationId?: string, projectId?: string) {
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const baseModels = useMemo(() => [...models].sort((a, b) => fallbackRank(a, models.indexOf(a)) - fallbackRank(b, models.indexOf(b))), [models]);
+  const baseModels = useMemo(() => {
+    const fallbackOrder = new Map(models.map((model, index) => [model.id, index]));
+    return [...models].sort((a, b) => fallbackRank(a, fallbackOrder.get(a.id) ?? 0) - fallbackRank(b, fallbackOrder.get(b.id) ?? 0));
+  }, [models]);
 
   useEffect(() => {
     setCounts({});
@@ -42,10 +45,13 @@ export function useModelPopularity(models: Model[], token: string, organizationI
     return () => controller.abort();
   }, [token, organizationId, projectId]);
 
-  const rankedModels = useMemo(() => [...baseModels].sort((a, b) => {
-    const usage = (counts[b.id] ?? 0) - (counts[a.id] ?? 0);
-    return usage || fallbackRank(a, baseModels.indexOf(a)) - fallbackRank(b, baseModels.indexOf(b));
-  }), [baseModels, counts]);
+  const rankedModels = useMemo(() => {
+    const fallbackOrder = new Map(baseModels.map((model, index) => [model.id, index]));
+    return [...baseModels].sort((a, b) => {
+      const usage = (counts[b.id] ?? 0) - (counts[a.id] ?? 0);
+      return usage || fallbackRank(a, fallbackOrder.get(a.id) ?? 0) - fallbackRank(b, fallbackOrder.get(b.id) ?? 0);
+    });
+  }, [baseModels, counts]);
 
   return { models: rankedModels, counts, hasWorkspaceHistory: Object.keys(counts).length > 0 };
 }

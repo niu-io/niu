@@ -10,7 +10,7 @@ export type DocsSession = {
   kind: string;
 };
 /** Browser cookies remain HttpOnly; this hook reads only the authorized session projection. */
-export function useDocsSession() {
+export function useDocsSession(token?: string) {
   const [session, setSession] = useState<DocsSession | null>(null);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
@@ -23,6 +23,7 @@ export function useDocsSession() {
     void fetch("/api/v1/session", {
       credentials: "same-origin",
       cache: "no-store",
+      headers: token ? { authorization: `Bearer ${token}` } : undefined,
       signal: controller.signal,
     })
       .then(async (response) => {
@@ -49,7 +50,7 @@ export function useDocsSession() {
         }
       });
     return () => controller.abort();
-  }, [revision]);
+  }, [revision, token]);
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState === "visible")
@@ -70,11 +71,16 @@ export function useDocsSession() {
   };
 }
 export function docsLoginHref() {
+  const params = new URLSearchParams(window.location.search);
+  let pathname = window.location.pathname;
+  if (params.get("embed") === "help" && pathname.startsWith("/docs/")) {
+    params.delete("embed");
+    pathname = "/help/" + pathname.slice("/docs/".length);
+  }
+  const search = params.toString() ? `?${params.toString()}` : "";
   return (
     "/login?returnTo=" +
-    encodeURIComponent(
-      window.location.pathname + window.location.search + window.location.hash,
-    )
+    encodeURIComponent(pathname + search + window.location.hash)
   );
 }
 /** Never substitute a routing identifier for a missing display label. */
@@ -87,10 +93,12 @@ export function displayName(value: string | undefined, fallback: string) {
 export async function metadata<T>(
   path: string,
   signal: AbortSignal,
+  token?: string,
 ): Promise<T> {
   const response = await fetch(path, {
     credentials: "same-origin",
     cache: "no-store",
+    headers: token ? { authorization: `Bearer ${token}` } : undefined,
     signal,
   });
   if (!response.ok)

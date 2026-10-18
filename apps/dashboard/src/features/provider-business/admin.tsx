@@ -1,4 +1,4 @@
-import { IconFilter } from '@tabler/icons-react';
+import { IconSearch } from '@tabler/icons-react';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { request, writeMayHaveCommitted, VendorRequestError } from "@/features/vendors/api";
 import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -508,7 +509,7 @@ function Administration({ token }: { token: string }) {
   }[section];
   return (
     <>
-      <div className="supplier-section-heading"><h2>{sectionTitle}</h2><p>{sectionDescription}</p></div>
+      <div className="supplier-section-heading"><p>{sectionDescription}</p></div>
       <PageHeader
         title={sectionTitle}
         action={businesses.length > 0 && <div className="provider-header-actions">
@@ -587,7 +588,7 @@ function Administration({ token }: { token: string }) {
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
             {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label="Provider pricing category"><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
             <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="px-6 pb-4"><div className="flex min-w-0 w-full max-w-sm items-center gap-2"><IconFilter size={17} className="shrink-0"/><Input ref={offerSearch} aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
+            {section === "models" && Boolean(textOffers.length) && <div className="px-6 pb-4"><Popover><PopoverTrigger asChild><Button type="button" variant={offerQuery.trim() ? "secondary" : "outline"} size={offerQuery.trim() ? "sm" : "icon"} aria-label={offerQuery.trim() ? `Filter provider models: ${offerQuery.trim()}` : "Filter provider models"} title="Filter models"><IconSearch size={16} aria-hidden="true" />{offerQuery.trim() && <span className="max-w-36 truncate">{offerQuery.trim()}</span>}</Button></PopoverTrigger><PopoverContent align="start" className="w-72 space-y-2"><Input ref={offerSearch} autoFocus type="search" aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} />{offerQuery && <Button type="button" variant="ghost" size="sm" onClick={() => setOfferQuery("")}>Reset search</Button>}</PopoverContent></Popover></div>}
             {textOffers.length ? (
               visibleOffers.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle>No matching models</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>Clear search</Button></EmptyContent></Empty> :
               <div className="table-wrap">
@@ -658,7 +659,7 @@ function Administration({ token }: { token: string }) {
           {section === "consumption" && <>
             <div className="provider-admin-section-heading"><h2>Consumption by model</h2><span>Last 90 days</span></div>
             {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Accrued charges</TableHead><TableHead>Unpaid</TableHead></TableRow></TableHeader><TableBody>
-              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString()}</TableCell><TableCell>{Number(row.prompt_tokens).toLocaleString()} / {Number(row.completion_tokens).toLocaleString()}</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
+              {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString()}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString()} ({BigInt(row.prompt_tokens).toLocaleString()} / {BigInt(row.completion_tokens).toLocaleString()})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
             </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No consumption in the last 90 days</EmptyTitle></EmptyHeader></Empty>}
           </>}
           {section === "settlements" && <>
