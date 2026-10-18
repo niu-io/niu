@@ -7,7 +7,7 @@
       "name": "core",
       "path": "vendor/litellm-rust/crates/core",
       "files": 42,
-      "sha256": "ea67a790fa71206ea57d3d20bad9441ee277d0610befd16bce397e43e48e52ea"
+      "sha256": "39a5ad536863c78c5c88cec0e989d2c94342b38d47432efc6091f02b6393ce61"
     },
     {
       "name": "core-utils",
@@ -37,7 +37,7 @@
       "name": "llms",
       "path": "vendor/litellm-rust/crates/llms",
       "files": 73,
-      "sha256": "34549467295529490f026dd96919a5b8f67496a2c9449d0aa30edf5329d6c17c"
+      "sha256": "0c9b087e17553e2b40016f29082c67c67457ad8155275ebe0c3280a0f533cad0"
     },
     {
       "name": "framer",
@@ -61,7 +61,7 @@
       "name": "auth-aws",
       "path": "vendor/litellm-rust/crates/auth-aws",
       "files": 6,
-      "sha256": "ffacc834ae3d5fd9ec28c1cbc0bf7bf30173d5bbf6783967710225441a95433b"
+      "sha256": "a40661424bb3cb20e6bfe5db5136e51fd9b9a8bc7585e051c3da458348b3395f"
     },
     {
       "name": "auth-azure",
