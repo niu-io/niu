@@ -50,12 +50,15 @@ impl Compiler {
     }
 }
 
+static LOCAL_COMPILE_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 impl RouteRegistryCompiler for Compiler {
     fn static_identity(&self) -> &str {
         &self.identity
     }
 
     fn compile(&self, inputs: RouteRegistryInputs) -> Result<serde_json::Value, StoreError> {
+        LOCAL_COMPILE_SEQ.fetch_add(1, std::sync::atomic::Ordering::Release);
         let mut static_models = self.static_models.clone();
         let mut routes = BTreeMap::new();
         for metadata in inputs.routes {
@@ -123,12 +126,21 @@ impl RouteRegistryCompiler for Compiler {
 pub(crate) struct Published {
     pub generation: i64,
     pub registry: Registry,
+    checked: std::sync::Mutex<(u64, std::time::Instant)>,
 }
 
 pub(crate) async fn snapshot(
     state: &crate::state::AppState,
 ) -> Result<Option<std::sync::Arc<Published>>, crate::error::ApiError> {
     use crate::error::ApiError;
+    let compile_seq = LOCAL_COMPILE_SEQ.load(std::sync::atomic::Ordering::Acquire);
+    if let Some(cached) = state.route_registry.read().await.as_ref()
+        && let Ok(checked) = cached.checked.lock()
+        && checked.0 == compile_seq
+        && checked.1.elapsed() < std::time::Duration::from_millis(100)
+    {
+        return Ok(Some(cached.clone()));
+    }
     let Some(generation) = state
         .store
         .route_registry_generation()
@@ -145,12 +157,18 @@ pub(crate) async fn snapshot(
     if let Some(cached) = state.route_registry.read().await.as_ref()
         && cached.generation >= generation
     {
+        if let Ok(mut checked) = cached.checked.lock() {
+            *checked = (compile_seq, std::time::Instant::now());
+        }
         return Ok(Some(cached.clone()));
     }
     let _reload_guard = state.route_registry_reload.lock().await;
     if let Some(cached) = state.route_registry.read().await.as_ref()
         && cached.generation >= generation
     {
+        if let Ok(mut checked) = cached.checked.lock() {
+            *checked = (compile_seq, std::time::Instant::now());
+        }
         return Ok(Some(cached.clone()));
     }
     let publication = state
@@ -175,6 +193,7 @@ pub(crate) async fn snapshot(
     let published = std::sync::Arc::new(Published {
         generation,
         registry,
+        checked: std::sync::Mutex::new((compile_seq, std::time::Instant::now())),
     });
     let mut cached = state.route_registry.write().await;
     // An older concurrent loader must not replace a newer complete generation.

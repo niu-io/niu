@@ -24,9 +24,12 @@ pub(crate) const RESOURCE: &str = "https://api.openai.com/v1";
 const ISSUER: &str = "https://auth.openai.com";
 const TOKEN_ENDPOINT: &str = "https://auth.openai.com/api/accounts/oauth/token";
 
+const PENDING_LOGIN_AAD: &[u8] = b"niu.codex-pending-login.v1";
+
 #[derive(Default)]
 pub(crate) struct Runtime {
     pending: Mutex<HashMap<String, PendingLogin>>,
+    consumed: Mutex<HashMap<[u8; 32], Instant>>,
     jwks_cache: Mutex<Option<(String, Instant, Value)>>,
     #[cfg(test)]
     pub(crate) inference_base: Option<String>,
@@ -43,6 +46,74 @@ struct PendingLogin {
     nonce: String,
     callback: String,
     created: Instant,
+}
+#[derive(Deserialize, Serialize)]
+struct SealedPendingLogin {
+    organization_id: Uuid,
+    project_id: Uuid,
+    id: Uuid,
+    name: String,
+    client_id: Option<String>,
+    subject: Option<String>,
+    verifier: String,
+    nonce: String,
+    callback: String,
+    created_at_unix: u64,
+}
+
+fn seal_pending_login(
+    cipher: &crate::vendors::crypto::CredentialCipher,
+    pending: &PendingLogin,
+    created_at_unix: u64,
+) -> Result<String, ApiError> {
+    let payload = serde_json::to_vec(&SealedPendingLogin {
+        organization_id: pending.scope.organization_id,
+        project_id: pending.scope.project_id,
+        id: pending.id,
+        name: pending.name.clone(),
+        client_id: pending.client_id.clone(),
+        subject: pending.subject.clone(),
+        verifier: pending.verifier.clone(),
+        nonce: pending.nonce.clone(),
+        callback: pending.callback.clone(),
+        created_at_unix,
+    })
+    .map_err(|_| ApiError::unavailable())?;
+    let sealed = cipher
+        .seal_bytes_with_aad(PENDING_LOGIN_AAD, &payload)
+        .map_err(|_| ApiError::unavailable())?;
+    Ok(URL_SAFE_NO_PAD.encode(sealed))
+}
+
+fn open_pending_login(
+    cipher: &crate::vendors::crypto::CredentialCipher,
+    state_token: &str,
+    now_unix: u64,
+) -> Option<PendingLogin> {
+    if state_token.len() > 4096 {
+        return None;
+    }
+    let bytes = URL_SAFE_NO_PAD.decode(state_token).ok()?;
+    let plaintext = cipher.open_bytes_with_aad(PENDING_LOGIN_AAD, &bytes).ok()?;
+    let sealed: SealedPendingLogin = serde_json::from_slice(&plaintext).ok()?;
+    let age_secs = now_unix.checked_sub(sealed.created_at_unix)?;
+    if age_secs > 600 {
+        return None;
+    }
+    Some(PendingLogin {
+        scope: TenantScope {
+            organization_id: sealed.organization_id,
+            project_id: sealed.project_id,
+        },
+        id: sealed.id,
+        name: sealed.name,
+        client_id: sealed.client_id,
+        subject: sealed.subject,
+        verifier: sealed.verifier,
+        nonce: sealed.nonce,
+        callback: sealed.callback,
+        created: Instant::now(),
+    })
 }
 
 // Tokens must never be logged or returned to the dashboard.
@@ -211,9 +282,10 @@ pub(crate) async fn start(
         project_id,
     };
     authorize(&state, &headers, scope, AdminPermission::Write).await?;
-    if state.vendor_cipher.is_none() {
-        return Err(ApiError::unavailable());
-    }
+    let cipher = state
+        .vendor_cipher
+        .as_deref()
+        .ok_or_else(ApiError::unavailable)?;
     if input.name.trim().is_empty()
         || input.name.len() > 100
         || input.name.chars().any(char::is_control)
@@ -249,10 +321,21 @@ pub(crate) async fn start(
     } else {
         (Uuid::new_v4(), None, None, None)
     };
-    let state_value = random()?;
     let verifier = random()?;
     let nonce = random()?;
     let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
+    let pending_entry = PendingLogin {
+        scope,
+        id,
+        name: input.name.trim().into(),
+        client_id: client_id.clone(),
+        subject,
+        verifier,
+        nonce: nonce.clone(),
+        callback: callback.clone(),
+        created: Instant::now(),
+    };
+    let state_value = seal_pending_login(cipher, &pending_entry, now())?;
     let mut url = url::Url::parse("https://auth.openai.com/api/accounts/authorize").unwrap();
     {
         let mut query = url.query_pairs_mut();
@@ -292,20 +375,7 @@ pub(crate) async fn start(
     if workspace_pending >= 8 || pending.len() >= 256 {
         return Err(ApiError::unavailable());
     }
-    pending.insert(
-        state_value,
-        PendingLogin {
-            scope,
-            id,
-            name: input.name.trim().into(),
-            client_id,
-            subject,
-            verifier,
-            nonce,
-            callback,
-            created: Instant::now(),
-        },
-    );
+    pending.insert(state_value, pending_entry);
     Ok(Json(json!({"data":{"authorization_url":url.as_str()}})))
 }
 
@@ -316,24 +386,47 @@ pub(crate) struct Callback {
     client_id: Option<String>,
     error: Option<String>,
 }
+async fn claim_pending_login(
+    state: &AppState,
+    state_token: &str,
+) -> Result<PendingLogin, ApiError> {
+    let token_hash: [u8; 32] = Sha256::digest(state_token.as_bytes()).into();
+    let mut pending_map = state.codex.pending.lock().await;
+    let mut consumed = state.codex.consumed.lock().await;
+    consumed.retain(|_, seen| seen.elapsed() <= Duration::from_secs(600));
+    if consumed.contains_key(&token_hash) {
+        return Err(ApiError::invalid_request(
+            "This sign-in attempt has expired. Start again in Suppliers.",
+        ));
+    }
+    if let Some(pending) = pending_map.remove(state_token) {
+        if pending.created.elapsed() > Duration::from_secs(600) {
+            return Err(ApiError::invalid_request(
+                "This sign-in attempt has expired.",
+            ));
+        }
+        if consumed.len() < 1024 {
+            consumed.insert(token_hash, Instant::now());
+        }
+        return Ok(pending);
+    }
+    let cipher = state.vendor_cipher.as_deref().ok_or_else(|| {
+        ApiError::invalid_request("This sign-in attempt has expired. Start again in Suppliers.")
+    })?;
+    let pending = open_pending_login(cipher, state_token, now()).ok_or_else(|| {
+        ApiError::invalid_request("This sign-in attempt has expired. Start again in Suppliers.")
+    })?;
+    if consumed.len() >= 1024 {
+        return Err(ApiError::unavailable());
+    }
+    consumed.insert(token_hash, Instant::now());
+    Ok(pending)
+}
 pub(crate) async fn callback(
     State(state): State<AppState>,
     Query(input): Query<Callback>,
 ) -> Result<Redirect, ApiError> {
-    let pending = state
-        .codex
-        .pending
-        .lock()
-        .await
-        .remove(&input.state)
-        .ok_or_else(|| {
-            ApiError::invalid_request("This sign-in attempt has expired. Start again in Suppliers.")
-        })?;
-    if pending.created.elapsed() > Duration::from_secs(600) {
-        return Err(ApiError::invalid_request(
-            "This sign-in attempt has expired.",
-        ));
-    }
+    let pending = claim_pending_login(&state, &input.state).await?;
     // Never return codes, provider errors, identities, or tokens in a redirect.
     let project = pending.scope.project_id;
     let outcome = if input.error.is_some() {
@@ -954,6 +1047,7 @@ mod tests {
         ));
         let runtime = Runtime {
             pending: Mutex::new(HashMap::new()),
+            consumed: Mutex::new(HashMap::new()),
             jwks_cache: Mutex::new(None),
             inference_base: Some(format!("{base}/v1")),
             auth_base: Some(base),
@@ -1065,6 +1159,46 @@ mod tests {
         );
         assert!(state.store.codex_connections(scope).await.unwrap()[0].busy);
         server.abort();
+    }
+    #[test]
+    fn sealed_pending_login_roundtrips_and_rejects_expired_or_tampered_tokens() {
+        let cipher = crate::vendors::crypto::CredentialCipher::new(
+            "codex-test-only-encryption-master-key-long",
+        )
+        .unwrap();
+        let scope = TenantScope {
+            organization_id: Uuid::new_v4(),
+            project_id: Uuid::new_v4(),
+        };
+        let original = PendingLogin {
+            scope,
+            id: Uuid::new_v4(),
+            name: "Cross-replica account".into(),
+            client_id: Some("oaiapp_fixture".into()),
+            subject: Some("subject-1".into()),
+            verifier: "pkce-verifier".into(),
+            nonce: "oidc-nonce".into(),
+            callback: "http://127.0.0.1:2566/auth/callback".into(),
+            created: Instant::now(),
+        };
+        let token = seal_pending_login(&cipher, &original, 1_000).unwrap();
+        let opened = open_pending_login(&cipher, &token, 1_300).unwrap();
+        assert_eq!(opened.scope.organization_id, scope.organization_id);
+        assert_eq!(opened.scope.project_id, scope.project_id);
+        assert_eq!(opened.id, original.id);
+        assert_eq!(opened.name, original.name);
+        assert_eq!(opened.client_id, original.client_id);
+        assert_eq!(opened.subject, original.subject);
+        assert_eq!(opened.verifier, original.verifier);
+        assert_eq!(opened.nonce, original.nonce);
+        assert_eq!(opened.callback, original.callback);
+
+        assert!(open_pending_login(&cipher, &token, 1_601).is_none());
+        let other_cipher = crate::vendors::crypto::CredentialCipher::new(
+            "codex-different-encryption-master-key-long",
+        )
+        .unwrap();
+        assert!(open_pending_login(&other_cipher, &token, 1_100).is_none());
     }
     #[test]
     fn callback_is_strictly_loopback() {

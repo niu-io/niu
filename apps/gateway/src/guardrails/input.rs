@@ -119,13 +119,28 @@ impl CompiledInputPolicy {
         protocol: Protocol,
         body: &serde_json::Value,
     ) -> Result<serde_json::Value, InspectionError> {
+        self.inspect_cow(protocol, body)
+            .map(std::borrow::Cow::into_owned)
+    }
+
+    pub fn inspect_cow<'a>(
+        &self,
+        protocol: Protocol,
+        body: &'a serde_json::Value,
+    ) -> Result<std::borrow::Cow<'a, serde_json::Value>, InspectionError> {
         match protocol {
-            Protocol::Chat => inspect_chat(body, &self.rules),
-            Protocol::Messages => inspect_messages(body, &self.rules),
-            Protocol::GenerateContent => inspect_generate_content(body, &self.rules),
-            Protocol::Responses => inspect_responses(body, &self.rules),
-            Protocol::Embeddings => inspect_embeddings(body, &self.rules),
-            Protocol::VideoText => self.inspect_video_text(body),
+            Protocol::Chat => inspect_chat_cow(body, &self.rules),
+            Protocol::Messages => inspect_messages(body, &self.rules).map(std::borrow::Cow::Owned),
+            Protocol::GenerateContent => {
+                inspect_generate_content(body, &self.rules).map(std::borrow::Cow::Owned)
+            }
+            Protocol::Responses => {
+                inspect_responses(body, &self.rules).map(std::borrow::Cow::Owned)
+            }
+            Protocol::Embeddings => {
+                inspect_embeddings(body, &self.rules).map(std::borrow::Cow::Owned)
+            }
+            Protocol::VideoText => self.inspect_video_text(body).map(std::borrow::Cow::Owned),
         }
     }
 }
@@ -263,16 +278,22 @@ pub fn inspect_chat(
     body: &serde_json::Value,
     rules: &[TextRule],
 ) -> Result<serde_json::Value, InspectionError> {
+    inspect_chat_cow(body, rules).map(std::borrow::Cow::into_owned)
+}
+
+pub fn inspect_chat_cow<'a>(
+    body: &'a serde_json::Value,
+    rules: &[TextRule],
+) -> Result<std::borrow::Cow<'a, serde_json::Value>, InspectionError> {
     if rules.len() > 32 {
         return Err(InspectionError::ResourceLimit);
     }
-    let mut output = body.clone();
     if body.get("tools").is_some() || body.get("functions").is_some() {
         return Err(InspectionError::UnsupportedContent);
     }
-    let messages = output
-        .get_mut("messages")
-        .and_then(serde_json::Value::as_array_mut)
+    let messages = body
+        .get("messages")
+        .and_then(serde_json::Value::as_array)
         .filter(|messages| !messages.is_empty())
         .ok_or(InspectionError::UnsupportedContent)?;
     let mut paths = Vec::new();
@@ -341,7 +362,7 @@ pub fn inspect_chat(
     }
     // Evaluate every original field for denials before transforming any field.
     for path in &paths {
-        let text = output
+        let text = body
             .pointer(path)
             .and_then(serde_json::Value::as_str)
             .unwrap();
@@ -352,17 +373,33 @@ pub fn inspect_chat(
             return Err(InspectionError::Blocked);
         }
     }
+    let has_redact_rules = rules
+        .iter()
+        .any(|rule| matches!(rule.action, Action::Redact));
+    if !has_redact_rules {
+        return Ok(std::borrow::Cow::Borrowed(body));
+    }
+    let mut output: Option<serde_json::Value> = None;
     let mut transformed_bytes = 0usize;
     for path in paths {
-        let field = output.pointer_mut(&path).unwrap();
-        let text = inspect_text(field.as_str().unwrap(), rules)?;
+        let original = body
+            .pointer(&path)
+            .and_then(serde_json::Value::as_str)
+            .unwrap();
+        let text = inspect_text(original, rules)?;
         transformed_bytes = transformed_bytes
             .checked_add(text.len())
             .filter(|n| *n <= 1024 * 1024)
             .ok_or(InspectionError::ResourceLimit)?;
-        *field = serde_json::Value::String(text);
+        if text != original {
+            let owned = output.get_or_insert_with(|| body.clone());
+            *owned.pointer_mut(&path).unwrap() = serde_json::Value::String(text);
+        }
     }
-    Ok(output)
+    Ok(match output {
+        Some(owned) => std::borrow::Cow::Owned(owned),
+        None => std::borrow::Cow::Borrowed(body),
+    })
 }
 
 /// Self-contained Responses text only. Previous-response state, files and tools
@@ -546,6 +583,12 @@ impl Preset {
     }
 }
 
+#[derive(Default)]
+struct RegexCache {
+    entries: std::collections::HashMap<String, Regex>,
+    order: std::collections::VecDeque<String>,
+}
+
 impl TextRule {
     pub fn from_preset(preset: Preset, action: Action) -> Self {
         Self {
@@ -558,11 +601,10 @@ impl TextRule {
         if pattern.is_empty() || pattern.len() > 4096 {
             return Err(InspectionError::ResourceLimit);
         }
-        static COMPILED_REGEX_CACHE: std::sync::LazyLock<
-            std::sync::Mutex<std::collections::HashMap<String, Regex>>,
-        > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+        static COMPILED_REGEX_CACHE: std::sync::LazyLock<std::sync::Mutex<RegexCache>> =
+            std::sync::LazyLock::new(|| std::sync::Mutex::new(RegexCache::default()));
         if let Ok(cache) = COMPILED_REGEX_CACHE.lock()
-            && let Some(expression) = cache.get(pattern)
+            && let Some(expression) = cache.entries.get(pattern)
         {
             return Ok(Self {
                 expression: expression.clone(),
@@ -575,13 +617,19 @@ impl TextRule {
             .nest_limit(64)
             .build()
             .map_err(|_| InspectionError::InvalidPattern)?;
-        if let Ok(mut cache) = COMPILED_REGEX_CACHE.lock() {
-            if cache.len() >= 512
-                && let Some(evict_key) = cache.keys().next().cloned()
-            {
-                cache.remove(&evict_key);
+        if let Ok(mut cache) = COMPILED_REGEX_CACHE.lock()
+            && !cache.entries.contains_key(pattern)
+        {
+            while cache.entries.len() >= 512 {
+                if let Some(evict_key) = cache.order.pop_front() {
+                    cache.entries.remove(&evict_key);
+                } else {
+                    break;
+                }
             }
-            cache.insert(pattern.to_owned(), expression.clone());
+            let owned = pattern.to_owned();
+            cache.order.push_back(owned.clone());
+            cache.entries.insert(owned, expression.clone());
         }
         Ok(Self { expression, action })
     }
@@ -1106,7 +1154,7 @@ pub fn detector_text(
     protocol: Protocol,
     body: &serde_json::Value,
 ) -> Result<String, InspectionError> {
-    let validated = CompiledInputPolicy::compile(&[])?.inspect(protocol, body)?;
+    let validated = CompiledInputPolicy::compile(&[])?.inspect_cow(protocol, body)?;
     fn collect(value: &serde_json::Value, texts: &mut Vec<String>) {
         match value {
             serde_json::Value::String(text) => texts.push(text.clone()),
@@ -1200,5 +1248,29 @@ mod detector_extraction_tests {
             ),
             Err(InspectionError::ResourceLimit)
         );
+    }
+
+    #[test]
+    fn inspect_cow_borrows_unchanged_chat_and_regex_cache_stays_bounded() {
+        let policy = CompiledInputPolicy::compile(&[RuleConfig {
+            pattern: None,
+            preset: Some(Preset::EmailV1),
+            action: Action::Redact,
+        }])
+        .unwrap();
+        let unchanged = json!({"messages":[{"role":"user","content":"hello world"}]});
+        assert!(matches!(
+            policy.inspect_cow(Protocol::Chat, &unchanged).unwrap(),
+            std::borrow::Cow::Borrowed(_)
+        ));
+        let redacted = json!({"messages":[{"role":"user","content":"contact test@example.com"}]});
+        let out = policy.inspect_cow(Protocol::Chat, &redacted).unwrap();
+        assert!(matches!(out, std::borrow::Cow::Owned(_)));
+        assert_eq!(out["messages"][0]["content"], "contact [REDACTED]");
+
+        for i in 0..520 {
+            let pattern = format!(r"\btoken_{i}\b");
+            assert!(TextRule::compile(&pattern, Action::Block).is_ok());
+        }
     }
 }

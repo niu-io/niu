@@ -20,11 +20,23 @@ pub(crate) struct InspectedRequestPayload(pub Value);
 const MAX_CREDENTIAL_SCRUB_DEPTH: usize = 64;
 static PAYLOAD_WRITE_CONCURRENCY: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
 
+enum CapturedRequest {
+    None,
+    Raw(axum::body::Bytes),
+    Inspected(Value),
+}
+
+impl Default for CapturedRequest {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 struct Capture {
     writes: tokio_util::task::TaskTracker,
     store: niu_storage::Store,
     attempt: Uuid,
-    request: Value,
+    request: CapturedRequest,
     bytes: Vec<u8>,
     content_type: String,
     complete: bool,
@@ -35,7 +47,7 @@ impl Drop for Capture {
     fn drop(&mut self) {
         let store = self.store.clone();
         let attempt = self.attempt;
-        let request = std::mem::take(&mut self.request);
+        let captured_request = std::mem::take(&mut self.request);
         let raw_bytes = std::mem::take(&mut self.bytes);
         let response = match String::from_utf8(raw_bytes) {
             Ok(value) => value,
@@ -50,6 +62,14 @@ impl Drop for Capture {
         let complete = self.complete;
         let truncated = self.truncated;
         self.writes.spawn(async move {
+            let mut request = match captured_request {
+                CapturedRequest::None => Value::Null,
+                CapturedRequest::Raw(bytes) => {
+                    serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null)
+                }
+                CapturedRequest::Inspected(value) => value,
+            };
+            remove_credentials(&mut request);
             let _permit = PAYLOAD_WRITE_CONCURRENCY.acquire().await;
             if store
                 .save_request_payload(
@@ -153,7 +173,7 @@ pub async fn capture(
     // Video handlers supply their inspected input through a response extension.
     // Do not pre-buffer their bodies here: video has its own larger image limit.
     let (mut input, request) = if video {
-        (Value::Null, request)
+        (CapturedRequest::None, request)
     } else {
         let (parts, body) = request.into_parts();
         let bytes = match to_bytes(body, LIMIT).await {
@@ -170,12 +190,13 @@ pub async fn capture(
                 return ApiError::invalid_request("Could not read request body").into_response();
             }
         };
-        let mut input = match serde_json::from_slice::<Value>(&bytes) {
-            Ok(value) => value,
-            Err(_) => return ApiError::invalid_request("Invalid JSON request").into_response(),
-        };
-        remove_credentials(&mut input);
-        (input, Request::from_parts(parts, Body::from(bytes)))
+        if serde_json::from_slice::<serde::de::IgnoredAny>(&bytes).is_err() {
+            return ApiError::invalid_request("Invalid JSON request").into_response();
+        }
+        (
+            CapturedRequest::Raw(bytes.clone()),
+            Request::from_parts(parts, Body::from(bytes)),
+        )
     };
     let mut response = next.run(request).await;
     if video
@@ -190,8 +211,7 @@ pub async fn capture(
         .extensions_mut()
         .remove::<InspectedRequestPayload>()
     {
-        input = inspected.0;
-        remove_credentials(&mut input);
+        input = CapturedRequest::Inspected(inspected.0);
     }
     let Some(attempt) = response
         .headers()

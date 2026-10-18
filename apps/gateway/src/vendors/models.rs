@@ -48,6 +48,48 @@ pub(crate) struct ResolvedModel {
     pub personal_route: Option<niu_storage::VendorRoute>,
 }
 
+#[derive(Default)]
+struct VendorCredentialCache {
+    entries: std::collections::HashMap<(usize, uuid::Uuid, Vec<u8>), String>,
+    order: std::collections::VecDeque<(usize, uuid::Uuid, Vec<u8>)>,
+}
+
+fn open_vendor_credential(
+    cipher: &std::sync::Arc<crate::vendors::crypto::CredentialCipher>,
+    vendor_id: uuid::Uuid,
+    ciphertext: &[u8],
+) -> Result<String, ApiError> {
+    static CACHE: std::sync::LazyLock<std::sync::Mutex<VendorCredentialCache>> =
+        std::sync::LazyLock::new(|| std::sync::Mutex::new(VendorCredentialCache::default()));
+    let key = (
+        std::sync::Arc::as_ptr(cipher) as usize,
+        vendor_id,
+        ciphertext.to_vec(),
+    );
+    if let Ok(cache) = CACHE.lock()
+        && let Some(cached) = cache.entries.get(&key)
+    {
+        return Ok(cached.clone());
+    }
+    let api_key = cipher
+        .open(vendor_id, ciphertext)
+        .map_err(|_| ApiError::unavailable())?;
+    if let Ok(mut cache) = CACHE.lock()
+        && !cache.entries.contains_key(&key)
+    {
+        while cache.entries.len() >= 512 {
+            if let Some(evicted) = cache.order.pop_front() {
+                cache.entries.remove(&evicted);
+            } else {
+                break;
+            }
+        }
+        cache.order.push_back(key.clone());
+        cache.entries.insert(key, api_key.clone());
+    }
+    Ok(api_key)
+}
+
 pub(crate) async fn require_selectable_credential(
     state: &AppState,
     vendor: uuid::Uuid,
@@ -128,9 +170,8 @@ pub(crate) async fn resolve_scoped_model_excluding(
             .vendor_cipher
             .as_ref()
             .ok_or_else(ApiError::unavailable)?;
-        let api_key = cipher
-            .open(route.vendor.id, &route.credential_ciphertext)
-            .map_err(|_| ApiError::unavailable())?;
+        let api_key =
+            open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
         let mut model = stored_model(&route)?;
         // Personal upstream charges are not Niu customer or Supplier prices.
         model.pricing = None;
@@ -190,9 +231,7 @@ async fn resolve_pool(
         .vendor_cipher
         .as_ref()
         .ok_or_else(ApiError::unavailable)?;
-    let api_key = cipher
-        .open(route.vendor.id, &route.credential_ciphertext)
-        .map_err(|_| ApiError::unavailable())?;
+    let api_key = open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
     let mut model = stored_model(&route)?;
     model.public_catalog = false;
     let personal = pool.organization_id.is_some();
@@ -484,9 +523,8 @@ pub(crate) async fn resolve_model(
             .vendor_cipher
             .as_ref()
             .ok_or_else(ApiError::unavailable)?;
-        let api_key = cipher
-            .open(route.vendor.id, &route.credential_ciphertext)
-            .map_err(|_| ApiError::unavailable())?;
+        let api_key =
+            open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
         return Ok(ResolvedModel {
             route_generation: None,
             managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
@@ -644,12 +682,11 @@ async fn resolve_published(
         return Err(ApiError::credential_cooldown());
     }
     reject_video_text_route(&route)?;
-    let api_key = state
+    let cipher = state
         .vendor_cipher
         .as_ref()
-        .ok_or_else(ApiError::unavailable)?
-        .open(metadata.vendor.id, &route.credential_ciphertext)
-        .map_err(|_| ApiError::unavailable())?;
+        .ok_or_else(ApiError::unavailable)?;
+    let api_key = open_vendor_credential(cipher, metadata.vendor.id, &route.credential_ciphertext)?;
     let mut model = selected.model.clone();
     if personal {
         model.pricing = None;

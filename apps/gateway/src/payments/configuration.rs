@@ -113,19 +113,19 @@ pub(super) async fn runtime_snapshot(
         .await
         .map_err(ApiError::from_store)?
     {
-        if let Some(cipher) = state.vendor_cipher.as_ref()
-            && let Ok(cache) = state.epay_runtime_cache.lock()
-            && let Some((cached_rev, cached_ct, cached_rt)) = cache.as_ref()
-            && *cached_rev == revision
-            && *cached_ct == ciphertext
-            && cipher.open_payment_configuration(&ciphertext).is_ok()
-        {
-            return Ok((revision, cached_rt.clone()));
-        }
         let cipher = state
             .vendor_cipher
             .as_ref()
             .ok_or_else(|| ApiError::upstream_message("Payment encryption is not configured"))?;
+        let cipher_id = Arc::as_ptr(cipher) as usize;
+        if let Ok(cache) = state.epay_runtime_cache.lock()
+            && let Some((cached_rev, cached_cipher, cached_ct, cached_rt)) = cache.as_ref()
+            && *cached_rev == revision
+            && *cached_cipher == cipher_id
+            && *cached_ct == ciphertext
+        {
+            return Ok((revision, cached_rt.clone()));
+        }
         let plaintext = cipher
             .open_payment_configuration(&ciphertext)
             .map_err(|_| {
@@ -138,7 +138,7 @@ pub(super) async fn runtime_snapshot(
             .map_err(ApiError::invalid_request)?
             .map(Arc::new);
         if let Ok(mut cache) = state.epay_runtime_cache.lock() {
-            *cache = Some((revision, ciphertext, runtime.clone()));
+            *cache = Some((revision, cipher_id, ciphertext, runtime.clone()));
         }
         Ok((revision, runtime))
     } else {

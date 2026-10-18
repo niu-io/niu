@@ -48,7 +48,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         ServeDir::new(dashboard_dir).fallback(ServeFile::new(dashboard_index.clone())),
     );
 
-    let app = Router::new()
+    let mut app = Router::new()
         // Directory entries must survive a browser reload just like scoped workspace pages.
         .route_service("/workspaces", ServeFile::new(dashboard_index.clone()))
         .route_service("/workspaces/", ServeFile::new(dashboard_index.clone()))
@@ -56,29 +56,41 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         .route_service(
             "/help/",
             ServeFile::new(format!("{dashboard_dir}/index.html")),
-        )
-        .route_service("/login", ServeFile::new(dashboard_index.clone()))
-        .route_service("/installation", ServeFile::new(dashboard_index.clone()))
-        .route_service("/admin", ServeFile::new(dashboard_index.clone()))
-        .route_service("/admin/commercial", ServeFile::new(dashboard_index.clone()))
-        .route_service(
-            "/admin/customer-accounts",
-            ServeFile::new(dashboard_index.clone()),
-        )
-        .route_service("/admin/pricing", ServeFile::new(dashboard_index.clone()))
-        .route_service("/admin/audit-logs", ServeFile::new(dashboard_index.clone()))
-        .route_service("/admin/branding", ServeFile::new(dashboard_index.clone()))
-        .route_service("/admin/payments", ServeFile::new(dashboard_index.clone()))
-        .nest(
-            "/admin/suppliers",
-            Router::new().fallback_service(ServeFile::new(dashboard_index.clone())),
-        )
-        .nest(
-            "/settings",
-            Router::new().fallback_service(ServeFile::new(dashboard_index.clone())),
-        )
-        .route_service("/generations", ServeFile::new(dashboard_index.clone()))
-        .route_service("/chat", ServeFile::new(dashboard_index.clone()))
+        );
+    for path in [
+        "/login",
+        "/installation",
+        "/admin",
+        "/admin/commercial",
+        "/admin/customer-accounts",
+        "/admin/pricing",
+        "/admin/audit-logs",
+        "/admin/branding",
+        "/admin/payments",
+        "/generations",
+        "/chat",
+    ] {
+        let slash_path = format!("{path}/");
+        app = app
+            .route_service(path, ServeFile::new(dashboard_index.clone()))
+            .route_service(&slash_path, ServeFile::new(dashboard_index.clone()));
+    }
+    for prefix in [
+        "/admin/suppliers",
+        "/settings",
+        "/providers",
+        "/suppliers",
+        "/activity",
+    ] {
+        let slash_prefix = format!("{prefix}/");
+        app = app
+            .route_service(&slash_prefix, ServeFile::new(dashboard_index.clone()))
+            .nest(
+                prefix,
+                Router::new().fallback_service(ServeFile::new(dashboard_index.clone())),
+            );
+    }
+    let app = app
         .route_service("/docs/", ServeFile::new(format!("{docs_dir}/index.html")))
         .route_service(
             "/models/",
@@ -96,18 +108,6 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         .nest(
             "/help",
             Router::new().fallback_service(ServeFile::new(format!("{dashboard_dir}/index.html"))),
-        )
-        .nest(
-            "/providers",
-            Router::new().fallback_service(ServeFile::new(dashboard_index.clone())),
-        )
-        .nest(
-            "/suppliers",
-            Router::new().fallback_service(ServeFile::new(dashboard_index.clone())),
-        )
-        .nest(
-            "/activity",
-            Router::new().fallback_service(ServeFile::new(dashboard_index.clone())),
         )
         .nest("/docs", docs)
         .nest("/models", models)

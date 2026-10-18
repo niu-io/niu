@@ -225,6 +225,11 @@ pub(crate) struct Runtime {
     notify_url: String,
     payment_methods: Vec<String>,
 }
+enum SettleOutcome {
+    Probed(Result<(), ApiError>),
+    RateLimited(ApiError),
+}
+
 impl Runtime {
     pub(crate) async fn recover_next(
         &self,
@@ -239,16 +244,23 @@ impl Runtime {
         else {
             return Ok(None);
         };
-        // Advance even for an unresolved order so it cannot starve later orders.
-        // The next traversal retries it; no creation request is ever issued here.
-        if self
-            .settle(state, order.organization_id, order.id)
+        // Advance only after an order has actually been probed so rate-limited ticks
+        // do not skip unprobed orders in multi-replica deployments.
+        match self
+            .settle_order(state, order.organization_id, order.id)
             .await
-            .is_err()
         {
-            tracing::debug!("Saved payment remains unresolved; reconciliation will retry");
+            SettleOutcome::RateLimited(_) => {
+                tracing::debug!("Payment reconciliation rate-limited; retaining recovery cursor");
+                Ok(after)
+            }
+            SettleOutcome::Probed(result) => {
+                if result.is_err() {
+                    tracing::debug!("Saved payment remains unresolved; reconciliation will retry");
+                }
+                Ok(Some(order.id))
+            }
         }
-        Ok(Some(order.id))
     }
 
     pub(crate) async fn from_env() -> Result<Option<Self>, Box<dyn std::error::Error>> {
@@ -296,52 +308,87 @@ impl Runtime {
         organization: Uuid,
         order: Uuid,
     ) -> Result<(), ApiError> {
-        let saved = state
+        match self.settle_order(state, organization, order).await {
+            SettleOutcome::Probed(result) => result,
+            SettleOutcome::RateLimited(error) => Err(error),
+        }
+    }
+
+    async fn settle_order(
+        &self,
+        state: &AppState,
+        organization: Uuid,
+        order: Uuid,
+    ) -> SettleOutcome {
+        let saved = match state
             .store
             .customer_topup(organization, order)
             .await
-            .map_err(ApiError::from_store)?
-            .ok_or_else(ApiError::not_found)?;
+            .map_err(ApiError::from_store)
+        {
+            Ok(Some(saved)) => saved,
+            Ok(None) => return SettleOutcome::Probed(Err(ApiError::not_found())),
+            Err(error) => return SettleOutcome::Probed(Err(error)),
+        };
         if saved.aggregator != "zhifux"
             || saved.merchant != self.merchant
             || saved.currency != "CNY"
         {
-            return Err(ApiError::invalid_request(
+            return SettleOutcome::Probed(Err(ApiError::invalid_request(
                 "Saved payment requires its original merchant and currency configuration",
-            ));
+            )));
         }
-        cny_decimal(saved.amount_nanos).map_err(|_| {
-            ApiError::invalid_request("Saved payment amount requires reconciliation")
-        })?;
+        if cny_decimal(saved.amount_nanos).is_err() {
+            return SettleOutcome::Probed(Err(ApiError::invalid_request(
+                "Saved payment amount requires reconciliation",
+            )));
+        }
         // Enforce merchant query spacing without an unbounded waiting queue.
         // The lock covers query and settlement; failures also consume spacing.
-        let mut started = self.query_started.try_lock().map_err(|_| {
-            ApiError::upstream_message("Payment reconciliation is busy; retry later")
-        })?;
+        let mut started = match self.query_started.try_lock() {
+            Ok(started) => started,
+            Err(_) => {
+                return SettleOutcome::RateLimited(ApiError::upstream_message(
+                    "Payment reconciliation is busy; retry later",
+                ));
+            }
+        };
         if started.is_some_and(|time| time.elapsed() < Duration::from_secs(3)) {
-            return Err(ApiError::upstream_message(
+            return SettleOutcome::RateLimited(ApiError::upstream_message(
                 "Payment reconciliation is rate limited; retry later",
             ));
         }
-        *started = Some(Instant::now());
-        if !state
+        match state
             .store
             .claim_payment_query("zhifux", &self.merchant)
             .await
-            .map_err(ApiError::from_store)?
+            .map_err(ApiError::from_store)
         {
-            return Err(ApiError::upstream_message(
-                "Payment reconciliation is rate limited; retry later",
-            ));
+            Ok(true) => {
+                *started = Some(Instant::now());
+            }
+            Ok(false) => {
+                return SettleOutcome::RateLimited(ApiError::upstream_message(
+                    "Payment reconciliation is rate limited; retry later",
+                ));
+            }
+            Err(error) => return SettleOutcome::Probed(Err(error)),
         }
         let number = order.simple().to_string();
-        let evidence = self
+        let evidence = match self
             .client
             .query_order(&number, saved.amount_nanos, &saved.payment_method)
             .await
-            .map_err(|error| {
-                if let niu_payments::zhifux_transport::Error::Rejected { code } = error {
-                    tracing::warn!(code, "Payment query rejected; saved order remains unresolved");
+        {
+            Ok(evidence) => evidence,
+            Err(error) => {
+                let api_error = if let niu_payments::zhifux_transport::Error::Rejected { code } =
+                    error
+                {
+                    tracing::warn!(
+                        code,
+                        "Payment query rejected; saved order remains unresolved"
+                    );
                     ApiError::upstream_message(if code == 6003 {
                         "Payment merchant query access is not enabled (code 6003); saved order requires reconciliation"
                     } else {
@@ -351,9 +398,13 @@ impl Runtime {
                     ApiError::upstream_message(
                         "Payment is not independently confirmed; saved order requires reconciliation",
                     )
-                }
-            })?;
-        apply_verified_order(&state.store, organization, order, evidence).await
+                };
+                return SettleOutcome::Probed(Err(api_error));
+            }
+        };
+        SettleOutcome::Probed(
+            apply_verified_order(&state.store, organization, order, evidence).await,
+        )
     }
 }
 

@@ -474,6 +474,7 @@ async fn persist_priced_completion_batch(
     scope: TenantScope,
     completions: Vec<GatewayCompletion>,
 ) -> Vec<bool> {
+    use futures_util::StreamExt;
     let count = completions.len();
     match store
         .complete_and_settle_gateway_batch(scope, completions.clone())
@@ -486,24 +487,28 @@ async fn persist_priced_completion_batch(
                 count,
                 "priced gateway completion batch failed; retrying records individually"
             );
-            let mut persisted = Vec::with_capacity(count);
-            for completion in completions {
-                let result = store
-                    .complete_and_settle_gateway_batch(completion.scope, vec![completion.clone()])
-                    .await;
-                let completed = match result {
-                    Ok(()) => true,
-                    Err(error) => {
-                        tracing::warn!(
-                            error = %error,
-                            attempt_id = %completion.attempt_id,
-                            "priced gateway completion fallback could not be persisted"
-                        );
-                        false
-                    }
-                };
-                persisted.push(completed);
-            }
+            let mut persisted = vec![false; count];
+            futures_util::stream::iter(completions.into_iter().zip(persisted.iter_mut()))
+                .for_each_concurrent(8, |(completion, slot)| async move {
+                    let result = store
+                        .complete_and_settle_gateway_batch(
+                            completion.scope,
+                            vec![completion.clone()],
+                        )
+                        .await;
+                    *slot = match result {
+                        Ok(()) => true,
+                        Err(error) => {
+                            tracing::warn!(
+                                error = %error,
+                                attempt_id = %completion.attempt_id,
+                                "priced gateway completion fallback could not be persisted"
+                            );
+                            false
+                        }
+                    };
+                })
+                .await;
             persisted
         }
     }
@@ -522,6 +527,7 @@ async fn drain(in_flight: &mut JoinSet<()>, task_name: &'static str) {
 }
 
 async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
+    use futures_util::StreamExt;
     let count = batch.len();
     let mut records = Vec::with_capacity(count);
     let mut replies = Vec::with_capacity(count);
@@ -547,46 +553,50 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
             | niu_storage::StoreError::KeyTokenBoundRequired,
         ) => {
             // These explicit admission errors prove the transaction rolled back.
-            // Isolate rejected records without replaying ambiguous database failures.
-            for (record, reply) in records.into_iter().zip(replies) {
-                let result = match store.admit_unpriced_gateway_batch(vec![record]).await {
-                    Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
-                    Err(niu_storage::StoreError::GuardrailAdmissionConflict) => {
-                        Err(AdmissionError::GuardrailAdmissionConflict)
-                    }
-                    Err(niu_storage::StoreError::ManagedRouteChanged) => {
-                        Err(AdmissionError::ManagedRouteChanged)
-                    }
-                    Err(niu_storage::StoreError::VendorRequestRateExceeded) => {
-                        Err(AdmissionError::VendorRequestRateExceeded)
-                    }
-                    Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
-                        Err(AdmissionError::RequestRateExceeded)
-                    }
-                    Err(niu_storage::StoreError::KeyRequestRateDisabled) => {
-                        Err(AdmissionError::RequestRateDisabled)
-                    }
-                    Err(niu_storage::StoreError::VendorRequestRateDisabled) => {
-                        Err(AdmissionError::VendorRequestRateDisabled)
-                    }
-                    Err(niu_storage::StoreError::KeyTokenRateExceeded) => {
-                        Err(AdmissionError::TokenRateExceeded)
-                    }
-                    Err(niu_storage::StoreError::KeyTokenBoundRequired) => {
-                        Err(AdmissionError::TokenBoundRequired)
-                    }
-                    Err(niu_storage::StoreError::KeyConcurrencyExceeded) => {
-                        Err(AdmissionError::ConcurrencyExceeded)
-                    }
-                    Err(niu_storage::StoreError::Unauthorized) => Err(AdmissionError::Unauthorized),
-                    Err(niu_storage::StoreError::Conflict) => Err(AdmissionError::Conflict),
-                    Err(niu_storage::StoreError::AccountUnavailable) => {
-                        Err(AdmissionError::AccountUnavailable)
-                    }
-                    _ => Err(AdmissionError::StorageUnavailable),
-                };
-                let _ = reply.send(result);
-            }
+            // Isolate rejected records with bounded concurrency without replaying ambiguous database failures.
+            futures_util::stream::iter(records.into_iter().zip(replies))
+                .for_each_concurrent(8, |(record, reply)| async move {
+                    let result = match store.admit_unpriced_gateway_batch(vec![record]).await {
+                        Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
+                        Err(niu_storage::StoreError::GuardrailAdmissionConflict) => {
+                            Err(AdmissionError::GuardrailAdmissionConflict)
+                        }
+                        Err(niu_storage::StoreError::ManagedRouteChanged) => {
+                            Err(AdmissionError::ManagedRouteChanged)
+                        }
+                        Err(niu_storage::StoreError::VendorRequestRateExceeded) => {
+                            Err(AdmissionError::VendorRequestRateExceeded)
+                        }
+                        Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
+                            Err(AdmissionError::RequestRateExceeded)
+                        }
+                        Err(niu_storage::StoreError::KeyRequestRateDisabled) => {
+                            Err(AdmissionError::RequestRateDisabled)
+                        }
+                        Err(niu_storage::StoreError::VendorRequestRateDisabled) => {
+                            Err(AdmissionError::VendorRequestRateDisabled)
+                        }
+                        Err(niu_storage::StoreError::KeyTokenRateExceeded) => {
+                            Err(AdmissionError::TokenRateExceeded)
+                        }
+                        Err(niu_storage::StoreError::KeyTokenBoundRequired) => {
+                            Err(AdmissionError::TokenBoundRequired)
+                        }
+                        Err(niu_storage::StoreError::KeyConcurrencyExceeded) => {
+                            Err(AdmissionError::ConcurrencyExceeded)
+                        }
+                        Err(niu_storage::StoreError::Unauthorized) => {
+                            Err(AdmissionError::Unauthorized)
+                        }
+                        Err(niu_storage::StoreError::Conflict) => Err(AdmissionError::Conflict),
+                        Err(niu_storage::StoreError::AccountUnavailable) => {
+                            Err(AdmissionError::AccountUnavailable)
+                        }
+                        _ => Err(AdmissionError::StorageUnavailable),
+                    };
+                    let _ = reply.send(result);
+                })
+                .await;
         }
         Err(error) => {
             tracing::warn!(error = %error, count, "gateway admission batch failed");
@@ -598,6 +608,7 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
 }
 
 async fn persist_completion_batch(store: &Store, batch: Vec<GatewayCompletion>) -> Vec<bool> {
+    use futures_util::StreamExt;
     let count = batch.len();
     match store.complete_and_accrue_gateway_batch(batch.clone()).await {
         Ok(()) => vec![true; count],
@@ -608,23 +619,25 @@ async fn persist_completion_batch(store: &Store, batch: Vec<GatewayCompletion>) 
                 niu_storage::StoreError::Conflict
                     | niu_storage::StoreError::InvalidGatewayAdmissionBatch
             ) {
-                let mut persisted = Vec::with_capacity(count);
-                for completion in batch {
-                    let result = store
-                        .complete_and_accrue_gateway_batch(vec![completion.clone()])
-                        .await;
-                    match result {
-                        Ok(()) => persisted.push(true),
-                        Err(error) => {
-                            tracing::warn!(
-                                error = %error,
-                                attempt_id = %completion.attempt_id,
-                                "gateway completion fallback could not be persisted"
-                            );
-                            persisted.push(false);
-                        }
-                    }
-                }
+                let mut persisted = vec![false; count];
+                futures_util::stream::iter(batch.into_iter().zip(persisted.iter_mut()))
+                    .for_each_concurrent(8, |(completion, slot)| async move {
+                        let result = store
+                            .complete_and_accrue_gateway_batch(vec![completion.clone()])
+                            .await;
+                        *slot = match result {
+                            Ok(()) => true,
+                            Err(error) => {
+                                tracing::warn!(
+                                    error = %error,
+                                    attempt_id = %completion.attempt_id,
+                                    "gateway completion fallback could not be persisted"
+                                );
+                                false
+                            }
+                        };
+                    })
+                    .await;
                 persisted
             } else {
                 vec![false; count]
