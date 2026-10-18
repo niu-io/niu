@@ -280,3 +280,11 @@ starlight-toc a {
   }
   a[data-slot='button'] { text-decoration: none; }
 }
+
+:root[data-locale='zh-CN'] [data-lang='en'] {
+  display: none !important;
+}
+:root:not([data-locale='zh-CN']) [data-lang='zh'] {
+  display: none !important;
+}
+

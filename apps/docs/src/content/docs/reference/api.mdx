@@ -4,6 +4,8 @@ description: Choose a tutorial or a generated API reference.
 prev: false
 ---
 
+<div data-lang="en">
+
 Start with the [API quickstart](/docs/guides/api-quickstart/) for HTTP requests or the [SDK quickstart](/docs/guides/sdk-quickstart/) for typed JavaScript calls and streaming.
 
 The [REST specification](/docs/api/rest/) is generated from the complete OpenAPI contract. The [SDK reference](/docs/api/sdk/) is generated from public TypeScript declarations. Download the [bundled OpenAPI JSON](/docs/openapi/public.json) for tools that consume the specification. Interface changes are checked against generated output in CI.
@@ -941,3 +943,408 @@ original input, retained preview and diagnostics after key expiry. Successful
 reference submission and the full shared-output lifecycle remain separate
 verification requirements. See [Generations](/docs/reference/generations/) for
 the supported browser workflow.
+
+</div>
+
+<div data-lang="zh" data-title-zh="API 参考">
+
+阅读 [API 快速入门](/docs/guides/api-quickstart/) 了解如何发起 HTTP 请求，或阅读 [SDK 快速入门](/docs/guides/sdk-quickstart/) 了解带类型的 JavaScript 调用与流式传输。
+
+[REST 接口规范](/docs/api/rest/) 由完整的 OpenAPI 契约自动生成。[SDK 参考](/docs/api/sdk/) 由公开的 TypeScript 类型声明自动生成。对于需要消费接口规范的工具，可下载 [打包的 OpenAPI JSON](/docs/openapi/public.json)。接口变更会在 CI 中与生成的产物进行比对校验。
+
+## 操作员角色与会话
+
+管理自动化使用具体操作所需的权限；客户工作空间密钥不是平台管理员凭据。请阅读 [管理员访问权限](/docs/admin/access/) 与 [安全概览](/docs/security/overview/) 了解初始配置、登录、会话恢复与吊销。具体的身份认证与会话 Schema 详见 [REST 参考](/docs/api/rest/)。
+
+## 自动网关活动与任务关联
+
+[请求日志](/docs/concepts/execution-observation/) 描述了 Niu 牛元处理请求时记录的用量与耗时信息。可选的客户端关联元数据不会将这些记录转化为外部智能体的执行追踪链路。Niu 牛元不负责任务编排、外部工具日志或结果评估。
+
+## 平台管理
+
+[平台管理](/docs/admin/) 介绍了模型供应商配置、客户价目表、支付集成与品牌定制。[NiuAdminClient 参考](/docs/api/sdk/niuadminclient/) 包含了自动生成的客户端接口定义；指南文档不再重复列出方法签名。
+
+## 已保存的生成状态
+
+JavaScript SDK 提供了 [`admin.getChatDraft()` 与 `admin.saveChatDraft()`](/docs/api/sdk/niuadminclient/#getchatdraft)。在保存或清空草稿前请先读取当前修订版本（revision）；若发生版本冲突，需显式重新加载并合并协调。保存草稿不会提交模型推理请求。
+
+## 客户计费
+
+主 OpenAPI 文档中包含的 [客户计费契约](https://github.com/niu-io/niu/blob/main/contracts/billing.openapi.yaml) 涵盖了工作空间授权的账单汇总与账单明细行读取。客户扣费使用独立的销售价目表，与模型供应商采购价格解耦。未定价的请求不会被假定为免费；未决费用保持未知状态。货币金额与聚合计数均采用精确的十进制整数字符串表示。工作空间计费价目表列表与模型发现接口中的客户价格包含所有匹配的已保存价目表，不会在 1,000 条记录处静默截断。这些兼容性响应保持不分页，其内存占用与列表大小成正比。
+
+账单文本明细行保留计费时所使用的价目表修订版本及选定的上下文阈值，而不会替换为当前最新的模型价格。同一修订版本可能会针对不同的上下文阈值生成多条明细行；客户端必须保留这些独立的分组。缺失的缓存读取（cache-read）、缓存写入（cache-write）与推理思考（reasoning）用量保持未知状态。类别费率为 `null` 表示绑定的价目表中未配置该类别；省略的费率则表示未知。选定的上下文阈值为 `null` 表示使用基础价目表，切勿将其显示为零阈值。在展示或核对金额时，请使用精确的整数字符串。
+
+发布价目表、创建账单以及记录已确认的外部付款均需要实例级管理权限。账单周期使用 UTC 派发时间戳，包含起始时间 `from_ms`（闭区间）且不包含结束时间 `to_ms`（开区间），跨度上限为 366 天。重放同一账单创建请求时，请保留调用方的幂等键。周期重叠、存在未决的计费请求以及重放参数发生变更均会产生冲突；客户端不得通过伪造新幂等键来重试此类冲突请求。
+
+JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issueCustomerInvoice`、`getCustomerInvoiceLines` 和 `recordCustomerInvoicePayment` 方法。其自带的 `inspect-billing.mjs` 示例可读取最近 100 张账单，并使用精确整数运算核对明细行总额。创建账单不会发送账单通知或执行收款，记录付款也仅登记已在外部确认完成的付款。请将管理凭据保留在服务端，且切勿在产品界面中展示内部账单 ID 或费率标识符。
+
+### 企业授信额度耗尽与恢复
+
+已产生的文本请求费用即使超出最初的预占额度或已批准的企业授信额度，仍会保留其完整入账金额。因此，账户余额与可用容量可能变为负数。新的付费请求需要足够的可用容量，否则可能返回 HTTP 402 `budget_exceeded`；计费查询接口仍可正常访问。余额退款作为独立的账本条目记录，不会抹除原始扣费记录。费用对账 API 会将原始总费用与原始余额扣款进行比对，不会扣除退款金额。如需查看净资金余额，请查询余额账本。[实际非空对账与退款验证记录](https://github.com/niu-io/niu/blob/main/docs/reference/customer-charge-reconciliation.md#nonempty-charges-and-partial-refund--2026-10-10) 记录了当前的文本核算边界。重放同一管理操作时，请保留退款幂等键。
+
+一次基于授信额度的实际运行验证了超支结算、跨重启拒单、幂等内部退款以及随后的真实模型生成完成。但这并不构成对银行原路退回或客户出资视频生成行为的验证。详见 [实际企业授信验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/internal-credit-workflow-live.md#actual-company-credit-overrun-and-refund-recovery--2026-10-10)。
+
+### 个人调用与采购限额
+
+经授权的个人上游路由由其凭据所有者出资，不会预占或扣减 Niu 牛元客户资金或平台采购预算。因此，已保存的工作空间采购预算本身不会阻止经授权的个人对话（Chat）或视频调用。当前的密钥/模型权限、安全护栏（Guardrails）与请求速率控制仍然生效。共享计费路由仍保留采购准入检查；这一区分不会授予访问其他企业个人凭据的权限。个人操作与客户计费操作在其各次尝试（attempt）绑定期间保持不可变的资金来源；候选路由选择无法在两者之间切换。对话路由池在遇到符合条件的 OpenRouter 立即认证拒绝（HTTP 401）后，支持一次受限的后继尝试；状态不确定的执行绝不会重试。个人文本请求会在单独的派发权限检查之前，原子化地准备其操作（operation）、路由与准入绑定。准备失败不会留下部分绑定的请求，但这并不会启用派发状态不确定后的自动重试。
+
+共享视频路由保留原有的采购预算限制；个人视频路由不会预占或扣减该预算。个人视频调用仍会强制执行密钥 RPM 与并发控制。当渠道缺少受支持的 Token 准入上限时，配置了有限 Token 速率预算的密钥会以 `422 key_token_bound_required` 拒绝视频请求。
+
+## API 密钥消费限额
+
+密钥消费限额适用于新的客户负债预占。请从消费限额 API 读取 `committed_nanos` 与 `remaining_nanos`；请保留这些精确的十进制整数字符串，切勿将其转换为浮点数金额。当实际消耗超过限额上限时，剩余可用额度（`remaining_nanos`）会被截断为零。限额上限不会截断已产生的费用，也不会取消正在进行的上游任务。密钥轮换（secret rotation）会保留相同的消费身份与已承诺金额。
+
+在一次实际的流式文本请求中，输出超出了请求设定的上限：最初 1,000 nanos 的预占被释放，完整的 11,000 nanos 客户费用被入账，且轮换后的密钥显示剩余额度为零，并在重启前后均拒绝了后续请求。这是一项针对文本核算范围的观测验证，并不代表对媒体超支或所有模型供应商的准入认证。详见 [验证详情](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-spending-limits.md#actual-text-overrun-rotation-and-restart--2026-10-10)。
+
+## 生成过程中的路由池更新
+
+平台管理员可以通过 `GET /api/v1/model-route-pools/index` 或 SDK 的 `listModelRoutePools` 方法发现已保存的路由池。传入 `limit`（1–100，默认 50），然后将返回的 `next_after` 作为下一页的 `after` 参数。该列表包含已启用和已禁用的配置。其基于别名的实时遍历并非一致性快照；若要查看当前游标之前新插入的别名，请从第一页重新刷新。现有的别名查询和修订历史端点保持原有响应格式不变。
+
+推理模型发现会遍历所有已保存的路由池分页，而不会静默限制在前 1,000 个路由池内。已禁用和未授权的路由池仍会被排除。兼容性端点 `/v1/models` 的响应仍然返回完整列表；受限的数据库分批读取并不意味着返回固定大小的响应。推理发现在单个只读数据库快照中读取共享映射、个人所有权、模型供应商准入资格、冷却状态以及所有路由池分页。它在无需逐池查询路由或解密凭据的情况下组装模型目录。静态别名仍会被数据库别名覆盖（包括已禁用和外部个人的映射）。这是一个按次读取的目录快照，而非已发布的推理生成保证；实际的请求准入仍会检查当前的权限与凭据状态。管理端分页则保持为独立的实时遍历。
+
+带修订版本的路由池更新仅对新请求的候选选择生效。禁用某个候选路由不会取消已通过该路由派发的生成请求。该请求会保留其原始映射和路由池修订版本以供诊断和核算；后续请求则可在新修订版本下选择其他符合条件的候选路由。客户模型别名与客户价目表仍与模型供应商映射保持分离。
+
+该行为已通过实际的并发计费请求以及独立的费用/修订版本检查进行了验证。此外，在收到规范的 OpenRouter 立即 HTTP 401 响应且确认持久化未执行并释放预占后，对话（Chat）路由池可以尝试另一个凭据。在单个操作（operation）与截止时间（deadline）下最多允许提交两次尝试，同时保持客户价格与资金来源不变。其他错误以及已开始向客户端返回数据的流式响应均不会重试。详见 [路由池契约与验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md)。
+
+## 客户请求诊断
+
+工作空间的请求列表与详情端点会报告客户模型别名、执行状态、上报的用量、客户费用以及已保存的阶段耗时。路由池所选的模型供应商映射及机密采购价格不属于客户计费数据。实例级管理凭据获取到的是相同的面向客户的详情结构，不会扩展包含批发采购成本。请求元数据响应使用 `Cache-Control: no-store`。
+
+请按照 [自动生成的请求契约](/docs/reference/handler-operations/) 中的说明使用详情响应中的可空（nullable）字段。缺失的耗时或用量表示未知（unknown），而非实测为零。工作空间范围限制适用于每一个请求；不属于该工作空间的请求会返回 404。请展示有意义的模型/密钥名称与时间戳，而不要展示仅用于 API 路由的内部标识符。
+
+## 公开模型目录
+
+`GET /catalog/v1/models` 与 `/models/` 页面列出了操作员显式标记为 `public_catalog = true` 的模型别名。响应包含模型别名、声明的能力，以及可选的描述性目录元数据（如名称、上下文限制和模态）；它省略了模型供应商名称、上游标识符、端点地址、凭据以及供应商采购价格。目录可见性并不授予推理权限。应用程序仍需使用带作用域的密钥调用 `/v1/models` 和各推理端点。
+
+## 操作员角色与会话
+
+`operator` 是现有管理 API 契约中表示工作空间成员的名称；控制台界面中则使用 **用户（Users）**。账户使用各自的凭据登录，并获得其分配的角色与工作空间访问权限。实例初始设置凭据与成员会话及应用 API 密钥相互独立。密码会话 API 需通过配置 `NIU_AUTH_PUBLIC_ORIGIN` 显式启用，该值必须是不含路径、凭据、查询参数或片段的 HTTPS 源地址（Origin）。请在该源地址的 HTTPS 反向代理后部署服务。自助注册与身份联邦（Identity Federation）目前尚未实现。
+
+`PUT /api/v1/operators/{operator}/password` 允许实例管理员或具有作用域的所有者（owner）为现有成员配置 `email`、`password` 以及可选的 `expected_revision`。首次设置密码时省略修订版本；重置密码则需要传入上一次返回的修订版本，并会原子化地吊销该成员此前的所有会话。密码长度要求至少 15 个字符且不超过 1,024 个 UTF-8 字节；空格与 Unicode 字符均会被原样保留。响应返回新的修订版本，绝不会返回密码哈希值。
+
+`POST /api/v1/auth/login` 接收 `email` 和 `password`，并返回一个带作用域的 8 小时有效期 Bearer `token` 及会话元数据。它仅授予该成员现有的角色与工作空间访问权限，绝不会授予实例级管理权限。密码错误与未知身份返回相同的 HTTP 401 响应。持久化准入限流在 60 秒窗口内允许每个规范化邮箱尝试 5 次、每个实例尝试 120 次；超出限制的请求返回 HTTP 429 并附带 `Retry-After: 60`。这两个路由均将 JSON 请求体限制为 4 KiB，并将成功和错误响应标记为 `Cache-Control: no-store`。若请求包含浏览器 `Origin` 头，则必须与配置的源地址匹配。这些路由不会设置浏览器 Cookie；控制台使用下方独立的浏览器端点。未配置 `NIU_AUTH_PUBLIC_ORIGIN` 时，密码登录返回 HTTP 501。
+
+对于同源浏览器客户端，`POST /api/v1/auth/browser/login` 使用相同的凭据与限流规则，要求提供匹配的已配置 HTTPS `Origin`，并设置一个 8 小时有效期的 `Secure`、`HttpOnly`、`SameSite=Lax` 仅限主机（host-only）的 Cookie。其返回的 JSON 仅包含会话元数据，不含 Bearer Token。共享成员鉴权会在每次请求时校验已保存的会话，并要求匹配的 `Origin` 或浏览器 `Sec-Fetch-Site: same-origin` 元数据；不匹配的 `Origin` 始终失败。重复的 `Authorization` 请求头会被拒绝。当提供 Fetch Metadata 时，即使 `Origin` 匹配，也必须仅包含唯一一个 `same-origin` 值。此 Cookie 路径绝不接受实例级管理令牌。`POST /api/v1/auth/browser/logout` 要求匹配的 `Origin`，吊销当前会话并使 Cookie 过期。已失效的会话仍可成功清除；存储层故障不会谎称已退出登录或清除 Cookie。控制台通过 `GET /api/v1/auth/config` 发现此模式，使用浏览器端点登录，并在不在浏览器存储中保存 Bearer Token 的情况下恢复服务端会话。真实 HTTPS 浏览器端到端验收测试仍在进行中。
+
+`PUT /api/v1/auth/password` 允许任何已登录的成员角色使用 `current_password` 和 `password` 修改自己的密码。它不接受目标成员参数或邮箱；实例级凭据无法调用此接口。当前密码校验共享登录限流配额，新密码遵循相同的创建策略，且在校验期间若发生凭据修订版本变更，将返回 HTTP 409 而不会覆盖更新的凭据。修改成功后会吊销该成员的所有会话并返回 `sign_in_required: true`；其他成员不受影响。基于浏览器 Cookie 的请求要求匹配的 `Origin`，并在成功后使 Cookie 过期。修改失败会保留原有会话。控制台在账户设置中提供了修改密码功能；界面渲染审查与 HTTPS 浏览器准入验证仍在进行中。
+
+`GET /api/v1/auth/preferences` 读取已登录成员保存的颜色模式偏好。`PUT /api/v1/auth/preferences` 接受 `{"color_mode":"system"}`、`"light"` 或 `"dark"` 作为 `color_mode` 的值。任何成员角色均可修改自己的偏好设置；实例级管理令牌与调用方指定的目标成员参数均会被拒绝。默认值为 `system`。偏好设置独立于个人资料修订版本存储在 PostgreSQL 中，浏览器存储仅作为临时缓存。控制台与内嵌文档控件共享这一已保存的偏好设置。基于浏览器 Cookie 的写入采用与资料修改相同的 `Origin` 检查；响应不可缓存，且请求体限制为 1 KiB。仅使用实例级管理令牌的显示选择没有可绑定的个人账户，仅保留在本地。
+
+`POST /api/v1/auth/logout` 吊销 `Authorization` 请求头中的成员 Bearer 会话。任何成员角色均可退出登录；其他会话保持活跃。会话吊销及其审计记录是原子的，响应不可缓存，缺失、已过期或此前已吊销的凭据返回 HTTP 401。实例初始设置令牌不属于成员会话。即使未配置密码登录，此 API 仍然可用。控制台对 Cookie 会话使用浏览器退出登录端点，并在吊销失败时保留当前会话状态。
+
+[密码会话契约](https://github.com/niu-io/niu/blob/main/contracts/password-sessions.openapi.yaml) 详细记录了请求字段、角色限制、会话响应与失败状态码。
+
+`NIU_ADMIN_TOKENS` 仍然是所有者（owner）级别的实例引导凭据。所有者可以通过 `POST /api/v1/operators` 创建具有 `owner`、`admin` 或 `viewer` 角色的持久化操作员，并通过 `POST /api/v1/operators/{operator}/sessions` 签发额外的定期过期会话。创建响应仅一次性返回 Bearer Token 并带有 `Cache-Control: no-store`；列表 API 仅返回身份、角色、会话 ID、过期时间与吊销元数据。删除单个会话或操作员即可吊销其访问权限。已吊销或已过期的令牌在下一次发起管理请求时将失败。
+
+操作员及会话的创建与吊销还会在同一数据库事务中追加不可变的、仅含元数据的审计事件。事件会记录执行者是实例引导凭据还是带作用域的操作员、执行者操作员 ID（若有）、目标操作员/会话 ID、租户范围以及时间戳。审计事件绝不会存储 Bearer Token、令牌哈希或请求体。带作用域的所有者可以通过 `GET /api/v1/operators/{operator}/events` 分页查看某个操作员的审计事件；分页按时间戳和事件 ID 排序，限制为 1–100 条，并使用 `next_cursor` 实现稳定的向后翻页。
+
+所有者（owner）可以管理成员。管理员（admin）可以读写管理资源，但不能管理成员。只读成员（viewer）仅具有读取权限。每个成员都拥有一个 `organization_id`，并可能带有一个将访问权限限制在单个工作空间内的旧版 `project_id`。所有者无法创建或管理超出自身权限范围的成员。控制台 URL 中的工作空间 ID 不会授予访问权限。`GET /api/v1/session` 返回调用方当前的身份、作用域与角色权限，且不会暴露任何凭据。
+
+控制台的 `GET /api/v1/workspaces` 会列出当前管理员可见的工作空间及其所属组织。`POST /api/v1/workspaces` 在指定组织下创建新工作空间。组织管理员只能在所属组织内部创建工作空间；实例管理员则可以选择任意组织。如果实例中尚无任何组织，省略 `organization_id` 会先创建一个名为 `Personal workspace` 的组织。API 密钥、请求记录、预算与用量均归属于工作空间；`project` 这一名称仅保留在旧版 API 与存储契约中。
+
+## 模型供应商能力矩阵
+
+各项能力均按路由单独声明。`config/niu.toml` 中的标志位声明了经操作员验证的行为，并不意味着 Niu 牛元已对每个模型供应商的所有模型或端点完成了全面准入验证。对于下方契约中标记为不可用的功能组合，请求会在创建执行尝试（attempt）之前即被拒绝。
+
+| 操作类型 | OpenAI 兼容路由（`provider = "openai"` 或 `"openrouter"`） | 原生 Anthropic 路由 | 原生 Bedrock 路由 |
+| --- | --- | --- | --- |
+| 对话补全（非流式） | 支持；工具调用与结构化输出子集需要配置独立的路由标志位 | 基础非流式适配器路径 | 基础非流式适配器路径 |
+| 对话补全（流式） | 支持；流式工具调用增量需要 `supports_streaming_tool_calls` | 未实现 | 未实现 |
+| 函数工具（Function tools） | 开启 `supports_tool_calls` 时支持非流式工具调用透传；Niu 牛元不执行工具 | 未实现 | 未实现 |
+| 结构化 JSON 输出 | 开启 `supports_structured_output` 时支持缓冲与流式 `json_object` / `json_schema`；流式增量在终态校验前仍为临时数据 | 未实现 | 未实现 |
+| 文本嵌入（Embeddings） | 仅在开启 `supports_embeddings` 时支持；自定义维度与 base64 输出需要配置各自的标志位 | 未实现 | 未实现 |
+| Responses API | 开启 `supports_responses` 时支持缓冲与流式文本子集 | 未实现 | 未实现 |
+
+原生 Anthropic 与 Bedrock 条目描述的是当前的非流式对话适配器路径，而非模型供应商一致性认证。工具调用与结构化输出能力被有意限制在 OpenAI 兼容路由上。计费功能适用于有界文本对话、Responses 和文本嵌入；文本嵌入仅预占输入容量，并按模型供应商上报的提示词（prompt）用量进行结算。计费对话支持文档中说明的纯文本函数工具多轮会话；Niu 牛元不执行工具，也不对托管工具服务进行计费。有关具体的路由标志位与计费限制，请参阅 [模型路由](/docs/configuration/models/)。
+
+非流式模型供应商 JSON 响应在解码前限制为 16 MiB。超出此大小的响应将作为上游错误失败，并在请求活动记录中保持未完成状态。流式对话对每个 Server-Sent Event (SSE) 最多检查 65,536 字节；除非观察到了有效的终态事件，否则中断或取消的流将保持状态不确定（uncertain）。
+
+## 对话函数工具与结构化输出
+
+对话接口在准入或向模型供应商派发之前会校验常用的生成参数：`temperature` 范围为 0 到 2，`top_p` 范围为 0 到 1，存在惩罚（`presence_penalty`）与频率惩罚（`frequency_penalty`）范围为 -2 到 2。非空的 `max_tokens`、`max_completion_tokens` 和 `n` 必须为正有符号 64 位整数；非空的 `seed` 必须为有符号 64 位整数。输出 Token 上限参数只能提供一个非空值。`stream` 必须为布尔值；非空的 `stream_options` 必须为对象，且其中的 `include_usage`（若提供）必须为布尔值。无效的参数值会直接返回清晰的 `400` 错误，且不会创建操作或尝试记录。省略的可选值与可空值保持原有语义；Niu 牛元不会注入默认采样参数，也不会截断显式传入的值。已配置的原生适配器或计费路由可能会施加更严格的受支持范围限制。
+
+仅当已配置的 OpenAI 兼容路由显式启用了相应能力时，`POST /v1/chat/completions` 才接受 OpenAI 兼容的函数工具定义、`tool_choice` 以及值为 `json_object` 或 `json_schema` 的 `response_format`。流式工具调用增量需要单独启用 `supports_streaming_tool_calls` 标志位。针对已禁用能力的请求会在记录操作或尝试之前返回 `501`。`unsupported_operation_error` 错误消息会指明是工具调用、流式工具还是结构化 JSON 不受支持，并给出受支持的替代方案。同时组合使用工具调用与结构化 JSON 仍不受支持；Niu 牛元不会静默移除请求中的这些特性。格式错误的工具定义、选择项和 Schema 会收到 `400` 错误。
+
+Niu 牛元会将工具定义和结构化输出 Schema 转发给模型供应商，但自身不会执行工具。非流式工具调用响应必须引用已声明的函数并包含 JSON 对象格式的参数。结构化输出响应必须符合自包含的 JSON Schema；`json_object` 响应必须是 JSON 对象。Schema 编译不支持拉取外部 HTTP 或文件引用，并受限于 [文档说明的复杂度限制](/docs/configuration/models/)。模型供应商的实际支持情况必须由实例管理员独立验证。这些特性在原生 Anthropic 或 Bedrock 路由上未启用。按 Token 计费的路由支持纯文本函数工具对话。结构化 JSON 流会先传递临时增量（provisional deltas），并在释放 `[DONE]` 之前校验组装后的完整内容；无效的终态内容会发出 `upstream_invalid_response` SSE 错误（不发送 `[DONE]`）并记录失败，同时上报的终态用量仍作为核算证据保留。校验过程在最多 128 个候选项（choices）上保留最多 1 MiB 的内容/拒绝字节。非空的显式模型拒绝（refusal）仍被视为有效拒绝响应。完整的 Responses 兼容性、更广泛的协议一致性以及特定模型供应商的准入认证仍属于后续发布工作。有关终态错误语义、核算与准入限制，请参阅 [结构化流式输出契约与当前输入验证](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md)。
+
+如果终态模型响应未通过输出校验，Niu 牛元会返回 `502` 且不投递被拒绝的内容。有效、完整且一致的上报输入/输出 Token 数量仍会记录上游执行完成，并产生锁定的客户费用；因此，投递失败的请求仍可能产生扣费。缺失、无效、不一致或溢出的用量保持未知状态，不会使用估算值替代。HTTP 投递状态与上游执行证据描述的是两个不同的事实。
+
+## 文本请求体大小限制
+
+公开的 Chat、Responses、Embeddings 接口以及控制台对话（Chat）在推理前会以 HTTP 413 拒绝超过 1 MiB（1,048,576 字节）的请求体。无论是否启用请求载荷保留，也无论是否使用不含 `Content-Length` 头的分块传输（chunked transfer），均适用同一限制。未超过字节上限的请求仍需提供有效的 JSON、受支持的字段、合法的授权以及符合模型特定要求的输入上限。Web 框架层的拒绝可能会返回纯文本而非 API JSON 错误信封。
+
+## Responses API 文本子集
+
+`POST /v1/responses` 接受非空字符串 `input`，以及可选的字符串 `instructions`、`max_output_tokens`、`temperature`、`top_p`、字符串值的 `metadata` 和 `user`。模型路由必须设置 `supports_responses = true`；Niu 牛元会将模型名称重写为配置的上游模型名称，并将返回的模型名称映射回公开别名。受支持的输出子集包括缓冲或流式响应中的文本消息、推理项（reasoning items）和拒绝内容（refusal content）。用量会将 Responses 的 `input_tokens`/`output_tokens` 映射到持久化的 prompt/completion 字段中。
+
+输入数组、图像、音频、工具调用和会话状态不在此子集支持范围内。不受支持的字段或格式错误的结构返回 `400`；未启用的路由能力会在创建尝试之前返回 `501`。流式响应的完成需要终态事件和用量证据；初始的 HTTP 200 并不代表生成完成。启用路由计费时，`input` 加 `instructions` 必须符合配置的保守 UTF-8 字节上限，且会在派发前预占 `max_output_tokens`。当前限制详见 [模型路由](/docs/configuration/models/)。此适配器子集并不意味着通过了特定模型供应商的一致性认证。
+
+## OpenAI 兼容文本嵌入（Embeddings）
+
+`POST /v1/embeddings` 接受一个模型别名以及单个非空字符串或由 1–2048 个非空字符串组成的数组。它还可选接受 `dimensions`（1–65536）、`encoding_format`（`float` 或 `base64`）以及最长 512 字节的 `user` 字符串。Token ID 数组、嵌套输入、多模态输入、流式传输以及额外未声明字段均会被拒绝。所配置的路由必须使用 `openai` 或 `openrouter` 供应商并显式声明支持文本嵌入；自定义维度与 base64 支持需要各自独立的路由显式声明。OpenRouter 的文本嵌入支持不会从对话支持中自动推导。缺失声明或不受支持的供应商会在创建持久化操作和尝试之前返回 `501`。错误响应会区分基础嵌入、自定义维度和 base64 支持情况；调用方可根据需要改用支持嵌入的模型、省略 `dimensions` 或改用 `float` 编码。成功的响应使用公开模型别名，且必须为每个输入项包含一个维度和格式正确的嵌入向量。有关配置与计费边界，请参阅 [模型路由](/docs/configuration/models/)。
+
+本契约仅涵盖已实现的 OpenAI 兼容文本嵌入操作。声明的路由标志位属于配置断言，而非一致性测试结果；原生 Anthropic 和 Bedrock 嵌入、特定供应商的一致性测试套件以及其他输入模态均未实现。
+
+## 自动网关活动与任务关联
+
+每一个获准进入受支持 Niu 牛元推理路由的模型请求都会被自动记录，包含其操作 ID（operation）与尝试 ID（attempt）、公开模型别名、执行状态、阶段耗时、用量可信度、模型供应商上报的 Token 计数以及任何已知的已结算客户费用。请求与响应内容默认单独保留 24 小时，除非通过 `x-niu-log-payloads: false` 显式禁用；详见 [日志中的请求内容](#日志中的请求内容)。缺失的用量或费用保持未知状态。这是请求活动数据的默认来源，用户无需手动导出或导入网关日志。
+
+`GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}` 可独立于列表分页和筛选条件返回单个请求的元数据。它要求具备该工作空间的读取权限，且当请求不在该工作空间范围内时返回 404。响应使用与请求列表相同的客户安全字段，排除模型供应商采购成本。载荷内容通过独立接口获取。
+
+对于保留的未发送尝试（unsent attempts），可空的 `admission_denial` 字段会记录经检查的请求速率拒绝原因：RPM 为零时记录 `key_request_rate_disabled`，正数配额耗尽时记录 `key_request_rate_exceeded`。其网关 HTTP 429 状态码与捕获的请求密钥名称属于诊断溯源信息，而非上游执行、用量或计费归因。缺失的观测数据保持未知状态；不会根据当前的密钥配置去重构历史记录。此记录范围涵盖持久化的已准备尝试（prepared-attempt）路径，不暗示涵盖计费准入与批处理准入。仅当尝试保持未发送状态时，`recorded_failure` 和密钥筛选条件才会包含这一已保存的证据。
+
+`GET /api/v1/organizations/{organization}/projects/{project}/requests?limit=50` 按时间倒序优先返回最新的网关尝试记录。`limit` 范围为 1 到 100。可选的 `from_ms` 和 `to_ms` 限制创建时间（`from_ms` 为闭区间，`to_ms` 为开区间）；`model_alias`、`key_id` 和 `status` 用于在同一工作空间信息流中进一步筛选。`status` 的可选值包括 `not_sent`、`may_have_executed`、`confirmed_completed`、`confirmed_not_executed`、`output_withheld`、`delivery_failed` 和 `recorded_failure`。前四个值用于筛选模型供应商执行状态；`output_withheld` 选择已记录的被拦截或结果不确定的输出检查记录。`recorded_failure` 选择已保存的上游失败或未发送的网关准入拒绝证据，不会从未知的用量或执行状态中推断失败。`delivery_failed` 选择已记录的投递 HTTP 错误（400–599），独立于模型供应商执行状态和客户费用。`http_status` 接受 100 到 599 之间的精确状态码，或使用 `unknown` 筛选缺失投递状态的记录，并可与其他筛选条件组合使用。未知（`unknown`）并不代表成功、失败或未扣费。汇总对象中的 `delivery_statuses` 会在一致性读取快照中统计所选完整范围内每个已记录状态码及可空未知类别的数量。即使模型供应商已完成执行，请求仍可能因输出被扣留（withheld）而未投递，且仍会产生客户费用。该端点返回 `data`、可空的 `next_cursor`，以及在整个所选筛选范围内计算得出的 `summary`（独立于当前分页）。将上一页最后一条记录的尝试 UUID 作为 `after` 传入即可继续翻阅更早的匹配条目。分页按最新优先排序；这是一次实时遍历，而非跨页的一致性快照。调用该接口需要工作空间读取权限或实例管理员凭据。每条记录包含 `attempt_id`、`operation_id`、可选的 `api_key_id` 与 `key_name`、可选的 `task_id`、可选的 `task_evidence`、公开的 `model` 别名及上游供应商上报的可空 `provider_model`、`created_at`、`dispatched_at`、`completed_at`、`duration_ms`、`execution`、可空的 `output_guardrail_outcome`、`usage_confidence`、可空的 prompt/completion Token 计数，以及可空的客户费用币种、金额与状态。`output_guardrail_outcome` 为 `null` 表示未记录输出检查结果，并不证明已完成投递或内容受保护。Token 数量与货币金额均为精确的十进制字符串。`task_evidence` 是该工作空间内同一任务 ID 的最新补充执行记录，包含带作用域的执行 ID、来源、记录 ID、覆盖范围声明以及权限/结果对，但不包含导入的调用链跨度（spans）。当操作员打开追踪详情时，请从 `/api/v1/organizations/{organization}/projects/{project}/executions/{execution}` 获取仅含元数据的跨度与因果链接。未结算或未定价的请求成本可能为未知；它们未出现在成本账本中并不意味着零消费。
+
+请求列表与 CSV 导出支持 `sort=time_desc`（默认）、`time_asc`、`latency_desc`、`input_desc` 或 `output_desc`。排序在分页前覆盖所有匹配的请求。已知测量值排在未知值之前；延迟排序使用完整的请求耗时或历史完整持续时间，绝不会将中断的耗时当作完整延迟参与排序。相同值按时间和尝试 ID 决出先后。将 `next_cursor` 作为 `after` 翻页时，请保持相同的筛选条件和排序方式。遍历是实时的：在翻页间隙完成测量的请求可能会在排序顺序中发生移动。如需获取所选范围的单语句一致性视图，请使用 CSV 导出。未知的排序值会返回 HTTP 400。客户费用不支持跨不同币种进行排序比较。
+
+`GET .../requests/export` 使用相同的日期、模型、API 密钥和执行状态筛选条件下载客户安全的 CSV 文件。它通过单条数据库语句读取整个范围，独立于分页的日志页面。该接口需要工作空间读取权限；推理 API 密钥无法执行导出。响应为带有 `Cache-Control: no-store` 的附件下载。内部标识符、任务记录、请求载荷、凭据以及模型供应商商业数据均被排除在外。未知值保留为空白单元格，并在旁边附带用量与计费状态说明。Token 计数与客户微单位（nanounits）保留精确的十进制数字。类似公式的文本单元格会自动加上单引号前缀以确保电子表格安全。超过 10,000 条请求的导出会返回 `413` 并提示缩小筛选范围，绝不会静默截断。导出接口拒绝接收分页参数。
+
+范围汇总（`summary`）会报告匹配的请求总数、包含供应商上报用量的请求数、精确的 prompt/completion Token 总计、具有完整耗时的请求数、平均完整网关耗时、匹配的 P50/P95/P99 延迟分位数（含样本数与边界）、已上报的缓存输入/推理输出类别总和（含已上报和未知的请求计数）、未决和未定价的客户费用计数、按币种汇总的客户费用总额，以及按模型和工作空间 API 密钥划分的用量明细。缺失价格或未结算的尝试保持未知状态，不会转换为零。
+
+`charges_by_model` 和 `charges_by_key` 在相同的汇总快照和筛选条件下，按币种分别报告全范围的客户账本金额。金额是以 nanos 为单位的精确十进制字符串；缺失结算会生成 `null` 币种和金额，并分别统计未决（unresolved）、未定价（unpriced）和未扣费（not-charged）的请求数量。这些计数与已扣费请求数共同构成了每一行的总请求数拆分。密钥标识符仅作为带作用域下钻查询的 API 引用，不可用作界面显示标签。这些明细不包含任何模型供应商采购成本或平台利润。
+
+### 请求阶段耗时
+
+新准入的请求在工作空间请求信息流中包含一个可空的 `timing` 对象：`dispatch_ms`、`headers_ms`、`first_output_ms`、`total_ms`、`complete` 和 `http_status`。各时间偏移量使用自请求处理开始的单调网关时钟，独立于载荷捕获。首次输出时间（`first_output_ms`）从流式对话（Chat）产生第一个有意义的事件开始测量，包括文本、推理思考（reasoning）、拒绝（refusal）或工具调用输出；仅含角色（role-only）的事件、保活心跳（keepalives）和用量记录不计入首次输出。非流式请求的 `first_output_ms` 保持未知。
+
+日志界面在同一时间轴比例尺上绘制准备阶段、首次输出等待和输出流持续时间。准备阶段包括参数校验与准入检查。等待阶段包括网络传输与上游处理时间；在没有上游追踪跨度（spans）的情况下，Niu 牛元无法将这两者拆分。输出持续时间包含内容投递和终态处理，因此每秒 Token 数（tokens per second）描述的是观测到的输出流速率，而非纯粹的模型计算速度。中断的响应保留未完成的时间区间（包括派发后但在收到响应头之前取消的情况，此时 `headers_ms` 和 `http_status` 保持为 `null`）。进程崩溃或准入确认期间的取消可能会导致阶段耗时不可用。历史旧请求不会进行数据回填。
+
+### 日志中的请求内容
+
+新的对话补全（Chat Completions）、Responses 和文本嵌入（Embeddings）请求默认在日志中保留内容。若要对单次请求选择退出保留，请发送请求头 `x-niu-log-payloads: false`。在控制台对话（Chat）界面中，可在发送前关闭输入框设置中的 **在日志中保存载荷（Save payloads in Logs）**。此设置不会追溯应用于更早之前的请求。
+
+捕获的内容与财务核算记录分开存储，保留期限为 24 小时。请求和响应两侧的捕获上限均为 1 MB；启用内容保留的请求若超出请求捕获上限将被拒绝。流式响应以流式文本形式保留，并对未完成和被截断的响应进行标记。HTTP 请求头与响应头不会被保留。请求对象中的已知凭据字段会被移除，包括 `Authorization`、`Proxy-Authorization`、`Cookie`、`Set-Cookie` 以及各类 API 密钥请求头名称。提示词（prompt）内部包含的任意机密信息不会自动脱敏。响应捕获会排除机密的模型供应商成本元数据。历史 JSON 和 SSE 响应在读取时也会进行安全清洗。如果格式错误或未完成的结构化响应无法安全序列化，读取接口将返回 HTTP 503 且不返回原始响应体；核算与耗时元数据仍可独立访问。
+
+经授权的工作空间只读成员可以通过 `GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads` 获取保留的内容。响应中的 `data` 包含 `request`、`response`、`content_type`、`complete`、`truncated` 和 `expires_at`；若未捕获内容或内容已过期，则返回 `null`。使用同一路径发起 `DELETE` 请求删除内容需要工作空间写入权限。删除内容不会删除财务核算记录。持久化的无内容删除标记（tombstone）可防止延迟到达的捕获或重试重新创建已被显式删除的载荷。在捕获完成前执行删除同样会阻止该次尝试的内容被落盘存储。
+
+应用程序或智能体适配器可以在属于同一任务的每一次推理调用上发送相同的可选请求头 `X-Niu-Task-ID`。对话补全、Responses 和文本嵌入接受 1–200 个可打印 ASCII 字符。Niu 牛元将该值作为不透明的操作元数据存储，绝不会将其转发给模型供应商。未携带此请求头的活动仍会被正常保留，并作为独立的模型请求展示。该请求头仅用于对模型调用进行分组：本地工具执行、校验和任务验收需要独立的适配器事件，无法从网关流量中自动推断。
+
+任务关联仅涵盖由 Niu 牛元处理的模型请求。外部模型调用、智能体工具事件、任务验收以及订阅用量均不在 Niu 牛元的采集范围内。Niu 牛元不提供执行过程或智能体用量的导入 API。
+
+## API 路由架构
+
+Niu 牛元将 HTTP 端点组织为两个公开路由前缀：
+
+- **开发者与推理数据面（`/v1/*` 与 `/v1beta/*`）**：模型发现（`GET /v1/models`）、API 密钥自检（`GET /v1/key`）、生成记录查询（`GET /v1/generations/{id}`）、文本推理（`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`、`POST /v1beta/models/{model_action}`、`POST /v1/embeddings`）以及媒体/视频生成（`GET /v1/media/capabilities`、`POST /v1/video/jobs`、`GET /v1/video/jobs`、`GET /v1/video/jobs/{id}`、`POST /v1/video/jobs/{id}/cancel`、`DELETE /v1/video/jobs/{id}`、`GET /v1/video/jobs/{id}/results/{kind}`、`POST /v1/video/jobs/{id}/results/{kind}/refresh`）。支持使用工作空间 API 密钥（`Authorization: Bearer <niu_api_key>`）或搭配 `X-Niu-Key-Id: <key_uuid>` 的已认证控制台会话进行鉴权。
+- **控制、工作空间、模型供应商与商业管理面（`/api/v1/*`）**：身份认证、用户会话、组织、工作空间、统一的工作空间 API 密钥管理（`GET /api/v1/workspaces/{workspace}/keys`、`POST /api/v1/workspaces/{workspace}/keys`、`GET /api/v1/workspaces/{workspace}/keys/{key}`、`PATCH /api/v1/workspaces/{workspace}/keys/{key}`、`DELETE /api/v1/workspaces/{workspace}/keys/{key}`、`POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`）、请求诊断、客户计费、模型供应商目录与报价（Offers）、上游 API 连接、模型路由、定价以及平台设置。鉴权要求因具体操作而异（工作空间成员会话、模型供应商成员身份或平台管理权限）。旧版 `/api/v1/*` 路径在运行时仍保持支持以确保向后兼容。
+
+### API 密钥自检与生成记录查询
+
+- `GET /v1/key` 返回当前已认证 API 密钥的名称标签、状态、过期时间、模型访问模式、允许的模型列表、请求速率与 Token 速率限制、并发限制以及客户消费限额（`limit_nanos`、`committed_nanos`、`remaining_nanos`），且不会暴露内部 UUID。
+- `GET /v1/generations/{id}` 返回调用方工作空间所拥有的单个尝试 ID（attempt ID）的客户安全执行元数据、Token 用量、延迟以及已结算客户费用（`total_cost_nanos`、`currency`），同时省略机密的模型供应商成本与内部路由标识符。
+
+:::caution[当前状态]
+当前的网关里程碑范围有限。本参考文档随经过测试的端点逐步扩展，并不声称目前已与所有 LiteLLM 操作或供应商完全对等。
+:::
+
+## 平台上游成本报告
+
+实例管理员可以读取工作空间的持久化平台上游核算数据。这些兼容性端点属于采购控制接口，而非客户计费 API。普通工作空间会话与模型供应商成员身份无权访问。
+
+- `GET /api/v1/organizations/{organization}/projects/{project}/budget` 返回包含币种、生命周期总额度、预占敞口和已结算现金支出的 `data` 对象；若未配置预算则返回 `null`。
+- `GET /api/v1/organizations/{organization}/projects/{project}/costs?limit=50` 返回已结算条目及可空的 `next_cursor`。将该 UUID 作为 `after` 参数传入即可继续翻页；`limit` 范围为 1 到 100。
+
+这些响应中的所有货币与 Token 值均采用十进制字符串表示，以在浏览器客户端中保留 64 位整数精度。货币金额使用指定币种的十亿分之一（nanos）为单位。每个条目都保留了其尝试 ID 与价格修订版本、独立的 API 等价成本与现金成本、Token 证据，以及用量是否超出预占上限的标志。
+
+分页按尝试 UUID 升序遍历，而非按时间顺序。这是一个实时视图：新结算的条目可能需要重新从头遍历才能看到。未结算的尝试被排除在外；返回空页**并不**证明零成本。预占敞口仍可在预算接口中查看。订阅费用分摊和容量报告目前尚未包含在内。
+
+即使调用方拥有工作空间读取权限，访问上游成本报告仍需要实例级管理权限。报告端点不会创建价格、结算尝试或启用自动网关定价。面向客户的请求费用、用量（Usage）和计费（Billing）是独立序列化的，绝不会将这些上游采购金额替代为客户费用。
+
+### 创建平台上游预算
+
+使用管理员令牌向 `POST /api/v1/organizations/{organization}/projects/{project}/budget` 发送如下请求体：
+
+```json
+{"currency": "USD", "limit_nanos": "100000000000"}
+```
+
+这会为该工作空间创建一个 100 美元（USD）的生命周期上游采购预算。它不会设置客户扣费上限或账单金额。金额必须是有符号 64 位整数范围内的非负十进制整数字符串，不含指数或小数表示法。币种为三位大写字母代码；系统不执行汇率转换。并发创建只有一个请求会成功；若预算已存在，则返回 409 且不会修改其限额、预占或已发生支出。
+
+**当前准入行为：** 受支持的计费路由会在派发前预占其配置的输入/输出上限；资金不足或缺少匹配币种的预算会阻止发起上游调用。一旦工作空间配置了上游预算，共享路由派发就必须持有受信任的预占记录。没有此类预占的未定价共享请求将被拒绝。经授权且由所有者出资的个人对话（Chat）与视频路由被排除在平台采购核算之外，但其当前的权限与安全护栏（Guardrails）仍然生效。已派发的存量尝试不会被追溯预占。模型供应商计费边界仍需准入验证：低估的边界可能导致超支，并被记录为负债。这并非针对超出边界的上游计费的普遍豁免保证。客户端的“用量（Usage）”页面不会暴露采购预算管理功能。
+
+## 实例级上游连接（Vendors）
+
+共享上游连接持久化存储在 PostgreSQL 中，并由实例级管理权限或显式授予的平台管理员角色进行管理：
+
+- `GET /api/v1/vendors` 列出所有配置元数据（包括已禁用的配置），不包含凭据密钥。可选的 `supplier` 参数可按显式的模型供应商业务归属进行筛选。响应为单个不分页的 `data` 数组，没有静默行数上限；内存占用随列表大小线性增长。
+- `POST /api/v1/vendors` 使用只写的 `api_key` 创建上游连接配置。
+- `PUT /api/v1/vendors/{id}` 使用 `expected_revision` 更新元数据、启用状态或凭据密钥。
+- `GET /api/v1/vendors/{id}/models` 按别名顺序排列出该上游连接下的所有模型映射（包括已禁用的映射）。该兼容性端点返回单个不分页的 `data` 数组，不会在 1,000 行处静默截断。大型列表仍会消耗与其大小成正比的响应内存。
+- `POST /api/v1/vendors/{id}/models` 在不传修订版本时创建新映射，或使用当前的 `expected_revision` 更新现有映射。
+- `POST /api/v1/vendors/{id}/check` 配合 `{ "alias": "team/fast" }` 执行非推理的 `GET /models` 连通性检查。该检查限制在 5 秒和 2 MiB 以内，拦截重定向与私有网络目标地址，且仅返回状态码以及确切的上游模型 ID 是否出现在供应商目录中。模型供应商的原始响应内容与凭据绝不会被返回。出现在目录列表中并不证明具备推理访问权限或配额；请使用控制台对话（Chat）通过 Niu 牛元测试真实请求。
+
+单个模型供应商可以拥有多个独立配置的凭据，且每个凭据可以绑定多个模型别名。即使多个别名共享同一个上游凭据，工作空间密钥授权仍按每个请求的别名独立生效。有关已验证的更新、禁用、重启与计费行为，请参阅 [当前多密钥与多模型验证记录](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md#multiple-mappings-on-one-credential--current-input-verification)。
+
+更新模型映射时，省略 `pricing` 会保留其确切的已存储值；显式传入 `null` 则会将其清空。过期的更新请求会返回 `409`。响应使用 `Cache-Control: no-store`。未经显式授予平台管理员权限的普通组织角色与工作空间角色无法管理这些平台资源。有关加密、优先级与引导配置行为，请参阅 [模型路由](/docs/configuration/models/)。
+
+## 验证已保存的视频结果
+
+`GET /v1/video/jobs/{id}/results/video` 返回经授权的媒体文件本身，而非私有的上游 URL。已保存的 `succeeded` 状态并不保证上游结果仍然可供下载。可使用代码仓库中的脚本命令 [`scripts/verify-video-result.py`](https://github.com/niu-io/niu/blob/main/scripts/verify-video-result.py) 读取现有任务、下载其当前结果并使用 FFmpeg 独立解码最终文件。该脚本不会发起提交或刷新请求，并将工作空间密钥保留在环境变量中。有关私有产物、前置条件及确切的验证范围，请参阅 [已保存结果验证说明](https://github.com/niu-io/niu/blob/main/docs/reference/video-jobs.md#verify-a-current-saved-video)。
+
+## 持久化视频提交意图（Video Intents）
+
+归属于执行者的工作空间 `video-intents` API 可在显式提交前保存经校验的文生视频请求。`PUT /{intent}` 保存一个全新的意图标识，`GET /{intent}` 恢复其内容与原始任务/准备状态，`POST /{intent}/submit` 则使用 `expected_revision` 显式提交或重放该意图。集合 `GET` 接口提供带作用域的元数据索引；`DELETE` 会清除请求内容，同时保留不可重用的意图标识。当前的密钥授权仅遵循原始密钥的轮换血统（rotation lineage）。读取操作绝不会提交任务、轮询上游或预占资金。
+
+有关请求体结构、执行者隔离、30 天内容保留期、删除语义以及当前的验证限制，请参阅 [自动生成的操作 Schema](/docs/reference/handler-operations/) 与 [持久化视频意图契约](https://github.com/niu-io/niu/blob/main/docs/reference/video-submission-intents.md)。图像/参考素材输入以及客户出资的视频生成准入验证仍在此已验证子集之外。“生成（Generations）”控制台集成了已保存意图的恢复功能，包括在密钥过期后恢复原始输入、保留的预览以及诊断信息。参考素材的成功提交与完整的共享输出生命周期仍是独立的验证要求。受支持的浏览器工作流详见 [生成对话与视频（Generations）](/docs/reference/generations/)。
+
+视频耗时响应包含一个用于结果获取的 `result` 阶段。其耗时测量上游拉取与有界响应体读取的时间。`received` 表示网关已获取到媒体字节；但在向客户端投递前会再次检查当前访问权限，因此它并不证明客户端已成功接收。获取失败会记录为 `unavailable`，并在适配器明确分类时附带上游 HTTP 状态码，否则保持未知。这些记录绝不会创建新的生成任务或产生新的客户费用。获取前的鉴权失败不会创建网络跨度记录。处理器被取消或诊断写入失败可能会导致没有耗时条目被记录。
+
+视频传输耗时条目还会为提交和刷新时的 HTTP 失败暴露可空的 `upstream_http_status`。历史记录与未分类的跨度保持为 `null`。此诊断信息绝不会改变已保存的生成状态，也不会证明可以释放费用或预占额度。
+
+视频提交的 HTTP 错误现在会在工作空间请求诊断中保留安全的 `upstream_http_error` 分类和状态码。创建响应仍返回 `202` 及 `submission_unknown`；这并不证明上游未执行、不会释放已持有的客户负债，也不会授权发起另一次新提交。幂等重放会恢复相同的任务引用。详见 [自动生成的创建契约](/docs/reference/handler-operations/)。
+
+## 操作作用域的请求诊断
+
+`GET /api/v1/organizations/{organization}/projects/{project}/requests` 及其 `/export` CSV 导出端点接受可选的 `operation_id`（UUID）参数。该筛选条件会选出已授权工作空间内属于该操作（operation）的所有执行尝试（attempts）；列表汇总（`summary`）同样应用该筛选条件。未知的操作 ID 或属于其他工作空间的操作 ID 将返回空匹配结果。无效的 UUID 语法返回 400。其他筛选条件可与之组合使用，且现有的分页与导出上限仍然生效。
+
+请使用请求元数据返回的 `operation_id` 进行关联分析；切勿将内部标识符用作产品界面的显示标签。JavaScript SDK 在 `listGatewayActivity` 和 `exportGatewayActivity` 中将该参数暴露为 `operationId`。此只读筛选条件不会触发重试。可空的 `retry` 元数据提供了每次尝试的序号（ordinal）、前驱尝试（predecessor）、最大尝试次数以及策略修订版本。
+
+## 文本请求最低消费金额
+
+客户价目表发布支持可选的 `minimum_charge_nanos` 字段，该字段为有符号 64 位整数范围内的精确非负十进制字符串。新价目表默认值为零；替换现有的非零最低消费金额需要显式传入新值，传入 `"0"` 则会在未来的请求中禁用最低消费。`null` 与格式错误的金额会被拒绝。
+
+对于已知用量的已完成请求，其费用取四舍五入后的 Token 费用与该最低消费金额中的较大值。准入阶段同样预占 Token 上限费用与最低消费金额中的较大值（即使 Token 费率为零也是如此）。用量未知的请求保持未决状态；客户端断开连接不会授权按最低消费扣费或释放未决预占。存量历史记录不会重新计价，且此字段不会配置模型供应商成本或视频生成费用。账单明细行与模型价格查询接口会相应暴露锁定或当前的最低消费金额。内部余额退款上限仍受原始扣费金额约束，仅恢复一次退还的密钥可用额度，并保留历史账单定价。SDK 使用相同的 `minimum_charge_nanos` 字段。详见 [契约与实际验证记录](https://github.com/niu-io/niu/blob/main/docs/reference/text-minimum-charges.md)。
+
+## 存量视频结果恢复
+
+当前版本的网关在完成传输状态数据库迁移后，成功恢复了一个此前生成的个人视频任务，查询了其真实的上游引用，并在重启后保留了同一个成功的任务记录。下载的字节流与原始产物的 SHA-256 完全匹配，并可独立解码为 H.264 视频。整个过程未创建新的生成任务，也未产生客户费用。这验证了该结果恢复路径，但不代表客户出资的视频结算验证。详见 [已记录的恢复验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/video-jobs.md#existing-result-recovery-after-migration-0228)。
+
+## 客户文本请求固定单次费用
+
+客户价目表发布现在接受 `request_fee_nanos` 作为精确的非负整数字符串。对于已知用量的已完成请求，其最终扣费取“四舍五入后的 Token 费用加上该固定单次费用”与 `minimum_charge_nanos` 之间的较大值。准入阶段使用相同的公式预占额度；被拒绝或未决的请求不会凭空产生固定费用。历史价目表版本保持锁定不变。替换非零的固定费用需要显式传入新值，传入 `"0"` 则将其禁用。SDK 使用相同的字段名称。详见 [计费规则与受支持边界](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md)。
+
+针对当前输入的固定费用验证现已涵盖缓冲与流式 Responses、共享同一账户并发运行的 Chat/Responses/Embeddings，以及有界的幂等内部退款。独立的供应商响应算术校验与数据库账本读取结果完全一致；服务重启后仍保留了费用记录与已恢复的额度。详见 [协议与退款验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#refund-responses-and-mixed-protocol-verification)。
+
+纯固定费用定价还在两个网关实例与两个工作空间并发争用仅够支付一次请求的企业授信额度场景下进行了验证：最终一个请求完成、一个返回 HTTP 402，且账本仅产生一笔精确扣款。另一次在流式内容实际输出后触发 `SIGKILL` 的测试保留了未知用量及其预占记录，而没有凭空产生固定费用扣款或触发重试。详见 [并发争用与崩溃验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#shared-credit-contention-and-interrupted-fixed-fee-liability)。
+
+在固定费用准入阶段，如果 Token 费用加上固定费用的总额超出了有符号 64 位微单位（nanounits）的表示范围，网关会以 HTTP 400 拒绝请求。数值可表示但可用消费容量不足的请求则返回 HTTP 402。实际 API 请求与独立 SQL 检查证实，这两种情况均未向上游派发请求，也未留下任何资金预占记录；详见 [准入边界验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#checked-addition-at-admission)。
+
+## 工作空间模型价格
+
+`GET /v1/models` 已包含在由路由处理器自动生成的 OpenAPI 契约中。模型的 `customer_pricing` 字段包含当前已认证工作空间的现行销售价目表（若未定价则为 `null`）。Token 费率以每百万 Token 的微单位（nanounits）表示；`minimum_charge_nanos` 和 `request_fee_nanos` 则是按次计算的对应币种微单位。请将所有金额保持为字符串处理。SDK 在模型价格和账单明细行上均暴露了这两个费用字段。模型发现本身并不保证请求准入或上游可用性。详见 [实际作用域价格读取验证](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#model-discovery-contract-and-sdk-reads)。
+
+## 客户价格历史记录
+
+使用 `GET /api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history` 或 SDK 的 `getCustomerTariffHistory` 方法可读取不可变的客户文本价格历史。响应包含当前修订版本以及带 `next_before` 游标的最新优先分页；所有货币字段均保持为字符串。跟随游标可继续向后翻页，刷新第一页即可查看新发布的价格。缺失或跨资源的游标返回 409；无权访问的工作空间或未知的模型价目表返回 404。响应排除模型供应商采购价格。详见 [契约与实际分页验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/customer-tariff-history.md)。
+
+客户价目表历史记录接口允许带作用域的管理端只读角色访问（包括实际鉴权运行中验证的所有者 `owner` 与只读成员 `viewer` 角色）。工作空间推理 API 密钥无法读取此管理端点，请改用其获准访问的 `/v1/models` 价格投影。跨工作空间的历史记录仍以 404 隐藏。[前端集成清单](https://github.com/niu-io/niu/blob/main/docs/releases/backend-integration-contract.md#interfaces-to-integrate-now) 现已将价格发布、当前价格与不可变历史记录一并列出。
+
+## 缓存输入与固定单次费用组合计费
+
+当配置了 `cached_prompt_rate` 时，系统会分别计算未缓存输入、缓存输入和输出的精确金额，将三者相加后统一向上取整一次；然后再累加 `request_fee_nanos`，并对合并后的总金额应用 `minimum_charge_nanos` 下限。缺失必要的缓存用量数据时，请求将保持未决状态；固定费用不会替代缺失的用量证据。所有费率与固定金额均保留其锁定的修订版本。
+
+实际的非零缓存完成请求验证了叠加固定费用以及最低消费高于合并金额的两种场景。已保存的供应商用量与重新打开的数据库记录在费用、账单和退款余额上完全吻合。详见 [计费公式与验证范围](https://github.com/niu-io/niu/blob/main/docs/reference/cached-input-pricing.md#cached-tokens-combined-with-fixed-fees-and-minimums)。
+
+## 不可变的模型供应商报价
+
+`GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}` 用于读取已知的历史采购报价修订版本。调用方必须具备实例级管理权限或是该模型供应商的活跃成员；客户组织所有者身份不授予此访问权限。模型供应商、报价（offer）与修订版本（revision）必须相互匹配。缺失或无权访问的报价返回 404。JavaScript SDK 提供了 `getSupplierOfferRevision` 方法。
+
+文本费率保持为精确字符串，包含可空的缓存输入定价。媒体报价修订版本的文本价格字段为 `null`，并使用独立的媒体费率卡（rate-card）API。读取报价不会激活或验证该报价。请务必将采购信息隔离在客户工作空间界面之外。由路由处理器生成的 OpenAPI 现已记录了响应变体与鉴权边界。当前的 HTTP 读取测试与四个已保存的文本修订版本完全匹配；活跃模型供应商只读成员访问、客户企业角色拒绝以及成员资格吊销均已针对数据库记录进行了独立核验。媒体报价读取仍有待验证。
+
+### 发现模型供应商报价修订历史
+
+`GET /api/v1/providers/{provider}/offers/{offer}/revisions` 可在不预先获知修订版本 ID 的情况下列出历史采购报价。该接口适用相同的模型供应商成员身份或平台管理权限要求。使用 `limit`（1–100，默认 50），并在 `has_more` 为 `true` 时将 `next_before` 作为 `before` 传入。每个条目增加了 `is_current` 标志，且响应中包含 `current_revision`。未知或跨资源的游标返回 409，无权访问的模型供应商或报价标识返回 404。
+
+SDK 提供了 `listSupplierOfferHistory` 方法。在集成前请先阅读 [分页与保密性契约](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-offer-history.md)。这些数据属于平台采购价格，而非客户计费数据。
+
+## 上游凭据请求速率限制
+
+平台管理员可以读取或更新 `/api/v1/vendors/{vendor}/request-rate-limit` 并读取其 `/history` 历史记录。`PUT` 请求需要传入 `requests_per_minute`（显式传入 `null` 表示无限制，传入 `0` 表示停止派发）以及精确的字符串 `expected_revision`。该限制独立于客户密钥的 RPM 限制，并在使用同一已保存凭据的所有网关实例之间共享。历史记录接口支持 `before_revision` 和 `limit` 参数。
+
+本地派发限流拒绝会返回 HTTP 429、`upstream_request_rate_exceeded` 以及保守的 `Retry-After: 60` 响应头，且不会向上游发送请求。SDK 提供了 `getVendorRequestRateLimit`、`setVendorRequestRateLimit` 和 `listVendorRequestRateLimitHistory` 方法。详见 [派发语义与验证边界](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-credential-request-limits.md)。
+
+## 上游凭据冷却机制
+
+平台管理员可以读取 `GET /api/v1/vendors/{vendor}/cooldown` 或使用 SDK 的 `getVendorCooldown` 方法。响应会报告 `policy_revision`、`failure_threshold`、`window_seconds`、`cooldown_seconds`、`active`、可空的 `cooldown_until` 以及 `qualifying_failures`。企业作用域的管理员无权读取此状态。
+
+在 60 秒滚动窗口内若出现 3 次新的、符合条件的规范 OpenRouter 文本认证拒绝，该凭据将在接下来的 60 秒内暂停被新请求选中。后续符合条件的在途失败可能会延长冷却截止时间。超时与执行状态不确定的请求绝不计入冷却阈值。直接选择处于冷却期的路由会返回 `503 upstream_credential_cooldown`；没有任何可用映射的路由池会返回 `503 route_pool_unavailable`。已锁定路由的在途请求继续执行。冷却状态在服务重启和凭据编辑后依然保留；冷却到期后会自动恢复候选资格，无需发起上游探测或由管理员重新发布。此固定策略不提供写入端点。详见 [冷却策略与验证边界](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-credential-cooldown.md)。
+
+## 请求诊断中的视频模型归因
+
+现有的 `provider_model` 字段现在会保留经校验的视频状态查询所显式返回的模型名称。缺失的模型供应商模型字段保持未知状态；Niu 牛元不会用配置的映射名称去替代。已完成的存量任务可以通过一次上报了该字段的授权刷新操作获得此模型归因，而无需重新发起生成。仅读取日志（Logs）不会向上游发起查询。详见 [模型归因与保留边界](https://github.com/niu-io/niu/blob/main/docs/reference/video-model-attribution.md)。
+
+### 日志中的视频创建请求内容
+
+新的视频提交会通过现有的带作用域载荷读取/删除 API 保留经检查的 Niu 牛元请求体与 Niu 牛元创建响应体，保留时间最长为 24 小时。发送 `x-niu-log-payloads: false` 可选择退出保留。已保存意图（saved-intent）的提交会捕获经检查的视频请求内容，而非仅含修订版本的提交信封。幂等重放绝不会重新创建捕获记录。这些载荷是 Niu 牛元 API 的请求与响应体，而非原始上游传输报文或生成的媒体文件；完整捕获到 202 响应并不代表视频生成已完成。
+
+有关大小上限、鉴权与保留语义，请参阅 [视频请求载荷](https://github.com/niu-io/niu/blob/main/docs/reference/video-request-payloads.md)。
+
+### 认证失败与未决费用
+
+HTTP 401 响应并不能普遍证明模型供应商没有执行任何计算工作。受管文本请求在准入时会锁定经审查的规范 OpenRouter 未执行策略；使用相同适配器的自定义端点以及未绑定该策略的旧请求仍保留执行不确定性及其适用的资金预占。客户诊断信息会将 HTTP 失败与执行状态、扣费状态分开保存。切勿将每一个 401 响应都视为已退款或允许直接重试。
+
+有关已实现的边界与实际验证，请参阅 [符合条件的未执行策略](https://github.com/niu-io/niu/blob/main/docs/reference/qualified-nonexecution-policy.md)。
+
+## 模型供应商密钥启动检查
+
+网关在开始监听端口前，会检查每一个已保留的模型供应商推理凭据与素材管理凭据修订版本。若部署加密密钥缺失或不兼容，网关将采取故障关闭（fail closed）策略拒绝启动。已吊销的素材凭据在被显式擦除前仍会接受检查；启动过程不会删除或重新加密它们。请恢复匹配的部署密钥，而不要通过擦除数据库数据来绕过诊断检查。详见 [启动校验及其限制](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-secret-startup.md)。
+
+## 模型供应商结算历史记录
+
+`GET /api/v1/providers/{provider}/settlements` 提供了超出模型供应商控制台最近 100 条付款记录上限的完整结算历史。平台管理员或该模型供应商的活跃成员均可读取。支持使用 `limit`（1–100）、`before`、`currency`、`from_ms`（闭区间）和 `to_ms`（开区间）参数；在跟随 `next_cursor` 翻页直至为 `null` 的过程中，请保持筛选条件不变。时间边界为 Unix 毫秒时间戳。SDK 提供了支持 `fromMs` 和 `toMs` 查询属性的 `listSupplierSettlements` 方法。
+
+所有金额均为精确的十进制字符串。返回行仅包含付款记录元数据，不包含客户信息与具体请求详情。读取结算历史不会登记付款或转移资金。详见 [契约与验证边界](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-settlement-history.md)。
+
+## 停机时的请求诊断落盘
+
+优雅停机（Graceful shutdown）现在会在 HTTP 连接与财务写入器排空后，额外等待最多 10 秒以完成已注册的请求耗时与内容写入。超出该时间窗口的数据库停滞会发出 `request_diagnostics_shutdown_timeout` 事件；强制终止进程或存储层故障仍可能导致诊断数据缺失。诊断内容缺失并不代表获准重试状态不确定的上游操作。详见 [实际停机验证与限制](https://github.com/niu-io/niu/blob/main/docs/reference/graceful-request-diagnostics.md)。
+
+## 完整的客户账单历史记录
+
+`GET /api/v1/organizations/{organization}/projects/{project}/billing/invoices` 支持翻阅超出概览页最近 100 张账单上限的全部历史账单。使用 `limit`（1–100）、`before`、`currency`、`from_ms` 和 `to_ms` 参数，并跟随 `next_cursor` 翻页直至为 `null`。这些时间筛选条件描述的是账单的**创建时间**；而每张返回账单中的 `from_ms` / `to_ms` 仍然描述其计费的用量时间区间。SDK 提供了支持共享 `LedgerHistoryQuery`（`fromMs`、`toMs`）的 `listCustomerInvoices` 方法。
+
+该端点强制检查工作空间读取权限范围，且仅返回客户侧金额。已入账的余额扣款即使使用了已批准的授信额度，也会结清对应账单，不会变成另一笔未付账单欠款。读取历史记录不会创建付款。详见 [契约与 152 张账单实际验证记录](https://github.com/niu-io/niu/blob/main/docs/reference/customer-invoice-history.md)。
+
+## 已取消的响应流
+
+当响应体在到达终态或显式上游失败处理之前被断开时，请求详情可能会报告 `failure.kind: response_stream_cancelled` 且 `upstream_http_status` 为 `null`。这并不能指明是谁取消了投递，也不能证明上游执行没有发生。此时响应头可能已经是 HTTP 200，而耗时与内容捕获仍处于未完成状态。
+
+未知的用量、资金预占以及密钥并发占用均会保留；流取消不会触发自动重试或凭据冷却。已完成的流和已知的上游错误则保留其各自的结果状态。详见 [实际取消、完成与超时验证记录](https://github.com/niu-io/niu/blob/main/docs/reference/stream-cancellation-diagnostics.md)。
+
+### 平台模型供应商收益历史
+
+平台管理员可以使用 `GET /api/v1/providers/{provider}/earnings` 翻阅超出管理概览页近期收益预览范围的完整记录。SDK 提供了 `listSupplierEarnings` 方法；返回的精确金额仍为平台对模型供应商的应付负债。模型供应商成员身份不授予此请求级对账访问权限。内部候选路由选择 ID（selection IDs）切勿出现在产品界面中。现有的结算写入接口仍会重新校验未付选择项并要求提供已确认的付款证据。非空分页与完整的模型供应商对账仍有待验证。
+
+### 平台客户价格配置读取
+
+具有显式权限的平台管理员可以通过 `GET /api/v1/pricing/targets` 发现已命名的企业/工作空间定价目标，随后通过 `GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs` 读取现行销售价格。两个接口均使用 `after`、`limit`（1–100）和 `next_after` 进行分页。在价目表路由后追加 `/{model}/history` 即可读取不可变的价格历史记录（使用 `before`、`limit`、`next_before`）。这些读取接口不包含客户余额、用量、账单对账单、请求内容或模型供应商采购信息。客户作用域的计费访问权限保持独立。对应的 SDK 方法为 `listPlatformPricingTargets`、`listPlatformCustomerTariffs` 和 `getPlatformCustomerTariffHistory`。
+
+### 安全护栏拒绝错误类型
+
+已记录的准备阶段策略拒绝会返回 HTTP 403 及 `error.type: "guardrail_denied"`，表示请求在派发给模型之前即被拦截。响应不会暴露命中的输入片段或具体规则。请读取经授权的准备阶段诊断信息以了解记录的拒绝原因；切勿将所有 403 响应都归类为安全护栏拦截。管理权限失败保留其独立的错误类型。
+
+派发后的缓冲输出扣留（withholding）返回 HTTP 403 及 `error.type: "guardrail_output_withheld"`。即使输出内容未被投递，生成费用仍可能照常产生。请检查经授权的请求安全护栏诊断信息以获取已保存的结果状态；切勿自动重试该操作。
+
+## 原生 Gemini 文本接口
+
+`POST /v1beta/models/{alias}:generateContent` 可用于已显式启用的静态或受管 `gemini` 路由。请对模型别名（包括其中的斜杠 `/`）进行 URL 编码，并使用 Niu 牛元工作空间密钥进行身份认证。请求需提供文本类型的 `contents` 以及有界的 `generationConfig.maxOutputTokens`。原生工具调用、媒体输入、缓存资源、思考配置（thinking configuration）以及流式传输均不受支持，并在派发前即被拒绝。现有的预付费定价、权限控制与密钥限额仍然生效。
+
+SDK 使用以 `/v1` 结尾的基础 URL 暴露了 `client.generateContent(alias, body)` 方法。[自动生成的契约文档](/docs/reference/handler-operations/#generate-native-buffered-gemini-text) 列出了确切受支持的字段。实际的异常路径、输入脱敏、保留的上游拒绝以及服务重启均已通过验证；成功的 Google 生成调用、输出处理与已结算计费仍有待验证。模型供应商凭据支持 `adapter: "gemini"`；模型映射需要配置 `capabilities.supports_generate_content: true`。模型发现与连通性检查使用原生 Google 认证方式及有界目录读取。详见 [实现与验证边界](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#gemini-generatecontent-text)。
+
+## 原生 Messages 接口计费
+
+`POST /v1/messages` 在已显式启用的 OpenRouter 或 Anthropic 模型映射上支持有界非流式文本生成。对于受管映射，请设置 `capabilities.supports_messages: true`。Anthropic 映射可以通过相同的模型供应商配置 API 保存保守的路由采购价格；客户销售价目表仍与之保持分离。缺失的用量保持未知状态。不受支持的推理思考费率（包括显式的零费率）会在派发前被拒绝。执行状态不确定的上游拒绝会保留其计费预占以供后续核对。
+
+实际的配置保存、预付费余额不足拒绝、价格类别拒绝、输出上限限制以及跨重启的拒绝状态持久化均已通过验证。成功的直连 Anthropic 结算仍有待验证。详见 [原生协议支持范围](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#priced-anthropic-mappings)。
+
+## 未结清的余额预占（Open Balance Reservations）
+
+企业所有者/管理员以及实例管理员可以通过 `GET /api/v1/organizations/{organization}/billing/reservations` 检查未结清的资金冻结（holds）。支持使用 `limit`（1–100）、可选的 `currency` 以及取自 `next_before` 的 `before` 参数。已释放的预占会从结果列表中消失，但仍可作为有效的分页游标。响应包含工作空间/密钥名称、模型别名、当前执行/用量状态，以及精确的客户预占金额与未结清金额。内部标识符仅作为关联链接使用，不可用作界面显示标签。响应排除模型供应商成本与上游凭据。
+
+这是一个只读诊断接口，而非资金释放或重试操作。未知的执行或用量状态保持为未知。不同分页之间属于独立的读取观测。已完成但用量不完整的响应保持为 `usage_unknown`；已知用量但正在等待财务核算恢复的响应则报告为 `settlement_pending`。实际调用已验证这两种状态在服务重启后的持久性，以及仅释放可恢复冻结款项的行为。SDK 提供了 `listCustomerBalanceReservations` 方法；详见 [支持范围与实际验证记录](https://github.com/niu-io/niu/blob/main/docs/reference/customer-charge-reconciliation.md#open-reservation-inspection)。
+
+## 请求截止时间超时错误
+
+当原始请求截止时间（deadline）在准备阶段或正式派发前到期时，对话（Chat）与 Responses 的路由池准入可能会返回 HTTP `504` 及 `error.type: "request_deadline_exceeded"`。该次尝试并未发送到上游。一次重试操作可能已经包含了早先的上游拒绝记录；在关联到请求诊断信息时，请保留返回的任何 `x-niu-operation-id` 和 `x-niu-attempt-id` 响应头。
+
+请在界面中将其展示为请求超时，而非数据库可用性故障。此错误分类并不授权对状态不确定的尝试或已开始返回的流进行重放。在决定是否发起新操作之前，请先检查已保存的请求状态。其他 HTTP 504 错误并不会仅仅因为状态码相同而自动继承这一“未执行”保证。
+
+详见 [有界重试与截止时间契约](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md)。
+
+## 准入期间的安全护栏策略变更
+
+返回 HTTP `409` 及 `guardrail_admission_conflict` 表示在当前工作空间/密钥策略下，先前检查通过的策略已不再允许派发该请求。被拒绝的尝试并未发送到上游。付费准入仍会保留一条未发送的尝试记录及其安全的拒绝审计信息，同时释放客户资金预占，且不会产生客户扣费。新请求必须在当前最新策略下重新接受检查。
+
+Messages 接口保留其原生错误信封结构；请读取 `x-niu-error-code` 响应头以获取 Niu 牛元的错误分类。通用冲突与未知的数据库故障保留其各自独立的含义。详见 [策略竞态行为与验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/guardrail-preparation-errors.md)。“生成（Generations）”控制台集成了已保存视频意图的恢复功能，包括在密钥过期后恢复原始输入、保留的预览以及诊断信息。参考素材的成功提交与完整的共享输出生命周期仍是独立的验证要求。受支持的浏览器工作流详见 [生成对话与视频（Generations）](/docs/reference/generations/)。
+
+</div>

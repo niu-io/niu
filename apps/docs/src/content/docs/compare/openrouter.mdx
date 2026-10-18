@@ -4,11 +4,13 @@ description: Compare Niu and OpenRouter by model access, operating responsibilit
 next: false
 ---
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
+
+<div data-lang="en">
+
 OpenRouter provides hosted access to a model catalog through a unified API. Niu is a gateway you can operate with configured Providers. They can be alternatives at the application boundary, or work together with OpenRouter supplying models upstream of Niu.
 
 Product documentation reviewed October 13, 2026. This comparison describes documented scope; it does not establish performance, prices, or full feature parity.
-
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
 
 <Table className="comparison-table">
   <TableCaption>Niu and OpenRouter, row by row</TableCaption>
@@ -45,3 +47,49 @@ Niu’s first feature-complete release has not yet been qualified. Confirm the m
 - [Niu deployment](/docs/deployment/single-container/) and [API reference](/docs/reference/api/).
 - [All gateway comparisons](/docs/compare/).
 - [Make your first Niu request](/docs/getting-started/).
+
+</div>
+
+<div data-lang="zh" data-title-zh="Niu 对比 OpenRouter">
+
+OpenRouter 通过统一的 API 提供对托管模型目录的访问。Niu 则是您可以搭配已配置模型供应商自行运维的网关。在应用边界上，两者既可以作为替代方案，也可以协同工作——由 OpenRouter 在 Niu 的上游提供模型供应。
+
+产品文档审阅于 2026 年 10 月 13 日。本对比描述了文档记录的能力范围，不代表性能、价格或完整功能对等。
+
+<Table className="comparison-table">
+  <TableCaption>Niu 与 OpenRouter 逐项对比</TableCaption>
+  <TableHeader><TableRow><TableHead>功能特性</TableHead><TableHead>Niu</TableHead><TableHead>OpenRouter</TableHead></TableRow></TableHeader>
+  <TableBody>
+    <TableRow><TableCell data-label="功能特性">您所运维的组件</TableCell><TableCell data-label="Niu">您的网关与 PostgreSQL 部署</TableCell><TableCell data-label="OpenRouter">您的应用程序；OpenRouter 运行托管网关</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">模型访问</TableCell><TableCell data-label="Niu">由您配置的供应商路由所暴露的模型</TableCell><TableCell data-label="OpenRouter">托管目录中可用的模型</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">路由配置</TableCell><TableCell data-label="Niu">显式模型映射与受支持的路由池策略</TableCell><TableCell data-label="OpenRouter">供应商偏好、排序与回退控制</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">凭据管理</TableCell><TableCell data-label="Niu">下游使用工作空间密钥；上游使用供应商凭据</TableCell><TableCell data-label="OpenRouter">用于托管模型访问的 OpenRouter API 密钥</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">请求证据</TableCell><TableCell data-label="Niu">您部署实例中的请求日志、上报用量与客户计费</TableCell><TableCell data-label="OpenRouter">托管活动记录与 API 用量报告</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">当前范围</TableCell><TableCell data-label="Niu">积极开发中，各路由具有特定的验收限制</TableCell><TableCell data-label="OpenRouter">模型与供应商能力各异；请核实所选路由</TableCell></TableRow>
+  </TableBody>
+</Table>
+
+## 01 / OpenRouter 的领先之处
+
+OpenRouter 为应用程序提供了托管模型目录和完善的供应商路由控制，无需您部署网关或维护数据库。当您需要托管模型访问服务时，其 API 和客户端 SDK 是最直接的起点。
+
+## 02 / Niu 的适用场景
+
+当您希望自主运维网关及其保存的工作空间请求记录、配置自己的模型供应商，并通过公开接口管理应用密钥时，Niu 非常适用。但自托管 Niu 并不会将上游模型变成原生本地模型，也不会消除上游服务的数据处理策略。
+
+有关受支持的行为，请参阅[模型配置](/docs/configuration/models/)、[请求日志](/docs/concepts/execution-observation/)和 [API 契约](/docs/reference/api/)。
+
+## 03 / 如何选择
+
+若希望以更少的网关运维工作获得托管目录访问与供应商路由能力，请选择 OpenRouter。若您需要自主运行工作空间与模型供应商管理工作流，请评估 Niu。您也可以在 Niu 中将 OpenRouter 配置为上游模型供应商；但额外部署的网关仍需要您负责部署、监控和路由验收。
+
+Niu 的首个功能完整版本尚未完成发布验收。在选择部署方案之前，请确认您的工作负载所需的模型、协议、授权和计费行为。
+
+## 参考来源与后续步骤
+
+- [OpenRouter 快速开始](https://openrouter.ai/docs/quickstart)，[供应商路由](https://openrouter.ai/docs/guides/routing/provider-selection)。
+- [Niu 部署指南](/docs/deployment/single-container/)与 [API 参考](/docs/reference/api/)。
+- [所有网关对比](/docs/compare/)。
+- [发起您的第一个 Niu 请求](/docs/getting-started/)。
+
+</div>

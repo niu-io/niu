@@ -13,6 +13,7 @@ export default function HelpPage() {
 }
 
 function DocumentationPage() {
+  const { locale } = useLocale();
   const location = useLocation();
   const navigate = useNavigate();
   const frame = useRef<HTMLIFrameElement>(null);
@@ -34,6 +35,15 @@ function DocumentationPage() {
       // The frame can be between document loads; its next location change will sync it.
     }
   }, [framePath]);
+  useEffect(() => {
+    const contentWindow = frame.current?.contentWindow;
+    if (!contentWindow) return;
+    try {
+      contentWindow.postMessage({ type: 'niu-docs-locale', locale }, window.location.origin);
+    } catch {
+      // Ignore while iframe is loading.
+    }
+  }, [locale]);
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;

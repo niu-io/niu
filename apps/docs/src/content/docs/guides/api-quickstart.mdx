@@ -5,6 +5,8 @@ description: Discover an available model and call Niu with curl.
 
 import LiveApiConsole from '../../../components/live-api/LiveApiConsole';
 
+<div data-lang="en">
+
 <LiveApiConsole client:load />
 
 The live test uses your existing Niu browser session and the selected key's opaque reference. It never retrieves a key secret. Requests follow the same model grants, source-IP policy, limits, customer pricing and saved diagnostics as application calls. Only workspace members with write access can execute; readers can discover models. Your selections and output are not persisted by this page. Request content follows the workspace's configured logging and retention policy.
@@ -71,3 +73,77 @@ Preserve the response's error body and request-correlation headers for investiga
 - [JavaScript / TypeScript tutorial](/docs/guides/sdk-quickstart/).
 - [Generated REST specification](/docs/api/rest/) for exact fields and supported scope.
 - [Generated SDK reference](/docs/api/sdk/) for client signatures and types.
+
+</div>
+
+<div data-lang="zh" data-title-zh="发起第一个 API 请求">
+
+<LiveApiConsole client:load />
+
+在线测试使用你当前的 Niu 浏览器会话以及所选密钥的不透明引用（opaque reference），绝不会读取密钥明文。测试请求遵循与应用程序调用相同的模型授权、源 IP 策略、速率与额度限制、客户定价以及已保存的诊断记录。仅具有写权限的工作空间成员可以执行请求；只读成员可以发现可用模型。本页面不会持久化保存你的选择与输出内容。请求内容遵循工作空间已配置的日志记录与保留策略。
+
+流式传输完成并不等同于账单已结算。面板会单独读取已保存的请求诊断信息；待处理或不可用的费用会明确标出。停止浏览器端等待并不代表上游请求已取消。在请求结果不确定时，请先检查 **Logs**（日志）再决定是否发送新请求。
+
+如需测试其他请求格式，请使用[交互式 API 参考文档](/help/api/)。在那里选择一个工作空间密钥即可将你的会话附加到同源推理请求中；清除连接则可使用手动提供的凭证。复制出的应用程序示例代码使用的是 `$NIU_API_KEY`，而非浏览器会话。
+
+请使用来自工作空间 **Keys**（密钥）页面的**工作空间 API 密钥**。管理员必须先配置并启用模型路由。模型供应商凭证和实例管理员令牌不能作为应用程序密钥使用。
+
+## 设置端点与密钥
+
+从你的运行实例中复制端点地址。容器部署通常暴露 2555 端口；源码仓库本地开发使用 2566 端口。托管实例则使用各自的 HTTPS 源站地址。
+
+```sh
+export NIU_ORIGIN='http://localhost:2555'
+export NIU_API_KEY='your-workspace-api-key'
+```
+
+请勿将密钥提交到源码版本控制系统或包含在分发给浏览器的前端应用代码中。
+
+## 发现可用模型
+
+```sh
+curl --fail-with-body "$NIU_ORIGIN/v1/models" \
+  -H "Authorization: Bearer $NIU_API_KEY"
+```
+
+使用响应 `data` 数组中的某个 `id` 作为请求中的 `model` 参数值。如果返回列表为空，说明该密钥没有可用模型，请检查该密钥允许访问的模型范围以及已配置的路由。能通过模型发现接口查到模型本身并不证明所有可选协议或参数均受支持。
+
+## 发送对话（Chat）请求
+
+将 `your-model-alias` 替换为通过模型发现获取到的可用文本模型别名。
+
+```sh
+export NIU_MODEL='your-model-alias'
+curl --fail-with-body "$NIU_ORIGIN/v1/chat/completions" \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one sentence.\"}],\"max_tokens\":64}"
+```
+
+请参阅自动生成的 [Chat 响应结构文档](/docs/api/rest/createchatcompletion/#responses)了解完整的数据格式。对于成功的文本补全请求，模型回答位于 `choices[0].message.content` 中；如果上游提供了 Token 统计，则位于 `usage` 字段中。缺失 `usage` 表示用量未知，而非零用量。你可以在工作空间的 **Logs**（日志）中查看对应的请求记录。
+
+## 接收流式响应
+
+请使用支持流式传输的路由。`curl -N` 用于禁用输出缓冲。
+
+```sh
+curl -N --fail-with-body "$NIU_ORIGIN/v1/chat/completions" \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello.\"}],\"max_tokens\":64,\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+```
+
+请完整消费所有 SSE 事件及终止状态。初始返回 HTTP 200 并不证明生成已成功完成，后续的流事件仍可能报告错误。客户端主动取消连接并不证明上游请求已停止或未产生费用。
+
+## 处理失败情况
+
+请保留响应的错误正文和请求关联头（correlation headers）以便排查问题。参阅该操作自动生成的[响应状态说明](/docs/api/rest/createchatcompletion/#responses)。身份验证失败时需要检查工作空间密钥；权限或预算拒绝则需要修正密钥作用域或可用余额。对于结果不确定的提交，请勿自动重放。
+
+## 后续步骤
+
+- [JavaScript / TypeScript SDK 教程](/docs/guides/sdk-quickstart/)。
+- [自动生成的 REST 规范](/docs/api/rest/)，查看精确字段定义与支持范围。
+- [自动生成的 SDK 参考](/docs/api/sdk/)，查看客户端方法签名与类型定义。
+
+</div>
+

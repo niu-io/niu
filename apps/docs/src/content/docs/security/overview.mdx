@@ -3,6 +3,8 @@ title: Security overview
 description: Account sign-in, workspace authorization, and credential protection.
 ---
 
+<div data-lang="en">
+
 Niu separates account sign-in, workspace access, application API keys, and platform administration.
 
 ## Credential ownership
@@ -62,3 +64,49 @@ changes are read on authenticated requests, so revocation removes platform acces
 from an existing session without granting or removing its separate customer role.
 
 Saved payment configuration is also authenticated and decoded before the Gateway becomes ready, including disabled configurations and installations with no Provider records. Missing or incompatible master keys prevent startup without changing the saved ciphertext or exposing merchant settings in diagnostics. Restore the matching key; this guard does not re-encrypt records or implement master-key rotation.
+
+</div>
+
+<div data-lang="zh" data-title-zh="安全概览">
+
+Niu 将账号登录、工作空间访问、应用 API 密钥与平台管理相互隔离。
+
+## 凭据归属
+
+供应商凭据始终保存在服务端。托管的供应商凭据在 PostgreSQL 中使用 `NIU_VENDOR_ENCRYPTION_KEY` 通过 AES-256-GCM 加密，该密钥独立保存在部署密钥存储中。只有平台管理员可以管理这些共享连接，组织或工作空间成员无权管理。管理 API 绝不返回供应商凭据。请将加密主密钥与数据库备份分开备份；系统尚未实现自动主密钥轮换。启动时，网关会按有界分页针对所有已保存的供应商推理凭据及其供应商身份进行校验，包括已禁用的供应商和没有模型映射的供应商。错误的密钥或无法解密的凭据会阻止启动；禁用供应商不会绕过此校验。此检查不会重新加密记录，也不代表其他加密数据的主密钥轮换已完成验收。公开模型名称通过已批准的路由解析；请求无法覆盖供应商、凭据或端点设置。日志与浏览器响应绝不包含机密信息。
+
+## 授权机制
+
+推理 API 密钥具有明确的模型授权、工作空间归属、过期时间和吊销状态。管理接口接受配置的 `NIU_ADMIN_TOKENS` 引导密钥和持久化操作员会话令牌。引导令牌拥有安装实例级权限。每个操作员归属于一个组织，并且可以限制在单个工作空间内。在该作用域内，`owner`（所有者）可管理操作员并读写管理资源，`admin`（管理员）可读写这些资源，而 `viewer`（查看者）仅可读取。工作空间所有者无法授予组织级访问权限或其他工作空间的访问权限。URL 中的工作空间标识（slug）仅为展示状态；服务端会强制校验凭据的实际作用域。
+
+`GET /api/v1/session` 返回已认证操作员的作用域和角色权限，或者标识安装引导凭据。控制台使用该响应来展示可用操作。每次 API 调用都会重新检查授权，因此隐藏或启用界面控件并不会授予权限。私有 API 响应均标记为 `Cache-Control: no-store`。
+
+从无作用域的旧版操作员凭据升级时，系统会吊销这些旧操作员和会话。请使用安装引导凭据创建具有明确组织或工作空间作用域的新操作员。
+
+## 账号登录
+
+配置密码登录后，成员可使用邮箱和密码登录。其角色决定了在所属组织或工作空间内可执行的操作。控制台通过安全（Secure）、HttpOnly 的 Cookie 恢复服务端会话，不会在浏览器存储中保存 Bearer 令牌。密码会话在 8 小时后过期。提供的用户令牌会话保留其原始过期时间；其浏览器 Cookie 最长维持 8 小时，且绝不会延长原会话有效期。退出登录会立即吊销当前会话。
+
+成员可以在 **Settings → Account** 中修改密码。密码修改成功后会吊销该成员的所有会话，并要求重新登录。系统未实现自助注册和 OIDC/SAML。托管环境的密码登录需要配置 HTTPS 源地址；真实的 HTTPS 浏览器验收尚未完成。有关配置、开通和限流规则，请参阅[登录 API 契约](/docs/reference/api/#operator-roles-and-sessions)。
+
+所有者还可以签发限定作用域的操作员会话令牌用于 API 管理。这些令牌仅返回一次，仅以 SHA-256 哈希形式存储，并在过期或吊销后被拒绝。其生命周期从 60 秒到 1 年不等。吊销成员会同时吊销其所有会话；也可以单独吊销某个会话。当登录页宣告支持浏览器令牌登录时，成员可在常规登录页面使用 **Use an access token**。同源浏览器交换会复用现有 HttpOnly Cookie 中的原始持久化会话，保留其角色、工作空间作用域、过期时间和吊销状态。它不会签发新会话、不接受安装级凭据，也不会将提供的令牌放入 URL 或浏览器存储中。如果旧版本网关缺少 `browser_token_login` 能力，则此浏览器传输方式不可用；现有的 Bearer API 访问保持独立。操作员和会话生命周期的写入操作会追加不可变、仅包含元数据的审计事件。
+
+## 数据处理
+
+每个协议适配器都必须记录其转换、缓冲、记录或发送给供应商的请求与响应数据。流式传输行为与输出检查需要明确的限制和故障语义。
+
+## 开发环境账号初始化
+
+显式启用的本地回环（loopback）开发登录与初始化设置 API 使用相同的首次工作空间初始化器。新建的默认工作空间会获得一个资金为零、批准信用额度为零的美元（USD）客户余额账户。在调用设置 API 之前启动登录服务不会绕过预付费账户创建。此过程不会产生付款收据，也不会授予任何消费额度。
+
+现有的默认工作空间会保留其已保存的计费配置，包括没有余额账户的旧版工作空间。重启不会重置已保存成员的密码、角色或吊销状态。将旧版工作空间转换为预付费计费仍然是一项显式的管理操作。
+
+## 平台授权与客户角色
+
+显式的平台管理员授权与成员在客户公司或工作空间中的角色是分开的。仅限平台级的模型供应商、路由池、品牌定制、支付支持清单、支付配置以及媒体定价处理器会在会话认证后检查该平台授权；它们不要求成员必须是客户公司的所有者。没有显式平台授权的普通公司所有者不具备平台管理权限。
+
+客户端点继续强制执行成员原有的角色和租户作用域。平台管理权限不会授予对其他工作空间的密钥、请求或余额的访问权，也不允许客户查看者（viewer）创建工作空间。仅限安装级的财务策略操作依然仅限安装级凭据执行。授权变更会在每次认证请求时实时读取，因此撤销平台授权会立即移除现有会话的平台访问权，而不会授予或移除其独立的客户角色。
+
+在网关就绪之前，已保存的支付配置也会进行认证和解码校验，包括已禁用的配置以及没有供应商记录的安装实例。缺失或不兼容的主密钥会阻止服务启动，同时不会修改已保存的密文，也不会在诊断信息中暴露商户设置。请恢复匹配的密钥；此保护机制不会重新加密记录，也未实现主密钥轮换。
+
+</div>

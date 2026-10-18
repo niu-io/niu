@@ -3,6 +3,8 @@ title: Administration
 description: Configure model supply, customer pricing, payments and deployment branding.
 ---
 
+<div data-lang="en">
+
 Administration manages the installation-wide settings behind your Niu gateway. It is separate from a customer's workspace and from a Provider's own business portal.
 
 ## Open Admin
@@ -26,3 +28,33 @@ Connect a Provider and model route first, then configure the applicable customer
 ## Guides and generated references
 
 These guides explain administrator workflows. Exact parameters, response types and authorization requirements belong to the generated [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niuadminclient/). The route names `vendors`, `organizations` and `projects` remain compatibility contracts; product guidance uses Provider, company and workspace.
+
+</div>
+
+<div data-lang="zh" data-title-zh="平台管理">
+
+平台管理（Administration）用于管理 Niu 网关背后的全局安装实例设置。它与客户的工作空间以及模型供应商自身的业务门户相互独立。
+
+## 打开管理后台
+
+使用经过授权的平台管理员账户登录，并在产品左侧导航栏中打开**管理**（**Admin**）。进行初始安装设置时，请在 `/installation` 使用管理员凭证；普通成员登录仍位于 `/login`。工作空间所有者不会自动获得平台管理权限。
+
+当前控制台要求具备安装实例管理员或平台管理员权限，以及管理操作员的权限。后端端点会在每次请求时独立执行各自的权限校验。在配置和分发账户之前，请先阅读[管理员访问权限](/docs/admin/access/)。
+
+## 设置您的安装实例
+
+| 任务 | 指南 | 控制台位置 |
+| --- | --- | --- |
+| 连接模型供应与凭证 | [模型供应商](/docs/admin/suppliers/) | 管理 → 模型供应商（Admin → Providers） |
+| 配置客户销售价格 | [客户定价](/docs/admin/pricing/) | 管理 → 客户定价（Admin → Customer pricing） |
+| 配置受支持的充值支付方式 | [支付配置](/docs/admin/payments/) | 管理 → 支付网关（Admin → Payment gateways） |
+| 设置部署品牌与外观 | [品牌与主题](/docs/admin/branding/) | 管理 → 品牌与主题（Admin → Branding & theme） |
+| 审查已保存的管理变更 | [审计日志](/docs/reference/platform-audit/) | 管理 → 审计日志（Admin → Audit logs） |
+
+请先连接模型供应商并配置模型路由，然后在启用付费访问之前配置适用的客户定价。接着创建一个具有预期模型授权与限额的工作空间密钥，并使用 [API 快速入门](/docs/guides/api-quickstart/)验证一次应用请求。请将面向客户的用量与保密的供应侧信息分开审查。
+
+## 指南与自动生成的参考文档
+
+这些指南旨在说明管理员工作流程。确切的参数、响应类型与授权要求请以自动生成的 [REST 规范](/docs/api/rest/)与 [NiuAdminClient](/docs/api/sdk/niuadminclient/) 为准。路由名称 `vendors`、`organizations` 和 `projects` 作为兼容性契约予以保留；产品指南中则统一使用“模型供应商”（Provider）、“公司”（company）和“工作空间”（workspace）。
+
+</div>

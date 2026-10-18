@@ -3,6 +3,8 @@ title: Getting started
 description: Configure model access, create a workspace API key and make a request.
 ---
 
+<div data-lang="en">
+
 Send your first request through Niu using a workspace API key and a configured model.
 
 ## Set up model access
@@ -52,3 +54,48 @@ use the [deployment guide](/docs/deployment/single-container/).
 - Configuring a route does not qualify its upstream capabilities or supply rights. File-managed deployments can configure routes in `config/niu.example.toml` instead of the dashboard.
 - Request and response payloads are retained for 24 hours by default. Disable capture per request with `x-niu-log-payloads: false` or turn off **Save payloads in Logs** in Chat settings. Expired or uncaptured content is unavailable; request metadata remains. Missing token usage, timing, or customer prices remain unknown.
 - Budgeted workspaces require a supported bounded reservation before dispatch; unpriced requests cannot bypass that requirement. See [model pricing](/docs/configuration/models/#optional-text-route-pricing). Upstream billing bounds still need qualification.
+
+</div>
+
+<div data-lang="zh" data-title-zh="快速入门">
+
+使用工作空间 API 密钥和已配置的模型，通过 Niu 发送你的第一个请求。
+
+## 配置模型访问
+
+1. **启动 Niu。** 遵循[部署指南](/docs/deployment/single-container/)，或在本地开发时运行 `pnpm dev`。
+2. **打开控制台。** 使用你的账号登录。对于本地开发环境，请使用启动器配置的账号。
+3. **连接模型供应商（Provider）。** 选择对应的供应商适配器，保存其 API 凭证，并参考[模型路由指南](/docs/configuration/models/)配置模型路由。确认你的路由已显示在 **Models**（模型）列表中。
+4. **创建 API 密钥。** 选择一个工作空间并打开 **API keys → New API key**（API 密钥 → 新建 API 密钥）。输入名称与过期时间，然后选择 **Create key**（创建密钥）。该密钥可调用该工作空间内所有可用的模型路由。请立即复制密钥明文，关闭后将无法再次查看。
+
+## 发起请求
+
+使用你的工作空间密钥以及 **Models** 中的模型别名。以下示例使用了容器示例配置中的别名 `fast`。请将其替换为你实际配置的别名。
+
+```sh
+export NIU_API_KEY='your-issued-client-key'
+curl http://localhost:2555/v1/chat/completions \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"fast","messages":[{"role":"user","content":"Hello"}]}'
+```
+
+兼容客户端的基础 URL 在容器部署中为 `http://localhost:2555/v1`，在本地开发环境中为 `http://127.0.0.1:2566/v1`。使用控制台管理的路由时，请将 `fast` 替换为你工作空间中实际可用的别名。密钥弹窗会提供当前运行实例的基础 URL 与客户端调用示例。
+
+打开工作空间的 **Logs**（日志）即可查看请求状态、耗时、上报的 Token 数量以及保留的请求与响应载荷。**Usage**（用量）展示资源消耗与客户费用。有关载荷采集与保留策略的设置，请参阅[请求日志](/docs/concepts/execution-observation/)。
+
+应用程序使用工作空间密钥进行身份验证。请将模型供应商凭证和实例管理员令牌妥善保存在服务端。编程智能体（Coding Agent）可以通过 [MCP 服务器](/docs/guides/mcp/)使用同一个密钥。托管版 Niu 将网关地址固定为 `https://niu.io/v1`。
+
+## 在本地运行 Niu
+
+有关代码仓库设置、环境要求和构建命令，请参阅[本地开发](/docs/guides/local-development/)。若采用容器化安装，请参阅[部署指南](/docs/deployment/single-container/)。
+
+## 当前限制
+
+- 容器安装使用管理员凭证进行初始设置，并可签发限定作用域的成员会话。可选启用的[密码会话 API](/docs/reference/api/#operator-roles-and-sessions) 支持在已配置的 HTTPS 源站后使用预置成员登录及会话恢复。自助注册和真实 HTTPS 浏览器端完整验证尚未完成。
+- 配置路由并不会自动核验其上游能力或供应授权。基于文件管理的部署可以在 `config/niu.example.toml` 中配置路由，而无需通过控制台。
+- 请求和响应载荷默认保留 24 小时。你可以在单次请求中通过 `x-niu-log-payloads: false` 禁用采集，或在对话（Chat）设置中关闭 **Save payloads in Logs**（在日志中保存载荷）。已过期或未采集的内容将无法查看，但请求元数据仍会保留。缺失的 Token 用量、耗时或客户价格将保持未知状态。
+- 启用了预算限制的工作空间要求在分发请求前完成受支持的有界额度预留；未定价的请求无法绕过该要求。请参阅[模型定价](/docs/configuration/models/#optional-text-route-pricing)。上游计费边界仍有待进一步核验。
+
+</div>
+

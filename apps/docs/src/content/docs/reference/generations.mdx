@@ -3,6 +3,8 @@ title: Generations sessions, tasks and artifacts
 description: Persist private video timelines and inspect saved tasks and outputs across workspace API keys.
 ---
 
+<div data-lang="en">
+
 Niu provides an additive dashboard API for durable video sessions, existing-task association, task history and generated-output history. Use a current dashboard session, not an inference key. All paths below share the prefix `/api/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
 
 The JavaScript SDK exposes `admin.generations(scope).sessions`, `.tasks` and `.artifacts`. Existing Chat sessions, comparison branches, Video job APIs, dashboard key-scoped bridges and submission intents remain compatible. Session reads provide a discriminated `chat`/`video` timeline projection. Use `sessions.listChat` / `sessions.retrieveChat` for the read-only Chat bridge (`category=chat`); the default reads and new mutations use `video`. Chat writes continue through the existing guarded save methods. Storage remains compatible, categories remain separate, and Tasks/Artifacts inventory currently covers video rather than all text executions.
@@ -240,3 +242,231 @@ Copying explicitly shares the resulting material with authorized workspace membe
 Task artifact summaries and artifact list/detail responses include `capture`: the canonical active or stored capture, otherwise the latest failed capture, or `null` when no save was requested. Its `availability` describes the library copy independently of the original artifact’s saved-reference `availability`. A deleted copy remains visible as `stored`/`deleted`; it does not make the original reference deleted. Artifact `content_type` is populated only from validated captured-library metadata and is otherwise `null`. Capture state changes never change artifact pagination identity.
 
 Copied library bytes persist independently of Provider signed-URL expiry and remain until explicit library deletion. Deletion preserves the capture/source record and prevents automatic resurrection. Starting another generation, registering a Provider asset and saving an output are separate explicit operations.
+
+</div>
+
+<div data-lang="zh" data-title-zh="生成（Generations）会话、任务与产物">
+
+Niu 提供了一套增量式控制台 API，用于管理持久化视频会话、现有任务关联、任务历史以及生成输出历史。调用这些接口需使用当前的控制台会话，而非推理密钥。以下所有路径均共享前缀 `/api/v1/organizations/{organization}/projects/{project}`；其中 `project` 是现有的工作空间路由契约名称。
+
+JavaScript SDK 暴露了 `admin.generations(scope).sessions`、`.tasks` 和 `.artifacts`。现有的对话（Chat）会话、对比分支、视频任务 API、控制台密钥作用域桥接接口以及提交意图（submission intents）均保持兼容。会话读取提供可区分的 `chat`/`video` 时间线投影。请使用 `sessions.listChat` / `sessions.retrieveChat` 访问只读的对话桥接接口（`category=chat`）；默认读取和新增变更操作均使用 `video`。对话写入继续通过现有的受保护保存方法进行。底层存储保持兼容，类别彼此独立，且任务（Tasks）/产物（Artifacts）清单目前仅涵盖视频，而不包含所有文本执行记录。
+
+## 已实现的路径
+
+| 工作空间前缀下的方法与路径 | SDK 方法 |
+| --- | --- |
+| `GET /generations-sessions` | `sessions.list` |
+| `PUT /generations-sessions/{session}` | `sessions.create` |
+| `GET /generations-sessions/{session}` | `sessions.retrieve` |
+| `GET /generations-sessions?category=chat` | `sessions.listChat` |
+| `GET /generations-sessions/{session}?category=chat` | `sessions.retrieveChat` |
+| `PATCH /generations-sessions/{session}` | `sessions.update` |
+| `PUT /generations-sessions/{session}/turns/{turn}` | `sessions.appendTurn` |
+| `DELETE /generations-sessions/{session}/turns/{turn}` | `sessions.deleteInstruction` |
+| `PUT /generations-sessions/{session}/turns/{turn}/task` | `sessions.attachTask` |
+| `PUT /generations-sessions/{session}/turns/{turn}/intent` | `sessions.bindIntent` |
+| `GET /generations/tasks` | `tasks.list` |
+| `GET /generations/tasks/{task}` | `tasks.retrieve` |
+| `GET /generations/artifacts` | `artifacts.list` |
+| `GET /generations/artifacts/{task}/{kind}` | `artifacts.retrieve` |
+| `GET /generations/artifacts/{task}/{kind}/content` | `artifacts.content` |
+
+以上任何方法都不会提交、重试或刷新推理请求。输出交付可以通过现有的有界传输通道获取已保存的结果。显式任务创建和上游状态刷新仍然属于[视频 API 的操作范畴](/docs/reference/video/)；历史记录访问权限并不授予这些执行权限。
+
+## 私有时间线与修订版本
+
+每个会话归属于一个工作空间和一位已认证的执行者（actor）。操作员会话之间彼此隔离；安装级凭据共享安装执行者身份。读取操作需要工作空间读取（Read）权限，变更操作需要工作空间写入（Write）权限。安装级凭据不会覆盖其他执行者的私有会话所有权。
+
+每个视频会话都具有稳定的引用标识、标题、所属工作空间、内部所有者引用、创建/更新时间戳、归档标志以及十进制字符串格式的版本号（revision）。切勿将内部引用直接渲染为显示名称。每个轮次（Turn）具有稳定的引用、单调递增的十进制字符串序号、创建时间、内容状态和任务投影。初始指令结构为 `{ kind: "video", prompt: string }`，最大 60 KiB；它不保留任意的模型控制参数、附件或参考输入。请保留现有的视频提交意图（submission intents）以记录原始验证通过的请求和调度身份。
+
+客户端需自行生成规范的 UUID 会话/轮次引用，并在发送写入请求前妥善保存。创建会话要求传入 `expected_revision: "0"`。后续写入要求传入最后一次读取到的正十进制字符串版本号。两个并发写入无法消费同一个版本号：其中一个会提交成功，另一个会因冲突返回 409。使用相同引用和指令摘要（digest）重试轮次写入会返回已保存的会话；若指令内容发生变化则会返回冲突。完全相同的初始会话创建请求在其版本号推进之前可以重放；之后可通过读取所选会话引用来恢复状态。追加修改后的指令会创建一个新轮次，绝不会覆盖原始任务请求或幂等身份。单个会话最多包含 100 个轮次。
+
+关联操作（Attachment）仅接受工作空间内已调度的现有视频尝试。当前具有工作空间写入权限的成员可以关联通过 API 创建的任务，除非该任务受其他执行者的私有视频意图或现有关联保护。每个任务最多归属于一个轮次，每个轮次也最多关联一个任务。该关联不可变；在会话版本号推进后，完全相同的重试仍保持幂等。客户端无法提交成功状态、上游任务身份或输出 URL。关联旧任务并不意味着新保留的指令就是其原始生成提示词。
+
+在提交已保存的视频意图之前，可使用 `sessions.bindIntent(session, turn, { expected_revision, intent_id })` 将其绑定到某个轮次。该绑定不可变、归执行者私有且限定在工作空间作用域内；一个意图只能归属于一个轮次。完全相同的绑定重试不会推进版本号。可为空的 `turn.intent` 投影会暴露意图引用、模型、版本号、内容状态、已保存的提交状态以及已记录的实际任务引用。它绝不会暴露私有的供应商 URI、密钥明文或完整输入。请通过 `admin.getVideoIntent` 恢复规范草稿；轮次指令可能仅是一条审阅备注，不能替代意图的实际请求。绑定操作绝不会触发推理提交。
+
+即使显式的任务关联被中断，已绑定意图的原始提交身份也能解析出其现有的尝试记录。会话和任务清单会从已保存的记录中推导出该关联关系。无关的任务无法关联到已绑定的轮次，且实际已绑定的任务也无法移动到其他轮次。缺失或不确定的提交证据绝不会授权发起第二次调度。
+
+已保存的意图草稿支持文本、指向 Niu 模型供应商素材的强类型 `provider_asset { id }` 引用，以及指向工作空间图像的 `workspace_asset { asset_id, consent_to_process: true }` 引用（包含所配置的角色）。根据限定作用域的元数据和所选模型模式（schema），供应商素材可以是图像、音频或视频。保存草稿仅读取元数据并校验模式与控制参数；它不会读取媒体字节、上传文件、查询供应商、预留资金、审查内容或授予处理就绪状态。原始 Niu 引用和用户同意状态会保留在请求摘要中；私有模式替身字段会被丢弃。供应商素材引用与本地工作空间素材引用不可混用。此保留意图 API 仍不支持 URL、内联数据、短期导入（short-lived ingestion）和回调草稿；现有的直接生成契约保持独立。显式提交时会重新检查当前的原始密钥谱系、素材绑定/就绪状态、内容审查策略以及资金模式。保留意图提交支持具有原始请求摘要和幂等身份的持久化工作空间图像引用。提交操作会在调度前解析当前字节，并检查用户同意状态、当前密钥权限、策略以及已准备好的请求绑定。模型通过 `workspace_asset` 宣告此能力；`requires_current_inspection` 描述当前策略是否需要检测器回执。即使检测器策略为空，仍然要求具备确切的已准备请求绑定。保留的幂等请求不支持短期导入引用。在当前验收范围内，成功的工作空间图像生成与并发调度恢复仍未验证；仅保存元数据并不代表这些能力已就绪。
+
+创建与关联操作可独立恢复：当视频提交响应丢失后，可恢复其原始保存的意图/任务身份并关联该任务。会话写入失败绝不构成发送另一次付费请求的许可。若关联响应丢失，可通过读取会话来恢复状态。归档操作仅将会话从默认目录中隐藏，不会取消任务，也不会删除其输出、历史记录或计费信息。
+
+### 在控制台中管理已保存的视频会话
+
+生成（Generations）历史记录会使用后端保存的标题，将视频会话与对话（Chat）会话并列展示。打开视频会话会恢复其保留的指令，并链接到原始保存的请求和任务。没有关联请求或任务的备注仍作为纯备注保留；打开它不会启动生成。已绑定的请求和任务由其所属会话统一代表，不会作为独立的历史记录行重复出现。早期未绑定的历史记录仍然可以正常访问。
+
+使用会话操作菜单可以重命名或归档视频会话。**Archived sessions**（已归档会话）包含独立的对话和视频列表，并允许您恢复会话。归档仅改变目录可见性，不会取消任务、移除指令、改变调度身份或删除输出。并发修改元数据时，必须先显式重新加载当前版本号，然后才能再次保存。
+
+### 在密钥不可用后恢复历史记录
+
+当原始推理密钥被吊销或过期后，控制台仍可恢复保留的视频输入和已保存的任务状态。历史读取仍然需要当前工作空间的读取（Read）权限以及原执行者拥有的意图。返回的密钥引用仅作为上下文信息，不构成生成、询价或查询模型供应商的授权。点击不可用的密钥会引导至 API 密钥管理页面，而非供应商配置页面。
+
+控制台通过工作空间作用域的任务 API 加载已保存的预览以及持久化的计费/传输诊断信息，不依赖于当前有效的推理密钥。发起新生成和向供应商发起实时检查仍然需要当前的推理授权。完整的共享输出控制仍属于控制台集成工作；下文的 SDK 契约已独立暴露了所支持的操作。
+
+## 未提交的视频编排草稿
+
+在视频编排器（Video composer）中使用 **Save request**（保存请求），即可将受支持的输入保留在私有视频会话中，而无需进行费用估算或提交生成。该操作会保存一个不可变的意图，并将其绑定到一个原始轮次。保存的请求会出现在历史记录中；重新打开它会从后端恢复原始的会话绑定。保存成功后，仅会清除匹配的未完成草稿。后续显式提交时，仍然需要当前具备资格的有效密钥。客户资金模式的提交需要获取报价；而没有输出估算器的所有者出资（owner-funded）模型则会弹出显式确认框，提示其供应商成本不可用。
+
+在该所有者出资确认对话框中确认 **Generate video**（生成视频）后，系统会使用已保存的身份提交一次请求。点击取消则不会提交。系统不会推断出零价格或零客户扣费。未记录到调度结果的已保存提交，不能使用其原始身份再次提交；在开始新的生成之前，请先检查其准入结果。未知结果需要恢复状态并排查原因，绝不能自动发起替代提交。
+
+对于宣告支持工作空间图像的模型，**Attach image**（附加图像）会将文件保存到工作空间素材库。仅上传文件并不会自动添加处理授权：在引用进入请求之前，必须显式允许处理并选择任何必需的图像角色。**Use saved image**（使用已保存图像）可选择现有图像，且遵循相同的授权同意和角色要求。预览和重新加载已保存草稿均使用保留在工作空间中的字节数据。移除引用仅将其从未完成的请求中解绑，不会删除共享素材，也不会修改已保存的请求。保存请求不会进行费用估算或生成视频。不支持工作空间图像的模型保留其独立的直接输入契约。
+
+意图响应包含可为空的 `session_binding`，其中记录了原始会话和轮次引用。如果旧版本网关省略了该字段，表示上下文未知，而非允许创建替代绑定。这些引用属于路由元数据，不可作为界面显示标签。
+
+控制台会将正在编写的视频内容保存在执行者私有的后端草稿中，与不可变的提交意图和任务历史相分离。在应用默认值之前，它会先恢复已保存的密钥/模型、提示词、强类型控制参数以及 Niu 素材引用。内联图像字节不会被保存；重新加载后，编排器会要求您重新附加这些图像。已保存的引用不会绕过当前的访问权限、就绪状态、授权同意或提交审查。
+
+可通过 `admin.getVideoComposerDraft(scope)` 和 `admin.saveVideoComposerDraft(scope, payload, expectedRevision)` 进行调用，底层对应工作空间前缀下的 `GET`/`PUT /video-draft`。请求负载包含 `keyId`、`sessionId`、`model`、`prompt`、`controls` 和 `references`；支持可为空的选择项和未完成的控制字符串。原始 URL、内联字节、机密信息和导入引用均会被拒绝。响应会报告 `revision`、`payload`、`content_state` 和 `expires_at_ms`。每次确认编辑后，草稿保留期为 30 天。
+
+发生版本冲突时会保留本地输入，并要求显式加载已保存的草稿。写入结果不确定时，不允许使用其他版本号强制覆盖。清空草稿会使用已确认的版本号，并保留墓碑记录（tombstone）以防止陈旧请求重新创建草稿。保留的草稿会保护其所属工作空间不被删除。保存草稿绝不会触发生成、估算、上传或预留资金。
+
+## 现有的对话（Chat）时间线
+
+对话桥接接口（Chat bridge）读取现有的执行者私有保存会话，而不会替换其底层存储或写入逻辑。会话时间戳来自数据库元数据；缺失的标题保持为 `null`。它保留了已保存的提示词、附件和对比分支，并复用现有的客户扣费数据填充逻辑。分支字段会被过滤为已声明的标量元数据；已保存的对比 `phase`（阶段）仅属于内容范畴，而非权威的执行证据。只有当工作空间和模型与真实保存的尝试记录匹配时，才会出现执行引用。对话会话绝不会被呈现为单个正在运行的任务。
+
+旧版对话（Legacy Chat）没有持久化的单轮次身份或单轮次时钟。桥接接口暴露了一个只读的 `chat-turn:<digest>`，它由限定作用域的会话身份、序号和保留的指令派生而来。更新对比输出会保留该标识；修改指令或顺序则会改变该标识。切勿在界面上直接显示该摘要（digest）。单轮次时间戳和过期时间保持为 `null`，缺失的保留输入会被标记为 `missing`。通用 SDK 类型通过判别属性区分 `ChatGenerationsSession` 和 `VideoGenerationsSession`；它们不会发明跨类别混合写入语义，也不会提供通用的对话输出下载产物。
+
+## 历史任务与输出访问
+
+在当前工作空间控制台读取（Read）权限下，任务读取可跨越已保存的各个密钥。已吊销/过期的密钥以及变更后的模型授权不会移除已保存的任务元数据，也不会恢复推理执行权限。受其他执行者的会话或私有视频意图保护的任务会被排除，直接访问将返回 404。未关联会话的 API 创建任务在获得授权时仍然可见。面向客户的数据投影排除了采购金额、供应商凭据、上游任务 ID 和原始结果 URL。旧版按密钥限定作用域的控制台视频路由在分页或返回任务数据前会强制执行相同的执行者隐私检查，并在下载结果后再次核验。直接调用的 `/v1` 推理密钥路由则保留其现有的密钥持有者契约。
+
+任务保留了 `submission_unknown`、`queued`、`running`、`succeeded`、`failed`、`unknown` 和 `reconciliation_required` 状态。状态派生自现有的任务/查询证据，而非维护第二份可变的状态副本。模型显示名称可为空；切勿使用内部任务引用替代缺失的名称。当已保存的关联关系或视频意图确立了来源时，`source` 为 `generations`；当未记录历史来源时，则为 `unknown`。缺少关联关系并不能证明任务源自 API 直接调用。
+
+视频和尾帧（last frame）是通过 `(task_id, kind)` 标识的独立产物，其中 `kind` 为 `video` 或 `last_frame`。产物名称具有明确语义，其可用性独立于任务是否成功：`available`（可用）、`expired`（已过期）、`deleted`（已删除）或 `unavailable`（不可用）。自然过期优先于保留期维护操作导致的删除。缺失的输出行不会出现在产物清单中；任务的产物摘要可能为空。已保存引用的可用状态并不能证明远程字节数据仍然可以成功获取。系统不会根据缺失的元数据虚构内容类型、尺寸、时长或文件大小。
+
+下载操作使用已保存的加密引用、传输限制以及当前的执行者可见性规则。已过期、已删除或缺失的引用返回 404。如果交付过程仍然需要某个现已失效的原始供应商绑定，系统会显式拒绝并返回 409；传输故障会直接返回错误，而不会伪造输出内容。历史读取不需要提供当前有效的推理密钥明文。现有的视频结果删除操作会完整保留任务证据、原始调度身份、计费记录和诊断信息。
+
+历史计费与传输诊断信息可通过 `GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics` 或 `admin.generations(scope).tasks.diagnostics(task)` 获取。此读取操作使用当前工作空间的读取（Read）权限和执行者私有的任务可见性，独立于原始推理密钥。它返回已持久化的客户计费与传输证据，不会联系模型供应商，也不会恢复生成权限。未知的扣费和用量保持为 `null`；个人上游开支不属于客户扣费。旧版按密钥限定作用域的计费和耗时路由仍保留其对当前有效密钥的要求。
+
+## 分页与保留策略
+
+| 读取资源 | 过滤条件与游标 |
+| --- | --- |
+| 会话（Sessions） | `archived` 默认为 false；`limit` 1–100，默认 20；`before` 取自 `next_before`；按不可变的 `(created_at, id)` 降序排列 |
+| 任务（Tasks） | `kind=video`，精确匹配 `state`、`session_id`；`limit` 1–100，默认 25；不透明 `cursor` 取自 `next_cursor`；按 `(created_at, id)` 降序排列 |
+| 产物（Artifacts） | 适用相同的任务过滤条件；按 `(output created_at, task_id, kind)` 降序排列；使用其独立的 `next_cursor` |
+
+游标查找限定在当前可见的已保存记录范围内，独立于可变的任务状态/会话过滤条件以及会话归档状态。完成任务或将游标指向的会话归档不会改变排序键。无效或超出作用域的游标引用返回 400。更改过滤条件时应重新开始遍历。清单响应声明 `supported_kinds: ["video"]`；`complete: true` 仅描述当前返回的受支持且已获授权的页面已完整，并不代表覆盖了文本历史记录。请跟随继续游标（continuation cursor）完成全部遍历。数据库错误会使请求直接失败，切勿将该类失败标记为空清单。所有读取和会话负载响应均使用 `Cache-Control: no-store`。
+
+指令遵循现有的对话/意图 JSON 持久化模式，**在静态存储时未进行应用层加密**。指令在 30 天后过期，一经到期立即隐藏，并由有界的内容维护任务清理。显式删除指令也会清除已绑定意图所保留的请求内容，同时保留其身份标识、提交记录以及轮次/任务关联关系。已绑定轮次过期后，在维护任务实际清除数据之前，读取和历史记录中就会立即隐藏意图内容。意图的 `expires_at_ms` 保持其原始不可变的截止时间；当已绑定轮次的保留期提前结束时，以 `content_state` 为准。已删除或已过期的空（null）指令绝不能被替换成伪造的提示词。指令、结果和任务的保留期彼此独立：结果过期遵循现有的视频结果策略；这些 API 不承诺永久存储媒体文件，也不会抹除财务历史记录。
+
+## 使用 SDK 读取现有工作记录
+
+```ts
+import { NiuAdminClient } from '@niu-io/sdk';
+
+const admin = new NiuAdminClient({
+  baseURL: process.env.NIU_ADMIN_BASE_URL,
+  adminToken: process.env.NIU_ADMIN_TOKEN!,
+});
+const generations = admin.generations({
+  organizationId: process.env.NIU_ORGANIZATION_ID!,
+  projectId: process.env.NIU_WORKSPACE_ID!,
+});
+const tasks = await generations.tasks.list({ kind: 'video', limit: 25 });
+const artifacts = await generations.artifacts.list({ limit: 25 });
+const saved = await generations.sessions.retrieve(process.env.NIU_SESSION_ID!);
+// 按顺序恢复 saved.turns；在展示输入内容前请先检查 content_state。
+for (const artifact of artifacts.data) {
+  if (artifact.availability !== 'available') continue;
+  const response = await generations.artifacts.content(
+    artifact.task_id, artifact.kind,
+  );
+  const bytes = await response.arrayBuffer();
+}
+```
+
+若要关联**一个已存在的授权任务**（而不触发新生成）：
+
+```ts
+const sessionRef = crypto.randomUUID();
+const turnRef = crypto.randomUUID();
+const created = await generations.sessions.create(sessionRef, {
+  title: 'Review an existing video',
+});
+const appended = await generations.sessions.appendTurn(sessionRef, turnRef, {
+  expected_revision: created.data.revision,
+  instruction: { kind: 'video', prompt: 'Review the previously generated video.' },
+});
+const associated = await generations.sessions.attachTask(sessionRef, turnRef, {
+  expected_revision: appended.data.revision,
+  task_id: process.env.NIU_EXISTING_TASK_ID!,
+});
+```
+
+请在发起写入前持久化保存这些引用标识。请妥善保管会话凭据，切勿将其嵌入前端构建产物中。此接口未添加任务取消、回调、百分比进度或自动重试功能。
+
+## 验证范围说明
+
+实际的当前输入验证使用了现有数据的私有副本和已生成的任务。测试将两个现有任务分别关联到连续的视频轮次中，并实际演练了相同输入重放、冲突编辑、并发版本号写入、执行者/工作空间隔离、删除、归档、SDK 恢复以及服务器重启。在测试前后独立比对了任务/作业/查询/提交/财务记录以及现有的对话（Chat）数据行。历史清单涵盖了现有的已吊销和已过期密钥。整个验证过程未启动任何新的生成、素材创建或核验会话。
+
+该次运行中所有可用的历史结果引用均已自然过期并返回 404。针对未过期输出的正常播放/下载、双浏览器前端渲染，以及关联执行记录的旧版对话分支正向恢复，**均未在此增量更新中验证**。在启动桥接服务前，测试通过旧版受保护 API 保存了一条当前保留的对话指令，随后在升级/重启后独立恢复了该指令，其原有负载保持不变。现有视频引擎早期的正向生成证据与此相互独立。有关已实现的响应契约，请参阅[生成的处理器模式（Schemas）](/docs/reference/handler-operations/)。
+
+## 已保存的执行上下文与显式恢复
+
+任务列表与详情包含来自不可变尝试记录、恢复路由和协议记录的 `execution_context`：`submitted_model`、`dispatched_model`、`provider`（已保存的适配器）、`channel`、`dispatched_at` 以及 `source: "saved_execution"`。缺失的历史字段保持为 `null`。`parameters` 仅包含来自已保存且验证通过的输出快照中的受支持标量控制参数，不包含回调地址、财务估算值和私有引用。`references_state: "not_in_execution_snapshot"` 表示这些记录不保留原始参考输入；现有的执行者私有意图仍然是保留输入的权威来源。`model_display_name_source` 用于区分当前目录标签与未知来源，它不是历史显示名称的快照。
+
+SDK 将已保存状态读取、缓存产物交付与显式上游操作严格分开：
+
+```ts
+const generations = admin.generations(scope);
+const saved = await generations.tasks.retrieve(task);
+const cachedBytes = await generations.artifacts.content(task, 'video');
+// 显式的用户操作，绝不会在后台自动触发推理或自动重试：
+const refreshed = await generations.tasks.refresh(task);
+const freshBytes = await generations.tasks.refreshResult(task, 'video');
+```
+
+`POST /generations/tasks/{task}/refresh` 执行一次受保护的上游查询。`POST /generations/tasks/{task}/results/{kind}/refresh` 查询原始任务并获取其当前输出。两者均不接受替代密钥、模型或供应商。服务端会自动推导原始推理密钥和已保存的路由。这两个操作都要求具备当前工作空间的写入（Write）权限、执行者可见性以及原始密钥当前的有效权限。若原始密钥已吊销/过期或绑定已发生变更，系统会拒绝执行操作；但已保存的历史记录根据其独立策略仍然可读。现有的按密钥限定作用域的桥接接口（包括 `admin.refreshDashboardVideoResult`）保持兼容。
+
+实时刷新获取结果（fresh result）是一次独立的有界交付。它不会重写已过期/已删除的缓存引用，也不会建立持久化的字节副本。上游资源缺失/失效、无效媒体、不安全目标地址、超时以及配置不可用仍作为诊断失败处理。任何查询或交付失败都不会触发新的生成请求。
+
+## 原生 Seedance 管理工具
+
+在控制台会话下，可使用 `admin.dashboardMedia(scope, keyId)` 执行强类型的分组、素材和真人核验操作。凭据始终保留在服务端。变更操作的幂等身份必须使用规范的非空（nonnil）UUID，并在结果不确定时予以保留。
+
+```ts
+const media = admin.dashboardMedia(scope, keyId);
+const capabilities = await media.capabilities(selectedModel);
+// 选择显式返回的上下文；切勿探测分组或盲目选择第一个模型。
+const context = capabilities.modules.find(m => m.model_alias === selectedModel);
+if (context?.module === 'volcengine') {
+  const groups = await media.groups.list({model: context.model_alias});
+  const verification = await media.verification.list({model: context.model_alias});
+}
+```
+
+`GET /keys/{key}/media/capabilities?model={alias}` 返回已授权的原生上下文、安全标签、独立的视频/管理渠道、素材支持情况以及已配置的引用限制。若未指定 `model`，它会返回所有准入的上下文，而不会静默选择某一个账户。能力发现操作不会发起任何上游调用。已授权的 OpenRouter 视频模型会返回 `complete: true` 且不包含任何原生模块。未知/未授权的模型以及存储/配置故障仍会返回错误。
+
+火山引擎（Volcengine）工具要求显式配置 `fastrouter-actions-v1` 管理渠道以及匹配的、经过验证的 `ark-direct-v1` 视频模式。支持某项能力并不证明素材处于 Active 状态、身份已通过核验或具备生成权限。这些条件彼此独立。每次操作都会重新检查工作空间成员身份、当前授权以及确切的账户/模型/渠道绑定。控制台媒体桥接接口使用 `/keys/{key}/media/*`；其 SDK 保留了现有的媒体领域类型和不确定性处理行为。
+
+## 将输出保存为工作空间素材
+
+`POST /generations/artifacts/{task}/{kind}/capture` 会显式将已获授权的实际输出字节复制到现有的加密工作空间素材库中。对同一路径发送 `GET` 请求可读取已保存的转存（capture）状态，而不会触发文件获取、刷新或推理。SDK 暴露了 `artifacts.capture` 和 `artifacts.captureStatus`。
+
+```ts
+const artifacts = admin.generations(scope).artifacts;
+const request = {
+  id: crypto.randomUUID(), // 发送前请保存此 ID；仅在重试完全相同的请求时复用。
+  name: 'Saved video',
+  mode: 'fresh' as const,
+  key_id: selectedWorkspaceKey,
+};
+const saved = await artifacts.capture(task, 'video', request);
+const restored = await artifacts.captureStatus(task, 'video');
+```
+
+`cached`（缓存）模式要求存在保留且未过期的已保存输出引用，并具备工作空间写入（Write）权限。`fresh`（实时）模式则会在获取字节数据前显式查询原始任务；其可选的 `key_id` 参数用于提供当前已授权的工作空间密钥权限。它绝不会选择替代的模型供应商、上游模型或渠道。若未提供该密钥，`fresh` 操作将使用原始密钥，并在原始权限已吊销/过期时拒绝执行。对已存储成功的源数据进行重放时，无需发起上游调用或重新验证上游权限。
+
+转存记录具有 `preparing`（准备中）、`stored`（已存储）或 `failed`（失败）状态。`retained` 表示实际的加密字节已提交入库，`deleted` 表示这些复制到素材库的字节已被擦除，而 `not_stored` 表示未提交任何保留资产。转存记录与素材共享同一个由服务端授权的稳定引用；名称仅作为面向用户的显示标签。响应绝不会返回私有 URL、供应商资源引用、租约令牌、凭据或采购字段。
+
+每个活动的源复制操作都受两分钟租约（lease）保护；它不是后台自动任务，也不会自动重试。显式发起重复请求可以恢复失败或中断的租约。在同一个请求引用下修改字段会导致冲突。发生失败后，可以使用新的请求引用显式更改交付模式或密钥，这不会抹除之前的失败记录。每个源任务/类型组合仅允许存在一个活动或已存储的副本；已完成的操作重放会直接返回其规范结果，而不会重复下载或创建重复素材。当复制操作处于活动状态时，并发请求会因冲突被拒绝。
+
+转存传输和格式校验严格遵循素材库的限制：单文件最大 8 MiB、最多 256 个活动素材以及 256 MiB 的工作空间总配额。进程内通过两个转存槽位限制并发准备数量。配额扣减、经认证的加密字节、源关联关系、素材审计记录和已存储状态会在同一个数据库事务中原子提交。在与私有会话关联相同的任务锁保护下，系统会再次检查执行者可见性。缓存保留状态会在最终写入时加锁并重新检查；在准备期间被删除或过期的源数据不会变成虚假的可用状态。
+
+根据现有的素材库策略，复制操作会显式将生成的素材共享给已授权的工作空间成员。该操作不会注册模型供应商资产、不证明内容获批或身份已核验、不授予参考生成权限，也不会创建公开的上传 URL。原始任务证据与财务身份保持完好无损。实时查询（Fresh queries）可能会通过现有的恢复契约追加诊断信息或结算原本挂起的负债，但不会触发新生成或重新为任务定价。活动的缓存签名引用可通过该现有查询路径进行刷新；但其原始的过期/删除策略不会被延长或复活。
+
+任务产物摘要以及产物列表/详情响应中均包含 `capture` 字段：返回规范的活动或已存储转存记录，若无则返回最近一次失败的转存记录，若从未请求过保存则为 `null`。其 `availability` 属性独立描述素材库副本的可用性，与原始产物的已保存引用 `availability` 互不影响。已删除的副本仍会以 `stored`/`deleted` 状态展示，不会使原始引用变为已删除。产物的 `content_type` 仅根据已验证的转存素材库元数据填充，否则为 `null`。转存状态的变更绝不会改变产物的分页身份标识。
+
+复制到素材库的字节数据独立于供应商签名 URL 的过期时间而持久保存，直至在素材库中被显式删除。删除操作会保留转存/源关联记录，并防止数据被自动复活。发起新的生成、注册模型供应商资产与保存输出结果是三项彼此独立的显式操作。
+
+</div>

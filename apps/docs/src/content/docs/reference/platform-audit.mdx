@@ -3,6 +3,8 @@ title: Platform audit logs
 description: Read durable account, access, Provider and configuration operation history from Admin and the JavaScript SDK.
 ---
 
+<div data-lang="en">
+
 Open **Admin → Audit logs** to inspect saved operation metadata. This is platform administration history, separate from customer request logs. Only installation administrators and currently authorized platform administrators can read the API; workspace ownership alone does not grant access.
 
 ## Recorded operations
@@ -64,3 +66,63 @@ Use the repository SDK build and its exported `NiuAdminClient` entrypoint. Token
 The response allowlist excludes configuration values, credentials, password hashes, request contents and procurement amounts. Audit reads cannot change settings or delete events. See [implemented operation schemas](/docs/reference/handler-operations/) and [the generated OpenAPI JSON](/docs/openapi/handler-operations.json).
 
 Unused noncash gift corrections appear as separate Configuration events, preserving the authenticated administrator and named company/currency target. Original issuance remains unchanged. Financial reasons and exact original linkage remain in the platform-only gift history; customer workspace membership does not authorize this administration history.
+
+</div>
+
+<div data-lang="zh" data-title-zh="平台审计日志">
+
+打开 **Admin → Audit logs** 可检查已保存的操作元数据。这是平台管理历史记录，独立于客户请求日志。只有安装管理员和当前已获授权的平台管理员可以读取此 API；仅拥有工作空间所有者权限无法访问。
+
+## 记录的操作类型
+
+| 类别 | 包含的日志记录 |
+| --- | --- |
+| 身份认证（Authentication） | 密码登录成功、会话签发与吊销、密码修改 |
+| 访问控制（Access） | 账号创建/吊销，以及数据库管理员的平台权限授予/撤销 |
+| 配置变更（Configuration） | 模型供应商 API 配置与模型绑定、品牌/主题保存、支付网关保存、采购预算创建以及上游账户注册 |
+| 模型供应商（Provider） | 由供应商日志记录的供应商档案、资质审核、报价（Offer）与结算操作 |
+
+该视图整合了多个持久化操作日志。成功的密码登录会在同一事务中提交会话和 `password_login_succeeded` 事件。管理员签发的会话保持为 `session_created`；仅凭签发记录不能证明发生了交互式登录。当前版本不会记录失败的登录尝试、读取请求、被拒绝的配置保存以及未提交的草稿。请勿因某个事件不存在而推断某项操作未发生。
+
+历史日志对执行者（actor）的记录覆盖程度不同。当未保存身份信息时，API 会返回显式的未知执行者，页面显示为 **Not recorded**。较早的 API 配置事件保留了记录下的安装角色，标记为 **(recorded)**，但不做具体操作人身份的断言。关联的执行者名称为当前名称；目标名称可能是当前关联名称或记录时的标签，具体取决于日志类型。受保护的日志无法更新或删除；它们的存在并不证明早期记录的完整性。
+
+新的采购预算和上游账户 API 写入操作会在同一事务中提交审计事件。这些事件记录已授权的安装级或成员执行者以及有意义的工作空间/账户标签，但不包含预算金额、采购价格、套餐详情和凭据引用。被拒绝或重复的预算创建不会产生创建成功事件。现有配置不会用虚构的执行者或操作时间进行回填。
+
+新的模型供应商档案和成员关系 API 写入也会原子化地记录已授权的执行者。成员关系事件保留变更发生时的供应商名称、受影响成员名称，以及变更前后的有效角色。空角色（null）表示没有有效成员关系。较早的事件保留其原始的未知上下文。
+
+## 读取 API 与 SDK
+
+`GET /api/v1/platform/audit-events` 返回 `{ data, next_cursor }`。每个事件包含 `source`、`category`、`action`、`actor_kind`、`actor_label`、`target_label`、可为空的十进制字符串 `revision`、UTC 时间 `created_at`，以及内部带数据源前缀的 `id`。该 ID 仅用于对账核销，绝不可作为产品界面显示标签。
+
+| 查询参数 | 契约说明 |
+| --- | --- |
+| `limit` | 1–100 的整数；默认值为 50 |
+| `category` | 可选值：`authentication`、`configuration`、`access` 或 `supplier` |
+| `cursor` | 上一页返回的不透明 `next_cursor`；翻页时需保持相同的 `category` |
+
+事件按 `(created_at, source, source event ID)` 从新到旧排序；ID 按规范文本进行比较。游标（cursor）必须标识所选类别中已保存的事件。无效的类别、缺失/无效的游标以及无效的数量限制均返回 400。缺失或无效的认证返回 401；平台权限不足返回 403。数据库故障返回错误，而不是空页面。当游标为 `null` 时表示遍历结束。响应使用 `Cache-Control: no-store`。
+
+```ts
+import { NiuAdminClient } from '@niu-io/sdk';
+
+const admin = new NiuAdminClient({
+  baseURL: process.env.NIU_ADMIN_BASE_URL,
+  adminToken: process.env.NIU_ADMIN_TOKEN!,
+});
+const first = await admin.listPlatformAuditEvents({
+  category: 'configuration', limit: 50,
+});
+if (first.next_cursor) {
+  const next = await admin.listPlatformAuditEvents({
+    category: 'configuration', limit: 50, cursor: first.next_cursor,
+  });
+}
+```
+
+请使用仓库构建的 SDK 及其导出的 `NiuAdminClient` 入口。令牌应存放在私有服务端配置中，绝不可放入前端构建变量或提交的示例代码中。
+
+响应白名单排除了配置值、凭据、密码哈希、请求内容和采购金额。审计读取操作无法修改设置或删除事件。请参阅[已实现的操作模式（Schemas）](/docs/reference/handler-operations/)和[生成的 OpenAPI JSON](/docs/openapi/handler-operations.json)。
+
+未使用的非现金赠金冲正会作为独立的配置（Configuration）事件出现，保留经过认证的管理员身份以及具名的公司/币种目标。原始发放记录保持不变。财务原因及确切的原始关联保留在仅限平台访问的赠金历史中；客户工作空间成员身份无权访问此管理历史。
+
+</div>

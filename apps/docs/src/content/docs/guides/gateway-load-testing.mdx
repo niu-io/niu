@@ -3,6 +3,8 @@ title: Gateway load testing
 description: Run repeatable gateway load tests and interpret their limits.
 ---
 
+<div data-lang="en">
+
 ## Reproduce reporting reads
 
 The dependency-free `scripts/verify-reporting-load.py` client sends bounded,
@@ -151,3 +153,66 @@ with 7.924 ms p95 client latency; the preceding implementation (`81f41ac`) compl
 workspace catalog. Independent reopening confirmed unchanged inference and
 financial records. This was a short read-only workload, not maximum capacity or
 inference throughput. See the [full measurements and limits](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md#catalog-read-comparison-after-snapshot-composition--2026-10-11).
+
+</div>
+
+<div data-lang="zh" data-title-zh="网关负载测试">
+
+## 复现报表读取负载
+
+零外部依赖的 `scripts/verify-reporting-load.py` 客户端向工作空间日志（Logs）API 发送有界的只读请求。请通过 `NIU_REPORTING_TOKEN` 提供已授权的工作空间只读成员 Bearer 令牌；推理 API 密钥无权访问该管理端点。请将路由中的两个标识符替换为你自己实例中的公司（organization）与工作空间 ID。
+
+```sh
+python3 scripts/verify-reporting-load.py \
+  'https://niu.example/api/v1/organizations/<company-id>/projects/<workspace-id>/requests' \
+  --requests 100 --workers 4 --limit 100 \
+  --out reporting-run.json
+```
+
+在本地回环（loopback）以外的环境中请使用 HTTPS。该客户端会禁用环境变量代理和自动重定向，确保绝不会将 Bearer 令牌转发至重定向目标。它不发送任何推理请求、不创建任何业务数据，也不执行自动重试。每次读取都使用全新的 HTTP 连接；测量结果并非孤立的 SQL 执行时间。默认参数为 100 次读取、4 个并发工作线程、每页 100 行以及 15 秒套接字超时。上限为 10,000 次读取、32 个工作线程、每页 100 行以及 60 秒超时。套接字超时并非整次运行的截止时间。每次运行请指定新的输出文件名。
+
+生成的 JSON 报告会记录每次读取的耗时、HTTP 状态码、安全故障分类，以及汇总的延迟与吞吐量。报告不包含端点地址、作用域 ID、Bearer 令牌、响应正文或客户费用，并以仅所有者可读写（owner-only）的权限创建。当出现 HTTP 失败、传输故障、响应体积超限或分页/汇总信封结构无效时，脚本将以非零状态码退出。信封结构检查并不构成对报告内容或财务汇总金额的独立核验。
+
+请使用实际保留的请求数据进行测试。测试后应独立检查最终数据库，核对用量、固定价格、客户费用、扣款记录及已释放的预留额度。请在保存报告的同时记录网关 Git 提交哈希、PostgreSQL 版本、连接池大小、数据集规模、硬件配置以及并发负载情况。仅凭 HTTP 成功状态码和固定夹具（fixture）输出，并不能证明业务正确性、发布就绪度或生产环境容量上限。仅在出现新的工作负载、代码变更或未解决的疑虑时才需重复执行负载测试。
+
+下方的历史文本推理检查点（checkpoint）记录了当时实测的工作负载；上述只读客户端并不会复现这些产生实际费用的生成运行。本文档不提供现成的对话推理压测命令。未来的推理压测工具必须严格限制消费额度、保留当前输入的输出与用量证据，并对每一次尝试（attempt）进行账务核对，而不能简单地将 HTTP 200 视为生成成功或计费正确。
+
+外部厂商发布的基准测试声明仅作为方法学参考，既非独立证据，也非与 Niu 的同条件直接对比。LiteLLM 发布的页面描述的是单客户端针对确定性模拟（mock）上游的测试。Bifrost 的开源[基准测试工具集](https://github.com/maximhq/bifrost-benchmarking)提供了基于 Vegeta 的固定速率与固定并发用户运行方案、模拟供应商、延迟与吞吐量报告以及可选的网关常驻内存（RSS）采样。在对比结果之前，必须固定软件发行版本，并对齐协议、请求载荷、路由与鉴权逻辑、上游条件、负载模型、硬件环境以及测量口径。请将实测的网关附加延迟与端到端请求总延迟区分开来。
+参考资料：[Niu vs New API vs LiteLLM 性能基准测试](/docs/guides/gateway-benchmarks/)、[LiteLLM 发布的基准测试](https://www.litellm.ai/ai-gateway)以及 [Bifrost 基准测试代码仓库](https://github.com/maximhq/bifrost-benchmarking)。
+
+## 当前原生结构化流式检查点
+
+在 60 秒准入窗口、4 个工作线程的配置下，包含排空（drain）阶段在内共耗时 63.630 秒完成了 71 个经独立验证的结构化流式请求。每个流均返回了最新标记和完整请求的整数序列。独立的基于用量的核算与每一笔客户费用和扣款完全吻合，无任何残留的余额冻结（hold），且服务重启后记录保持一致。包含真实上游模型生成耗时在内，完成延迟 P50/P95 为 3.262/4.947 秒。单次运行并不代表生产环境容量上限。[详细工作负载与边界说明](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md#one-minute-structured-stream-load-checkpoint)中包含了速率、进程采样及账务核对细节。
+
+随后在启用不可变操作价目绑定（immutable operation tariff bindings）的情况下进行的运行，在 63.256 秒内完成了 70 个经验证的流式请求，完成延迟 P50/P95 为 3.418/4.319 秒。全部 70 个操作/尝试价格绑定完全一致；每笔费用均与上报用量吻合，所有预留冻结均已释放，且重启后扣款笔数保持不变。该数据包含上游生成耗时，并非针对价格绑定开销或最大容量的孤立测量。请参阅[操作价目并发检查点](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md#operation-tariff-concurrency-checkpoint)。
+
+## 并发有界对话（Chat）故障转移检查点
+
+在 4 个工作线程、60 秒准入窗口的运行中，包含排空阶段在内共耗时 63.821 秒完成了 54 个结构化流式请求。每个操作首先收到一次真实的 OpenRouter 身份验证拒绝，随后切换到另一个凭证完成请求：共产生 108 次持久化尝试（attempts）、54 笔精确的客户费用/扣款、无残留预留冻结，且重启后调用链记录保持不变。已保存的输出结果与独立重新打开的数据库记录均经过分别核验。包含首次拒绝、路由重选与上游生成在内，完成延迟 P50/P95 为 4.531/5.272 秒；完成操作的吞吐量为 0.846 次/秒。
+
+该测试旨在验证所执行的并发故障转移工作流，而非测量最大容量或孤立的重试开销，也不构成与前述单次尝试运行的受控对比。请参阅[工作负载、账务证据与测量限制](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#concurrent-bounded-failover-checkpoint)。
+
+## 共享 PostgreSQL 的双网关实例测试
+
+随后的实测运行将 4 个工作线程分配到两个原生网关实例上，每个实例配置 8 个数据库连接。在 60 秒准入窗口内，包含排空阶段在内共耗时 64.194 秒完成了 53 个真实的流式操作。包含真实身份验证拒绝及随后的上游生成在内，完成延迟 P50/P95 为 4.593/5.657 秒。
+
+独立检查解析了所有已保存的原始 SSE 响应并重新检查了持久化的数据库：共 106 次尝试、53 笔精确的费用/扣款、无残留冻结，且重启两个网关实例后记录链保持不变。这验证了跨多个网关实例的不同并发操作；但并不代表最大容量、同一操作下的竞争后续尝试或活跃生成期间的实例重启表现。请参阅[双网关测试证据与限制](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#two-gateway-shared-database-checkpoint)。
+
+## 真实流式传输期间的进程崩溃安全性
+
+另一项真实请求测试在收到第一个流式内容事件后，使用 `SIGKILL` 强制终止了隔离的网关进程。重启后，系统保留了未知用量（unknown usage）状态、待处理费用（pending charge）及其对应的余额预留冻结。系统未发生自动故障转移，也未凭空捏造扣款；在密钥轮换与服务重启后，已耗尽消费额度的密钥依然会拒绝新的请求分发。独立的原始响应与数据库检查确认了最终状态的一致性。这是一项崩溃边界安全检查，而非吞吐量测量，也不证明未知的上游用量可在事后自动恢复。请参阅[硬崩溃测试证据与限制](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#hard-process-crash-after-streamed-output)。
+
+## 生成期间新网关节点加入
+
+在第一个网关实例已传递真实流式内容之后，启动第二个原生网关实例。在新实例就绪前后的 SQL 查询均显示，原始请求仍处于执行中状态、用量为未知且预留额度保持冻结。随后两个实例共同承接流量：共完成 18 个操作、36 次尝试和 18 笔精确计费，重启后无残留冻结或重复扣费。独立的原始响应和重新打开的数据库检查均确认了该结果。该测试验证了实时负载下的对等节点启动，但并不等同于完整的零停机滚动升级替换。请参阅[节点启动证据与剩余边界说明](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#joining-a-gateway-during-active-generation)。
+
+## 活跃流式请求的优雅排空（Graceful Drain）
+
+在一次原生运行中，当收到首个真实流式内容后向网关发送 `SIGTERM` 信号。客户端依然完整收到了终止输出和模型供应商上报的用量；网关进程在持久化保存了唯一一笔精确费用/扣款及完整请求耗时后，以状态码 0 正常退出。所有预留冻结均已释放。独立的原始 SSE 与数据库重开检查结果完全一致，且重启后未产生任何重复请求或重复扣费。该测试验证了这一特定场景下的优雅排空能力，但并未覆盖上游停滞（stalled upstreams）、强制排空截止时间或完整的滚动部署流程。请参阅[信号处理与账务证据](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#graceful-termination-during-actual-streaming)。
+
+## 限定作用域的模型目录读取
+
+针对同一个包含 103 个路由池的数据库进行的原生回环对比测试中，使用了 8 个并发客户端和包含 2 个连接的网关数据库连接池。在每个版本各两个 10 秒的测量区间内，采用目录快照合成（catalog snapshot composition，`136d2f1`）的实现完成了 1,346.39 次读取/秒，客户端 P95 延迟为 7.924 ms；而前一个版本实现（`81f41ac`）完成了 69.20 次读取/秒，客户端 P95 延迟为 153.757 ms。每次响应均与已保存的 104 模型工作空间目录完全一致。独立重开数据库核验确认推理记录与财务记录均未发生改变。这是一项短时间的只读工作负载测试，不代表最大容量上限或推理吞吐量。请参阅[完整测量数据与限制说明](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md#catalog-read-comparison-after-snapshot-composition--2026-10-11)。
+
+</div>
+

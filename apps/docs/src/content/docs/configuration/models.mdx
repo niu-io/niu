@@ -3,6 +3,8 @@ title: Model routes
 description: How the gateway maps public model names to approved provider offers.
 ---
 
+<div data-lang="en">
+
 A model route maps a public model name to an upstream provider, provider model identifier, endpoint, and server-side credential reference. Clients select the public name. They cannot supply a provider secret or choose an unapproved upstream endpoint.
 
 The current development configuration is TOML. The example file is [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). Static credentials are referenced by environment variable name and loaded at startup.
@@ -152,3 +154,133 @@ without restoring a compatible backup.
 See the [publication operation and current-input evidence](https://github.com/niu-io/niu/blob/main/docs/reference/routing-publications.md)
 for coverage and remaining qualification limits. Private Codex account routes use
 a separate selection mechanism and are not assigned a fabricated registry generation.
+
+</div>
+
+<div data-lang="zh" data-title-zh="模型路由">
+
+模型路由将公开的模型名称映射到上游模型供应商、供应商模型标识符、端点以及服务端凭证引用。客户端仅选择公开模型名称，不能自行提供供应商密钥或选择未经批准的上游端点。
+
+当前的开发配置文件使用 TOML 格式，示例文件为 [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml)。静态凭证通过环境变量名引用，并在启动时加载。
+
+在路由上设置 `public_catalog = true` 可在 `/models/` 和 `GET /catalog/v1/models` 发布其别名、声明的能力及描述性模型元数据。这是一项显式的公开披露操作。公开目录会省略供应商名称、上游模型标识符、端点、凭证和定价信息。路由默认保持隐藏状态。
+
+公开模型目录支持按别名、显示名称、输入/输出模态以及声明的 API 能力筛选已发布的别名。目录条目会展示可用的描述、上下文与输出上限，以及指向受支持协议参考文档的链接。缺失的元数据会被省略，而不会进行估算。公开目录发现不会授予工作空间访问权限，也不代表已完成实时的模型供应商验证；工作空间密钥与客户价格仍然相互独立。
+
+```toml
+[models.fast]
+provider = "openrouter"
+upstream_model = "openai/gpt-4.1-mini"
+api_key_env = "OPENROUTER_API_KEY"
+```
+
+当省略 `api_base` 时，`openrouter` 会使用位于 `https://openrouter.ai/api/v1` 的 OpenAI 兼容对话补全接口。OpenAI 依然通过其自身的默认端点获得支持。在管理后台和路由记录中，供应商名称保持彼此独立区分。
+
+## 托管模型供应商
+
+平台管理员可以在控制台或通过兼容性端点 `/api/v1/vendors` 管理共享的模型供应商（Provider）及其模型路由。模型供应商是提供模型访问服务的商业实体，并用于标识上游 API 适配器。OpenRouter 可以作为使用 `openrouter` 供应商适配器的模型供应商；通过该供应商提供的底层模型开发商无需单独配置 Niu 凭证。供应商记录、启用状态、模型映射和修订版本均持久化存储在 PostgreSQL 中。更新会对新请求生效。组织和工作空间操作员无法管理平台级的模型供应商。
+
+托管配置支持 `openai`、`openrouter` 和 `anthropic` 适配器。对于原生 Anthropic Messages 接口，请将 `api_base` 设置为 `https://api.anthropic.com/v1`，并为该映射启用 `supports_messages`。连接检查使用原生 Anthropic 认证/版本请求头以及上限为 1,000 个模型的分页读取。不完整的目录不会被当作完整清单展示；在不完整检查中未出现的模型会保持为未知状态。配置持久化以及对无效凭证的实际拒绝均已验证；直接调用 Anthropic 生成以及完整目录发现仍处于待验证状态。请参阅[原生协议边界](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#managed-anthropic-configuration--2026-10-11)。
+
+在存储模型供应商凭证之前，请先将 `NIU_VENDOR_ENCRYPTION_KEY` 设置为至少 32 个字符的独立高熵密钥。Niu 使用 AES-256-GCM 加密凭证，API 响应绝不会返回明文凭证。请将该加密密钥保存在部署环境的机密存储（secret store）中，并与 PostgreSQL 分开备份。如果在未重新加密已存凭证的情况下更换该密钥，已有凭证将无法读取；目前尚未实现自动主密钥轮换。
+
+数据库中的模型别名会覆盖 TOML 中的同名别名，即使数据库路由处于禁用状态也是如此。若配置文件的 `[models]` 部分为空，则仅使用托管路由。静态文件路由仍然受支持。
+
+部署运维人员可以将 `NIU_VENDOR_BOOTSTRAP_FILE` 设置为一个 JSON 种子文件。该文件包含模型供应商元数据、模型路由以及保存初始凭证的环境变量名称，且绝不能包含任何明文密钥值。每个引导供应商身份仅会执行一次种子导入，并会保留后续的编辑、重命名、凭证轮换和禁用状态。
+
+请勿将凭证写入 TOML 文件、源代码版本控制、浏览器存储或公开目录响应中。
+
+## 函数工具与结构化 JSON
+
+函数工具（Function tools）和结构化输出默认处于禁用状态，仅在已由运维人员验证过的 OpenAI 兼容路由上受支持。OpenRouter 路由必须显式声明每项能力：
+
+```toml
+[models.fast]
+provider = "openrouter"
+upstream_model = "openai/gpt-4.1-mini"
+api_key_env = "OPENROUTER_API_KEY"
+supports_tool_calls = true
+supports_streaming_tool_calls = true
+supports_structured_output = true
+```
+
+`supports_tool_calls` 用于启用非流式函数定义与工具调用响应。`supports_streaming_tool_calls` 单独用于启用增量工具调用片段（deltas），且需要先启用 `supports_tool_calls`。Niu 会将这些声明转发给已配置的模型供应商，但不会执行所请求的函数。请将工具执行与权限校验保留在您的应用程序中。
+
+`supports_structured_output` 为缓冲和流式请求启用带有 `json_object` 或 `json_schema` 的 `response_format`。`json_object` 要求返回 JSON 对象。对于 `json_schema`，Niu 会在准入前编译自包含的 Schema，并据此校验返回的 JSON；无效的 Schema 会收到 `400` 响应，而不匹配的缓冲上游响应会收到 `502` 响应。非空的上游拒绝响应（refusals）仍保留为拒绝状态。Schema 大小上限为 64 KiB、4096 个 JSON 节点和 32 层深度；正则表达式的编译与回溯均受限。HTTP 和文件外部引用检索已被禁用，但 Schema 内部的本地引用可以正常解析。启用该标志前，请先验证实际端点和模型的行为。流式 JSON 片段在收到 `[DONE]` 之前均为临时内容；Niu 会在发送该终止标记前校验完整内容，在最多 128 个候选项（choices）中最多保留 1 MiB 的内容/拒绝字节。若最终内容无效，网关会发出不带 `[DONE]` 的 `upstream_invalid_response` SSE 错误，并记录一次上游响应失败，同时不会丢弃已报告的最终用量或其对应费用。原生 Anthropic/Bedrock 的工具或结构化输出路由，以及同时组合使用工具与结构化 JSON 的请求目前均不受支持。
+
+## Responses API 文本子集
+
+对于显式声明支持 Responses 的路由，网关实现了 `POST /v1/responses` 的非流式纯文本子集。该功能在 OpenRouter 上默认禁用，仅可在验证所选模型和上游端点后启用：
+
+```toml
+[models.fast]
+provider = "openai"
+upstream_model = "gpt-4.1-mini"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+supports_responses = true
+```
+
+请求在 `input` 中接受一个非空字符串，以及可选的字符串参数 `instructions`、`max_output_tokens`、`temperature`、`top_p`、字符串值的 `metadata` 和 `user`。请求会携带上游模型名称转发至已配置的 `/responses` 端点，随后以 Niu 的公开别名返回。Niu 会校验文本消息、推理和拒绝输出项，并将供应商报告的 `input_tokens` 和 `output_tokens` 保存为本次尝试的提示/补全用量。缺失的用量保持为未知状态。
+
+不支持输入数组、图像与音频、函数工具、流式传输、历史响应/会话状态、提示词模板以及其他字段。未知字段会收到 `400`；在未声明 `supports_responses` 的路由上请求 Responses 接口，或请求流式传输，会在创建尝试记录前收到 `501`。该标志仅代表运维人员的声明，而非供应商合规性证明。原生 Anthropic/Bedrock 路由不能声明此标志。
+
+无效的请求结构会收到 `400`。对未声明相应能力的路由发起合法的功能请求，会在记录操作或尝试之前收到 `501`。已启用的路由能力会纳入用于尝试存证的不可变路由修订版本中。请求级别的工具定义和 Schema 会作为每次请求的一部分向下游转发。
+
+## 文本向量嵌入（Embeddings）
+
+网关针对 OpenAI 兼容路由（`openai` 或 `openrouter`）实现了 `POST /v1/embeddings`。向量嵌入功能默认处于禁用状态（包括在 OpenRouter 上）；仅在验证已配置的上游端点和模型确实实现了所需行为后，才可在专用模型路由上声明支持：
+
+```toml
+[models.embedding]
+provider = "openai"
+upstream_model = "text-embedding-3-small"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+supports_embeddings = true
+supports_embedding_dimensions = true
+supports_embedding_base64 = true
+```
+
+最后两个标志分别独立启用可选的 `dimensions` 和 `encoding_format = "base64"` 请求字段，默认均为 `false`。对于 OpenRouter 路由，请设置 `provider = "openrouter"`，使用 OpenRouter 模型 ID，并在设置 `supports_embeddings = true` 前验证其向量嵌入支持情况。这些标志仅是运维人员的声明，而非供应商合规性证明。使用其他供应商的路由，或未声明所需能力的路由，会在记录操作或尝试之前收到 `501`。支持对话补全（Chat completion）并不代表支持向量嵌入。
+
+请求接受单个非空文本字符串，或包含 1–2048 个非空字符串的数组。`encoding_format` 默认为 `float`，也可设为 `base64`；`dimensions` 必须是 1 到 65536 之间的整数。不支持 Token ID 数组、嵌套输入、多模态输入、流式传输以及未知的请求字段。网关会映射已配置的上游模型，校验响应条目数量与向量维度形状，然后返回公开模型别名。已完成结算的用量核算需要依赖供应商返回的用量数据；缺失用量会使该次尝试保持未结算状态。当配置了定价时，输入的 UTF-8 总字节数不得超过 `max_input_tokens`，分发前会按配置的完整输入上限预留额度，且仅按报告的提示 Token 进行结算（根据契约，补全 Token 为零）。
+
+该可选路由在 [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml) 中以注释形式给出。启用该路由并不意味着内置了针对特定供应商的一致性测试套件。
+
+## 可选的文本路由定价
+
+受支持的 OpenAI 兼容路由可以预留并结算工作空间的平台上游预算。此项仅限安装实例内部使用的采购配置，与面向客户的销售价目表及账单费用相互独立。费率需配置为整数形式的**每百万 Token 货币纳单位（nanounits）**：
+
+```toml
+[models.fast.pricing]
+currency = "USD"
+api_prompt_rate = 1000000000
+api_completion_rate = 2000000000
+cash_prompt_rate = 1000000000
+cash_completion_rate = 2000000000
+max_input_tokens = 32768
+max_output_tokens = 4096
+```
+
+上述示例费率代表每百万输入 Token 1 美元、每百万输出 Token 2 美元。请将其替换为已核实的模型供应商费率。兼容性的 API 等效费率表与现金费率表是彼此独立的上游核算字段，两者均不定义客户价格。在发送计费请求前，请先创建币种匹配的工作空间上游预算。
+
+网关会按已配置的完整输入与输出上限预留额度，而非按估算的 Token 数量预留。输入上限是运维人员对该路由下供应商最大可计费输入的断言，并非本地分词器（tokenizer）校验出的限制。请根据实际的供应商/模型合同选择上限。如果低估了上限，可能会导致超支：Niu 会记录全部实际应付责任并标记该条目，而不会隐藏超出部分。在投入生产使用前，仍需完成供应商合同校验。
+
+当请求未指定输出上限时，网关会使用上游 `max_completion_tokens` 字段将其设置为 `max_output_tokens`。显式指定的输出上限必须为正数且不超过配置的上限，同时模型供应商必须支持该字段。定价支持单次文本对话补全（含可选的流式传输）、上述纯文本 Responses 子集，或文本向量嵌入。对话计费会拒绝工具调用、音频、图像、多候选项（multiple choices）及其他计费维度。在计费的 Responses 请求中，网关会将 `input` 与 `instructions` 的合计 UTF-8 字节长度与 `max_input_tokens` 进行比较，在未指定输出限制时注入已配置的输出上限，并在分发前预留这两项限额。计费的向量嵌入请求会将总输入字节数与 `max_input_tokens` 比较，仅预留输入容量，并结算供应商报告的提示用量。这些上限仍然是运维人员的断言，而非分词器测量值。配置了上游预算的工作空间在没有可靠冻结预留的情况下，无法分发未定价的请求。
+
+不可变的价格修订版本包含路由配置与定价信息；完全相同的发布内容会复用同一个修订版本。额度预留发生在分发之前；资金不足或缺少匹配预算都会阻止发起上游调用。完整的供应商用量会结算现金成本与 API 等效成本；缺失用量、超时和中断的流则会保留风险敞口。后台恢复工作进程会重试已完成但未结算的计费记录，而不会重复发起模型推理。
+
+计费的流式请求始终会通过 `stream_options.include_usage=true` 请求最终用量。如果缺失用量或缺失终止事件，预留额度仍会保持冻结。PostgreSQL 与供应商模拟测试覆盖了完整用量、缺失用量及响应截断等场景。
+
+## 已发布的路由配置
+
+静态 TOML 路由和已存储的模型供应商映射会被编译为一个不可变的路由代数（routing generation）。已禁用的存储别名不会回退到同名的静态路由。配置更改仅影响新的路由选择；已分发的工作会保留其固定的路由。权限校验、资质有效期与凭证冷却状态均会实时检查。初始模型供应商导入及其发布会在同一事务中提交，正常重启会保留管理员已保存的编辑内容。
+
+平台管理员可以调用 `GET /api/v1/routing-registry` 或 `NiuAdminClient.getRoutingRegistryStatus()`，读取当前的路由代数以及网关的静态配置是否与之匹配。该响应不包含任何路由定义、端点、密钥或采购价格。
+
+修改已发布的 TOML 配置需要执行显式替换：先读取当前的 `generation`，更新配置文件，然后在将 `NIU_ROUTING_EXPECTED_GENERATION` 设置为该值的情况下启动网关。如果其他发布操作已经推进了路由代数，启动过程会拒绝此次替换，且不会更改当前生效的配置。重试前请重新检查状态，并在发布完成后移除该一次性环境变量设置。随后使用匹配的配置重启其他网关实例；已被取代的旧实例在执行新的注册表读取时会采取故障关闭（fail closed）策略。在未恢复兼容备份的情况下，切勿降级活跃的路由写入实例。
+
+有关覆盖范围与剩余资质限制的详情，请参阅[路由发布操作与当前输入依据](https://github.com/niu-io/niu/blob/main/docs/reference/routing-publications.md)。私有 Codex 账户路由使用独立的选择机制，不会被分配虚构的注册表代数。
+
+</div>

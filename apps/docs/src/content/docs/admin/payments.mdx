@@ -3,6 +3,8 @@ title: Payment configuration
 description: Configure platform payment gateways separately from customer billing.
 ---
 
+<div data-lang="en">
+
 **Admin → Payment gateways** configures platform payment integrations. Customer balance, top-ups and transactions are in **Settings → Billing** and **Settings → Payments**; customers should not need merchant credentials to pay.
 
 ## Configure EPay
@@ -53,3 +55,60 @@ Do not present revenue as 100 and an offsetting expense as 5. Gift issuance alon
 Missing or unknown historical source allocation leaves the full revenue and gift-allowance totals unavailable. The explicitly named known subtotals are partial. They cannot replace complete totals. Verified cash receipts are separate from consumption; overlapping legacy invoice-payment and balance-funding references leave the combined receipt total unavailable pending reconciliation. A recorded funding reversal is not evidence of an external refund transfer.
 
 The summary is an operational reconciliation read. Populated gift-consumption/refund workflows, closed-period accounting and the complete financial dashboard still require acceptance; a saved gift or successful summary read does not establish them.
+
+</div>
+
+<div data-lang="zh" data-title-zh="支付配置">
+
+**管理 → 支付网关**（**Admin → Payment gateways**）用于配置平台支付集成。客户余额、充值和交易记录位于**设置 → 计费**（**Settings → Billing**）和**设置 → 支付**（**Settings → Payments**）中；客户无需拥有商户凭证即可完成支付。
+
+## 配置易支付（EPay）
+
+1. 打开**支付网关**（**Payment gateways**），检查各项集成的配置状态。
+2. 为 EPay 选择**配置**（**Configure**）。
+3. 输入为您的部署环境提供的商户 ID、网关 URL、异步通知 URL（notification URL）和同步跳转 URL（return URL）。请私密输入商户签名密钥。
+4. 选择受支持的支付宝（Alipay）或微信支付（WeChat Pay）方式，并在配置就绪后启用该集成。
+5. 保存后重新打开配置以确认已存储的状态。读取操作仅会指示密钥是否存在，而不会返回已保存的密钥明文。
+
+配置保存受修订版本控制。如果遇到过期修订版本冲突，请重新加载页面，切勿直接覆盖其他管理员所做的更改。请勿将签名密钥放入源代码版本控制、公开文件、截图或日志中。
+
+受支持的支付网关清单可能包含在此对话框之外配置的集成。列出的集成并不承诺都可在控制台中编辑；当前表单仅用于编辑 EPay。有关确切字段与授权要求，请参阅自动生成的 [EPay 配置操作](/docs/api/rest/saveplatformepayconfiguration/)。
+
+## 独立验证支付行为
+
+“已配置”和“已启用”状态并不代表商户已激活或充值已成功。在对外宣称某种支付方式可用之前，请先验证实际部署环境中的签名结账、回调通知处理以及入账记录。访问同步返回页面（return page）不能作为资金结算凭证。切勿根据未经验证的回调向客户增加余额，也不要重复入账已记录的支付。
+
+外部原路退款与完整的商业结算资质有其各自独立的实现边界；请勿仅凭配置保存成功就推断这些能力已经就绪。
+
+## 授信额度与管理员赠金
+
+已批准的授信额度允许客户余额在扣除未决预留后变为负数，直至达到其配置的授信上限。零授信额度即代表预付费访问模式。修改授信额度不会生成收款记录，也不会增加账户余额。现有的授信策略端点需要安装实例写入权限以及匹配的修订版本。
+
+平台管理员可以使用 [grantCustomerBalance](/docs/api/rest/grantcustomerbalance/) 或 `NiuAdminClient.grantCustomerBalance` 发放非现金赠金（noncash gift）。调用时需提供精确的正数纳单位（nanounit）金额、原因以及 UUID 幂等键。在对不确定结果进行重试时，请保留该幂等键。完全相同的重试会返回原始赠金记录；若更改金额、币种或原因则会产生冲突。客户所有者/管理员角色无法自行给自己发放赠金。请使用**管理 → 客户账户 → 发放非现金余额**（**Admin → Customer accounts → Grant noncash balance**）来准备并显式发放已保存的赠金。
+
+对于误发且完全未使用的赠金，请打开**非现金发放 → 已发放赠金 → 冲正未使用赠金**（**Noncash grants → Issued gifts → Correct unused gift**），核对其原始金额与原因，并输入冲正原因，然后确认**移除未使用赠金**（**Remove unused gift**）。仅限平台调用的[冲正 API](/docs/api/rest/correctunusedcustomerbalancegrant/) 与 SDK 方法 `correctUnusedCustomerBalanceGrant` 会追加一条独立的受审计调整记录。冲正金额必须与原始全额完全一致，不支持部分冲正。凡存在付费请求历史、已发生消耗、退款、未决请求预留或资金来源未知的账户，均会被拒绝冲正。已批准的授信额度及所有历史发放记录保持不变。冲正操作既不是商户外部退款，也不是消耗或收入调整。
+
+如果收到不确定的响应，请使用**检查已保存状态**（**Check saved status**）或 `getIssuedCustomerBalanceGrant`。单次快照中未出现冲正记录，并不能证明仍在处理中的请求已经失败。重试时请仅使用完全相同的原始输入和幂等键，切勿新建赠金或调整记录。同一笔原始赠金最多只能执行一次全额冲正。已发放赠金历史包含早期通过 API 直接发放的记录，而**已保存意图**（**Saved intents**）则保留了准备阶段与发放恢复状态。
+
+发放赠金既不是现金收款，也不构成收入。赠金是供后续消耗使用的独立资金来源；它不会追溯免除既有债务，也不会更改请求已锁定的销售价格。资金来源分配会分别记录赠金部分与非赠金部分，客户退款也会按原比例恢复这两部分额度。请勿将赠金当作已核实的支付收款或外部现金退款使用。
+
+## 收入与收款
+
+可通过 `NiuAdminClient.getCustomerFinancialSummary({ currency: 'USD', days: 30 })` 读取仅限平台访问的[财务摘要](/docs/api/rest/getcustomerfinancialsummary/)。该接口报告按 UTC 划分的记账区间（posting interval），独立于模型供应商对比报表所使用的分发区间（dispatch interval）。可选择 7、30 或 90 天。
+
+以下是规定的会计核算示例，而非宣称已完成的实际支付：
+
+| 指标 | 金额 |
+| --- | ---: |
+| 名义消耗（Nominal consumption） | 100 |
+| 已消耗赠金 / 销售折让（Consumed gift / sales allowance） | 5 |
+| 确认收入（Recognized revenue） | 95 |
+| 实收现金（Cash received） | 95 |
+
+请勿将收入记为 100 同时将冲抵费用记为 5。单独发放赠金不会产生收入或促销费用。预付费收款发生在消耗之前；而基于授信额度的消耗可以发生在付款之前。后续偿还授信欠款时，不会再次重复确认同一笔收入。客户退款会减少原始的非赠金收入，并恢复原始的赠金部分；因此退款期间的确认收入可能为负数。
+
+如果历史资金来源分配缺失或未知，完整的收入总额和赠金折让总额将保持不可用状态。明确标出的已知小计仅为部分汇总，不能替代完整总额。已核实的现金收款与消耗相互独立；若旧版账单付款与余额充值引用存在重叠，在完成对账前合并收款总额将保持不可用。已记录的资金冲回并不构成外部退款转账已完成的证据。
+
+该财务摘要属于运营对账读取接口。完整的赠金消耗/退款工作流、关账期间会计核算以及完整的财务看板仍需另行验收；成功保存赠金或成功读取摘要并不代表这些能力已全部就绪。
+
+</div>

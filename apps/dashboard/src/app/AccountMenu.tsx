@@ -83,10 +83,12 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
             </DropdownMenuRadioGroup>
           </>}
           {!supplierOnly && organization && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={`${workspacePath}/organization`}><Building2 size={18}/>{t('Organization settings', '组织设置')}</Link></DropdownMenuItem>}
-          {token && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(location.pathname, location.search, location.hash, installation ? "appearance" : "account")}><IconSettings size={18}/>{t('Settings', '设置')}</Link></DropdownMenuItem>}
+          <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(location.pathname, location.search, location.hash, !token || installation ? "appearance" : "account")}><IconSettings size={18}/>{t('Settings', '设置')}</Link></DropdownMenuItem>
           {!token && <><DropdownMenuSeparator /><DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}><KeyRound size={18}/>{t('Sign in', '登录')}</Link></DropdownMenuItem></>}
           <DropdownMenuSeparator />
-          {compactNavigation ? <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(location.pathname, location.search, location.hash, "appearance")}><Monitor/><span className="flex-1">{t('Appearance', '外观')}</span><span className="text-muted-foreground">{themeLabel}</span></Link></DropdownMenuItem> : <>
+          {compactNavigation ? <>
+            <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(location.pathname, location.search, location.hash, "appearance")}><Monitor/><span className="flex-1">{t('Appearance', '外观')}</span><span className="text-muted-foreground">{themeLabel} · {localeLabel}</span></Link></DropdownMenuItem>
+          </> : <>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger aria-label={`Theme: ${theme[0].toUpperCase()+theme.slice(1)}`}><Monitor/><span className="flex-1">{t('Theme', '主题')}</span><span className="text-muted-foreground">{themeLabel}</span></DropdownMenuSubTrigger>
               <DropdownMenuSubContent collisionPadding={12}>
