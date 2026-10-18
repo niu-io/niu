@@ -15,6 +15,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../../../../dashboard/src/components/ui/dropdown-menu";
+import { useLocale } from "../../../../dashboard/src/app/locale";
 import {
   displayName,
   docsLoginHref,
@@ -47,6 +48,7 @@ export default function WorkspaceKeyConnection({
   disabled?: boolean;
   description?: string;
 }) {
+  const { t } = useLocale();
   const { session, checking, error: sessionError, refresh } = useDocsSession();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
@@ -97,7 +99,7 @@ export default function WorkspaceKeyConnection({
             (typeof page.next_cursor !== "string" ||
               seen.has(page.next_cursor)))
         )
-          throw new Error("Workspace directory changed. Reload it.");
+          throw new Error(t("Workspace directory changed. Reload it.", "工作空间目录已更新，请重新加载。"));
         rows.push(...page.data);
         after = page.next_cursor;
         if (after) seen.add(after);
@@ -190,7 +192,7 @@ export default function WorkspaceKeyConnection({
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p role="status" className="text-xs text-muted-foreground">
-          Checking your login…
+          {t("Checking your login…", "正在检查登录状态…")}
         </p>
       </div>
     );
@@ -202,15 +204,18 @@ export default function WorkspaceKeyConnection({
         <p className="text-xs text-muted-foreground">
           {sessionError ||
             description ||
-            "Sign in to test requests with your workspace key. Your API key secret stays on the server."}
+            t(
+              "Sign in to test requests with your workspace key. Your API key secret stays on the server.",
+              "登录即可使用工作空间密钥测试请求，API 密钥明文始终保存在服务端。",
+            )}
         </p>
         <div className="flex shrink-0 items-center gap-2">
           <Button asChild size="sm">
-            <a href={docsLoginHref()}>Sign in to try the API</a>
+            <a href={docsLoginHref()}>{t("Sign in to try the API", "登录以测试 API")}</a>
           </Button>
           {sessionError && (
             <Button variant="outline" size="sm" onClick={refresh}>
-              Retry login check
+              {t("Retry login check", "重试登录检查")}
             </Button>
           )}
         </div>
@@ -224,7 +229,7 @@ export default function WorkspaceKeyConnection({
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">
-              Workspace
+              {t("Workspace", "工作空间")}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -237,12 +242,12 @@ export default function WorkspaceKeyConnection({
                 >
                   <span className="truncate font-medium">
                     {loading
-                      ? "Loading workspaces…"
+                      ? t("Loading workspaces…", "正在加载工作空间…")
                       : workspace
-                        ? displayName(workspace.name, "Unnamed workspace")
+                        ? displayName(workspace.name, t("Unnamed workspace", "未命名工作空间"))
                         : workspaces.length
-                          ? "Choose workspace"
-                          : "No workspaces"}
+                          ? t("Choose workspace", "选择工作空间")
+                          : t("No workspaces", "暂无工作空间")}
                   </span>
                   <IconChevronDown size={14} className="text-muted-foreground" />
                 </Button>
@@ -253,7 +258,7 @@ export default function WorkspaceKeyConnection({
                 className="max-h-72 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto"
               >
                 <DropdownMenuLabel className="text-xs text-muted-foreground">
-                  Workspaces
+                  {t("Workspaces", "工作空间")}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
@@ -273,10 +278,10 @@ export default function WorkspaceKeyConnection({
                   }}
                 >
                   {workspaces.map((row) => {
-                    const wsName = displayName(row.name, "Unnamed workspace");
+                    const wsName = displayName(row.name, t("Unnamed workspace", "未命名工作空间"));
                     const orgName = displayName(
                       row.organization_name,
-                      "Organization",
+                      t("Organization", "组织"),
                     );
                     return (
                       <DropdownMenuRadioItem key={row.id} value={row.id}>
@@ -300,7 +305,7 @@ export default function WorkspaceKeyConnection({
 
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">
-              API key
+              {t("API key", "API 密钥")}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -314,12 +319,12 @@ export default function WorkspaceKeyConnection({
                   <IconKey size={14} className="text-muted-foreground" />
                   <span className="truncate font-medium">
                     {keysLoading
-                      ? "Loading keys…"
+                      ? t("Loading keys…", "正在加载密钥…")
                       : key
-                        ? displayName(key.name, "Unnamed API key")
+                        ? displayName(key.name, t("Unnamed API key", "未命名 API 密钥"))
                         : keys.length
-                          ? "Choose API key"
-                          : "No active keys"}
+                          ? t("Choose API key", "选择 API 密钥")
+                          : t("No active keys", "暂无有效密钥")}
                   </span>
                   <IconChevronDown size={14} className="text-muted-foreground" />
                 </Button>
@@ -330,7 +335,7 @@ export default function WorkspaceKeyConnection({
                 className="max-h-72 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto"
               >
                 <DropdownMenuLabel className="text-xs text-muted-foreground">
-                  Active API keys
+                  {t("Active API keys", "有效 API 密钥")}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
@@ -344,7 +349,7 @@ export default function WorkspaceKeyConnection({
                   {keys.map((row) => (
                     <DropdownMenuRadioItem key={row.id} value={row.id}>
                       <span className="truncate">
-                        {displayName(row.name, "Unnamed API key")}
+                        {displayName(row.name, t("Unnamed API key", "未命名 API 密钥"))}
                       </span>
                     </DropdownMenuRadioItem>
                   ))}
@@ -365,7 +370,7 @@ export default function WorkspaceKeyConnection({
               }}
             >
               <IconRefresh size={14} />
-              <span>Refresh access</span>
+              <span>{t("Refresh access", "刷新权限")}</span>
             </Button>
             {key && (
               <Button
@@ -380,7 +385,7 @@ export default function WorkspaceKeyConnection({
                 }}
               >
                 <IconUnlink size={14} />
-                <span>Disconnect reference</span>
+                <span>{t("Disconnect reference", "断开连接")}</span>
               </Button>
             )}
           </div>
@@ -388,21 +393,21 @@ export default function WorkspaceKeyConnection({
 
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {loading || keysLoading ? (
-            <span role="status">Loading your configuration…</span>
+            <span role="status">{t("Loading your configuration…", "正在加载配置…")}</span>
           ) : !workspaces.length ? (
             <span>
-              No accessible workspaces.{" "}
+              {t("No accessible workspaces.", "暂无可访问的工作空间。")}{" "}
               <a
                 href="/workspaces/default/"
                 className="font-medium text-foreground underline underline-offset-4"
               >
-                Open dashboard
+                {t("Open dashboard", "打开控制台")}
               </a>{" "}
-              to configure access.
+              {t("to configure access.", "配置访问权限。")}
             </span>
           ) : workspace && !keys.length ? (
             <span>
-              No active API keys in this workspace.{" "}
+              {t("No active API keys in this workspace.", "当前工作空间暂无有效 API 密钥。")}{" "}
               <a
                 href={
                   "/workspaces/" +
@@ -411,13 +416,16 @@ export default function WorkspaceKeyConnection({
                 }
                 className="font-medium text-foreground underline underline-offset-4"
               >
-                Manage keys
+                {t("Manage keys", "管理密钥")}
               </a>
               .
             </span>
           ) : !session.permissions.write ? (
             <Badge variant="outline">
-              Discovery only · write access required to execute requests
+              {t(
+                "Discovery only · write access required to execute requests",
+                "仅限查看 · 需要写入权限才能执行请求",
+              )}
             </Badge>
           ) : key ? (
             <>
@@ -426,7 +434,7 @@ export default function WorkspaceKeyConnection({
                   className="inline-block size-2 shrink-0 rounded-full bg-emerald-500"
                   aria-hidden="true"
                 />
-                Connected
+                {t("Connected", "已连接")}
               </Badge>
               {description && (
                 <span className="hidden xl:inline">{description}</span>

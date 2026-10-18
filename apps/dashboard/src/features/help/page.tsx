@@ -1,12 +1,14 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { useLocale } from '../../app/locale';
 
 const ApiReference = lazy(() => import('./ApiReference'));
 
 export default function HelpPage() {
+  const { t } = useLocale();
   const { pathname } = useLocation();
   return /^\/help\/api(?:\/rest)?\/?$/.test(pathname)
-    ? <Suspense fallback={<p role="status" className="p-6 text-muted-foreground">Loading API reference…</p>}><ApiReference /></Suspense>
+    ? <Suspense fallback={<p role="status" className="p-6 text-muted-foreground">{t('Loading API reference…', '正在加载 API 参考…')}</p>}><ApiReference /></Suspense>
     : <DocumentationPage />;
 }
 

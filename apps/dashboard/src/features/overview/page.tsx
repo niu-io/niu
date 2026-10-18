@@ -7,8 +7,10 @@ import PageHeader from '@/components/PageHeader';
 import ConnectPrompt from '@/components/ConnectPrompt';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import { useDashboardContext } from '@/app/dashboard-context';
+import { useLocale } from '@/app/locale';
 
 export default function OverviewRoute() {
+  const { t } = useLocale();
   const { token, workspace, models, session } = useDashboardContext();
   const canManagePlatform = Boolean((session?.kind === 'installation' || session?.permissions?.platform_admin) && session?.permissions?.manage_operators);
   const { workspace: workspaceSegment } = useParams();
@@ -16,11 +18,11 @@ export default function OverviewRoute() {
   if (workspaceSegment || workspace?.id) chatSearch.set('workspace', workspaceSegment || workspace!.id);
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
   return <>
-    <PageHeader title="Overview" action={token && <div className="overview-primary-actions">{models.length
-      ? <Button asChild><Link to={`/generations?${chatSearch}`} className="header-icon-action" aria-label="Compare models" title="Compare models"><MessageSquareText aria-hidden="true" /><span>Compare models</span></Link></Button>
+    <PageHeader title={t('Overview', '概览')} action={token && <div className="overview-primary-actions">{models.length
+      ? <Button asChild><Link to={`/generations?${chatSearch}`} className="header-icon-action" aria-label={t('Compare models', '对比模型')} title={t('Compare models', '对比模型')}><MessageSquareText aria-hidden="true" /><span>{t('Compare models', '对比模型')}</span></Link></Button>
       : canManagePlatform
-        ? <Button asChild><Link to="/admin/suppliers" className="header-icon-action" aria-label="Connect provider" title="Connect provider"><Network aria-hidden="true" /><span>Connect provider</span></Link></Button>
-        : <Button asChild><Link to="models" className="header-icon-action" aria-label="Browse models" title="Browse models"><Network aria-hidden="true" /><span>Browse models</span></Link></Button>}<Button asChild variant="outline"><Link to="keys" className="header-icon-action" aria-label="API keys" title="API keys"><KeyRound aria-hidden="true" /><span>API keys</span></Link></Button></div>} />
+        ? <Button asChild><Link to="/admin/suppliers" className="header-icon-action" aria-label={t('Connect provider', '接入供应商')} title={t('Connect provider', '接入供应商')}><Network aria-hidden="true" /><span>{t('Connect provider', '接入供应商')}</span></Link></Button>
+        : <Button asChild><Link to="models" className="header-icon-action" aria-label={t('Browse models', '浏览模型')} title={t('Browse models', '浏览模型')}><Network aria-hidden="true" /><span>{t('Browse models', '浏览模型')}</span></Link></Button>}<Button asChild variant="outline"><Link to="keys" className="header-icon-action" aria-label={t('API keys', 'API 密钥')} title={t('API keys', 'API 密钥')}><KeyRound aria-hidden="true" /><span>{t('API keys', 'API 密钥')}</span></Link></Button></div>} />
 
     <section className="cost-workbench" aria-label="Recent gateway requests">
       {token ? <GatewayActivity compact key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">

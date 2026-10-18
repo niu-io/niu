@@ -3,12 +3,14 @@ import WorkspaceKeyConnection, { type DocsKeySelection } from '../../../../docs/
 import { useNavigate } from 'react-router';
 import { ApiReferenceReact, type AnyApiReferenceConfiguration } from '@scalar/api-reference-react';
 import PublicHeader from '../../../../docs/src/components/PublicHeader';
+import { useLocale } from '../../app/locale';
 import '../../../../../branding/public-header.css';
 import '@scalar/api-reference-react/style.css';
 import './api-reference.css';
 
 /** Scalar owns documentation navigation, schema rendering and code samples. */
 export default function ApiReference() {
+  const { t } = useLocale();
   const navigate = useNavigate();
   const [selection, setSelection] = useState<DocsKeySelection | null>(null);
   const selectedKey = useRef(selection); selectedKey.current = selection;
@@ -27,7 +29,7 @@ export default function ApiReference() {
     withDefaultFonts: false,
     showSidebar: true,
     showDeveloperTools: 'never',
-    modelsSectionLabel: 'Schemas',
+    modelsSectionLabel: t('Schemas', '数据结构 (Schemas)'),
     defaultOpenAllTags: false,
     hideClientButton: true,
     persistAuth: false,
@@ -48,7 +50,7 @@ export default function ApiReference() {
     telemetry: false,
     agent: {disabled:true},
     defaultHttpClient: {targetKey:'shell', clientKey:'curl'},
-  }), [mode]);
+  }), [mode, t]);
   return <div className="niu-api-documentation" onClick={event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = (event.target as Element).closest<HTMLAnchorElement>('a[href]');
@@ -64,7 +66,10 @@ export default function ApiReference() {
     <section className="niu-api-connection-bar" aria-label="Connect API reference">
       <WorkspaceKeyConnection
         onChange={setSelection}
-        description="Same-origin inference APIs only · key secret stays on the server · requests can incur real charges"
+        description={t(
+          'Same-origin inference APIs only · key secret stays on the server · requests can incur real charges',
+          '仅限同源推理 API · 密钥明文保存在服务端 · 请求可能产生真实费用',
+        )}
       />
     </section>
     <div className="niu-api-reference" aria-label="Niu OpenAPI reference"><ApiReferenceReact configuration={configuration} /></div>

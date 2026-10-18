@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { request, VendorRequestError, writeMayHaveCommitted } from '@/features/vendors/api';
+import { useLocale } from '@/app/locale';
 import type { MemberProfile } from '@/app/dashboard-context';
 
 function validProfile(profile:MemberProfile) {
@@ -13,6 +14,7 @@ function validProfile(profile:MemberProfile) {
 }
 
 export default function AccountProfile({token, initialProfile, onSaved}: {token:string; initialProfile?:MemberProfile | null; onSaved:(profile:MemberProfile)=>void}) {
+  const { t } = useLocale();
   const [profile,setProfile]=useState<MemberProfile | null>(initialProfile ?? null);
   const [name,setName]=useState(initialProfile?.name ?? '');
   const [avatar,setAvatar]=useState<string | null>(initialProfile?.avatar_data_url ?? null);
@@ -39,7 +41,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
       if (!validProfile(result.data)) throw new Error('Invalid profile response');
       setProfile(result.data);setName(result.data.name);setAvatar(result.data.avatar_data_url);
       setConflict(false);setUnconfirmed(false);if (revision > 0) onSavedRef.current(result.data);
-    }).catch(()=>{if (!read.signal.aborted) {setLoadFailed(true);setError('Could not load your profile. Try again.');}})
+    }).catch(()=>{if (!read.signal.aborted) {setLoadFailed(true);setError(t('Could not load your profile. Try again.', '无法加载您的个人资料，请重试。'));}})
       .finally(()=>{if (!read.signal.aborted) setLoading(false);});
     return ()=>{read.abort();controller.current?.abort();};
   },[token,revision]);
@@ -48,7 +50,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
     if (input.current) input.current.value='';
     setError('');setSaved(false);
     if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 5*1024*1024) {
-      setError('Choose a PNG, JPEG, or WebP image up to 5 MB.');return;
+      setError(t('Choose a PNG, JPEG, or WebP image up to 5 MB.', '请选择不超过 5 MB 的 PNG、JPEG 或 WebP 图片。'));return;
     }
     const requestId = ++photoRequest.current;
     setProcessing(true);
@@ -64,7 +66,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
         if (image.length > 175000) throw new Error('Image too large');
         setAvatar(image);
       } finally {bitmap.close();}
-    } catch {if (requestId === photoRequest.current) setError('Could not process that image. Choose another image.');}
+    } catch {if (requestId === photoRequest.current) setError(t('Could not process that image. Choose another image.', '无法处理该图片，请选择其他图片。'));}
     finally {if (requestId === photoRequest.current) {setProcessing(false);if (input.current) input.current.value='';}}
   }
   async function save(event:FormEvent<HTMLFormElement>) {
@@ -80,7 +82,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
         setConflict(stale);
         const uncertain = !stale && writeMayHaveCommitted(failure);
         setUnconfirmed(uncertain);
-        setError(stale ? 'Your profile changed elsewhere. Reload before saving.' : uncertain ? 'Could not confirm your saved profile. Reload before making further changes.' : 'Could not save your profile. Your changes are still here.');
+        setError(stale ? t('Your profile changed elsewhere. Reload before saving.', '您的个人资料已在其他位置更新，请重新加载后再保存。') : uncertain ? t('Could not confirm your saved profile. Reload before making further changes.', '无法确认个人资料是否已保存，请重新加载后再继续修改。') : t('Could not save your profile. Your changes are still here.', '无法保存您的个人资料，当前修改已保留在页面中。'));
       }
     } finally {if (!pending.signal.aborted) setSaving(false);}
   }
@@ -89,14 +91,14 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
   return <form onSubmit={save} className="grid gap-5" aria-label="Profile">
     <div className="relative flex flex-wrap items-center gap-4">
       <Avatar className="size-16"><AvatarImage src={avatar ?? undefined} alt="Profile photo"/><AvatarFallback>{name.trim().slice(0,1).toUpperCase() || '?'}</AvatarFallback></Avatar>
-      <div className="grid gap-2"><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" aria-describedby="account-photo-help" disabled={disabled} onClick={()=>input.current?.click()}>{processing ? 'Processing…' : 'Change photo'}</Button>{avatar && <Button type="button" variant="ghost" disabled={disabled} onClick={()=>{setAvatar(null);setSaved(false);}}>Remove photo</Button>}</div><p id="account-photo-help" className="text-xs text-muted-foreground">PNG, JPEG, or WebP · Up to 5 MB</p></div>
+      <div className="grid gap-2"><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" aria-describedby="account-photo-help" disabled={disabled} onClick={()=>input.current?.click()}>{processing ? t('Processing…', '处理中…') : t('Change photo', '更换头像')}</Button>{avatar && <Button type="button" variant="ghost" disabled={disabled} onClick={()=>{setAvatar(null);setSaved(false);}}>{t('Remove photo', '移除头像')}</Button>}</div><p id="account-photo-help" className="text-xs text-muted-foreground">{t('PNG, JPEG, or WebP · Up to 5 MB', '支持 PNG、JPEG 或 WebP · 最大 5 MB')}</p></div>
       <Input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Upload profile photo" disabled={disabled} onChange={event=>void choosePhoto(event.target.files?.[0])}/>
     </div>
-    <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-name">Display name</Label><Input ref={nameInput} id="account-profile-name" autoComplete="name" required maxLength={100} value={name} disabled={disabled} onChange={event=>{setName(event.target.value);setSaved(false);}}/></div>
-    {profile?.email && <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-email">Email</Label><Input id="account-profile-email" type="email" autoComplete="email" value={profile.email} readOnly/></div>}
-    {loading && <p role="status" className="text-sm text-muted-foreground">Loading profile…</p>}
-    {(error || conflict) && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error || 'Your profile changed elsewhere. Reload before saving.'}</p>{(!profile || conflict || unconfirmed || loadFailed) && <Button type="button" variant="outline" disabled={retryDisabled} onClick={()=>setRevision(value=>value+1)}>Reload profile</Button>}</div>}
-    {saved && <p role="status" className="text-sm text-muted-foreground">Profile saved.</p>}
-    <div className="flex justify-end gap-2">{profile && (name !== profile.name || avatar !== profile.avatar_data_url) && <Button type="button" variant="ghost" disabled={disabled} onClick={()=>{setName(profile.name);setAvatar(profile.avatar_data_url);setError('');setSaved(false);nameInput.current?.focus();}}>Cancel</Button>}<Button type="submit" disabled={disabled || conflict || !profile || !name.trim() || (name.trim()===profile.name && avatar===profile.avatar_data_url)}>{saving ? 'Saving…' : 'Save changes'}</Button></div>
+    <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-name">{t('Display name', '显示名称')}</Label><Input ref={nameInput} id="account-profile-name" autoComplete="name" required maxLength={100} value={name} disabled={disabled} onChange={event=>{setName(event.target.value);setSaved(false);}}/></div>
+    {profile?.email && <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-email">{t('Email', '邮箱')}</Label><Input id="account-profile-email" type="email" autoComplete="email" value={profile.email} readOnly/></div>}
+    {loading && <p role="status" className="text-sm text-muted-foreground">{t('Loading profile…', '正在加载个人资料…')}</p>}
+    {(error || conflict) && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error || t('Your profile changed elsewhere. Reload before saving.', '您的个人资料已在其他位置更新，请重新加载后再保存。')}</p>{(!profile || conflict || unconfirmed || loadFailed) && <Button type="button" variant="outline" disabled={retryDisabled} onClick={()=>setRevision(value=>value+1)}>{t('Reload profile', '重新加载个人资料')}</Button>}</div>}
+    {saved && <p role="status" className="text-sm text-muted-foreground">{t('Profile saved.', '个人资料已保存。')}</p>}
+    <div className="flex justify-end gap-2">{profile && (name !== profile.name || avatar !== profile.avatar_data_url) && <Button type="button" variant="ghost" disabled={disabled} onClick={()=>{setName(profile.name);setAvatar(profile.avatar_data_url);setError('');setSaved(false);nameInput.current?.focus();}}>{t('Cancel', '取消')}</Button>}<Button type="submit" disabled={disabled || conflict || !profile || !name.trim() || (name.trim()===profile.name && avatar===profile.avatar_data_url)}>{saving ? t('Saving…', '保存中…') : t('Save changes', '保存更改')}</Button></div>
   </form>;
 }

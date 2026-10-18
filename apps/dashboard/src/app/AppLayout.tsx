@@ -39,6 +39,7 @@ import WorkspaceRecovery from './WorkspaceRecovery';
 import { useGatewayConnection } from './useGatewayConnection';
 import { resolveWorkspacePathSegment, workspacePathSegment, workspaceDisplayName, workspaceModelsHref } from './workspace-route';
 import { useBranding } from './branding';
+import { useLocale } from './locale';
 
 import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 
@@ -57,6 +58,7 @@ function WorkspaceNav({
   activePath: string;
   onCreateWorkspace: () => void;
 }) {
+  const { isZh, t } = useLocale();
   const { isMobile, setOpenMobile } = useSidebar();
   const videoAvailable = useWorkspaceVideo(context);
   const navItems = navigation.filter(item => item.destination === 'Workspace'
@@ -71,11 +73,12 @@ function WorkspaceNav({
           {navItems.map(item => {
             const path = item.to === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${item.to}`;
             const isActive = item.to === '.' ? activePath === '.' : activePath === item.to || activePath.startsWith(`${item.to.replace(/^\/+|\/+$/g, '')}/`);
+            const displayLabel = isZh ? item.labelZh : item.label;
             return <SidebarMenuItem key={item.to}>
-              <SidebarMenuButton asChild isActive={isActive} className="nav-item" tooltip={item.label}>
-                <NavLink to={path} end={item.to === '.'} onClick={() => { if (isMobile) setOpenMobile(false); }} aria-label={item.label}>
+              <SidebarMenuButton asChild isActive={isActive} className="nav-item" tooltip={displayLabel}>
+                <NavLink to={path} end={item.to === '.'} onClick={() => { if (isMobile) setOpenMobile(false); }} aria-label={displayLabel}>
                   <item.icon className="nav-icon" aria-hidden="true" />
-                  <span>{item.label}</span>
+                  <span>{displayLabel}</span>
                   {item.to === 'models' && models.length > 0 && <span className="nav-count">{models.length}</span>}
                 </NavLink>
               </SidebarMenuButton>
@@ -85,11 +88,12 @@ function WorkspaceNav({
         </SidebarMenu>
       </nav>
     </SidebarContent>
-    <SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton asChild><NavLink to="/help/"><CircleHelp size={16} /><span>Documentation</span></NavLink></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
+    <SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton asChild><NavLink to="/help/"><CircleHelp size={16} /><span>{t('Documentation', '文档')}</span></NavLink></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
   </>;
 }
 
 export function SupplierNav({ context }: { context: DashboardContext }) {
+  const { isZh, t } = useLocale();
   const { supplier, supplierId: adminSupplier } = useParams();
   const { isMobile, setOpenMobile } = useSidebar();
   const [search] = useSearchParams();
@@ -114,7 +118,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
         if (!Array.isArray(result.data)) throw new Error('Invalid provider list');
         if (!controller.signal.aborted) { setSuppliers(result.data);setDirectoryOwner(context.token);setError(''); }
       })
-      .catch(() => { if (!controller.signal.aborted) setError('Could not load providers.'); })
+      .catch(() => { if (!controller.signal.aborted) setError(t('Could not load providers.', '无法加载模型供应商列表。')); })
       .finally(() => {if (!controller.signal.aborted) setLoading(false);});
     return () => controller.abort();
   }, [context.token, context.session, retryRevision]);
@@ -123,28 +127,28 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
 
   const location = useLocation();
   const entries = supplier ? [
-    { to: `/suppliers/${supplier}`, label: 'Overview', end: true },
-    { to: `/suppliers/${supplier}/models`, label: 'Models & pricing', end: false },
-    { to: `/suppliers/${supplier}/consumption`, label: 'Usage', end: false },
-    { to: `/suppliers/${supplier}/settlements`, label: 'Settlements', end: false },
+    { to: `/suppliers/${supplier}`, label: 'Overview', labelZh: '概览', end: true },
+    { to: `/suppliers/${supplier}/models`, label: 'Models & pricing', labelZh: '模型与报价', end: false },
+    { to: `/suppliers/${supplier}/consumption`, label: 'Usage', labelZh: '调用量', end: false },
+    { to: `/suppliers/${supplier}/settlements`, label: 'Settlements', labelZh: '结算账单', end: false },
   ] : [
-    { to: '/admin/suppliers', label: 'Providers', end: false },
-    { to: '/admin/commercial', label: 'Financial statements', end: false },
-    { to: '/admin/customer-accounts', label: 'Customer accounts', end: false },
-    { to: '/admin/pricing', label: 'Customer pricing', end: false },
-    { to: '/admin/payments', label: 'Payment gateways', end: false },
-    { to: '/admin/branding', label: 'Branding & theme', end: false },
-    { to: '/admin/audit-logs', label: 'Audit logs', end: false },
+    { to: '/admin/suppliers', label: 'Providers', labelZh: '模型供应商', end: false },
+    { to: '/admin/commercial', label: 'Financial statements', labelZh: '财务报表', end: false },
+    { to: '/admin/customer-accounts', label: 'Customer accounts', labelZh: '客户账户', end: false },
+    { to: '/admin/pricing', label: 'Customer pricing', labelZh: '客户定价', end: false },
+    { to: '/admin/payments', label: 'Payment gateways', labelZh: '支付网关', end: false },
+    { to: '/admin/branding', label: 'Branding & theme', labelZh: '品牌与主题', end: false },
+    { to: '/admin/audit-logs', label: 'Audit logs', labelZh: '审计日志', end: false },
   ];
   return <>
     <SidebarHeader className="sidebar-heading">
-      {!supplier && <h2 className="sidebar-heading-row">Admin</h2>}
+      {!supplier && <h2 className="sidebar-heading-row">{t('Admin', '管理后台')}</h2>}
       {supplier && <div className="workspace-switcher"><DropdownMenu>
-        <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" aria-label="Switch provider" title="Switch provider">
-          <span className="workspace-switcher-copy"><strong>{membership?.name ?? (loading ? 'Loading provider…' : error ? 'Provider unavailable' : 'Choose provider')}</strong></span><ChevronsUpDown size={16} />
+        <DropdownMenuTrigger asChild><Button variant="ghost" className="workspace-switcher-trigger" aria-label="Switch provider" title={t('Switch provider', '切换供应商')}>
+          <span className="workspace-switcher-copy"><strong>{membership?.name ?? (loading ? t('Loading provider…', '正在加载供应商…') : error ? t('Provider unavailable', '供应商暂不可用') : t('Choose provider', '选择供应商'))}</strong></span><ChevronsUpDown size={16} />
         </Button></DropdownMenuTrigger>
         <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-          <DropdownMenuLabel className="workspace-switcher-menu-title">Providers</DropdownMenuLabel>
+          <DropdownMenuLabel className="workspace-switcher-menu-title">{t('Providers', '模型供应商')}</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={selected} onValueChange={id => {
             const section = location.pathname.split('/')[adminSupplier ? 4 : 3];
             const nextSearch = new URLSearchParams(location.search);
@@ -152,10 +156,10 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
             navigate(`${adminSupplier ? '/admin' : ''}/suppliers/${encodeURIComponent(id)}${section ? '/' + section : ''}${nextSearch.size ? '?' + nextSearch.toString() : ''}${location.hash}`);
             if (isMobile) setOpenMobile(false);
           }}>{suppliers.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}><span>{item.name}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>
-          {loading && <DropdownMenuLabel role="status">Loading providers…</DropdownMenuLabel>}
-          {!loading && !error && suppliers.length === 0 && <DropdownMenuLabel>No providers yet</DropdownMenuLabel>}
-          {error && <><div className="workspace-switcher-error" role="alert">{error}</div><DropdownMenuItem onSelect={event => {event.preventDefault();setRetryRevision(value => value + 1);}}>Retry provider list</DropdownMenuItem></>}
-          {!adminSupplier && (context.session?.kind === 'installation' || context.session?.permissions.platform_admin) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/suppliers/' + encodeURIComponent(selected) + '/settings')}><Settings2 size={16} />Provider settings</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/suppliers/overview?create=supplier' + (selected ? '&supplier=' + encodeURIComponent(selected) : ''))}><Plus size={16} />Add provider</DropdownMenuItem></>}
+          {loading && <DropdownMenuLabel role="status">{t('Loading providers…', '正在加载供应商…')}</DropdownMenuLabel>}
+          {!loading && !error && suppliers.length === 0 && <DropdownMenuLabel>{t('No providers yet', '暂无供应商')}</DropdownMenuLabel>}
+          {error && <><div className="workspace-switcher-error" role="alert">{error}</div><DropdownMenuItem onSelect={event => {event.preventDefault();setRetryRevision(value => value + 1);}}>{t('Retry provider list', '重试加载供应商列表')}</DropdownMenuItem></>}
+          {!adminSupplier && (context.session?.kind === 'installation' || context.session?.permissions.platform_admin) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/suppliers/' + encodeURIComponent(selected) + '/settings')}><Settings2 size={16} />{t('Provider settings', '供应商设置')}</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/suppliers/overview?create=supplier' + (selected ? '&supplier=' + encodeURIComponent(selected) : ''))}><Plus size={16} />{t('Add provider', '添加供应商')}</DropdownMenuItem></>}
         </DropdownMenuContent>
       </DropdownMenu></div>}
     </SidebarHeader>
@@ -163,7 +167,7 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
       <nav aria-label={supplier ? "Provider navigation" : "Admin navigation"}><SidebarMenu className="workspace-nav-menu">
         {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys & routes' ? KeyRound : item.label === 'Portal access' ? Users : item.label === 'Providers' ? RailSuppliers : item.label === 'Customer accounts' ? Users : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding & theme' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models & pricing' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
           <SidebarMenuButton asChild isActive={location.pathname === item.to || (!supplier && location.pathname.startsWith(item.to + "/"))} className="nav-item provider-zone-item">
-            <NavLink to={item.to} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{item.label}</span></NavLink>
+            <NavLink to={item.to} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{isZh ? item.labelZh : item.label}</span></NavLink>
           </SidebarMenuButton>
         </SidebarMenuItem>; })}
       </SidebarMenu></nav>
@@ -172,9 +176,10 @@ export function SupplierNav({ context }: { context: DashboardContext }) {
 }
 
 function WorkspaceSidebarToggle({ buttonRef, supplierArea = false, modelsArea = false, settingsArea = false, activityArea = false, adminArea = false }: { buttonRef: RefObject<HTMLButtonElement | null>; supplierArea?: boolean; modelsArea?: boolean; settingsArea?: boolean; activityArea?: boolean; adminArea?: boolean }) {
+  const { t } = useLocale();
   const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
   const expanded = isMobile ? openMobile : state === 'expanded';
-  return <Button ref={buttonRef} type="button" variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={expanded} aria-controls={adminArea ? "admin-navigation" : activityArea ? "activity-navigation" : settingsArea ? "settings-navigation" : modelsArea ? "model-filters" : supplierArea ? "supplier-navigation" : "workspace-navigation"} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${adminArea ? 'admin navigation' : activityArea ? 'activity navigation' : settingsArea ? 'settings navigation' : modelsArea ? 'model filters' : supplierArea ? 'provider navigation' : 'workspace navigation'}`} title={expanded ? 'Collapse navigation' : 'Expand navigation'}>
+  return <Button ref={buttonRef} type="button" variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={expanded} aria-controls={adminArea ? "admin-navigation" : activityArea ? "activity-navigation" : settingsArea ? "settings-navigation" : modelsArea ? "model-filters" : supplierArea ? "supplier-navigation" : "workspace-navigation"} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${adminArea ? 'admin navigation' : activityArea ? 'activity navigation' : settingsArea ? 'settings navigation' : modelsArea ? 'model filters' : supplierArea ? 'provider navigation' : 'workspace navigation'}`} title={expanded ? t('Collapse navigation', '收起导航') : t('Expand navigation', '展开导航')}>
     {expanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
   </Button>;
 }
@@ -185,6 +190,7 @@ function ProductRailLink({ to, onActivate, children, onClick, ...props }: NavLin
 }
 
 export default function AppLayout() {
+  const { isZh, t } = useLocale();
   const {settings:branding,logo} = useBranding();
   const [workspaceCreateOpen, setWorkspaceCreateOpen] = useState(false);
   const [token, setToken] = useState('');
@@ -727,20 +733,22 @@ export default function AppLayout() {
   const activeNavigation = scopedNavigation.find(item => item.to.replace(/^\/+|\/+$/g, '') === activePath)
     ?? scopedNavigation.filter(item => activePath.startsWith(`${item.to.replace(/^\/+|\/+$/g, '')}/`)).sort((a, b) => b.to.length - a.to.length)[0];
   const helpArea = location.pathname === '/help' || location.pathname.startsWith('/help/');
-  const guardrailTitles: Record<string, string> = {policy:'Policy',input:'Input rules',output:'Output rules',access:'Model access',detectors:'External checks',history:'History',denials:'Blocked requests'};
+  const guardrailTitles: Record<string, string> = isZh
+    ? {policy:'策略',input:'输入规则',output:'输出规则',access:'模型访问',detectors:'外部检测',history:'变更历史',denials:'拦截记录'}
+    : {policy:'Policy',input:'Input rules',output:'Output rules',access:'Model access',detectors:'External checks',history:'History',denials:'Blocked requests'};
   const isGuardrailEditor = ['guardrails/input','guardrails/output','guardrails/access','guardrails/detectors'].includes(activePath);
-  const title = workspaceDirectoryArea ? 'Workspaces' : settingsArea ? ({account:'Account',appearance:'Appearance',billing:'Billing',payments:'Payments',about:'About'}[location.pathname.split('/')[2] ?? 'account'] ?? 'Settings') : loginArea
-    ? location.pathname === '/installation' ? 'Installation administration' : 'Sign in'
+  const title = workspaceDirectoryArea ? t('Workspaces', '工作空间') : settingsArea ? ({account:t('Account', '账户'),appearance:t('Appearance', '外观'),billing:t('Billing', '计费'),payments:t('Payments', '付款方式'),about:t('About', '关于')}[location.pathname.split('/')[2] ?? 'account'] ?? t('Settings', '设置')) : loginArea
+    ? location.pathname === '/installation' ? t('Installation administration', '实例管理') : t('Sign in', '登录')
     : helpArea
-      ? 'Documentation'
+      ? t('Documentation', '文档')
     : supplierArea
-      ? ({ commercial: 'Financial statements', 'customer-accounts': 'Customer accounts', oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
+      ? ({ commercial: t('Financial statements', '财务报表'), 'customer-accounts': t('Customer accounts', '客户账户'), oauth: t('OAuth providers', 'OAuth 服务商'), payments: t('Payment gateways', '支付网关'), pricing: t('Customer pricing', '客户定价'), branding: t('Branding & theme', '品牌与主题'), 'audit-logs': t('Audit logs', '审计日志'), overview: t('Overview', '概览'), configuration: t('API keys & routes', 'API 密钥与路由'), models: t('Models & pricing', '模型与报价'), consumption: t('Usage', '调用量'), settlements: t('Settlements', '结算账单'), members: t('Portal access', '门户权限'), settings: t('Settings', '设置') }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/admin/suppliers' ? t('Providers', '模型供应商') : supplierManagement ? t('Overview', '概览') : t('Providers', '模型供应商')))
       : activePath === 'keys/new'
-        ? 'New API key'
+        ? t('New API key', '新建 API 密钥')
         : activePath.startsWith('keys/')
-          ? 'API key'
-          : activePath.startsWith('guardrails/') ? guardrailTitles[activePath.split('/')[1]] ?? 'Guardrails'
-          : activeNavigation?.label ?? 'Page not found';
+          ? t('API key', 'API 密钥')
+          : activePath.startsWith('guardrails/') ? guardrailTitles[activePath.split('/')[1]] ?? t('Guardrails', '安全护栏')
+          : activeNavigation ? (isZh ? activeNavigation.labelZh : activeNavigation.label) : t('Page not found', '页面未找到');
 
   useEffect(() => {
     document.title = `${title} · ${branding.display_name}`;
@@ -793,10 +801,10 @@ export default function AppLayout() {
       navigate('/login', { state: { from: location.pathname + location.search + location.hash }, replace: true });
     }
   }, [loginArea, helpArea, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
-  const signOutFailure = signOutFailed && <Dialog open onOpenChange={setSignOutFailed}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Could not sign out</DialogTitle><DialogDescription>Your session has not been confirmed revoked. Try again when the connection is available.</DialogDescription></DialogHeader><DialogFooter><Button onClick={() => { void signOut(); }}>Try again</Button></DialogFooter></DialogContent></Dialog>;
-  const gatewayOutage = !helpArea && gatewayStatus === 'offline' && <Dialog open><DialogContent showCloseButton={false} onEscapeKeyDown={event => event.preventDefault()} onInteractOutside={event => event.preventDefault()} className="sm:max-w-md"><DialogHeader><WifiOff className="mb-2 size-6 text-muted-foreground" aria-hidden="true" /><DialogTitle>Gateway unavailable</DialogTitle><DialogDescription>We couldn’t reach the gateway. We’ll reconnect automatically when the service returns.</DialogDescription></DialogHeader><DialogFooter><Button disabled={gateway.checking} onClick={() => { void gateway.check(); }}>{gateway.checking ? 'Checking…' : 'Try again'}</Button></DialogFooter></DialogContent></Dialog>;
+  const signOutFailure = signOutFailed && <Dialog open onOpenChange={setSignOutFailed}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>{t('Could not sign out', '无法退出登录')}</DialogTitle><DialogDescription>{t('Your session has not been confirmed revoked. Try again when the connection is available.', '尚未确认注销您的会话，请在网络连接恢复后重试。')}</DialogDescription></DialogHeader><DialogFooter><Button onClick={() => { void signOut(); }}>{t('Try again', '重试')}</Button></DialogFooter></DialogContent></Dialog>;
+  const gatewayOutage = !helpArea && gatewayStatus === 'offline' && <Dialog open><DialogContent showCloseButton={false} onEscapeKeyDown={event => event.preventDefault()} onInteractOutside={event => event.preventDefault()} className="sm:max-w-md"><DialogHeader><WifiOff className="mb-2 size-6 text-muted-foreground" aria-hidden="true" /><DialogTitle>{t('Gateway unavailable', '网关不可用')}</DialogTitle><DialogDescription>{t('We couldn’t reach the gateway. We’ll reconnect automatically when the service returns.', '无法连接到网关。服务恢复后将自动重新连接。')}</DialogDescription></DialogHeader><DialogFooter><Button disabled={gateway.checking} onClick={() => { void gateway.check(); }}>{gateway.checking ? t('Checking…', '正在检查…') : t('Try again', '重试')}</Button></DialogFooter></DialogContent></Dialog>;
   if (!loginArea && !helpArea && !token && !sessionChecked) return <>{gatewayOutage}{signOutFailure}<RouterPending /></>;
-  if (!loginArea && !helpArea && !token) return <p role="status">Redirecting to sign in…</p>;
+  if (!loginArea && !helpArea && !token) return <p role="status">{t('Redirecting to sign in…', '正在跳转到登录页…')}</p>;
   if (loginArea) return <div className="dashboard-login-shell"><Outlet context={context} /></div>;
   return <SidebarProvider
     open={sidebarOpen}
@@ -804,17 +812,17 @@ export default function AppLayout() {
     className="app-shell"
     style={{ '--sidebar-width': 'var(--context)', '--sidebar-width-icon': 'var(--context)', '--sidebar-width-mobile': 'var(--context)' } as CSSProperties}
   >
-    <a className="dashboard-skip" href="#dashboard-content">Skip to content</a>
+    <a className="dashboard-skip" href="#dashboard-content">{t('Skip to content', '跳转到主内容')}</a>
     {!settingsArea && ['account','appearance','billing','payments','about'].includes(new URLSearchParams(location.search).get('settings') ?? '') && <SettingsDialog context={context} section={new URLSearchParams(location.search).get('settings') ?? undefined} href={section => settingsHref(location.pathname,location.search,location.hash,section)} onClose={() => { const query = new URLSearchParams(location.search); query.delete('settings'); navigate(location.pathname + (query.size ? '?' + query.toString() : '') + location.hash,{replace:true}); }}/>} 
     <WorkspaceCreateDialog context={context} open={workspaceCreateOpen} onOpenChange={setWorkspaceCreateOpen} />
     <nav className="app-rail" aria-label="Product navigation">
       <a className="rail-logo" href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a>
-      {showWorkspaceAreas && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${destination === 'Workspace' && location.pathname.startsWith('/workspaces/') && !supplierArea ? ' selected' : ''}`} aria-label="Workspace"><RailWorkspace size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Workspace</TooltipContent></Tooltip>}
-      {showWorkspaceAreas && <><Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/generations" className={`rail-item${activePath === 'generations' ? ' selected' : ''}`} aria-label="Generations"><RailChat size={23} stroke={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Generations</TooltipContent></Tooltip>
-      <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/activity" className={`rail-item${activePath.startsWith('activity') ? ' selected' : ''}`} aria-label="Activity"><ChartNoAxesCombined size={23} aria-hidden="true" /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Activity</TooltipContent></Tooltip>
-      <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={modelsHref} reloadDocument={!token} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models"><RailModels size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Models</TooltipContent></Tooltip>
+      {showWorkspaceAreas && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${destination === 'Workspace' && location.pathname.startsWith('/workspaces/') && !supplierArea ? ' selected' : ''}`} aria-label={t('Workspace', '工作空间')}><RailWorkspace size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('Workspace', '工作空间')}</TooltipContent></Tooltip>}
+      {showWorkspaceAreas && <><Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/generations" className={`rail-item${activePath === 'generations' ? ' selected' : ''}`} aria-label={t('Generations', '生成对话')}><RailChat size={23} stroke={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('Generations', '生成对话')}</TooltipContent></Tooltip>
+      <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/activity" className={`rail-item${activePath.startsWith('activity') ? ' selected' : ''}`} aria-label={t('Activity', '活动')}><ChartNoAxesCombined size={23} aria-hidden="true" /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('Activity', '活动')}</TooltipContent></Tooltip>
+      <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={modelsHref} reloadDocument={!token} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label={t('Models', '模型')}><RailModels size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('Models', '模型')}</TooltipContent></Tooltip>
       </>}
-      <div className="rail-bottom">{((isInstallation && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/suppliers' : session?.provider_memberships?.length ? `/suppliers/${session.provider_memberships[0].id}` : '/suppliers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? "Admin" : "Providers"}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? "Admin" : "Providers"}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation">{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Documentation</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
+      <div className="rail-bottom">{((isInstallation && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/suppliers' : session?.provider_memberships?.length ? `/suppliers/${session.provider_memberships[0].id}` : '/suppliers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? t("Admin", "管理后台") : t("Providers", "模型供应商")}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? t("Admin", "管理后台") : t("Providers", "模型供应商")}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label={t("Documentation", "文档")}>{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t("Documentation", "文档")}</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
     </nav>
     <div className="app-rail-spacer" aria-hidden="true" />
     {hasSidebar && <Sidebar
@@ -827,7 +835,7 @@ export default function AppLayout() {
       mobileClassName="niu-workspace-sidebar-mobile" mobileContentProps={{ onCloseAutoFocus: event => { if (toggleRef.current?.isConnected) { event.preventDefault(); toggleRef.current.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }}
       mobileStyle={{ left: 'var(--rail)', top: 0, right: 0, bottom: 0, width: 'min(var(--context), calc(100vw - var(--rail)))', height: 'auto' }}
     >
-      {activityArea ? <><SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">Activity</h2></SidebarHeader><SidebarContent className="workspace-sidebar-content"><nav aria-label="Activity navigation"><SidebarMenu className="workspace-nav-menu">{[{to:'/activity',label:'Overview',icon:LayoutDashboard},{to:'/activity/logs',label:'Logs',icon:IconListDetails}].map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild isActive={location.pathname === item.to} className="nav-item"><ProductRailLink to={item.to + location.search} end><item.icon className="nav-icon" aria-hidden="true"/><span>{item.label}</span></ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></nav></SidebarContent></> : settingsArea ? <SettingsNavigation context={context} /> : adminArea ? <SupplierNav context={context} /> : supplierArea ? <SupplierNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} onCreateWorkspace={() => setWorkspaceCreateOpen(true)} />}
+      {activityArea ? <><SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">{t('Activity', '活动')}</h2></SidebarHeader><SidebarContent className="workspace-sidebar-content"><nav aria-label="Activity navigation"><SidebarMenu className="workspace-nav-menu">{[{to:'/activity',label:t('Overview', '概览'),icon:LayoutDashboard},{to:'/activity/logs',label:t('Logs', '请求日志'),icon:IconListDetails}].map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild isActive={location.pathname === item.to} className="nav-item"><ProductRailLink to={item.to + location.search} end><item.icon className="nav-icon" aria-hidden="true"/><span>{item.label}</span></ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></nav></SidebarContent></> : settingsArea ? <SettingsNavigation context={context} /> : adminArea ? <SupplierNav context={context} /> : supplierArea ? <SupplierNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} onCreateWorkspace={() => setWorkspaceCreateOpen(true)} />}
       {phoneNavigation && <SidebarFooter><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile /></SidebarFooter>}
     </Sidebar>}
     <SidebarInset className="main-panel">
@@ -836,30 +844,30 @@ export default function AppLayout() {
         {(hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <WorkspaceSidebarToggle buttonRef={toggleRef} supplierArea={supplierArea} modelsArea={destination === 'Models'} settingsArea={settingsArea} activityArea={activityArea} adminArea={adminArea} />}
         {phoneNavigation && (hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a>}
         {destination === 'Workspace' && !workspaceDirectoryArea && !supplierArea && !adminArea ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList className="flex-nowrap gap-1 sm:gap-2.5">
-          <BreadcrumbItem className="min-w-0 gap-0"><BreadcrumbLink asChild><NavLink className={`truncate ${activePath.startsWith('guardrails/') ? 'max-w-12' : 'max-w-16'} sm:max-w-64`} to={activeWorkspacePath}>{workspace ? workspaceDisplayName(workspace.name) : 'Workspace'}</NavLink></BreadcrumbLink>
+          <BreadcrumbItem className="min-w-0 gap-0"><BreadcrumbLink asChild><NavLink className={`truncate ${activePath.startsWith('guardrails/') ? 'max-w-12' : 'max-w-16'} sm:max-w-64`} to={activeWorkspacePath}>{workspace ? workspaceDisplayName(workspace.name) : t('Workspace', '工作空间')}</NavLink></BreadcrumbLink>
             <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6 shrink-0" aria-label="Switch workspace in header" disabled={!workspaces.length}><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="start"><DropdownMenuLabel>Workspaces</DropdownMenuLabel><DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {const next=workspaces.find(item => item.id === id);if(next) selectWorkspace(next);}}>{workspaces.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>{workspaceDisplayName(item.name)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup><DropdownMenuSeparator/><DropdownMenuItem asChild><NavLink to="/workspaces">All workspaces</NavLink></DropdownMenuItem></DropdownMenuContent>
+              <DropdownMenuContent align="start"><DropdownMenuLabel>{t('Workspaces', '工作空间')}</DropdownMenuLabel><DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {const next=workspaces.find(item => item.id === id);if(next) selectWorkspace(next);}}>{workspaces.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>{workspaceDisplayName(item.name)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup><DropdownMenuSeparator/><DropdownMenuItem asChild><NavLink to="/workspaces">{t('All workspaces', '所有工作空间')}</NavLink></DropdownMenuItem></DropdownMenuContent>
             </DropdownMenu>
           </BreadcrumbItem>
           <BreadcrumbSeparator>/</BreadcrumbSeparator>
-          {activePath.startsWith('keys/') && <><BreadcrumbItem><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/keys`}>API keys</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator>/</BreadcrumbSeparator></>}
-          {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>Guardrails</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator></>}
-          {isGuardrailEditor && <><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator></>}
-          {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="sm:hidden"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6" aria-label="Show parent pages">…</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>Guardrails</NavLink></DropdownMenuItem>{isGuardrailEditor && <DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></BreadcrumbItem><BreadcrumbSeparator className="sm:hidden">/</BreadcrumbSeparator></>}
-          <BreadcrumbItem className="min-w-0"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 max-w-full gap-1 px-1 py-1" aria-label="Switch workspace page"><h1 className="dashboard-route-title">{title}</h1><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeNavigation?.to ?? ''} onValueChange={value => navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)}>{scopedNavigation.filter(item => item.destination === 'Workspace').map(item => <DropdownMenuRadioItem key={item.to} value={item.to}>{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></BreadcrumbItem>
-        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin">Admin</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin/suppliers">Providers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/suppliers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Provider…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : adminArea ? 'Admin' : supplierArea ? 'Providers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={modelsHref} reloadDocument={!token}>Models</NavLink> : title}</h1></Breadcrumb>}
+          {activePath.startsWith('keys/') && <><BreadcrumbItem><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/keys`}>{t('API keys', 'API 密钥')}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator>/</BreadcrumbSeparator></>}
+          {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>{t('Guardrails', '安全护栏')}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator></>}
+          {isGuardrailEditor && <><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>{t('Policy', '策略')}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator></>}
+          {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="sm:hidden"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6" aria-label="Show parent pages">…</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>{t('Guardrails', '安全护栏')}</NavLink></DropdownMenuItem>{isGuardrailEditor && <DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>{t('Policy', '策略')}</NavLink></DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></BreadcrumbItem><BreadcrumbSeparator className="sm:hidden">/</BreadcrumbSeparator></>}
+          <BreadcrumbItem className="min-w-0"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 max-w-full gap-1 px-1 py-1" aria-label="Switch workspace page"><h1 className="dashboard-route-title">{title}</h1><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeNavigation?.to ?? ''} onValueChange={value => navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)}>{scopedNavigation.filter(item => item.destination === 'Workspace').map(item => <DropdownMenuRadioItem key={item.to} value={item.to}>{isZh ? item.labelZh : item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></BreadcrumbItem>
+        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin">{t('Admin', '管理后台')}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin/suppliers">{t('Providers', '模型供应商')}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/suppliers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || t('Loading Provider…', '正在加载供应商…')}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? t('Settings', '设置') : adminArea ? t('Admin', '管理后台') : supplierArea ? t('Providers', '模型供应商') : platform ? t('Platform', '平台') : destination === 'Organization' ? t('Organization', '组织') : t('Workspace', '工作空间')}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={modelsHref} reloadDocument={!token}>{t('Models', '模型')}</NavLink> : title}</h1></Breadcrumb>}
         <div id="dashboard-page-actions" className="dashboard-page-actions" />
       </header>}
       <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>
-        {!helpArea && gatewayStatus === 'checking' && <p role="status">Connecting to your workspace…</p>}
+        {!helpArea && gatewayStatus === 'checking' && <p role="status">{t('Connecting to your workspace…', '正在连接工作空间…')}</p>}
         {gatewayOutage}{signOutFailure}
         {(helpArea || gateway.everConnected) && <div className="gateway-route-content" hidden={!helpArea && gatewayStatus !== 'online'}>
           {adminSupplierId && <Tabs value={location.pathname.split('/')[4] || 'overview'} onValueChange={section => navigate(`/admin/suppliers/${encodeURIComponent(adminSupplierId)}${section === 'overview' ? '' : '/' + section}`)} className="mb-6 min-w-0">
             <div ref={supplierTabsRef} className="max-w-full overflow-x-auto"><TabsList variant="line" aria-label="Provider sections">
-              {[['overview', 'Overview'], ['configuration', 'API keys & routes'], ['models', 'Models & pricing'], ['consumption', 'Usage'], ['settlements', 'Settlements'], ['members', 'Portal access'], ['settings', 'Settings']].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
+              {[['overview', t('Overview', '概览')], ['configuration', t('API keys & routes', 'API 密钥与路由')], ['models', t('Models & pricing', '模型与报价')], ['consumption', t('Usage', '调用量')], ['settlements', t('Settlements', '结算账单')], ['members', t('Portal access', '门户权限')], ['settings', t('Settings', '设置')]].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
             </TabsList></div>
           </Tabs>}
-          {helpArea ? <Outlet context={context} /> : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !supplierArea && !settingsArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}
+          {helpArea ? <Outlet context={context} /> : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !supplierArea && !settingsArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">{t('Loading workspace…', '正在加载工作空间…')}</p> : <Outlet context={context} />}
         </div>}
       </div>
     </SidebarInset>

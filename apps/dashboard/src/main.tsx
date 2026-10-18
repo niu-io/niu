@@ -6,8 +6,10 @@ import { createDashboardRouter } from './app/routes';
 import './styles.css';
 
 import { applyTheme, readTheme } from './app/theme';
+import { applyLocale, readLocale } from './app/locale';
 
 applyTheme(readTheme());
+applyLocale(readLocale());
 const router = createDashboardRouter();
 
 createRoot(document.getElementById('root')!).render(

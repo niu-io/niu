@@ -2,18 +2,21 @@
   <div>
     <a class="wordmark" href="/" aria-label="Niu home">
       <img src="/catalog-assets/brand/niu-mark.png" alt="" width="28" height="28" />
-      <span>Niu</span>
+      <span data-en="Niu" data-zh="Niu 牛元">Niu</span>
     </a>
-    <p>Open source. Self-hosted. In development.</p>
+    <p data-en="Open source. Self-hosted. In development." data-zh="开源 · 支持私有化部署 · 持续演进中。">Open source. Self-hosted. In development.</p>
   </div>
   <nav class="footer-links" aria-label="Footer navigation">
-    <a href="/models/">Models</a>
-    <a href="/docs/">Documentation</a>
-    <a href="/workspaces/default/">Dashboard</a>
-    <a href="https://niu.io/blog/why-niu/">Why Niu?</a>
-    <a href="https://niu.io/blog/">Blog</a>
-    <a href="/compare/">Compare</a>
+    <a href="/models/" data-en="Models" data-zh="模型目录">Models</a>
+    <a href="/docs/" data-en="Documentation" data-zh="文档">Documentation</a>
+    <a href="/workspaces/default/" data-en="Dashboard" data-zh="控制台">Dashboard</a>
+    <a href="https://niu.io/blog/why-niu/" data-en="Why Niu?" data-zh="为什么选择牛元？">Why Niu?</a>
+    <a href="https://niu.io/blog/" data-en="Blog" data-zh="博客">Blog</a>
+    <a href="/compare/" data-en="Compare" data-zh="对比">Compare</a>
     <a href="https://github.com/niu-io/niu">GitHub</a>
-    <a href="/catalog-assets/brand/SOURCE-LICENSE.txt">Brand attribution</a>
+    <a href="/catalog-assets/brand/SOURCE-LICENSE.txt" data-en="Brand attribution" data-zh="品牌署名">Brand attribution</a>
   </nav>
 </footer>
+<script is:inline>
+(()=>{const sync=()=>{const zh=document.documentElement.dataset.locale==='zh-CN'||document.documentElement.lang==='zh-CN';document.querySelectorAll('footer.footer [data-en][data-zh]').forEach(el=>{el.textContent=el.getAttribute(zh?'data-zh':'data-en')||'';});};sync();window.addEventListener('niu-locale-change',sync);window.addEventListener('storage',sync);})();
+</script>
