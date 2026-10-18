@@ -22,6 +22,7 @@ pub(super) struct ModuleRuntime {
     pub(super) declaration: ModuleDeclaration,
     pub(super) http: reqwest::Client,
     healthy_until: std::sync::Mutex<Option<std::time::Instant>>,
+    probe_lock: tokio::sync::Mutex<()>,
 }
 
 pub(super) struct RegisteredRoute {
@@ -126,6 +127,7 @@ impl EnterpriseRuntime {
                 declaration,
                 http,
                 healthy_until: std::sync::Mutex::new(None),
+                probe_lock: tokio::sync::Mutex::new(()),
             });
         }
         let runtime = Self {
@@ -263,6 +265,15 @@ impl EnterpriseRuntime {
 
 impl ModuleRuntime {
     pub(super) async fn is_healthy(&self) -> bool {
+        if let Some(until) = *self
+            .healthy_until
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            && std::time::Instant::now() < until
+        {
+            return true;
+        }
+        let _guard = self.probe_lock.lock().await;
         if let Some(until) = *self
             .healthy_until
             .lock()

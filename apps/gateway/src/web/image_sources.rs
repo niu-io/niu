@@ -147,11 +147,18 @@ pub(crate) async fn read(
     let source = match state
         .store
         .deliver_asset_image_source(&token, &detectors, |aad, bytes| {
-            tokio::task::block_in_place(|| {
+            let open = || {
                 cipher
                     .open_bytes_with_aad(aad, bytes)
                     .map_err(|_| niu_storage::StoreError::InvalidObservation)
-            })
+            };
+            if tokio::runtime::Handle::try_current()
+                .is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+            {
+                tokio::task::block_in_place(open)
+            } else {
+                open()
+            }
         })
         .await
     {

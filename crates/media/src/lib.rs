@@ -331,6 +331,14 @@ impl VideoSchema {
         references: &[(usize, &str, &str)],
     ) -> Result<ValidatedVideoRequest, ValidationError> {
         self.validate()?;
+        self.validate_provider_asset_references(references)?;
+        self.validate_request_with_trusted_asset_references(bytes, references)
+    }
+
+    fn validate_provider_asset_references(
+        &self,
+        references: &[(usize, &str, &str)],
+    ) -> Result<(), ValidationError> {
         if !references.is_empty()
             && (self.channel != "ark-direct-v1"
                 || references.len() > self.maximum_content_items
@@ -343,25 +351,93 @@ impl VideoSchema {
                             || references[..index]
                                 .iter()
                                 .any(|(other, _, _)| other == position)
-                            || !uri.strip_prefix("asset://").is_some_and(|id| {
-                                !id.is_empty()
-                                    && id.len() <= 256
-                                    && id.bytes().all(|byte| {
-                                        byte.is_ascii_alphanumeric() || b"_-.:".contains(&byte)
-                                    })
-                            })
+                            || !valid_prepared_asset_uri(uri)
                     }))
         {
             return Err(ValidationError::InvalidContent);
         }
-        self.validate_request_with_trusted_asset_references(bytes, references)
+        Ok(())
     }
 
+    /// Re-validate a prepared request value against this schema, preserving
+    /// previously validated `asset://` references on `ark-direct-v1` channels.
+    /// Never call this directly on untrusted client HTTP bytes; use
+    /// `validate_request` for raw client payloads.
     pub fn validate_request_value(
         &self,
         value: Value,
     ) -> Result<ValidatedVideoRequest, ValidationError> {
-        self.validate_value_with_trusted_asset_references(value, &[])
+        self.validate_request_value_allowing_prepared_assets(value)
+    }
+
+    /// Re-validate a prepared request JSON value while accepting `asset://`
+    /// references that match `ark-direct-v1` provider/ingested asset rules.
+    pub fn validate_request_value_allowing_prepared_assets(
+        &self,
+        value: Value,
+    ) -> Result<ValidatedVideoRequest, ValidationError> {
+        self.validate()?;
+        let extracted: Vec<(usize, String, String)> = if self.channel == "ark-direct-v1" {
+            value
+                .get("content")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(position, item)| {
+                            let kind = item.get("type").and_then(Value::as_str)?;
+                            if !matches!(kind, "image_url" | "video_url" | "audio_url") {
+                                return None;
+                            }
+                            let uri = item
+                                .get(kind)
+                                .and_then(Value::as_object)
+                                .and_then(|obj| obj.get("url"))
+                                .and_then(Value::as_str)?;
+                            if uri.starts_with("asset://") && valid_prepared_asset_uri(uri) {
+                                Some((position, kind.to_owned(), uri.to_owned()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let refs: Vec<(usize, &str, &str)> = extracted
+            .iter()
+            .map(|(pos, kind, uri)| (*pos, kind.as_str(), uri.as_str()))
+            .collect();
+        self.validate_provider_asset_references(&refs)?;
+        self.validate_value_with_trusted_asset_references(value, &refs)
+    }
+
+    /// Re-validate a previously constructed `ValidatedVideoRequest` against
+    /// this schema (including its pinned `trusted_asset_references`).
+    pub fn validate_prepared_request(
+        &self,
+        request: &ValidatedVideoRequest,
+    ) -> Result<ValidatedVideoRequest, ValidationError> {
+        self.validate()?;
+        if request.body().get("model").and_then(Value::as_str) != Some(self.upstream_model.as_str())
+            || request.schema_revision() != self.revision
+        {
+            return Err(ValidationError::ModelMismatch);
+        }
+        let mut client_body = request.body().clone();
+        if let Some(obj) = client_body.as_object_mut() {
+            obj.insert("model".into(), Value::String(self.model_alias.clone()));
+        }
+        let refs: Vec<(usize, &str, &str)> = request
+            .trusted_asset_references
+            .iter()
+            .map(|(pos, kind, uri)| (*pos, kind.as_str(), uri.as_str()))
+            .collect();
+        self.validate_provider_asset_references(&refs)?;
+        self.validate_value_with_trusted_asset_references(client_body, &refs)
     }
 
     // Share parsing, schema roles/counts, ordinary URL rules and effective
@@ -513,8 +589,22 @@ impl VideoSchema {
             effective_controls: effective,
             effective_output,
             schema_revision: self.revision.clone(),
+            trusted_asset_references: references
+                .iter()
+                .map(|(position, kind, uri)| (*position, (*kind).to_owned(), (*uri).to_owned()))
+                .collect(),
         })
     }
+}
+
+fn valid_prepared_asset_uri(uri: &str) -> bool {
+    uri.strip_prefix("asset://").is_some_and(|id| {
+        !id.is_empty()
+            && id.len() <= 256
+            && id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"_-.:".contains(&byte))
+    })
 }
 
 fn hash_and_bound_json(value: &Value, max_bytes: usize) -> Result<String, ValidationError> {
@@ -657,6 +747,7 @@ pub struct ValidatedVideoRequest {
     effective_controls: Map<String, Value>,
     effective_output: Option<output::EffectiveVideoOutput>,
     schema_revision: String,
+    trusted_asset_references: Vec<(usize, String, String)>,
 }
 
 impl ValidatedVideoRequest {
@@ -678,7 +769,162 @@ impl ValidatedVideoRequest {
     pub fn schema_revision(&self) -> &str {
         &self.schema_revision
     }
+    pub fn trusted_asset_references(&self) -> &[(usize, String, String)] {
+        &self.trusted_asset_references
+    }
     pub fn into_body(self) -> Value {
         self.body
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn ark_schema_with_output() -> VideoSchema {
+        serde_json::from_value(json!({
+            "version": 1,
+            "revision": "ark-output-v1",
+            "model_alias": "seedance-2.0",
+            "upstream_model": "doubao-seedance-2-0",
+            "channel": "ark-direct-v1",
+            "maximum_body_bytes": 16384,
+            "maximum_content_items": 8,
+            "inputs": {
+                "text": {
+                    "maximum_items": 2,
+                    "maximum_bytes": 1024,
+                    "https": false,
+                    "data_mime_types": [],
+                    "roles": [],
+                    "role_required": false
+                },
+                "image_url": {
+                    "maximum_items": 4,
+                    "maximum_bytes": 512,
+                    "https": true,
+                    "data_mime_types": ["image/png"],
+                    "roles": ["first_frame", "reference_image"],
+                    "role_required": false
+                },
+                "video_url": {
+                    "maximum_items": 2,
+                    "maximum_bytes": 512,
+                    "https": true,
+                    "data_mime_types": [],
+                    "roles": ["reference_video"],
+                    "role_required": false
+                },
+                "audio_url": {
+                    "maximum_items": 2,
+                    "maximum_bytes": 512,
+                    "https": true,
+                    "data_mime_types": [],
+                    "roles": ["reference_audio"],
+                    "role_required": false
+                }
+            },
+            "controls": {
+                "resolution": {"kind": "choice", "values": ["720p"], "default": "720p"},
+                "ratio": {"kind": "choice", "values": ["16:9"], "default": "16:9"},
+                "duration": {"kind": "integer", "minimum": 1, "maximum": 10, "default": 5},
+                "frames_per_second": {"kind": "integer", "minimum": 24, "maximum": 60, "default": 24}
+            },
+            "required_controls": [],
+            "exclusive_controls": [],
+            "callbacks_qualified": false,
+            "output": {
+                "specifications": [{"resolution": "720p", "ratio": "16:9", "width": 1280, "height": 720}],
+                "estimator": "SeedancePixelsV1",
+                "estimator_revision": "pixels-v1"
+            }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn prepared_request_revalidation_preserves_ingested_and_provider_assets_and_blocks_raw_asset_uris()
+     {
+        let schema = ark_schema_with_output();
+
+        // 1. Raw client request with `asset://` must still be rejected by `validate_request`
+        let raw_body = json!({
+            "model": "seedance-2.0",
+            "content": [
+                {"type": "text", "text": "animate scene"},
+                {"type": "image_url", "image_url": {"url": "asset://asset-ingested-123"}}
+            ]
+        });
+        let raw_bytes = serde_json::to_vec(&raw_body).unwrap();
+        assert_eq!(
+            schema.validate_request(&raw_bytes).err(),
+            Some(ValidationError::InvalidContent)
+        );
+
+        // 2. Ingested image request re-validates via both `validate_request_value` and `validate_prepared_request`
+        let ingested = schema
+            .validate_request_with_ingested_images(&raw_bytes, &[(1, "asset://asset-ingested-123")])
+            .unwrap();
+        assert_eq!(ingested.trusted_asset_references().len(), 1);
+        let revalidated_ingested = schema.validate_prepared_request(&ingested).unwrap();
+        assert_eq!(
+            revalidated_ingested.effective_output(),
+            ingested.effective_output()
+        );
+        let mut client_body = ingested.body().clone();
+        client_body["model"] = Value::String(schema.model_alias.clone());
+        let revalidated_from_value = schema.validate_request_value(client_body).unwrap();
+        assert_eq!(
+            revalidated_from_value.effective_output(),
+            ingested.effective_output()
+        );
+
+        // 3. Provider assets with image_url, video_url, and audio_url re-validate seamlessly
+        let multimodal_body = json!({
+            "model": "seedance-2.0",
+            "content": [
+                {"type": "text", "text": "multimodal reference"},
+                {"type": "image_url", "role": "reference_image", "image_url": {"url": "asset://asset-img-001"}},
+                {"type": "video_url", "role": "reference_video", "video_url": {"url": "asset://asset-vid-002"}},
+                {"type": "audio_url", "role": "reference_audio", "audio_url": {"url": "asset://asset-aud-003"}}
+            ]
+        });
+        let multimodal_bytes = serde_json::to_vec(&multimodal_body).unwrap();
+        let prepared = schema
+            .validate_request_with_provider_assets(
+                &multimodal_bytes,
+                &[
+                    (1, "image_url", "asset://asset-img-001"),
+                    (2, "video_url", "asset://asset-vid-002"),
+                    (3, "audio_url", "asset://asset-aud-003"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(prepared.trusted_asset_references().len(), 3);
+
+        let revalidated_prepared = schema.validate_prepared_request(&prepared).unwrap();
+        assert_eq!(
+            revalidated_prepared.effective_output(),
+            prepared.effective_output()
+        );
+        assert_eq!(
+            revalidated_prepared.effective_controls(),
+            prepared.effective_controls()
+        );
+
+        let mut multimodal_client_body = prepared.body().clone();
+        multimodal_client_body["model"] = Value::String(schema.model_alias.clone());
+        let revalidated_multimodal_value = schema
+            .validate_request_value(multimodal_client_body)
+            .unwrap();
+        assert_eq!(
+            revalidated_multimodal_value.effective_output(),
+            prepared.effective_output()
+        );
+        assert_eq!(
+            revalidated_multimodal_value.effective_controls(),
+            prepared.effective_controls()
+        );
     }
 }

@@ -70,6 +70,7 @@ LEFT JOIN media_submission_keys submitted
     ON submitted.organization_id=intent.organization_id AND submitted.project_id=intent.project_id
     AND submitted.key_digest=niu_submission_key_digest(intent.submission_key)
 LEFT JOIN attempts attempt ON attempt.id = COALESCE(association.task_id,submitted.attempt_id)
+    AND attempt.organization_id = t.organization_id AND attempt.project_id = t.project_id
 LEFT JOIN media_jobs job ON job.attempt_id = attempt.id
 LEFT JOIN LATERAL (
     SELECT ARRAY(

@@ -730,10 +730,11 @@ pub(super) async fn begin_retry_attempt(
                         ),
                         reasoning_output: matches!(
                             protocol,
-                            crate::guardrails::input::Protocol::Chat
-                                | crate::guardrails::input::Protocol::Responses
+                            crate::guardrails::input::Protocol::Responses
                                 | crate::guardrails::input::Protocol::GenerateContent
-                        ),
+                        ) || (protocol
+                            == crate::guardrails::input::Protocol::Chat
+                            && model.protocol().is_openai_compatible()),
                     },
                 },
                 retry.map(|(_, policy)| policy),

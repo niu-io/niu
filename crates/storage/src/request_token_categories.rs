@@ -54,6 +54,17 @@ impl RequestTokenCategories {
         )
     }
 
+    pub fn from_gemini_usage(usage: &serde_json::Value, totals: (u64, u64)) -> Option<Self> {
+        let meta = usage.get("usageMetadata").unwrap_or(usage);
+        Self::from_reported_usage(
+            meta,
+            totals,
+            "/cachedContentTokenCount",
+            "/cacheWriteTokenCount",
+            "/thoughtsTokenCount",
+        )
+    }
+
     fn from_reported_usage(
         usage: &serde_json::Value,
         totals: (u64, u64),
@@ -168,6 +179,23 @@ mod tests {
                 (10, 5)
             ),
             None
+        );
+        assert_eq!(
+            RequestTokenCategories::from_gemini_usage(
+                &json!({
+                    "usageMetadata": {
+                        "cachedContentTokenCount": 4,
+                        "cacheWriteTokenCount": 2,
+                        "thoughtsTokenCount": 3
+                    }
+                }),
+                (10, 5)
+            ),
+            Some(RequestTokenCategories {
+                cache_write_input_tokens: Some(2),
+                cached_input_tokens: Some(4),
+                reasoning_output_tokens: Some(3),
+            })
         );
     }
 }

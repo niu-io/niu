@@ -23,8 +23,16 @@ pub struct AppState {
     pub(crate) payments: Option<Arc<crate::payments::Runtime>>,
     pub(crate) epay_payments: Option<Arc<crate::payments::EPayRuntime>>,
     #[allow(clippy::type_complexity)]
-    pub(crate) epay_runtime_cache:
-        Arc<std::sync::Mutex<Option<(i64, Vec<u8>, Option<Arc<crate::payments::EPayRuntime>>)>>>,
+    pub(crate) epay_runtime_cache: Arc<
+        std::sync::Mutex<
+            Option<(
+                i64,
+                usize,
+                Vec<u8>,
+                Option<Arc<crate::payments::EPayRuntime>>,
+            )>,
+        >,
+    >,
     pub(crate) payment_configuration_guard: Arc<tokio::sync::RwLock<()>>,
     pub(crate) stripe_payments: Option<Arc<crate::payments::StripeRuntime>>,
     pub(crate) codex: Arc<crate::codex::Runtime>,
@@ -161,6 +169,20 @@ impl<'a> std::borrow::Borrow<dyn PriceRevisionLookup + 'a> for PriceRevisionKey 
     }
 }
 
+fn require_demo_account_loopback_bind(
+    niu_bind: Option<&str>,
+    port: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let bind = niu_bind
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("0.0.0.0:{}", port.unwrap_or("2555")));
+    let addr: std::net::SocketAddr = bind.parse()?;
+    if !addr.ip().is_loopback() {
+        return Err("NIU_DEMO_ACCOUNT_ENABLED requires a loopback bind".into());
+    }
+    Ok(())
+}
+
 impl AppState {
     pub async fn load_from_env() -> Result<Self, Box<dyn std::error::Error>> {
         let config = AppConfig::load()?;
@@ -243,6 +265,10 @@ impl AppState {
         if let Some(ref runtime) = state.password_auth
             && env::var("NIU_DEMO_ACCOUNT_ENABLED").as_deref() == Ok("1")
         {
+            require_demo_account_loopback_bind(
+                env::var("NIU_BIND").ok().as_deref(),
+                env::var("PORT").ok().as_deref(),
+            )?;
             runtime
                 .provision_local_account(&state.store, "demo@niu.io", "Hello123")
                 .await?;
@@ -862,6 +888,14 @@ mod tests {
         }));
         assert!(!authorization.permits_project_creation(organization_id));
         assert!(AdminAuthorization::Installation.can_manage_platform());
+    }
+
+    #[test]
+    fn demo_account_requires_loopback_bind() {
+        assert!(super::require_demo_account_loopback_bind(Some("127.0.0.1:2555"), None).is_ok());
+        assert!(super::require_demo_account_loopback_bind(Some("[::1]:2555"), None).is_ok());
+        assert!(super::require_demo_account_loopback_bind(None, Some("2555")).is_err());
+        assert!(super::require_demo_account_loopback_bind(Some("0.0.0.0:2555"), None).is_err());
     }
 
     fn operator_authorization(

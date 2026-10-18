@@ -97,6 +97,22 @@ impl Store {
         let next = expected + 1;
         sqlx::query("INSERT INTO key_request_rate_limits(organization_id,project_id,spending_root_id,requests_per_minute,revision) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,spending_root_id) DO UPDATE SET requests_per_minute=EXCLUDED.requests_per_minute,revision=EXCLUDED.revision")
             .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(rpm).bind(next).execute(&mut **tx).await?;
+        if rpm.is_some_and(|limit| limit > 0) {
+            sqlx::query(
+                "INSERT INTO key_request_rate_admissions(attempt_id,spending_root_id,admitted_at) \
+                 SELECT a.id,$1,a.dispatched_at \
+                 FROM attempts a \
+                 JOIN api_keys k ON k.id=a.api_key_id \
+                    AND k.organization_id=a.organization_id \
+                    AND k.project_id=a.project_id \
+                 WHERE k.spending_root_id=$1 \
+                   AND a.dispatched_at > clock_timestamp() - INTERVAL '60 seconds' \
+                 ON CONFLICT (attempt_id) DO NOTHING",
+            )
+            .bind(root)
+            .execute(&mut **tx)
+            .await?;
+        }
         sqlx::query("INSERT INTO key_request_rate_history(organization_id,project_id,spending_root_id,revision,requests_per_minute,actor_kind,actor_name,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
             .bind(scope.organization_id).bind(scope.project_id).bind(root).bind(next).bind(rpm).bind(kind).bind(name).bind(actor_id).execute(&mut **tx).await?;
         Ok(next)

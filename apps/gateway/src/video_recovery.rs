@@ -22,11 +22,15 @@ pub(crate) fn spawn(
             if *shutdown.borrow() {
                 break;
             }
+            if state.store.enqueue_pending_media_queries().await.is_err() {
+                tracing::warn!("Video query recovery enqueue requires retry");
+                continue;
+            }
             for _ in 0..8 {
                 if *shutdown.borrow() {
                     break;
                 }
-                match run_once(&state).await {
+                match claim_and_run_once(&state).await {
                     Ok(true) => continue,
                     Ok(false) => break,
                     Err(_) => {
@@ -39,8 +43,13 @@ pub(crate) fn spawn(
     })))
 }
 
+#[cfg(test)]
 pub(crate) async fn run_once(state: &AppState) -> Result<bool, niu_storage::StoreError> {
     state.store.enqueue_pending_media_queries().await?;
+    claim_and_run_once(state).await
+}
+
+async fn claim_and_run_once(state: &AppState) -> Result<bool, niu_storage::StoreError> {
     let Some(lease) = state.store.claim_media_query(uuid::Uuid::new_v4()).await? else {
         return Ok(false);
     };

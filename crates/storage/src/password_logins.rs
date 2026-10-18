@@ -128,17 +128,28 @@ impl Store {
             return Ok(false);
         };
         let mut tx = self.pool.begin().await?;
-        if !login_window(&mut tx, "global", &[0u8; 32], 120).await? {
-            tx.commit().await?;
-            return Ok(false);
-        }
         // At most 120 new identity rows can be admitted per minute. Bounded
         // cleanup keeps inactive counters from becoming permanent identity data.
         sqlx::query("DELETE FROM password_login_admission WHERE (kind,bucket) IN (SELECT kind,bucket FROM password_login_admission WHERE window_start < now()-interval '24 hours' ORDER BY window_start LIMIT 128 FOR UPDATE SKIP LOCKED)")
             .execute(&mut *tx).await?;
         let bucket = Sha256::digest(email.as_bytes());
+        if !login_window(&mut tx, "identity", bucket.as_slice(), 5).await? {
+            tx.commit().await?;
+            return Ok(false);
+        }
+        let allowed = login_window(&mut tx, "global", &[0u8; 32], 120).await?;
+        tx.commit().await?;
+        Ok(allowed)
+    }
+
+    pub async fn admit_member_password_change(
+        &self,
+        operator_id: Uuid,
+    ) -> Result<bool, StoreError> {
+        let key = format!("password_change:{operator_id}");
+        let bucket = Sha256::digest(key.as_bytes());
+        let mut tx = self.pool.begin().await?;
         let allowed = login_window(&mut tx, "identity", bucket.as_slice(), 5).await?;
-        // Even an identity-denied attempt consumes global capacity.
         tx.commit().await?;
         Ok(allowed)
     }

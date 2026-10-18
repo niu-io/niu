@@ -21,7 +21,9 @@ WITH inventory AS NOT MATERIALIZED (
  -- an explicit association and this immutable intent binding agree.
  coalesce(t.session_id,intent_binding.session_id) AS session_id,
  coalesce(t.turn_id,intent_binding.turn_id) AS turn_id,
- CASE WHEN t.task_id IS NULL AND NOT coalesce(intent_binding.has_intent,false) THEN 'unknown' ELSE 'generations' END AS source,
+ CASE WHEN t.task_id IS NOT NULL OR coalesce(intent_binding.has_intent,false) THEN 'generations'
+WHEN j.attempt_id IS NOT NULL OR EXISTS(SELECT 1 FROM media_submission_keys s WHERE s.organization_id=a.organization_id AND s.project_id=a.project_id AND s.attempt_id=a.id) THEN 'api'
+ELSE 'unknown' END AS source,
  CASE WHEN j.attempt_id IS NULL THEN 'submission_unknown'
  WHEN 'succeeded'=ANY(o.statuses) AND 'failed'=ANY(o.statuses) THEN 'reconciliation_required'
  WHEN 'succeeded'=ANY(o.statuses) THEN 'succeeded'

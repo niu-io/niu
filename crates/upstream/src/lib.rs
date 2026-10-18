@@ -160,7 +160,17 @@ impl ClientPool {
         endpoint: &str,
         timeouts: EndpointTimeouts,
     ) -> Result<reqwest::Client, EndpointError> {
-        let endpoint = parse_endpoint(endpoint, timeouts)?;
+        self.client_for_endpoint_with_policy(endpoint, timeouts, loopback_targets_allowed())
+            .await
+    }
+
+    async fn client_for_endpoint_with_policy(
+        &self,
+        endpoint: &str,
+        timeouts: EndpointTimeouts,
+        allow_loopback: bool,
+    ) -> Result<reqwest::Client, EndpointError> {
+        let endpoint = parse_endpoint_with_policy(endpoint, timeouts, allow_loopback)?;
         let entry = self.entry(endpoint.key.clone());
         let now = Instant::now();
         if let Some(client) = cached_client(&entry, now) {
@@ -289,6 +299,41 @@ fn stale_cached_client(entry: &ClientEntry, now: Instant) -> Option<reqwest::Cli
         .map(|cached| cached.client.clone())
 }
 
+/// Returns whether loopback upstream targets (`localhost`, `127.0.0.0/8`, `::1`)
+/// are permitted by current process policy. Enabled by default for local dev/test
+/// fixtures unless `NIU_DISALLOW_LOOPBACK_UPSTREAM` is truthy or
+/// `NIU_ALLOW_LOOPBACK_UPSTREAM` is explicitly disabled (`0` / `false`).
+pub fn loopback_targets_allowed() -> bool {
+    if let Ok(val) = std::env::var("NIU_DISALLOW_LOOPBACK_UPSTREAM") {
+        let trimmed = val.trim();
+        if trimmed == "1" || trimmed.eq_ignore_ascii_case("true") {
+            return false;
+        }
+    }
+    if let Ok(val) = std::env::var("NIU_ALLOW_LOOPBACK_UPSTREAM") {
+        let trimmed = val.trim();
+        if trimmed == "0" || trimmed.eq_ignore_ascii_case("false") {
+            return false;
+        }
+    }
+    true
+}
+
+/// Validate syntactic and policy constraints on an endpoint URL under the
+/// current loopback policy.
+pub fn validate_endpoint_url(endpoint: &str) -> Result<(), EndpointError> {
+    let timeouts = EndpointTimeouts::legacy(Duration::from_secs(1))?;
+    parse_endpoint_with_policy(endpoint, timeouts, loopback_targets_allowed()).map(|_| ())
+}
+
+/// Strictly validate that an endpoint URL uses `https` and targets a public
+/// authority, unconditionally rejecting `localhost`, loopback literals, and
+/// private/link-local/unspecified IP literals.
+pub fn validate_public_endpoint_url(endpoint: &str) -> Result<(), EndpointError> {
+    let timeouts = EndpointTimeouts::legacy(Duration::from_secs(1))?;
+    parse_endpoint_with_policy(endpoint, timeouts, false).map(|_| ())
+}
+
 /// Reuse a bounded pool of provider clients while pinning every DNS refresh to
 /// the addresses checked by Niu. Redirects remain disabled so credentials
 /// cannot be forwarded from a public endpoint to a private host.
@@ -311,7 +356,37 @@ pub async fn client_for_endpoint_with_timeouts(
         .await
 }
 
+/// Build or reuse a pooled provider client while unconditionally forbidding
+/// loopback (`localhost`, `127.0.0.1`, `::1`) and non-HTTPS targets.
+pub async fn client_for_public_endpoint(
+    endpoint: &str,
+    timeout: Duration,
+) -> Result<reqwest::Client, EndpointError> {
+    client_for_public_endpoint_with_timeouts(endpoint, EndpointTimeouts::legacy(timeout)?).await
+}
+
+/// Build or reuse a pooled provider client with explicit timeouts while
+/// unconditionally forbidding loopback and non-HTTPS targets.
+pub async fn client_for_public_endpoint_with_timeouts(
+    endpoint: &str,
+    timeouts: EndpointTimeouts,
+) -> Result<reqwest::Client, EndpointError> {
+    static POOL: OnceLock<ClientPool> = OnceLock::new();
+    POOL.get_or_init(ClientPool::default)
+        .client_for_endpoint_with_policy(endpoint, timeouts, false)
+        .await
+}
+
+#[cfg(test)]
 fn parse_endpoint(endpoint: &str, timeouts: EndpointTimeouts) -> Result<Endpoint, EndpointError> {
+    parse_endpoint_with_policy(endpoint, timeouts, loopback_targets_allowed())
+}
+
+fn parse_endpoint_with_policy(
+    endpoint: &str,
+    timeouts: EndpointTimeouts,
+    allow_loopback: bool,
+) -> Result<Endpoint, EndpointError> {
     let url = url::Url::parse(endpoint).map_err(|_| EndpointError::InvalidUrl)?;
     let host = url
         .host_str()
@@ -329,10 +404,26 @@ fn parse_endpoint(endpoint: &str, timeouts: EndpointTimeouts) -> Result<Endpoint
         .ok_or(EndpointError::InvalidUrl)?;
     let normalized_host = host.trim_matches(['[', ']']);
     let literal = normalized_host.parse::<IpAddr>().ok();
-    let local_target = host.eq_ignore_ascii_case("localhost")
-        || literal.is_some_and(|address| address.is_loopback());
-    if url.scheme() != "https" && !(url.scheme() == "http" && local_target) {
+    let lower_host = normalized_host.trim_end_matches('.').to_ascii_lowercase();
+    if lower_host.ends_with(".localhost")
+        || lower_host.ends_with(".local")
+        || lower_host.ends_with(".internal")
+    {
+        return Err(EndpointError::PrivateAddress);
+    }
+    let local_target =
+        lower_host == "localhost" || literal.is_some_and(|address| address.is_loopback());
+    if local_target && !allow_loopback {
+        return Err(EndpointError::PrivateAddress);
+    }
+    if url.scheme() != "https" && !(url.scheme() == "http" && local_target && allow_loopback) {
         return Err(EndpointError::InvalidUrl);
+    }
+    if let Some(ip) = literal
+        && !local_target
+        && !is_public_address(ip)
+    {
+        return Err(EndpointError::PrivateAddress);
     }
 
     Ok(Endpoint {
@@ -703,5 +794,39 @@ mod tests {
 
         assert_eq!(peers.lock().await.len(), 1);
         server.abort();
+    }
+
+    #[tokio::test]
+    async fn public_endpoint_validation_rejects_loopback_and_local_domains_even_when_cached() {
+        for blocked in [
+            "http://127.0.0.1:8080/v1",
+            "https://127.0.0.1:8443/v1",
+            "http://localhost:8080/v1",
+            "https://localhost/v1",
+            "https://[::1]/v1",
+            "https://0.0.0.0/v1",
+            "https://169.254.169.254/latest/meta-data",
+            "https://service.localhost/v1",
+            "https://service.local/v1",
+            "https://service.internal/v1",
+        ] {
+            assert_eq!(
+                validate_public_endpoint_url(blocked),
+                Err(EndpointError::PrivateAddress),
+                "expected PrivateAddress for {blocked}"
+            );
+            assert_eq!(
+                client_for_public_endpoint(blocked, Duration::from_secs(2))
+                    .await
+                    .unwrap_err(),
+                EndpointError::PrivateAddress,
+                "expected PrivateAddress client rejection for {blocked}"
+            );
+        }
+        assert_eq!(
+            validate_public_endpoint_url("http://api.openai.com/v1"),
+            Err(EndpointError::InvalidUrl)
+        );
+        assert!(validate_public_endpoint_url("https://api.openai.com/v1").is_ok());
     }
 }

@@ -77,9 +77,12 @@ pub(super) fn validate_priced_request(
     }
     if object.get("stream") == Some(&Value::Bool(true)) {
         if object.get("stream_options").is_some_and(|value| {
-            value
-                .as_object()
-                .is_none_or(|options| options.keys().any(|key| key != "include_usage"))
+            value.as_object().is_none_or(|options| {
+                options.keys().any(|key| key != "include_usage")
+                    || options
+                        .get("include_usage")
+                        .is_some_and(|include| include != &Value::Bool(true))
+            })
         }) {
             return Err(ApiError::invalid_request(
                 "Unsupported stream options on this priced route",

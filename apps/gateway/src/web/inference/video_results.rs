@@ -170,6 +170,12 @@ async fn retrieve_authorized_media(
     let url = cipher
         .open_media_result(scope, id, kind, &encrypted)
         .map_err(|_| ApiError::unavailable())?;
+    // Fail fast before downloading up to 64 MiB from upstream when downstream
+    // delivery memory is already completely saturated.
+    let mut delivery_permit = DELIVERY_CHUNKS
+        .clone()
+        .try_acquire_many_owned(1)
+        .map_err(|_| ApiError::media_result_busy())?;
     let permit = match DOWNLOADS.clone().try_acquire_owned() {
         Ok(permit) => permit,
         Err(_) => tokio::time::timeout(
@@ -238,10 +244,13 @@ async fn retrieve_authorized_media(
     let media = media.map_err(ApiError::from_media_result)?;
     let needed_chunks =
         u32::try_from(media.bytes.len().div_ceil(64 * 1024).max(1)).unwrap_or(u32::MAX);
-    let delivery_permit = DELIVERY_CHUNKS
-        .clone()
-        .try_acquire_many_owned(needed_chunks)
-        .map_err(|_| ApiError::media_result_busy())?;
+    if needed_chunks > 1 {
+        let extra = DELIVERY_CHUNKS
+            .clone()
+            .try_acquire_many_owned(needed_chunks - 1)
+            .map_err(|_| ApiError::media_result_busy())?;
+        delivery_permit.merge(extra);
+    }
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
     authorize_delivery(state, scope, principal, owner, id).await?;

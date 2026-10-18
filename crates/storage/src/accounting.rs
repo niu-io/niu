@@ -682,7 +682,7 @@ impl Store {
         push_activity_scope_and_filters(&mut histogram, scope, filter);
         histogram.push("), bounds AS (SELECT COALESCE(").push_bind(filter.from_ms)
             .push("::numeric, MIN(ts)) AS start, COALESCE(").push_bind(filter.to_ms)
-            .push("::numeric, MAX(ts)+1) AS finish FROM filtered), sized AS (SELECT start,finish,GREATEST(1,CEIL((finish-start)/24)) AS width FROM bounds), grouped AS (SELECT LEAST(23,GREATEST(0,FLOOR((f.ts-s.start)/s.width))) AS bucket,COUNT(*) AS requests FROM filtered f CROSS JOIN sized s GROUP BY bucket) SELECT jsonb_build_object('start_ms',(s.start+b.bucket*s.width)::bigint,'end_ms',LEAST(s.finish,s.start+(b.bucket+1)*s.width)::bigint,'request_count',COALESCE(g.requests,0)) FROM sized s CROSS JOIN generate_series(0,23) b(bucket) LEFT JOIN grouped g ON g.bucket=b.bucket WHERE s.start IS NOT NULL AND EXISTS(SELECT 1 FROM filtered) AND s.start+b.bucket*s.width<s.finish ORDER BY b.bucket");
+            .push("::numeric, MAX(ts)+1) AS finish, COUNT(*) AS total FROM filtered), sized AS (SELECT start,finish,total,GREATEST(1,CEIL((finish-start)/24)) AS width FROM bounds), grouped AS (SELECT LEAST(23,GREATEST(0,FLOOR((f.ts-s.start)/s.width))) AS bucket,COUNT(*) AS requests FROM filtered f CROSS JOIN sized s GROUP BY bucket) SELECT jsonb_build_object('start_ms',(s.start+b.bucket*s.width)::bigint,'end_ms',LEAST(s.finish,s.start+(b.bucket+1)*s.width)::bigint,'request_count',COALESCE(g.requests,0)) FROM sized s CROSS JOIN generate_series(0,23) b(bucket) LEFT JOIN grouped g ON g.bucket=b.bucket WHERE s.start IS NOT NULL AND s.total>0 AND s.start+b.bucket*s.width<s.finish ORDER BY b.bucket");
         let request_histogram = histogram
             .build_query_scalar()
             .fetch_all(&mut *snapshot)
@@ -1123,9 +1123,23 @@ impl Store {
         reservation: &GatewayReservation,
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
-        let dispatched =
-            Self::reserve_and_dispatch_gateway_in_tx(&mut tx, principal, attempt_id, reservation)
-                .await?;
+        let dispatched = match Self::reserve_and_dispatch_gateway_in_tx(
+            &mut tx,
+            principal,
+            attempt_id,
+            reservation,
+        )
+        .await
+        {
+            Ok(dispatched) => dispatched,
+            Err(
+                err @ (StoreError::KeyRequestRateDisabled | StoreError::KeyRequestRateExceeded),
+            ) => {
+                let _ = tx.commit().await;
+                return Err(err);
+            }
+            Err(err) => return Err(err),
+        };
         tx.commit().await?;
         if dispatched {
             Ok(())
@@ -1154,6 +1168,22 @@ impl Store {
         .bind(scope.project_id)
         .execute(&mut **tx)
         .await?;
+        // Attribute the attempt to the calling key (when valid in this scope)
+        // before reserving customer balance so key spending limits are enforced
+        // even without guardrail or retry-policy bindings.
+        sqlx::query(
+            "UPDATE attempts a SET api_key_id = k.id \
+             FROM api_keys k \
+             WHERE a.organization_id = $1 AND a.project_id = $2 AND a.id = $3 \
+               AND a.execution = 'not_sent' AND a.api_key_id IS NULL \
+               AND k.organization_id = $1 AND k.project_id = $2 AND k.id = $4",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt_id)
+        .bind(principal.key_id())
+        .execute(&mut **tx)
+        .await?;
         // Account-enabled organizations use customer retail rates, independently
         // of the procurement budget. Hold and dispatch commit atomically.
         let prepaid: bool = sqlx::query_scalar(
@@ -1180,13 +1210,10 @@ impl Store {
                 request_fee,
                 minimum,
             )?;
-            if maximum > 0 {
-                crate::billing::reserve_customer_balance_in_tx(tx, scope, attempt_id, maximum)
-                    .await?;
-            }
+            crate::billing::reserve_customer_balance_in_tx(tx, scope, attempt_id, maximum).await?;
         }
-        let dispatched: bool = sqlx::query_scalar(
-            "SELECT niu_reserve_and_dispatch_gateway_audited($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        let outcome: i64 = sqlx::query_scalar(
+            "SELECT niu_reserve_and_dispatch_gateway_audited($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -1200,12 +1227,27 @@ impl Store {
         .fetch_one(&mut **tx)
         .await
         .map_err(map_gateway_admission_error)?;
-        if !dispatched {
+        if outcome != 1 {
             // The denial and the release of its unsent hold commit together.
+            sqlx::query(
+                "UPDATE attempts SET api_key_id = NULL \
+                 WHERE organization_id = $1 AND project_id = $2 AND id = $3 AND execution = 'not_sent'",
+            )
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(attempt_id)
+            .execute(&mut **tx)
+            .await?;
             sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL")
                 .bind(attempt_id).execute(&mut **tx).await?;
         }
-        Ok(dispatched)
+        match outcome {
+            1 => Ok(true),
+            -1 => Ok(false),
+            -2 => Err(StoreError::KeyRequestRateDisabled),
+            -3 => Err(StoreError::KeyRequestRateExceeded),
+            _ => Err(StoreError::Conflict),
+        }
     }
 
     pub async fn budget(&self, scope: TenantScope) -> Result<Option<BudgetSnapshot>, StoreError> {
@@ -1254,13 +1296,17 @@ impl Store {
         .charge(prompt, completion)?;
         let exceeded = prompt > reservation.get::<i64, _>("prompt_bound")
             || completion > reservation.get::<i64, _>("completion_bound");
+        let currency: String = reservation.get("currency");
         // Record real liability even if a provider exceeds the bound. Future
         // admission stops when spent+reserved exhausts the configured limit.
-        sqlx::query("UPDATE project_budgets SET reserved_nanos=reserved_nanos-$3, spent_nanos=spent_nanos+$4 WHERE organization_id=$1 AND project_id=$2")
-            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).bind(cash).execute(&mut **tx).await?;
+        let updated = sqlx::query("UPDATE project_budgets SET reserved_nanos=reserved_nanos-$3, spent_nanos=spent_nanos+$4 WHERE organization_id=$1 AND project_id=$2 AND currency=$5")
+            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).bind(cash).bind(&currency).execute(&mut **tx).await?;
+        if updated.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
         let entry = sqlx::query_as::<_,CostEntry>("INSERT INTO cost_entries (attempt_id, organization_id, project_id, price_revision_id, currency, api_equivalent_nanos, cash_nanos, usage_prompt_tokens, usage_completion_tokens, bound_exceeded) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING attempt_id, price_revision_id, currency, api_equivalent_nanos, cash_nanos, usage_prompt_tokens, usage_completion_tokens, bound_exceeded")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<Uuid,_>("price_revision_id"))
-            .bind(reservation.get::<String,_>("currency")).bind(api).bind(cash).bind(prompt).bind(completion).bind(exceeded).fetch_one(&mut **tx).await?;
+            .bind(&currency).bind(api).bind(cash).bind(prompt).bind(completion).bind(exceeded).fetch_one(&mut **tx).await?;
         sqlx::query("UPDATE cost_reservations SET state='settled' WHERE attempt_id=$1")
             .bind(id)
             .execute(&mut **tx)
@@ -1306,12 +1352,16 @@ impl Store {
         ) {
             return Err(StoreError::Unresolved);
         }
-        let reservation =
-            sqlx::query("SELECT state, reserved_nanos FROM cost_reservations WHERE attempt_id=$1")
-                .bind(id)
-                .fetch_optional(&mut **tx)
-                .await?
-                .ok_or(StoreError::Conflict)?;
+        let reservation = sqlx::query(
+            "SELECT r.state, r.reserved_nanos, p.currency \
+             FROM cost_reservations r \
+             JOIN price_revisions p ON p.id=r.price_revision_id \
+             WHERE r.attempt_id=$1",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
         let state: String = reservation.get("state");
         if state == "released" {
             return Ok(());
@@ -1319,8 +1369,11 @@ impl Store {
         if state != "held" {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("UPDATE project_budgets SET reserved_nanos=reserved_nanos-$3 WHERE organization_id=$1 AND project_id=$2")
-            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).execute(&mut **tx).await?;
+        let updated = sqlx::query("UPDATE project_budgets SET reserved_nanos=reserved_nanos-$3 WHERE organization_id=$1 AND project_id=$2 AND currency=$4")
+            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).bind(reservation.get::<&str,_>("currency")).execute(&mut **tx).await?;
+        if updated.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
         sqlx::query("UPDATE cost_reservations SET state='released' WHERE attempt_id=$1")
             .bind(id)
             .execute(&mut **tx)

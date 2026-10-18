@@ -176,11 +176,18 @@ pub(crate) async fn prepare(
                 additional_approvals: &proofs[1..],
             },
             |bytes, aad| {
-                tokio::task::block_in_place(|| {
+                let seal = || {
                     cipher
                         .seal_bytes_with_aad(aad, bytes)
                         .map_err(|_| niu_storage::StoreError::InvalidObservation)
-                })
+                };
+                if tokio::runtime::Handle::try_current()
+                    .is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+                {
+                    tokio::task::block_in_place(seal)
+                } else {
+                    seal()
+                }
             },
         )
         .await

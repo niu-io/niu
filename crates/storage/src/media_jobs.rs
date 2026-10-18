@@ -927,7 +927,7 @@ impl Store {
                 items.iter().any(|item| {
                     !matches!(
                         item.get("type").and_then(serde_json::Value::as_str),
-                        Some("text" | "image_url")
+                        Some("text" | "image_url" | "video_url" | "audio_url")
                     )
                 })
             })

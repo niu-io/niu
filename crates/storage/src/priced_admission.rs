@@ -134,9 +134,23 @@ impl Store {
                 return Err(StoreError::UnsupportedTokenPricing);
             }
         }
-        let dispatched =
-            Self::reserve_and_dispatch_gateway_in_tx(&mut tx, principal, attempt, reservation)
-                .await?;
+        let dispatched = match Self::reserve_and_dispatch_gateway_in_tx(
+            &mut tx,
+            principal,
+            attempt,
+            reservation,
+        )
+        .await
+        {
+            Ok(dispatched) => dispatched,
+            Err(
+                err @ (StoreError::KeyRequestRateDisabled | StoreError::KeyRequestRateExceeded),
+            ) => {
+                let _ = tx.commit().await;
+                return Err(err);
+            }
+            Err(err) => return Err(err),
+        };
         tx.commit().await?;
         if dispatched {
             Ok((admission.operation_id, attempt))

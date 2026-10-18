@@ -191,23 +191,51 @@ pub(super) async fn infer(
         let (health,cooldown)=if terminal.limit {("cooldown",60)} else {("ready",0)};
         finish_lease_durable(&state,scope,secret.account_id,owner,health,cooldown).await?;
         let mut response=terminal.response.ok_or_else(ApiError::upstream)?;
-        if !super::responses::valid_responses_response(&response) || response["status"]!="completed" {return Err(ApiError::upstream());}
+        if !super::responses::valid_responses_response(&response) {return Err(ApiError::upstream());}
         let provider_model=provider_reported_model(&response);
         let usage=super::responses::responses_usage(&response);
         if let Some((input,output))=usage {usage_attempt.report(&json!({"prompt_tokens":input,"completion_tokens":output}));}
         let token_categories=usage.and_then(|totals| niu_storage::RequestTokenCategories::from_responses_usage(&response["usage"],totals));
         response["model"]=json!(alias);
-        let mut value=match protocol {
-            Protocol::Responses=>response,
+        let (mut value, finish_reasons)=match protocol {
+            Protocol::Responses=>{
+                let finish_reasons=niu_storage::RequestChoiceFinish::from_responses_response(&response);
+                (response, finish_reasons)
+            }
             Protocol::Chat=>{
-                let text=response["output"].as_array().unwrap().iter().filter_map(|item| item.get("content").and_then(Value::as_array)).flatten().filter_map(|part| part.get("text").or_else(|| part.get("refusal")).and_then(Value::as_str)).collect::<String>();
-                let mut chat=json!({"id":format!("chatcmpl-{}",Uuid::new_v4()),"object":"chat.completion","created":codex::now(),"model":alias,"choices":[{"index":0,"message":{"role":"assistant","content":text},"finish_reason":"stop"}]});
-                if let Some((input,output))=usage {chat["usage"]=json!({"prompt_tokens":input,"completion_tokens":output,"total_tokens":input+output});}
-                chat
+                let parts: Vec<&Value>=response["output"].as_array().unwrap().iter().filter_map(|item| item.get("content").and_then(Value::as_array)).flatten().collect();
+                let text: String=parts.iter().filter_map(|part| part.get("text").and_then(Value::as_str)).collect();
+                let refusal: String=parts.iter().filter_map(|part| part.get("refusal").and_then(Value::as_str)).collect();
+                let finish_reason=if response["status"]=="incomplete" {
+                    if response.pointer("/incomplete_details/reason").and_then(Value::as_str)==Some("content_filter") {
+                        "content_filter"
+                    } else {
+                        "length"
+                    }
+                } else {
+                    "stop"
+                };
+                let mut message=json!({"role":"assistant","content":if text.is_empty() && !refusal.is_empty() { Value::Null } else { json!(text) }});
+                if !refusal.is_empty() {
+                    message["refusal"]=json!(refusal);
+                }
+                let mut chat=json!({"id":format!("chatcmpl-{}",Uuid::new_v4()),"object":"chat.completion","created":codex::now(),"model":alias,"choices":[{"index":0,"message":message,"finish_reason":finish_reason}]});
+                if let Some((input,output))=usage {
+                    let mut chat_usage=json!({"prompt_tokens":input,"completion_tokens":output,"total_tokens":input+output});
+                    if let Some(details)=response.pointer("/usage/input_tokens_details") {
+                        chat_usage["prompt_tokens_details"]=details.clone();
+                    }
+                    if let Some(details)=response.pointer("/usage/output_tokens_details") {
+                        chat_usage["completion_tokens_details"]=details.clone();
+                    }
+                    chat["usage"]=chat_usage;
+                }
+                let finish_reasons=niu_storage::RequestChoiceFinish::from_chat_response(&chat);
+                (chat, finish_reasons)
             }
         };
         crate::customer_response::sanitize(&mut value);
-        Ok(ProviderResponse{finish_reasons:None,response:Json(value).into_response(),completed:true,usage,provider_model,token_categories})
+        Ok(ProviderResponse{finish_reasons,response:Json(value).into_response(),completed:true,usage,provider_model,token_categories})
     }.await;
     if result.is_err() {
         state
@@ -335,10 +363,15 @@ impl Events {
                     serde_json::from_slice(&self.data).map_err(|_| ApiError::upstream())?;
                 self.data.clear();
                 match event.get("type").and_then(Value::as_str) {
-                    Some("response.completed") => {
+                    Some("response.completed" | "response.incomplete") => {
+                        let expected_status = if event["type"] == "response.completed" {
+                            "completed"
+                        } else {
+                            "incomplete"
+                        };
                         let response = event
                             .get("response")
-                            .filter(|r| r["object"] == "response" && r["status"] == "completed")
+                            .filter(|r| r["object"] == "response" && r["status"] == expected_status)
                             .cloned()
                             .ok_or_else(ApiError::upstream)?;
                         return Ok(Some(Terminal {
@@ -346,14 +379,9 @@ impl Events {
                             limit: false,
                         }));
                     }
-                    Some("response.failed" | "response.incomplete") => {
-                        let status = if event["type"] == "response.failed" {
-                            "failed"
-                        } else {
-                            "incomplete"
-                        };
+                    Some("response.failed") => {
                         if event["response"]["object"] != "response"
-                            || event["response"]["status"] != status
+                            || event["response"]["status"] != "failed"
                         {
                             return Err(ApiError::upstream());
                         }
@@ -438,5 +466,25 @@ mod tests {
             unsupported[field] = json!(1);
             assert!(upstream_body(&unsupported, "test", Protocol::Chat).is_err());
         }
+    }
+    #[test]
+    fn terminal_parser_preserves_incomplete_response_payload() {
+        let event = json!({
+            "type": "response.incomplete",
+            "response": {
+                "object": "response",
+                "status": "incomplete",
+                "incomplete_details": {"reason": "max_output_tokens"},
+                "output": [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "partial"}]}]
+            }
+        });
+        let bytes = format!("event: response.incomplete\ndata: {event}\n\n").into_bytes();
+        let terminal = Events::default()
+            .feed(&bytes)
+            .expect("valid event")
+            .expect("terminal");
+        assert!(!terminal.limit);
+        let response = terminal.response.expect("incomplete response preserved");
+        assert_eq!(response["status"], "incomplete");
     }
 }

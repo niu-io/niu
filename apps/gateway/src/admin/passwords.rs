@@ -288,6 +288,15 @@ pub async fn login(
     if input.email.len() > 254 || input.password.len() > 1024 {
         return Err(ApiError::invalid_request("Invalid sign-in request"));
     }
+    if let Some(ip) = crate::request_source::current_ip()
+        && !state
+            .store
+            .admit_member_password_login(&format!("ip-{ip}@niu.internal"))
+            .await
+            .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::sign_in_limited());
+    }
     if !state
         .store
         .admit_member_password_login(&input.email)
@@ -493,7 +502,7 @@ pub async fn change_password(
     if input.current_password.len() > 1024 || input.password.len() > 1024 {
         return Err(ApiError::invalid_request("Invalid password change"));
     }
-    let (email, credential) = state
+    let (_email, credential) = state
         .store
         .member_password_change_credential(member.id)
         .await
@@ -501,7 +510,7 @@ pub async fn change_password(
         .ok_or_else(ApiError::sign_in_failed)?;
     if !state
         .store
-        .admit_member_password_login(&email)
+        .admit_member_password_login(&format!("password-change:{}@niu.internal", member.id))
         .await
         .map_err(ApiError::from_store)?
     {

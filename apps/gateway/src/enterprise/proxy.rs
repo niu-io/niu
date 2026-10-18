@@ -34,6 +34,9 @@ pub async fn deliver_outbox(
     headers: HeaderMap,
     axum::Json(event): axum::Json<niu_plugin_api::OutboxEvent>,
 ) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    if headers.get_all(header::AUTHORIZATION).iter().count() > 1 {
+        return Err(ApiError::unauthorized());
+    }
     let auth_header = headers
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok());
@@ -128,21 +131,40 @@ async fn authenticate_route_principal(
     route: &RegisteredRoute,
     headers: &HeaderMap,
 ) -> Result<ContextPrincipal, ApiError> {
+    if headers.get_all(header::AUTHORIZATION).iter().count() > 1 {
+        return Err(ApiError::unauthorized());
+    }
     match route.declaration.auth_mode {
         RouteAuthMode::Operator => {
-            let Some(token) = headers
+            let auth_header = headers
                 .get(header::AUTHORIZATION)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.strip_prefix("Bearer "))
-                .filter(|value| !value.is_empty())
-            else {
+                .and_then(|value| value.to_str().ok());
+            let browser_marker = auth_header == Some("Bearer niu-browser-member-session");
+            let operator = if (!headers.contains_key(header::AUTHORIZATION) || browser_marker)
+                && let Some(runtime) = state.password_auth.as_deref()
+                && let Some(token) = crate::admin::passwords::member_cookie(headers, runtime)?
+            {
+                runtime.check_cookie_request(headers)?;
+                state
+                    .store
+                    .authenticate_operator(&token)
+                    .await
+                    .map_err(ApiError::from_store)?
+            } else if browser_marker {
                 return Err(ApiError::unauthorized());
+            } else {
+                let Some(token) = auth_header
+                    .and_then(|value| value.strip_prefix("Bearer "))
+                    .filter(|value| !value.is_empty())
+                else {
+                    return Err(ApiError::unauthorized());
+                };
+                state
+                    .store
+                    .authenticate_operator(token)
+                    .await
+                    .map_err(ApiError::from_store)?
             };
-            let operator = state
-                .store
-                .authenticate_operator(token)
-                .await
-                .map_err(ApiError::from_store)?;
             if !route.declaration.permission.permits(operator.role) {
                 return Err(ApiError::forbidden());
             }

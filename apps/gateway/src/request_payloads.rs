@@ -20,16 +20,12 @@ pub(crate) struct InspectedRequestPayload(pub Value);
 const MAX_CREDENTIAL_SCRUB_DEPTH: usize = 64;
 static PAYLOAD_WRITE_CONCURRENCY: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
 
+#[derive(Default)]
 enum CapturedRequest {
+    #[default]
     None,
     Raw(axum::body::Bytes),
     Inspected(Value),
-}
-
-impl Default for CapturedRequest {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 struct Capture {

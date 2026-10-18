@@ -639,7 +639,7 @@ pub(super) async fn execute_chat_attempt(
         ));
     }
     let protocol = model.protocol();
-    if stream && !protocol.supports_streaming() {
+    if stream && (!protocol.supports_streaming() || !protocol.is_openai_compatible()) {
         return Err(ApiError::unsupported());
     }
     if !protocol.supports_chat_completions() {
@@ -772,6 +772,9 @@ async fn execute_chat(
         managed,
     } = execution;
     if stream {
+        if !model.protocol().is_openai_compatible() {
+            return Err(ApiError::unsupported());
+        }
         return stream_openai_compatible(
             state,
             CompatibleExecution {
@@ -815,9 +818,10 @@ async fn execute_chat(
 
     let optional_params = native_optional_params.ok_or_else(ApiError::unsupported)?;
 
-    // The native adapter normalizes absent usage fields to zero. Treat only
-    // complete, positive token counts as evidence until the adapter exposes
-    // raw-field provenance; a missing counter must never become billable zero.
+    // The native adapter normalizes absent usage fields to zero. Require a
+    // positive total prompt token count whose text + cache breakdown sums to
+    // prompt_tokens so a missing usage block (all zeros) is never treated as
+    // billable zero while 100% cache hits and empty completions remain valid.
     let usage_attempt = state.usage.begin();
     let result = chat_completions(ChatCompletionsRequest {
         model: &model.upstream_model,
@@ -857,9 +861,8 @@ async fn execute_chat(
     crate::customer_response::sanitize(&mut value);
     Ok(ProviderResponse {
         finish_reasons: niu_storage::RequestChoiceFinish::from_chat_response(&value),
-        token_categories: usage.and_then(|totals| {
-            niu_storage::RequestTokenCategories::from_openai_usage(&value["usage"], totals)
-        }),
+        token_categories: usage
+            .and_then(|totals| native_chat_token_categories(&value["usage"], totals)),
         response: buffered_json_response(value),
         completed: true,
         usage,
@@ -874,9 +877,20 @@ fn validated_native_chat_usage(usage: &Value) -> Option<(u64, u64)> {
     let input_text = usage
         .pointer("/prompt_tokens_details/text_tokens")?
         .as_u64()?;
+    let cached = usage
+        .pointer("/prompt_tokens_details/cached_tokens")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let cache_creation = usage
+        .pointer("/prompt_tokens_details/cache_creation_tokens")
+        .or_else(|| usage.pointer("/prompt_tokens_details/cache_write_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
     if prompt == 0
-        || completion == 0
-        || input_text == 0
+        || input_text
+            .checked_add(cached)?
+            .checked_add(cache_creation)?
+            != prompt
         || prompt.checked_add(completion)? != total
         || prompt > i64::MAX as u64
         || completion > i64::MAX as u64
@@ -884,6 +898,28 @@ fn validated_native_chat_usage(usage: &Value) -> Option<(u64, u64)> {
         return None;
     }
     Some((prompt, completion))
+}
+
+fn native_chat_token_categories(
+    usage: &Value,
+    totals: (u64, u64),
+) -> Option<niu_storage::RequestTokenCategories> {
+    if usage
+        .pointer("/prompt_tokens_details/cache_write_tokens")
+        .is_none()
+        && let Some(creation) = usage.pointer("/prompt_tokens_details/cache_creation_tokens")
+        && !creation.is_null()
+    {
+        let mut normalized = usage.clone();
+        if let Some(details) = normalized
+            .get_mut("prompt_tokens_details")
+            .and_then(Value::as_object_mut)
+        {
+            details.insert("cache_write_tokens".to_owned(), creation.clone());
+        }
+        return niu_storage::RequestTokenCategories::from_openai_usage(&normalized, totals);
+    }
+    niu_storage::RequestTokenCategories::from_openai_usage(usage, totals)
 }
 
 async fn complete_openai_compatible(
@@ -1133,6 +1169,17 @@ async fn stream_openai_compatible(
     if let Some(object) = body.as_object_mut() {
         object.insert("model".to_owned(), json!(model.upstream_model));
         strip_server_control_fields(object);
+        match object.get_mut("stream_options") {
+            None | Some(Value::Null) => {
+                object.insert("stream_options".to_owned(), json!({"include_usage": true}));
+            }
+            Some(Value::Object(options)) => {
+                options
+                    .entry("include_usage".to_owned())
+                    .or_insert(Value::Bool(true));
+            }
+            Some(_) => {}
+        }
     }
     let usage_attempt = state.usage.begin();
     let structured = match body
@@ -1811,5 +1858,38 @@ mod native_effort_tests {
                 .is_ok()
             );
         }
+    }
+
+    #[test]
+    fn native_chat_usage_accepts_full_cache_hits_and_empty_completions_while_rejecting_missing_usage()
+     {
+        let missing = json!({
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "prompt_tokens_details": {
+                "text_tokens": 0,
+                "cached_tokens": 0,
+                "cache_creation_tokens": 0
+            }
+        });
+        assert_eq!(validated_native_chat_usage(&missing), None);
+
+        let full_cache_hit = json!({
+            "prompt_tokens": 120,
+            "completion_tokens": 0,
+            "total_tokens": 120,
+            "prompt_tokens_details": {
+                "text_tokens": 0,
+                "cached_tokens": 100,
+                "cache_creation_tokens": 20
+            }
+        });
+        let totals = validated_native_chat_usage(&full_cache_hit).expect("valid full cache hit");
+        assert_eq!(totals, (120, 0));
+        let categories =
+            native_chat_token_categories(&full_cache_hit, totals).expect("token categories");
+        assert_eq!(categories.cached_input_tokens, Some(100));
+        assert_eq!(categories.cache_write_input_tokens, Some(20));
     }
 }

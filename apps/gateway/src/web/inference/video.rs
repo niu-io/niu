@@ -1621,14 +1621,22 @@ async fn replay_submission(
     // Preparation may still be running, or the original process may have died
     // before dispatch. Neither case grants a retry permission to submit.
     use axum::response::IntoResponse;
-    Ok((
+    let mut response = (
         axum::http::StatusCode::ACCEPTED,
         Json(saved.unwrap_or_else(|| {
             serde_json::json!({"id":attempt,"object":"video.job","model":model,
             "status":"submission_unknown"})
         })),
     )
-        .into_response())
+        .into_response();
+    response.headers_mut().insert(
+        "x-niu-attempt-id",
+        attempt
+            .to_string()
+            .parse()
+            .expect("UUID is an HTTP header value"),
+    );
+    Ok(response)
 }
 
 pub(super) async fn create_as(
@@ -2177,11 +2185,15 @@ pub(crate) async fn refresh_for_principal(
 }
 
 type RefreshResult = Result<(Value, Vec<(niu_storage::MediaResultKind, Vec<u8>)>), ApiError>;
-type RefreshKey = (Uuid, Uuid, Uuid, Uuid);
+type CoalescedRefreshResult = Result<Vec<(niu_storage::MediaResultKind, Vec<u8>)>, ApiError>;
+type RefreshKey = (Uuid, Uuid, Uuid);
 
 static IN_FLIGHT_REFRESHES: std::sync::LazyLock<
     std::sync::Mutex<
-        std::collections::HashMap<RefreshKey, tokio::sync::watch::Receiver<Option<RefreshResult>>>,
+        std::collections::HashMap<
+            RefreshKey,
+            tokio::sync::watch::Receiver<Option<CoalescedRefreshResult>>,
+        >,
     >,
 > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
 
@@ -2197,57 +2209,11 @@ impl Drop for RefreshFlightGuard {
     }
 }
 
-/// An explicit query can return new delivery references even when the old cache expired.
-pub(super) async fn refresh_with_results(
+async fn authorize_refresh_for_principal(
     state: &AppState,
     principal: &niu_storage::Principal,
     id: Uuid,
-) -> RefreshResult {
-    let scope = principal.scope();
-    let key = (
-        scope.organization_id,
-        scope.project_id,
-        id,
-        principal.key_id(),
-    );
-    let flight = {
-        let mut map = IN_FLIGHT_REFRESHES
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if let Some(rx) = map.get(&key).cloned() {
-            Ok(rx)
-        } else {
-            let (tx, rx) = tokio::sync::watch::channel(None);
-            map.insert(key, rx);
-            Err(tx)
-        }
-    };
-    let tx = match flight {
-        Ok(mut rx) => {
-            loop {
-                let ready = rx.borrow_and_update().clone();
-                if let Some(result) = ready {
-                    return result;
-                }
-                if rx.changed().await.is_err() {
-                    break;
-                }
-            }
-            return refresh_with_results_inner(state, principal, id).await;
-        }
-        Err(tx) => tx,
-    };
-    let _guard = RefreshFlightGuard { key };
-    let result = refresh_with_results_inner(state, principal, id).await;
-    let _ = tx.send(Some(result.clone()));
-    result
-}
-
-async fn refresh_with_results_inner(
-    state: &AppState,
-    principal: &niu_storage::Principal,
-    id: Uuid,
-) -> RefreshResult {
+) -> Result<(Value, niu_storage::MediaRecoveryRoute, bool), ApiError> {
     let scope = principal.scope();
     let saved = state
         .store
@@ -2303,6 +2269,72 @@ async fn refresh_with_results_inner(
             return Err(ApiError::forbidden());
         }
     }
+    Ok((saved, route, openrouter))
+}
+
+/// An explicit query can return new delivery references even when the old cache expired.
+pub(super) async fn refresh_with_results(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    id: Uuid,
+) -> RefreshResult {
+    let (_initial_saved, route, openrouter) =
+        authorize_refresh_for_principal(state, principal, id).await?;
+    let scope = principal.scope();
+    let key = (scope.organization_id, scope.project_id, id);
+    let flight = {
+        let mut map = IN_FLIGHT_REFRESHES
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(rx) = map.get(&key).cloned() {
+            Ok(rx)
+        } else {
+            let (tx, rx) = tokio::sync::watch::channel(None);
+            map.insert(key, rx);
+            Err(tx)
+        }
+    };
+    let results = match flight {
+        Ok(mut rx) => {
+            let mut joined = None;
+            loop {
+                let ready = rx.borrow_and_update().clone();
+                if let Some(result) = ready {
+                    joined = Some(result);
+                    break;
+                }
+                if rx.changed().await.is_err() {
+                    break;
+                }
+            }
+            match joined {
+                Some(result) => result?,
+                None => query_and_apply_refresh(state, scope, id, &route, openrouter).await?,
+            }
+        }
+        Err(tx) => {
+            let _guard = RefreshFlightGuard { key };
+            let result = query_and_apply_refresh(state, scope, id, &route, openrouter).await;
+            let _ = tx.send(Some(result.clone()));
+            result?
+        }
+    };
+    let saved = state
+        .store
+        .media_job_state_for_key(principal, id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok((saved, results))
+}
+
+async fn query_and_apply_refresh(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    id: Uuid,
+    route: &niu_storage::MediaRecoveryRoute,
+    openrouter: bool,
+) -> CoalescedRefreshResult {
     let cipher = state
         .vendor_cipher
         .as_ref()
@@ -2388,13 +2420,7 @@ async fn refresh_with_results_inner(
         .apply_media_query_observation_with_results(scope, id, &observation, &results)
         .await
         .map_err(ApiError::from_store)?;
-    let saved = state
-        .store
-        .media_job_state_for_key(principal, id)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
-    Ok((saved, results))
+    Ok(results)
 }
 
 pub(super) struct TransportClock {

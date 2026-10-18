@@ -217,13 +217,22 @@ pub(crate) async fn reconcile(
     if !auth.permits_project(scope) {
         return Err(ApiError::not_found());
     }
+    let receipt = reconcile_attempt(&state, scope, attempt).await?;
+    Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response())
+}
+
+pub(crate) async fn reconcile_attempt(
+    state: &AppState,
+    scope: TenantScope,
+    attempt: Uuid,
+) -> Result<serde_json::Value, ApiError> {
     if let Some(receipt) = state
         .store
         .openrouter_usage_receipt(scope, attempt)
         .await
         .map_err(ApiError::from_store)?
     {
-        return Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response());
+        return Ok(receipt);
     }
     let context = match state
         .store
@@ -240,7 +249,7 @@ pub(crate) async fn reconcile(
                 .await
                 .map_err(ApiError::from_store)?
             {
-                return Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response());
+                return Ok(receipt);
             }
             return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
         }
@@ -306,7 +315,8 @@ pub(crate) async fn reconcile(
         .record_openrouter_usage(scope, attempt, &context, &usage)
         .await
         .map_err(ApiError::from_store)?;
-    Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response())
+    let _ = state.store.recover_financial_work().await;
+    Ok(receipt)
 }
 
 /// ```openapi

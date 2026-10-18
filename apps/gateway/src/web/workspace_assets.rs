@@ -573,11 +573,18 @@ pub(crate) async fn upload(
     let expected_aad = niu_storage::workspace_asset_content_aad(scope, id);
     // Encryption failure is a server availability error, not invalid input.
     // Pre-sealing also avoids holding the quota transaction during encryption.
-    let ciphertext = tokio::task::block_in_place(|| {
+    let seal = || {
         cipher
             .seal_bytes_with_aad(&expected_aad, &bytes)
             .map_err(|_| ApiError::unavailable())
-    })?;
+    };
+    let ciphertext = if tokio::runtime::Handle::try_current()
+        .is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+    {
+        tokio::task::block_in_place(seal)?
+    } else {
+        seal()?
+    };
     let asset = state
         .store
         .create_workspace_asset(

@@ -1023,17 +1023,48 @@ fn normalize(
                     return crate::native_messages_tools::project(part, tool_definitions?);
                 }
                 let object = part.as_object()?;
-                if object
-                    .keys()
-                    .any(|key| !["type", "text", "citations"].contains(&key.as_str()))
-                    || part["type"] != "text"
-                    || part
-                        .get("citations")
-                        .is_some_and(|v| !v.is_null() && !v.as_array().is_some_and(Vec::is_empty))
-                {
-                    return None;
+                match part["type"].as_str()? {
+                    "text" => {
+                        if object
+                            .keys()
+                            .any(|key| !["type", "text", "citations"].contains(&key.as_str()))
+                            || part.get("citations").is_some_and(|v| {
+                                !v.is_null() && !v.as_array().is_some_and(Vec::is_empty)
+                            })
+                        {
+                            return None;
+                        }
+                        Some(json!({"type":"text", "text":part["text"].as_str()?}))
+                    }
+                    "thinking" => {
+                        if object
+                            .keys()
+                            .any(|key| !["type", "thinking", "signature"].contains(&key.as_str()))
+                        {
+                            return None;
+                        }
+                        let thinking = part["thinking"].as_str()?;
+                        let mut out = json!({"type":"thinking", "thinking":thinking});
+                        match part.get("signature") {
+                            None | Some(Value::Null) => {}
+                            Some(Value::String(sig)) => {
+                                out["signature"] = json!(sig);
+                            }
+                            Some(_) => return None,
+                        }
+                        Some(out)
+                    }
+                    "redacted_thinking" => {
+                        if object
+                            .keys()
+                            .any(|key| !["type", "data"].contains(&key.as_str()))
+                        {
+                            return None;
+                        }
+                        Some(json!({"type":"redacted_thinking", "data":part["data"].as_str()?}))
+                    }
+                    _ => None,
                 }
-                Some(json!({"type":"text", "text":part["text"].as_str()?}))
             })
             .collect::<Option<Vec<_>>>()
     });
@@ -1055,28 +1086,37 @@ fn normalize(
             .as_u64()
             .filter(|v| *v <= 9_007_199_254_740_991)
     };
-    // Native input_tokens excludes cache reads and writes. Missing/null cache
-    // categories cannot be treated as zero when computing total customer input.
+    let optional_token = |key: &str| match value["usage"].get(key) {
+        None | Some(Value::Null) => Some(0),
+        Some(v) => v.as_u64().filter(|n| *n <= 9_007_199_254_740_991),
+    };
+    // Native input_tokens excludes cache reads and writes. When Anthropic omits
+    // cache_creation_input_tokens or cache_read_input_tokens on non-cached responses,
+    // treat omitted/null cache fields as 0 while rejecting malformed values.
     let usage = (|| {
         Some((
             token("input_tokens")?
-                .checked_add(token("cache_creation_input_tokens")?)?
-                .checked_add(token("cache_read_input_tokens")?)?,
+                .checked_add(optional_token("cache_creation_input_tokens")?)?
+                .checked_add(optional_token("cache_read_input_tokens")?)?,
             token("output_tokens")?,
         ))
     })();
     if !valid && usage.is_none() {
         return Err(invalid());
     }
-    let token_categories = usage
-        .and_then(|_| token("cache_read_input_tokens"))
-        .and_then(|n| i64::try_from(n).ok())
-        .map(|n| niu_storage::RequestTokenCategories {
-            cache_write_input_tokens: token("cache_creation_input_tokens")
-                .and_then(|value| i64::try_from(value).ok()),
-            cached_input_tokens: Some(n),
-            reasoning_output_tokens: None,
-        });
+    let token_categories = usage.and_then(|_| {
+        let cache_write = token("cache_creation_input_tokens").and_then(|v| i64::try_from(v).ok());
+        let cache_read = token("cache_read_input_tokens").and_then(|v| i64::try_from(v).ok());
+        if cache_write.is_none() && cache_read.is_none() {
+            None
+        } else {
+            Some(niu_storage::RequestTokenCategories {
+                cache_write_input_tokens: cache_write,
+                cached_input_tokens: cache_read,
+                reasoning_output_tokens: None,
+            })
+        }
+    });
     let finish = niu_storage::RequestChoiceFinish {
         index: 0,
         reason: if stop == "tool_use" {
