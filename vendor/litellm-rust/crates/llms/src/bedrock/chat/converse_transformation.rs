@@ -328,3 +328,82 @@ fn has_blank_text(message: &ChatMessage) -> bool {
         }),
     }
 }
+
+pub fn strip_additional_properties(schema: &mut Value) {
+    match schema {
+        Value::Object(map) => {
+            map.remove("additionalProperties");
+            for (key, value) in map.iter_mut() {
+                if matches!(
+                    key.as_str(),
+                    "properties"
+                        | "$defs"
+                        | "definitions"
+                        | "patternProperties"
+                        | "dependentSchemas"
+                ) {
+                    if let Value::Object(entries) = value {
+                        for entry_schema in entries.values_mut() {
+                            strip_additional_properties(entry_schema);
+                        }
+                    } else {
+                        strip_additional_properties(value);
+                    }
+                } else {
+                    strip_additional_properties(value);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                strip_additional_properties(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strip_additional_properties_preserves_user_property_named_additional_properties() {
+        let mut schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "nested": { "type": "string" }
+                    }
+                },
+                "query": {
+                    "type": "string"
+                }
+            }
+        });
+
+        strip_additional_properties(&mut schema);
+
+        assert_eq!(
+            schema,
+            json!({
+                "type": "object",
+                "properties": {
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "nested": { "type": "string" }
+                        }
+                    },
+                    "query": {
+                        "type": "string"
+                    }
+                }
+            })
+        );
+    }
+}

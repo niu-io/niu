@@ -8,7 +8,7 @@ use crate::chat_completions::types::{
     ProviderChatCompletionsRequest, ResolvedChatCompletionsRequest,
 };
 
-const MAX_CHAT_COMPLETIONS_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+const MAX_CHAT_COMPLETIONS_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 
 pub(super) async fn execute_chat_completions_provider_call(
     request: ResolvedChatCompletionsRequest<'_>,

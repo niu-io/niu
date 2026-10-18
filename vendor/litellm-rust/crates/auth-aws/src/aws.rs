@@ -32,11 +32,18 @@ static AMBIENT_CREDENTIALS_CACHE: OnceLock<Cache<String, Credentials>> = OnceLoc
 fn credential_cache_ttl(flow: &AwsAuthFlow) -> Option<Duration> {
     match flow {
         AwsAuthFlow::StaticKeys { .. } => Some(STATIC_CREDENTIALS_TTL),
-        AwsAuthFlow::DefaultChain => Some(AMBIENT_CREDENTIALS_TTL),
-        AwsAuthFlow::WebIdentity { .. }
-        | AwsAuthFlow::AssumeRole { .. }
-        | AwsAuthFlow::Profile { .. }
-        | AwsAuthFlow::SessionToken { .. } => None,
+        AwsAuthFlow::DefaultChain
+        | AwsAuthFlow::WebIdentity { .. }
+        | AwsAuthFlow::AssumeRole { .. } => Some(AMBIENT_CREDENTIALS_TTL),
+        AwsAuthFlow::Profile { .. } | AwsAuthFlow::SessionToken { .. } => None,
+    }
+}
+
+fn web_identity_cache_ttl(flow: &AwsAuthFlow, expiration: SystemTime) -> Duration {
+    let base_ttl = credential_cache_ttl(flow).unwrap_or(AMBIENT_CREDENTIALS_TTL);
+    match expiration.duration_since(SystemTime::now()) {
+        Ok(remaining) => remaining.min(base_ttl),
+        Err(_) => Duration::ZERO,
     }
 }
 
@@ -127,12 +134,28 @@ fn ambient_credentials_cache() -> &'static Cache<String, Credentials> {
 }
 
 fn get_cached_credentials(key: &str) -> Option<Credentials> {
-    static_credentials_cache()
+    let credentials = static_credentials_cache()
         .get(key)
-        .or_else(|| ambient_credentials_cache().get(key))
+        .or_else(|| ambient_credentials_cache().get(key))?;
+    if let Some(expiry) = credentials.expiry()
+        && expiry <= SystemTime::now()
+    {
+        static_credentials_cache().invalidate(key);
+        ambient_credentials_cache().invalidate(key);
+        return None;
+    }
+    Some(credentials)
 }
 
 fn set_cached_credentials(key: String, credentials: Credentials, ttl: Duration) {
+    if ttl.is_zero() {
+        return;
+    }
+    if let Some(expiry) = credentials.expiry()
+        && expiry <= SystemTime::now()
+    {
+        return;
+    }
     if ttl == STATIC_CREDENTIALS_TTL {
         static_credentials_cache().insert(key, credentials);
     } else {
@@ -270,30 +293,37 @@ pub async fn resolve_credentials(
                 .map_err(|error| Error::AwsProfile(error.to_string()))
         }
         AwsAuthFlow::AssumeRole { role, session_name } => {
+            let flow = AwsAuthFlow::AssumeRole {
+                role: role.clone(),
+                session_name: session_name.clone(),
+            };
+            let key = cache_key(&resolved, &flow);
+            if let Some(credentials) = get_cached_credentials(&key) {
+                return Ok(credentials);
+            }
             let has_explicit_keys =
                 resolved.access_key_id.is_some() && resolved.secret_access_key.is_some();
-            if !has_explicit_keys
-                && is_already_running_as_role(&role, &resolved, env_lookup).await?
-            {
+            if !has_explicit_keys {
                 let ambient_flow = AwsAuthFlow::DefaultChain;
-                let key = cache_key(&resolved, &ambient_flow);
-                if let Some(credentials) = get_cached_credentials(&key) {
+                let ambient_key = cache_key(&resolved, &ambient_flow);
+                if let Some(credentials) = get_cached_credentials(&ambient_key) {
                     return Ok(credentials);
                 }
-                let provider =
-                    aws_config::default_provider::credentials::DefaultCredentialsChain::builder()
-                        .build()
-                        .await;
-                let credentials = provider
-                    .provide_credentials()
-                    .await
-                    .map_err(|error| Error::AwsDefaultChain(error.to_string()))?;
-                set_cached_credentials(
-                    key,
-                    credentials.clone(),
-                    credential_cache_ttl(&ambient_flow).unwrap_or(AMBIENT_CREDENTIALS_TTL),
-                );
-                return Ok(credentials);
+                if is_already_running_as_role(&role, &resolved, env_lookup).await? {
+                    let provider =
+                        aws_config::default_provider::credentials::DefaultCredentialsChain::builder()
+                            .build()
+                            .await;
+                    let credentials = provider
+                        .provide_credentials()
+                        .await
+                        .map_err(|error| Error::AwsDefaultChain(error.to_string()))?;
+                    let ttl =
+                        credential_cache_ttl(&ambient_flow).unwrap_or(AMBIENT_CREDENTIALS_TTL);
+                    set_cached_credentials(ambient_key, credentials.clone(), ttl);
+                    set_cached_credentials(key, credentials.clone(), ttl);
+                    return Ok(credentials);
+                }
             }
             let mut loader = aws_config::defaults(aws_config::BehaviorVersion::latest());
             if let Some(region) = resolved.region_name.clone() {
@@ -324,16 +354,31 @@ pub async fn resolve_credentials(
                 None => builder,
             };
             let provider = builder.configure(&sdk_config).build().await;
-            provider
+            let credentials = provider
                 .provide_credentials()
                 .await
-                .map_err(|error| Error::AwsAssumeRole(error.to_string()))
+                .map_err(|error| Error::AwsAssumeRole(error.to_string()))?;
+            set_cached_credentials(
+                key,
+                credentials.clone(),
+                credential_cache_ttl(&flow).unwrap_or(AMBIENT_CREDENTIALS_TTL),
+            );
+            Ok(credentials)
         }
         AwsAuthFlow::WebIdentity {
             token,
             role,
             session_name,
         } => {
+            let flow = AwsAuthFlow::WebIdentity {
+                token: token.clone(),
+                role: role.clone(),
+                session_name: session_name.clone(),
+            };
+            let key = cache_key(&resolved, &flow);
+            if let Some(credentials) = get_cached_credentials(&key) {
+                return Ok(credentials);
+            }
             let mut loader = aws_config::defaults(aws_config::BehaviorVersion::latest());
             if let Some(region) = resolved.region_name {
                 loader = loader.region(aws_types::region::Region::new(region));
@@ -356,13 +401,16 @@ pub async fn resolve_credentials(
                 .ok_or(Error::AwsMissingWebIdentityCredentials)?;
             let expiration = SystemTime::try_from(*credentials.expiration())
                 .map_err(|error| Error::AwsWebIdentityExpiration(error.to_string()))?;
-            Ok(Credentials::new(
+            let credentials = Credentials::new(
                 credentials.access_key_id(),
                 credentials.secret_access_key(),
                 Some(credentials.session_token().to_string()),
                 Some(expiration),
                 "litellm-web-identity",
-            ))
+            );
+            let ttl = web_identity_cache_ttl(&flow, expiration);
+            set_cached_credentials(key, credentials.clone(), ttl);
+            Ok(credentials)
         }
         AwsAuthFlow::DefaultChain => {
             let key = cache_key(&resolved, &AwsAuthFlow::DefaultChain);
@@ -807,7 +855,7 @@ mod tests {
                 role: "arn:aws:iam::123456789012:role/demo".into(),
                 session_name: None,
             }),
-            None
+            Some(AMBIENT_CREDENTIALS_TTL)
         );
         assert_eq!(
             credential_cache_ttl(&AwsAuthFlow::WebIdentity {
@@ -815,8 +863,91 @@ mod tests {
                 role: "arn:aws:iam::123456789012:role/demo".into(),
                 session_name: "session".into(),
             }),
-            None
+            Some(AMBIENT_CREDENTIALS_TTL)
         );
+    }
+
+    #[tokio::test]
+    async fn web_identity_credentials_hit_cache_and_respect_expiration() {
+        let config = AwsAuthConfig {
+            role_name: Some("arn:aws:iam::123456789012:role/web-identity-demo".into()),
+            session_name: Some("web-session".into()),
+            web_identity_token: Some("jwt-token-a".into()),
+            region_name: Some("us-east-1".into()),
+            sts_endpoint: Some("http://127.0.0.1:1".into()),
+            ..Default::default()
+        };
+        let flow = classify_auth(config.clone(), &no_env);
+        let key = cache_key(&config, &flow);
+        let other_flow = AwsAuthFlow::WebIdentity {
+            token: "jwt-token-b".into(),
+            role: "arn:aws:iam::123456789012:role/web-identity-demo".into(),
+            session_name: "web-session".into(),
+        };
+        assert_ne!(key, cache_key(&config, &other_flow));
+
+        let future_expiration = SystemTime::now() + Duration::from_secs(300);
+        let ttl = web_identity_cache_ttl(&flow, future_expiration);
+        assert!(ttl > Duration::ZERO && ttl <= Duration::from_secs(300));
+
+        let cached = Credentials::new(
+            "web-ak",
+            "web-sk",
+            Some("web-session-token".into()),
+            Some(future_expiration),
+            "litellm-web-identity",
+        );
+        set_cached_credentials(key.clone(), cached, ttl);
+
+        let resolved = resolve_credentials(config.clone(), &no_env)
+            .await
+            .expect("cached web identity credentials should resolve without STS network call");
+        assert_eq!(resolved.access_key_id(), "web-ak");
+        assert_eq!(resolved.session_token(), Some("web-session-token"));
+
+        let past_expiration = SystemTime::now() - Duration::from_secs(5);
+        assert_eq!(
+            web_identity_cache_ttl(&flow, past_expiration),
+            Duration::ZERO
+        );
+        ambient_credentials_cache().insert(
+            key.clone(),
+            Credentials::new(
+                "expired-ak",
+                "expired-sk",
+                Some("expired-token".into()),
+                Some(past_expiration),
+                "litellm-web-identity",
+            ),
+        );
+        assert!(get_cached_credentials(&key).is_none());
+    }
+
+    #[tokio::test]
+    async fn assume_role_credentials_hit_cache_before_caller_identity_check() {
+        let config = AwsAuthConfig {
+            role_name: Some("arn:aws:iam::123456789012:role/assume-role-demo".into()),
+            session_name: Some("assume-session".into()),
+            region_name: Some("us-east-1".into()),
+            sts_endpoint: Some("http://127.0.0.1:1".into()),
+            ..Default::default()
+        };
+        let flow = classify_auth(config.clone(), &no_env);
+        let key = cache_key(&config, &flow);
+        let cached = Credentials::new(
+            "assumed-ak",
+            "assumed-sk",
+            Some("assumed-token".into()),
+            Some(SystemTime::now() + Duration::from_secs(300)),
+            "litellm-assume-role",
+        );
+        set_cached_credentials(key, cached, AMBIENT_CREDENTIALS_TTL);
+
+        let resolved = resolve_credentials(config, &no_env)
+            .await
+            .expect("cached assume-role credentials should resolve before STS GetCallerIdentity");
+        assert_eq!(resolved.access_key_id(), "assumed-ak");
+        assert_eq!(resolved.session_token(), Some("assumed-token"));
     }
 
     #[test]

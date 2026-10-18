@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::{Error, client::http_client, common_utils::truncate_error_body};
 
-const MAX_MESSAGES_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+const MAX_MESSAGES_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ERROR_RESPONSE_BYTES: usize = 64 * 1024;
 
 pub(super) fn network(error: reqwest::Error) -> Error {

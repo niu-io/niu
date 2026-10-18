@@ -9,7 +9,9 @@ pub(super) fn http_client() -> &'static reqwest::Client {
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(AUDIO_TRANSCRIPTION_TIMEOUT_SECS))
             .redirect(reqwest::redirect::Policy::none())
+            .retry(reqwest::retry::never())
+            .no_proxy()
             .build()
-            .unwrap_or_else(|_| reqwest::Client::new())
+            .expect("http client")
     })
 }

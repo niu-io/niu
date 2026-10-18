@@ -12,6 +12,6 @@ pub(super) fn http_client() -> &'static reqwest::Client {
             .retry(reqwest::retry::never())
             .no_proxy()
             .build()
-            .unwrap_or_else(|_| reqwest::Client::new())
+            .expect("http client")
     })
 }

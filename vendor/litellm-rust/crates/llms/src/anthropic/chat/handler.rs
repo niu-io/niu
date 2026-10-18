@@ -546,6 +546,28 @@ impl AnthropicChatCompletionsStreamTransformer {
             ))),
         }
     }
+
+    pub fn transform_stream_event(
+        &mut self,
+        event: &Value,
+    ) -> Result<Vec<ChatCompletionChunk>, Error> {
+        if event.get("type").and_then(Value::as_str) == Some("error") {
+            let error_obj = event.get("error");
+            let error_type = error_obj
+                .and_then(|err| err.get("type"))
+                .and_then(Value::as_str)
+                .unwrap_or("error");
+            let message = error_obj
+                .and_then(|err| err.get("message"))
+                .or_else(|| event.get("message"))
+                .and_then(Value::as_str)
+                .unwrap_or("Anthropic stream error");
+            return Err(Error::InvalidResponse(format!("{error_type}: {message}")));
+        }
+        let parsed: AnthropicMessagesStreamEvent = serde_json::from_value(event.clone())
+            .map_err(|error| Error::InvalidResponse(error.to_string()))?;
+        self.transform(parsed)
+    }
 }
 
 impl StreamTransformer for AnthropicChatCompletionsStreamTransformer {
@@ -569,5 +591,46 @@ impl StreamTransformer for AnthropicChatCompletionsStreamTransformer {
             return Ok(vec![chunk]);
         }
         Ok(Vec::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use litellm_framing::sse::SseFrame;
+
+    use super::*;
+    use crate::anthropic::experimental_pass_through::messages::streaming_iterator::decode_anthropic_sse_frame;
+
+    #[test]
+    fn surfaces_upstream_sse_error_event_as_invalid_response() {
+        let mut transformer =
+            AnthropicChatCompletionsStreamTransformer::new(false, None, HashMap::new());
+        let raw_payload =
+            r#"{"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}"#;
+
+        let event = decode_anthropic_sse_frame(SseFrame {
+            event: Some("error".into()),
+            data: Some(raw_payload.into()),
+            id: None,
+            retry: None,
+        })
+        .expect("decodes error SSE frame");
+
+        let err = transformer
+            .transform(event)
+            .expect_err("SSE error event must return Err");
+        assert_eq!(
+            err,
+            Error::InvalidResponse("overloaded_error: Overloaded".to_string())
+        );
+
+        let value: Value = serde_json::from_str(raw_payload).expect("valid json");
+        let err = transformer
+            .transform_stream_event(&value)
+            .expect_err("transform_stream_event must return Err on error payload");
+        assert_eq!(
+            err,
+            Error::InvalidResponse("overloaded_error: Overloaded".to_string())
+        );
     }
 }
