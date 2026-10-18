@@ -120,7 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             })
         });
-    let video_recovery = video_recovery::spawn(&state, bg_shutdown_rx)?;
+    let video_recovery = video_recovery::spawn(&state, bg_shutdown_rx.clone())?;
     // OAuth callbacks contain authorization codes: trace paths, never queries.
     let app = web::router(state).layer(TraceLayer::new_for_http().make_span_with(
         |request: &axum::http::Request<axum::body::Body>| {
@@ -134,12 +134,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Niu gateway listening"
     );
     // Finalize routes once instead of repeating with_state for every connection.
-    axum::serve(
+    let serve = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(shutdown_signal())
-    .await?;
+    .with_graceful_shutdown(shutdown_signal(bg_shutdown_tx.clone()));
+    let mut serve_shutdown_rx = bg_shutdown_rx;
+    let serve_timeout = async move {
+        while !*serve_shutdown_rx.borrow_and_update() {
+            if serve_shutdown_rx.changed().await.is_err() {
+                std::future::pending::<()>().await;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+    };
+    tokio::select! {
+        result = serve => result?,
+        () = serve_timeout => {
+            tracing::warn!(
+                reason = "http_graceful_shutdown_timeout",
+                "HTTP server drain exceeded the shutdown deadline; proceeding with storage flush"
+            );
+        }
+    }
     let _ = bg_shutdown_tx.send(true);
     let mut bg_tasks: Vec<_> = recovery.into_iter().collect();
     if let Some(video_recovery) = video_recovery {
@@ -187,7 +204,7 @@ fn bind_address(
     bind.parse()
 }
 
-async fn shutdown_signal() {
+async fn shutdown_signal(bg_shutdown_tx: tokio::sync::watch::Sender<bool>) {
     let ctrl_c = async {
         let _ = tokio::signal::ctrl_c().await;
     };
@@ -208,6 +225,7 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
+    let _ = bg_shutdown_tx.send(true);
 }
 
 #[cfg(test)]

@@ -15,6 +15,7 @@ struct Messages {
     public_model: String,
     tools: Option<crate::native_messages_tools::StreamTools>,
     tool: Option<(Value, String)>,
+    thinking: bool,
     tool_ids: std::collections::BTreeSet<String>,
     tool_names: Vec<String>,
     tool_bytes: usize,
@@ -41,6 +42,7 @@ impl Messages {
             public_model,
             tools,
             tool: None,
+            thinking: false,
             tool_ids: Default::default(),
             tool_names: Vec::new(),
             tool_bytes: 0,
@@ -74,7 +76,9 @@ impl Messages {
                 {
                     self.invalid_usage = true;
                 }
-                self.counts[index] = next;
+                if let Some(next) = next {
+                    self.counts[index] = Some(next);
+                }
                 output.insert((*field).to_owned(), json!(next));
             }
         }
@@ -115,10 +119,11 @@ impl Messages {
             "content_block_start"
                 if self.started && !self.active && self.stop.is_none() && self.blocks < 128 =>
             {
-                if value["content_block"]["type"] == "tool_use" {
-                    if value["index"].as_u64() != Some(self.blocks) {
-                        return Err("Invalid Messages tool order");
-                    }
+                if value["index"].as_u64() != Some(self.blocks) {
+                    return Err("Invalid Messages block order");
+                }
+                let block_type = value["content_block"]["type"].as_str();
+                if block_type == Some("tool_use") {
                     let safe = self
                         .tools
                         .as_ref()
@@ -142,8 +147,36 @@ impl Messages {
                     self.tool = Some((safe.clone(), String::new()));
                     return Ok(json!({"type":kind,"index":self.blocks,"content_block":safe}));
                 }
-                if value["index"].as_u64() != Some(self.blocks)
-                    || value["content_block"]["type"] != "text"
+                if block_type == Some("thinking") {
+                    let thinking = value["content_block"]["thinking"]
+                        .as_str()
+                        .ok_or("Invalid Messages thinking block")?;
+                    let signature = match value["content_block"].get("signature") {
+                        None | Some(Value::Null) => None,
+                        Some(Value::String(sig)) => Some(sig.as_str()),
+                        Some(_) => return Err("Invalid Messages thinking signature"),
+                    };
+                    self.active = true;
+                    self.thinking = true;
+                    self.has_output |= !thinking.is_empty();
+                    let mut block = json!({"type":"thinking","thinking":thinking});
+                    if let Some(sig) = signature {
+                        block["signature"] = json!(sig);
+                    }
+                    return Ok(json!({"type":kind,"index":self.blocks,"content_block":block}));
+                }
+                if block_type == Some("redacted_thinking") {
+                    let data = value["content_block"]["data"]
+                        .as_str()
+                        .ok_or("Invalid Messages redacted thinking block")?;
+                    self.active = true;
+                    self.thinking = true;
+                    self.has_output = true;
+                    return Ok(
+                        json!({"type":kind,"index":self.blocks,"content_block":{"type":"redacted_thinking","data":data}}),
+                    );
+                }
+                if block_type != Some("text")
                     || !value["content_block"]["text"].is_string()
                     || value["content_block"]
                         .get("citations")
@@ -160,10 +193,11 @@ impl Messages {
                 )
             }
             "content_block_delta" if self.active && self.stop.is_none() => {
+                if value["index"].as_u64() != Some(self.blocks) {
+                    return Err("Invalid Messages block order");
+                }
                 if let Some((_, input)) = &mut self.tool {
-                    if value["index"].as_u64() != Some(self.blocks)
-                        || value["delta"]["type"] != "input_json_delta"
-                    {
+                    if value["delta"]["type"] != "input_json_delta" {
                         return Err("Invalid Messages tool delta");
                     }
                     let part = value["delta"]["partial_json"]
@@ -180,10 +214,29 @@ impl Messages {
                         json!({"type":kind,"index":self.blocks,"delta":{"type":"input_json_delta","partial_json":part}}),
                     );
                 }
-                if value["index"].as_u64() != Some(self.blocks)
-                    || value["delta"]["type"] != "text_delta"
-                    || !value["delta"]["text"].is_string()
-                {
+                if self.thinking {
+                    match value["delta"]["type"].as_str() {
+                        Some("thinking_delta") => {
+                            let thinking = value["delta"]["thinking"]
+                                .as_str()
+                                .ok_or("Invalid Messages thinking delta")?;
+                            self.has_output |= !thinking.is_empty();
+                            return Ok(
+                                json!({"type":kind,"index":self.blocks,"delta":{"type":"thinking_delta","thinking":thinking}}),
+                            );
+                        }
+                        Some("signature_delta") => {
+                            let signature = value["delta"]["signature"]
+                                .as_str()
+                                .ok_or("Invalid Messages signature delta")?;
+                            return Ok(
+                                json!({"type":kind,"index":self.blocks,"delta":{"type":"signature_delta","signature":signature}}),
+                            );
+                        }
+                        _ => return Err("Invalid Messages thinking delta"),
+                    }
+                }
+                if value["delta"]["type"] != "text_delta" || !value["delta"]["text"].is_string() {
                     return Err("Unsupported Messages delta");
                 }
                 self.has_output |= value["delta"]["text"]
@@ -211,12 +264,13 @@ impl Messages {
                         return Err("Invalid Messages tool arguments");
                     }
                 }
+                self.thinking = false;
                 let index = self.blocks;
                 self.blocks += 1;
                 self.active = false;
                 Ok(json!({"type":kind,"index":index}))
             }
-            "message_delta" if self.started && !self.active && self.blocks > 0 => {
+            "message_delta" if self.started && !self.active => {
                 let stop = value["delta"]["stop_reason"]
                     .as_str()
                     .filter(|s| ["end_turn", "max_tokens", "stop_sequence", "tool_use"].contains(s))
@@ -318,16 +372,22 @@ impl Messages {
             (|| {
                 Some((
                     self.counts[0]?
-                        .checked_add(self.counts[2]?)?
-                        .checked_add(self.counts[3]?)?,
+                        .checked_add(self.counts[2].unwrap_or(0))?
+                        .checked_add(self.counts[3].unwrap_or(0))?,
                     self.counts[1]?,
                 ))
             })()
         };
-        let token_categories = usage.map(|_| niu_storage::RequestTokenCategories {
-            cached_input_tokens: self.counts[3].map(|v| v as i64),
-            cache_write_input_tokens: self.counts[2].map(|v| v as i64),
-            reasoning_output_tokens: None,
+        let token_categories = usage.and_then(|_| {
+            if self.counts[2].is_none() && self.counts[3].is_none() {
+                None
+            } else {
+                Some(niu_storage::RequestTokenCategories {
+                    cached_input_tokens: self.counts[3].map(|v| v as i64),
+                    cache_write_input_tokens: self.counts[2].map(|v| v as i64),
+                    reasoning_output_tokens: None,
+                })
+            }
         });
         StreamCompletion {
             usage,
@@ -391,7 +451,7 @@ where
                     if evidence.done
                         && let Some(context) = attempt.take()
                     {
-                        context.complete_observation(evidence.completion()).await;
+                        context.complete(evidence.completion()).await;
                     }
                     (bytes, evidence.done)
                 }
@@ -408,4 +468,42 @@ where
             ))
         },
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn messages_stream_accepts_thinking_blocks_and_omitted_cache_counters() {
+        let mut messages = Messages::new("anthropic/claude-sonnet-4".to_owned(), None);
+        let stream = concat!(
+            "event: message_start\n",
+            "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-20250514\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":25,\"output_tokens\":1}}}\n\n",
+            "event: content_block_start\n",
+            "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":null}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"Let me think...\"}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"sig_abc\"}}\n\n",
+            "event: content_block_stop\n",
+            "data: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+            "event: content_block_start\n",
+            "data: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Done.\"}}\n\n",
+            "event: content_block_stop\n",
+            "data: {\"type\":\"content_block_stop\",\"index\":1}\n\n",
+            "event: message_delta\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":12}}\n\n",
+            "event: message_stop\n",
+            "data: {\"type\":\"message_stop\"}\n\n"
+        );
+        let out = messages.feed(stream.as_bytes()).expect("valid stream");
+        assert!(!out.is_empty());
+        assert!(messages.done);
+        let completion = messages.completion();
+        assert_eq!(completion.usage, Some((25, 12)));
+        assert!(completion.token_categories.is_none());
+    }
 }

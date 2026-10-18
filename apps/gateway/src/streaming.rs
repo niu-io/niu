@@ -380,14 +380,9 @@ struct StreamCompletion {
     invalid_output: bool,
 }
 
-impl StreamAttempt {
-    /// Protocol inspection supplies evidence; this boundary owns durable completion.
-    /// Spawning onto `diagnostic_writes` before awaiting ensures that if the
-    /// downstream HTTP client disconnects while completion is being persisted
-    /// (after `PendingStreamAttempt::take()` has already consumed the drop guard),
-    /// the database write runs to completion instead of being cancelled mid-flight.
-    async fn complete(self, evidence: &ChatEvidence) {
-        let observation = StreamCompletion {
+impl From<&ChatEvidence> for StreamCompletion {
+    fn from(evidence: &ChatEvidence) -> Self {
+        Self {
             usage: evidence.usage(),
             provider_model: evidence.provider_model().map(str::to_owned),
             token_categories: evidence.token_categories(),
@@ -396,12 +391,26 @@ impl StreamAttempt {
                 .structured
                 .as_ref()
                 .is_some_and(|output| !output.valid()),
-        };
-        let writes = self.diagnostic_writes.clone();
-        let _ = writes.spawn(self.complete_observation(observation)).await;
+        }
+    }
+}
+
+impl StreamAttempt {
+    /// Protocol inspection supplies evidence; this boundary owns durable completion.
+    /// Spawning onto `diagnostic_writes` before awaiting ensures that if the
+    /// downstream HTTP client disconnects while completion is being persisted
+    /// (after `PendingStreamAttempt::take()` has already consumed the drop guard),
+    /// the database write runs to completion instead of being cancelled mid-flight.
+    async fn complete(self, observation: impl Into<StreamCompletion>) {
+        self.complete_observation(observation.into()).await;
     }
 
     async fn complete_observation(self, observation: StreamCompletion) {
+        let writes = self.diagnostic_writes.clone();
+        let _ = writes.spawn(self.persist_observation(observation)).await;
+    }
+
+    async fn persist_observation(self, observation: StreamCompletion) {
         let StreamCompletion {
             usage,
             provider_model,
