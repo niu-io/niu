@@ -7,7 +7,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/dashboard/package.json apps/dashboard/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY apps/catalog/package.json apps/catalog/package.json
+COPY sdks/agent-connect/package.json sdks/agent-connect/package.json
 COPY sdks/javascript/package.json sdks/javascript/package.json
+COPY sdks/mcp/package.json sdks/mcp/package.json
 RUN pnpm install --frozen-lockfile
 COPY scripts/verify-js-licenses.mjs scripts/verify-js-licenses.mjs
 RUN node scripts/verify-js-licenses.mjs

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +13,7 @@ import {
   resourceDefinitions,
   resourceTemplates,
   resolveConfig,
+  start,
   toolDefinitions,
 } from '../dist/index.js';
 
@@ -607,7 +608,10 @@ test('a gateway error stays a tool error and does not include an unstructured bo
 
 test('stdio serves initialize, resources, and a hosted completion with binary file saving', async () => {
   const tempDir = mkdtempSync(join(tmpdir(), 'niu-mcp-test-'));
+  const outsideDir = mkdtempSync(join(tmpdir(), 'niu-mcp-outside-'));
   const targetVideoPath = join(tempDir, 'clip.mp4');
+  const symlinkEscapeDir = join(tempDir, 'escape-link');
+  symlinkSync(outsideDir, symlinkEscapeDir);
   const gateway = await listen((request, response) => {
     if (request.url === '/v1/chat/completions') {
       response.end(
@@ -629,7 +633,12 @@ test('stdio serves initialize, resources, and a hosted completion with binary fi
   });
   try {
     const child = spawn(process.execPath, [fileURLToPath(new URL('../bin/niu-mcp.mjs', import.meta.url))], {
-      env: { ...process.env, NIU_API_KEY: 'secret', NIU_BASE_URL: `${gateway.url}/v1` },
+      env: {
+        ...process.env,
+        NIU_API_KEY: 'secret',
+        NIU_BASE_URL: `${gateway.url}/v1`,
+        NIU_MCP_OUTPUT_DIR: tempDir,
+      },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     const nextLine = readLines(child.stdout);
@@ -660,12 +669,165 @@ test('stdio serves initialize, resources, and a hosted completion with binary fi
     assert.equal(JSON.parse(downloaded.result.content[0].text).bytes, 4);
     assert.deepEqual([...readFileSync(targetVideoPath)], [0xde, 0xad, 0xbe, 0xef]);
 
+    // Refuse overwriting an existing file
+    child.stdin.write(
+      `${rpc('tools/call', {
+        name: 'download_video_result',
+        arguments: { id: SAMPLE_UUID, kind: 'video', output_path: targetVideoPath },
+      })}\n`,
+    );
+    const overwriteAttempt = JSON.parse(await nextLine());
+    assert.equal(overwriteAttempt.result.isError, true);
+
+    // Refuse escaping output directory via symlink
+    child.stdin.write(
+      `${rpc('tools/call', {
+        name: 'download_video_result',
+        arguments: { id: SAMPLE_UUID, kind: 'video', output_path: join(symlinkEscapeDir, 'pwn.mp4') },
+      })}\n`,
+    );
+    const symlinkAttempt = JSON.parse(await nextLine());
+    assert.equal(symlinkAttempt.result.isError, true);
+
+    // Refuse writing outside NIU_MCP_OUTPUT_DIR
+    child.stdin.write(
+      `${rpc('tools/call', {
+        name: 'download_video_result',
+        arguments: { id: SAMPLE_UUID, kind: 'video', output_path: join(outsideDir, 'outside.mp4') },
+      })}\n`,
+    );
+    const outsideAttempt = JSON.parse(await nextLine());
+    assert.equal(outsideAttempt.result.isError, true);
+
+    // Refuse non-media extension
+    child.stdin.write(
+      `${rpc('tools/call', {
+        name: 'download_video_result',
+        arguments: { id: SAMPLE_UUID, kind: 'video', output_path: join(tempDir, 'payload.sh') },
+      })}\n`,
+    );
+    const badExtAttempt = JSON.parse(await nextLine());
+    assert.equal(badExtAttempt.result.isError, true);
+
     child.stdin.end();
     await new Promise((resolve) => child.once('exit', resolve));
   } finally {
     await gateway.close();
     rmSync(tempDir, { recursive: true, force: true });
+    rmSync(outsideDir, { recursive: true, force: true });
   }
+});
+
+test('get_video_job_diagnostics sends after 64-char hex cursor and rejects before or invalid cursors', async () => {
+  const validCursor = 'a1'.repeat(32);
+  const seenUrls = [];
+  const client = {
+    baseURL: 'https://niu.io/v1',
+    apiKey: 'workspace-key',
+    fetch: async (url) => {
+      seenUrls.push(url);
+      return json({ data: [], next_cursor: null });
+    },
+  };
+
+  const diagTool = toolDefinitions.find((t) => t.name === 'get_video_job_diagnostics');
+  assert.ok(diagTool);
+  assert.equal(diagTool.inputSchema.properties.before, undefined);
+  assert.deepEqual(diagTool.inputSchema.properties.after, {
+    type: 'string',
+    pattern: '^[0-9a-fA-F]{64}$',
+  });
+
+  const okResp = JSON.parse(
+    await dispatch(
+      client,
+      rpc('tools/call', {
+        name: 'get_video_job_diagnostics',
+        arguments: {
+          id: SAMPLE_UUID,
+          include_timings: false,
+          include_observations: true,
+          after: validCursor,
+          limit: 25,
+        },
+      }),
+    ),
+  );
+  assert.equal(okResp.result.isError, undefined);
+  assert.deepEqual(seenUrls, [
+    `https://niu.io/v1/video/jobs/${SAMPLE_UUID}/observations?after=${validCursor}&limit=25`,
+  ]);
+
+  const legacyBefore = JSON.parse(
+    await dispatch(
+      client,
+      rpc('tools/call', {
+        name: 'get_video_job_diagnostics',
+        arguments: { id: SAMPLE_UUID, before: SAMPLE_UUID_2 },
+      }),
+    ),
+  );
+  assert.equal(legacyBefore.result.isError, true);
+  assert.match(legacyBefore.result.content[0].text, /get_video_job_diagnostics does not accept before/);
+
+  const invalidAfter = JSON.parse(
+    await dispatch(
+      client,
+      rpc('tools/call', {
+        name: 'get_video_job_diagnostics',
+        arguments: { id: SAMPLE_UUID, include_timings: false, after: SAMPLE_UUID_2 },
+      }),
+    ),
+  );
+  assert.equal(invalidAfter.result.isError, true);
+  assert.match(invalidAfter.result.content[0].text, /64-character hex/);
+});
+
+test('start dispatches stdio JSON-RPC requests concurrently without head-of-line blocking', async () => {
+  let releaseSlow;
+  const slowGate = new Promise((resolve) => {
+    releaseSlow = resolve;
+  });
+  const responses = [];
+  async function* generateLines() {
+    yield JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'slow-1',
+      method: 'tools/call',
+      params: { name: 'list_models' },
+    });
+    yield JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'fast-2',
+      method: 'ping',
+    });
+    // Wait until fast-2 has already completed before releasing slow-1
+    while (!responses.some((r) => r.id === 'fast-2')) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    releaseSlow();
+  }
+
+  await start(
+    [],
+    { NIU_API_KEY: 'workspace-key', NIU_BASE_URL: 'https://niu.io/v1' },
+    {
+      hostedSource: readFileSync(new URL('../hosted/niu.io.json', import.meta.url), 'utf8'),
+      lines: generateLines(),
+      write(line) {
+        responses.push(JSON.parse(line));
+      },
+      fetch: async () => {
+        await slowGate;
+        return json({ data: [{ id: 'fast' }] });
+      },
+    },
+  );
+
+  assert.deepEqual(
+    responses.map((r) => r.id),
+    ['fast-2', 'slow-1'],
+  );
 });
 
 function rpc(method, params) {

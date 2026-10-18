@@ -461,3 +461,23 @@ test('introspects current API key and generation details via /v1/key and /v1/gen
   assert.throws(() => client.getGeneration('../invalid'), TypeError);
 });
 
+test('encodes model parameter in generateContent and rejects empty, untrimmed, or traversal models', async () => {
+  const urls = [];
+  const client = new NiuClient({
+    apiKey: 'test-token',
+    baseURL: 'https://niu.example/v1',
+    fetch: async (url) => {
+      urls.push(String(url));
+      return Response.json({ candidates: [] });
+    },
+  });
+  await client.generateContent('google/gemini-2.5-pro', {
+    contents: [{ parts: [{ text: 'hello' }] }],
+  });
+  assert.equal(urls[0], 'https://niu.example/v1beta/models/google%2Fgemini-2.5-pro:generateContent');
+  assert.throws(() => client.generateContent('  ', { contents: [] }), TypeError);
+  assert.throws(() => client.generateContent(' model ', { contents: [] }), TypeError);
+  assert.throws(() => client.generateContent('../escape', { contents: [] }), TypeError);
+});
+
+

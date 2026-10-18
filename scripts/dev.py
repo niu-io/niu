@@ -246,7 +246,8 @@ def main():
     for name, key in (('niu_dev_core', 'core'),):
         exists = run(psql + ['-Atc', f"SELECT 1 FROM pg_roles WHERE rolname='{name}'"], env=pg_env, capture_output=True, text=True).stdout.strip()
         if not exists:
-            run(psql, env=pg_env, input=f"CREATE ROLE {name} LOGIN PASSWORD '{secret[key]}';\nCREATE DATABASE {name} OWNER {name};\n", text=True, stdout=subprocess.DEVNULL)
+            escaped_pw = secret[key].replace("'", "''")
+            run(psql, env=pg_env, input=f"CREATE ROLE {name} LOGIN PASSWORD '{escaped_pw}';\nCREATE DATABASE {name} OWNER {name};\n", text=True, stdout=subprocess.DEVNULL)
     (STATE / 'niu.toml').write_text('[models]\n')
     env.update({
         'NIU_DATABASE_URL': f"postgres://niu_dev_core:{secret['core']}@127.0.0.1:55433/niu_dev_core",

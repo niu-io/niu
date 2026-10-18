@@ -191,18 +191,19 @@ export async function callTool(
       case "get_video_job_diagnostics": {
         const input = parseObjectArgs(
           raw,
-          ["id", "include_timings", "include_observations", "before", "limit"],
+          ["id", "include_timings", "include_observations", "after", "limit"],
           "get_video_job_diagnostics",
         );
         const id = assertUuid(input.id, "video job UUID");
         const includeTimings = optionalBoolean(input.include_timings, "include_timings") ?? true;
         const includeObservations =
           optionalBoolean(input.include_observations, "include_observations") ?? true;
+        const afterCursor = optionalString(input.after, "after");
         const [timings, observations] = await Promise.all([
           includeTimings ? getVideoJobTimings(client, id) : Promise.resolve(undefined),
           includeObservations
             ? getVideoJobObservations(client, id, {
-                before: input.before === undefined ? undefined : String(input.before),
+                after: afterCursor,
                 limit: input.limit === undefined ? undefined : Number(input.limit),
               })
             : Promise.resolve(undefined),
@@ -928,6 +929,25 @@ function parseVideoGenerationArgs(
   };
 }
 
+const ALLOWED_OUTPUT_EXTENSIONS = /\.(?:mp4|webm|mov|png|jpg|jpeg|webp|gif)$/i;
+
+function validateOutputPath(outputPath: string): string {
+  if (outputPath.includes("\0")) {
+    throw new Error("output_path must not contain null bytes");
+  }
+  const segments = outputPath.split(/[\\/]+/);
+  if (segments.includes("..")) {
+    throw new Error("output_path must not contain '..' path traversal segments");
+  }
+  const filename = segments[segments.length - 1] ?? "";
+  if (!filename || !ALLOWED_OUTPUT_EXTENSIONS.test(filename)) {
+    throw new Error(
+      "output_path must have a valid media extension (.mp4, .webm, .mov, .png, .jpg, .jpeg, .webp, .gif)",
+    );
+  }
+  return outputPath;
+}
+
 async function handleDownloadVideoResult(
   client: GatewayClient,
   raw: unknown,
@@ -943,7 +963,8 @@ async function handleDownloadVideoResult(
   }
   const kind = input.kind;
   const refresh = optionalBoolean(input.refresh, "refresh") ?? false;
-  const outputPath = optionalString(input.output_path, "output_path");
+  const rawOutputPath = optionalString(input.output_path, "output_path");
+  const outputPath = rawOutputPath === undefined ? undefined : validateOutputPath(rawOutputPath);
   const includeBase64Image =
     optionalBoolean(input.include_base64_image, "include_base64_image") ?? false;
 
@@ -1961,7 +1982,7 @@ export const toolDefinitions = [
         id: { type: "string", description: "Canonical Niu video job UUID." },
         include_timings: { type: "boolean" },
         include_observations: { type: "boolean" },
-        before: { type: "string" },
+        after: { type: "string", pattern: "^[0-9a-fA-F]{64}$" },
         limit: { type: "integer", minimum: 1, maximum: 100 },
       },
     },

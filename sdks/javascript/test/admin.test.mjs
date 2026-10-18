@@ -1484,3 +1484,28 @@ test('update audit and erasure preserve scoped cursors, cancellation and safe st
   assert.throws(()=>client.deleteOrdinaryAssetGroupUpdatePatch(id,'invalid',scope),/UUID/);
   assert.equal(calls.length,2);
 });
+
+test('validates and URL-encodes admin path parameters against path traversal', async () => {
+  const urls = [];
+  const client = new NiuAdminClient({
+    adminToken: 'test',
+    fetch: async (url) => {
+      urls.push(String(url));
+      return Response.json({ data: [] });
+    },
+  });
+  const scope = { organizationId: id, projectId: id };
+
+  await client.resolveWorkspaceRoute('my-workspace');
+  assert.ok(urls[0].endsWith('/workspaces/by-route/my-workspace'));
+  assert.throws(() => client.resolveWorkspaceRoute(''), TypeError);
+  assert.throws(() => client.resolveWorkspaceRoute('../escape'), TypeError);
+
+  assert.throws(() => client.listMediaLiabilityQualifications('../escape'), TypeError);
+  assert.throws(() => client.retireMediaLiabilityQualification('vendor-1', 'a/b', { reason: 'retired' }), TypeError);
+  assert.throws(() => client.retireSupplierMediaRate(id, '../bad'), TypeError);
+  assert.throws(() => client.retireCustomerMediaRate(scope, 'a\\b'), TypeError);
+  assert.throws(() => client.getRetailMediaEnrollment('not-a-uuid', id), /UUID/);
+  assert.throws(() => client.setRetailMediaEnrollment(id, 'not-a-uuid', { enrolled: true, expected_version: '0', idempotency_key: id, reason: 'ok' }), /UUID/);
+});
+

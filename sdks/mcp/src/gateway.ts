@@ -289,12 +289,15 @@ export async function getVideoJobTimings(client: GatewayClient, id: string): Pro
 export async function getVideoJobObservations(
   client: GatewayClient,
   id: string,
-  query: { before?: string; limit?: number } = {},
+  query: { after?: string; limit?: number } = {},
 ): Promise<unknown> {
   const validId = assertUuid(id, "video job UUID");
   const params = new URLSearchParams();
-  if (query.before !== undefined) {
-    params.set("before", assertUuid(query.before, "video observation cursor UUID"));
+  if (query.after !== undefined) {
+    if (typeof query.after !== "string" || !/^[0-9a-fA-F]{64}$/.test(query.after)) {
+      throw new Error("after must be a 64-character hex video observation cursor");
+    }
+    params.set("after", query.after);
   }
   if (query.limit !== undefined) {
     if (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 100) {

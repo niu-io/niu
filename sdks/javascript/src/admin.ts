@@ -1263,6 +1263,9 @@ export class NiuAdminClient {
 
   /** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
   resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute> {
+    if (typeof routeSlug !== 'string' || !routeSlug.trim() || routeSlug !== routeSlug.trim() || routeSlug === '.' || routeSlug.includes('..') || /[/?#\\\x00-\x1f\x7f]/.test(routeSlug)) {
+      throw new TypeError('Provide a valid workspace route slug');
+    }
     return this.request(`/workspaces/by-route/${encodeURIComponent(routeSlug)}`, undefined, options);
   }
 
@@ -1814,7 +1817,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/policy/history${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/policy/history${query.size ? '?' + query : ''}`, undefined, options);
   }
 
   /** Platform-only approved credit policy. Changes borrowing capacity, never posts received funds. No automatic retry. */
@@ -1824,7 +1827,7 @@ export class NiuAdminClient {
     if (!exact(input.credit_limit_nanos, 9223372036854775807n)
       || (input.warning_threshold_nanos !== null && !exact(input.warning_threshold_nanos, 9223372036854775807n))
       || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision');
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/policy`, {
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/policy`, {
       credit_limit_nanos: input.credit_limit_nanos, warning_threshold_nanos: input.warning_threshold_nanos, expected_revision: input.expected_revision,
     }, options, 'PUT');
   }
@@ -1832,13 +1835,13 @@ export class NiuAdminClient {
   /** Durable intent only; never posts funds. Publish the exact returned input with its original key. */
   prepareCustomerBalanceGrant(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{ data: PreparedCustomerBalanceGrant }> {
     const body = checkedBalanceGrantInput(currency, input);
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/prepare`, body, options, 'POST');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/grants/prepare`, body, options, 'POST');
   }
 
   /** Read original intent; prepared never proves that an in-flight publication failed. */
   getPreparedCustomerBalanceGrant(organizationId: string, currency: string, key: string, options?: RequestOptions): Promise<{ data: PreparedCustomerBalanceGrant }> {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/prepared/${uuid(key)}`, undefined, options);
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/grants/prepared/${uuid(key)}`, undefined, options);
   }
 
   /** Durable grant intent history, currency-scoped, newest first; no automatic issuance. */
@@ -1850,25 +1853,25 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit<1 || page.limit>100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit',String(page.limit));
     }
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/prepared${query.size?'?'+query:''}`,undefined,options);
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/grants/prepared${query.size?'?'+query:''}`,undefined,options);
   }
 
   /** Platform-only noncash gift. Reuse the same idempotency key for an exact retry; never creates a payment receipt. */
   grantCustomerBalance(organizationId: string, currency: string, input: CustomerBalanceGrantInput, options?: RequestOptions): Promise<{ data: { id: string; application_policy: 'future_only' | 'unpaid_credit_first'; applied_to_credit_nanos: string; retained_for_future_consumption_nanos: string } }> {
     const body = checkedBalanceGrantInput(currency, input);
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants`, body, options, 'POST');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/grants`, body, options, 'POST');
   }
 
   /** Platform-only full unused-gift correction. Retain the original key on an uncertain response; no automatic retry. */
   correctUnusedCustomerBalanceGrant(organizationId: string, currency: string, grantId: string, input: CustomerBalanceGiftCorrectionInput, options?: RequestOptions): Promise<{data:{id:string}}> {
     const body = checkedBalanceGrantInput(currency, {...input, application_policy:'future_only'});
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/${uuid(grantId)}/correction`, {amount_nanos:body.amount_nanos,reason:body.reason,idempotency_key:body.idempotency_key},options,'POST');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/grants/${uuid(grantId)}/correction`, {amount_nanos:body.amount_nanos,reason:body.reason,idempotency_key:body.idempotency_key},options,'POST');
   }
 
   /** Read one original gift and its correction to recover an uncertain response. */
   getIssuedCustomerBalanceGrant(organizationId:string,currency:string,grantId:string,options?:RequestOptions):Promise<{data:IssuedCustomerBalanceGrant}> {
     if(!/^[A-Z]{3}$/.test(currency))throw new TypeError('Use an uppercase currency code');
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/${uuid(grantId)}`,undefined,options);
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/grants/${uuid(grantId)}`,undefined,options);
   }
 
   /** Platform-only original gifts with separate correction history; internal references are not display labels. */
@@ -1877,7 +1880,7 @@ export class NiuAdminClient {
     const query=new URLSearchParams();
     if(page.before!==undefined)query.set('before',uuid(page.before));
     if(page.limit!==undefined){if(!Number.isInteger(page.limit)||page.limit<1||page.limit>100)throw new TypeError('Choose a page size from 1 to 100');query.set('limit',String(page.limit));}
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/grants/issued${query.size?'?'+query:''}`,undefined,options);
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/grants/issued${query.size?'?'+query:''}`,undefined,options);
   }
 
   /** Company warning preference only; cannot alter funds or approved credit. */
@@ -1886,7 +1889,7 @@ export class NiuAdminClient {
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
     if (input.warning_threshold_nanos !== null && !exact(input.warning_threshold_nanos, 9223372036854775807n)
       || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision');
-    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/warning-threshold`, { warning_threshold_nanos: input.warning_threshold_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/warning-threshold`, { warning_threshold_nanos: input.warning_threshold_nanos, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   /** Customer-safe billing read; server workspace authorization is authoritative. */
@@ -1896,7 +1899,7 @@ export class NiuAdminClient {
 
   /** Scoped immutable selling history; amount strings are never coerced to numbers. */
   getCustomerTariffHistory(scope: TenantScope, model: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<CustomerTariffHistory> {
-    if (!model || new TextEncoder().encode(model).length > 200) throw new TypeError('A model alias of at most 200 bytes is required');
+    if (typeof model !== 'string' || !model.trim() || model !== model.trim() || model === '.' || model === '..' || /[\x00-\x1f\x7f]/.test(model) || new TextEncoder().encode(model).length > 200) throw new TypeError('A model alias of at most 200 bytes is required');
     if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a history page size from 1 to 100');
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', uuid(page.before));
@@ -1973,32 +1976,39 @@ export class NiuAdminClient {
 
   /** Platform-only explicit liability evidence; publication does not authorize dispatch. */
   publishMediaLiabilityQualification(supplier: string, offer: string, input: MediaLiabilityPublication, options?: RequestOptions): Promise<{ data: MediaLiabilityPublicationResult }> {
+    const validSupplier = pathSegment(supplier, 'Provider identifier');
+    const validOffer = pathSegment(offer, 'Offer identifier');
     if (input.identity.supplier_id !== supplier || input.identity.offer_id !== offer) throw new TypeError('Route identity must match the requested Provider offer');
-    return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds`, input, options, 'POST');
+    return this.request(`/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds`, input, options, 'POST');
   }
   /** Platform-only immutable qualification history. Quantities do not imply an available route. */
   listMediaLiabilityQualifications(supplier: string, offer: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<MediaLiabilityQualificationPage> {
+    const validSupplier = pathSegment(supplier, 'Provider identifier');
+    const validOffer = pathSegment(offer, 'Offer identifier');
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', page.after);
     if (page.limit !== undefined) {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds${query.size ? '?' + query : ''}`, undefined, options);
   }
   /** Future admission only; already pinned jobs retain their bound. */
   retireMediaLiabilityQualification(supplier: string, offer: string, revision: string, input: MediaLiabilityRevocation, options?: RequestOptions): Promise<{ data: MediaLiabilityPublicationResult }> {
-    return this.request(`/providers/${encodeURIComponent(supplier)}/offers/${encodeURIComponent(offer)}/media-liability-bounds/${encodeURIComponent(revision)}/retire`, input, options, 'POST');
+    const validSupplier = pathSegment(supplier, 'Provider identifier');
+    const validOffer = pathSegment(offer, 'Offer identifier');
+    const validRevision = pathSegment(revision, 'Qualification revision');
+    return this.request(`/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds/${validRevision}/retire`, input, options, 'POST');
   }
 
   /** Platform configuration only; does not create funding or qualify a video route. */
   setRetailMediaEnrollment(scope: TenantScope, input: RetailMediaEnrollmentPublication, options?: RequestOptions): Promise<{ data: RetailMediaEnrollmentResult }> {
-    return this.request(`/organizations/${encodeURIComponent(scope.organizationId)}/projects/${encodeURIComponent(scope.projectId)}/billing/media-retail-price-enrollment`, input, options, 'POST');
+    return this.request(`/organizations/${encodeURIComponent(uuid(scope.organizationId))}/projects/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment`, input, options, 'POST');
   }
   /** Own customer selection is advisory; immutable task binding happens during admission. */
   getRetailMediaEnrollment(scope: TenantScope, dimensions: MediaBillingDimensions, meter: string, options?: RequestOptions): Promise<{ data: RetailMediaEnrollment }> {
     const query = new URLSearchParams({ model: dimensions.model, channel: dimensions.channel, resolution: dimensions.resolution, reference_video: String(dimensions.reference_video), meter });
-    return this.request(`/organizations/${encodeURIComponent(scope.organizationId)}/projects/${encodeURIComponent(scope.projectId)}/billing/media-retail-price-enrollment?${query}`, undefined, options);
+    return this.request(`/organizations/${encodeURIComponent(uuid(scope.organizationId))}/projects/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment?${query}`, undefined, options);
   }
 
   /** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */
@@ -2081,7 +2091,7 @@ export class NiuAdminClient {
 
   /** Platform-only selling history, independent of customer content permissions. */
   getPlatformCustomerTariffHistory(scope: TenantScope, model: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<CustomerTariffHistory> {
-    if (!model || new TextEncoder().encode(model).length > 200) throw new TypeError('A model alias of at most 200 bytes is required');
+    if (typeof model !== 'string' || !model.trim() || model !== model.trim() || model === '.' || model === '..' || /[\x00-\x1f\x7f]/.test(model) || new TextEncoder().encode(model).length > 200) throw new TypeError('A model alias of at most 200 bytes is required');
     if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a history page size from 1 to 100');
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', uuid(page.before));
@@ -2192,14 +2202,14 @@ export class NiuAdminClient {
 
   /** Platform-administrator cutoff; existing purchase snapshots and earnings stay immutable. */
   retireSupplierMediaRate(supplierId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
-    if (!revision || revision.trim() !== revision || revision.length > 256 || /[\x00-\x1f\x7f/]/.test(revision)) throw new TypeError('Choose a valid Provider media revision');
+    if (typeof revision !== 'string' || !revision || revision.trim() !== revision || revision === '.' || revision === '..' || revision.length > 256 || /[\x00-\x1f\x7f/?#]/.test(revision)) throw new TypeError('Choose a valid Provider media revision');
     if (!Number.isSafeInteger(effectiveUntil)) throw new TypeError('Retirement time must be exact Unix seconds');
     return this.request(`/providers/${uuid(supplierId)}/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
   }
 
   /** End eligibility without changing published prices or historical job snapshots. */
   retireCustomerMediaRate(organizationId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
-    if (!revision || revision.trim() !== revision || revision.length > 256 || /[\x00-\x1f\x7f/]/.test(revision)) throw new TypeError('Choose a valid media selling revision');
+    if (typeof revision !== 'string' || !revision || revision.trim() !== revision || revision === '.' || revision === '..' || revision.length > 256 || /[\x00-\x1f\x7f/?#]/.test(revision)) throw new TypeError('Choose a valid media selling revision');
     if (!Number.isSafeInteger(effectiveUntil)) throw new TypeError('Retirement time must be exact Unix seconds');
     return this.request(`/organizations/${uuid(organizationId)}/billing/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
   }
@@ -2457,7 +2467,7 @@ export class NiuAdminClient {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
     if ((input.limit_nanos !== null && !exact(input.limit_nanos, 9223372036854775807n)) || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision; null explicitly restores unlimited');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${currency}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeySpendingLimitHistory(scope: TenantScope, keyId: string, currency: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeySpendingLimitRevision[] }> {
@@ -2471,7 +2481,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${currency}/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Currency discovery exposes this workspace's commitments, never company funds. */
@@ -2481,7 +2491,7 @@ export class NiuAdminClient {
 
   getWorkspaceSpendingLimit(scope: TenantScope, currency: string, options?: RequestOptions): Promise<{ data: WorkspaceSpendingLimit | null }> {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${currency}`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, undefined, options);
   }
 
   /** Owner-only retail limit; never changes company funds or procurement budgets. */
@@ -2489,7 +2499,7 @@ export class NiuAdminClient {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
     if (!exact(input.limit_nanos, 9223372036854775807n) || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${currency}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listWorkspaceSpendingLimitHistory(scope: TenantScope, currency: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: WorkspaceSpendingLimitRevision[]; next_before_revision: string | null }> {
@@ -2503,7 +2513,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${currency}/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Immutable metadata only; excludes policy patterns and internal actor identifiers. */
@@ -2515,7 +2525,7 @@ export class NiuAdminClient {
 
   getWorkspaceGuardrailRevision(scope: TenantScope, revision: number, options?: RequestOptions): Promise<{ data: { revision: number; policy: GuardrailPolicy } }> {
     if (!Number.isSafeInteger(revision) || revision < 1) throw new Error('Invalid policy revision');
-    return this.request(`${this.guardrailsPath(scope)}/revisions/${revision}`, undefined, options);
+    return this.request(`${this.guardrailsPath(scope)}/revisions/${encodeURIComponent(String(revision))}`, undefined, options);
   }
 
   /** Creates a new active revision from an existing one; stale heads conflict without retries. */
@@ -2959,13 +2969,13 @@ export class NiuAdminClient {
   /** Installation-only disclosure; declarations are not verified processing guarantees. */
   getGuardrailDetectorDescription(detector: string, options?: RequestOptions): Promise<GuardrailDetectorDescription> {
     if (!/^[A-Za-z0-9_-]{1,200}$/.test(detector)) throw new TypeError('Invalid detector name');
-    return this.request(`/guardrails/detectors/${detector}`, undefined, options);
+    return this.request(`/guardrails/detectors/${encodeURIComponent(detector)}`, undefined, options);
   }
 
   /** Explicit external processing consent; no policy activation or customer billing. */
   previewGuardrailDetector(detector: string, input: GuardrailDetectorPreviewInput, options?: RequestOptions): Promise<GuardrailDetectorPreviewResult> {
     if (!/^[A-Za-z0-9_-]{1,200}$/.test(detector)) throw new TypeError('Invalid detector name');
-    return this.request(`/guardrails/detectors/${detector}/preview`, input, options, 'POST');
+    return this.request(`/guardrails/detectors/${encodeURIComponent(detector)}/preview`, input, options, 'POST');
   }
 
   /** Declared processing conditions for deployment-authorized workspace detectors. */
@@ -2988,7 +2998,7 @@ export class NiuAdminClient {
     if (!/^[A-Za-z0-9_-]{1,200}$/.test(detector)) throw new TypeError('Invalid image detector name');
     if (input.consent?.consent_to_image_processing !== true || !/^[a-f0-9]{64}$/.test(input.consent.configuration_fingerprint)) throw new TypeError('Current explicit image processing consent is required');
     if (typeof input.image !== 'string' || !input.image.startsWith('data:image/') || input.image.length > 2 * 1024 * 1024) throw new TypeError('A bounded inline image is required');
-    return this.request(`${this.guardrailsPath(scope)}/image-detectors/${detector}/preview`, {
+    return this.request(`${this.guardrailsPath(scope)}/image-detectors/${encodeURIComponent(detector)}/preview`, {
       consent: {configuration_fingerprint: input.consent.configuration_fingerprint, consent_to_image_processing: true}, image: input.image,
     }, options, 'POST');
   }
@@ -3298,6 +3308,13 @@ function retailSchedule(schedule: RetailSchedule, model: string, currency: strin
 function uuid(value: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Scope and account IDs must be UUIDs');
   return value;
+}
+
+function pathSegment(value: string, label = 'Path parameter'): string {
+  if (typeof value !== 'string' || !value.trim() || value !== value.trim() || value === '.' || value === '..' || value.includes('/') || value.includes('\\') || /[\u0000-\u001f\u007f]/.test(value)) {
+    throw new TypeError(`${label} must be a non-empty single path segment`);
+  }
+  return encodeURIComponent(value);
 }
 
 function supplierMediaRateBody(input: SupplierMediaRateCard): SupplierMediaRateCard {

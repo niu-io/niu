@@ -199,15 +199,21 @@ function validateModelAlias(value: string): string {
 
 function assertNoRouteOverrides(args: string[]): void {
   const protectedOptions = new Set([
-    '--model', '--weak-model', '--editor-model', '--openai-api-base', '--openai-api-key',
-    '--api-key', '--config', '-c', '--env-file', '--model-settings-file', '--set-env',
+    '--model', '-m', '--weak-model', '--editor-model', '--openai-api-base', '--openai-api-key',
+    '--api-key', '--config', '-c', '--env-file', '--model-settings-file', '--model-metadata-file',
+    '--alias', '--set-env',
     '--openai-api-type', '--openai-api-version', '--openai-api-deployment-id',
     '--openai-organization-id', '--show-model-warnings', '--no-show-model-warnings',
     '--show-release-notes', '--no-show-release-notes',
+    '--4o', '--mini', '--4-turbo', '--4', '--35turbo', '--35-turbo',
+    '--sonnet', '--opus', '--haiku', '--deepseek', '--o1-mini', '--o1-preview', '--flash',
   ]);
   for (const argument of args) {
     const option = argument.split('=', 1)[0];
     if (protectedOptions.has(option)) {
+      throw new Error(`Aider option ${option} is controlled by the Niu route connector`);
+    }
+    if (!option.startsWith('--') && (option.startsWith('-m') || option.startsWith('-c'))) {
       throw new Error(`Aider option ${option} is controlled by the Niu route connector`);
     }
   }

@@ -16,6 +16,7 @@ VERSION_FILE = ROOT / "VERSION"
 CARGO_TOML = ROOT / "Cargo.toml"
 PACKAGE_JSON = ROOT / "package.json"
 COMPOSE_YAML = ROOT / "compose.yaml"
+INSTALL_SH = ROOT / "scripts" / "install.sh"
 CHANGELOG_MD = ROOT / "CHANGELOG.md"
 REPO_URL = "https://github.com/niu-io/niu"
 
@@ -25,6 +26,9 @@ CARGO_WS_VERSION_PATTERN = re.compile(
 )
 COMPOSE_IMAGE_PATTERN = re.compile(
     r"(image:\s*\$\{NIU_IMAGE:-ghcr\.io/niu-io/niu:v)([^}]+)(\})"
+)
+INSTALL_SH_VERSION_PATTERN = re.compile(
+    r'^(DEFAULT_VERSION="v)([^"]+)(")', re.MULTILINE
 )
 CONVENTIONAL_COMMIT_PATTERN = re.compile(
     r"^(?P<type>[a-zA-Z]+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
@@ -72,12 +76,19 @@ def read_versions() -> dict[str, str]:
         raise RuntimeError("could not find default ghcr.io/niu-io/niu:v<version> image in compose.yaml")
     compose_version = compose_match.group(2)
 
+    install_sh_text = INSTALL_SH.read_text(encoding="utf-8")
+    install_sh_match = INSTALL_SH_VERSION_PATTERN.search(install_sh_text)
+    if not install_sh_match:
+        raise RuntimeError('could not find DEFAULT_VERSION="v<version>" in scripts/install.sh')
+    install_sh_version = install_sh_match.group(2)
+
     return {
         "VERSION": version_file,
         "Cargo.toml": cargo_version,
         "Cargo.lock": cargo_lock_version,
         "package.json": package_version,
         "compose.yaml": compose_version,
+        "scripts/install.sh": install_sh_version,
     }
 
 
@@ -329,6 +340,12 @@ def set_version(raw_version: str, create_tag: bool, update_changelog: bool) -> i
         raise RuntimeError("failed to update default image tag in compose.yaml")
     COMPOSE_YAML.write_text(compose_updated, encoding="utf-8")
 
+    install_sh_text = INSTALL_SH.read_text(encoding="utf-8")
+    install_sh_updated, count = INSTALL_SH_VERSION_PATTERN.subn(rf"\g<1>{version}\g<3>", install_sh_text, count=1)
+    if count != 1:
+        raise RuntimeError("failed to update DEFAULT_VERSION in scripts/install.sh")
+    INSTALL_SH.write_text(install_sh_updated, encoding="utf-8")
+
     cargo_lock_text = CARGO_LOCK.read_text(encoding="utf-8")
     cargo_lock_updated, lock_count = CARGO_LOCK_NIU_PATTERN.subn(
         rf"\g<1>{version}\g<3>", cargo_lock_text
@@ -353,7 +370,7 @@ def set_version(raw_version: str, create_tag: bool, update_changelog: bool) -> i
     if update_changelog and update_changelog_for_version(version):
         print(f"Updated CHANGELOG.md with section [{version}]")
 
-    print(f"Updated VERSION, Cargo.toml, Cargo.lock, package.json, and compose.yaml to v{version}")
+    print(f"Updated VERSION, Cargo.toml, Cargo.lock, package.json, compose.yaml, and scripts/install.sh to v{version}")
     if create_tag:
         tag = f"v{version}"
         subprocess.run(["git", "tag", "-a", tag, "-m", f"Release {tag}"], cwd=ROOT, check=True)

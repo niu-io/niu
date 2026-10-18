@@ -3,7 +3,7 @@
 # Supports: install, upgrade, rollback, status
 set -euo pipefail
 
-DEFAULT_VERSION="v0.2.0"
+DEFAULT_VERSION="v0.2.19"
 DEFAULT_DIR="${NIU_INSTALL_DIR:-/opt/niu}"
 DEFAULT_PORT="${NIU_HOST_PORT:-2555}"
 IMAGE_REPO="ghcr.io/niu-io/niu"
@@ -21,7 +21,7 @@ Commands:
   status      Show installed version, container state, and gateway readiness
 
 Options:
-  --version <vX.Y.Z>   Target Niu release tag (default: v0.2.0)
+  --version <vX.Y.Z>   Target Niu release tag (default: v0.2.19)
   --dir <path>         Installation directory (default: /opt/niu, or current directory if compose.yaml exists)
   --port <port>        Host port to bind (default: 2555)
   --help               Show this help message
@@ -75,10 +75,15 @@ set_env_var() {
   local value="$3"
   if [[ -f "$file" ]] && grep -q "^${key}=" "$file"; then
     local tmp="${file}.tmp.$$"
-    awk -v k="$key" -v v="$value" 'BEGIN{FS=OFS="="} $1==k {$0=k"="v} {print}' "$file" >"$tmp"
+    (
+      umask 077
+      KEY="$key" VAL="$value" awk 'BEGIN{FS=OFS="="} $1==ENVIRON["KEY"] {$0=ENVIRON["KEY"]"="ENVIRON["VAL"]} {print}' "$file" >"$tmp"
+    )
+    chmod 600 "$tmp"
     mv "$tmp" "$file"
   else
     printf '%s=%s\n' "$key" "$value" >>"$file"
+    chmod 600 "$file"
   fi
 }
 
@@ -265,6 +270,9 @@ cmd_upgrade() {
       cd "$dir"
       docker compose --env-file "$env_file" up -d niu
     )
+    if ! wait_for_ready "$port" 60; then
+      echo "error: rollback container (${current_image}) also failed readiness checks." >&2
+    fi
   fi
   exit 1
 }

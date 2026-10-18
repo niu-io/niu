@@ -585,7 +585,12 @@ export class NiuClient {
     this.embeddings = {
       create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
     };
-    this.generateContent = (model, request, options) => this.request(`/models/${encodeURIComponent(model)}:generateContent`, request, options, true);
+    this.generateContent = (model, request, options) => {
+      if (typeof model !== 'string' || !model.trim() || model !== model.trim() || model === '.' || model.includes('..') || /[?#:\\\x00-\x1f\x7f]/.test(model)) {
+        throw new TypeError('model must be a non-empty model identifier without path traversal or query delimiters');
+      }
+      return this.request(`/models/${encodeURIComponent(model)}:generateContent`, request, options, true);
+    };
     this.messages = {
       create: (request, requestOptions) => {
         if ((request as { stream?: boolean }).stream === true) throw new Error('Use messages.stream() for streaming requests');

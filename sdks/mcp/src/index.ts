@@ -44,9 +44,23 @@ export async function start(
     fetch: io.fetch,
     writeBinaryFile: io.writeBinaryFile,
   };
+  const maxConcurrency = 16;
+  const inFlight = new Set<Promise<void>>();
   for await (const line of io.lines) {
     if (line.trim() === "") continue;
-    const response = await dispatch(client, line);
-    if (response !== null) io.write(response);
+    while (inFlight.size >= maxConcurrency) {
+      await Promise.race(inFlight);
+    }
+    const task = dispatch(client, line)
+      .then((response) => {
+        if (response !== null) io.write(response);
+      })
+      .finally(() => {
+        inFlight.delete(task);
+      });
+    inFlight.add(task);
+  }
+  if (inFlight.size > 0) {
+    await Promise.all(inFlight);
   }
 }
