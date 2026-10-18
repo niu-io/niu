@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.21] - 2026-10-19
+
+### Fixed
+- **vendor**: update pinned litellm-rust source manifest fingerprints (#91)
+- **ux**: unify public header navigation, /help/ embed chrome, /login heading, and /models/ catalog controls (closes #96)
+
 ## [0.2.20] - 2026-10-18
 
 ### Added
@@ -313,7 +319,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.20...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.21...HEAD
+[0.2.21]: https://github.com/niu-io/niu/compare/v0.2.20...v0.2.21
 [0.2.20]: https://github.com/niu-io/niu/compare/v0.2.19...v0.2.20
 [0.2.19]: https://github.com/niu-io/niu/compare/v0.2.18...v0.2.19
 [0.2.18]: https://github.com/niu-io/niu/compare/v0.2.17...v0.2.18
