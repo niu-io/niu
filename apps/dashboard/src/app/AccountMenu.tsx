@@ -44,10 +44,11 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
   const platformAdmin = installation || Boolean(session?.permissions.platform_admin);
   const supplierOnly = supplierArea && !installation && !session?.operator;
   const label = profile?.name || (installation ? 'Administrator access' : 'Account');
+  const avatarInitial = (session ? label[0] : 'N').toUpperCase();
   return <>
     <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
       {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" aria-label="Open navigation menu">Navigation<ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label="Account menu" title="Account">
-        {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{label[0]}</AvatarFallback></Avatar> : session ? label[0] : 'N'}
+        {profile ? <Avatar className="size-full"><AvatarImage src={profile.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar> : avatarInitial}
       </DropdownMenuTrigger>}
         <DropdownMenuContent onEscapeKeyDown={event => event.stopPropagation()} className="account-menu" side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
           {mobile && <>
@@ -62,7 +63,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
             <DropdownMenuSeparator />
           </>}
           <DropdownMenuLabel className="account-identity">
-            <Avatar className="size-9 shrink-0" aria-hidden="true"><AvatarImage src={profile?.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{label[0].toUpperCase()}</AvatarFallback></Avatar>
+            <Avatar className="size-9 shrink-0" aria-hidden="true"><AvatarImage src={profile?.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar>
             <div className="account-identity-details"><strong>{label}</strong>
             <span>{profile?.email || (installation ? 'Administrator token session' : token ? 'Account settings' : 'Sign in')}</span></div>
           </DropdownMenuLabel>

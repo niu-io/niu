@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconCheck, IconCopy, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { Button } from '../../../dashboard/src/components/ui/button';
 import { Input } from '../../../dashboard/src/components/ui/input';
 import { Badge } from '../../../dashboard/src/components/ui/badge';
@@ -38,6 +38,7 @@ export default function PublicModelCatalog() {
   const [query, setQuery] = useState('');
   const [revision, setRevision] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     setState('loading');
@@ -60,13 +61,26 @@ export default function PublicModelCatalog() {
       ...protocols.filter(([key]) => model.capabilities?.[key] === true).flatMap(([key, label]) => [key, label])].join(' ').toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });
+  const toggleTerm = (term: string) => {
+    const normalized = term.toLocaleLowerCase();
+    setQuery(previous => {
+      const currentTerms = previous.trim().split(/\s+/).filter(Boolean);
+      const exists = currentTerms.some(item => item.toLocaleLowerCase() === normalized);
+      return exists ? currentTerms.filter(item => item.toLocaleLowerCase() !== normalized).join(' ') : [...currentTerms, normalized].join(' ');
+    });
+  };
+  const copyModelId = (id: string) => {
+    void navigator.clipboard?.writeText(id);
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId(current => (current === id ? null : current)), 1800);
+  };
   return <section className="catalog-browser" aria-label="Published models">
     <div className="catalog-toolbar">
       <div className="catalog-filter"><IconSearch size={18} aria-hidden="true" />
         <Input type="search" aria-label="Filter models" placeholder="Filter by name, modality or API…" value={query}
           onChange={event => setQuery(event.target.value)} disabled={state === 'loading'} />
       </div>
-      <Button variant="outline" disabled={state === 'loading'} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} aria-hidden="true" />Refresh</Button>
+      <Button variant="outline" className="catalog-refresh-button" aria-label="Refresh" disabled={state === 'loading'} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} aria-hidden="true" /><span>Refresh</span></Button>
     </div>
     <p className="catalog-result-count" role="status">{state === 'loading' ? 'Loading models…' : state === 'error' ? 'Model catalog unavailable' : `${matches.length}${terms.length ? ` of ${models.length}` : ''} ${models.length === 1 ? 'model' : 'models'}`}</p>
     {state === 'error' && <div role="alert"><p>Could not load the public model catalog. Try refreshing.</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>Try again</Button></div>}
@@ -80,17 +94,33 @@ export default function PublicModelCatalog() {
       const output = tokenCount(catalog?.max_completion_tokens);
       const supported = protocols.filter(([key]) => model.capabilities?.[key] === true);
       const guides = supported.filter(([key]) => key !== 'streaming' && key !== 'messages_streaming').map(([, label, slug]) => ({ label, slug }));
+      const copied = copiedId === model.id;
       return <article key={model.id} className="catalog-model">
         <h2>{name}</h2>
-        {name !== model.id && <p className="catalog-model-alias">{model.id}</p>}
+        <div className="catalog-model-alias-row">
+          <code className="catalog-model-alias">{model.id}</code>
+          <Button type="button" variant="ghost" size="sm" className="catalog-model-copy" aria-label={`Copy model ID ${model.id}`} onClick={() => copyModelId(model.id)}>
+            {copied ? <IconCheck size={14} aria-hidden="true" /> : <IconCopy size={14} aria-hidden="true" />}
+            <span>{copied ? 'Copied' : 'Copy ID'}</span>
+          </Button>
+        </div>
         {description && <><p className={expanded.has(model.id) ? 'catalog-description' : 'catalog-description catalog-description-preview'}>{description}</p>
           {description.length > 240 && <Button variant="link" className="catalog-description-toggle" aria-expanded={expanded.has(model.id)} onClick={() => setExpanded(previous => {
             const next = new Set(previous); if (next.has(model.id)) next.delete(model.id); else next.add(model.id); return next;
           })}>{expanded.has(model.id) ? 'Show less' : 'Read full description'}</Button>}</>}
         <div className="catalog-model-modalities">
-          {strings(catalog?.input_modalities).map(value => <Badge key={'in-' + value} variant="secondary">{value} input</Badge>)}
-          {strings(catalog?.output_modalities).map(value => <Badge key={'out-' + value} variant="secondary">{value} output</Badge>)}
-          {supported.some(([key]) => key === 'streaming' || key === 'messages_streaming') && <Badge variant="secondary">Streaming</Badge>}
+          {strings(catalog?.input_modalities).map(value => {
+            const active = terms.includes(value.toLocaleLowerCase());
+            return <Badge key={'in-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(value)}>{value} input</button></Badge>;
+          })}
+          {strings(catalog?.output_modalities).map(value => {
+            const active = terms.includes(value.toLocaleLowerCase());
+            return <Badge key={'out-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(value)}>{value} output</button></Badge>;
+          })}
+          {supported.some(([key]) => key === 'streaming' || key === 'messages_streaming') && (() => {
+            const active = terms.includes('streaming');
+            return <Badge asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm('streaming')}>Streaming</button></Badge>;
+          })()}
         </div>
         <div className="catalog-model-footer">{(context || output) && <p className="catalog-model-limits">{[context && `${context} token context`, output && `${output} max output tokens`].filter(Boolean).join(' · ')}</p>}
         {guides.length > 0 && <nav className="catalog-model-guides" aria-label={`${name} API documentation`}>{guides.map(({ label, slug }) => <a key={slug} href={`/docs/api/rest/${slug}/`}>{label} API</a>)}</nav>}

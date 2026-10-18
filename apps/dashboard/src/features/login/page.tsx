@@ -106,6 +106,8 @@ export default function LoginRoute() {
         <Button asChild variant="ghost" size="sm"><a href="/models/">Models</a></Button>
         <Button asChild variant="ghost" size="sm"><a href="/docs/">Documentation</a></Button>
       </nav>
+      <h1>Sign in</h1>
+      <p className="dashboard-login-intro">Sign in to manage workspaces, API keys, model routes, and billing.</p>
       <form className="dashboard-login-form" onSubmit={submit}>
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && <p role="status">Password changed. Sign in again.</p>}
           {mode==='token'?<div className="dashboard-login-field">

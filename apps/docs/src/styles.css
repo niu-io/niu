@@ -197,8 +197,13 @@ starlight-toc a {
 
 .docs-embedded-name { display: none; }
 :root[data-docs-embedded] .docs-brand img,
-:root[data-docs-embedded] .docs-public-name { display: none; }
+:root[data-docs-embedded] .docs-public-name,
+:root[data-docs-embedded] .docs-header nav,
+:root[data-docs-embedded] .public-session,
+:root[data-docs-embedded] .docs-mobile-public nav,
+:root[data-docs-embedded] .docs-mobile-public .public-session { display: none; }
 :root[data-docs-embedded] .docs-embedded-name { display: inline; }
+:root[data-docs-embedded] .docs-header-tools { margin-inline-start: auto; }
 
 :root[data-api-reference] { --sl-content-width: 100%; }
 
@@ -252,9 +257,8 @@ starlight-toc a {
 :root { --sl-nav-height:4rem; }
 .docs-mobile-public { display:none; }
 @media(max-width:49.999rem) {
- .docs-header { padding-inline-end:2.5rem; }
- .docs-header nav { display:none; }
- .docs-header-tools site-search > button, .docs-header-tools > astro-island { display:none; }
+ .docs-header { gap:.75rem; padding-inline-end:2.5rem; }
+ .docs-header nav, .docs-header-tools { display:none; }
  .docs-mobile-public { display:block; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--border); }
  .docs-mobile-public nav { display:grid; gap:.25rem; margin-bottom:.75rem; }
  .docs-mobile-public nav a { display:block; padding:.5rem; color:var(--muted-foreground); font-size:.875rem; text-decoration:none; border-radius:var(--radius-control); }

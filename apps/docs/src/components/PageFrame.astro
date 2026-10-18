@@ -29,6 +29,8 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       } else if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
         event.preventDefault();
         parent.postMessage({ type: 'niu-docs-navigation', path: url.pathname + url.search + url.hash }, location.origin);
+      } else if (url.origin === location.origin) {
+        link.target = '_top';
       } else {
         link.target = '_blank';
         link.rel = 'noopener';
