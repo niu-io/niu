@@ -1,27 +1,12 @@
 import { IconLayoutDashboard } from "@tabler/icons-react";
 import { Button } from "../../../dashboard/src/components/ui/button";
-import { docsLoginHref, useDocsSession } from "./live-api/session";
-
-/** Shared-origin session awareness; never reads or exposes the session cookie. */
+/** Public navigation stays available; the dashboard owns authentication. */
 export default function SessionLink() {
-  const { session, checking, error, refresh } = useDocsSession();
-  if (checking)
-    return (
-      <span className="text-sm text-muted-foreground" role="status">
-        Checking login…
-      </span>
-    );
-  if (error)
-    return (
-      <Button variant="ghost" size="sm" onClick={refresh}>
-        Retry login check
-      </Button>
-    );
   return (
     <Button asChild size="sm" className="public-session-action no-underline">
-      <a href={session ? "/workspaces/default/" : docsLoginHref()}>
-        {session && <IconLayoutDashboard aria-hidden="true" />}
-        {session ? "Dashboard" : "Sign in"}
+      <a href="/workspaces/default/">
+        <IconLayoutDashboard aria-hidden="true" />
+        Dashboard
       </a>
     </Button>
   );
