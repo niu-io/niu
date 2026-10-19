@@ -3,7 +3,7 @@
 # Supports: install, upgrade, rollback, status
 set -euo pipefail
 
-DEFAULT_VERSION="v0.2.22"
+DEFAULT_VERSION="v0.2.23"
 DEFAULT_DIR="${NIU_INSTALL_DIR:-/opt/niu}"
 DEFAULT_PORT="${NIU_HOST_PORT:-2555}"
 IMAGE_REPO="ghcr.io/niu-io/niu"

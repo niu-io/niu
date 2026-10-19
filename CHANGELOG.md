@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.23] - 2026-10-19
+
+### Changed
+- **sdk,dashboard**: unify Supplier/Vendor types and methods to Provider across SDK, docs, and dashboard
+
 ## [0.2.22] - 2026-10-19
 
 ### Added
@@ -395,7 +400,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.22...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.23...HEAD
+[0.2.23]: https://github.com/niu-io/niu/compare/v0.2.22...v0.2.23
 [0.2.22]: https://github.com/niu-io/niu/compare/v0.2.21...v0.2.22
 [0.2.21]: https://github.com/niu-io/niu/compare/v0.2.20...v0.2.21
 [0.2.20]: https://github.com/niu-io/niu/compare/v0.2.19...v0.2.20
