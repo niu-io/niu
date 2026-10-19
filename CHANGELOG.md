@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.22] - 2026-10-19
+
+### Added
+
+- **Dashboard Route Pools administration (`/admin/route-pools`)**:
+  - Add a full administrative surface for inspecting, filtering, creating, editing, and reviewing revision history of model route pools (`GET /api/v1/model-route-pools/index`, `PUT /api/v1/model-route-pools`, `GET /api/v1/model-route-pools/history`).
+  - Support shared and organization-scoped pools, priority-tier ordering (`-1000..1000`), weighted selection (`1..10000`), optimistic revision guards (`expected_revision`), uncertain write recovery (`writeMayHaveCommitted`), and candidate route discovery across configured Provider model mappings.
+- **Shared demo browser sign-in (`POST /api/v1/auth/browser/demo`)**:
+  - Add server-configured shared demo sign-in controlled by `NIU_DEMO_LOGIN_EMAIL` and `NIU_DEMO_LOGIN_PASSWORD` (`demo_login` in `GET /api/v1/auth/config`), with a one-click `Try the demo` action on `/login` and migration `0355_restore_demo_platform_admin.sql`.
+
+### Changed
+
+- **Unified Provider terminology and routes**:
+  - Standardize Dashboard Provider management routes under `/admin/providers` and `/providers/:providerId` while preserving legacy `/admin/suppliers` and `/suppliers/:providerId` redirects and API/storage compatibility aliases.
+  - Style the public shell `Dashboard` / `Sign in` call-to-action button with the brand accent and group desktop header navigation links.
+
 ## [0.2.21] - 2026-10-19
 
 ### Added
@@ -379,7 +395,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.21...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.22...HEAD
+[0.2.22]: https://github.com/niu-io/niu/compare/v0.2.21...v0.2.22
 [0.2.21]: https://github.com/niu-io/niu/compare/v0.2.20...v0.2.21
 [0.2.20]: https://github.com/niu-io/niu/compare/v0.2.19...v0.2.20
 [0.2.19]: https://github.com/niu-io/niu/compare/v0.2.18...v0.2.19
