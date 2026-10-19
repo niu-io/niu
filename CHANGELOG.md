@@ -8,24 +8,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [0.2.21] - 2026-10-19
 
+### Added
+
+- Add a filled `Dashboard` / `Sign in` call-to-action button in the public header and right-align the mobile session control across public surfaces (#96).
+- Add database migration `0354_architecture_stability_and_ledger_fixes.sql` restoring unlimited request-rate fast paths, fixing post-reservation settlement triggers, binding `attempts.api_key_id` before reservation enforcement, recording `P0020` / `P0026` key rate denials in `gateway_admission_denials`, rewriting `niu_customer_key_committed()` to eliminate $O(N)$ ledger scans, and adding partial indexes for financial recovery and commercial position queries (#85, #86, #87).
+
 ### Fixed
-- **vendor**: update pinned litellm-rust source manifest fingerprints (#91)
-- **ux**: unify public header navigation, /help/ embed chrome, /login heading, and /models/ catalog controls (closes #96)
+
+- **Public shell, `/help/` embed & catalog UX (`v0.2.21`)**:
+  - Unify public header navigation (`Models`, `Docs`, `API Reference`, `Comparison`, and active `Dashboard` / `Sign in` session action) across `/models/`, `/docs/`, and `/help/`, while suppressing duplicate public header chrome when documentation is embedded inside the Dashboard `/help/` frame (#96).
+  - Refine the `/login` heading hierarchy and `/models/` public catalog search and filter toolbar ergonomics across desktop and narrow viewports (#96).
+  - Synchronize pinned SHA-256 source fingerprints in `vendor/litellm-rust/SOURCE-MANIFEST.json` for `litellm-core`, `litellm-llms`, and `litellm-auth-aws` following the `v0.2.20` upstream engine fixes (#91).
+- **Gateway runtime & multi-replica consistency (`v0.2.20`–`v0.2.21`)**:
+  - Normalize trailing-slash requests on top-level and nested Dashboard SPA routes (`/activity/`, `/generations/`, `/settings/`, `/admin/.../`, `/providers/.../`, `/suppliers/`, `/workspaces/{slug}/.../`) so direct entry and refreshes do not return HTTP `404` (#74).
+  - Signal background recovery workers immediately upon `SIGINT` / `SIGTERM`, bound HTTP connection draining to 15 seconds, and route `/v1/messages` streaming completion through `diagnostic_writes` so downstream client disconnects cannot cancel post-stream settlement (#81).
+  - Execute `GatewayWrites` single-item admission fallbacks with bounded concurrency (`8`) and offload per-item completion retry sleeps onto background tasks to prevent batch worker head-of-line stalls (#82).
+  - Persist Codex OAuth PKCE login state across gateway replicas using authenticated AES-256-GCM state tokens (`vendor_cipher`) with replay tracking, and preserve the payment recovery cursor when an order probe is skipped due to rate limiting (#83).
+  - Add a 200ms monotonic TTL to the in-memory `RouteRegistry` active generation check, cache decrypted `EPayRuntime` instances by `(revision, encryption_key_version)`, defer request payload credential scrubbing to background persistence, and eliminate redundant JSON AST clones during input guardrail evaluation (#84).
+- **Financial ledger, storage & query performance (`v0.2.20`–`v0.2.21`)**:
+  - Distinguish API-submitted media jobs (`source = 'api'`) from `'generations'` and `'unknown'` in `generations_inventory.sql`, and bind `organization_id` / `project_id` on `LEFT JOIN attempts` in `generations_session_turns.sql` (#79).
+  - Bind `attempts.api_key_id` prior to `customer_balance_reservations` insertion so `enforce_customer_balance_reservation()` enforces per-key spending limits at admission time, and create `0`-nanos reservation records for zero-priced prepaid text attempts with bound customer tariffs (#85).
+  - Restore the unlimited fast-path in `niu_enforce_vendor_request_rate()` and `niu_enforce_key_request_rate()`, bypass redundant workspace limit re-checks when settling charges covered by an active reservation, and enforce `AND currency = $5` in `settle_cost_in_tx` (#86).
+  - Push unsettled `needs_recovery` predicates into the `candidates` CTE of `customer_charge_recovery.sql`, `customer_media_charge_recovery.sql`, `supplier_earning_recovery.sql`, and `media_completion_recovery.sql`, and consolidate `gateway_activity_summary_on` histogram bounds into a single CTE pass (#87, #88).
+- **AI inference protocols, video pipeline & `litellm-rust` (`v0.2.20`–`v0.2.21`)**:
+  - Support 100%-cached and zero-completion usage in native Chat Completions, populate `token_categories` for native chat responses, inject `stream_options.include_usage = true` on personal (BYOK) streaming routes, default omitted Anthropic cache token fields to `0` while supporting `thinking` and `redacted_thinking` content blocks in `/v1/messages`, default omitted Gemini category token counts to `Some(0)`, and map `incomplete`, `refusal`, and `finish_reasons` in `/v1/codex/chat/completions` (#89).
+  - Preserve validated `asset://` references during `OutputSchema` re-validation (`validate_request_value_allowing_prepared_assets`), permit `video_url` and `audio_url` blocks in `pin_media_output_snapshot`, move `enqueue_pending_media_queries()` outside the inner per-tick loop in `video_recovery.rs`, coalesce `IN_FLIGHT_REFRESHES` by `(organization_id, project_id, id)`, record `confirmed_not_executed` on pre-dispatch video failures, and verify `DELIVERY_CHUNKS` capacity before downloading upstream video bytes (#90).
+  - Cache `AwsAuthFlow::WebIdentity` STS credentials and check the `AssumeRole` cache before calling `GetCallerIdentity` in `litellm-auth-aws`, surface upstream SSE `event: error` frames in `AnthropicChatCompletionsStreamTransformer`, harden `litellm-core` HTTP clients with a 16 MiB response cap, and preserve user schema properties named `"additionalProperties"` in Bedrock `strip_additional_properties` (#91).
+- **Security & isolation hardening (`v0.2.20`–`v0.2.21`)**:
+  - Evaluate per-identity password login rate limits before the installation-wide global bucket, add per-IP login rate limiting, isolate authenticated password changes (`PUT /api/v1/auth/password`) into a dedicated rate-limit bucket, require a loopback bind or explicit `https://` `NIU_AUTH_PUBLIC_ORIGIN` when `NIU_DEMO_ACCOUNT_ENABLED=1`, add Ed25519 JWS verification, `0o600` Unix socket permissions, and a 16,384-entry deduplication window in `niu-plugin-sdk`, support browser session cookie + CSRF authentication and singleflight health probes in the enterprise plugin proxy/runtime, add `validate_public_endpoint_url` in `niu-upstream`, and guard `tokio::task::block_in_place` with a `RuntimeFlavor::MultiThread` check (#92).
+- **Dashboard, Docs, OpenAPI contracts & SDKs (`v0.2.20`–`v0.2.21`)**:
+  - Use workspace route slugs (`workspacePathSegment` / `resolveWorkspacePathSegment`) consistently across `AppLayout`, global `Activity`, `GatewayActivity`, `ModelTable`, `PlaygroundView`, `SessionHistory`, and `VideoView`, and route Guardrails history links through `${workspaceRoot}/guardrails/history` (#75, #93).
+  - Render the `ArrowUpRight` action icon in the Activity Model usage table and preserve `net_contribution_nanos: null` (`Unavailable`) when cohort contribution is unknown on the Commercial Position page (#76).
+  - Replace permanently visible model filter inputs on Customer Pricing, Retail Pricing, and Provider Admin pages with compact Popover search panels, remove duplicate `<h2>` supplier section headings, compute provider token sums with `BigInt`, use React Router `<Link>` in `MediaOfferPublisher`, and narrow `aria-current="page"` in `PublicNavigationMenu` (#77).
+  - Guard Playground comparison cancellation against stale in-flight responses, eliminate `SessionHistory` $4 \times N$ cross-workspace re-fetch fan-out on workspace switches, refresh terminal video job billing/timings and pause hidden-tab polling in `VideoView`, forward Dashboard Bearer authentication into embedded `/help/` API Reference views, and reset stale tenant billing/key state on scope changes (#93).
+  - Align OpenAPI `security` declarations across 21 `/api/v1/` management operations and 32 `/v1/` inference/media operations, document `key_id` and `model_alias` on `GET /api/v1/organizations/{org_id}/projects/{project_id}/requests`, and replace residual `Supplier` / customer-facing `project` terminology with `Provider` / `workspace` (#80).
+  - Replace the unsupported `before` parameter in MCP `get_video_job_diagnostics` with 64-character hex `after` cursor validation (#78), confine MCP binary file downloads to `NIU_MCP_OUTPUT_DIR` with safe media extensions and exclusive creation (`wx`), parallelize the MCP stdio JSON-RPC dispatch loop (concurrency up to 16), URL-encode path segments in `sdks/javascript`, block Aider short/model override flags in `sdks/agent-connect`, and harden `Dockerfile` and `scripts/install.sh` (#94).
+
+### Verification boundary
+
+- Full static, contract, license, and build verification passes across `cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings`, `scripts/verify-imports.py`, `scripts/extract-handler-openapi.py --check`, `scripts/check-openapi-entrypoints.py`, `scripts/check-public-boundary.py`, `niu-storage` (34 unit tests + PostgreSQL storage fixtures), `niu-media` (54 unit tests), `niu-plugin-sdk`, `niu-upstream`, `niu-gateway` unit and functional/stability/process-recovery fixtures, `@niu-io/dashboard` (96 test files, 768 tests), `@niu-io/docs` (723 built pages), `@niu-io/catalog`, `sdks/mcp` (15 tests), `sdks/javascript` (44 tests), and `sdks/agent-connect` (18 tests).
+- Production deployment to `https://niu.io` (`niu-io/cloud`) is live and verified against `/enterprise/readyz`, `/api/v1/auth/config`, `/catalog/v1/models`, and `/docs/openapi/public.json`.
 
 ## [0.2.20] - 2026-10-18
 
 ### Added
-- **public-shell**: filled Dashboard/Sign in header action and right-aligned mobile session control
+
+- Add a filled `Dashboard` / `Sign in` call-to-action button in the public header and right-align the mobile session control across public surfaces.
+- Add database migration `0354_architecture_stability_and_ledger_fixes.sql` restoring unlimited request-rate fast paths, fixing post-reservation settlement triggers, binding `attempts.api_key_id` before reservation enforcement, recording `P0020` / `P0026` key rate denials in `gateway_admission_denials`, rewriting `niu_customer_key_committed()` to eliminate $O(N)$ ledger scans, and adding partial indexes for financial recovery and commercial position queries (#85, #86, #87).
 
 ### Fixed
-- **gateway**: allow NIU_DEMO_ACCOUNT_ENABLED behind https:// NIU_AUTH_PUBLIC_ORIGIN container binds (#92)
-- **dashboard,docs**: workspace slugs, secondary search popovers, playground cancellation race, and UI polish (#75, #76, #77, #93)
-- **storage,gateway,media,plugins**: ledger concurrency, recovery indexes, AI protocols, video pipeline, and security hardening (#79, #85, #86, #87, #88, #89, #90, #92)
-- **gateway**: bound graceful shutdown drain and make /v1/messages stream completion cancellation-safe (#81)
-- **gateway**: support trailing-slash SPA routes, parallelize batch fallbacks, persist Codex PKCE state, and optimize hot-path caches (#74, #82, #83, #84)
-- **openapi**: align security schemes and replace residual Supplier/project prose (#80)
-- **sdks**: fix MCP video diagnostics cursor, confine binary outputs, parallelize stdio, and harden scripts (#78, #94)
-- **litellm-rust**: cache AWS WebIdentity STS credentials, surface Anthropic SSE errors, and harden HTTP clients (#91)
+
+- **Gateway runtime & multi-replica consistency**:
+  - Normalize trailing-slash requests on top-level and nested Dashboard SPA routes (`/activity/`, `/generations/`, `/settings/`, `/admin/.../`, `/providers/.../`, `/suppliers/`, `/workspaces/{slug}/.../`) so direct entry and refreshes do not return HTTP `404` (#74).
+  - Signal background recovery workers immediately upon `SIGINT` / `SIGTERM`, bound HTTP connection draining to 15 seconds, and route `/v1/messages` streaming completion through `diagnostic_writes` so downstream client disconnects cannot cancel post-stream settlement (#81).
+  - Execute `GatewayWrites` single-item admission fallbacks with bounded concurrency (`8`) and offload per-item completion retry sleeps onto background tasks to prevent batch worker head-of-line stalls (#82).
+  - Persist Codex OAuth PKCE login state across gateway replicas using authenticated AES-256-GCM state tokens (`vendor_cipher`) with replay tracking, and preserve the payment recovery cursor when an order probe is skipped due to rate limiting (#83).
+  - Add a 200ms monotonic TTL to the in-memory `RouteRegistry` active generation check, cache decrypted `EPayRuntime` instances by `(revision, encryption_key_version)`, defer request payload credential scrubbing to background persistence, and eliminate redundant JSON AST clones during input guardrail evaluation (#84).
+- **Financial ledger, storage & query performance**:
+  - Distinguish API-submitted media jobs (`source = 'api'`) from `'generations'` and `'unknown'` in `generations_inventory.sql`, and bind `organization_id` / `project_id` on `LEFT JOIN attempts` in `generations_session_turns.sql` (#79).
+  - Bind `attempts.api_key_id` prior to `customer_balance_reservations` insertion so `enforce_customer_balance_reservation()` enforces per-key spending limits at admission time, and create `0`-nanos reservation records for zero-priced prepaid text attempts with bound customer tariffs (#85).
+  - Restore the unlimited fast-path in `niu_enforce_vendor_request_rate()` and `niu_enforce_key_request_rate()`, bypass redundant workspace limit re-checks when settling charges covered by an active reservation, and enforce `AND currency = $5` in `settle_cost_in_tx` (#86).
+  - Push unsettled `needs_recovery` predicates into the `candidates` CTE of `customer_charge_recovery.sql`, `customer_media_charge_recovery.sql`, `supplier_earning_recovery.sql`, and `media_completion_recovery.sql`, and consolidate `gateway_activity_summary_on` histogram bounds into a single CTE pass (#87, #88).
+- **AI inference protocols, video pipeline & `litellm-rust`**:
+  - Support 100%-cached and zero-completion usage in native Chat Completions, populate `token_categories` for native chat responses, inject `stream_options.include_usage = true` on personal (BYOK) streaming routes, default omitted Anthropic cache token fields to `0` while supporting `thinking` and `redacted_thinking` content blocks in `/v1/messages`, default omitted Gemini category token counts to `Some(0)`, and map `incomplete`, `refusal`, and `finish_reasons` in `/v1/codex/chat/completions` (#89).
+  - Preserve validated `asset://` references during `OutputSchema` re-validation (`validate_request_value_allowing_prepared_assets`), permit `video_url` and `audio_url` blocks in `pin_media_output_snapshot`, move `enqueue_pending_media_queries()` outside the inner per-tick loop in `video_recovery.rs`, coalesce `IN_FLIGHT_REFRESHES` by `(organization_id, project_id, id)`, record `confirmed_not_executed` on pre-dispatch video failures, and verify `DELIVERY_CHUNKS` capacity before downloading upstream video bytes (#90).
+  - Cache `AwsAuthFlow::WebIdentity` STS credentials and check the `AssumeRole` cache before calling `GetCallerIdentity` in `litellm-auth-aws`, surface upstream SSE `event: error` frames in `AnthropicChatCompletionsStreamTransformer`, harden `litellm-core` HTTP clients with a 16 MiB response cap, and preserve user schema properties named `"additionalProperties"` in Bedrock `strip_additional_properties` (#91).
+- **Security & isolation hardening**:
+  - Evaluate per-identity password login rate limits before the installation-wide global bucket, add per-IP login rate limiting, isolate authenticated password changes (`PUT /api/v1/auth/password`) into a dedicated rate-limit bucket, require a loopback bind or explicit `https://` `NIU_AUTH_PUBLIC_ORIGIN` when `NIU_DEMO_ACCOUNT_ENABLED=1`, add Ed25519 JWS verification, `0o600` Unix socket permissions, and a 16,384-entry deduplication window in `niu-plugin-sdk`, support browser session cookie + CSRF authentication and singleflight health probes in the enterprise plugin proxy/runtime, add `validate_public_endpoint_url` in `niu-upstream`, and guard `tokio::task::block_in_place` with a `RuntimeFlavor::MultiThread` check (#92).
+- **Dashboard, Docs, OpenAPI contracts & SDKs**:
+  - Use workspace route slugs (`workspacePathSegment` / `resolveWorkspacePathSegment`) consistently across `AppLayout`, global `Activity`, `GatewayActivity`, `ModelTable`, `PlaygroundView`, `SessionHistory`, and `VideoView`, and route Guardrails history links through `${workspaceRoot}/guardrails/history` (#75, #93).
+  - Render the `ArrowUpRight` action icon in the Activity Model usage table and preserve `net_contribution_nanos: null` (`Unavailable`) when cohort contribution is unknown on the Commercial Position page (#76).
+  - Replace permanently visible model filter inputs on Customer Pricing, Retail Pricing, and Provider Admin pages with compact Popover search panels, remove duplicate `<h2>` supplier section headings, compute provider token sums with `BigInt`, use React Router `<Link>` in `MediaOfferPublisher`, and narrow `aria-current="page"` in `PublicNavigationMenu` (#77).
+  - Guard Playground comparison cancellation against stale in-flight responses, eliminate `SessionHistory` $4 \times N$ cross-workspace re-fetch fan-out on workspace switches, refresh terminal video job billing/timings and pause hidden-tab polling in `VideoView`, forward Dashboard Bearer authentication into embedded `/help/` API Reference views, and reset stale tenant billing/key state on scope changes (#93).
+  - Align OpenAPI `security` declarations across 21 `/api/v1/` management operations and 32 `/v1/` inference/media operations, document `key_id` and `model_alias` on `GET /api/v1/organizations/{org_id}/projects/{project_id}/requests`, and replace residual `Supplier` / customer-facing `project` terminology with `Provider` / `workspace` (#80).
+  - Replace the unsupported `before` parameter in MCP `get_video_job_diagnostics` with 64-character hex `after` cursor validation (#78), confine MCP binary file downloads to `NIU_MCP_OUTPUT_DIR` with safe media extensions and exclusive creation (`wx`), parallelize the MCP stdio JSON-RPC dispatch loop (concurrency up to 16), URL-encode path segments in `sdks/javascript`, block Aider short/model override flags in `sdks/agent-connect`, and harden `Dockerfile` and `scripts/install.sh` (#94).
+
+### Verification boundary
+
+- Verified across `niu-storage` (34 unit tests + PostgreSQL storage fixtures), `niu-media` (54 unit tests), `niu-plugin-sdk`, `niu-upstream`, `niu-gateway` unit and functional/stability/process-recovery fixtures, `@niu-io/dashboard` (96 test files, 768 tests), `@niu-io/docs` (723 built pages), `@niu-io/catalog`, `sdks/mcp` (15 tests), `sdks/javascript` (44 tests), and `sdks/agent-connect` (18 tests).
 
 ## [0.2.19] - 2026-10-18
 
