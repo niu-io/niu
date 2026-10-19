@@ -27,7 +27,7 @@ import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
 import MediaOfferPublisher from "./MediaOfferPublisher";
-import type { SupplierOffer } from "../../../../../sdks/javascript/src/admin";
+import type { ProviderOffer } from "../../../../../sdks/javascript/src/admin";
 import type { Operator } from "@/features/operators/api";
 
 import { type ProviderSetup } from '@/features/providers/provider-setup';
@@ -39,7 +39,7 @@ type AdminData = {
   consumption: { model_alias: string; revision: string; currency: string; requests: string; prompt_tokens: string; completion_tokens: string; amount_nanos: string; unpaid_nanos: string }[];
   settlements: { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string }[];
 
-  offers: SupplierOffer[];
+  offers: ProviderOffer[];
   earnings: {
     id: string;
     model_alias: string;
@@ -112,21 +112,21 @@ function Administration({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState("");
   const operationScope = useRef(0);
-  const [offerLoad, setOfferLoad] = useState<{ token: string; supplier: string; scope: number; offers: SupplierOffer[]; ready: boolean; loading: boolean; conflict: boolean } | null>(null);
+  const [offerLoad, setOfferLoad] = useState<{ token: string; supplier: string; scope: number; offers: ProviderOffer[]; ready: boolean; loading: boolean; conflict: boolean } | null>(null);
   const offerRequest = useRef<AbortController | null>(null);
   const offerReadSequence = useRef(0);
   useEffect(() => () => { offerRequest.current?.abort(); offerReadSequence.current += 1; }, [selected, token]);
-  const previousSupplier = useRef("");
+  const previousProvider = useRef("");
   useLayoutEffect(() => {
     operationScope.current += 1;
-    if (previousSupplier.current) {
+    if (previousProvider.current) {
       setDialog("");
       setBusy(false);
       setError("");
       setNotice("");
       setMediaPublishing(false);
     }
-    previousSupplier.current = selected;
+    previousProvider.current = selected;
     setData(null);
     setMembers([]);
     return () => { operationScope.current += 1; };

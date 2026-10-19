@@ -6,10 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { request } from '@/features/providers/api';
-import type { SupplierMediaRateRecord, CustomerMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
+import type { ProviderMediaRateRecord, CustomerMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
 import MediaRatePublisher from './MediaRatePublisher';
 
-type RateRecord = SupplierMediaRateRecord | CustomerMediaRateRecord;
+type RateRecord = ProviderMediaRateRecord | CustomerMediaRateRecord;
 type RatePage = { data: RateRecord[]; has_more: boolean; next_after: string | null };
 
 function exactAmount(units: string, places: number) {
@@ -30,13 +30,13 @@ function date(seconds: string | null) {
   return Number.isNaN(value.getTime()) ? 'Date unavailable' : value.toLocaleString();
 }
 
-function cutoff(record: SupplierMediaRateRecord) {
+function cutoff(record: ProviderMediaRateRecord) {
   const end = record.card.tariff.effective_until;
   const retired = record.retirement_effective_until;
   return end === null ? retired : retired === null ? end : BigInt(end) < BigInt(retired) ? end : retired;
 }
 
-function period(record: SupplierMediaRateRecord, now: bigint) {
+function period(record: ProviderMediaRateRecord, now: bigint) {
   const end = cutoff(record);
   if (end !== null && BigInt(end) <= now) return 'Ended';
   if (BigInt(record.card.tariff.effective_from) > now) return 'Scheduled';

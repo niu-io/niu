@@ -18,9 +18,9 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { modelIdentity } from "@/lib/providers";
 import { money } from "@/lib/money";
-import { request, VendorRequestError } from "@/features/providers/api";
+import { request, ProviderRequestError } from "@/features/providers/api";
 
-type Offer = import("../../../../../sdks/javascript/src/admin").SupplierOffer;
+type Offer = import("../../../../../sdks/javascript/src/admin").ProviderOffer;
 type Dashboard = {
   id: string;
   name: string;
@@ -153,7 +153,7 @@ function ProviderBusiness({
             : "Provider data could not be loaded.",
         );
         if (
-          reason instanceof VendorRequestError &&
+          reason instanceof ProviderRequestError &&
           [401, 403, 404].includes(reason.status)
         )
           void refreshAccess();
@@ -191,7 +191,7 @@ function ProviderBusiness({
           : "Offer could not be updated.",
       );
       if (
-        reason instanceof VendorRequestError &&
+        reason instanceof ProviderRequestError &&
         [401, 403, 404].includes(reason.status)
       ) {
         setData(null);

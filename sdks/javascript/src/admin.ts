@@ -1328,8 +1328,11 @@ export class NiuAdminClient {
   }
 
   /** Complete active Provider grants for the signed-in operator; installation sessions return an empty list. */
-  listSupplierMemberships(options?: RequestOptions): Promise<{ data: SupplierMembership[] }> {
+  listProviderMemberships(options?: RequestOptions): Promise<{ data: ProviderMembership[] }> {
     return this.request('/provider-memberships', undefined, options);
+  }
+  listSupplierMemberships(options?: RequestOptions): Promise<{ data: SupplierMembership[] }> {
+    return this.listProviderMemberships(options);
   }
 
   /** Platform-only committed recovery progress; null fields mean no recorded worker step. */
@@ -1585,7 +1588,7 @@ export class NiuAdminClient {
   /** Platform-only current-configuration traffic, independent of offers and earnings.
    * Range totals are independent of model pagination; pages are live snapshots.
    */
-  getSupplierConfigurationUsage(supplierId: string, range: SupplierConfigurationUsageQuery, options?: RequestOptions): Promise<{ data: SupplierConfigurationUsage }> {
+  getProviderConfigurationUsage(providerId: string, range: ProviderConfigurationUsageQuery, options?: RequestOptions): Promise<{ data: ProviderConfigurationUsage }> {
     if (!Number.isSafeInteger(range.from_ms) || !Number.isSafeInteger(range.to_ms) || range.from_ms < 0 || range.to_ms > 253402300799999 || range.to_ms <= range.from_ms || range.to_ms - range.from_ms > 90 * 86400000) throw new TypeError('Usage range must be positive and at most 90 days');
     const query = new URLSearchParams({ from_ms: String(range.from_ms), to_ms: String(range.to_ms) });
     if (range.limit !== undefined) {
@@ -1596,11 +1599,14 @@ export class NiuAdminClient {
       if (!range.after.length || new TextEncoder().encode(range.after).length > 256) throw new TypeError('Invalid model boundary');
       query.set('after', range.after);
     }
-    return this.request(`/providers/${uuid(supplierId)}/configuration-usage?${query}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/configuration-usage?${query}`, undefined, options);
+  }
+  getSupplierConfigurationUsage(supplierId: string, range: SupplierConfigurationUsageQuery, options?: RequestOptions): Promise<{ data: SupplierConfigurationUsage }> {
+    return this.getProviderConfigurationUsage(supplierId, range, options);
   }
 
   /** Current own-Provider rates, with explicit alias continuation; no customer identities. */
-  listSupplierOffersPage(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierOffer[]; next_after: string | null }> {
+  listProviderOffersPage(providerId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: ProviderOffer[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.limit !== undefined) {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Offer page limit must be 1–100');
@@ -1610,95 +1616,134 @@ export class NiuAdminClient {
       if (!page.after.length || [...page.after].length > 200) throw new TypeError('Invalid offer alias cursor');
       query.set('after', page.after);
     }
-    return this.request(`/providers/${uuid(supplierId)}/offers?${query}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/offers?${query}`, undefined, options);
+  }
+  listSupplierOffersPage(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierOffer[]; next_after: string | null }> {
+    return this.listProviderOffersPage(supplierId, page, options);
   }
 
   /** Traverse current offers; pages are not a frozen multi-request snapshot. */
-  async listSupplierOffers(supplierId: string, options?: RequestOptions): Promise<SupplierOffer[]> {
-    const offers: SupplierOffer[] = [];
+  async listProviderOffers(providerId: string, options?: RequestOptions): Promise<ProviderOffer[]> {
+    const offers: ProviderOffer[] = [];
     let after: string | undefined;
     do {
-      const page = await this.listSupplierOffersPage(supplierId, { after }, options);
+      const page = await this.listProviderOffersPage(providerId, { after }, options);
       offers.push(...page.data);
       if (page.next_after === null) return offers;
       if (page.next_after === after) throw new Error('Provider offer cursor did not advance');
       after = page.next_after;
     } while (true);
   }
+  async listSupplierOffers(supplierId: string, options?: RequestOptions): Promise<SupplierOffer[]> {
+    return this.listProviderOffers(supplierId, options);
+  }
 
   /** Platform-administrator publication of a new immutable rate revision and clears prior qualification. */
-  publishSupplierRates(supplierId: string, rates: SupplierRateInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+  publishProviderRates(providerId: string, rates: ProviderRateInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);
-    return this.request(`/providers/${uuid(supplierId)}/offers`, rates, options);
+    return this.request(`/providers/${uuid(providerId)}/offers`, rates, options);
+  }
+  publishSupplierRates(supplierId: string, rates: SupplierRateInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    return this.publishProviderRates(supplierId, rates, options);
   }
 
   /** Platform administration or active membership in this Provider is required. */
+  getProviderOfferRevision(providerId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{ data: ProviderOfferRevision }> {
+    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/revisions/${uuid(revisionId)}`, undefined, options);
+  }
   getSupplierOfferRevision(supplierId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{ data: SupplierOfferRevision }> {
-    return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions/${uuid(revisionId)}`, undefined, options);
+    return this.getProviderOfferRevision(supplierId, offerId, revisionId, options);
   }
 
   /** Scoped procurement history; follow next_before until has_more is false. */
-  listSupplierOfferHistory(supplierId: string, offerId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<SupplierOfferHistory> {
+  listProviderOfferHistory(providerId: string, offerId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<ProviderOfferHistory> {
     if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a history page size from 1 to 100');
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', uuid(page.before));
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/revisions${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+  listSupplierOfferHistory(supplierId: string, offerId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<SupplierOfferHistory> {
+    return this.listProviderOfferHistory(supplierId, offerId, page, options);
   }
 
   /** Platform-only full earning history for settlement selection. IDs are never display labels. */
-  listSupplierEarnings(supplierId: string, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<SupplierEarningPage> {
+  listProviderEarnings(providerId: string, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<ProviderEarningPage> {
     const query = ledgerHistoryQuery(page);
-    return this.request(`/providers/${uuid(supplierId)}/earnings${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/earnings${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+  listSupplierEarnings(supplierId: string, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<SupplierEarningPage> {
+    return this.listProviderEarnings(supplierId, page, options);
   }
 
   /** Record confirmed external payment only; preserve the supplied key/reference/selection on retry. */
-  recordSupplierSettlement(supplierId: string, input: SupplierSettlementInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
+  recordProviderSettlement(providerId: string, input: ProviderSettlementInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
     const reference = input.payment_reference;
     if (typeof reference !== 'string' || !reference.trim() || new TextEncoder().encode(reference).length > 200 || /[\x00-\x1f\x7f-\x9f]/.test(reference)) throw new TypeError('Use a nonblank payment reference of at most 200 UTF-8 bytes without control characters');
     if (!Array.isArray(input.attempt_ids) || input.attempt_ids.length < 1 || input.attempt_ids.length > 1000) throw new TypeError('Select 1 to 1000 earning entries');
     const entries = input.attempt_ids.map(value => uuid(value).toLowerCase());
     if (new Set(entries).size !== entries.length) throw new TypeError('Select each earning entry only once');
-    return this.request(`/providers/${uuid(supplierId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
+    return this.request(`/providers/${uuid(providerId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
+  }
+  recordSupplierSettlement(supplierId: string, input: SupplierSettlementInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
+    return this.recordProviderSettlement(supplierId, input, options);
   }
 
   /** All-time Provider payment history; keep filters fixed while following next_cursor. */
-  listSupplierSettlements(supplierId: string, page: SupplierSettlementQuery = {}, options?: RequestOptions): Promise<SupplierSettlementPage> {
+  listProviderSettlements(providerId: string, page: ProviderSettlementQuery = {}, options?: RequestOptions): Promise<ProviderSettlementPage> {
     const query = ledgerHistoryQuery(page);
-    return this.request(`/providers/${uuid(supplierId)}/settlements${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/settlements${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+  listSupplierSettlements(supplierId: string, page: SupplierSettlementQuery = {}, options?: RequestOptions): Promise<SupplierSettlementPage> {
+    return this.listProviderSettlements(supplierId, page, options);
   }
 
   /** Platform-administrator review. Does not activate offers or verify the underlying evidence. */
-  qualifySupplier(supplierId: string, input: SupplierQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
+  qualifyProvider(providerId: string, input: ProviderQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
     const body = {supply_rights_sha256: evidenceDigest(input.supply_rights_sha256),
       supply_capability_sha256: evidenceDigest(input.supply_capability_sha256),
       data_handling_sha256: evidenceDigest(input.data_handling_sha256), valid_until_ms: qualificationExpiry(input.valid_until_ms)};
-    return this.request(`/providers/${uuid(supplierId)}/qualification`, body, options, 'PUT');
+    return this.request(`/providers/${uuid(providerId)}/qualification`, body, options, 'PUT');
+  }
+  qualifySupplier(supplierId: string, input: SupplierQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
+    return this.qualifyProvider(supplierId, input, options);
   }
 
   /** Platform-administrator qualification review, pinned to the current rate revision; does not activate the offer. */
-  qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
+  qualifyProviderOffer(providerId: string, offerId: string, input: ProviderOfferQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
     if (typeof input.protocol_matrix_version !== 'string' || !input.protocol_matrix_version.trim()
       || new TextEncoder().encode(input.protocol_matrix_version).length > 100) throw new TypeError('A bounded protocol matrix version is required');
     const body = {rate_revision: uuid(input.rate_revision), model_identity_sha256: evidenceDigest(input.model_identity_sha256),
       protocol_matrix_sha256: evidenceDigest(input.protocol_matrix_sha256), protocol_matrix_version: input.protocol_matrix_version,
       data_handling_sha256: evidenceDigest(input.data_handling_sha256), availability_sha256: evidenceDigest(input.availability_sha256),
       agreed_rates_sha256: evidenceDigest(input.agreed_rates_sha256), valid_until_ms: qualificationExpiry(input.valid_until_ms)};
-    return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/qualification`, body, options, 'PUT');
+    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/qualification`, body, options, 'PUT');
+  }
+  qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
+    return this.qualifyProviderOffer(supplierId, offerId, input, options);
   }
 
+  revokeProviderQualification(providerId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
+    return this.request(`/providers/${uuid(providerId)}/qualification/revoke`, {reason_sha256:evidenceDigest(reasonSha256)}, options, 'POST');
+  }
   revokeSupplierQualification(supplierId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
-    return this.request(`/providers/${uuid(supplierId)}/qualification/revoke`, {reason_sha256:evidenceDigest(reasonSha256)}, options, 'POST');
+    return this.revokeProviderQualification(supplierId, reasonSha256, options);
   }
 
+  revokeProviderOfferQualification(providerId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
+    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/qualification/revoke`, {reason_sha256:evidenceDigest(reasonSha256)}, options, 'POST');
+  }
   revokeSupplierOfferQualification(supplierId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{data: {qualification_status: 'revoked'}}> {
-    return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/qualification/revoke`, {reason_sha256:evidenceDigest(reasonSha256)}, options, 'POST');
+    return this.revokeProviderOfferQualification(supplierId, offerId, reasonSha256, options);
   }
 
   /** Requires Provider owner/admin or installation access; activation still requires current qualification. */
-  setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
+  setProviderOfferActive(providerId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
     if (typeof active !== 'boolean') throw new TypeError('Offer active state must be boolean');
-    return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
+    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
+  }
+  setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
+    return this.setProviderOfferActive(supplierId, offerId, active, options);
   }
 
   private resolveWorkspaceId(scope: TenantScope | string): string {
@@ -2202,50 +2247,65 @@ export class NiuAdminClient {
   }
 
   /** Platform-administrator agreed Provider media purchase terms; independent from retail pricing. */
+  publishProviderMediaRate(providerId: string, input: ProviderMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    return this.request(`/providers/${uuid(providerId)}/media-rates`, supplierMediaRateBody(input), options);
+  }
   publishSupplierMediaRate(supplierId: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string } }> {
-    return this.request(`/providers/${uuid(supplierId)}/media-rates`, supplierMediaRateBody(input), options);
+    return this.publishProviderMediaRate(supplierId, input, options);
   }
 
   /** Atomically publish new terms and end the previous schedule at their start. */
-  replaceSupplierMediaRate(supplierId: string, previousRevision: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string; effective_from: string } }> {
+  replaceProviderMediaRate(providerId: string, previousRevision: string, input: ProviderMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string; effective_from: string } }> {
     if (!previousRevision || previousRevision.trim() !== previousRevision || previousRevision.length > 256 || /[\x00-\x1f\x7f]/.test(previousRevision)) throw new TypeError('Choose a valid previous Provider media revision');
-    return this.request(`/providers/${uuid(supplierId)}/media-rates/replace`, {
+    return this.request(`/providers/${uuid(providerId)}/media-rates/replace`, {
       previous_revision: previousRevision, rate: supplierMediaRateBody(input),
     }, options);
   }
+  replaceSupplierMediaRate(supplierId: string, previousRevision: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string; effective_from: string } }> {
+    return this.replaceProviderMediaRate(supplierId, previousRevision, input, options);
+  }
 
   /** Exact purchase history, authorized for installation or this Provider's active member. */
-  listSupplierMediaRates(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaRateRecord[]; has_more: boolean; next_after: string | null }> {
+  listProviderMediaRates(providerId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: ProviderMediaRateRecord[]; has_more: boolean; next_after: string | null }> {
     if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a rate page size from 1 to 100');
     if (page.after !== undefined && (!page.after || page.after.trim() !== page.after || page.after.length > 256 || /[\x00-\x1f\x7f]/.test(page.after))) throw new TypeError('Choose a valid rate cursor');
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', page.after);
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(supplierId)}/media-rates${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/media-rates${query.size ? '?' + query : ''}`, undefined, options);
+  }
+  listSupplierMediaRates(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaRateRecord[]; has_more: boolean; next_after: string | null }> {
+    return this.listProviderMediaRates(supplierId, page, options);
   }
 
   /** Read named configuration choices without credentials or purchase/customer prices. */
-  listSupplierMediaRateModels(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaRateModel[]; has_more: boolean; next_after: string | null }> {
+  listProviderMediaRateModels(providerId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: ProviderMediaRateModel[]; has_more: boolean; next_after: string | null }> {
     if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a model page size from 1 to 100');
     if (page.after !== undefined && (!page.after || page.after.trim() !== page.after || page.after.length > 256 || /[\x00-\x1f\x7f]/.test(page.after))) throw new TypeError('Choose a valid model cursor');
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', page.after);
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(supplierId)}/media-rate-models${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/media-rate-models${query.size ? '?' + query : ''}`, undefined, options);
+  }
+  listSupplierMediaRateModels(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaRateModel[]; has_more: boolean; next_after: string | null }> {
+    return this.listProviderMediaRateModels(supplierId, page, options);
   }
 
   /** Platform-administrator draft choices; no credentials, procurement or customer prices. Continue by next_after while has_more, even when data is empty. */
-  listSupplierMediaOfferModels(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaOfferModel[]; has_more: boolean; next_after: string | null }> {
+  listProviderMediaOfferModels(providerId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: ProviderMediaOfferModel[]; has_more: boolean; next_after: string | null }> {
     if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a model page size from 1 to 100');
     if (page.after !== undefined && (!page.after || page.after.trim() !== page.after || new TextEncoder().encode(page.after).length > 256 || /\p{Cc}/u.test(page.after))) throw new TypeError('Choose a valid model cursor');
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', page.after);
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(supplierId)}/media-offer-models${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/providers/${uuid(providerId)}/media-offer-models${query.size ? '?' + query : ''}`, undefined, options);
+  }
+  listSupplierMediaOfferModels(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaOfferModel[]; has_more: boolean; next_after: string | null }> {
+    return this.listProviderMediaOfferModels(supplierId, page, options);
   }
 
   /** Publishes an inactive media offer without text prices. Never retries automatically. */
-  publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+  publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     for (const value of [input.model_alias, input.schema_revision]) {
       if (typeof value !== 'string' || !value || value.trim() !== value || new TextEncoder().encode(value).length > 256 || /\p{Cc}/u.test(value)) throw new TypeError('A bounded model and schema binding is required');
     }
@@ -2255,14 +2315,20 @@ export class NiuAdminClient {
     const body = { revision: uuid(input.revision), model_alias: input.model_alias, vendor_id: uuid(input.vendor_id),
       vendor_revision: input.vendor_revision, model_revision: input.model_revision, schema_revision: input.schema_revision,
       expected_revision: input.expected_revision === null ? null : uuid(input.expected_revision) };
-    return this.request(`/providers/${uuid(supplierId)}/media-offers`, body, options);
+    return this.request(`/providers/${uuid(providerId)}/media-offers`, body, options);
+  }
+  publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    return this.publishProviderMediaOffer(supplierId, input, options);
   }
 
   /** Platform-administrator cutoff; existing purchase snapshots and earnings stay immutable. */
-  retireSupplierMediaRate(supplierId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
+  retireProviderMediaRate(providerId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
     if (typeof revision !== 'string' || !revision || revision.trim() !== revision || revision === '.' || revision === '..' || revision.length > 256 || /[\x00-\x1f\x7f/?#]/.test(revision)) throw new TypeError('Choose a valid Provider media revision');
     if (!Number.isSafeInteger(effectiveUntil)) throw new TypeError('Retirement time must be exact Unix seconds');
-    return this.request(`/providers/${uuid(supplierId)}/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
+    return this.request(`/providers/${uuid(providerId)}/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
+  }
+  retireSupplierMediaRate(supplierId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
+    return this.retireProviderMediaRate(supplierId, revision, effectiveUntil, options);
   }
 
   /** End eligibility without changing published prices or historical job snapshots. */
@@ -2335,67 +2401,101 @@ export class NiuAdminClient {
 
   /** All matching configurations, including disabled entries. No silent row cap.
    * Platform administration required; supplying a Provider ID filters business ownership. */
-  listSupplierCredentials(query: { supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: SupplierCredential[] }> {
-    const suffix = query.supplierId === undefined ? '' : `?supplier=${uuid(query.supplierId)}`;
+  listProviderCredentials(query: { providerId?: string; supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: ProviderCredential[] }> {
+    const filterId = query.providerId ?? query.supplierId;
+    const suffix = filterId === undefined ? '' : `?supplier=${uuid(filterId)}`;
     return this.request(`/vendors${suffix}`, undefined, options);
+  }
+  listSupplierCredentials(query: { supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: SupplierCredential[] }> {
+    return this.listProviderCredentials(query, options);
   }
 
   /** Platform-only creation; preserve the returned configuration identity. No automatic retry. */
-  createSupplierCredential(input: SupplierCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
+  createProviderCredential(input: ProviderCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<ProviderCredential, 'supplier'> }> {
     if (input.create_supplier && input.supplier_id !== undefined) throw new Error('Choose a new or existing Provider');
     return this.request('/vendors', { ...input, ...(input.supplier_id === undefined ? {} : { supplier_id: uuid(input.supplier_id) }) }, options);
   }
+  createSupplierCredential(input: SupplierCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
+    return this.createProviderCredential(input, options);
+  }
 
   /** Optimistic update of one configuration. Omitted api_key preserves the secret. */
-  updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
+  updateProviderCredential(id: string, input: ProviderCredentialUpdateInput, options?: RequestOptions): Promise<{ data: Omit<ProviderCredential, 'supplier'> }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1) throw new Error('Provide the current configuration revision');
     return this.request(`/vendors/${uuid(id)}`, input, options, 'PUT');
   }
+  updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
+    return this.updateProviderCredential(id, input, options);
+  }
 
   /** Complete per-credential management inventory; availability is not commercial qualification. */
-  listSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierModelAvailability[] }> {
+  listProviderModels(credentialId: string, options?: RequestOptions): Promise<{ data: ProviderModelAvailability[] }> {
     return this.request(`/vendors/${uuid(credentialId)}/models`, undefined, options);
+  }
+  listSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierModelAvailability[] }> {
+    return this.listProviderModels(credentialId, options);
   }
 
   /** Create a new alias or update using its current revision. Alias ownership cannot move. */
-  upsertSupplierModel(credentialId: string, input: SupplierModelInput, options?: RequestOptions): Promise<{ data: SupplierModel }> {
+  upsertProviderModel(credentialId: string, input: ProviderModelInput, options?: RequestOptions): Promise<{ data: ProviderModel }> {
     if (input.expected_revision !== undefined && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new Error('Provide the current model revision');
     return this.request(`/vendors/${uuid(credentialId)}/models`, input, options);
   }
+  upsertSupplierModel(credentialId: string, input: SupplierModelInput, options?: RequestOptions): Promise<{ data: SupplierModel }> {
+    return this.upsertProviderModel(credentialId, input, options);
+  }
 
   /** Bounded upstream catalog probe using the saved credential. Does not generate output. */
-  checkSupplierModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{ data: SupplierModelCheck }> {
+  checkProviderModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{ data: ProviderModelCheck }> {
     if (!alias.trim() || alias.length > 200) throw new Error('Provide a model alias');
     return this.request(`/vendors/${uuid(credentialId)}/check`, { alias }, options);
   }
+  checkSupplierModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{ data: SupplierModelCheck }> {
+    return this.checkProviderModel(credentialId, alias, options);
+  }
 
   /** Read the bounded upstream inventory; does not create aliases or configure billing. */
-  discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierCatalogModel[] }> {
+  discoverProviderModels(credentialId: string, options?: RequestOptions): Promise<{ data: ProviderCatalogModel[] }> {
     return this.request(`/vendors/${uuid(credentialId)}/catalog`, undefined, options);
+  }
+  discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierCatalogModel[] }> {
+    return this.discoverProviderModels(credentialId, options);
   }
 
   /** Refresh matching metadata only. Concurrent configuration changes return 409; no automatic retry. */
-  refreshSupplierCatalog(credentialId: string, options?: RequestOptions): Promise<{ updated: number }> {
+  refreshProviderCatalog(credentialId: string, options?: RequestOptions): Promise<{ updated: number }> {
     return this.request(`/vendors/${uuid(credentialId)}/catalog`, {}, options);
+  }
+  refreshSupplierCatalog(credentialId: string, options?: RequestOptions): Promise<{ updated: number }> {
+    return this.refreshProviderCatalog(credentialId, options);
   }
 
   /** Platform-only safe-failure state; reading does not probe or reset the credential. */
+  getProviderCooldown(providerId: string, options?: RequestOptions): Promise<{ data: ProviderCooldown }> {
+    return this.request(`/vendors/${uuid(providerId)}/cooldown`, undefined, options);
+  }
   getVendorCooldown(vendorId: string, options?: RequestOptions): Promise<{ data: VendorCooldown }> {
-    return this.request(`/vendors/${uuid(vendorId)}/cooldown`, undefined, options);
+    return this.getProviderCooldown(vendorId, options);
   }
 
+  getProviderRequestRateLimit(providerId: string, options?: RequestOptions): Promise<{ data: ProviderRequestRateLimit }> {
+    return this.request(`/vendors/${uuid(providerId)}/request-rate-limit`, undefined, options);
+  }
   getVendorRequestRateLimit(vendorId: string, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {
-    return this.request(`/vendors/${uuid(vendorId)}/request-rate-limit`, undefined, options);
+    return this.getProviderRequestRateLimit(vendorId, options);
   }
 
   /** Null removes the rate limit; zero denies dispatch. Credential edits preserve this independent policy. */
-  setVendorRequestRateLimit(vendorId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {
+  setProviderRequestRateLimit(providerId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: ProviderRequestRateLimit }> {
     if (input.requests_per_minute !== null && (!Number.isInteger(input.requests_per_minute) || input.requests_per_minute < 0 || input.requests_per_minute > 1_000_000)) throw new TypeError('Use an integer request limit from 0 to 1000000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/vendors/${uuid(vendorId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/vendors/${uuid(providerId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+  }
+  setVendorRequestRateLimit(vendorId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {
+    return this.setProviderRequestRateLimit(vendorId, input, options);
   }
 
-  listVendorRequestRateLimitHistory(vendorId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: VendorRequestRateLimitRevision[] }> {
+  listProviderRequestRateLimitHistory(providerId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: ProviderRequestRateLimitRevision[] }> {
     const params = new URLSearchParams();
     if (query.beforeRevision !== undefined) {
       if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
@@ -2405,7 +2505,10 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/vendors/${uuid(vendorId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/vendors/${uuid(providerId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+  }
+  listVendorRequestRateLimitHistory(vendorId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: VendorRequestRateLimitRevision[] }> {
+    return this.listProviderRequestRateLimitHistory(vendorId, query, options);
   }
 
   getKeyRequestRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyRequestRateLimit }> {
@@ -2723,15 +2826,23 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, undefined, options, 'DELETE');
   }
 
-  getSupplierAssociation(configurationId: string, options?: RequestOptions): Promise<{ data: { id: string; name: string } | null }> {
+  getProviderAssociation(configurationId: string, options?: RequestOptions): Promise<{ data: { id: string; name: string } | null }> {
     return this.request(`/vendors/${uuid(configurationId)}/supplier`, undefined, options);
   }
 
-  associateSupplier(configurationId: string, supplierId: string, expectedRevision: number, options?: RequestOptions): Promise<void> {
+  getSupplierAssociation(configurationId: string, options?: RequestOptions): Promise<{ data: { id: string; name: string } | null }> {
+    return this.getProviderAssociation(configurationId, options);
+  }
+
+  associateProvider(configurationId: string, providerId: string, expectedRevision: number, options?: RequestOptions): Promise<void> {
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new Error('expectedRevision must be a positive safe integer');
     return this.request(`/vendors/${uuid(configurationId)}/supplier`, {
-      supplier_id: uuid(supplierId), expected_revision: expectedRevision,
+      supplier_id: uuid(providerId), expected_revision: expectedRevision,
     }, options, 'PUT');
+  }
+
+  associateSupplier(configurationId: string, supplierId: string, expectedRevision: number, options?: RequestOptions): Promise<void> {
+    return this.associateProvider(configurationId, supplierId, expectedRevision, options);
   }
 
   /** Platform-only fixed Ark operation; use getAssetGroupRequest for saved status.
@@ -3418,7 +3529,7 @@ function ledgerHistoryQuery(page: LedgerHistoryQuery): URLSearchParams {
 }
 
 /** Exact decimal strings avoid loss of precision in aggregated counters. */
-export interface SupplierConfigurationUsageTotals {
+export interface ProviderConfigurationUsageTotals {
   requests: string;
   completed: string;
   execution_unknown: string;
@@ -3432,17 +3543,20 @@ export interface SupplierConfigurationUsageTotals {
   /** Complete HTTP delivery durations only, not asynchronous job duration. */
   complete_total_ms: string | null;
 }
-export interface SupplierConfigurationUsageQuery {
+export type SupplierConfigurationUsageTotals = ProviderConfigurationUsageTotals;
+export interface ProviderConfigurationUsageQuery {
   from_ms: number;
   to_ms: number;
   after?: string;
   limit?: number;
 }
-export interface SupplierConfigurationUsage {
+export type SupplierConfigurationUsageQuery = ProviderConfigurationUsageQuery;
+export interface ProviderConfigurationUsage {
   from_ms: number;
   to_ms: number;
   observed_at: string;
-  totals: SupplierConfigurationUsageTotals;
-  models: Array<SupplierConfigurationUsageTotals & { model: string }>;
+  totals: ProviderConfigurationUsageTotals;
+  models: Array<ProviderConfigurationUsageTotals & { model: string }>;
   next_after: string | null;
 }
+export type SupplierConfigurationUsage = ProviderConfigurationUsage;

@@ -297,10 +297,18 @@ deleteWorkspace(scope: TenantScope | string, options?: RequestOptions): Promise<
 resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute>;
 ```
 
-### listSupplierMemberships
+### listProviderMemberships
 
 ```typescript
 /** Complete active Provider grants for the signed-in operator; installation sessions return an empty list. */
+listProviderMemberships(options?: RequestOptions): Promise<{
+    data: ProviderMembership[];
+}>;
+```
+
+### listSupplierMemberships
+
+```typescript
 listSupplierMemberships(options?: RequestOptions): Promise<{
     data: SupplierMembership[];
 }>;
@@ -729,21 +737,41 @@ deleteDashboardVideoResults(scope: TenantScope, keyId: string, jobId: string, op
 }>;
 ```
 
-### getSupplierConfigurationUsage
+### getProviderConfigurationUsage
 
 ```typescript
 /** Platform-only current-configuration traffic, independent of offers and earnings.
  * Range totals are independent of model pagination; pages are live snapshots.
  */
+getProviderConfigurationUsage(providerId: string, range: ProviderConfigurationUsageQuery, options?: RequestOptions): Promise<{
+    data: ProviderConfigurationUsage;
+}>;
+```
+
+### getSupplierConfigurationUsage
+
+```typescript
 getSupplierConfigurationUsage(supplierId: string, range: SupplierConfigurationUsageQuery, options?: RequestOptions): Promise<{
     data: SupplierConfigurationUsage;
+}>;
+```
+
+### listProviderOffersPage
+
+```typescript
+/** Current own-Provider rates, with explicit alias continuation; no customer identities. */
+listProviderOffersPage(providerId: string, page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderOffer[];
+    next_after: string | null;
 }>;
 ```
 
 ### listSupplierOffersPage
 
 ```typescript
-/** Current own-Provider rates, with explicit alias continuation; no customer identities. */
 listSupplierOffersPage(supplierId: string, page?: {
     after?: string;
     limit?: number;
@@ -753,17 +781,33 @@ listSupplierOffersPage(supplierId: string, page?: {
 }>;
 ```
 
-### listSupplierOffers
+### listProviderOffers
 
 ```typescript
 /** Traverse current offers; pages are not a frozen multi-request snapshot. */
+listProviderOffers(providerId: string, options?: RequestOptions): Promise<ProviderOffer[]>;
+```
+
+### listSupplierOffers
+
+```typescript
 listSupplierOffers(supplierId: string, options?: RequestOptions): Promise<SupplierOffer[]>;
+```
+
+### publishProviderRates
+
+```typescript
+/** Platform-administrator publication of a new immutable rate revision and clears prior qualification. */
+publishProviderRates(providerId: string, rates: ProviderRateInput, options?: RequestOptions): Promise<{
+    data: {
+        revision: string;
+    };
+}>;
 ```
 
 ### publishSupplierRates
 
 ```typescript
-/** Platform-administrator publication of a new immutable rate revision and clears prior qualification. */
 publishSupplierRates(supplierId: string, rates: SupplierRateInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;
@@ -771,36 +815,69 @@ publishSupplierRates(supplierId: string, rates: SupplierRateInput, options?: Req
 }>;
 ```
 
-### getSupplierOfferRevision
+### getProviderOfferRevision
 
 ```typescript
 /** Platform administration or active membership in this Provider is required. */
+getProviderOfferRevision(providerId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{
+    data: ProviderOfferRevision;
+}>;
+```
+
+### getSupplierOfferRevision
+
+```typescript
 getSupplierOfferRevision(supplierId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{
     data: SupplierOfferRevision;
 }>;
 ```
 
-### listSupplierOfferHistory
+### listProviderOfferHistory
 
 ```typescript
 /** Scoped procurement history; follow next_before until has_more is false. */
+listProviderOfferHistory(providerId: string, offerId: string, page?: {
+    before?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<ProviderOfferHistory>;
+```
+
+### listSupplierOfferHistory
+
+```typescript
 listSupplierOfferHistory(supplierId: string, offerId: string, page?: {
     before?: string;
     limit?: number;
 }, options?: RequestOptions): Promise<SupplierOfferHistory>;
 ```
 
-### listSupplierEarnings
+### listProviderEarnings
 
 ```typescript
 /** Platform-only full earning history for settlement selection. IDs are never display labels. */
+listProviderEarnings(providerId: string, page?: LedgerHistoryQuery, options?: RequestOptions): Promise<ProviderEarningPage>;
+```
+
+### listSupplierEarnings
+
+```typescript
 listSupplierEarnings(supplierId: string, page?: LedgerHistoryQuery, options?: RequestOptions): Promise<SupplierEarningPage>;
+```
+
+### recordProviderSettlement
+
+```typescript
+/** Record confirmed external payment only; preserve the supplied key/reference/selection on retry. */
+recordProviderSettlement(providerId: string, input: ProviderSettlementInput, options?: RequestOptions): Promise<{
+    data: {
+        id: string;
+    };
+}>;
 ```
 
 ### recordSupplierSettlement
 
 ```typescript
-/** Record confirmed external payment only; preserve the supplied key/reference/selection on retry. */
 recordSupplierSettlement(supplierId: string, input: SupplierSettlementInput, options?: RequestOptions): Promise<{
     data: {
         id: string;
@@ -808,18 +885,45 @@ recordSupplierSettlement(supplierId: string, input: SupplierSettlementInput, opt
 }>;
 ```
 
-### listSupplierSettlements
+### listProviderSettlements
 
 ```typescript
 /** All-time Provider payment history; keep filters fixed while following next_cursor. */
+listProviderSettlements(providerId: string, page?: ProviderSettlementQuery, options?: RequestOptions): Promise<ProviderSettlementPage>;
+```
+
+### listSupplierSettlements
+
+```typescript
 listSupplierSettlements(supplierId: string, page?: SupplierSettlementQuery, options?: RequestOptions): Promise<SupplierSettlementPage>;
+```
+
+### qualifyProvider
+
+```typescript
+/** Platform-administrator review. Does not activate offers or verify the underlying evidence. */
+qualifyProvider(providerId: string, input: ProviderQualificationInput, options?: RequestOptions): Promise<{
+    data: {
+        qualification_status: 'qualified';
+    };
+}>;
 ```
 
 ### qualifySupplier
 
 ```typescript
-/** Platform-administrator review. Does not activate offers or verify the underlying evidence. */
 qualifySupplier(supplierId: string, input: SupplierQualificationInput, options?: RequestOptions): Promise<{
+    data: {
+        qualification_status: 'qualified';
+    };
+}>;
+```
+
+### qualifyProviderOffer
+
+```typescript
+/** Platform-administrator qualification review, pinned to the current rate revision; does not activate the offer. */
+qualifyProviderOffer(providerId: string, offerId: string, input: ProviderOfferQualificationInput, options?: RequestOptions): Promise<{
     data: {
         qualification_status: 'qualified';
     };
@@ -829,10 +933,19 @@ qualifySupplier(supplierId: string, input: SupplierQualificationInput, options?:
 ### qualifySupplierOffer
 
 ```typescript
-/** Platform-administrator qualification review, pinned to the current rate revision; does not activate the offer. */
 qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQualificationInput, options?: RequestOptions): Promise<{
     data: {
         qualification_status: 'qualified';
+    };
+}>;
+```
+
+### revokeProviderQualification
+
+```typescript
+revokeProviderQualification(providerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
+    data: {
+        qualification_status: 'revoked';
     };
 }>;
 ```
@@ -841,6 +954,16 @@ qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQu
 
 ```typescript
 revokeSupplierQualification(supplierId: string, reasonSha256: string, options?: RequestOptions): Promise<{
+    data: {
+        qualification_status: 'revoked';
+    };
+}>;
+```
+
+### revokeProviderOfferQualification
+
+```typescript
+revokeProviderOfferQualification(providerId: string, offerId: string, reasonSha256: string, options?: RequestOptions): Promise<{
     data: {
         qualification_status: 'revoked';
     };
@@ -857,10 +980,20 @@ revokeSupplierOfferQualification(supplierId: string, offerId: string, reasonSha2
 }>;
 ```
 
-### setSupplierOfferActive
+### setProviderOfferActive
 
 ```typescript
 /** Requires Provider owner/admin or installation access; activation still requires current qualification. */
+setProviderOfferActive(providerId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{
+    data: {
+        active: boolean;
+    };
+}>;
+```
+
+### setSupplierOfferActive
+
+```typescript
 setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{
     data: {
         active: boolean;
@@ -1498,10 +1631,20 @@ replaceCustomerMediaRate(organizationId: string, previousRevision: string, input
 }>;
 ```
 
-### publishSupplierMediaRate
+### publishProviderMediaRate
 
 ```typescript
 /** Platform-administrator agreed Provider media purchase terms; independent from retail pricing. */
+publishProviderMediaRate(providerId: string, input: ProviderMediaRateCard, options?: RequestOptions): Promise<{
+    data: {
+        revision: string;
+    };
+}>;
+```
+
+### publishSupplierMediaRate
+
+```typescript
 publishSupplierMediaRate(supplierId: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{
     data: {
         revision: string;
@@ -1509,10 +1652,21 @@ publishSupplierMediaRate(supplierId: string, input: SupplierMediaRateCard, optio
 }>;
 ```
 
-### replaceSupplierMediaRate
+### replaceProviderMediaRate
 
 ```typescript
 /** Atomically publish new terms and end the previous schedule at their start. */
+replaceProviderMediaRate(providerId: string, previousRevision: string, input: ProviderMediaRateCard, options?: RequestOptions): Promise<{
+    data: {
+        revision: string;
+        effective_from: string;
+    };
+}>;
+```
+
+### replaceSupplierMediaRate
+
+```typescript
 replaceSupplierMediaRate(supplierId: string, previousRevision: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{
     data: {
         revision: string;
@@ -1521,10 +1675,23 @@ replaceSupplierMediaRate(supplierId: string, previousRevision: string, input: Su
 }>;
 ```
 
-### listSupplierMediaRates
+### listProviderMediaRates
 
 ```typescript
 /** Exact purchase history, authorized for installation or this Provider's active member. */
+listProviderMediaRates(providerId: string, page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderMediaRateRecord[];
+    has_more: boolean;
+    next_after: string | null;
+}>;
+```
+
+### listSupplierMediaRates
+
+```typescript
 listSupplierMediaRates(supplierId: string, page?: {
     after?: string;
     limit?: number;
@@ -1535,10 +1702,23 @@ listSupplierMediaRates(supplierId: string, page?: {
 }>;
 ```
 
-### listSupplierMediaRateModels
+### listProviderMediaRateModels
 
 ```typescript
 /** Read named configuration choices without credentials or purchase/customer prices. */
+listProviderMediaRateModels(providerId: string, page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderMediaRateModel[];
+    has_more: boolean;
+    next_after: string | null;
+}>;
+```
+
+### listSupplierMediaRateModels
+
+```typescript
 listSupplierMediaRateModels(supplierId: string, page?: {
     after?: string;
     limit?: number;
@@ -1549,10 +1729,23 @@ listSupplierMediaRateModels(supplierId: string, page?: {
 }>;
 ```
 
-### listSupplierMediaOfferModels
+### listProviderMediaOfferModels
 
 ```typescript
 /** Platform-administrator draft choices; no credentials, procurement or customer prices. Continue by next_after while has_more, even when data is empty. */
+listProviderMediaOfferModels(providerId: string, page?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderMediaOfferModel[];
+    has_more: boolean;
+    next_after: string | null;
+}>;
+```
+
+### listSupplierMediaOfferModels
+
+```typescript
 listSupplierMediaOfferModels(supplierId: string, page?: {
     after?: string;
     limit?: number;
@@ -1563,10 +1756,20 @@ listSupplierMediaOfferModels(supplierId: string, page?: {
 }>;
 ```
 
-### publishSupplierMediaOffer
+### publishProviderMediaOffer
 
 ```typescript
 /** Publishes an inactive media offer without text prices. Never retries automatically. */
+publishProviderMediaOffer(providerId: string, input: ProviderMediaOfferInput, options?: RequestOptions): Promise<{
+    data: {
+        revision: string;
+    };
+}>;
+```
+
+### publishSupplierMediaOffer
+
+```typescript
 publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{
     data: {
         revision: string;
@@ -1574,10 +1777,21 @@ publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, op
 }>;
 ```
 
-### retireSupplierMediaRate
+### retireProviderMediaRate
 
 ```typescript
 /** Platform-administrator cutoff; existing purchase snapshots and earnings stay immutable. */
+retireProviderMediaRate(providerId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{
+    data: {
+        revision: string;
+        effective_until: string;
+    };
+}>;
+```
+
+### retireSupplierMediaRate
+
+```typescript
 retireSupplierMediaRate(supplierId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{
     data: {
         revision: string;
@@ -1691,11 +1905,22 @@ getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptio
 }>;
 ```
 
-### listSupplierCredentials
+### listProviderCredentials
 
 ```typescript
 /** All matching configurations, including disabled entries. No silent row cap.
  * Platform administration required; supplying a Provider ID filters business ownership. */
+listProviderCredentials(query?: {
+    providerId?: string;
+    supplierId?: string;
+}, options?: RequestOptions): Promise<{
+    data: ProviderCredential[];
+}>;
+```
+
+### listSupplierCredentials
+
+```typescript
 listSupplierCredentials(query?: {
     supplierId?: string;
 }, options?: RequestOptions): Promise<{
@@ -1703,75 +1928,147 @@ listSupplierCredentials(query?: {
 }>;
 ```
 
-### createSupplierCredential
+### createProviderCredential
 
 ```typescript
 /** Platform-only creation; preserve the returned configuration identity. No automatic retry. */
+createProviderCredential(input: ProviderCredentialCreateInput, options?: RequestOptions): Promise<{
+    data: Omit<ProviderCredential, 'supplier'>;
+}>;
+```
+
+### createSupplierCredential
+
+```typescript
 createSupplierCredential(input: SupplierCredentialCreateInput, options?: RequestOptions): Promise<{
     data: Omit<SupplierCredential, 'supplier'>;
+}>;
+```
+
+### updateProviderCredential
+
+```typescript
+/** Optimistic update of one configuration. Omitted api_key preserves the secret. */
+updateProviderCredential(id: string, input: ProviderCredentialUpdateInput, options?: RequestOptions): Promise<{
+    data: Omit<ProviderCredential, 'supplier'>;
 }>;
 ```
 
 ### updateSupplierCredential
 
 ```typescript
-/** Optimistic update of one configuration. Omitted api_key preserves the secret. */
 updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, options?: RequestOptions): Promise<{
     data: Omit<SupplierCredential, 'supplier'>;
+}>;
+```
+
+### listProviderModels
+
+```typescript
+/** Complete per-credential management inventory; availability is not commercial qualification. */
+listProviderModels(credentialId: string, options?: RequestOptions): Promise<{
+    data: ProviderModelAvailability[];
 }>;
 ```
 
 ### listSupplierModels
 
 ```typescript
-/** Complete per-credential management inventory; availability is not commercial qualification. */
 listSupplierModels(credentialId: string, options?: RequestOptions): Promise<{
     data: SupplierModelAvailability[];
+}>;
+```
+
+### upsertProviderModel
+
+```typescript
+/** Create a new alias or update using its current revision. Alias ownership cannot move. */
+upsertProviderModel(credentialId: string, input: ProviderModelInput, options?: RequestOptions): Promise<{
+    data: ProviderModel;
 }>;
 ```
 
 ### upsertSupplierModel
 
 ```typescript
-/** Create a new alias or update using its current revision. Alias ownership cannot move. */
 upsertSupplierModel(credentialId: string, input: SupplierModelInput, options?: RequestOptions): Promise<{
     data: SupplierModel;
+}>;
+```
+
+### checkProviderModel
+
+```typescript
+/** Bounded upstream catalog probe using the saved credential. Does not generate output. */
+checkProviderModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{
+    data: ProviderModelCheck;
 }>;
 ```
 
 ### checkSupplierModel
 
 ```typescript
-/** Bounded upstream catalog probe using the saved credential. Does not generate output. */
 checkSupplierModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{
     data: SupplierModelCheck;
+}>;
+```
+
+### discoverProviderModels
+
+```typescript
+/** Read the bounded upstream inventory; does not create aliases or configure billing. */
+discoverProviderModels(credentialId: string, options?: RequestOptions): Promise<{
+    data: ProviderCatalogModel[];
 }>;
 ```
 
 ### discoverSupplierModels
 
 ```typescript
-/** Read the bounded upstream inventory; does not create aliases or configure billing. */
 discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<{
     data: SupplierCatalogModel[];
+}>;
+```
+
+### refreshProviderCatalog
+
+```typescript
+/** Refresh matching metadata only. Concurrent configuration changes return 409; no automatic retry. */
+refreshProviderCatalog(credentialId: string, options?: RequestOptions): Promise<{
+    updated: number;
 }>;
 ```
 
 ### refreshSupplierCatalog
 
 ```typescript
-/** Refresh matching metadata only. Concurrent configuration changes return 409; no automatic retry. */
 refreshSupplierCatalog(credentialId: string, options?: RequestOptions): Promise<{
     updated: number;
+}>;
+```
+
+### getProviderCooldown
+
+```typescript
+/** Platform-only safe-failure state; reading does not probe or reset the credential. */
+getProviderCooldown(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderCooldown;
 }>;
 ```
 
 ### getVendorCooldown
 
 ```typescript
-/** Platform-only safe-failure state; reading does not probe or reset the credential. */
 getVendorCooldown(vendorId: string, options?: RequestOptions): Promise<{
     data: VendorCooldown;
+}>;
+```
+
+### getProviderRequestRateLimit
+
+```typescript
+getProviderRequestRateLimit(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderRequestRateLimit;
 }>;
 ```
 
@@ -1783,15 +2080,37 @@ getVendorRequestRateLimit(vendorId: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
-### setVendorRequestRateLimit
+### setProviderRequestRateLimit
 
 ```typescript
 /** Null removes the rate limit; zero denies dispatch. Credential edits preserve this independent policy. */
+setProviderRequestRateLimit(providerId: string, input: {
+    requests_per_minute: number | null;
+    expected_revision: string;
+}, options?: RequestOptions): Promise<{
+    data: ProviderRequestRateLimit;
+}>;
+```
+
+### setVendorRequestRateLimit
+
+```typescript
 setVendorRequestRateLimit(vendorId: string, input: {
     requests_per_minute: number | null;
     expected_revision: string;
 }, options?: RequestOptions): Promise<{
     data: VendorRequestRateLimit;
+}>;
+```
+
+### listProviderRequestRateLimitHistory
+
+```typescript
+listProviderRequestRateLimitHistory(providerId: string, query?: {
+    beforeRevision?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderRequestRateLimitRevision[];
 }>;
 ```
 
@@ -2232,6 +2551,17 @@ saveChatSessionIfCurrent(scope: TenantScope, sessionId: string, session: ChatSes
 deleteChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<void>;
 ```
 
+### getProviderAssociation
+
+```typescript
+getProviderAssociation(configurationId: string, options?: RequestOptions): Promise<{
+    data: {
+        id: string;
+        name: string;
+    } | null;
+}>;
+```
+
 ### getSupplierAssociation
 
 ```typescript
@@ -2241,6 +2571,12 @@ getSupplierAssociation(configurationId: string, options?: RequestOptions): Promi
         name: string;
     } | null;
 }>;
+```
+
+### associateProvider
+
+```typescript
+associateProvider(configurationId: string, providerId: string, expectedRevision: number, options?: RequestOptions): Promise<void>;
 ```
 
 ### associateSupplier

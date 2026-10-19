@@ -6,23 +6,23 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { request } from '@/features/providers/api';
-import type { SupplierMediaOfferInput, SupplierMediaOfferModel } from '../../../../../sdks/javascript/src/admin';
+import type { ProviderMediaOfferInput, ProviderMediaOfferModel } from '../../../../../sdks/javascript/src/admin';
 
-type Page = { data: SupplierMediaOfferModel[]; has_more: boolean; next_after: string | null };
+type Page = { data: ProviderMediaOfferModel[]; has_more: boolean; next_after: string | null };
 
 /** Publish a pinned model/credential binding; purchase terms and review are separate. */
 export default function MediaOfferPublisher({ token, supplier, initialModel = '', onClose, onSaved }: {
   token: string; supplier: string; initialModel?: string; onClose: () => void; onSaved: () => void;
 }) {
   const inRouter = useInRouterContext();
-  const [models, setModels] = useState<SupplierMediaOfferModel[]>([]);
+  const [models, setModels] = useState<ProviderMediaOfferModel[]>([]);
   const [selected, setSelected] = useState(initialModel);
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [frozen, setFrozen] = useState<SupplierMediaOfferInput | null>(null);
+  const [frozen, setFrozen] = useState<ProviderMediaOfferInput | null>(null);
   const endpoint = `/api/v1/providers/${encodeURIComponent(supplier)}`;
   const chosen = models.find(model => model.model_alias === selected);
   const configurationHref = `/admin/providers/${encodeURIComponent(supplier)}/configuration`;

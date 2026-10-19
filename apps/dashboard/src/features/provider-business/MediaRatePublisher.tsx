@@ -6,10 +6,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
-import { request, VendorRequestError } from '@/features/providers/api';
-import type { SupplierMediaRateCard, SupplierMediaRateModel, SupplierMediaRateRecord, CustomerMediaRateCard, CustomerMediaRateModel, CustomerMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
+import { request, ProviderRequestError } from '@/features/providers/api';
+import type { ProviderMediaRateCard, ProviderMediaRateModel, ProviderMediaRateRecord, CustomerMediaRateCard, CustomerMediaRateModel, CustomerMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
 
-type RateModel = SupplierMediaRateModel & Partial<Pick<CustomerMediaRateModel, 'vendor_id'>>;
+type RateModel = ProviderMediaRateModel & Partial<Pick<CustomerMediaRateModel, 'vendor_id'>>;
 type ModelPage = { data: RateModel[]; has_more: boolean; next_after: string | null };
 type DiscountDraft = { multiplier: string; priority: string; stacking: 'Exclusive' | 'Multiply' };
 
@@ -42,7 +42,7 @@ function quantityInput(value: { numerator: string; denominator: string }) {
 }
 
 export default function MediaRatePublisher({ token, supplier, organization, previous, existing = [], onClose, onSaved }: {
-  token: string; previous?: SupplierMediaRateRecord | CustomerMediaRateRecord; existing?: Array<SupplierMediaRateRecord | CustomerMediaRateRecord>; onClose: () => void; onSaved: () => void;
+  token: string; previous?: ProviderMediaRateRecord | CustomerMediaRateRecord; existing?: Array<ProviderMediaRateRecord | CustomerMediaRateRecord>; onClose: () => void; onSaved: () => void;
 } & ({ supplier: string; organization?: never } | { organization: string; supplier?: never })) {
   const customer = organization !== undefined;
   const previousCustomer = customer ? previous?.card as CustomerMediaRateRecord['card'] | undefined : undefined;
@@ -63,13 +63,13 @@ export default function MediaRatePublisher({ token, supplier, organization, prev
   const [price, setPrice] = useState(base ? amount(base.amount_units, base.decimal_places) : '');
   const [per, setPer] = useState(base ? quantityInput(base.per_quantity) : '');
   const [minimum, setMinimum] = useState(base ? quantityInput(base.minimum_quantity) : '0');
-  const [rounding, setRounding] = useState<SupplierMediaRateCard['tariff']['rounding']>(base?.rounding ?? 'HalfEven');
+  const [rounding, setRounding] = useState<ProviderMediaRateCard['tariff']['rounding']>(base?.rounding ?? 'HalfEven');
   const [from, setFrom] = useState(() => localDate(Math.max(Math.floor(Date.now() / 1000), Number(previous?.retirement_effective_until ?? base?.effective_from ?? 0))));
   const [until, setUntil] = useState('');
   const [discounts, setDiscounts] = useState<DiscountDraft[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [frozen, setFrozen] = useState<SupplierMediaRateCard | CustomerMediaRateCard | null>(null);
+  const [frozen, setFrozen] = useState<ProviderMediaRateCard | CustomerMediaRateCard | null>(null);
   const inFlight = useRef(false);
   const modelReads = useRef<AbortController | null>(null);
   const selected = models.find(item => item.model_alias === model);
@@ -151,7 +151,7 @@ export default function MediaRatePublisher({ token, supplier, organization, prev
       await request(token, `${endpoint}/media-rates${previous ? '/replace' : ''}`, 'POST', previous ? { previous_revision: previous.card.revision, rate: card } : card);
       onSaved();
     } catch (reason) {
-      if (reason instanceof VendorRequestError && (reason.status === 400 || reason.status === 422)) setFrozen(null);
+      if (reason instanceof ProviderRequestError && (reason.status === 400 || reason.status === 422)) setFrozen(null);
       setError(reason instanceof Error ? reason.message : 'Media rate could not be saved.');
     }
     finally { inFlight.current = false; setBusy(false); }
