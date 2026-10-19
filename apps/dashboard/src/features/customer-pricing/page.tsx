@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioG
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { money } from '@/lib/money';
-import { VendorRequestError } from '@/features/vendors/api';
+import { VendorRequestError } from '@/features/providers/api';
 import type { CustomerTariffHistoryEntry } from '../../../../../sdks/javascript/src/admin';
 import { PublicationUnconfirmedError, listPricingModels, listPricingTargets, listCustomerPrices, readPriceHistory, publishCustomerPrice, priceFromNanos, priceToNanos, type PricingTarget, type CurrentTariff } from './api';
 

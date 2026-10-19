@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import { amountFromNanos } from '@/lib/money';
 import type { CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
 import type { Editor } from './page';

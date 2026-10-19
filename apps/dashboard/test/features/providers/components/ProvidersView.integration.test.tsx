@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render as renderView, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AdminSession } from '../../../../src/app/dashboard-context';
-import ModelMappingForm from '../../../../src/features/vendors/components/ModelMappingForm';
-import SuppliersView from '../../../../src/features/vendors/components/SuppliersView';
-import type { Vendor, VendorModel } from '../../../../src/features/vendors/api';
+import ModelMappingForm from '../../../../src/features/providers/components/ModelMappingForm';
+import ProvidersView from '../../../../src/features/providers/components/ProvidersView';
+import type { ProviderConnection, ProviderModel } from '../../../../src/features/providers/api';
 
 const render = (ui: Parameters<typeof renderView>[0]) => renderView(ui, { wrapper: MemoryRouter });
 
@@ -21,7 +21,7 @@ const scopedOwnerSession: AdminSession = {
   permissions: { read: true, write: true, manage_operators: true },
 };
 
-const openRouter: Vendor = {
+const openRouter: ProviderConnection = {
   id: 'vendor-openrouter',
   name: 'OpenRouter primary',
   adapter: 'openrouter',
@@ -36,8 +36,8 @@ function jsonResponse(value: unknown, status = 200) {
 }
 
 function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
-  existing?: Vendor[];
-  models?: Record<string, VendorModel[]>;
+  existing?: ProviderConnection[];
+  models?: Record<string, ProviderModel[]>;
 } = {}) {
   const vendors = [...existing];
   const models = new Map(Object.entries(modelFixtures));
@@ -51,7 +51,7 @@ function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
     if (path === '/api/v1/providers' && method === 'GET') return jsonResponse({ data: [{ id: 'supplier-one', name: 'Existing business' }] });
     if (path === '/api/v1/vendors' && method === 'GET') return jsonResponse({ data: vendors });
     if (path === '/api/v1/vendors' && method === 'POST') {
-      const created = { ...openRouter, id: 'vendor-' + (vendors.length + 1), name: String(body?.name), supplier: body?.supplier_id ? { id: String(body.supplier_id), name: 'Existing business' } : { id: 'supplier-created', name: String(body?.name) }, adapter: body?.adapter as Vendor['adapter'], api_base: String(body?.api_base), revision: 1, enabled: true, has_credential: Boolean(body?.api_key) };
+      const created = { ...openRouter, id: 'vendor-' + (vendors.length + 1), name: String(body?.name), supplier: body?.supplier_id ? { id: String(body.supplier_id), name: 'Existing business' } : { id: 'supplier-created', name: String(body?.name) }, adapter: body?.adapter as ProviderConnection['adapter'], api_base: String(body?.api_base), revision: 1, enabled: true, has_credential: Boolean(body?.api_key) };
       vendors.push(created);
       models.set(created.id, []);
       return jsonResponse({ data: created }, 201);
@@ -70,7 +70,7 @@ function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
           capabilities: body?.capabilities,
           pricing: Object.hasOwn(body ?? {}, 'pricing') ? body!.pricing : previous.find(model => model.alias === body?.alias)?.pricing ?? null,
           revision: Number(body?.expected_revision ?? 0) + 1,
-        } as VendorModel;
+        } as ProviderModel;
         models.set(vendorId, [...previous.filter(model => model.alias !== value.alias), value]);
         return jsonResponse({ data: value });
       }
@@ -83,7 +83,7 @@ function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
       const index = vendors.findIndex(vendor => vendor.id === vendorId);
       if (index < 0) return jsonResponse({ error: { message: 'Vendor not found' } }, 404);
       const previous = vendors[index];
-      const updated: Vendor = {
+      const updated: ProviderConnection = {
         ...previous,
         name: String(body?.name),
         api_base: String(body?.api_base),
@@ -106,7 +106,7 @@ async function openModels(user: ReturnType<typeof userEvent.setup>) {
   await user.click(button);
 }
 
-describe('vendor administration workflow', () => {
+describe('provider administration workflow', () => {
   it('searches the Provider catalog and fills a mapping through the standard choice menu', async () => {
     const user = userEvent.setup();
     render(<ModelMappingForm model={null} catalog={[
@@ -124,7 +124,7 @@ describe('vendor administration workflow', () => {
 
   it('clears the previous model facts when the upstream mapping changes', async () => {
     const user=userEvent.setup();
-    const saved=vi.fn(async (_input: import('@/features/vendors/api').ModelWrite)=>{});
+    const saved=vi.fn(async (_input: import('@/features/providers/api').ModelWrite)=>{});
     render(<ModelMappingForm model={null} catalog={[{id:'provider/first',name:'First model',context_length:128000,
       catalog:{name:'First model',description:'First model description',context_length:128000,input_price:'0.000001'}}]}
       catalogLoading={false} catalogError="" disabled={false} onCancel={()=>{}} onSave={saved}/>);
@@ -142,7 +142,7 @@ describe('vendor administration workflow', () => {
   it('keeps the first model on an owner-funded credential private', async () => {
     const api = stubVendorApi({ existing: [{ ...openRouter, owner_funded: true }] });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     await openModels(user);
     await user.click(screen.getByRole('button', { name: 'Add model' }));
     expect(screen.getByText('Private model. Available only to the account that owns this API key.')).toBeTruthy();
@@ -160,13 +160,13 @@ describe('vendor administration workflow', () => {
 
   it('preserves existing procurement pricing when editing a model capability', async () => {
     const pricing = { currency: 'USD', input_per_million: '1000000000', output_per_million: '2000000000' };
-    const model: VendorModel = { alias: 'team/priced', upstream_model: 'upstream/model', vendor_id: openRouter.id,
+    const model: ProviderModel = { alias: 'team/priced', upstream_model: 'upstream/model', vendor_id: openRouter.id,
       public_catalog: false, enabled: true, pricing, revision: 7,
       capabilities: { supports_tool_calls: false, supports_streaming_tool_calls: false, supports_structured_output: false,
         supports_embeddings: false, supports_embedding_dimensions: false, supports_embedding_base64: false, supports_responses: false } };
     const api = stubVendorApi({ existing: [openRouter], models: { [openRouter.id]: [model] } });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     await openModels(user);
     await user.click(await screen.findByRole('button', { name: 'Edit', exact: true }));
     await user.click(screen.getByRole('checkbox', { name: /Function tools/ }));
@@ -182,7 +182,7 @@ describe('vendor administration workflow', () => {
   it('denies scoped owners before requesting any installation vendor data', async () => {
     const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal('fetch', fetchMock);
-    render(<SuppliersView token="scoped-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="scoped-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
 
     expect(screen.getByRole('heading', { name: 'Platform administrator access required' })).toBeTruthy();
     expect(screen.getByText(/does not have permission to manage Providers/)).toBeTruthy();
@@ -193,7 +193,7 @@ describe('vendor administration workflow', () => {
     const api = stubVendorApi();
     const user = userEvent.setup();
     const refreshWorkspace = vi.fn(async () => {});
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
     expect(await screen.findByRole('button', { name: 'Add provider' })).toBeTruthy();
     await user.click((await screen.findAllByRole('button', { name: 'Add provider' }))[0]);
@@ -277,7 +277,7 @@ describe('vendor administration workflow', () => {
   it('adds an independently named key to an existing Provider without creating a business', async () => {
     const api = stubVendorApi({ existing: [openRouter] });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     await screen.findByRole('heading', { name: openRouter.name });
     await user.click(screen.getByRole('button', { name: 'Add provider' }));
     await waitFor(() => expect(screen.getByLabelText('Provider').hasAttribute('disabled')).toBe(false));
@@ -309,7 +309,7 @@ describe('vendor administration workflow', () => {
       return response;
     });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     await screen.findByRole('heading', { name: openRouter.name });
     await user.click(screen.getByRole('button', { name: 'Add provider' }));
     await user.type(screen.getByLabelText('Provider name'), 'Saved Provider');
@@ -334,7 +334,7 @@ describe('vendor administration workflow', () => {
       return response;
     });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     await screen.findByRole('heading', { name: openRouter.name });
     await user.click(screen.getByRole('button', { name: 'Add provider' }));
     await user.type(screen.getByLabelText('Provider name'), 'Possibly saved Provider');
@@ -353,10 +353,10 @@ describe('vendor administration workflow', () => {
   it('groups two keys under one Provider and switches their independent model mappings', async () => {
     const first = { ...openRouter, name: 'General key', supplier: { id: 'business-one', name: 'Shared business' } };
     const second = { ...first, id: 'restricted-key', name: 'Restricted key', enabled: false };
-    const model = (vendor: Vendor, alias: string): VendorModel => ({ alias, vendor_id: vendor.id, upstream_model: alias, public_catalog: false, enabled: true, capabilities: { supports_tool_calls: false, supports_streaming_tool_calls: false, supports_structured_output: false, supports_embeddings: false, supports_embedding_dimensions: false, supports_embedding_base64: false, supports_responses: false }, pricing: null, revision: 1 });
+    const model = (vendor: ProviderConnection, alias: string): ProviderModel => ({ alias, vendor_id: vendor.id, upstream_model: alias, public_catalog: false, enabled: true, capabilities: { supports_tool_calls: false, supports_streaming_tool_calls: false, supports_structured_output: false, supports_embeddings: false, supports_embedding_dimensions: false, supports_embedding_base64: false, supports_responses: false }, pricing: null, revision: 1 });
     stubVendorApi({ existing: [first, second], models: { [first.id]: [model(first, 'general/model')], [second.id]: [model(second, 'restricted/model')] } });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     await openModels(user);
     await screen.findByText('general/model', { selector: 'strong' });
     await user.click(screen.getByRole('button', { name: 'Close model management' }));
@@ -377,7 +377,7 @@ describe('vendor administration workflow', () => {
   it('adds another vendor from the populated directory', async () => {
     const api = stubVendorApi({ existing: [openRouter] });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
     await screen.findByRole('heading', { name: openRouter.name });
     await user.click(screen.getByRole('button', { name: 'Add provider' }));
@@ -400,8 +400,8 @@ describe('vendor administration workflow', () => {
   });
 
   it('discards a model-list response that arrives after the vendor selection changes', async () => {
-    const vendorB: Vendor = { ...openRouter, id: 'vendor-b', name: 'Second vendor', adapter: 'openai', api_base: 'https://api.openai.com/v1' };
-    const staleModel: VendorModel = {
+    const vendorB: ProviderConnection = { ...openRouter, id: 'vendor-b', name: 'Second vendor', adapter: 'openai', api_base: 'https://api.openai.com/v1' };
+    const staleModel: ProviderModel = {
       alias: 'stale/model',
       vendor_id: openRouter.id,
       upstream_model: 'stale-upstream',
@@ -423,7 +423,7 @@ describe('vendor administration workflow', () => {
       return jsonResponse({ data: [] });
     });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
     await screen.findByRole('heading', { name: openRouter.name });
     await waitFor(() => expect(baseApi.fetchMock.mock.calls.some(([path]) => String(path) === `/api/v1/vendors/${openRouter.id}/models`)).toBe(true));
@@ -450,7 +450,7 @@ describe('vendor administration workflow', () => {
       return jsonResponse({ error: { message: 'Not found' } }, 404);
     });
     const user = userEvent.setup();
-    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
     await user.click(await screen.findByRole('button', { name: 'Edit API key' }));
     await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'retry-this-credential');
@@ -463,15 +463,15 @@ describe('vendor administration workflow', () => {
   it('clears an unsaved credential draft when the session changes away from installation access', async () => {
     stubVendorApi({ existing: [openRouter] });
     const user = userEvent.setup();
-    const view = render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    const view = render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
     await user.click(await screen.findByRole('button', { name: 'Edit API key' }));
     const credential = await screen.findByLabelText('Replace provider API key (optional)');
     await user.type(credential, 'temporary-draft-only');
-    view.rerender(<SuppliersView token="installation-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
+    view.rerender(<ProvidersView token="installation-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
     expect(screen.getByRole('heading', { name: 'Platform administrator access required' })).toBeTruthy();
 
-    view.rerender(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    view.rerender(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     await user.click(await screen.findByRole('button', { name: 'Edit API key' }));
     const resetInput = await screen.findByLabelText('Replace provider API key (optional)') as HTMLInputElement;
     expect(resetInput.value).toBe('');
@@ -487,7 +487,7 @@ it('shows a rejected model-route save inside its dialog and preserves the draft'
     return jsonResponse({ data: [] });
   });
   const user = userEvent.setup();
-  render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+  render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
   await openModels(user);
   await user.click(await screen.findByRole('button', { name: 'Add model', exact: true }));
   await user.type(screen.getByLabelText('Niu model alias'), 'team/fast');
@@ -505,7 +505,7 @@ it('reads explicitly linked configurations when returning from Provider pricing'
     if (path.endsWith('/models')) return jsonResponse({ data: [] });
     return jsonResponse({ error: { message: 'Unexpected unscoped read' } }, 400);
   }));
-  renderView(<MemoryRouter initialEntries={['/suppliers?supplier=business-fixture']}><SuppliersView token="test-token" session={installationSession} refreshWorkspace={vi.fn()} /></MemoryRouter>);
+  renderView(<MemoryRouter initialEntries={['/providers?supplier=business-fixture']}><ProvidersView token="test-token" session={installationSession} refreshWorkspace={vi.fn()} /></MemoryRouter>);
   await screen.findByRole('heading', { name: openRouter.name });
   expect(calls).toContain('/api/v1/vendors?supplier=business-fixture');
   expect(calls).not.toContain('/api/v1/vendors');
@@ -523,7 +523,7 @@ it('retries catalog discovery inside the model editor without losing its draft',
     return jsonResponse({data:[]});
   });
   const user=userEvent.setup();
-  render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async()=>{}}/>);
+  render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async()=>{}}/>);
   await openModels(user);
   await user.click(screen.getByRole('button',{name:'Add model',exact:true}));
   await screen.findByRole('button',{name:'Retry model catalog'});

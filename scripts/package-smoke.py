@@ -902,6 +902,7 @@ def main():
         "/activity/logs",
         "/installation",
         "/admin/suppliers",
+        "/admin/route-pools",
         "/settings/billing",
     ):
         route_status, route_html, route_content_type = request("GET", route)

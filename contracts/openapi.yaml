@@ -209,6 +209,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1config'
   /api/v1/auth/browser/login:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1browser~1login'
+  /api/v1/auth/browser/demo:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1browser~1demo'
   /api/v1/auth/browser/token:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1auth~1browser~1token'
   /api/v1/auth/browser/logout:

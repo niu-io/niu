@@ -1,7 +1,7 @@
 import {render,screen,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {it,expect,vi} from 'vitest';
-import CredentialCooldown from '@/features/vendors/components/CredentialCooldown';
+import CredentialCooldown from '@/features/providers/components/CredentialCooldown';
 const state={policy_revision:'openrouter-auth-cooldown-v1',failure_threshold:3,window_seconds:60,cooldown_seconds:60,active:false,cooldown_until:null,qualifying_failures:0};
 it('uses the returned active state rather than treating an expired stored deadline as cooling',async()=>{
   let reads=0;

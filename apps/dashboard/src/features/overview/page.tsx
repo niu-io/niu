@@ -19,7 +19,7 @@ export default function OverviewRoute() {
     <PageHeader title="Overview" action={token && <div className="overview-primary-actions">{models.length
       ? <Button asChild><Link to={`/generations?${chatSearch}`} className="header-icon-action" aria-label="Compare models" title="Compare models"><MessageSquareText aria-hidden="true" /><span>Compare models</span></Link></Button>
       : canManagePlatform
-        ? <Button asChild><Link to="/admin/suppliers" className="header-icon-action" aria-label="Connect provider" title="Connect provider"><Network aria-hidden="true" /><span>Connect provider</span></Link></Button>
+        ? <Button asChild><Link to="/admin/providers" className="header-icon-action" aria-label="Connect provider" title="Connect provider"><Network aria-hidden="true" /><span>Connect provider</span></Link></Button>
         : <Button asChild><Link to="models" className="header-icon-action" aria-label="Browse models" title="Browse models"><Network aria-hidden="true" /><span>Browse models</span></Link></Button>}<Button asChild variant="outline"><Link to="keys" className="header-icon-action" aria-label="API keys" title="API keys"><KeyRound aria-hidden="true" /><span>API keys</span></Link></Button></div>} />
 
     <section className="cost-workbench" aria-label="Recent gateway requests">

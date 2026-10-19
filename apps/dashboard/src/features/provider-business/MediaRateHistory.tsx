@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import type { SupplierMediaRateRecord, CustomerMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
 import MediaRatePublisher from './MediaRatePublisher';
 

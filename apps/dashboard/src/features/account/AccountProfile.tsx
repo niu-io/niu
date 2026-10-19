@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { request, VendorRequestError, writeMayHaveCommitted } from '@/features/vendors/api';
+import { request, VendorRequestError, writeMayHaveCommitted } from '@/features/providers/api';
 import type { MemberProfile } from '@/app/dashboard-context';
 
 function validProfile(profile:MemberProfile) {

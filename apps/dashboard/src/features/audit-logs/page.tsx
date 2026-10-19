@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
 import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '../../../../../sdks/javascript/src/platform-audit';
 import { useDashboardContext } from '@/app/dashboard-context';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';

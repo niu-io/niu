@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { money } from '@/lib/money';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
 type Tariff = CustomerTariff;

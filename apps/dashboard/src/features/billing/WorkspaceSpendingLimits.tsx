@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { request, VendorRequestError, writeMayHaveCommitted } from '@/features/vendors/api';
+import { request, VendorRequestError, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountToNanos, money } from '@/lib/money';
 
 type SpendingAccount = { currency: string; committed_nanos: string; limit_nanos: string | null; revision: string | null };

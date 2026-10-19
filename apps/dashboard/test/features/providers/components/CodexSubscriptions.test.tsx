@@ -2,7 +2,7 @@ import { it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import CodexSubscriptions from '../../../../src/features/vendors/components/CodexSubscriptions';
+import CodexSubscriptions from '../../../../src/features/providers/components/CodexSubscriptions';
 
 const workspaces = [
   { id: 'workspace-a', organization_id: 'organization-a', name: 'Personal', organization_name: 'My organization' },

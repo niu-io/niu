@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDashboardContext } from '@/app/dashboard-context';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

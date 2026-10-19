@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,9 @@ export default function LoginRoute() {
     ?? '/workspaces/default/';
   const [memberLogin, setMemberLogin] = useState(false);
   const [tokenLogin, setTokenLogin] = useState(false);
+  const [demoLogin, setDemoLogin] = useState(false);
+  const demoAttempted = useRef(false);
+  const directDemo = new URLSearchParams(location.search).get('demo') === '1';
   const [mode, setMode] = useState<'password'|'token'>('password');
   const [accessToken, setAccessToken] = useState('');
   const request = useRef<AbortController|null>(null);
@@ -41,6 +44,7 @@ export default function LoginRoute() {
         const tokenEnabled=value.browser_token_login===true;
         setMemberLogin(passwordEnabled);
         setTokenLogin(tokenEnabled);
+        setDemoLogin(value.demo_login === true);
         setConfigurationFailed(!passwordEnabled&&!tokenEnabled);
         if(!passwordEnabled&&tokenEnabled)setMode('token');
       })
@@ -62,21 +66,20 @@ export default function LoginRoute() {
 
   useEffect(()=>()=>request.current?.abort(),[]);
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if(inFlight.current || checking || configurationFailed || !(mode==='token'?tokenLogin:memberLogin))return;
+  const signIn = useCallback(async (kind: 'password'|'token'|'demo') => {
+    if(inFlight.current || checking || configurationFailed || !(kind==='demo'?demoLogin:kind==='token'?tokenLogin:memberLogin))return;
     const controller=new AbortController();request.current=controller;inFlight.current=true;
     setLocalError('');setSubmitting(true);
     try {
-      const response=await fetch(mode==='token'?'/api/v1/auth/browser/token':'/api/v1/auth/browser/login',{
+      const response=await fetch(kind==='demo'?'/api/v1/auth/browser/demo':kind==='token'?'/api/v1/auth/browser/token':'/api/v1/auth/browser/login',{
         method:'POST',headers:{'content-type':'application/json'},
-        body:JSON.stringify(mode==='token'?{token:accessToken.trim()}:{email:username,password}),
+        body:JSON.stringify(kind==='demo'?{}:kind==='token'?{token:accessToken.trim()}:{email:username,password}),
         cache:'no-store',signal:controller.signal,
       });
       if(controller.signal.aborted)return;
       if(!response.ok){
         setLocalError(response.status===401
-          ? mode==='token'?'That access token is invalid, expired or revoked.':'That email or password did not match.'
+          ? kind==='demo'?'Demo sign-in is unavailable. Try again later.':kind==='token'?'That access token is invalid, expired or revoked.':'That email or password did not match.'
           : response.status===429?'Too many sign-in attempts. Try again in a minute.':'Sign-in failed. Try again.');
         return;
       }
@@ -89,6 +92,18 @@ export default function LoginRoute() {
     }finally{
       if(request.current===controller){inFlight.current=false;if(!controller.signal.aborted)setSubmitting(false);}
     }
+  }, [checking, configurationFailed, demoLogin, tokenLogin, memberLogin, accessToken, username, password, context.connectWithToken]);
+
+  useEffect(() => {
+    if (!directDemo || !context.sessionChecked || checking || configurationFailed || context.token || demoAttempted.current) return;
+    demoAttempted.current = true;
+    if (demoLogin) void signIn('demo');
+    else setLocalError('Demo sign-in is not available on this installation.');
+  }, [directDemo, context.sessionChecked, checking, configurationFailed, context.token, demoLogin, signIn]);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void signIn(mode);
   };
 
   function changeMode(next:'password'|'token'){
@@ -154,6 +169,11 @@ export default function LoginRoute() {
         {mode==='password'&&tokenLogin&&<Button type="button" variant="ghost" disabled={submitting||checking} onClick={()=>changeMode('token')}>Use an access token</Button>}
         {mode==='token'&&memberLogin&&<Button type="button" variant="ghost" disabled={submitting||checking} onClick={()=>changeMode('password')}>Use email and password</Button>}
       </form>
+      {demoLogin && <div className="mt-6 border-t pt-6">
+        <Button type="button" variant="outline" className="w-full" disabled={submitting || checking}
+          onClick={() => void signIn('demo')}>Try the demo</Button>
+        <p className="mt-2 text-center text-sm text-muted-foreground">Explore Niu in a shared demo workspace.</p>
+      </div>}
     </section>
   </main>;
 }

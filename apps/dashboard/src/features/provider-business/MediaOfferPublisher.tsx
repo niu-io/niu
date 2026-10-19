@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import type { SupplierMediaOfferInput, SupplierMediaOfferModel } from '../../../../../sdks/javascript/src/admin';
 
 type Page = { data: SupplierMediaOfferModel[]; has_more: boolean; next_after: string | null };
@@ -25,7 +25,7 @@ export default function MediaOfferPublisher({ token, supplier, initialModel = ''
   const [frozen, setFrozen] = useState<SupplierMediaOfferInput | null>(null);
   const endpoint = `/api/v1/providers/${encodeURIComponent(supplier)}`;
   const chosen = models.find(model => model.model_alias === selected);
-  const configurationHref = `/admin/suppliers/${encodeURIComponent(supplier)}/configuration`;
+  const configurationHref = `/admin/providers/${encodeURIComponent(supplier)}/configuration`;
 
   useEffect(() => {
     const controller = new AbortController();

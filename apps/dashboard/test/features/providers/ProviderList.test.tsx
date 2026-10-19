@@ -2,14 +2,14 @@ import { render, screen, within, waitFor, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
-import { request, VendorRequestError } from '../../../src/features/vendors/api';
-import SupplierList from '../../../src/features/vendors/SupplierList';
+import { request, ProviderRequestError } from '../../../src/features/providers/api';
+import ProviderList from '../../../src/features/providers/ProviderList';
 vi.mock('../../../src/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'fixture' }) }));
-vi.mock('../../../src/features/vendors/api', async importOriginal => ({ ...await importOriginal<typeof import('../../../src/features/vendors/api')>(), request: vi.fn(async () => ({ data: [{ id: 'fixture', name: 'Example', members: 0, api_keys: 0, models: 0 }, { id: 'active', name: 'Active provider', members: 0, api_keys: 1, models: 25 }] })) }));
+vi.mock('../../../src/features/providers/api', async importOriginal => ({ ...await importOriginal<typeof import('../../../src/features/providers/api')>(), request: vi.fn(async () => ({ data: [{ id: 'fixture', name: 'Example', members: 0, api_keys: 0, models: 0 }, { id: 'active', name: 'Active provider', members: 0, api_keys: 1, models: 25 }] })) }));
 
 it('restores the opening control after cancelling creation and deletion', async () => {
   const user = userEvent.setup();
-  render(<MemoryRouter><SupplierList /></MemoryRouter>);
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
   await screen.findByRole('link', { name: 'Example' });
   const add = screen.getByRole('button', { name: 'Add Provider' });
   await user.click(add);
@@ -27,7 +27,7 @@ it('restores the opening control after cancelling creation and deletion', async 
 
 it('explains why a populated provider cannot be deleted before submission', async () => {
   const user = userEvent.setup();
-  render(<MemoryRouter><SupplierList /></MemoryRouter>);
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
   await user.click(await screen.findByRole('button', { name: 'Actions for Active provider' }));
   await user.click(screen.getByRole('menuitem', { name: 'Delete Provider' }));
   const dialog = screen.getByRole('dialog');
@@ -43,13 +43,13 @@ it.each(['transport','server','timeout'])('reconciles uncertain Provider creatio
     if (method==='POST') {
       writes+=1; saved=true;
       if (failure==='transport') throw new TypeError('Connection lost');
-      throw new VendorRequestError('Unavailable',failure==='timeout'?408:503);
+      throw new ProviderRequestError('Unavailable',failure==='timeout'?408:503);
     }
     expect(path).toBe('/api/v1/providers');
     return {data:saved?[{id:'created',name:'Saved business',members:0,api_keys:0,models:0}]:[]};
   });
   const user=userEvent.setup();
-  render(<MemoryRouter><SupplierList/></MemoryRouter>);
+  render(<MemoryRouter><ProviderList/></MemoryRouter>);
   await screen.findByText(/No Providers yet/);
   await user.click(screen.getByRole('button',{name:'Add Provider'}));
   await user.type(screen.getByLabelText('Provider name'),'Saved business');
@@ -65,11 +65,11 @@ it.each(['transport','server','timeout'])('reconciles uncertain Provider creatio
 it('keeps a rejected Provider name editable without read recovery',async()=>{
   let writes=0;
   vi.mocked(request).mockImplementation(async (_token,_path,method='GET')=>{
-    if(method==='POST'){writes+=1;throw new VendorRequestError('Provider name is already used.',409);}
+    if(method==='POST'){writes+=1;throw new ProviderRequestError('Provider name is already used.',409);}
     return {data:[]};
   });
   const user=userEvent.setup();
-  render(<MemoryRouter><SupplierList/></MemoryRouter>);
+  render(<MemoryRouter><ProviderList/></MemoryRouter>);
   await screen.findByText(/No Providers yet/);
   await user.click(screen.getByRole('button',{name:'Add Provider'}));
   await user.type(screen.getByLabelText('Provider name'),'Existing business');
@@ -81,14 +81,14 @@ it('keeps a rejected Provider name editable without read recovery',async()=>{
 
 
 it('shows saved logos and default fallbacks without a redundant configuration status column', async () => {
-  const { supplierLogoPresets } = await import('@/features/vendors/supplier-logos');
+  const { supplierLogoPresets } = await import('@/features/providers/provider-logos');
   const preset = supplierLogoPresets[0];
   vi.mocked(request).mockResolvedValue({ data: [
     { id: 'preset', name: 'Preset provider', logo_url: preset.url, members: 0 },
     { id: 'custom', name: 'Custom provider', logo_url: 'https://example.com/logo.png', members: 0 },
     { id: 'default', name: 'Default provider', logo_url: '', members: 0 },
   ] });
-  render(<MemoryRouter><SupplierList /></MemoryRouter>);
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
   const presetLink = await screen.findByRole('link', { name: 'Preset provider', exact: true });
   expect(presetLink.closest('td')?.querySelector('img')?.getAttribute('src')).toBe(preset.src);
   const customCell = screen.getByRole('link', { name: 'Custom provider', exact: true }).closest('td')!;
@@ -104,7 +104,7 @@ it('shows saved logos and default fallbacks without a redundant configuration st
 
 
 it('distinguishes commercial supply readiness from simply having an API key', async () => {
-  const { supplierAvailability } = await import('@/features/vendors/supplier-setup');
+  const { supplierAvailability } = await import('@/features/providers/provider-setup');
   const configured = { api_keys: 1, enabled_api_keys: 1, models: 2, enabled_model_routes: 2, offers: 1, ready_offers: 0 };
   expect(supplierAvailability({ ...configured, qualification_status: 'unqualified' }).label).toBe('Not qualified');
   expect(supplierAvailability({ ...configured, qualification_status: 'qualified' }).label).toBe('Not ready');
@@ -115,7 +115,7 @@ it('distinguishes commercial supply readiness from simply having an API key', as
 
 it('refreshes missing readiness data instead of sending users to edit offers', async () => {
   vi.mocked(request).mockResolvedValueOnce({ data: [{ id: 'supplier', name: 'Provider', api_keys: 1, models: 2 }] });
-  render(<MemoryRouter><SupplierList /></MemoryRouter>);
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
   await screen.findByText('Status unavailable');
   vi.mocked(request).mockResolvedValue({ data: [{ id: 'supplier', name: 'Provider', api_keys: 1, models: 2, enabled_api_keys: 1, enabled_model_routes: 2, qualification_status: 'unqualified', offers: 2, ready_offers: 0 }] });
   await userEvent.setup().click(screen.getAllByRole('button', { name: 'Refresh status' })[0]);

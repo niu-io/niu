@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PlatformConfiguration from '../../../src/features/platform/page';
 const api = vi.hoisted(() => ({ request: vi.fn(), token: 'session' }));
-vi.mock('../../../src/features/vendors/api', () => ({request: api.request}));
+vi.mock('../../../src/features/providers/api', () => ({request: api.request}));
 vi.mock('../../../src/app/dashboard-context', () => ({useDashboardContext: () => ({token: api.token})}));
 
 describe('Payment configuration loading', () => {

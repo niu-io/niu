@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import { cacheTheme, cacheThemeOwner, readThemeOwner, type Theme } from './theme';
 
 function validMode(value: unknown): value is Theme {

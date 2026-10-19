@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '@/components/ui/table';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 
 type Denial = {
   stage?: 'preparation' | 'dispatch' | 'batch_admission'; reason: string; key_name: string; workspace_policy_name: string | null; key_policy_name: string | null;

@@ -18,14 +18,14 @@ describe('customer model workflow', () => {
     } as unknown as DashboardContext;
     const { container } = render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
     expect(screen.getByRole('link', { name: 'Connect provider' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Connect provider' }).getAttribute('href')).toBe('/admin/suppliers');
+    expect(screen.getByRole('link', { name: 'Connect provider' }).getAttribute('href')).toBe('/admin/providers');
   });
   it('allows a user account with platform administration permissions to connect a Provider', () => {
     fixture.context = {token: 'test-session', models: [], workspace: null,
       session: {kind: 'operator', permissions: {platform_admin: true, manage_operators: true}},
     } as unknown as DashboardContext;
     render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
-    expect(screen.getByRole('link', {name: 'Connect provider'}).getAttribute('href')).toBe('/admin/suppliers');
+    expect(screen.getByRole('link', {name: 'Connect provider'}).getAttribute('href')).toBe('/admin/providers');
   });
   it('keeps operator setup in the model catalog instead of upstream configuration', () => {
     fixture.context = {
@@ -34,7 +34,7 @@ describe('customer model workflow', () => {
     } as unknown as DashboardContext;
     const { container } = render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
     expect(screen.getByRole('link', { name: 'Browse models' })).toBeTruthy();
-    expect(container.querySelector('a[href="/suppliers"], a[href="/admin/suppliers"]')).toBeNull();
+    expect(container.querySelector('a[href="/providers"], a[href="/admin/providers"], a[href="/suppliers"], a[href="/admin/suppliers"]')).toBeNull();
   });
   it('starts Chat directly in the current workspace', () => {
     fixture.context = { token: 'test-session', models: [{id: 'model'}], workspace: {id: 'internal-workspace', organization_id: 'org'}, session: null } as unknown as DashboardContext;
@@ -45,6 +45,6 @@ describe('customer model workflow', () => {
     fixture.context = { token: 'test-session', models: [], workspace: null, session: null } as unknown as DashboardContext;
     const { container } = render(<MemoryRouter><SidebarProvider><ModelsRoute /></SidebarProvider></MemoryRouter>);
     expect(screen.getByText('Ask a platform administrator to connect a provider and add a model route to the catalog.')).toBeTruthy();
-    expect(container.querySelector('a[href="/suppliers"], a[href="/admin/suppliers"]')).toBeNull();
+    expect(container.querySelector('a[href="/providers"], a[href="/admin/providers"], a[href="/suppliers"], a[href="/admin/suppliers"]')).toBeNull();
   });
 });

@@ -11,7 +11,7 @@ import {
 } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { useBranding } from '@/app/branding';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -1323,7 +1323,7 @@ function CommercialStatement({ token }: { token: string }) {
                           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                             <Link
                               className="hover:underline"
-                              to={'/admin/suppliers/' + encodeURIComponent(row.supplier_id)}
+                              to={'/admin/providers/' + encodeURIComponent(row.supplier_id)}
                             >
                               {row.supplier_name}
                             </Link>

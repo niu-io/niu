@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { IconPlugConnected } from '@tabler/icons-react';
-import { supplierLogoSource } from '../supplier-logos';
+import { providerLogoSource } from '../provider-logos';
 
-export default function SupplierLogo({ url = '' }: { url?: string }) {
+export default function ProviderMark({ url = '' }: { url?: string }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [url]);
   return <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted" aria-hidden="true">
     {/^https?:\/\//i.test(url) && !broken
-      ? <img src={supplierLogoSource(url)} alt="" className="size-6 object-contain" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+      ? <img src={providerLogoSource(url)} alt="" className="size-6 object-contain" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
       : <IconPlugConnected className="size-5 text-muted-foreground" />}
   </span>;
 }

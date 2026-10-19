@@ -1,27 +1,33 @@
 import type { VideoSchema } from './video-schema';
 import type { CatalogMetadata } from '@/app/dashboard-context';
-export type VendorAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
+export type ProviderAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
+export type VendorAdapter = ProviderAdapter;
 
-export const vendorAdapterLabels: Record<VendorAdapter, string> = {
+export const providerAdapterLabels: Record<ProviderAdapter, string> = {
   openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic',
   gemini: 'Google Gemini', ark: 'Volcengine Ark',
 };
-export const vendorAdapterApiLabels: Record<VendorAdapter, string> = {
+export const vendorAdapterLabels = providerAdapterLabels;
+
+export const providerAdapterApiLabels: Record<ProviderAdapter, string> = {
   openrouter: 'OpenRouter API', openai: 'OpenAI-compatible API',
   anthropic: 'Anthropic Messages API', gemini: 'Google Gemini API', ark: 'Ark-compatible API',
 };
+export const vendorAdapterApiLabels = providerAdapterApiLabels;
 
-export type Vendor = {
+export type ProviderConnection = {
   id: string;
   name: string;
-  adapter: VendorAdapter;
+  adapter: ProviderAdapter;
   api_base: string;
   enabled: boolean;
   revision: number;
   has_credential: boolean;
   owner_funded?: boolean;
+  provider?: { id: string; name: string } | null;
   supplier?: { id: string; name: string } | null;
 };
+export type Vendor = ProviderConnection;
 
 export type ModelCapabilities = {
   catalog?: CatalogMetadata;
@@ -35,7 +41,7 @@ export type ModelCapabilities = {
   supports_responses: boolean;
 };
 
-export type VendorModel = {
+export type ProviderModel = {
   alias: string;
   vendor_id: string;
   upstream_model: string;
@@ -47,6 +53,7 @@ export type VendorModel = {
   pricing: Record<string, unknown> | null;
   revision: number;
 };
+export type VendorModel = ProviderModel;
 
 export type ProviderCatalogModel = {
   catalog?: CatalogMetadata;
@@ -74,30 +81,32 @@ export type ProviderModelCheck = {
   checked_at_ms: number;
 };
 
-export type VendorWrite = {
+export type ProviderConnectionWrite = {
   name: string;
   api_base: string;
   enabled: boolean;
   api_key?: string;
   expected_revision: number;
 };
+export type VendorWrite = ProviderConnectionWrite;
 
-export type ModelWrite = Omit<VendorModel, 'vendor_id' | 'revision' | 'pricing' | 'available' | 'owner_funded'> & {
+export type ModelWrite = Omit<ProviderModel, 'vendor_id' | 'revision' | 'pricing' | 'available' | 'owner_funded'> & {
   pricing?: Record<string, unknown> | null;
   expected_revision: number | null;
 };
 
-export class VendorRequestError extends Error {
+export class ProviderRequestError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
-    this.name = 'VendorRequestError';
+    this.name = 'ProviderRequestError';
   }
 }
+export { ProviderRequestError as VendorRequestError };
 
 // A timeout, transport failure or server error cannot establish that a write
 // was rejected before commit. Explicit client rejections retain correction flow.
 export function writeMayHaveCommitted(reason: unknown): boolean {
-  return !(reason instanceof VendorRequestError && reason.status >= 400 && reason.status < 500 && reason.status !== 408);
+  return !(reason instanceof ProviderRequestError && reason.status >= 400 && reason.status < 500 && reason.status !== 408);
 }
 
 export async function request<T>(
@@ -119,14 +128,14 @@ export async function request<T>(
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new VendorRequestError(payload?.error?.message ?? 'Request failed (' + response.status + ')', response.status);
+    throw new ProviderRequestError(payload?.error?.message ?? 'Request failed (' + response.status + ')', response.status);
   }
   if (response.status === 204) return undefined as T;
   return await response.json() as T;
 }
 
-export function defaultApiBase(adapter: VendorAdapter) {
-  const defaults: Record<VendorAdapter, string> = {
+export function defaultApiBase(adapter: ProviderAdapter) {
+  const defaults: Record<ProviderAdapter, string> = {
     openrouter: 'https://openrouter.ai/api/v1', openai: 'https://api.openai.com/v1',
     anthropic: 'https://api.anthropic.com/v1', gemini: 'https://generativelanguage.googleapis.com/v1beta',
     // Ark-compatible services need their own explicit configured endpoint.

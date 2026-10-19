@@ -1,5 +1,5 @@
 import type { PricingHealth } from '@/features/retail-pricing/pricing-health';
-import { request, writeMayHaveCommitted, type Vendor, type VendorModel } from '@/features/vendors/api';
+import { request, writeMayHaveCommitted, type Vendor, type VendorModel } from '@/features/providers/api';
 import type { CustomerTariffHistory, CustomerTariffInput, CustomerTariff } from '../../../../../sdks/javascript/src/admin';
 
 export type PricingTarget = { organization_id: string; organization_name: string; workspace_id: string; workspace_name: string };

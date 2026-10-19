@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { request, writeMayHaveCommitted } from '@/features/vendors/api';
+import { request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos, money } from '@/lib/money';
 import { mediaAmount, mediaAmountUnits } from '@/lib/media-price';
 import { retailCustomers, type RetailCustomer } from './api';

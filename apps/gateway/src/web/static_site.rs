@@ -61,6 +61,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/login",
         "/installation",
         "/admin",
+        "/admin/route-pools",
         "/admin/commercial",
         "/admin/customer-accounts",
         "/admin/pricing",
@@ -76,6 +77,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             .route_service(&slash_path, ServeFile::new(dashboard_index.clone()));
     }
     for prefix in [
+        "/admin/providers",
         "/admin/suppliers",
         "/settings",
         "/providers",

@@ -2,8 +2,8 @@ import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
-import ModelMappings from '@/features/vendors/components/ModelMappings';
-import type { VendorModel, ProviderModelCheck } from '@/features/vendors/api';
+import ModelMappings from '@/features/providers/components/ModelMappings';
+import type { VendorModel, ProviderModelCheck } from '@/features/providers/api';
 
 it('shows remaining models when a refresh removes the current page', async () => {
   const models: VendorModel[] = Array.from({ length: 25 }, (_, index) => ({

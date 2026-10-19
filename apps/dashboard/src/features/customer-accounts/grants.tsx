@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IssuedGiftHistory } from './gift-corrections';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos, money } from '@/lib/money';
 import type { CustomerBalanceGrantInput, PreparedCustomerBalanceGrant, IssuedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
 import type { Editor } from './page';

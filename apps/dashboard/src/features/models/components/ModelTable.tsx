@@ -155,7 +155,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
     <div className="empty-icon"><Boxes size={18} /></div>
     <strong>No model routes yet</strong>
     {Boolean((session?.kind === 'installation' || session?.permissions?.platform_admin) && session?.permissions?.manage_operators)
-      ? <><span>Connect a provider and add a model route to the catalog.</span><Button asChild><Link to="/admin/suppliers">Connect a provider</Link></Button></>
+      ? <><span>Connect a provider and add a model route to the catalog.</span><Button asChild><Link to="/admin/providers">Connect a provider</Link></Button></>
       : <span>Ask a platform administrator to connect a provider and add a model route to the catalog.</span>}
   </div></>;
 

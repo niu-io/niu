@@ -19,6 +19,7 @@ pub(crate) struct Runtime {
     unknown_identity_permits: std::sync::Arc<tokio::sync::Semaphore>,
     dummy_hash: String,
     local_development: bool,
+    demo_login: Option<LoginInput>,
 }
 
 impl Runtime {
@@ -60,6 +61,7 @@ impl Runtime {
             unknown_identity_permits: std::sync::Arc::new(tokio::sync::Semaphore::new(2)),
             dummy_hash,
             local_development: false,
+            demo_login: None,
         })
     }
 
@@ -84,7 +86,22 @@ impl Runtime {
             unknown_identity_permits: std::sync::Arc::new(tokio::sync::Semaphore::new(2)),
             dummy_hash,
             local_development: true,
+            demo_login: None,
         })
+    }
+
+    pub(crate) fn configure_demo_from_env(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let email = std::env::var("NIU_DEMO_LOGIN_EMAIL");
+        let password = std::env::var("NIU_DEMO_LOGIN_PASSWORD");
+        match (email, password) {
+            (Err(std::env::VarError::NotPresent), Err(std::env::VarError::NotPresent)) => {}
+            (Ok(email), Ok(password)) if !email.trim().is_empty() && email.len() <= 254
+                && !password.is_empty() && password.len() <= 1024 => {
+                self.demo_login = Some(LoginInput { email, password });
+            }
+            _ => return Err("Set both NIU_DEMO_LOGIN_EMAIL and NIU_DEMO_LOGIN_PASSWORD to enable demo sign-in".into()),
+        }
+        Ok(())
     }
 
     pub(crate) fn is_local(&self) -> bool {
@@ -225,6 +242,44 @@ pub async fn browser_login(
     let mut response = Json(json!({"session":value["session"]})).into_response();
     response.headers_mut().insert("set-cookie", cookie);
     Ok(response)
+}
+
+/// # OpenAPI
+/// ```openapi
+/// {
+///   "path": "/api/v1/auth/browser/demo",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "createDemoBrowserSession",
+///     "tags": ["Authentication"],
+///     "summary": "Sign in to the configured shared demo account",
+///     "description": "Available only when NIU_DEMO_LOGIN_EMAIL and NIU_DEMO_LOGIN_PASSWORD are explicitly configured. Requires the configured browser Origin. Verifies the existing account password with ordinary sign-in admission and revocation checks, then issues an HttpOnly browser session cookie. Credentials are never returned. Existing account permissions apply; no account is provisioned. Disabled demo sign-in returns 404. Responses are not cached.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {"description": "Browser session established."},
+///       "401": {"description": "Demo credentials unavailable or revoked."},
+///       "403": {"description": "Browser origin rejected."},
+///       "404": {"description": "Demo sign-in disabled."},
+///       "429": {"description": "Sign-in admission limit reached."}
+///     }
+///   }
+/// }
+/// ```
+/// Explicitly configured shared demo account; uses the ordinary password
+/// verification, admission limits, revocation checks and HttpOnly session cookie.
+pub async fn browser_demo_login(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let auth = runtime(&state)?;
+    auth.require_origin(&headers)?;
+    let demo = auth.demo_login.as_ref().ok_or_else(ApiError::not_found)?;
+    let input = LoginInput {
+        email: demo.email.clone(),
+        password: demo.password.clone(),
+    };
+    browser_login(State(state), headers, Ok(Json(input))).await
 }
 
 pub async fn browser_logout(
@@ -455,6 +510,9 @@ pub async fn logout(
 ///                 },
 ///                 "browser_token_login": {
 ///                   "type": "boolean"
+///                 },
+///                 "demo_login": {
+///                   "type": "boolean"
 ///                 }
 ///               }
 ///             }
@@ -467,7 +525,7 @@ pub async fn logout(
 /// ```
 pub async fn configuration(State(state): State<AppState>) -> Json<Value> {
     Json(
-        json!({"password_login":state.password_auth.is_some(),"browser_token_login":state.password_auth.is_some()}),
+        json!({"password_login":state.password_auth.is_some(),"browser_token_login":state.password_auth.is_some(),"demo_login":state.password_auth.as_ref().is_some_and(|auth| auth.demo_login.is_some())}),
     )
 }
 

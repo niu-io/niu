@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 import WorkspacePricing from '@/features/customer-pricing/page';
 import { TextStandardEditor } from './text-editor';
 import { MediaStandardEditor } from './media-editor';

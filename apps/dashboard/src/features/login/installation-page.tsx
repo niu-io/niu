@@ -11,7 +11,7 @@ export default function InstallationRoute() {
   const context = useDashboardContext();
   const navigate = useNavigate();
   useEffect(() => {
-    if (context.token && context.session?.kind === 'installation') navigate('/admin/suppliers', { replace: true });
+    if (context.token && context.session?.kind === 'installation') navigate('/admin/providers', { replace: true });
   }, [context.token, context.session?.kind, navigate]);
   return <main className="dashboard-login">
     <section className="dashboard-login-card" aria-label="Installation administration">

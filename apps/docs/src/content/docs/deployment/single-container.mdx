@@ -110,3 +110,23 @@ The equivalent APIs add `GET` to the organization, workspace and key collection 
 ## Optional marketing artifact
 
 The marketing source lives in the separate `niu-io/website` repository. A hosted release pins both repository revisions and installs the website build in its own directory. Set `NIU_SITE_DIR` to that directory to serve `/`, `/site-assets/`, `/_astro/`, favicon, robots, and sitemap. Set `NIU_CATALOG_DIR` to the public catalog build (the community image defaults to `/app/catalog`). Docs and dashboard keep their existing directories. No separate application subdomain or UI server is required. Website output cannot override the catalog, workspace or API routes.
+
+## Optional demo sign-in
+
+To offer a shared demo account, set both `NIU_DEMO_LOGIN_EMAIL` and
+`NIU_DEMO_LOGIN_PASSWORD` in the Gateway's private runtime environment. The
+account must already exist and have password sign-in configured. These settings
+do not create an account or grant additional permissions; visitors receive the
+configured account's existing access.
+
+When enabled, the login page shows **Try the demo**. Share `/login?demo=1` for
+automatic demo sign-in, or `/login?demo=1&returnTo=%2Fgenerations` to open
+Generations after signing in. Existing signed-in visitors keep their session.
+The browser posts to `/api/v1/auth/browser/demo`; the password stays on the
+server, and the normal origin checks, sign-in limits, revocation checks and
+HttpOnly session cookie apply. No credential belongs in the URL or frontend
+build environment.
+
+Omit both settings to disable this entry point. A partial configuration stops
+Gateway startup rather than enabling an incomplete demo login. This is separate
+from loopback-only development account provisioning.

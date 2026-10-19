@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
 import { ChevronDown } from 'lucide-react';
-import { supplierLogoPresets, supplierLogoSource } from '@/features/vendors/supplier-logos';
+import { providerLogoPresets, providerLogoSource } from '@/features/providers/provider-logos';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { IconPlugConnected } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { VendorRequestError, request } from '@/features/vendors/api';
+import { ProviderRequestError, request } from '@/features/providers/api';
 
 type Profile = { name: string; description: string; website_url: string; logo_url: string; revision: number };
 const empty = { name: '', description: '', website_url: '', logo_url: '' };
 const conflictMessage = 'These details changed since you opened this page. Reload the saved details before saving again.';
-export default function SupplierSettings() {
-  const { supplierId } = useParams();
+export default function ProviderSettings() {
+  const { providerId, supplierId } = useParams();
+  const activeProviderId = providerId ?? supplierId ?? '';
   const { token } = useDashboardContext();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [draft, setDraft] = useState(empty);
@@ -28,7 +29,7 @@ export default function SupplierSettings() {
   const [reload, setReload] = useState(0);
   const [brokenLogo, setBrokenLogo] = useState(false);
   const pending = useRef<AbortController | null>(null);
-  const path = `/api/v1/providers/${encodeURIComponent(supplierId ?? '')}`;
+  const path = `/api/v1/providers/${encodeURIComponent(activeProviderId)}`;
   const loadedContext = useRef('');
   useEffect(() => {
     const controller = new AbortController();
@@ -54,10 +55,11 @@ export default function SupplierSettings() {
       const { data } = await request<{ data: Profile }>(token, path, 'PATCH', { ...draft, expected_revision: profile.revision }, controller.signal);
       if (!controller.signal.aborted) {
         setProfile(data); setDraft({ name: data.name, description: data.description, website_url: data.website_url, logo_url: data.logo_url }); setSaved(true);
+        window.dispatchEvent(new Event('niu:provider-profile-updated'));
         window.dispatchEvent(new Event('niu:supplier-profile-updated'));
       }
     } catch (reason) { if (!controller.signal.aborted) {
-      const stale = reason instanceof VendorRequestError && reason.status === 409;
+      const stale = reason instanceof ProviderRequestError && reason.status === 409;
       if (stale) setConflict(true);
       setError(stale ? conflictMessage : reason instanceof Error ? reason.message : 'Could not save provider details.');
     } }
@@ -69,13 +71,13 @@ export default function SupplierSettings() {
       <form onSubmit={event => void save(event)} className="space-y-7">
         <div className="space-y-2"><h3 className="font-medium">Business profile</h3><p className="text-sm text-muted-foreground">These details identify the provider. API endpoints and credentials are managed in API keys &amp; routes.</p></div>
         <fieldset disabled={busy} className="space-y-6">
-          <div className="flex items-start gap-4"><div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label="Provider logo preview">{draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={supplierLogoSource(draft.logo_url)} alt="Provider logo" className="size-full object-contain" referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}</div><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="supplier-logo">Logo URL</Label><Input id="supplier-logo" type="url" maxLength={2048} value={draft.logo_url} onChange={event => change('logo_url', event.target.value)} placeholder="https://example.com/logo.png" aria-describedby="supplier-logo-help" /><p id="supplier-logo-help" className="text-sm text-muted-foreground">Choose a preset or use a publicly accessible image URL. Leave it empty to use the default logo.{brokenLogo ? ' The image could not be loaded.' : ''}</p></div></div>
+          <div className="flex items-start gap-4"><div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label="Provider logo preview">{draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt="Provider logo" className="size-full object-contain" referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}</div><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="supplier-logo">Logo URL</Label><Input id="supplier-logo" type="url" maxLength={2048} value={draft.logo_url} onChange={event => change('logo_url', event.target.value)} placeholder="https://example.com/logo.png" aria-describedby="supplier-logo-help" /><p id="supplier-logo-help" className="text-sm text-muted-foreground">Choose a preset or use a publicly accessible image URL. Leave it empty to use the default logo.{brokenLogo ? ' The image could not be loaded.' : ''}</p></div></div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button type="button" variant="outline">{supplierLogoPresets.find(preset => preset.url === draft.logo_url)?.name ?? (draft.logo_url ? 'Custom logo' : 'Default logo')}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button type="button" variant="outline">{providerLogoPresets.find(preset => preset.url === draft.logo_url)?.name ?? (draft.logo_url ? 'Custom logo' : 'Default logo')}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup value={draft.logo_url} onValueChange={value => change('logo_url', value)}>
                 <DropdownMenuRadioItem value=""><IconPlugConnected aria-hidden="true" />Default logo</DropdownMenuRadioItem>
-                {supplierLogoPresets.map(preset => <DropdownMenuRadioItem key={preset.name} value={preset.url}><img src={preset.src} alt="" className="size-4 object-contain" />{preset.name}</DropdownMenuRadioItem>)}
+                {providerLogoPresets.map(preset => <DropdownMenuRadioItem key={preset.name} value={preset.url}><img src={preset.src} alt="" className="size-4 object-contain" />{preset.name}</DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>

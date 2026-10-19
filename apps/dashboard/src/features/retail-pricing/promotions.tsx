@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { request, writeMayHaveCommitted } from '@/features/vendors/api';
+import { request, writeMayHaveCommitted } from '@/features/providers/api';
 import { SellingSchedule } from './schedule';
 import type { RetailPriceRecord, RetailPromotionPage, RetailPromotionRetirement, RetailPublicationResult } from '../../../../../sdks/javascript/src/admin';
 

@@ -24,7 +24,7 @@ export function PricingHealthNotice({ health }: { health?: PricingHealth }) {
         {check.dimensions.map((item, i) => <p key={i}>{item.dimension} · {item.minimum_input_tokens === '0' ? 'Base rate' : `From ${BigInt(item.minimum_input_tokens).toLocaleString()} input tokens`}</p>)}
         {check.message && <p className="text-muted-foreground">{check.message}</p>}
       </div>)}
-      <Button asChild variant="link" className="h-auto p-0"><Link to="/admin/suppliers">Review Provider prices</Link></Button>
+      <Button asChild variant="link" className="h-auto p-0"><Link to="/admin/providers">Review Provider prices</Link></Button>
     </div></DialogContent></Dialog>
   </div>;
 }

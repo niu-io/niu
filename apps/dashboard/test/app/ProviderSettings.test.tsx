@@ -2,7 +2,7 @@ import { it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
-import SupplierSettings from '@/features/provider-business/SupplierSettings';
+import ProviderSettings from '@/features/provider-business/ProviderSettings';
 vi.mock('@/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'test' }) }));
 it('loads saved provider identity, saves with revision and refreshes navigation', async () => {
   let profile = { name: 'Provider', description: 'Existing description', website_url: 'https://example.com', logo_url: '', revision: 2 };
@@ -12,7 +12,7 @@ it('loads saved provider identity, saves with revision and refreshes navigation'
   });
   vi.stubGlobal('fetch', fetch);
   const updated = vi.fn(); window.addEventListener('niu:supplier-profile-updated', updated);
-  const view = render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
+  const view = render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
   const name = await screen.findByLabelText('Name');
   expect((name as HTMLInputElement).value).toBe('Provider');
@@ -23,7 +23,7 @@ it('loads saved provider identity, saves with revision and refreshes navigation'
   expect(updated).toHaveBeenCalledOnce();
   expect(profile.description).toBe('Existing description');
   view.unmount();
-  render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   await waitFor(() => expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Updated provider'));
   window.removeEventListener('niu:supplier-profile-updated', updated);
 });
@@ -33,7 +33,7 @@ it('keeps the draft after a conflicting save and allows reloading the latest pro
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => init.method === 'PATCH'
     ? Response.json({error:{message:'Conflict'}}, {status:409})
     : Response.json({data:{name:++reads === 1 ? 'Original provider' : 'Other administrator’s change', description:'', website_url:'', logo_url:'', revision:reads}})));
-  render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
   const name = await screen.findByLabelText('Name');
   await user.clear(name); await user.type(name, 'My draft');
@@ -48,7 +48,7 @@ it('cancels all profile drafts without submitting an update and restores name fo
   const profile = { name: 'Saved provider', description: 'Saved description', website_url: 'https://example.com', logo_url: '', revision: 1 };
   const fetcher = vi.fn(async () => Response.json({ data: profile }));
   vi.stubGlobal('fetch', fetcher);
-  render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
   const name = await screen.findByLabelText('Name');
   await user.clear(name); await user.type(name, 'Draft provider');
@@ -68,7 +68,7 @@ it('cancels all profile drafts without submitting an update and restores name fo
 });
 
 it('persists each preset, restores it after reload, and can return to the default or a custom URL', async () => {
-  const { supplierLogoPresets } = await import('@/features/vendors/supplier-logos');
+  const { supplierLogoPresets } = await import('@/features/providers/provider-logos');
   let profile = { name: 'Provider', description: '', website_url: '', logo_url: '', revision: 1 };
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
     if (init.method === 'PATCH') {
@@ -78,7 +78,7 @@ it('persists each preset, restores it after reload, and can return to the defaul
     }
     return Response.json({ data: profile });
   }));
-  const mount = () => render(<MemoryRouter initialEntries={['/admin/suppliers/a/settings']}><Routes><Route path="/admin/suppliers/:supplierId/settings" element={<SupplierSettings />} /></Routes></MemoryRouter>);
+  const mount = () => render(<MemoryRouter initialEntries={['/admin/providers/a/settings']}><Routes><Route path="/admin/providers/:providerId/settings" element={<ProviderSettings />} /></Routes></MemoryRouter>);
   let view = mount();
   const user = userEvent.setup();
   await screen.findByLabelText('Name');

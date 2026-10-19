@@ -4006,6 +4006,30 @@ HTTP 404: Workspace not found
 
 HTTP 503: Authorization or storage unavailable
 
+## Sign in to the configured shared demo account
+
+`POST /api/v1/auth/browser/demo`
+
+Available only when NIU_DEMO_LOGIN_EMAIL and NIU_DEMO_LOGIN_PASSWORD are explicitly configured. Requires the configured browser Origin. Verifies the existing account password with ordinary sign-in admission and revocation checks, then issues an HttpOnly browser session cookie. Credentials are never returned. Existing account permissions apply; no account is provisioned. Disabled demo sign-in returns 404. Responses are not cached.
+
+Implementation: `implemented`. Operation: `createDemoBrowserSession`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Responses
+
+HTTP 200: Browser session established.
+
+HTTP 401: Demo credentials unavailable or revoked.
+
+HTTP 403: Browser origin rejected.
+
+HTTP 404: Demo sign-in disabled.
+
+HTTP 429: Sign-in admission limit reached.
+
 ## Discover member sign-in availability
 
 `GET /api/v1/auth/config`
@@ -4045,6 +4069,9 @@ Content type: `application/json`.
       "type": "boolean"
     },
     "browser_token_login": {
+      "type": "boolean"
+    },
+    "demo_login": {
       "type": "boolean"
     }
   }

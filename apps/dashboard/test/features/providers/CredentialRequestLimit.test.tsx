@@ -1,7 +1,7 @@
 import {render,screen,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {it,expect,vi} from 'vitest';
-import CredentialRequestLimit from '@/features/vendors/components/CredentialRequestLimit';
+import CredentialRequestLimit from '@/features/providers/components/CredentialRequestLimit';
 
 it('saves zero from revision zero and clears a finite policy with explicit null',async()=>{
   let policy={requests_per_minute:null as number|null,revision:'0'};

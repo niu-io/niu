@@ -65,70 +65,85 @@ export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 
 /** Platform-only credential configuration metadata. Secret values are never returned. */
-export type SupplierBusiness = {
+export type ProviderBusiness = {
   id: string; name: string; api_keys: number; models: number; members: number;
   /** Enabled saved configurations and mappings; not upstream verification. */
   enabled_api_keys?: number; enabled_model_routes?: number;
   qualification_status: 'qualified' | 'unqualified';
 };
+export type SupplierBusiness = ProviderBusiness;
 
-export type SupplierProfile = {
+export type ProviderProfile = {
   id: string; name: string; description: string; website_url: string; logo_url: string; revision: number;
 };
-export type SupplierProfileUpdate = {
+export type SupplierProfile = ProviderProfile;
+export type ProviderProfileUpdate = {
   name: string; description?: string | null; website_url?: string | null;
   logo_url?: string | null; expected_revision?: number | null;
 };
+export type SupplierProfileUpdate = ProviderProfileUpdate;
 
-export type SupplierCredential = {
+export type ProviderCredential = {
   id: string; name: string; adapter: string; api_base: string;
   enabled: boolean; revision: number; has_credential: boolean;
   owner_funded: boolean; supplier: { id: string; name: string } | null;
 };
+export type SupplierCredential = ProviderCredential;
 /** Write-only secret input; creation does not establish upstream or commercial qualification. */
-export type SupplierCredentialCreateInput = {
+export type ProviderCredentialCreateInput = {
   name: string; adapter: 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark'; api_base: string; api_key: string;
   enabled?: boolean; create_supplier?: boolean; supplier_id?: string;
 };
-export type SupplierCredentialUpdateInput = {
+export type SupplierCredentialCreateInput = ProviderCredentialCreateInput;
+export type ProviderCredentialUpdateInput = {
   name: string; api_base: string; enabled: boolean; expected_revision: number;
   /** Omit to retain the existing secret; provide a value to replace it. */
   api_key?: string;
 };
-export type SupplierModelInput = {
+export type SupplierCredentialUpdateInput = ProviderCredentialUpdateInput;
+export type ProviderModelInput = {
   alias: string; upstream_model: string; public_catalog?: boolean; enabled?: boolean;
   capabilities?: Record<string, unknown>;
   /** Omit on update to preserve pricing; null explicitly clears it. */
   pricing?: Record<string, unknown> | null;
   expected_revision?: number;
 };
-export type SupplierModel = {
+export type SupplierModelInput = ProviderModelInput;
+export type ProviderModel = {
   alias: string; vendor_id: string; upstream_model: string; public_catalog: boolean;
   enabled: boolean; capabilities: Record<string, unknown>;
   pricing: Record<string, unknown> | null; revision: number;
 };
-export type SupplierModelAvailability = SupplierModel & { available: boolean; owner_funded: boolean };
+export type SupplierModel = ProviderModel;
+export type ProviderModelAvailability = ProviderModel & { available: boolean; owner_funded: boolean };
+export type SupplierModelAvailability = ProviderModelAvailability;
 /** Catalog reachability only; this does not prove inference or billing readiness. */
-export type SupplierModelCheck = {
+export type ProviderModelCheck = {
   status: 'connected' | 'credentials_rejected' | 'endpoint_unavailable' | 'private_endpoint_blocked'
     | 'invalid_endpoint' | 'redirect_blocked' | 'provider_rate_limited' | 'provider_error'
     | 'model_catalog_unavailable' | 'model_catalog_too_large' | 'invalid_model_catalog';
   model: 'listed' | 'not_listed' | 'unknown'; http_status: number | null;
   duration_ms: number; checked_at_ms: number;
 };
+export type SupplierModelCheck = ProviderModelCheck;
 /** Platform catalog metadata. Advertised USD/token prices never configure Niu billing. */
-export type SupplierCatalogMetadata = {
+export type ProviderCatalogMetadata = {
   name: string | null; description: string | null;
   context_length: number | null; max_completion_tokens: number | null;
   input_modalities: string[]; output_modalities: string[]; supported_parameters?: string[];
   input_price: string | null; output_price: string | null;
 };
-export type SupplierCatalogModel = {
-  id: string; name: string; context_length: number | null; catalog: SupplierCatalogMetadata;
+export type SupplierCatalogMetadata = ProviderCatalogMetadata;
+export type ProviderCatalogModel = {
+  id: string; name: string; context_length: number | null; catalog: ProviderCatalogMetadata;
 };
-export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
-export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
-export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
+export type SupplierCatalogModel = ProviderCatalogModel;
+export type ProviderCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
+export type VendorCooldown = ProviderCooldown;
+export type ProviderRequestRateLimit = { requests_per_minute: number | null; revision: string };
+export type VendorRequestRateLimit = ProviderRequestRateLimit;
+export type ProviderRequestRateLimitRevision = ProviderRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
+export type VendorRequestRateLimitRevision = ProviderRequestRateLimitRevision;
 export type KeyTokenRateLimit = { snapshot_at: string; known_tokens: string; reserved_tokens: string; unbounded_requests: number; committed_tokens: string | null; tokens_per_minute: number | null; revision: string | null };
 export type KeyTokenRateLimitRevision = Omit<KeyTokenRateLimit, 'snapshot_at' | 'known_tokens' | 'reserved_tokens' | 'unbounded_requests' | 'committed_tokens'> & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyTokenUsageWindow = { window_seconds: 60; window_end: string; requests: number; known_usage_requests: number; unknown_usage_requests: number; known_prompt_tokens: string; known_completion_tokens: string };
@@ -198,7 +213,7 @@ export type WorkspaceSpendingLimit = { currency: string; limit_nanos: string; co
 export type WorkspaceSpendingAccount = { currency: string; limit_nanos: string | null; committed_nanos: string; revision: string | null };
 export type WorkspaceSpendingLimitRevision = { currency: string; limit_nanos: string; revision: string; recorded_at: string | null; source: 'configuration' | 'migration_baseline'; actor_kind: 'unknown' | 'installation' | 'member'; actor_name: string | null };
 /** Agreed Provider rates in currency nanounits per million tokens. */
-export type SupplierRateInput = {
+export type ProviderRateInput = {
   context_tiers?: ContextPriceTier[];
   model_alias: string; currency: string; prompt_rate: string; completion_rate: string;
   expected_revision: string | null;
@@ -206,12 +221,13 @@ export type SupplierRateInput = {
   reasoning_completion_rate?: string | null;
   cache_write_prompt_rate?: string | null;
 };
+export type SupplierRateInput = ProviderRateInput;
 /** Customer selling rates, independent from Provider procurement prices. */
 export type ContextPriceTier = {
   minimum_input_tokens: string; prompt_rate: string; completion_rate: string;
   cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null; reasoning_completion_rate?: string | null;
 };
-export type CustomerTariffInput = SupplierRateInput & { discount_baseline_revision?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string };
+export type CustomerTariffInput = ProviderRateInput & { discount_baseline_revision?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & {
   revision: string;
   /** Present on effective billing/model prices; publication history can omit it. */
@@ -247,31 +263,34 @@ export type CustomerMediaRateCard = {
   maximum_quantity: ExactMediaQuantity; liability_qualification_revision: string;
 };
 /** Confidential Provider purchase card; never submit to customer selling configuration. */
-export type SupplierMediaRateCard = Omit<CustomerMediaRateCard, 'vendor_id' | 'maximum_quantity' | 'liability_qualification_revision'>;
-export type SupplierMediaRateRecord = {
-  card: Omit<SupplierMediaRateCard, 'vendor_revision' | 'model_revision' | 'tariff' | 'discounts'> & {
+export type ProviderMediaRateCard = Omit<CustomerMediaRateCard, 'vendor_id' | 'maximum_quantity' | 'liability_qualification_revision'>;
+export type SupplierMediaRateCard = ProviderMediaRateCard;
+export type ProviderMediaRateRecord = {
+  card: Omit<ProviderMediaRateCard, 'vendor_revision' | 'model_revision' | 'tariff' | 'discounts'> & {
     vendor_revision: string; model_revision: string;
-    tariff: Omit<SupplierMediaRateCard['tariff'], 'amount_units' | 'effective_from' | 'effective_until'> & {
+    tariff: Omit<ProviderMediaRateCard['tariff'], 'amount_units' | 'effective_from' | 'effective_until'> & {
       amount_units: string; effective_from: string; effective_until: string | null;
     };
-    discounts: Array<Omit<SupplierMediaRateCard['discounts'][number], 'effective_from' | 'effective_until'> & {
+    discounts: Array<Omit<ProviderMediaRateCard['discounts'][number], 'effective_from' | 'effective_until'> & {
       effective_from: string; effective_until: string | null;
     }>;
   };
   retirement_effective_until: string | null; created_at: string | null;
 };
+export type SupplierMediaRateRecord = ProviderMediaRateRecord;
 /** Platform-administrator selling history, with exact amounts and timestamps. */
-export type CustomerMediaRateRecord = Omit<SupplierMediaRateRecord, 'card'> & {
-  card: SupplierMediaRateRecord['card'] & Pick<CustomerMediaRateCard, 'vendor_id' | 'maximum_quantity' | 'liability_qualification_revision'>;
+export type CustomerMediaRateRecord = Omit<ProviderMediaRateRecord, 'card'> & {
+  card: ProviderMediaRateRecord['card'] & Pick<CustomerMediaRateCard, 'vendor_id' | 'maximum_quantity' | 'liability_qualification_revision'>;
 };
 /** Platform-administrator current qualified offer bindings for media pricing configuration. */
-export type SupplierMediaRateModel = {
+export type ProviderMediaRateModel = {
   model_alias: string; api_key_name: string; offer_revision: string;
   vendor_revision: string; model_revision: string; schema_revision: string;
   channel: string; resolutions: string[]; reference_video: boolean;
 };
+export type SupplierMediaRateModel = ProviderMediaRateModel;
 /** Platform-administrator choices; vendor_id binds configuration and is never a display label. */
-export type CustomerMediaRateModel = SupplierMediaRateModel & { vendor_id: string };
+export type CustomerMediaRateModel = ProviderMediaRateModel & { vendor_id: string };
 export type CustomerInvoiceInput = { from_ms: number; to_ms: number; currency: string; idempotency_key: string };
 export type CustomerInvoiceLine = {
   discount_baseline_revision?: string | null;
@@ -387,7 +406,7 @@ export type CustomerBilling = {
   unresolved: string; unpriced: string; tariffs: CustomerTariff[];
   invoices: Array<{ id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; created_at: string; status: 'issued' | 'paid'; payment_reference: string | null }>;
 };
-export type SupplierOffer = {
+export type ProviderOffer = {
   context_tiers?: ContextPriceTier[];
   id: string; model_alias: string; revision: string; active: boolean; qualified: boolean; route_ready: boolean;
   cached_prompt_rate?: string | null;
@@ -395,51 +414,64 @@ export type SupplierOffer = {
   cache_write_prompt_rate?: string | null;
 } & ({ rate_kind?: 'text'; currency: string; prompt_rate: string; completion_rate: string }
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null });
+export type SupplierOffer = ProviderOffer;
 /** Immutable procurement quote; media prices are in the separate media rate card. */
-export type SupplierOfferRevision = {
+export type ProviderOfferRevision = {
   revision: string; model_alias: string; created_at: string;
 } & ({ rate_kind: 'text'; currency: string; prompt_rate: string; completion_rate: string; cached_prompt_rate: string | null; reasoning_completion_rate: string | null; cache_write_prompt_rate: string | null; context_tiers: ContextPriceTier[] }
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null; cached_prompt_rate: null; reasoning_completion_rate: null; cache_write_prompt_rate: null });
+export type SupplierOfferRevision = ProviderOfferRevision;
 /** Payment-record metadata only; never contains customer or request identities. */
-export type SupplierSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };
+export type ProviderSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };
+export type SupplierSettlement = ProviderSettlement;
 /** Immutable Provider earning attribution; null quantities remain unknown or unpriced. */
-export type SupplierEarning = { revision: string; offer_id: string; context_minimum_input_tokens: string | null;
+export type ProviderEarning = { revision: string; offer_id: string; context_minimum_input_tokens: string | null;
   prompt_tokens: string | null; completion_tokens: string | null; cached_prompt_tokens: string | null;
   cache_write_prompt_tokens: string | null; reasoning_completion_tokens: string | null; id: string; model_alias: string; currency: string; amount_nanos: string; billing_meter: string; created_at: string; status: 'accrued' | 'paid' };
-export type SupplierEarningPage = { data: SupplierEarning[]; next_cursor: string | null };
-export type SupplierSettlementInput = { idempotency_key: string; payment_reference: string; attempt_ids: string[] };
-export type SupplierSettlementPage = { data: SupplierSettlement[]; next_cursor: string | null };
-export type SupplierSettlementQuery = LedgerHistoryQuery;
+export type SupplierEarning = ProviderEarning;
+export type ProviderEarningPage = { data: ProviderEarning[]; next_cursor: string | null };
+export type SupplierEarningPage = ProviderEarningPage;
+export type ProviderSettlementInput = { idempotency_key: string; payment_reference: string; attempt_ids: string[] };
+export type SupplierSettlementInput = ProviderSettlementInput;
+export type ProviderSettlementPage = { data: ProviderSettlement[]; next_cursor: string | null };
+export type SupplierSettlementPage = ProviderSettlementPage;
+export type ProviderSettlementQuery = LedgerHistoryQuery;
+export type SupplierSettlementQuery = ProviderSettlementQuery;
 export type LedgerHistoryQuery = { before?: string; currency?: string; fromMs?: number; toMs?: number; limit?: number };
 /** Provider procurement history, never customer workspace billing data. */
-export type SupplierOfferHistory = {
+export type ProviderOfferHistory = {
   current_revision: string | null;
-  data: (SupplierOfferRevision & { is_current: boolean })[];
+  data: (ProviderOfferRevision & { is_current: boolean })[];
   has_more: boolean;
   next_before: string | null;
 };
+export type SupplierOfferHistory = ProviderOfferHistory;
 /** Draft media model bindings. Availability and purchase-rate qualification are separate. */
-export type SupplierMediaOfferModel = {
+export type ProviderMediaOfferModel = {
   model_alias: string; api_key_name: string; vendor_id: string;
   vendor_revision: string; model_revision: string; schema_revision: string;
   channel: string; offer_revision: string | null;
 };
+export type SupplierMediaOfferModel = ProviderMediaOfferModel;
 /** Client-owned immutable receipt; explicitly replay the same document after uncertainty. */
-export type SupplierMediaOfferInput = {
+export type ProviderMediaOfferInput = {
   revision: string; model_alias: string; vendor_id: string; vendor_revision: number | string;
   model_revision: number | string; schema_revision: string; expected_revision: string | null;
 };
+export type SupplierMediaOfferInput = ProviderMediaOfferInput;
 /** Digests of reviewed private evidence; a digest alone does not establish supply rights. */
-export type SupplierQualificationInput = {
+export type ProviderQualificationInput = {
   supply_rights_sha256: string; supply_capability_sha256: string;
   data_handling_sha256: string; valid_until_ms: number;
 };
-export type SupplierOfferQualificationInput = {
+export type SupplierQualificationInput = ProviderQualificationInput;
+export type ProviderOfferQualificationInput = {
   rate_revision: string; model_identity_sha256: string;
   protocol_matrix_sha256: string; protocol_matrix_version: string;
   data_handling_sha256: string; availability_sha256: string;
   agreed_rates_sha256: string; valid_until_ms: number;
 };
+export type SupplierOfferQualificationInput = ProviderOfferQualificationInput;
 export type GuardrailAccessRule = { mode: 'inherit' | 'allow_all' | 'deny_all' } | { mode: 'allow_list'; values: string[] };
 export type WorkspaceDetectorDescription = {
   detector: string; schema_version: 1; detector_revision: string; configuration_fingerprint: string;

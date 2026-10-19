@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 
 type Inspection = { outcome: string; reason?: string; elapsed_ms: number };
 type Decision = {

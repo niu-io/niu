@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { money, amountToNanos } from '@/lib/money';
-import { request, VendorRequestError } from '@/features/vendors/api';
+import { request, VendorRequestError } from '@/features/providers/api';
 import TopupFunding from './TopupFunding';
 type Balance = {
   currency: string; balance_nanos: string; available_nanos: string; reserved_nanos: string;

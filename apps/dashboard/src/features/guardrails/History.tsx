@@ -22,7 +22,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { request, VendorRequestError } from "@/features/vendors/api";
+import { request, VendorRequestError } from "@/features/providers/api";
 import { presets } from "./rules";
 
 type Revision = {

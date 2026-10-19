@@ -70,6 +70,9 @@ Content type: `application/json`.
     },
     "browser_token_login": {
       "type": "boolean"
+    },
+    "demo_login": {
+      "type": "boolean"
     }
   }
 }

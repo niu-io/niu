@@ -13,7 +13,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import { request } from "@/features/vendors/api";
+import { request } from "@/features/providers/api";
 
 import { presets, actions, contentRulesError, type ContentRule } from "./rules";
 

@@ -19,7 +19,7 @@ DIRECTORIES = (
     'apps/docs/src', 'branding/assets', 'sdks/javascript/src', 'contracts/fixtures',
 )
 FILES = (
-    'branding/tokens.css', 'branding/product-rail.css',
+    'branding/tokens.css', 'branding/product-rail.css', 'branding/public-navigation.json',
     'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
     'apps/dashboard/package.json', 'apps/dashboard/vite.config.ts',
     'apps/dashboard/tsconfig.json', 'apps/dashboard/index.html',

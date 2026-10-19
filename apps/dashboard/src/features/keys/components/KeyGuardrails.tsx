@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { request, VendorRequestError } from '@/features/vendors/api';
+import { request, VendorRequestError } from '@/features/providers/api';
 
 type Access = { mode: 'inherit' | 'allow_all' | 'allow_list' | 'deny_all'; values?: string[] };
 type Rule = { pattern?: string; preset?: string; action: string };

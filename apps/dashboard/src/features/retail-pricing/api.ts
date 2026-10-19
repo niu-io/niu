@@ -1,4 +1,4 @@
-import { request } from '@/features/vendors/api';
+import { request } from '@/features/providers/api';
 /** Registration supports price preparation; never infer supply from this list. */
 export async function registeredRetailModels(token: string, signal: AbortSignal): Promise<string[]> {
   let after: string | null = null; const names = new Set<string>(), seen = new Set<string>();

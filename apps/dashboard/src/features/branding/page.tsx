@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import { IconChevronDown, IconPalette } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { brandingTokens, defaultBranding, parseBranding, previewPalette, useBranding, type BrandingConfiguration, type BrandingSettings, type BrandingToken } from '@/app/branding';
-import { request, VendorRequestError } from '@/features/vendors/api';
+import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

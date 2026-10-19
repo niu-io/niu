@@ -1,10 +1,10 @@
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import VideoSchemaEditor from '@/features/vendors/components/VideoSchemaEditor';
-import ModelMappingForm from '@/features/vendors/components/ModelMappingForm';
-import { emptyCapabilities, type VendorModel } from '@/features/vendors/api';
-import type { VideoSchema } from '@/features/vendors/video-schema';
+import VideoSchemaEditor from '@/features/providers/components/VideoSchemaEditor';
+import ModelMappingForm from '@/features/providers/components/ModelMappingForm';
+import { emptyCapabilities, type VendorModel } from '@/features/providers/api';
+import type { VideoSchema } from '@/features/providers/video-schema';
 
 const schema: VideoSchema = {version:1,revision:'private-schema-revision',model_alias:'video-fixture',upstream_model:'upstream-fixture',channel:'ark-direct-v1',maximum_body_bytes:8192,maximum_content_items:4,inputs:{text:{maximum_items:2,maximum_bytes:4096,https:false,data_mime_types:[],roles:[],role_required:false},image_url:{maximum_items:1,maximum_bytes:2048,https:true,data_mime_types:['image/png'],roles:['reference_image'],role_required:true}},controls:{duration:{kind:'integer',minimum:2,maximum:10,default:5},resolution:{kind:'choice',values:['720p','1080p'],default:'720p'},watermark:{kind:'boolean',default:false}},required_controls:['resolution'],exclusive_controls:[],callbacks_qualified:false};
 

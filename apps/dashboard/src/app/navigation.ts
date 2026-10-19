@@ -28,7 +28,7 @@ export const navigation: Array<{ to: string; label: string; icon: TablerIcon; de
   { destination: 'Workspace', to: 'usage', label: 'Activity', icon: ChartNoAxesCombined },
   { destination: 'Workspace', to: 'billing', label: 'Billing', icon: CreditCard },
   { destination: 'Administration', to: '/admin', label: 'Admin', icon: IconShieldLock },
-  { destination: 'Providers', to: '/suppliers', label: 'Providers', icon: SupplierConnection },
+  { destination: 'Providers', to: '/providers', label: 'Providers', icon: SupplierConnection },
   { destination: 'Workspace', to: 'users', label: 'Users', icon: UsersRound },
   { destination: 'Workspace', to: 'settings', label: 'Settings', icon: IconSettings },
 ];

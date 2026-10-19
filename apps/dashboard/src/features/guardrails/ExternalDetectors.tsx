@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
-import { request } from "@/features/vendors/api";
+import { request } from "@/features/providers/api";
 
 export type DetectorBinding = { detector: string; configuration_fingerprint: string; consent_to_external_processing: true };
 type Description = { schema_version: 1; detector: string; configuration_fingerprint: string; recipient: string; region: string; retention: string; policy_activation: boolean; processing_guarantees: "declared_unverified"; content_sent: "request_text_after_local_redaction"; external_charge: "unknown" | "declared_unmetered"; timeout_ms: number; max_text_bytes: number };

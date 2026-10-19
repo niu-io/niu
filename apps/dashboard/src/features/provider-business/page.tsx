@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { modelIdentity } from "@/lib/providers";
 import { money } from "@/lib/money";
-import { request, VendorRequestError } from "@/features/vendors/api";
+import { request, VendorRequestError } from "@/features/providers/api";
 
 type Offer = import("../../../../../sdks/javascript/src/admin").SupplierOffer;
 type Dashboard = {
@@ -73,9 +73,10 @@ const date = (value: string) =>
 
 export default function ProviderBusinessRoute() {
   const context = useDashboardContext();
-  const { supplier } = useParams();
+  const { provider, supplier } = useParams();
+  const activeProvider = provider ?? supplier;
   const membership = context.session?.provider_memberships?.find(
-    (item) => item.id === supplier,
+    (item) => item.id === activeProvider,
   );
   if (!context.token || !membership)
     return (
@@ -94,7 +95,7 @@ export default function ProviderBusinessRoute() {
   const memberships = context.session!.provider_memberships!;
   return (
     <ProviderBusiness
-        key={`${context.token}:${supplier}`}
+        key={`${context.token}:${activeProvider}`}
         token={context.token}
         provider={membership.id}
         role={membership.role}

@@ -11,8 +11,8 @@ import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import { IconUsers } from "@tabler/icons-react";
 import { IconBuildings as Building2 } from "@tabler/icons-react";
 import { useDashboardContext } from "@/app/dashboard-context";
-import SupplierPropertiesFields from "./SupplierPropertiesFields";
-import SupplierEditor, { type VendorCreate } from "@/features/vendors/components/SupplierEditor";
+import ProviderPropertiesFields from "./ProviderPropertiesFields";
+import ProviderEditor, { type ProviderConnectionCreate } from "@/features/providers/components/ProviderEditor";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { request, writeMayHaveCommitted, VendorRequestError } from "@/features/vendors/api";
+import { request, writeMayHaveCommitted, ProviderRequestError } from "@/features/providers/api";
 import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
@@ -30,10 +30,10 @@ import MediaOfferPublisher from "./MediaOfferPublisher";
 import type { SupplierOffer } from "../../../../../sdks/javascript/src/admin";
 import type { Operator } from "@/features/operators/api";
 
-import { type SupplierSetup } from '@/features/vendors/supplier-setup';
+import { type ProviderSetup } from '@/features/providers/provider-setup';
 
-type Business = SupplierSetup & { id: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
-type SupplierMember = { operator_id: string; name: string; role: string; active: boolean; revoked: boolean };
+type Business = ProviderSetup & { id: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
+type ProviderMember = { operator_id: string; name: string; role: string; active: boolean; revoked: boolean };
 type AdminData = {
   balances: { currency: string; earned_nanos: string; unpaid_nanos: string; paid_nanos: string }[];
   consumption: { model_alias: string; revision: string; currency: string; requests: string; prompt_tokens: string; completion_tokens: string; amount_nanos: string; unpaid_nanos: string }[];
@@ -69,7 +69,7 @@ const sha256Pattern = "[0-9a-f]{64}";
 export default function ProviderAdministration() {
   const { session, token } = useDashboardContext();
   if (!(session?.kind === "installation" || session?.permissions.platform_admin) && session?.provider_memberships?.length)
-    return <Navigate to={`/suppliers/${session.provider_memberships[0].id}`} replace />;
+    return <Navigate to={`/providers/${session.provider_memberships[0].id}`} replace />;
   if (!(session?.kind === "installation" || session?.permissions.platform_admin))
     return (
       <>
@@ -87,15 +87,16 @@ export default function ProviderAdministration() {
   return <Administration key={token} token={token} />;
 }
 function Administration({ token }: { token: string }) {
-  const { section = "overview", supplierId } = useParams();
+  const { section = "overview", providerId, supplierId } = useParams();
+  const routeProviderId = providerId ?? supplierId;
   const [loading, setLoading] = useState(true);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [search, setSearch] = useSearchParams();
-  const selected = supplierId ?? search.get('supplier') ?? '';
+  const selected = routeProviderId ?? search.get('provider') ?? search.get('supplier') ?? '';
   const setSelected = (id: string) => setSearch(current => { current.set('supplier', id); current.delete('create'); return current; });
 
   const [data, setData] = useState<AdminData | null>(null);
-  const [members, setMembers] = useState<SupplierMember[]>([]);
+  const [members, setMembers] = useState<ProviderMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [offerQuery, setOfferQuery] = useState("");
   const offerSearch = useRef<HTMLInputElement>(null);
@@ -132,7 +133,7 @@ function Administration({ token }: { token: string }) {
   }, [selected, token]);
   const dialogOpener = useRef<HTMLElement | null>(null);
   const offerActionButtons = useRef(new Map<string, HTMLButtonElement>());
-  useEffect(() => { if (search.get('create') === 'supplier') setDialog('create'); else if (search.get('properties') === 'supplier') setDialog('properties'); }, [search]);
+  useEffect(() => { if (search.get('create') === 'supplier' || search.get('create') === 'provider') setDialog('create'); else if (search.get('properties') === 'supplier' || search.get('properties') === 'provider') setDialog('properties'); }, [search]);
   const [operator, setOperator] = useState("");
   const [accounts, setAccounts] = useState<Operator[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
@@ -152,7 +153,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     setMembers([]);
     setMembersLoading(true);
-    void request<{ data: SupplierMember[] }>(token, `/api/v1/providers/${selected}/members`, "GET", undefined, controller.signal)
+    void request<{ data: ProviderMember[] }>(token, `/api/v1/providers/${selected}/members`, "GET", undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setMembers(result.data); })
       .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
       .finally(() => { if (!controller.signal.aborted) setMembersLoading(false); });
@@ -464,15 +465,15 @@ function Administration({ token }: { token: string }) {
       setRevision((value) => value + 1);
     } catch (reason) {
       if (scope !== operationScope.current) return;
-      if (dialog === "offer" && reason instanceof VendorRequestError && reason.status === 409) setOfferLoad(previous => previous ? { ...previous, conflict: true } : previous);
+      if (dialog === "offer" && reason instanceof ProviderRequestError && reason.status === 409) setOfferLoad(previous => previous ? { ...previous, conflict: true } : previous);
       setError(
-        dialog === "offer" && reason instanceof VendorRequestError && reason.status === 409 ? "These agreed rates changed. Reload the saved rates before saving again." : reason instanceof Error ? reason.message : "Change could not be saved.",
+        dialog === "offer" && reason instanceof ProviderRequestError && reason.status === 409 ? "These agreed rates changed. Reload the saved rates before saving again." : reason instanceof Error ? reason.message : "Change could not be saved.",
       );
     } finally {
       if (scope === operationScope.current) setBusy(false);
     }
   }
-  async function createSupplier(input: VendorCreate) {
+  async function createProvider(input: ProviderConnectionCreate) {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -542,8 +543,8 @@ function Administration({ token }: { token: string }) {
             <div className="provider-admin-section-heading"><h2>API connection</h2></div>
             <p className="px-6 pb-4 text-sm text-muted-foreground">Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.</p>
             <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>Setup step</TableHead><TableHead>Status</TableHead><TableHead>Action</TableHead></TableRow></TableHeader><TableBody>
-              <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/suppliers/${selected}/configuration`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/suppliers/${selected}/configuration`}>Configure models</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${selected}/configuration`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${selected}/configuration`}>Configure models</Link></Button></TableCell></TableRow>
               <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Managed by workspace</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Customer pricing</Link></Button></TableCell></TableRow>
             </TableBody></ShadcnTable>
             <p className="px-6 pt-4 text-sm text-muted-foreground">Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.</p>
@@ -561,7 +562,7 @@ function Administration({ token }: { token: string }) {
             </TableRow>)}</TableBody>
           </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No provider portal access granted</EmptyTitle><EmptyDescription>API keys and model routes work without portal access.</EmptyDescription></EmptyHeader></Empty>)}
           {section === "overview" && <div className="provider-admin-block">
-            <div className="provider-admin-section-heading"><h2>Model offers</h2><Button asChild variant="ghost"><Link to={`/admin/suppliers/${encodeURIComponent(selected)}/models`}>Models & pricing</Link></Button></div>
+            <div className="provider-admin-section-heading"><h2>Model offers</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(selected)}/models`}>Models & pricing</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
               <div><span>Text offers</span><strong>{textOffers.length}</strong></div>
               <div><span>Media offers</span><strong>{mediaOffers.length}</strong></div>
@@ -705,7 +706,7 @@ function Administration({ token }: { token: string }) {
           {offerLoad?.loading && <p role="status" className="text-sm text-muted-foreground">Loading current agreed rates…</p>}
           {(offerLoad?.conflict || !offerLoad?.ready) && !offerLoad?.loading && <div className="space-y-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void loadOfferDetails(offerId, offerLoad?.conflict ? alias : "", Boolean(offerId) || Boolean(offerLoad?.conflict))}>Reload saved rates</Button><p className="text-sm text-muted-foreground">{offerId || offerLoad?.conflict ? "Reloading replaces your unsaved changes." : "Reloading preserves your unsaved values."}</p></div>}
         </>}
-        {dialog === "create" ? <SupplierEditor token={token} vendor={null} disabled={busy} onCreate={createSupplier} onSave={async () => {}} /> : dialog === "properties" ? <SupplierPropertiesFields supplierId={selected} supplierName={selectedBusiness?.name ?? ""} token={token} /> : (<form
+        {dialog === "create" ? <ProviderEditor token={token} connection={null} disabled={busy} onCreate={createProvider} onSave={async () => {}} /> : dialog === "properties" ? <ProviderPropertiesFields providerId={selected} providerName={selectedBusiness?.name ?? ""} token={token} /> : (<form
           onSubmit={(event) => void submit(event)}
           className="provider-admin-form"
         >

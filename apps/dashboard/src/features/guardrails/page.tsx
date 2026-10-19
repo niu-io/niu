@@ -38,7 +38,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { request, VendorRequestError } from "@/features/vendors/api";
+import { request, VendorRequestError } from "@/features/providers/api";
 
 type Rule = {
   mode: "inherit" | "allow_all" | "allow_list" | "deny_all";

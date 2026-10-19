@@ -89,6 +89,31 @@ impl Store {
         Ok(())
     }
 
+    pub async fn grant_member_platform_admin(&self, email: &str) -> Result<(), StoreError> {
+        let email = email_address(email).ok_or(StoreError::InvalidOperator)?;
+        let mut tx = self.pool.begin().await?;
+        let granted: Vec<Uuid> = sqlx::query_scalar(
+            "UPDATE admin_operators o SET platform_admin = true \
+             FROM member_password_credentials c \
+             WHERE c.operator_id = o.id AND c.email = $1 AND NOT o.platform_admin \
+             RETURNING o.id",
+        )
+        .bind(&email)
+        .fetch_all(&mut *tx)
+        .await?;
+        for operator_id in granted {
+            sqlx::query(
+                "INSERT INTO platform_admin_events (operator_id, granted, actor_kind) \
+                 VALUES ($1, true, 'database_administrator')",
+            )
+            .bind(operator_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
     /// Revoke only the active session identified by this bearer credential.
     /// Revocation and its metadata-only audit record commit together.
     pub async fn revoke_current_member_session(&self, token: &str) -> Result<(), StoreError> {

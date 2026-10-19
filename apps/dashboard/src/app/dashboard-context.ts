@@ -38,6 +38,7 @@ export type AdminSession = {
 export type DashboardContext = {
   appearance?: {ready:boolean; saving:boolean; error:string; reload:()=>void};
   token: string;
+  sessionChecked: boolean;
   session: AdminSession | null;
   /** Publish a validated saved profile to the current authenticated session. */
   updateProfile?: (profile: MemberProfile) => void;

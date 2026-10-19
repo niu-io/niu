@@ -85,7 +85,7 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
   });
   vi.stubGlobal("fetch", fetchMock);
 
-  const router = createMemoryRouter([{ path: "/admin/suppliers/:supplierId/:section", element: <ProviderAdministration /> }], { initialEntries: [`/admin/suppliers/${supplierId}/${section}`] });
+  const router = createMemoryRouter([{ path: "/admin/providers/:providerId/:section", element: <ProviderAdministration /> }], { initialEntries: [`/admin/providers/${supplierId}/${section}`] });
   render(<RouterProvider router={router} />);
   return { requests, router };
 }
@@ -102,7 +102,7 @@ describe("installation Provider qualification workflow", () => {
     await user.click(await screen.findByRole("button", { name: "Edit access for Demo" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Save", exact: true }).hasAttribute("disabled")).toBe(false));
     await user.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await act(async () => { await router.navigate('/admin/suppliers/another-supplier/members'); });
+    await act(async () => { await router.navigate('/admin/providers/another-supplier/members'); });
     await act(async () => { finish(Response.json({ error: { message: "Previous Provider save failed" } }, { status: 503 })); });
     expect(screen.queryByText("Previous Provider save failed")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -112,7 +112,7 @@ describe("installation Provider qualification workflow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Edit access for Demo" }));
     await screen.findByRole("dialog", { name: "Manage provider portal access" });
-    await act(async () => { await router.navigate('/admin/suppliers/another-supplier/members'); });
+    await act(async () => { await router.navigate('/admin/providers/another-supplier/members'); });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByText("Provider configuration saved.")).toBeNull();
   });
@@ -143,7 +143,7 @@ describe("installation Provider qualification workflow", () => {
   it("summarizes media offers on Overview and links to dedicated pricing without repeating rates", async () => {
     setup("1000000000", false, true, "overview");
     const link=await screen.findByRole("link",{name:"Models & pricing"});
-    expect(link.getAttribute("href")).toBe(`/admin/suppliers/${supplierId}/models`);
+    expect(link.getAttribute("href")).toBe(`/admin/providers/${supplierId}/models`);
     expect(screen.getByText("Media offers").parentElement?.textContent).toBe("Media offers1");
     expect(screen.getByText("Text offers").parentElement?.textContent).toBe("Text offers0");
     expect(screen.getByText("Active offers").parentElement?.textContent).toBe("Active offers0");
@@ -288,7 +288,7 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
     if (path === '/api/v1/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0, qualification_status: 'unqualified' }] : [] });
     return Response.json({ data: { offers: [], balances: [], consumption: [], settlements: [], earnings: [] } });
   }));
-  render(<MemoryRouter initialEntries={['/admin/suppliers/overview?create=supplier']}><Routes><Route path='/admin/suppliers/:section' element={<ProviderAdministration />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/admin/providers/overview?create=provider']}><Routes><Route path='/admin/providers/:section' element={<ProviderAdministration />} /></Routes></MemoryRouter>);
   const user = userEvent.setup();
   await user.type(await screen.findByLabelText('Provider name'), 'Test provider');
   await user.type(screen.getByLabelText('Provider API key'), 'fixture-credential');

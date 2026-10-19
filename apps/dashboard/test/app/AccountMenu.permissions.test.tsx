@@ -30,12 +30,12 @@ it.each([customer, null, { ...customer, kind: 'installation', operator: null, pe
 
 it('keeps a Provider member linked to their own business', async () => {
   await open({ ...customer, provider_memberships: [{ id: 'supplier-member', name: 'Demo provider', role: 'viewer' }] });
-  expect(screen.getByRole('menuitem', { name: 'Providers' }).getAttribute('href')).toBe('/suppliers/supplier-member');
+  expect(screen.getByRole('menuitem', { name: 'Providers' }).getAttribute('href')).toBe('/providers/supplier-member');
 });
 
 it('adds administration without removing customer navigation', async () => {
   await open({ ...customer, kind: 'installation', operator: null });
-  expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/suppliers');
+  expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/providers');
   for (const name of ['Workspace', 'Generations', 'Activity', 'Models', 'Settings']) {
     expect(screen.getByRole('menuitem', { name, exact: true })).toBeTruthy();
   }
@@ -43,6 +43,6 @@ it('adds administration without removing customer navigation', async () => {
 
 it('shows Admin for a user account with the platform administrator role', async () => {
   await open({ ...customer, permissions: { ...customer.permissions, platform_admin: true } });
-  expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/suppliers');
+  expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/providers');
   expect(screen.getByRole('menuitem', { name: 'Settings', exact: true })).toBeTruthy();
 });

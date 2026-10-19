@@ -81,20 +81,20 @@ describe('dashboard route layout', () => {
     expect(router.state.location.state?.from).toBe('/workspaces/default/keys?filter=active');
   });
   it('passes the Provider identity to the portal through its expected route parameter', () => {
-    const matches = matchRoutes(appRoutes, '/suppliers/example-supplier/models');
-    expect(matches?.at(-1)?.params.supplier).toBe('example-supplier');
+    const matches = matchRoutes(appRoutes, '/providers/example-provider/models');
+    expect(matches?.at(-1)?.params.provider).toBe('example-provider');
     expect(matches?.at(-1)?.params.section).toBe('models');
   });
   it('keeps Admin sections available while navigating Provider detail tabs', async () => {
     mockHealth();
-    const router = renderAt('/admin/suppliers/example-supplier');
+    const router = renderAt('/admin/providers/example-supplier');
     const user = userEvent.setup();
     const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' });
     expect(within(navigation).getByRole('link', { name: 'Payment gateways' }).getAttribute('href')).toBe('/admin/payments');
     expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
     const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
     await user.click(within(tabs).getByRole('tab', { name: 'API keys & routes' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/suppliers/example-supplier/configuration'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/configuration'));
     await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys & routes' }).getAttribute('aria-selected')).toBe('true'));
     await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
@@ -418,7 +418,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/default/');
 
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
-    expect((await screen.findByRole('link', { name: 'Connect provider' })).getAttribute('href')).toBe('/admin/suppliers');
+    expect((await screen.findByRole('link', { name: 'Connect provider' })).getAttribute('href')).toBe('/admin/providers');
 
     expect(screen.queryByText('Requests today')).toBeNull();
 
@@ -823,7 +823,7 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/api/v1/session'
       ? Response.json({ data: { kind: 'operator', operator: { role: 'owner', organization_id: 'org', project_id: null }, provider_memberships: [], permissions: { read: true, write: true, manage_operators: true } } })
       : previousFetch(input, init)));
-    renderAt('/admin/suppliers');
+    renderAt('/admin/providers');
     const denied = await screen.findByRole('alert');
     expect(within(denied).getByText('Administrator access required')).toBeTruthy();
     const navigation = screen.getByRole('navigation', { name: 'Product navigation' });
@@ -838,7 +838,7 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => String(input) === '/api/v1/session'
       ? Response.json({ data: { kind: 'operator', operator: { role: 'owner', organization_id: 'org', project_id: null }, provider_memberships: [], permissions: { read: true, write: true, manage_operators: true, platform_admin: true } } })
       : previousFetch(input, init)));
-    renderAt('/admin/suppliers');
+    renderAt('/admin/providers');
     await screen.findByRole('navigation', { name: 'Admin navigation' });
     const navigation = screen.getByRole('navigation', { name: 'Product navigation' });
     for (const name of ['Workspace', 'Generations', 'Models', 'Admin']) {

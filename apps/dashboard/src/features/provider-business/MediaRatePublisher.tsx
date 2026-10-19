@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
-import { request, VendorRequestError } from '@/features/vendors/api';
+import { request, VendorRequestError } from '@/features/providers/api';
 import type { SupplierMediaRateCard, SupplierMediaRateModel, SupplierMediaRateRecord, CustomerMediaRateCard, CustomerMediaRateModel, CustomerMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
 
 type RateModel = SupplierMediaRateModel & Partial<Pick<CustomerMediaRateModel, 'vendor_id'>>;
