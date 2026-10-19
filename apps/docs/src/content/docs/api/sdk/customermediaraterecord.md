@@ -10,7 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 /** Platform-administrator selling history, with exact amounts and timestamps. */
-export type CustomerMediaRateRecord = Omit<SupplierMediaRateRecord, 'card'> & {
-    card: SupplierMediaRateRecord['card'] & Pick<CustomerMediaRateCard, 'vendor_id' | 'maximum_quantity' | 'liability_qualification_revision'>;
+export type CustomerMediaRateRecord = Omit<ProviderMediaRateRecord, 'card'> & {
+    card: ProviderMediaRateRecord['card'] & Pick<CustomerMediaRateCard, 'vendor_id' | 'maximum_quantity' | 'liability_qualification_revision'>;
 };
 ```

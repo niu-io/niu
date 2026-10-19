@@ -10,7 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 /** Platform-administrator choices; vendor_id binds configuration and is never a display label. */
-export type CustomerMediaRateModel = SupplierMediaRateModel & {
+export type CustomerMediaRateModel = ProviderMediaRateModel & {
     vendor_id: string;
 };
 ```

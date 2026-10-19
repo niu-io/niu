@@ -159,6 +159,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 
 ## Authentication and sessions
 
+- [`POST /api/v1/auth/browser/demo` — Sign in to the configured shared demo account](/docs/api/rest/createdemobrowsersession/)
 - [`POST /api/v1/auth/browser/login` — Sign in with a secure HttpOnly member cookie](/docs/api/rest/createbrowsermembersession/)
 - [`POST /api/v1/auth/browser/logout` — Revoke and clear the current browser member session](/docs/api/rest/revokebrowsermembersession/)
 - [`POST /api/v1/auth/browser/token` — Use an existing user access token in the browser](/docs/api/rest/exchangeoperatortokenforbrowsersession/)

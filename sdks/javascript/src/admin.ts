@@ -605,16 +605,18 @@ export type ChatExport = {
   format: 'niu-chat'; version: 1; title?: string; createdAt?: number;
   turns: Array<{prompt: string; results: Array<Pick<ChatResult, 'model' | 'content' | 'phase'>>; attachments?: ChatAttachment[]}>;
 };
-export type SupplierAccountInput = {
+export type ProviderAccountInput = {
   provider: string; plan: string;
   authentication_mode: 'api_key' | 'oauth_refresh';
   billing_mode: 'metered_api' | 'subscription';
   credential_reference: string;
   concurrency_limit: number;
 };
-export type SupplierAccount = Omit<SupplierAccountInput, 'credential_reference'> & {
+export type SupplierAccountInput = ProviderAccountInput;
+export type ProviderAccount = Omit<ProviderAccountInput, 'credential_reference'> & {
   id: string; credential_revision: number; health: string; refreshing: boolean;
 };
+export type SupplierAccount = ProviderAccount;
 export type NiuAdminOptions = {
   adminToken: string;
   /** Administration API base; defaults to http://localhost:2555/api/v1. */
@@ -963,12 +965,15 @@ export type PaymentIntegration = {
   refunds: boolean;
 };
 
-export type SupplierMember = {
+export type ProviderMember = {
   operator_id: string; name: string; role: 'manager' | 'viewer'; active: boolean; revoked: boolean;
 };
-export type SupplierMemberUpdate = { role: 'manager' | 'viewer'; active: boolean };
+export type SupplierMember = ProviderMember;
+export type ProviderMemberUpdate = { role: 'manager' | 'viewer'; active: boolean };
+export type SupplierMemberUpdate = ProviderMemberUpdate;
 
-export type SupplierMembership = { id: string; name: string; role: 'manager' | 'viewer' };
+export type ProviderMembership = { id: string; name: string; role: 'manager' | 'viewer' };
+export type SupplierMembership = ProviderMembership;
 
 /** Platform-only status; route definitions and procurement details are not returned. */
 export interface RoutingRegistryStatus {
@@ -984,7 +989,7 @@ export type CommercialPositionRow = {
     offer_id: string; route_alias: string; revision: string; rate_kind: 'text' | 'media';
     prompt_rate: string | null; completion_rate: string | null;
     state: 'paused' | 'unqualified' | 'qualified';
-    media_rates: Array<Pick<SupplierMediaRateRecord['card'], 'revision' | 'tariff' | 'discounts'>>;
+    media_rates: Array<Pick<ProviderMediaRateRecord['card'], 'revision' | 'tariff' | 'discounts'>>;
   }>;
   customer_charge_nanos: string | null; earning_nanos: string | null;
   /** Verified wallet cash attributed to this cohort, net of cash balance restorations; not period receipts. */
@@ -1165,39 +1170,60 @@ export class NiuAdminClient {
 
 
   /** Platform-only membership history, including inactive and revoked members. */
+  listProviderMembers(providerId: string, options?: RequestOptions): Promise<{ data: ProviderMember[] }> {
+    return this.request(`/providers/${uuid(providerId)}/members`, undefined, options);
+  }
   listSupplierMembers(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierMember[] }> {
-    return this.request(`/providers/${uuid(supplierId)}/members`, undefined, options);
+    return this.listProviderMembers(supplierId, options);
   }
 
   /** Grant/change/revoke a membership; Provider roles do not grant platform configuration authority. */
+  setProviderMember(providerId: string, operatorId: string, input: ProviderMemberUpdate, options?: RequestOptions): Promise<{ data: { active: boolean } }> {
+    return this.request(`/providers/${uuid(providerId)}/members/${uuid(operatorId)}`, input, options, 'PUT');
+  }
   setSupplierMember(supplierId: string, operatorId: string, input: SupplierMemberUpdate, options?: RequestOptions): Promise<{ data: { active: boolean } }> {
-    return this.request(`/providers/${uuid(supplierId)}/members/${uuid(operatorId)}`, input, options, 'PUT');
+    return this.setProviderMember(supplierId, operatorId, input, options);
   }
 
   /** Platform directory; configuration counts include retained disabled configurations. */
-  listSupplierBusinesses(options?: RequestOptions): Promise<{ data: SupplierBusiness[] }> {
+  listProviderBusinesses(options?: RequestOptions): Promise<{ data: ProviderBusiness[] }> {
     return this.request('/providers', undefined, options);
+  }
+  listSupplierBusinesses(options?: RequestOptions): Promise<{ data: SupplierBusiness[] }> {
+    return this.listProviderBusinesses(options);
   }
 
   /** Create a business identity; this does not qualify supply or publish an offer. */
-  createSupplierBusiness(name: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
+  createProviderBusiness(name: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
     return this.request('/providers', { name }, options);
+  }
+  createSupplierBusiness(name: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
+    return this.createProviderBusiness(name, options);
   }
 
   /** Only an unconfigured Provider can be removed; dependent configurations/offers/memberships return 409. */
+  deleteProviderBusiness(providerId: string, options?: RequestOptions): Promise<{ data: { deleted: true } }> {
+    return this.request(`/providers/${uuid(providerId)}`, undefined, options, 'DELETE');
+  }
   deleteSupplierBusiness(supplierId: string, options?: RequestOptions): Promise<{ data: { deleted: true } }> {
-    return this.request(`/providers/${uuid(supplierId)}`, undefined, options, 'DELETE');
+    return this.deleteProviderBusiness(supplierId, options);
   }
 
   /** Platform administration only; metadata contains no credentials or procurement prices. */
+  getProviderProfile(providerId: string, options?: RequestOptions): Promise<{ data: ProviderProfile }> {
+    return this.request(`/providers/${uuid(providerId)}`, undefined, options);
+  }
   getSupplierProfile(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
-    return this.request(`/providers/${uuid(supplierId)}`, undefined, options);
+    return this.getProviderProfile(supplierId, options);
   }
 
   /** Empty strings clear optional metadata; omission/null preserves it. Retain the last read revision. */
-  updateSupplierProfile(supplierId: string, input: SupplierProfileUpdate, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
+  updateProviderProfile(providerId: string, input: ProviderProfileUpdate, options?: RequestOptions): Promise<{ data: ProviderProfile }> {
     if (input.expected_revision != null && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new TypeError('Choose a positive safe integer Provider profile revision');
-    return this.request(`/providers/${uuid(supplierId)}`, input, options, 'PATCH');
+    return this.request(`/providers/${uuid(providerId)}`, input, options, 'PATCH');
+  }
+  updateSupplierProfile(supplierId: string, input: SupplierProfileUpdate, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
+    return this.updateProviderProfile(supplierId, input, options);
   }
 
   /** Read the current publication for diagnostics or an explicit static replacement. */

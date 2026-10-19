@@ -23,7 +23,7 @@ export type CommercialPositionRow = {
         prompt_rate: string | null;
         completion_rate: string | null;
         state: 'paused' | 'unqualified' | 'qualified';
-        media_rates: Array<Pick<SupplierMediaRateRecord['card'], 'revision' | 'tariff' | 'discounts'>>;
+        media_rates: Array<Pick<ProviderMediaRateRecord['card'], 'revision' | 'tariff' | 'discounts'>>;
     }>;
     customer_charge_nanos: string | null;
     earning_nanos: string | null;

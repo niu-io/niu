@@ -63,19 +63,37 @@ updateMemberPreferences(input: MemberPreferences, options?: RequestOptions): Pro
 }>;
 ```
 
-### listSupplierMembers
+### listProviderMembers
 
 ```typescript
 /** Platform-only membership history, including inactive and revoked members. */
+listProviderMembers(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderMember[];
+}>;
+```
+
+### listSupplierMembers
+
+```typescript
 listSupplierMembers(supplierId: string, options?: RequestOptions): Promise<{
     data: SupplierMember[];
+}>;
+```
+
+### setProviderMember
+
+```typescript
+/** Grant/change/revoke a membership; Provider roles do not grant platform configuration authority. */
+setProviderMember(providerId: string, operatorId: string, input: ProviderMemberUpdate, options?: RequestOptions): Promise<{
+    data: {
+        active: boolean;
+    };
 }>;
 ```
 
 ### setSupplierMember
 
 ```typescript
-/** Grant/change/revoke a membership; Provider roles do not grant platform configuration authority. */
 setSupplierMember(supplierId: string, operatorId: string, input: SupplierMemberUpdate, options?: RequestOptions): Promise<{
     data: {
         active: boolean;
@@ -83,19 +101,37 @@ setSupplierMember(supplierId: string, operatorId: string, input: SupplierMemberU
 }>;
 ```
 
-### listSupplierBusinesses
+### listProviderBusinesses
 
 ```typescript
 /** Platform directory; configuration counts include retained disabled configurations. */
+listProviderBusinesses(options?: RequestOptions): Promise<{
+    data: ProviderBusiness[];
+}>;
+```
+
+### listSupplierBusinesses
+
+```typescript
 listSupplierBusinesses(options?: RequestOptions): Promise<{
     data: SupplierBusiness[];
+}>;
+```
+
+### createProviderBusiness
+
+```typescript
+/** Create a business identity; this does not qualify supply or publish an offer. */
+createProviderBusiness(name: string, options?: RequestOptions): Promise<{
+    data: {
+        id: string;
+    };
 }>;
 ```
 
 ### createSupplierBusiness
 
 ```typescript
-/** Create a business identity; this does not qualify supply or publish an offer. */
 createSupplierBusiness(name: string, options?: RequestOptions): Promise<{
     data: {
         id: string;
@@ -103,10 +139,20 @@ createSupplierBusiness(name: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
-### deleteSupplierBusiness
+### deleteProviderBusiness
 
 ```typescript
 /** Only an unconfigured Provider can be removed; dependent configurations/offers/memberships return 409. */
+deleteProviderBusiness(providerId: string, options?: RequestOptions): Promise<{
+    data: {
+        deleted: true;
+    };
+}>;
+```
+
+### deleteSupplierBusiness
+
+```typescript
 deleteSupplierBusiness(supplierId: string, options?: RequestOptions): Promise<{
     data: {
         deleted: true;
@@ -114,19 +160,35 @@ deleteSupplierBusiness(supplierId: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
-### getSupplierProfile
+### getProviderProfile
 
 ```typescript
 /** Platform administration only; metadata contains no credentials or procurement prices. */
+getProviderProfile(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderProfile;
+}>;
+```
+
+### getSupplierProfile
+
+```typescript
 getSupplierProfile(supplierId: string, options?: RequestOptions): Promise<{
     data: SupplierProfile;
+}>;
+```
+
+### updateProviderProfile
+
+```typescript
+/** Empty strings clear optional metadata; omission/null preserves it. Retain the last read revision. */
+updateProviderProfile(providerId: string, input: ProviderProfileUpdate, options?: RequestOptions): Promise<{
+    data: ProviderProfile;
 }>;
 ```
 
 ### updateSupplierProfile
 
 ```typescript
-/** Empty strings clear optional metadata; omission/null preserves it. Retain the last read revision. */
 updateSupplierProfile(supplierId: string, input: SupplierProfileUpdate, options?: RequestOptions): Promise<{
     data: SupplierProfile;
 }>;

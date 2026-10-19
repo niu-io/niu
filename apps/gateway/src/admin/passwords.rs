@@ -95,11 +95,18 @@ impl Runtime {
         let password = std::env::var("NIU_DEMO_LOGIN_PASSWORD");
         match (email, password) {
             (Err(std::env::VarError::NotPresent), Err(std::env::VarError::NotPresent)) => {}
-            (Ok(email), Ok(password)) if !email.trim().is_empty() && email.len() <= 254
-                && !password.is_empty() && password.len() <= 1024 => {
+            (Ok(email), Ok(password))
+                if !email.trim().is_empty()
+                    && email.len() <= 254
+                    && !password.is_empty()
+                    && password.len() <= 1024 =>
+            {
                 self.demo_login = Some(LoginInput { email, password });
             }
-            _ => return Err("Set both NIU_DEMO_LOGIN_EMAIL and NIU_DEMO_LOGIN_PASSWORD to enable demo sign-in".into()),
+            _ => return Err(
+                "Set both NIU_DEMO_LOGIN_EMAIL and NIU_DEMO_LOGIN_PASSWORD to enable demo sign-in"
+                    .into(),
+            ),
         }
         Ok(())
     }

@@ -317,9 +317,12 @@ impl AppState {
             state.password_auth = Some(Arc::new(runtime));
         }
         if let Some(auth) = state.password_auth.as_mut() {
-            Arc::get_mut(auth).expect("authentication runtime is not shared during setup")
+            Arc::get_mut(auth)
+                .expect("authentication runtime is not shared during setup")
                 .configure_demo_from_env()?;
-        } else if env::var_os("NIU_DEMO_LOGIN_EMAIL").is_some() || env::var_os("NIU_DEMO_LOGIN_PASSWORD").is_some() {
+        } else if env::var_os("NIU_DEMO_LOGIN_EMAIL").is_some()
+            || env::var_os("NIU_DEMO_LOGIN_PASSWORD").is_some()
+        {
             return Err("Demo sign-in requires member authentication to be configured".into());
         }
         state.trusted_proxies = Arc::new(crate::request_source::trusted_proxies()?);
