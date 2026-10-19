@@ -1,11 +1,52 @@
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
-import { expect, it, vi } from 'vitest';
+import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { request, ProviderRequestError } from '../../../src/features/providers/api';
 import ProviderList from '../../../src/features/providers/ProviderList';
 vi.mock('../../../src/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: 'fixture' }) }));
 vi.mock('../../../src/features/providers/api', async importOriginal => ({ ...await importOriginal<typeof import('../../../src/features/providers/api')>(), request: vi.fn(async () => ({ data: [{ id: 'fixture', name: 'Example', members: 0, api_keys: 0, models: 0 }, { id: 'active', name: 'Active provider', members: 0, api_keys: 1, models: 25 }] })) }));
+beforeEach(() => {
+  vi.mocked(request).mockReset().mockResolvedValue({ data: [{ id: 'fixture', name: 'Example', members: 0, api_keys: 0, models: 0 }, { id: 'active', name: 'Active provider', members: 0, api_keys: 1, models: 25 }] });
+});
+
+it('opens the newly created Provider directly without refreshing the directory', async () => {
+  vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => method === 'POST' ? { data: { id: 'new-provider' } } : { data: [] });
+  const router = createMemoryRouter([
+    { path: '/admin/providers', element: <ProviderList /> },
+    { path: '/admin/providers/:providerId', element: <h1>New Provider overview</h1> },
+  ], { initialEntries: ['/admin/providers'] });
+  render(<RouterProvider router={router} />);
+  const user = userEvent.setup();
+  await screen.findByText(/No Providers yet/);
+  await user.click(screen.getByRole('button', { name: 'Add Provider' }));
+  await user.type(screen.getByLabelText('Provider name'), 'New Provider');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
+  await screen.findByRole('heading', { name: 'New Provider overview' });
+  expect(router.state.location.pathname).toBe('/admin/providers/new-provider');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'POST')).toHaveLength(1);
+  expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'GET')).toHaveLength(1);
+});
+
+it('does not invite duplicate creation when a successful response omits the new identity', async () => {
+  let writes = 0;
+  vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => {
+    if (method === 'POST') { writes += 1; return { data: {} }; }
+    return { data: writes ? [{ id: 'saved-provider', name: 'Saved Provider', members: 0, api_keys: 0, models: 0 }] : [] };
+  });
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
+  const user = userEvent.setup();
+  await screen.findByText(/No Providers yet/);
+  await user.click(screen.getByRole('button', { name: 'Add Provider' }));
+  await user.type(screen.getByLabelText('Provider name'), 'Saved Provider');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
+  await screen.findByText(/Provider was created, but its page could not be opened/);
+  await user.click(screen.getByRole('button', { name: 'Retry' }));
+  await screen.findByRole('link', { name: 'Saved Provider' });
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(writes).toBe(1);
+});
 
 it('restores the opening control after cancelling creation and deletion', async () => {
   const user = userEvent.setup();

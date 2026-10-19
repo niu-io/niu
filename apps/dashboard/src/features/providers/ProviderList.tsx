@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { providerAvailability, type ProviderSetup } from './provider-setup';
 import ProviderMark from './components/ProviderMark';
@@ -17,6 +17,7 @@ import { request, writeMayHaveCommitted } from './api';
 type ProviderSummary = ProviderSetup & { id: string; name: string; logo_url?: string; api_keys?: number; models?: number; members: number; qualification_status: string };
 export default function ProviderList() {
   const { token } = useDashboardContext();
+  const navigate = useNavigate();
   const [providers, setProviders] = useState<ProviderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,7 +43,16 @@ export default function ProviderList() {
     event.preventDefault(); if (busy || (dialog === 'delete' && deletionBlocked)) return;
     setBusy(true); setError('');
     try {
-      await request(token, '/api/v1/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : { name: name.trim() });
+      const result = await request<{ data?: { id?: string } }>(token, '/api/v1/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : { name: name.trim() });
+      if (dialog === 'add') {
+        setDialog('');
+        if (typeof result?.data?.id === 'string' && result.data.id.trim()) {
+          navigate('/admin/providers/' + encodeURIComponent(result.data.id));
+        } else {
+          setError('Provider was created, but its page could not be opened. Refresh the list to find it before adding another Provider.');
+        }
+        return;
+      }
       setDialog(''); setRevision(value => value + 1);
     } catch (reason) {
       if (dialog === 'add' && writeMayHaveCommitted(reason)) {
