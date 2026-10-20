@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconCheck, IconCopy, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { Button } from '../../../dashboard/src/components/ui/button';
 import { Input } from '../../../dashboard/src/components/ui/input';
@@ -39,6 +39,18 @@ export default function PublicModelCatalog() {
   const [revision, setRevision] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState('');
+  const copyRevision = useRef(0);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    copyRevision.current += 1;
+    setCopiedId(null);
+    setCopyError('');
+    return () => {
+      copyRevision.current += 1;
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    };
+  }, [query, revision]);
   useEffect(() => {
     const controller = new AbortController();
     setState('loading');
@@ -69,10 +81,20 @@ export default function PublicModelCatalog() {
       return exists ? currentTerms.filter(item => item.toLocaleLowerCase() !== normalized).join(' ') : [...currentTerms, normalized].join(' ');
     });
   };
-  const copyModelId = (id: string) => {
-    void navigator.clipboard?.writeText(id);
-    setCopiedId(id);
-    window.setTimeout(() => setCopiedId(current => (current === id ? null : current)), 1800);
+  const copyModelId = async (id: string) => {
+    const attempt = ++copyRevision.current;
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    setCopiedId(null);
+    setCopyError('');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(id);
+      if (copyRevision.current !== attempt) return;
+      setCopiedId(id);
+      copyTimer.current = window.setTimeout(() => setCopiedId(null), 1800);
+    } catch {
+      if (copyRevision.current === attempt) setCopyError('Could not copy the model ID. Select the ID beside the Copy button and copy it manually.');
+    }
   };
   return <section className="catalog-browser" aria-label="Published models">
     <div className="catalog-toolbar">
@@ -83,6 +105,8 @@ export default function PublicModelCatalog() {
       <Button variant="outline" className="catalog-refresh-button" aria-label="Refresh" disabled={state === 'loading'} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} aria-hidden="true" /><span>Refresh</span></Button>
     </div>
     <p className="catalog-result-count" role="status">{state === 'loading' ? 'Loading models…' : state === 'error' ? 'Model catalog unavailable' : `${matches.length}${terms.length ? ` of ${models.length}` : ''} ${models.length === 1 ? 'model' : 'models'}`}</p>
+    {copyError && <p role="alert">{copyError}</p>}
+    <span className="sr-only" role="status">{copiedId ? 'Model ID copied.' : ''}</span>
     {state === 'error' && <div role="alert"><p>Could not load the public model catalog. Try refreshing.</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>Try again</Button></div>}
     {state === 'ready' && models.length === 0 && <p>No models are published for public discovery on this gateway.</p>}
     {state === 'ready' && models.length > 0 && matches.length === 0 && <div><p>No models match this filter.</p><Button variant="ghost" onClick={() => setQuery('')}>Clear filter</Button></div>}
@@ -99,7 +123,7 @@ export default function PublicModelCatalog() {
         <h2>{name}</h2>
         <div className="catalog-model-alias-row">
           <code className="catalog-model-alias">{model.id}</code>
-          <Button type="button" variant="ghost" size="sm" className="catalog-model-copy" aria-label={`Copy model ID ${model.id}`} onClick={() => copyModelId(model.id)}>
+          <Button type="button" variant="ghost" size="sm" className="catalog-model-copy" aria-label={`Copy model ID ${model.id}`} onClick={() => void copyModelId(model.id)}>
             {copied ? <IconCheck size={14} aria-hidden="true" /> : <IconCopy size={14} aria-hidden="true" />}
             <span>{copied ? 'Copied' : 'Copy ID'}</span>
           </Button>
