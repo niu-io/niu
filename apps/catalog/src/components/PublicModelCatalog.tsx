@@ -71,7 +71,12 @@ export default function PublicModelCatalog() {
     const catalog = model.catalog;
     const text = [model.id, catalog?.name, ...strings(catalog?.input_modalities), ...strings(catalog?.output_modalities),
       ...protocols.filter(([key]) => model.capabilities?.[key] === true).flatMap(([key, label]) => [key, label])].join(' ').toLocaleLowerCase();
-    return terms.every(term => text.includes(term));
+    return terms.every(term => {
+      const directional = /^(input|output):(.+)$/.exec(term);
+      if (!directional) return text.includes(term);
+      const modalities = directional[1] === 'input' ? catalog?.input_modalities : catalog?.output_modalities;
+      return strings(modalities).some(value => value.toLocaleLowerCase() === directional[2]);
+    });
   });
   const toggleTerm = (term: string) => {
     const normalized = term.toLocaleLowerCase();
@@ -103,6 +108,7 @@ export default function PublicModelCatalog() {
           onChange={event => setQuery(event.target.value)} disabled={state === 'loading'} />
       </div>
       <Button variant="outline" className="catalog-refresh-button" aria-label="Refresh" disabled={state === 'loading'} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} aria-hidden="true" /><span>Refresh</span></Button>
+      {terms.length > 0 && <Button variant="ghost" onClick={() => setQuery('')}>Clear filters</Button>}
     </div>
     <p className="catalog-result-count" role="status">{state === 'loading' ? 'Loading models…' : state === 'error' ? 'Model catalog unavailable' : `${matches.length}${terms.length ? ` of ${models.length}` : ''} ${models.length === 1 ? 'model' : 'models'}`}</p>
     {copyError && <p role="alert">{copyError}</p>}
@@ -134,12 +140,14 @@ export default function PublicModelCatalog() {
           })}>{expanded.has(model.id) ? 'Show less' : 'Read full description'}</Button>}</>}
         <div className="catalog-model-modalities">
           {strings(catalog?.input_modalities).map(value => {
-            const active = terms.includes(value.toLocaleLowerCase());
-            return <Badge key={'in-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(value)}>{value} input</button></Badge>;
+            const term = `input:${value}`;
+            const active = terms.includes(term.toLocaleLowerCase());
+            return <Badge key={'in-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(term)}>{value} input</button></Badge>;
           })}
           {strings(catalog?.output_modalities).map(value => {
-            const active = terms.includes(value.toLocaleLowerCase());
-            return <Badge key={'out-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(value)}>{value} output</button></Badge>;
+            const term = `output:${value}`;
+            const active = terms.includes(term.toLocaleLowerCase());
+            return <Badge key={'out-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(term)}>{value} output</button></Badge>;
           })}
           {supported.some(([key]) => key === 'streaming' || key === 'messages_streaming') && (() => {
             const active = terms.includes('streaming');

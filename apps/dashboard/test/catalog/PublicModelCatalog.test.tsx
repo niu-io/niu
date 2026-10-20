@@ -46,3 +46,31 @@ it('ignores copy feedback after the model is filtered out', async () => {
   await act(async () => reject(new Error('Denied')));
   expect(screen.queryByRole('alert')).toBeNull();
 });
+
+it('filters input and output modalities independently and clears the active choice', async () => {
+  const user = userEvent.setup();
+  render(<PublicModelCatalog />);
+  await user.click(await screen.findByRole('button', { name: 'image input', exact: true }));
+  expect(screen.getByRole('heading', { name: 'Vision reader' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Image maker' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'image input' }).getAttribute('aria-pressed')).toBe('true');
+  await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+  await user.click(screen.getByRole('button', { name: 'image output', exact: true }));
+  expect(screen.getByRole('heading', { name: 'Image maker' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Vision reader' })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'image output', exact: true }));
+  expect(screen.getAllByRole('article')).toHaveLength(2);
+});
+
+it('preserves broad modality search and offers recovery when combined filters match nothing', async () => {
+  const user = userEvent.setup();
+  render(<PublicModelCatalog />);
+  await screen.findByRole('heading', { name: 'Vision reader' });
+  await user.type(screen.getByRole('searchbox', { name: 'Filter models' }), 'image');
+  expect(screen.getAllByRole('article')).toHaveLength(2);
+  await user.clear(screen.getByRole('searchbox', { name: 'Filter models' }));
+  await user.type(screen.getByRole('searchbox', { name: 'Filter models' }), 'input:image output:image');
+  expect(screen.queryAllByRole('article')).toHaveLength(0);
+  await user.click(screen.getByRole('button', { name: 'Clear filters', exact: true }));
+  expect(screen.getAllByRole('article')).toHaveLength(2);
+});
