@@ -16,7 +16,7 @@ it('searches and opens a model without losing the catalog filter on return', asy
   expect(screen.queryByRole('link', { name: 'openai/model-0', exact: true })).toBeNull();
   await user.click(screen.getByRole('link', { name: 'openai/model-24', exact: true }));
   expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Try in Chat' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
+  expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
   expect(screen.getByRole('link', { name: 'Create an API key' }).getAttribute('href')).toBe('/workspaces/default/keys/new');
   await user.click(screen.getByRole('link', { name: 'Models breadcrumb' }));
   expect((screen.getByRole('textbox', { name: 'Filter model routes' }) as HTMLInputElement).value).toBe('model-24');
@@ -212,4 +212,26 @@ it('filters explicit modalities and capabilities together, shows tags, and clear
   await user.click(screen.getByRole('button',{name:'Clear filters'}));
   expect(screen.getAllByRole('article')).toHaveLength(3);
   expect(screen.queryByRole('button',{name:'Remove Image input filter'})).toBeNull();
+});
+
+it.each([
+  { id: 'embedding-only', catalog: { output_modalities: ['embeddings'] } },
+  { id: 'text-without-protocol', catalog: { output_modalities: ['text'] } },
+])('uses read-only authorized discovery for $id instead of assuming Chat support', async model => {
+  const user = userEvent.setup();
+  const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+  render(<MemoryRouter initialEntries={[`/models/${model.id}`]}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[{ ...model, public_catalog: false }]} /></SidebarProvider>} /></Routes></MemoryRouter>);
+  const example = document.querySelector('.model-route-example')!.textContent!;
+  expect(example).toContain('/v1/models');
+  expect(example).not.toContain('/chat/completions');
+  expect(example).not.toContain(' -d ');
+  if (model.catalog.output_modalities.includes('embeddings')) {
+    expect(screen.getByRole('link', { name: 'View API reference' }).getAttribute('href')).toBe('/help/api/');
+    expect(screen.queryByRole('link', { name: 'Open Generations' })).toBeNull();
+  } else {
+    expect(screen.getByRole('link', { name: 'Open Generations' })).toBeTruthy();
+  }
+  expect(screen.getByText(/Catalog descriptions and text output do not establish Chat support/)).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Copy', exact: true }));
+  expect(write).toHaveBeenCalledWith(example);
 });
