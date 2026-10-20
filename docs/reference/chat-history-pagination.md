@@ -5,7 +5,7 @@ Fixture outcomes provide no evidence.
 
 ## HTTP and SDK contract
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions`
+`GET /admin/v1/organizations/{organization}/projects/{project}/chats`
 keeps its existing latest-100 `{data}` response within the saved-body capacity when neither `limit` nor `after`
 is supplied. `archived=true` alone retains that compatibility behavior.
 

@@ -11,16 +11,16 @@ The JavaScript SDK exposes `admin.generations(scope).sessions`, `.tasks` and `.a
 
 | Method and path after the workspace prefix | SDK method |
 | --- | --- |
-| `GET /generations-sessions` | `sessions.list` |
-| `PUT /generations-sessions/{session}` | `sessions.create` |
-| `GET /generations-sessions/{session}` | `sessions.retrieve` |
-| `GET /generations-sessions?category=chat` | `sessions.listChat` |
-| `GET /generations-sessions/{session}?category=chat` | `sessions.retrieveChat` |
-| `PATCH /generations-sessions/{session}` | `sessions.update` |
-| `PUT /generations-sessions/{session}/turns/{turn}` | `sessions.appendTurn` |
-| `DELETE /generations-sessions/{session}/turns/{turn}` | `sessions.deleteInstruction` |
-| `PUT /generations-sessions/{session}/turns/{turn}/task` | `sessions.attachTask` |
-| `PUT /generations-sessions/{session}/turns/{turn}/intent` | `sessions.bindIntent` |
+| `GET /generations` | `sessions.list` |
+| `PUT /generations/{session}` | `sessions.create` |
+| `GET /generations/{session}` | `sessions.retrieve` |
+| `GET /generations?category=chat` | `sessions.listChat` |
+| `GET /generations/{session}?category=chat` | `sessions.retrieveChat` |
+| `PATCH /generations/{session}` | `sessions.update` |
+| `PUT /generations/{session}/turns/{turn}` | `sessions.appendTurn` |
+| `DELETE /generations/{session}/turns/{turn}` | `sessions.deleteInstruction` |
+| `PUT /generations/{session}/turns/{turn}/task` | `sessions.attachTask` |
+| `PUT /generations/{session}/turns/{turn}/intent` | `sessions.bindIntent` |
 | `GET /generations/tasks` | `tasks.list` |
 | `GET /generations/tasks/{task}` | `tasks.retrieve` |
 | `GET /generations/artifacts` | `artifacts.list` |
@@ -86,7 +86,7 @@ The intent response includes nullable `session_binding` with the original sessio
 
 The dashboard saves fresh Video composition in an actor-private backend draft, separately from immutable submission intents and task history. It restores the saved key/model, prompt, typed controls and Niu material references before applying defaults. Inline image bytes are not saved; the composer asks you to reattach them after reload. Saved references do not bypass current access, readiness, consent or submission inspection.
 
-Use `admin.getVideoComposerDraft(scope)` and `admin.saveVideoComposerDraft(scope, payload, expectedRevision)`, backed by `GET`/`PUT /video-draft` under the workspace prefix. The payload contains `keyId`, `sessionId`, `model`, `prompt`, `controls` and `references`; nullable selections and unfinished control strings are supported. Raw URLs, inline bytes, secrets and ingestion references are rejected. The response reports `revision`, `payload`, `content_state` and `expires_at_ms`. Retention lasts 30 days after a confirmed edit.
+Use `admin.getVideoComposerDraft(scope)` and `admin.saveVideoComposerDraft(scope, payload, expectedRevision)`, backed by `GET`/`PUT /video/draft` under the workspace prefix. The payload contains `keyId`, `sessionId`, `model`, `prompt`, `controls` and `references`; nullable selections and unfinished control strings are supported. Raw URLs, inline bytes, secrets and ingestion references are rejected. The response reports `revision`, `payload`, `content_state` and `expires_at_ms`. Retention lasts 30 days after a confirmed edit.
 
 Revision conflicts preserve local input and require explicitly loading the saved draft. An uncertain write is not permission to overwrite with another revision. Clearing uses the confirmed revision and keeps a tombstone against stale recreation. Retained drafts protect their workspace against deletion. Draft saving never generates, estimates, uploads or reserves funds.
 

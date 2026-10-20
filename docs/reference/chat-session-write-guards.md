@@ -6,12 +6,12 @@ untouched compatibility resources and complete frontend adoption remain separate
 
 ## Read and save contract
 
-Direct `GET .../chat-sessions/{id}` returns
+Direct `GET .../chats/{id}` returns
 `{data, archived, revision, guardedWrites}` with `Cache-Control: no-store`.
 Treat the positive decimal `revision` string as opaque. Do not increment it,
 convert it to a JavaScript number or display it as a product identifier.
 
-`PUT .../chat-sessions/{id}` accepts optional `expectedRevision`:
+`PUT .../chats/{id}` accepts optional `expectedRevision`:
 
 | Input | Behavior |
 | --- | --- |

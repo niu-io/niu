@@ -75,21 +75,21 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       if (after) query.set('after', after);
       const result = await request<{ data: ModelRoutePool[]; has_more: boolean; next_after: string | null }>(
         token,
-        '/api/v1/model-route-pools/index?' + query.toString(),
+        '/api/v1/pools/index?' + query.toString(),
         'GET',
         undefined,
         controller.signal,
       );
       if (controller.signal.aborted) return;
       if (!Array.isArray(result.data) || (after && result.next_after === after)) {
-        throw new Error('Route pool page did not advance. Refresh pools.');
+        throw new Error('Model pool page did not advance. Refresh pools.');
       }
       setPools(current => (after ? [...current, ...result.data.filter(row => !current.some(item => item.alias === row.alias))] : result.data));
       setCursor(result.has_more ? result.next_after : null);
     } catch (reason) {
       if (!controller.signal.aborted) {
         setFailedCursor(after);
-        setError(reason instanceof Error ? reason.message : 'Route pools could not be loaded.');
+        setError(reason instanceof Error ? reason.message : 'Model pools could not be loaded.');
       }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
@@ -116,7 +116,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
   return (
     <div className="space-y-6 pt-4">
       <PageHeader
-        title="Route pools"
+        title="Model pools"
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline">
@@ -131,7 +131,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               }}
             >
               <IconPlus className="size-4" />
-              Create route pool
+              Create model pool
             </Button>
           </div>
         }
@@ -147,8 +147,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               type="button"
               variant={filter.trim() ? 'secondary' : 'outline'}
               size={filter.trim() ? 'sm' : 'icon'}
-              aria-label={filter.trim() ? `Filter route pools: ${filter.trim()}` : 'Filter route pools'}
-              title="Filter route pools"
+              aria-label={filter.trim() ? `Filter model pools: ${filter.trim()}` : 'Filter model pools'}
+              title="Filter model pools"
             >
               <IconSearch size={16} aria-hidden="true" />
               {filter.trim() && <span className="max-w-36 truncate">{filter.trim()}</span>}
@@ -158,7 +158,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             <Input
               autoFocus
               type="search"
-              aria-label="Filter route pools"
+              aria-label="Filter model pools"
               placeholder="Filter by pool or candidate alias"
               value={filter}
               onChange={event => setFilter(event.target.value)}
@@ -214,9 +214,9 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       )}
 
       {loading && pools.length === 0 ? (
-        <p role="status">Loading route pools…</p>
+        <p role="status">Loading model pools…</p>
       ) : visiblePools.length > 0 ? (
-        <Table aria-label="Model route pools">
+        <Table aria-label="Model pools">
           <TableHeader className="max-sm:sr-only">
             <TableRow>
               <TableHead>Pool alias</TableHead>
@@ -320,12 +320,12 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
         !error && (
           <div className="rounded-lg border border-dashed p-8 text-center">
             <p className="font-medium">
-              {pools.length > 0 ? 'No route pools match the current filter.' : 'No model route pools configured yet.'}
+              {pools.length > 0 ? 'No model pools match the current filter.' : 'No model pools configured yet.'}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {pools.length > 0
                 ? 'Try clearing the search query or switching the scope filter.'
-                : 'Create a route pool to combine multiple Provider model routes under one alias with priority and weight tiers.'}
+                : 'Create a model pool to combine multiple Provider model routes under one alias with priority and weight tiers.'}
             </p>
             <div className="mt-4 flex justify-center gap-2">
               {pools.length > 0 ? (
@@ -346,7 +346,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                   }}
                 >
                   <IconPlus className="size-4" />
-                  Create route pool
+                  Create model pool
                 </Button>
               )}
             </div>
@@ -356,7 +356,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
 
       {cursor && (
         <Button variant="outline" disabled={loading} onClick={() => void loadPools(cursor)}>
-          More route pools
+          More model pools
         </Button>
       )}
 
@@ -420,6 +420,7 @@ function RoutePoolEditorDialog({
   );
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
+  const [candidateQuery, setCandidateQuery] = useState('');
   const [discoveredRoutes, setDiscoveredRoutes] = useState<DiscoveredRoute[]>([]);
 
   useEffect(() => {
@@ -496,11 +497,11 @@ function RoutePoolEditorDialog({
     for (const candidate of candidates) {
       const candidateAlias = candidate.alias.trim();
       if (!candidateAlias || candidateAlias.length > 200) {
-        setFormError('Every candidate route must specify a valid model mapping alias.');
+        setFormError('Every candidate model must specify a valid model mapping alias.');
         return;
       }
       if (seenAliases.has(candidateAlias)) {
-        setFormError(`Duplicate candidate alias "${candidateAlias}". Each candidate route in a pool must be unique.`);
+        setFormError(`Duplicate candidate alias "${candidateAlias}". Each candidate model in a pool must be unique.`);
         return;
       }
       seenAliases.add(candidateAlias);
@@ -523,25 +524,25 @@ function RoutePoolEditorDialog({
     setBusy(true);
     setFormError('');
     try {
-      const response = await request<{ data: { revision: number } }>(token, '/api/v1/model-route-pools', 'PUT', {
+      const response = await request<{ data: { revision: number } }>(token, '/api/v1/pools', 'PUT', {
         alias: trimmedAlias,
         organization_id: organizationId,
         enabled,
         expected_revision: initial ? initial.revision : 0,
         candidates: normalizedCandidates,
       });
-      onSaved(`Saved route pool "${trimmedAlias}" at revision ${response.data.revision}.`);
+      onSaved(`Saved model pool "${trimmedAlias}" at revision ${response.data.revision}.`);
     } catch (reason) {
       if (writeMayHaveCommitted(reason)) {
         onUncertain(
-          `Route pool "${trimmedAlias}" write could not be confirmed. Refresh route pools before saving again; the previous request may have committed.`,
+          `Model pool "${trimmedAlias}" write could not be confirmed. Refresh model pools before saving again; the previous request may have committed.`,
         );
         return;
       }
       if (reason instanceof ProviderRequestError && reason.status === 409) {
-        setFormError('This route pool changed in another session or already exists. Close and refresh route pools before retrying.');
+        setFormError('This model pool changed in another session or already exists. Close and refresh model pools before retrying.');
       } else {
-        setFormError(reason instanceof Error ? reason.message : 'Could not save route pool.');
+        setFormError(reason instanceof Error ? reason.message : 'Could not save model pool.');
       }
     } finally {
       setBusy(false);
@@ -565,10 +566,10 @@ function RoutePoolEditorDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{isNew ? 'Create route pool' : `Edit ${initial.alias}`}</DialogTitle>
+          <DialogTitle>{isNew ? 'Create model pool' : `Edit ${initial.alias}`}</DialogTitle>
           <DialogDescription>
             {isNew
-              ? 'Define a pooled model alias and order its candidate Provider model mappings by priority tier and weight.'
+              ? 'Create one model alias backed by multiple Provider models, with priority and traffic weights.'
               : `Revision ${initial.revision} · ${poolScopeLabel(initial.organization_id, organizations)}. Changes apply to subsequent request admissions.`}
           </DialogDescription>
         </DialogHeader>
@@ -625,7 +626,7 @@ function RoutePoolEditorDialog({
               )}
               <p className="text-xs text-muted-foreground">
                 {organizationId
-                  ? 'Personal pools require candidate routes owned by the same organization.'
+                  ? 'Personal pools require candidate models owned by the same organization.'
                   : 'Shared pools require non-personal priced candidate model mappings.'}
               </p>
             </div>
@@ -633,13 +634,13 @@ function RoutePoolEditorDialog({
 
           <Label className="flex items-center gap-2.5">
             <Checkbox checked={enabled} disabled={busy} onCheckedChange={value => setEnabled(value === true)} />
-            <span>Enable route pool for request dispatch</span>
+            <span>Enable model pool for request dispatch</span>
           </Label>
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-medium">Candidate model mappings ({candidates.length}/64)</h3>
+                <h3 className="text-sm font-medium">Candidate models ({candidates.length}/64)</h3>
                 <p className="text-xs text-muted-foreground">
                   Highest enabled priority (-1000 to 1000) is selected first; weight (1 to 10000) balances traffic within the same priority tier.
                 </p>
@@ -654,44 +655,72 @@ function RoutePoolEditorDialog({
               {candidates.map((candidate, index) => (
                 <div key={index} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_6.5rem_6.5rem_auto_auto] sm:items-end">
                   <div className="space-y-1.5">
-                    <div className="flex h-5 items-center justify-between gap-2">
-                      <Label htmlFor={`candidate-alias-${index}`} className="whitespace-nowrap">Candidate route alias #{index + 1}</Label>
-                      {discoveredRoutes.length > 0 && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button type="button" variant="ghost" size="xs" className="h-5 px-1.5 text-xs" disabled={busy}>
-                              Choose route
-                              <IconChevronDown size={13} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="max-h-64 w-80 overflow-y-auto">
-                            <DropdownMenuLabel>Configured Provider routes</DropdownMenuLabel>
-                            {discoveredRoutes.map(route => (
-                              <DropdownMenuItem
-                                key={route.alias}
-                                onSelect={() => updateCandidate(index, { alias: route.alias })}
-                              >
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium">{route.alias}</p>
-                                  <p className="truncate text-xs text-muted-foreground">
-                                    {route.providerName} → {route.upstreamModel}
-                                  </p>
-                                </div>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                    <Input
-                      id={`candidate-alias-${index}`}
-                      required
-                      maxLength={200}
-                      disabled={busy}
-                      placeholder="Existing model route alias"
-                      value={candidate.alias}
-                      onChange={event => updateCandidate(index, { alias: event.target.value })}
-                    />
+                    <Label htmlFor={`candidate-model-${index}`}>Candidate model #{index + 1}</Label>
+                    <DropdownMenu onOpenChange={open => { if (open) setCandidateQuery(''); }}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          id={`candidate-model-${index}`}
+                          type="button"
+                          variant="outline"
+                          className="w-full min-w-0 justify-between"
+                          disabled={busy}
+                        >
+                          <span className={`truncate ${candidate.alias ? '' : 'text-muted-foreground'}`}>
+                            {candidate.alias || 'Choose model'}
+                          </span>
+                          <IconChevronDown size={16} className="shrink-0" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-64 max-w-[calc(100vw-2rem)]">
+                        <div className="p-1" onKeyDown={event => {
+                          if (!['Escape', 'Tab', 'ArrowDown', 'ArrowUp'].includes(event.key)) event.stopPropagation();
+                        }}>
+                          <Input
+                            autoFocus
+                            onKeyDown={event => {
+                              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                                event.preventDefault();
+                                const items = event.currentTarget.closest('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]');
+                                if (items?.length) items[event.key === 'ArrowDown' ? 0 : items.length - 1].focus();
+                              }
+                            }}
+                            aria-label={`Search candidate models ${index + 1}`}
+                            placeholder="Search models or existing alias"
+                            maxLength={200}
+                            value={candidateQuery}
+                            onChange={event => setCandidateQuery(event.target.value)}
+                          />
+                        </div>
+                        <DropdownMenuLabel>Configured Provider models</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={candidate.alias} className="max-h-52 overflow-y-auto">
+                          {discoveredRoutes.filter(route =>
+                            `${route.alias} ${route.providerName} ${route.upstreamModel}`.toLowerCase().includes(candidateQuery.trim().toLowerCase()),
+                          ).map(route => (
+                            <DropdownMenuRadioItem
+                              key={route.alias}
+                              value={route.alias}
+                              onSelect={() => updateCandidate(index, { alias: route.alias })}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium">{route.alias}</span>
+                                <span className="block truncate text-xs text-muted-foreground">{route.providerName} · {route.upstreamModel}</span>
+                              </span>
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                        {candidateQuery.trim() && !discoveredRoutes.some(route => route.alias === candidateQuery.trim()) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => updateCandidate(index, { alias: candidateQuery.trim() })}>
+                              <span className="min-w-0 truncate">Use existing alias “{candidateQuery.trim()}”</span>
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {discoveredRoutes.length === 0 && !candidateQuery.trim() && (
+                          <p className="px-2 py-2 text-xs text-muted-foreground">No models discovered. Enter an existing model alias above.</p>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
 
                   <div className="space-y-1.5">
@@ -765,7 +794,7 @@ function RoutePoolEditorDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? 'Saving…' : isNew ? 'Create route pool' : 'Save changes'}
+              {busy ? 'Saving…' : isNew ? 'Create model pool' : 'Save changes'}
             </Button>
           </DialogFooter>
         </form>
@@ -804,20 +833,20 @@ function RoutePoolHistoryDialog({
       if (beforeRevision !== undefined) query.set('before_revision', String(beforeRevision));
       const result = await request<{ data: ModelRoutePoolRevision[] }>(
         token,
-        '/api/v1/model-route-pools/history?' + query.toString(),
+        '/api/v1/pools/history?' + query.toString(),
         'GET',
         undefined,
         controller.signal,
       );
       if (controller.signal.aborted) return;
-      if (!Array.isArray(result.data)) throw new Error('Route pool history could not be read.');
+      if (!Array.isArray(result.data)) throw new Error('Model pool history could not be read.');
       setRevisions(current =>
         beforeRevision ? [...current, ...result.data.filter(row => !current.some(item => item.revision === row.revision))] : result.data,
       );
       setHasMore(result.data.length === 100 && (result.data.at(-1)?.revision ?? 0) > 1);
     } catch (reason) {
       if (!controller.signal.aborted) {
-        setError(reason instanceof Error ? reason.message : 'Route pool history unavailable.');
+        setError(reason instanceof Error ? reason.message : 'Model pool history unavailable.');
       }
     } finally {
       if (!controller.signal.aborted) setLoading(false);

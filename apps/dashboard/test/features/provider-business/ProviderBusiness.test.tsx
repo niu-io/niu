@@ -59,7 +59,7 @@ function setup(role?: "manager" | "viewer") {
   } as unknown as DashboardContext;
   return render(
     <MemoryRouter initialEntries={["/suppliers/supplier"]}>
-      <Link to="/suppliers/supplier/models">Model offers</Link><Link to="/suppliers/supplier/consumption">Consumption</Link><Routes>
+      <Link to="/suppliers/supplier/models">Model offers</Link><Link to="/suppliers/supplier/usage">Consumption</Link><Routes>
         <Route
           path="/suppliers/:supplier/:section?"
           element={<ProviderBusinessRoute />}

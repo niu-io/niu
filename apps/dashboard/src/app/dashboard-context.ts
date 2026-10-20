@@ -8,7 +8,7 @@ export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';
 export type Organization = { id: string; name: string };
 export type MemberProfile = {name:string; email:string | null; avatar_data_url:string | null; revision:number};
-export type Workspace = { id: string; route_slug?: string; is_default?: boolean; created_at_ms?: number; active_key_count?: number; requests_30d?: number; requests_by_day?: Array<{start_ms: number; request_count: number}>; last_request_at_ms?: number | null; name: string; organization_id: string; organization_name: string };
+export type Workspace = { id: string; slug?: string; route_slug?: string; slug_aliases?: string[]; is_default?: boolean; created_at_ms?: number; active_key_count?: number; requests_30d?: number; requests_by_day?: Array<{start_ms: number; request_count: number}>; last_request_at_ms?: number | null; name: string; organization_id: string; organization_name: string };
 export type SessionChatKey = {
   id: string;
   name: string;
@@ -25,7 +25,7 @@ export type WorkspaceProblem =
 export type AdminSession = {
   profile?: MemberProfile | null;
   kind: 'installation' | 'operator';
-  provider_memberships?: { id: string; name: string; role: 'manager' | 'viewer' }[];
+  provider_memberships?: { id: string; slug?: string; name: string; role: 'manager' | 'viewer' }[];
   operator: null | {
     id: string;
     role: 'owner' | 'admin' | 'viewer';
@@ -42,6 +42,8 @@ export type DashboardContext = {
   session: AdminSession | null;
   /** Publish a validated saved profile to the current authenticated session. */
   updateProfile?: (profile: MemberProfile) => void;
+  providerDirectory?: {id: string; slug?: string; name: string}[];
+  providerDirectoryLoading?: boolean;
   organizations: Organization[];
   organization: Organization | null;
   selectOrganization: (organization: Organization) => void;
@@ -51,7 +53,7 @@ export type DashboardContext = {
   reloadWorkspaces: () => void;
   workspaceError: WorkspaceProblem | null;
   selectWorkspace: (workspace: Workspace) => void;
-  createWorkspace: (name: string, organizationId?: string) => Promise<Workspace>;
+  createWorkspace: (name: string, organizationId?: string, slug?: string, spendingLimit?: {currency: string; limit_nanos: string}) => Promise<Workspace>;
   renameWorkspace: (workspace: Workspace, name: string) => Promise<Workspace>;
   deleteWorkspace: (workspace: Workspace) => Promise<void>;
   chatKeys: SessionChatKey[];

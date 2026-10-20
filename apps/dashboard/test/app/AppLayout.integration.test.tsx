@@ -35,6 +35,8 @@ function mockHealth() {
 
       : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
       : path === '/api/v1/workspaces' ? { data: [{ id: 'default', name: 'Default', organization_id: 'org', organization_name: 'Demo' }, { id: 'production', name: 'Production', organization_id: 'org', organization_name: 'Demo' }] }
+      : path === '/api/v1/platform/configuration' ? { data: {payment_gateways: []} }
+      : path === '/api/v1/platform/payments/epay' ? { data: {revision:'0', enabled:false, merchant_id:'', has_key:false, endpoint:'', notify_url:'', return_url:'', methods:[]} }
       : path === '/api/v1/organizations' ? { data: [{ id: 'org', name: 'Demo' }] }
       : path.endsWith('/billing') ? { data: { balances: [], unresolved: '0', unpriced: '0', tariffs: [], invoices: [] } }
       : { data: [], summary: { request_count: 0, usage_count: 0, prompt_tokens: '0', completion_tokens: '0', failures: 0, customer_charges: [], usage_by_model: [], usage_by_key: [] } };
@@ -85,20 +87,44 @@ describe('dashboard route layout', () => {
     expect(matches?.at(-1)?.params.provider).toBe('example-provider');
     expect(matches?.at(-1)?.params.section).toBe('models');
   });
+  it('canonicalizes a Provider UUID bookmark and keeps slug URLs while requesting its API by ID', async () => {
+    mockHealth();
+    const originalFetch = globalThis.fetch;
+    const id = '00000000-0000-4000-8000-000000000111';
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
+      const path = String(input); calls.push(path);
+      if (path === '/api/v1/providers') return Response.json({data:[{id,slug:'example-provider',name:'Example Provider',members:0}]});
+      if (path === `/api/v1/providers/${id}`) return Response.json({data:{id,slug:'example-provider',name:'Example Provider',description:'',website_url:'',logo_url:'',revision:1}});
+      return originalFetch(input,init);
+    }));
+    const router = renderAt(`/admin/providers/${id}/settings?view=general#profile`);
+    await screen.findByLabelText('Name', {exact:true});
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-provider/settings'));
+    expect(router.state.location.search).toBe('?view=general');
+    expect(router.state.location.hash).toBe('#profile');
+    expect(calls).toContain(`/api/v1/providers/${id}`);
+    expect(calls).not.toContain('/api/v1/providers/example-provider');
+  });
   it('keeps Admin sections available while navigating Provider detail tabs', async () => {
     mockHealth();
     const router = renderAt('/admin/providers/example-supplier');
     const user = userEvent.setup();
-    const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' });
+    const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' }, { timeout: 10000 });
     expect(within(navigation).getByRole('link', { name: 'Payment gateways' }).getAttribute('href')).toBe('/admin/payments');
     expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
+    const breadcrumb = within(await screen.findByLabelText('Breadcrumb'));
+    expect(breadcrumb.queryByText('Admin')).toBeNull();
+    expect(breadcrumb.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
     const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
-    await user.click(within(tabs).getByRole('tab', { name: 'API keys & routes' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/configuration'));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys & routes' }).getAttribute('aria-selected')).toBe('true'));
+    await user.click(within(tabs).getByRole('tab', { name: 'API keys' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys' }).getAttribute('aria-selected')).toBe('true'));
     await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
+    expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
+    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Payment gateways'})).toBeTruthy();
   });
   it('uses the shared loading page while checking the browser session', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;
@@ -726,7 +752,7 @@ describe('dashboard route layout', () => {
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
-    expect(calls.find(call => call.path === '/api/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', organization_id: 'org-1' }));
+    expect(calls.find(call => call.path === '/api/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', slug: 'research-project', organization_id: 'org-1' }));
     const keyRequests = calls.filter(call => call.path.endsWith('/keys')).map(call => call.path);
     expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys');
     expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys');

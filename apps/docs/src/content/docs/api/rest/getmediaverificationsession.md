@@ -1,12 +1,12 @@
 ---
 title: "Read saved verification session"
-description: "GET /v1/media/verification-sessions/{id}"
+description: "GET /v1/media/verifications/{id}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/media/verification-sessions/{id}`
+`GET /v1/media/verifications/{id}`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local saved status only, with known expiry reflected; no token, H5 URL or upstream request.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/verification-sessions/{id}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/verifications/{id}" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

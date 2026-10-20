@@ -310,7 +310,7 @@ impl Store {
         supplier: Option<Uuid>,
     ) -> Result<Vec<Value>, StoreError> {
         Ok(sqlx::query_scalar(
-            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id"
+            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id"
         ).bind(supplier).fetch_all(&self.pool).await?)
     }
 
@@ -382,7 +382,7 @@ impl Store {
     }
 
     pub async fn vendor_supplier(&self, vendor: Uuid) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'name',p.name) FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1")
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name) FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1")
             .bind(vendor).fetch_optional(&self.pool).await?)
     }
 
@@ -491,9 +491,10 @@ impl Store {
         }
         let supplier = if create_supplier {
             let id = Uuid::new_v4();
-            sqlx::query("INSERT INTO provider_businesses(id,name) VALUES($1,$2)")
+            sqlx::query("INSERT INTO provider_businesses(id,name,slug) VALUES($1,$2,$3)")
                 .bind(id)
                 .bind(input.name.trim())
+                .bind(crate::workspace_creation::workspace_slug_from_name(&input.name))
                 .execute(&mut *transaction)
                 .await?;
             sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'provider_created',$1)")

@@ -1,12 +1,12 @@
 ---
 title: "List saved Provider mutation operations"
-description: "GET /v1/media/asset-operations"
+description: "GET /v1/media/operations"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/media/asset-operations`
+`GET /v1/media/operations`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/asset-operations" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/operations" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

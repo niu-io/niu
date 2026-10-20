@@ -121,7 +121,7 @@ pub(in crate::web) struct SaveInput {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveVideoSubmissionIntent",
@@ -571,7 +571,7 @@ pub(in crate::web) async fn save(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVideoSubmissionIntent",
@@ -689,7 +689,7 @@ pub(in crate::web) struct Page {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-intents",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/intents",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVideoSubmissionIntents",
@@ -845,7 +845,7 @@ pub(in crate::web) struct Revision {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "deleteVideoSubmissionIntent",
@@ -1001,7 +1001,7 @@ pub(in crate::web) async fn delete(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "submitVideoSubmissionIntent",

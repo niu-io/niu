@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type ProviderMembership = {
     id: string;
+    slug: string;
     name: string;
     role: 'manager' | 'viewer';
 };

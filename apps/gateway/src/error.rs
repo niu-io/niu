@@ -202,6 +202,12 @@ impl ApiError {
                 kind: "spending_currency_unavailable",
                 message: "Configure a company balance account for the spending-limit currency, or choose a configured currency",
             },
+            niu_storage::StoreError::WorkspaceSlugTaken => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "workspace_slug_taken",
+                message: "This slug is already in use. Choose a different slug.",
+            },
             niu_storage::StoreError::Conflict => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,

@@ -148,7 +148,7 @@ export default function ModelMappings({ credentialRevision = 0, ownerFunded = fa
     <Dialog open={editing !== null} onOpenChange={open => { if (!open && !disabled) setEditing(null); }}>
       <DialogContent className="niu-modal model-route-dialog" showCloseButton={false} onCloseAutoFocus={event => { if (editorTriggerRef.current?.isConnected) { event.preventDefault(); editorTriggerRef.current.focus(); } }}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{editing === 'new' ? 'Add a model route' : `Edit ${editing?.alias ?? 'model route'}`}</DialogTitle><DialogDescription>Choose the name clients will send and map it to the upstream provider model.</DialogDescription></div>
+          <div><DialogTitle>{editing === 'new' ? 'Add model' : `Edit ${editing?.alias ?? 'model route'}`}</DialogTitle><DialogDescription>Choose the name clients will send and map it to the upstream provider model.</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
         </DialogHeader>
       {editing !== null &&

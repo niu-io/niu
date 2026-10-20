@@ -26,7 +26,7 @@ type Workspace = {
   id: string;
   name: string;
   organization_name: string;
-  route_slug: string;
+  slug: string;
   created_at_ms: number;
 };
 type Key = { id: string; name: string; revoked: boolean; expired: boolean };
@@ -410,7 +410,7 @@ export default function WorkspaceKeyConnection({
               <a
                 href={
                   "/workspaces/" +
-                  encodeURIComponent(workspace.route_slug) +
+                  encodeURIComponent(workspace.slug) +
                   "/keys/"
                 }
                 className="font-medium text-foreground underline underline-offset-4"

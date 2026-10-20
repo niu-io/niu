@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/providers`
 
-Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.
+Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.
 
 Operation: `createProviderBusiness`.
 
@@ -60,6 +60,21 @@ No path, query, or header parameters are declared.
       "minLength": 1,
       "maxLength": 100,
       "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved value is trimmed."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Optional business description, trimmed before saving. Newlines and tabs are allowed; other control characters are rejected."
+    },
+    "website_url": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Optional HTTP or HTTPS website URL without embedded credentials. Trimmed before saving; empty string leaves the website unset."
+    },
+    "logo_url": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Optional HTTP or HTTPS image URL without embedded credentials. Trimmed before saving; empty string uses the default logo."
     }
   }
 }
@@ -83,12 +98,19 @@ Content type: `application/json`.
     "data": {
       "type": "object",
       "required": [
-        "id"
+        "id",
+        "slug"
       ],
       "properties": {
         "id": {
           "type": "string",
           "format": "uuid"
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 48,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable readable slug for product URLs. Renaming preserves it."
         }
       }
     }
@@ -98,7 +120,7 @@ Content type: `application/json`.
 
 ### HTTP 400
 
-Invalid Provider name
+Invalid Provider name or profile metadata
 
 ### HTTP 401
 
@@ -118,6 +140,6 @@ Storage unavailable
 
 ## Behavior and supported scope
 
-Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.
+Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.
 
 **Supported scope:** implemented

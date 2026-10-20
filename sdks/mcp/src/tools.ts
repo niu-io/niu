@@ -1072,7 +1072,7 @@ async function handleMediaAssetGroups(client: GatewayClient, raw: unknown): Prom
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/asset-groups${mediaQuery({
+        `/media/groups${mediaQuery({
           model,
           after: optionalString(input.after, "after"),
           limit: input.limit === undefined ? undefined : Number(input.limit),
@@ -1084,7 +1084,7 @@ async function handleMediaAssetGroups(client: GatewayClient, raw: unknown): Prom
       return requestMediaEndpoint(
         client,
         "POST",
-        "/media/asset-groups",
+        "/media/groups",
         {
           model,
           name,
@@ -1098,7 +1098,7 @@ async function handleMediaAssetGroups(client: GatewayClient, raw: unknown): Prom
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/asset-groups/${encodeURIComponent(id)}${mediaQuery({ model })}`,
+        `/media/groups/${encodeURIComponent(id)}${mediaQuery({ model })}`,
       );
     }
     case "update": {
@@ -1106,7 +1106,7 @@ async function handleMediaAssetGroups(client: GatewayClient, raw: unknown): Prom
       return requestMediaEndpoint(
         client,
         "PATCH",
-        `/media/asset-groups/${encodeURIComponent(id)}`,
+        `/media/groups/${encodeURIComponent(id)}`,
         {
           model,
           ...(input.name !== undefined ? { name: String(input.name) } : {}),
@@ -1123,7 +1123,7 @@ async function handleMediaAssetGroups(client: GatewayClient, raw: unknown): Prom
       return requestMediaEndpoint(
         client,
         "DELETE",
-        `/media/asset-groups/${encodeURIComponent(id)}${mediaQuery({
+        `/media/groups/${encodeURIComponent(id)}${mediaQuery({
           model,
           expected_revision: optionalString(input.expected_revision, "expected_revision"),
         })}`,
@@ -1136,7 +1136,7 @@ async function handleMediaAssetGroups(client: GatewayClient, raw: unknown): Prom
       return requestMediaEndpoint(
         client,
         "POST",
-        `/media/asset-groups/${encodeURIComponent(id)}/refresh${mediaQuery({ model })}`,
+        `/media/groups/${encodeURIComponent(id)}/refresh${mediaQuery({ model })}`,
       );
     }
     default:
@@ -1265,7 +1265,7 @@ async function handleMediaAssetOperations(client: GatewayClient, raw: unknown): 
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/asset-operations${mediaQuery({
+        `/media/operations${mediaQuery({
           model,
           after: optionalString(input.after, "after"),
           limit: input.limit === undefined ? undefined : Number(input.limit),
@@ -1276,7 +1276,7 @@ async function handleMediaAssetOperations(client: GatewayClient, raw: unknown): 
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/asset-operations/${encodeURIComponent(id)}${mediaQuery({ model })}`,
+        `/media/operations/${encodeURIComponent(id)}${mediaQuery({ model })}`,
       );
     }
     case "get_by_idempotency": {
@@ -1284,7 +1284,7 @@ async function handleMediaAssetOperations(client: GatewayClient, raw: unknown): 
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/asset-operations/by-idempotency/${encodeURIComponent(key)}${mediaQuery({ model })}`,
+        `/media/operations/by-idempotency/${encodeURIComponent(key)}${mediaQuery({ model })}`,
       );
     }
     case "prepare": {
@@ -1295,7 +1295,7 @@ async function handleMediaAssetOperations(client: GatewayClient, raw: unknown): 
       return requestMediaEndpoint(
         client,
         "POST",
-        "/media/asset-operations/prepare",
+        "/media/operations/prepare",
         { ...(input.operation as Record<string, unknown>), model },
         { idempotencyKey: key },
       );
@@ -1309,7 +1309,7 @@ async function handleMediaAssetOperations(client: GatewayClient, raw: unknown): 
       return requestMediaEndpoint(
         client,
         "POST",
-        `/media/asset-operations/${encodeURIComponent(id)}/dispatch`,
+        `/media/operations/${encodeURIComponent(id)}/dispatch`,
         { ...(input.operation as Record<string, unknown>), model },
         { idempotencyKey: key },
       );
@@ -1319,7 +1319,7 @@ async function handleMediaAssetOperations(client: GatewayClient, raw: unknown): 
       return requestMediaEndpoint(
         client,
         "POST",
-        `/media/asset-operations/${encodeURIComponent(id)}/cancel${mediaQuery({ model })}`,
+        `/media/operations/${encodeURIComponent(id)}/cancel${mediaQuery({ model })}`,
       );
     }
     default:
@@ -1356,7 +1356,7 @@ async function handleMediaVerificationSessions(
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/verification-sessions${mediaQuery({
+        `/media/verifications${mediaQuery({
           model,
           after: optionalString(input.after, "after"),
           limit: input.limit === undefined ? undefined : Number(input.limit),
@@ -1366,7 +1366,7 @@ async function handleMediaVerificationSessions(
       return requestMediaEndpoint(
         client,
         "POST",
-        "/media/verification-sessions",
+        "/media/verifications",
         {
           model,
           ...(input.subject_name !== undefined
@@ -1381,7 +1381,7 @@ async function handleMediaVerificationSessions(
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/verification-sessions/${encodeURIComponent(id)}${mediaQuery({ model })}`,
+        `/media/verifications/${encodeURIComponent(id)}${mediaQuery({ model })}`,
       );
     }
     case "refresh": {
@@ -1389,7 +1389,7 @@ async function handleMediaVerificationSessions(
       return requestMediaEndpoint(
         client,
         "POST",
-        `/media/verification-sessions/${encodeURIComponent(id)}/refresh${mediaQuery({ model })}`,
+        `/media/verifications/${encodeURIComponent(id)}/refresh${mediaQuery({ model })}`,
       );
     }
     case "link": {
@@ -1397,7 +1397,7 @@ async function handleMediaVerificationSessions(
       return requestMediaEndpoint(
         client,
         "GET",
-        `/media/verification-sessions/${encodeURIComponent(id)}/link${mediaQuery({ model })}`,
+        `/media/verifications/${encodeURIComponent(id)}/link${mediaQuery({ model })}`,
       );
     }
     default:
@@ -2054,7 +2054,7 @@ export const toolDefinitions = [
   {
     name: "media_asset_groups",
     description:
-      "Manage workspace Provider media asset groups (/v1/media/asset-groups): list, create, get, update, delete, or refresh.",
+      "Manage workspace Provider media asset groups (/v1/media/groups): list, create, get, update, delete, or refresh.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -2104,7 +2104,7 @@ export const toolDefinitions = [
   {
     name: "media_asset_operations",
     description:
-      "Inspect, prepare, dispatch, or cancel durable Provider media asset operations (/v1/media/asset-operations).",
+      "Inspect, prepare, dispatch, or cancel durable Provider media asset operations (/v1/media/operations).",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -2132,7 +2132,7 @@ export const toolDefinitions = [
   {
     name: "media_verification_sessions",
     description:
-      "Create, list, inspect, refresh, or retrieve the handoff link for upstream human verification sessions (/v1/media/verification-sessions).",
+      "Create, list, inspect, refresh, or retrieve the handoff link for upstream human verification sessions (/v1/media/verifications).",
     inputSchema: {
       type: "object",
       additionalProperties: false,

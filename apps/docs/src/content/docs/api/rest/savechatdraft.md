@@ -1,12 +1,12 @@
 ---
 title: "Save or clear the personal Chat draft with an expected revision"
-description: "PUT /api/v1/organizations/{organization}/projects/{project}/chat-draft"
+description: "PUT /api/v1/organizations/{organization}/projects/{project}/chats/draft"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/chat-draft`
+`PUT /api/v1/organizations/{organization}/projects/{project}/chats/draft`
 
 Write authorization and workspace scope are required. Browser-member requests require an allowed Origin when password authentication is configured; other requests also undergo Origin validation. Strict typed JSON rejects unknown fields. A referenced conversation must belong to the same owner and workspace. Saving does not call a model. The 24 MiB route body bound applies. Compare-and-swap prevents stale tabs from overwriting a newer draft; clearing retains and advances the revision.
 
@@ -29,7 +29,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chat-draft" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chats/draft" \
   -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

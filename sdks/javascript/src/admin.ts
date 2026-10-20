@@ -42,7 +42,7 @@ export type MediaOperationHistoryContext = { keyId: string; model: string; conte
 export type MediaOperationHistoryQuery = { limit?: number; after?: string };
 
 /** Authorized identity for a canonical route; never display the routing reference as a name. */
-export type WorkspaceRoute = { id: string; organization_id: string; name: string; route_slug: string };
+export type WorkspaceRoute = { id: string; organization_id: string; name: string; slug: string; slug_aliases: string[]; /** @deprecated Use slug. */ route_slug: string };
 export type Workspace = WorkspaceRoute & {
   organization_name: string; is_default: boolean; created_at_ms: number;
   active_key_count: number; requests_30d: number;
@@ -54,7 +54,7 @@ export type MemberProfile = { name: string; email: string | null; avatar_data_ur
 export type MemberProfileUpdate = { name: string; avatar_data_url?: string | null; expected_revision: number };
 export type MemberPreferences = { color_mode: 'system' | 'light' | 'dark' };
 
-export type WorkspaceInput = { name: string; organization_id?: string | null };
+export type WorkspaceInput = { name: string; slug?: string; spending_limit?: { currency: string; limit_nanos: string }; organization_id?: string | null };
 export type WorkspaceCreateOptions = RequestOptions & { idempotencyKey?: string };
 export type CompanyMetadata = { id: string; name: string };
 export type CompanyPage = { data: CompanyMetadata[]; next_cursor: string | null };
@@ -66,6 +66,7 @@ export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 /** Platform-only credential configuration metadata. Secret values are never returned. */
 export type ProviderBusiness = {
+  slug: string;
   id: string; name: string; api_keys: number; models: number; members: number;
   /** Enabled saved configurations and mappings; not upstream verification. */
   enabled_api_keys?: number; enabled_model_routes?: number;
@@ -73,7 +74,15 @@ export type ProviderBusiness = {
 };
 export type SupplierBusiness = ProviderBusiness;
 
+export type ProviderBusinessCreate = {
+  name: string;
+  description?: string;
+  website_url?: string;
+  logo_url?: string;
+};
+
 export type ProviderProfile = {
+  slug: string;
   id: string; name: string; description: string; website_url: string; logo_url: string; revision: number;
 };
 export type SupplierProfile = ProviderProfile;
@@ -688,6 +697,7 @@ export type WorkspaceKeyUpdateInput = {
 export type IssuedWorkspaceKey = { id: string; token: string };
 
 export type WorkspaceKey = {
+  slug: string;
   id: string;
   revision: number;
   name: string;
@@ -972,7 +982,7 @@ export type SupplierMember = ProviderMember;
 export type ProviderMemberUpdate = { role: 'manager' | 'viewer'; active: boolean };
 export type SupplierMemberUpdate = ProviderMemberUpdate;
 
-export type ProviderMembership = { id: string; name: string; role: 'manager' | 'viewer' };
+export type ProviderMembership = { id: string; slug: string; name: string; role: 'manager' | 'viewer' };
 export type SupplierMembership = ProviderMembership;
 
 /** Platform-only status; route definitions and procurement details are not returned. */
@@ -1194,11 +1204,11 @@ export class NiuAdminClient {
   }
 
   /** Create a business identity; this does not qualify supply or publish an offer. */
-  createProviderBusiness(name: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
-    return this.request('/providers', { name }, options);
+  createProviderBusiness(input: string | ProviderBusinessCreate, options?: RequestOptions): Promise<{ data: { id: string; slug: string } }> {
+    return this.request('/providers', typeof input === 'string' ? { name: input } : input, options);
   }
-  createSupplierBusiness(name: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
-    return this.createProviderBusiness(name, options);
+  createSupplierBusiness(input: string | ProviderBusinessCreate, options?: RequestOptions): Promise<{ data: { id: string; slug: string } }> {
+    return this.createProviderBusiness(input, options);
   }
 
   /** Only an unconfigured Provider can be removed; dependent configurations/offers/memberships return 409. */
@@ -1414,7 +1424,7 @@ export class NiuAdminClient {
   }
 
   private videoIntentPath(scope: TenantScope, intentId?: string): string {
-    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video-intents${intentId === undefined ? '' : `/${uuid(intentId)}`}`;
+    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video/intents${intentId === undefined ? '' : `/${uuid(intentId)}`}`;
   }
 
   /** Actor-owned metadata only; retained request content requires retrieve permission. */
@@ -1455,7 +1465,7 @@ export class NiuAdminClient {
    */
   cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: string, options?: RequestOptions): Promise<{ data: { status: 'not_sent' } }> {
     if (!model.trim()) throw new TypeError('A model is required');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
   }
 
   /** Read saved native operations with current workspace Read access.
@@ -1475,7 +1485,7 @@ export class NiuAdminClient {
   /** Read exact saved key/model history without restoring inference authority. */
   mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext) {
     if (!context.model.trim()) throw new TypeError('A model is required');
-    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operations`;
+    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/operations`;
     const parameters = new URLSearchParams({ key_id: uuid(context.keyId), model: context.model });
     if (context.contextGroupId !== undefined) parameters.set('context_group_id', uuid(context.contextGroupId));
     return {
@@ -2588,7 +2598,7 @@ export class NiuAdminClient {
 
   /** Platform-administrator candidate pool; customer permissions remain attached to its alias. */
   getModelRoutePool(alias: string, options?: RequestOptions): Promise<{ data: ModelRoutePool }> {
-    return this.request(`/model-route-pools?${new URLSearchParams({ alias })}`, undefined, options);
+    return this.request(`/pools?${new URLSearchParams({ alias })}`, undefined, options);
   }
 
   /** Platform-only live keyset traversal; retain next_after as the next query's after. */
@@ -2602,12 +2612,12 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid pool page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/model-route-pools/index${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/pools/index${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   setModelRoutePool(input: ModelRoutePoolInput, options?: RequestOptions): Promise<{ data: { revision: number } }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Use an exact nonnegative pool revision');
-    return this.request('/model-route-pools', input, options, 'PUT');
+    return this.request('/pools', input, options, 'PUT');
   }
 
   listModelRoutePoolHistory(alias: string, beforeRevision?: number, options?: RequestOptions): Promise<{ data: ModelRoutePoolRevision[] }> {
@@ -2616,7 +2626,7 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(beforeRevision) || beforeRevision < 1) throw new TypeError('Use a positive pool history revision');
       query.set('before_revision', String(beforeRevision));
     }
-    return this.request(`/model-route-pools/history?${query}`, undefined, options);
+    return this.request(`/pools/history?${query}`, undefined, options);
   }
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeySpendingAccount[] }> {
@@ -2755,29 +2765,29 @@ export class NiuAdminClient {
 
   /** Read the actor's mutable Video composer; unavailable saved keys confer no action grant. */
   getVideoComposerDraft(scope: TenantScope, options?: RequestOptions): Promise<VideoComposerDraftState> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video-draft`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video/draft`, undefined, options);
   }
 
   /** Revision-checked partial save or null clear, with a 30-day inactivity TTL.
    * Never estimates, inspects, reserves funds or submits inference. */
   saveVideoComposerDraft(scope: TenantScope, payload: VideoComposerDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<VideoComposerDraftState> {
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER - 1) throw new TypeError('Invalid Video composer draft revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video-draft`, {expected_revision: expectedRevision, payload}, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video/draft`, {expected_revision: expectedRevision, payload}, options, 'PUT');
   }
 
   /** Load the saved workspace draft; browser storage is only a disposable cache. */
   getChatDraft(scope: TenantScope, options?: RequestOptions): Promise<ChatDraftState> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-draft`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/draft`, undefined, options);
   }
 
   /** Save or clear at the last read revision; conflicts require explicit reload and reconciliation. */
   saveChatDraft(scope: TenantScope, payload: ChatDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<ChatDraftState> {
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new TypeError('Invalid Chat draft revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-draft`, { expected_revision: expectedRevision, payload }, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/draft`, { expected_revision: expectedRevision, payload }, options, 'PUT');
   }
 
   listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{ data: ChatSession[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats`, undefined, options);
   }
 
   /** Continuation over the owner's recent sessions; a moved cursor requires restarting. */
@@ -2789,41 +2799,41 @@ export class NiuAdminClient {
     const params = new URLSearchParams({ limit: String(limit) });
     if (query.archived !== undefined) params.set('archived', String(query.archived));
     if (query.after !== undefined) params.set('after', query.after);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions?${params}`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats?${params}`, undefined, options);
   }
 
   listArchivedChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{ data: ChatSession[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions?archived=true`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats?archived=true`, undefined, options);
   }
 
   setChatSessionArchived(scope: TenantScope, sessionId: string, archived: boolean, options?: RequestOptions): Promise<void> {
     if (typeof archived !== 'boolean') throw new Error('archived must be a boolean');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}/archive`, { archived }, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/${uuid(sessionId)}/archive`, { archived }, options, 'PUT');
   }
 
   /** Restore one complete owned conversation without walking recent history pages. */
   getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<{ data: ChatSession; archived: boolean; revision: string; guardedWrites: boolean }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/${uuid(sessionId)}`, undefined, options);
   }
 
   exportChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<ChatExport> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}/export`, undefined, options);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/${uuid(sessionId)}/export`, undefined, options);
   }
 
   saveChatSession(scope: TenantScope, sessionId: string, session: ChatSession, options?: RequestOptions): Promise<{ saved: boolean }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, session, options, 'PUT');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/${uuid(sessionId)}`, session, options, 'PUT');
   }
 
   /** Null creates only; a read revision atomically protects an update from stale clients. */
   async saveChatSessionIfCurrent(scope: TenantScope, sessionId: string, session: ChatSession, expectedRevision: string | null, options?: RequestOptions): Promise<{ saved: boolean; revision: string; guardedWrites: true }> {
     if (expectedRevision !== null && (typeof expectedRevision !== 'string' || !/^[1-9][0-9]*$/.test(expectedRevision) || BigInt(expectedRevision) > 9223372036854775807n)) throw new TypeError('Invalid Chat write revision');
-    const result = await this.request<{ saved: boolean; revision: string; guardedWrites: true }>(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, { ...session, expectedRevision }, options, 'PUT');
+    const result = await this.request<{ saved: boolean; revision: string; guardedWrites: true }>(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/${uuid(sessionId)}`, { ...session, expectedRevision }, options, 'PUT');
     if (result.saved !== true || result.guardedWrites !== true || typeof result.revision !== 'string' || !/^[1-9][0-9]*$/.test(result.revision) || BigInt(result.revision) > 9223372036854775807n) throw new Error('Gateway did not confirm guarded Chat writes. A save may have occurred; reload before retrying.');
     return result;
   }
 
   deleteChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, undefined, options, 'DELETE');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/${uuid(sessionId)}`, undefined, options, 'DELETE');
   }
 
   getProviderAssociation(configurationId: string, options?: RequestOptions): Promise<{ data: { id: string; name: string } | null }> {
@@ -3307,9 +3317,9 @@ export class NiuAdminClient {
       ...(body === undefined ? {} : { 'content-type': 'application/json' }),
     };
     if (options.idempotencyKey !== undefined) {
-      const mediaCollection = /^\/media\/(?:asset-groups|assets|verification-sessions)$/.test(path);
-      const mediaMember = /^\/media\/(?:asset-groups|assets)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\?.*)?$/.test(path);
-      const mediaPreparation = /^\/media\/asset-operations\/(?:prepare|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dispatch)$/.test(path);
+      const mediaCollection = /^\/media\/(?:groups|assets|verifications)$/.test(path);
+      const mediaMember = /^\/media\/(?:groups|assets)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\?.*)?$/.test(path);
+      const mediaPreparation = /^\/media\/operations\/(?:prepare|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dispatch)$/.test(path);
       const mediaMutation = (requestMethod === 'POST' && (mediaCollection || mediaPreparation)) || ((requestMethod === 'PATCH' || requestMethod === 'DELETE') && mediaMember);
       const videoCreation = requestMethod === 'POST' && path === '/video/jobs';
       const validKey = typeof options.idempotencyKey === 'string' && (mediaMutation

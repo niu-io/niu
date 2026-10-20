@@ -111,7 +111,8 @@ Content type: `application/json`.
           "expires_at_ms",
           "last_used_at_ms",
           "revoked",
-          "expired"
+          "expired",
+          "slug"
         ],
         "properties": {
           "id": {
@@ -153,6 +154,12 @@ Content type: `application/json`.
           },
           "expired": {
             "type": "boolean"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 48,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable readable slug for product URLs. Renaming preserves it."
           }
         }
       }

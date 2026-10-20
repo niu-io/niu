@@ -541,11 +541,11 @@ test('media capabilities, asset groups, assets, operations, verification session
 
   assert.equal(calls.length, 6);
   assert.equal(calls[0].url, 'https://niu.io/v1/media/capabilities?model=seedance-v1');
-  assert.equal(calls[1].url, 'https://niu.io/v1/media/asset-groups');
+  assert.equal(calls[1].url, 'https://niu.io/v1/media/groups');
   assert.equal(calls[1].headers['idempotency-key'], SAMPLE_UUID);
   assert.equal(calls[2].url, 'https://niu.io/v1/media/assets');
-  assert.equal(calls[3].url, 'https://niu.io/v1/media/asset-operations/prepare');
-  assert.equal(calls[4].url, `https://niu.io/v1/media/verification-sessions/${SAMPLE_UUID}/link?model=seedance-v1`);
+  assert.equal(calls[3].url, 'https://niu.io/v1/media/operations/prepare');
+  assert.equal(calls[4].url, `https://niu.io/v1/media/verifications/${SAMPLE_UUID}/link?model=seedance-v1`);
   assert.equal(calls[5].url, 'https://niu.io/v1/media/image-sources');
 });
 

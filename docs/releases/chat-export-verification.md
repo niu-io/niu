@@ -2,7 +2,7 @@
 
 Reviewed 2026-10-12. The current-input backend checkpoint below verifies the exercised ordinary-owner lifecycle; complete Chat, browser and SDK qualification remain open. Fixture outcomes provide no evidence.
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export` reads one durable conversation with workspace read authorization and the authenticated personal owner. Direct lookup supports sessions outside the latest-100 history list. Its versioned `niu-chat` JSON contains title, creation time, ordered prompts, model response content/status and attachments. Legacy single-turn sessions become one turn. Internal identifiers, generation settings, diagnostic errors, token/timing metrics and all saved accounting fields are excluded. User-supplied conversation and attachment content is deliberately exported; this is not a Logs or billing export.
+`GET /admin/v1/organizations/{organization}/projects/{project}/chats/{id}/export` reads one durable conversation with workspace read authorization and the authenticated personal owner. Direct lookup supports sessions outside the latest-100 history list. Its versioned `niu-chat` JSON contains title, creation time, ordered prompts, model response content/status and attachments. Legacy single-turn sessions become one turn. Internal identifiers, generation settings, diagnostic errors, token/timing metrics and all saved accounting fields are excluded. User-supplied conversation and attachment content is deliberately exported; this is not a Logs or billing export.
 
 Historical fixture and unit commands were executed for storage, Gateway and SDK
 paths. Their outcomes provide no evidence of correctness or acceptance. The

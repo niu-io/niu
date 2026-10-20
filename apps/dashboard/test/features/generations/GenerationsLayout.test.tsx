@@ -19,7 +19,7 @@ function Video() {
   return <><GenerationSessionBindings trigger={trigger} history={{context: (context), activeVideo: ("video")}} /><h1>Video content</h1></>;
 }
 it('keeps the sidebar, scroll container, history rows alive across session types', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (input: string) => Response.json(input.endsWith('/chat-sessions') ? { data: chats } : { data: [], has_more: false })));
+  vi.stubGlobal('fetch', vi.fn(async (input: string) => Response.json(input.endsWith('/chats') ? { data: chats } : { data: [], has_more: false })));
   function Harness() {
     const [video, setVideo] = useState(false);
     return <><Button onClick={() => setVideo(value => !value)}>Switch session</Button><GenerationsLayout>{video ? <Video /> : <Chat />}</GenerationsLayout></>;

@@ -8,6 +8,10 @@ This repository contains only Niu's public project. Internal research, enterpris
 
 The implementation reuses individual source modules, not a complete upstream repository or its history. Keep each imported module small, traceable, independently licensed, and explicit about behavior that remains unimplemented.
 
+## API route naming
+
+Use a single word for each API route segment unless a compound is strictly necessary to preserve meaning or an external compatibility contract. Prefer concise resource nouns and resource hierarchy over concatenated internal type names. Apply route changes consistently to handlers, contracts, SDKs, consumers, tests and generated documentation.
+
 ## Remote development
 
 Use SSH for authorized remote inspection and configuration transfers. Do not use Supen to inspect remote sessions or coordinate development unless the user explicitly requests it. Keep transferred credentials outside the public repository.
@@ -69,6 +73,10 @@ Use **Provider** consistently for model-supply businesses, upstream API services
 ## Internal identifiers
 
 Never display internal GUIDs/UUIDs in product UI, including shortened IDs, secondary labels, tooltips, menus, dialogs, and raw-data panels. Use meaningful names, dates, or user-facing references instead. Keep internal identifiers in API contracts, routing, storage, and diagnostic logs; they are not user-facing content. Do not substitute an ID when a display name is missing.
+
+## Readable product URLs
+
+Use durable, human-readable slugs for named product resources in browser paths and query scopes, including workspaces, Providers, and API key detail pages. Call the public field `slug`. Generate suggestions from names, normalize whitespace and punctuation, and transliterate Chinese to lowercase pinyin without tones. Preserve user edits, handle collisions, and keep saved slugs stable across display-name changes. Keep UUIDs in existing API, authorization, and storage contracts; preserve old bookmarks with authorized resolution and canonical redirects. Do not derive a URL from private prompt content. See `docs/reference/readable-product-urls.md` for the route audit and remaining record-reference migration.
 
 ## Durable product data
 

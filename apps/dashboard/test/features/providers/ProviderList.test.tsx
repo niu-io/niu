@@ -27,6 +27,58 @@ it('opens the newly created Provider directly without refreshing the directory',
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'POST')).toHaveLength(1);
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'GET')).toHaveLength(1);
+  expect(vi.mocked(request).mock.calls.find(([, , method]) => method === 'POST')?.[3]).toEqual({ name: 'New Provider' });
+});
+
+it('creates the optional profile in one request and opens the returned Provider slug', async () => {
+  const { providerLogoPresets } = await import('@/features/providers/provider-logos');
+  vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => method === 'POST' ? { data: { id: 'new-provider', slug: 'complete-provider' } } : { data: [] });
+  const router = createMemoryRouter([
+    { path: '/admin/providers', element: <ProviderList /> },
+    { path: '/admin/providers/:providerId', element: <h1>Provider profile created</h1> },
+  ], { initialEntries: ['/admin/providers'] });
+  render(<RouterProvider router={router} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Add Provider' }));
+  await user.click(screen.getByLabelText('Provider name'));
+  await user.paste(' Complete Provider ');
+  await user.click(screen.getByLabelText('Website (optional)'));
+  await user.paste('https://example.com');
+  await user.click(screen.getByLabelText('Description (optional)'));
+  await user.paste(' Model services ');
+  await user.click(screen.getByRole('button', { name: 'Choose Provider logo' }));
+  await user.click(screen.getByRole('menuitemradio', { name: 'OpenRouter', exact: true }));
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
+  await screen.findByRole('heading', { name: 'Provider profile created' });
+  expect(router.state.location.pathname).toBe('/admin/providers/complete-provider');
+  const writes = vi.mocked(request).mock.calls.filter(([, , method]) => method !== 'GET');
+  expect(writes).toHaveLength(1);
+  expect(writes[0][3]).toEqual({ name: 'Complete Provider', website_url: 'https://example.com', description: 'Model services', logo_url: providerLogoPresets[0].url });
+});
+
+it('retains all profile fields after a rejected submission and resets them when reopening', async () => {
+  vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => {
+    if (method === 'POST') throw new ProviderRequestError('Invalid logo URL.', 400);
+    return { data: [] };
+  });
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
+  const user = userEvent.setup();
+  const open = () => user.click(screen.getByRole('button', { name: 'Add Provider', exact: true }));
+  await open();
+  await user.type(screen.getByLabelText('Provider name'), 'Provider draft');
+  await user.type(screen.getByLabelText('Website (optional)'), 'https://example.com');
+  await user.type(screen.getByLabelText('Description (optional)'), 'Keep this description');
+  await user.type(screen.getByLabelText('Logo URL (optional)'), 'https://example.com/logo.svg');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
+  await screen.findByText('Invalid logo URL.');
+  expect((screen.getByLabelText('Website (optional)') as HTMLInputElement).value).toBe('https://example.com');
+  expect((screen.getByLabelText('Description (optional)') as HTMLTextAreaElement).value).toBe('Keep this description');
+  expect((screen.getByLabelText('Logo URL (optional)') as HTMLInputElement).value).toBe('https://example.com/logo.svg');
+  await user.click(screen.getByRole('button', { name: 'Cancel' }));
+  await open();
+  for (const label of ['Provider name', 'Website (optional)', 'Description (optional)', 'Logo URL (optional)']) {
+    expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe('');
+  }
 });
 
 it('does not invite duplicate creation when a successful response omits the new identity', async () => {

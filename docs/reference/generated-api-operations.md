@@ -90,7 +90,7 @@ HTTP 503: Durable authentication storage is unavailable.
 
 ## Read the persistent personal Chat draft
 
-`GET /api/v1/organizations/{organization}/projects/{project}/chat-draft`
+`GET /api/v1/organizations/{organization}/projects/{project}/chats/draft`
 
 The draft is isolated by authenticated personal owner and workspace. Operators have distinct drafts; installation credentials share the installation owner. Read authorization and workspace scope are required. An absent draft returns null payload and revision zero.
 
@@ -150,7 +150,7 @@ HTTP 503: Storage unavailable.
 
 ## Save or clear the personal Chat draft with an expected revision
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/chat-draft`
+`PUT /api/v1/organizations/{organization}/projects/{project}/chats/draft`
 
 Write authorization and workspace scope are required. Browser-member requests require an allowed Origin when password authentication is configured; other requests also undergo Origin validation. Strict typed JSON rejects unknown fields. A referenced conversation must belong to the same owner and workspace. Saving does not call a model. The 24 MiB route body bound applies. Compare-and-swap prevents stale tabs from overwriting a newer draft; clearing retains and advances the revision.
 
@@ -226,7 +226,7 @@ HTTP 409: Negative, stale or unavailable expected revision; no draft overwrite.
 
 ## List personal saved Chat history or one continuation page
 
-`GET /api/v1/organizations/{organization}/projects/{project}/chat-sessions`
+`GET /api/v1/organizations/{organization}/projects/{project}/chats`
 
 Without limit or after, retain the latest-100 compatibility response. Either paging parameter selects a bounded page, default 50, ordered by updated time and ID descending within the authenticated owner, workspace and archive state. Session payload and customer-charge hydration share a read-only snapshot with 250 ms lock and 2 s statement limits. A changed, deleted, foreign-owner or different-archive cursor returns 409; pages are live views, not a frozen cross-request snapshot. Before loading saved bodies, paging also limits the sum of saved JSON text bytes to 32 MiB and may return fewer rows than limit; follow next_cursor. Customer-charge hydration can increase wire size. Legacy latest-100 calls over that saved-payload budget return 413 rather than truncated success.
 
@@ -339,7 +339,7 @@ HTTP 413: Saved Chat history exceeds one-response capacity; use paging or indivi
 
 ## Read one complete owned saved Chat conversation
 
-`GET /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
+`GET /api/v1/organizations/{organization}/projects/{project}/chats/{id}`
 
 Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable.
 
@@ -444,7 +444,7 @@ HTTP 503: Durable storage unavailable or read wait exceeded.
 
 ## Save an owned Chat session in a workspace
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
+`PUT /api/v1/organizations/{organization}/projects/{project}/chats/{id}`
 
 Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for a compatibility write only while the owned record has not enabled guarded writes. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. A successful guarded creation/update permanently enables guarded writes on that owned row. Compatibility saves thereafter return 409; there is no content-write downgrade. A content-free guard identity survives deletion, so legacy autosaves cannot resurrect a protected reference; explicit null guarded creation may recreate it. Untouched legacy rows retain compatibility behavior until guarded save.
 
@@ -4883,7 +4883,7 @@ HTTP 503: Storage unavailable or bounded storage wait exceeded; no empty-success
 
 ## Read a mutable personal Video composer
 
-`GET /api/v1/organizations/{organization}/projects/{project}/video-draft`
+`GET /api/v1/organizations/{organization}/projects/{project}/video/draft`
 
 One mutable actor-private Video composer per workspace. Operators are isolated; installation credentials share the installation actor. Read requires workspace Read permission. Absent state returns null payload and revision zero. Retention is 30 days after the last confirmed edit; expired content is hidden immediately and background maintenance erases it. Reads expose the expiry tombstone revision before maintenance. Saved key/model/reference identities are context only, including unavailable historical resources; they confer no current access or readiness. No inference, Provider calls, reservation, media reads or inspection occur.
 
@@ -4943,7 +4943,7 @@ HTTP 503: Storage unavailable.
 
 ## Save or clear a mutable personal Video composer
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/video-draft`
+`PUT /api/v1/organizations/{organization}/projects/{project}/video/draft`
 
 One mutable actor-private Video composer per workspace. Operators are isolated; installation credentials share the installation actor. Read requires workspace Read permission. Absent state returns null payload and revision zero. Retention is 30 days after the last confirmed edit; expired content is hidden immediately and background maintenance erases it. Reads expose the expiry tombstone revision before maintenance. Saved key/model/reference identities are context only, including unavailable historical resources; they confer no current access or readiness. No inference, Provider calls, reservation, media reads or inspection occur. Write requires workspace Write permission and allowed browser Origin. Typed bounded partial composition may omit model/key/session and required model controls. Only the nine existing non-URL VideoSchema scalar control names are accepted; integer edits may remain strings. References use exact provider_asset/workspace_asset shapes, canonical nonnil Niu IDs and explicit workspace processing consent. No raw URL, inline media, short-lived ingestion, credential or billing fields are accepted. Key/reference metadata must belong to the workspace; session context must belong to the actor. Saving does not require an active historical key or grant action access. Full current schema, key/model eligibility, reference binding, consent and inspection remain explicit estimate/submission requirements. Null or omitted payload clears content while retaining the CAS revision. Stale revisions, including revisions predating expiry or clear, return 409. Workspace deletion refuses retained drafts; cleared/expired tombstones alone do not prevent empty-workspace deletion.
 
@@ -6083,7 +6083,9 @@ Content type: `application/json`.
     "id",
     "organization_id",
     "name",
-    "route_slug"
+    "route_slug",
+    "slug",
+    "slug_aliases"
   ],
   "properties": {
     "id": {
@@ -6100,7 +6102,20 @@ Content type: `application/json`.
     "route_slug": {
       "type": "string",
       "maxLength": 81,
-      "description": "Immutable routing reference, never a display label or authorization grant."
+      "description": "Deprecated compatibility alias for slug.",
+      "deprecated": true
+    },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+    },
+    "slug_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Previously issued slugs accepted for existing bookmarks."
     }
   }
 }
@@ -6418,7 +6433,7 @@ HTTP 403: Credential does not have write access.
 
 HTTP 404: Company scope is not permitted, or the workspace from the original idempotent creation has been deleted.
 
-HTTP 409: Idempotency-Key already belongs to different creation input.
+HTTP 409: The requested slug is already in use, or Idempotency-Key belongs to different creation input.
 
 HTTP 503: Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input.
 
@@ -17590,7 +17605,8 @@ Content type: `application/json`.
         "required": [
           "id",
           "name",
-          "role"
+          "role",
+          "slug"
         ],
         "properties": {
           "id": {
@@ -17606,6 +17622,12 @@ Content type: `application/json`.
               "manager",
               "viewer"
             ]
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 48,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable readable slug for product URLs. Renaming preserves it."
           }
         }
       }
@@ -17622,7 +17644,7 @@ HTTP 503: Storage unavailable.
 
 `POST /api/v1/providers`
 
-Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.
+Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.
 
 Implementation: `implemented`. Operation: `createProviderBusiness`.
 
@@ -17657,6 +17679,21 @@ Content type: `application/json`.
       "minLength": 1,
       "maxLength": 100,
       "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved value is trimmed."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Optional business description, trimmed before saving. Newlines and tabs are allowed; other control characters are rejected."
+    },
+    "website_url": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Optional HTTP or HTTPS website URL without embedded credentials. Trimmed before saving; empty string leaves the website unset."
+    },
+    "logo_url": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Optional HTTP or HTTPS image URL without embedded credentials. Trimmed before saving; empty string uses the default logo."
     }
   }
 }
@@ -17678,12 +17715,19 @@ Content type: `application/json`.
     "data": {
       "type": "object",
       "required": [
-        "id"
+        "id",
+        "slug"
       ],
       "properties": {
         "id": {
           "type": "string",
           "format": "uuid"
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 48,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable readable slug for product URLs. Renaming preserves it."
         }
       }
     }
@@ -17691,7 +17735,7 @@ Content type: `application/json`.
 }
 ```
 
-HTTP 400: Invalid Provider name
+HTTP 400: Invalid Provider name or profile metadata
 
 HTTP 401: Missing, expired or revoked administrative credential
 
@@ -17753,7 +17797,8 @@ Content type: `application/json`.
         "website_url",
         "logo_url",
         "id",
-        "revision"
+        "revision",
+        "slug"
       ],
       "properties": {
         "name": {
@@ -17775,6 +17820,12 @@ Content type: `application/json`.
         "revision": {
           "type": "integer",
           "format": "int64"
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 48,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable readable slug for product URLs. Renaming preserves it."
         }
       }
     }
@@ -17896,7 +17947,8 @@ Content type: `application/json`.
         "website_url",
         "logo_url",
         "id",
-        "revision"
+        "revision",
+        "slug"
       ],
       "properties": {
         "name": {
@@ -17918,6 +17970,12 @@ Content type: `application/json`.
         "revision": {
           "type": "integer",
           "format": "int64"
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 48,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable readable slug for product URLs. Renaming preserves it."
         }
       }
     }
@@ -19027,7 +19085,8 @@ Content type: `application/json`.
           "api_keys",
           "models",
           "members",
-          "qualification_status"
+          "qualification_status",
+          "slug"
         ],
         "properties": {
           "id": {
@@ -19077,6 +19136,12 @@ Content type: `application/json`.
               "qualified",
               "unqualified"
             ]
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 48,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable readable slug for product URLs. Renaming preserves it."
           }
         }
       }
@@ -21088,7 +21153,7 @@ HTTP 503: Publication is unavailable or its format is unsupported
 
 ## Read an installation-managed model candidate pool
 
-`GET /api/v1/model-route-pools`
+`GET /api/v1/pools`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
@@ -21148,7 +21213,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## Create or revise a model candidate pool
 
-`PUT /api/v1/model-route-pools`
+`PUT /api/v1/pools`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
 
@@ -21286,7 +21351,7 @@ HTTP 422: Malformed body schema or unknown fields; framework rejection may use p
 
 ## Read immutable model candidate pool revisions
 
-`GET /api/v1/model-route-pools/history`
+`GET /api/v1/pools/history`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
@@ -21373,7 +21438,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 ## List platform-managed model route pools
 
-`GET /api/v1/model-route-pools/index`
+`GET /api/v1/pools/index`
 
 Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels.
 
@@ -24153,7 +24218,7 @@ HTTP 503: Saved read unavailable; never presented as empty inventory
 
 ## Create a private video generations session
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}`
+`PUT /api/v1/organizations/{organization}/projects/{project}/generations/{session}`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. Client chooses stable UUID; expected_revision must be zero. Identical initial retry returns same session; changed title or an already advanced session conflicts.
 
@@ -24261,7 +24326,7 @@ HTTP 409: Stale revision, changed idempotent identity, archive or task associati
 
 ## Read a private saved generations timeline
 
-`GET /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}`
+`GET /api/v1/organizations/{organization}/projects/{project}/generations/{session}`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. Read categories are video (default) and chat; legacy Chat write APIs remain unchanged. Revisions and sequences are decimal strings. Video instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); Video content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing.  Set category=chat for a read-only bridge over the existing actor-private Chat record. The same route defaults to video; IDs are scoped independently by category. Chat metadata uses database clocks and current guarded-write revision. Missing Chat title is null, never replaced by an internal ID. Chat turns preserve comparison branches, not one running conversation task. Per-turn creation/expiry clocks are unknown and null; missing retained prompt yields missing state and null instruction. Turn references are read-only scoped identity/sequence/instruction digests and cannot be used with Video writes. Branch phase/output are exact saved conversation content; actual execution references require a current workspace attempt and matching model. Customer charges are hydrated from the existing ledger projection; no saved procurement fields are returned. Chat retention and writes stay under the legacy Chat contract; Video 30-day instruction retention does not apply to this bridge.
 
@@ -24363,7 +24428,7 @@ HTTP 413: Saved Chat payload exceeds the bounded 32 MiB materialization budget.
 
 ## List private generations sessions
 
-`GET /api/v1/organizations/{organization}/projects/{project}/generations-sessions`
+`GET /api/v1/organizations/{organization}/projects/{project}/generations`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. Read categories are video (default) and chat; legacy Chat write APIs remain unchanged. Revisions and sequences are decimal strings. Video instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); Video content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. Stable descending creation time then UUID pagination; before refers to an actor-visible record independently of its current archive state; archiving a prior page cursor does not invalidate traversal. Invalid cursor returns 400, never an empty page. Limit 1..100; next_before is null when exhausted. Set category=chat for a read-only bridge over the existing actor-private Chat record. The same route defaults to video; IDs are scoped independently by category. Chat metadata uses database clocks and current guarded-write revision. Missing Chat title is null, never replaced by an internal ID. Chat turns preserve comparison branches, not one running conversation task. Per-turn creation/expiry clocks are unknown and null; missing retained prompt yields missing state and null instruction. Turn references are read-only scoped identity/sequence/instruction digests and cannot be used with Video writes. Branch phase/output are exact saved conversation content; actual execution references require a current workspace attempt and matching model. Customer charges are hydrated from the existing ledger projection; no saved procurement fields are returned. Chat retention and writes stay under the legacy Chat contract; Video 30-day instruction retention does not apply to this bridge.
 
@@ -24498,7 +24563,7 @@ HTTP 409: Stale revision, changed idempotent identity, archive or task associati
 
 ## Rename or archive a private video session
 
-`PATCH /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}`
+`PATCH /api/v1/organizations/{organization}/projects/{project}/generations/{session}`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing.
 
@@ -24608,7 +24673,7 @@ HTTP 409: Stale revision, changed idempotent identity, archive or task associati
 
 ## Append one retained video instruction
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}`
+`PUT /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. At most 100 turns per session and 60 KiB prompt. Changed instruction creates a new client-generated turn UUID. Identical UUID/instruction retry is idempotent even after a lost response or content expiry; a changed instruction conflicts. No client execution state, output URL or arbitrary input object is accepted.
 
@@ -24723,7 +24788,7 @@ HTTP 409: Stale revision, changed idempotent identity, archive or task associati
 
 ## Attach an existing authorized video task
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task`
+`PUT /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/task`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. API-created dispatched video tasks with an original recovery route in the same workspace may be attached by a current workspace writer without an active key secret. An original actor-owned submission intent belonging to another actor is forbidden. One task belongs to one turn and one turn has one task. Existing association retries are idempotent; a different association conflicts. Current revision is required for fresh association. Revoked keys gain no dispatch or refresh authority.
 
@@ -24839,7 +24904,7 @@ HTTP 409: Stale revision, changed idempotent identity, archive or task associati
 
 ## Delete retained instruction content
 
-`DELETE /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}`
+`DELETE /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. Expected session revision is required; deletes only instruction content, retaining turn identity and immutable task association.
 
@@ -24950,7 +25015,7 @@ HTTP 409: Stale revision, changed idempotent identity, archive or task associati
 
 ## Bind a saved Video intent to a private turn
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent`
+`PUT /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/intent`
 
 Current workspace Write and actor-owned video session/turn/intent required. This only binds saved restoration identity and never dispatches, refreshes or automatically submits inference. One turn and one intent form an immutable association within the same owner/workspace. A fresh association requires expected session revision, an unarchived session and retained turn/intent content. Identical binding retries are side-effect-free even after revision advances, archive, deletion or expiry; changed binding conflicts. If the turn already references a task, it must equal the actual attempt from the original intent submission identity. Session reads resolve any saved original attempt directly from that identity after a lost submission/association response without another inference call. Pending/not-dispatched/unknown outcomes are never assumed free or safe to resend. Safe intent projection includes id, revision, model, content state and submission state, not raw request, key secret or private upstream references. Turn content deletion/expiry clears the bound retained intent copy under turn-to-intent locking while preserving submission tombstones, task evidence, billing and diagnostics. Intent and turn keep their original 30-day retention deadlines; neither is extended. Legacy Video intent APIs remain compatible and explicit submission continues through their submit endpoint. The bound intent is canonical for the actual restored Video draft/request, including model, controls and material inputs. The separately saved turn instruction may be a review note and is not represented as proof of the dispatched prompt; reads never substitute it for missing retained intent content.
 
@@ -26954,7 +27019,7 @@ HTTP 503: Qualified offer, original route or storage unavailable.
 
 ## Save an immutable video submission intent with typed Niu references
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+`PUT /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}`
 
 Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires workspace write permission and an active selected key with model access and allowed source. A fresh client-generated intent UUID binds the exact request, original key and funding mode. Identical retries return the same record; changed input or key under that UUID conflicts. No attempt, upstream call or reservation is created. The internal idempotency identity is server-generated and is never exposed; use the submit operation rather than legacy job creation. Saving reference drafts reads only scoped material metadata and schema constraints. It never resolves private Provider URIs, reads upload bytes, queries upstream, reserves funds, inspects media or grants Active readiness. Original Niu references and explicit consent remain in the canonical request digest; all runtime bindings are revalidated at submit.
 
@@ -27079,7 +27144,7 @@ HTTP 413: Request envelope exceeds 64 KiB.
 
 ## Restore a saved video intent and its historical job
 
-`GET /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+`GET /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}`
 
 Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.
 
@@ -27174,7 +27239,7 @@ HTTP 503: Required storage or route configuration is unavailable.
 
 ## List the current actor video intent index
 
-`GET /api/v1/organizations/{organization}/projects/{project}/video-intents`
+`GET /api/v1/organizations/{organization}/projects/{project}/video/intents`
 
 Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Newest-first creation order with UUID tie-breaker. The index contains only intent identity, revision, expiry and retention state; it intentionally exposes no request, model or key content. Index access remains available for deleting retained content after key revocation. Read each intent separately under current key authorization. A cursor must belong to this actor and workspace.
 
@@ -27296,7 +27361,7 @@ HTTP 503: Required storage or route configuration is unavailable.
 
 ## Erase saved intent content without cancelling its job
 
-`DELETE /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+`DELETE /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}`
 
 Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission and the expected revision. Replaying the same successful deletion is idempotent. Does not require an active selected key. Deleted identities cannot be saved or submitted again.
 
@@ -27431,7 +27496,7 @@ HTTP 503: Required storage or route configuration is unavailable.
 
 ## Explicitly submit or replay an immutable saved video intent
 
-`POST /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit`
+`POST /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit`
 
 Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission, matching retained revision and current key/model/source authorization. Uses only the saved request and original rotation lineage. Rechecks configured video admission and rejects a changed owner-funded/customer funding mode before a new dispatch. Concurrent and restarted calls use one original submission identity. Interrupted original preparation is read back, never assumed safe to dispatch again. HTTP 202 can represent unresolved submission and is not a completed generation or settled charge. Fresh submissions use the same 24-hour inspected-request and Niu creation-response Logs capture as direct creation, with x-niu-log-payloads: false opt-out. Capture uses the saved inspected video request, not this revision-only submit body. Replay does not create or restore capture.
 
@@ -27840,7 +27905,7 @@ HTTP 503: Storage unavailable
 
 ## Create a Provider asset group
 
-`POST /v1/media/asset-groups`
+`POST /v1/media/groups`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.
 
@@ -27937,7 +28002,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## Update Provider group metadata
 
-`PATCH /v1/media/asset-groups/{id}`
+`PATCH /v1/media/groups/{id}`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness.
 
@@ -28046,7 +28111,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## Delete a Provider asset group
 
-`DELETE /v1/media/asset-groups/{id}`
+`DELETE /v1/media/groups/{id}`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness. Group deletion is destructive and includes its Provider assets.
 
@@ -28448,7 +28513,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## List saved workspace Provider groups
 
-`GET /v1/media/asset-groups`
+`GET /v1/media/groups`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.
 
@@ -28623,7 +28688,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## Read a saved Provider group
 
-`GET /v1/media/asset-groups/{id}`
+`GET /v1/media/groups/{id}`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.
 
@@ -28783,7 +28848,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## Read a saved Provider mutation operation
 
-`GET /v1/media/asset-operations/{id}`
+`GET /v1/media/operations/{id}`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation.
 
@@ -28863,7 +28928,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## Refresh one owned Provider group
 
-`POST /v1/media/asset-groups/{id}/refresh`
+`POST /v1/media/groups/{id}/refresh`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.
 
@@ -29023,7 +29088,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## List saved Provider mutation operations
 
-`GET /v1/media/asset-operations`
+`GET /v1/media/operations`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.
 
@@ -29127,7 +29192,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## Read a saved Provider operation by request idempotency UUID
 
-`GET /v1/media/asset-operations/by-idempotency/{id}`
+`GET /v1/media/operations/by-idempotency/{id}`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.
 
@@ -29209,7 +29274,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 ## Prepare a native material operation without dispatch
 
-`POST /v1/media/asset-operations/prepare`
+`POST /v1/media/operations/prepare`
 
 Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.
 
@@ -29325,7 +29390,7 @@ HTTP 503: Storage or configuration unavailable
 
 ## Explicitly dispatch an existing native material preparation
 
-`POST /v1/media/asset-operations/{id}/dispatch`
+`POST /v1/media/operations/{id}/dispatch`
 
 Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.
 
@@ -29450,7 +29515,7 @@ HTTP 503: Storage or configuration unavailable
 
 ## Cancel an unclaimed native material preparation
 
-`POST /v1/media/asset-operations/{id}/cancel`
+`POST /v1/media/operations/{id}/cancel`
 
 Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.
 
@@ -29538,7 +29603,7 @@ HTTP 503: Storage or configuration unavailable
 
 ## Abandon an unclaimed native operation after key expiry
 
-`POST /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel`
+`POST /api/v1/organizations/{organization}/projects/{project}/media/operations/{id}/cancel`
 
 Current member workspace Write permission required, independent of inference-key expiry or revocation. Native operation history is workspace-shared. Exact workspace, Niu operation and immutable group model binding are checked under group-first locks. Only prepared becomes not_sent; unknown is never resolved, resent or canceled. No Provider client, calls, route reenabling or inference authority restoration. Repeated not_sent cancellation is unchanged. Original key and private account binding remain immutable.
 
@@ -29754,7 +29819,7 @@ HTTP 409: Original key does not belong to this workspace.
 
 ## List historical native material operations
 
-`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operations`
+`GET /api/v1/organizations/{organization}/projects/{project}/media/operations`
 
 Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. Newest-first creation time and UUID tie-breaker with exclusive cursor pagination. Validation and page share one bounded database snapshot; keep all filters fixed. This is a live history, not a fixed export snapshot.
 
@@ -29903,7 +29968,7 @@ HTTP 503: Bounded storage unavailable
 
 ## Read historical native material operations
 
-`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}`
+`GET /api/v1/organizations/{organization}/projects/{project}/media/operations/{id}`
 
 Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account.
 
@@ -30028,7 +30093,7 @@ HTTP 503: Bounded storage unavailable
 
 ## Read historical native material operations
 
-`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}`
+`GET /api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}`
 
 Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. The path id is the original canonical nonnil request idempotency UUID, not an operation reference.
 
@@ -30225,7 +30290,7 @@ HTTP 503: Storage, selectable credential, Provider qualification or native confi
 
 ## Create upstream human verification session
 
-`POST /v1/media/verification-sessions`
+`POST /v1/media/verifications`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Forwards only caller-supplied optional subject_name and return_url to the upstream H5 service. Exactly one creation follows a durable claim. All after-send failures remain unknown without automatic retry. A created session is not human completion or a local liveness approval. Token and H5 URL are encrypted and absent from ordinary metadata and logs.
 
@@ -30328,7 +30393,7 @@ HTTP 503: Credential, encrypted content or bounded storage unavailable
 
 ## List saved verification sessions
 
-`GET /v1/media/verification-sessions`
+`GET /v1/media/verifications`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local owned metadata only; no global upstream discovery, H5 URL, token or raw response.
 
@@ -30428,7 +30493,7 @@ HTTP 503: Credential, encrypted content or bounded storage unavailable
 
 ## Read saved verification session
 
-`GET /v1/media/verification-sessions/{id}`
+`GET /v1/media/verifications/{id}`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local saved status only, with known expiry reflected; no token, H5 URL or upstream request.
 
@@ -30506,7 +30571,7 @@ HTTP 503: Credential, encrypted content or bounded storage unavailable
 
 ## Get authenticated upstream verification link
 
-`GET /v1/media/verification-sessions/{id}/link`
+`GET /v1/media/verifications/{id}/link`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Explicit authenticated disclosure of the genuine external H5 URL to the current authorized workspace. Known expiry is checked before disclosure; absent upstream expiry is not replaced with invented entitlement. Only waiting/processing sessions expose a link. No raw BytedToken field, anonymous NIU link or local biometric processing. Cache-Control no-store and Referrer-Policy no-referrer.
 
@@ -30611,7 +30676,7 @@ HTTP 503: Credential, encrypted content or bounded storage unavailable
 
 ## Refresh upstream verification session
 
-`POST /v1/media/verification-sessions/{id}/refresh`
+`POST /v1/media/verifications/{id}/refresh`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Empty body only. One explicit bounded query for an active genuine saved token. Upstream resolution can create a group, so a durable query claim prevents concurrent or uncertain replay. In-flight or after-send uncertain queries are exposed as unknown. Genuine waiting/processing results permit a later explicit query. Other states return unchanged without an upstream call. Only actual decoded verified GroupId binds a person group; no fake completion or local detector.
 
@@ -39993,6 +40058,13 @@ Local `#/components/schemas/…` references resolve to these definitions.
       ],
       "format": "uuid",
       "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
     }
   }
 }
@@ -40166,7 +40238,9 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "active_key_count",
     "requests_30d",
     "requests_by_day",
-    "last_request_at_ms"
+    "last_request_at_ms",
+    "slug",
+    "slug_aliases"
   ],
   "properties": {
     "id": {
@@ -40180,7 +40254,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "string",
       "maxLength": 81,
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Immutable routing reference; never a display label or authorization grant."
+      "description": "Deprecated compatibility alias for slug.",
+      "deprecated": true
     },
     "organization_id": {
       "type": "string",
@@ -40235,6 +40310,19 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "format": "int64"
+    },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+    },
+    "slug_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Previously issued slugs accepted for existing bookmarks."
     }
   }
 }
@@ -40253,7 +40341,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "expires_at_ms",
     "last_used_at_ms",
     "revoked",
-    "expired"
+    "expired",
+    "slug"
   ],
   "properties": {
     "id": {
@@ -40295,6 +40384,12 @@ Local `#/components/schemas/…` references resolve to these definitions.
     },
     "expired": {
       "type": "boolean"
+    },
+    "slug": {
+      "type": "string",
+      "maxLength": 48,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable readable slug for product URLs. Renaming preserves it."
     }
   }
 }

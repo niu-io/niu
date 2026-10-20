@@ -1,12 +1,12 @@
 ---
 title: "List saved workspace Provider groups"
-description: "GET /v1/media/asset-groups"
+description: "GET /v1/media/groups"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/media/asset-groups`
+`GET /v1/media/groups`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Lists only locally saved owned rows; it never performs a global Provider list request.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/asset-groups" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/groups" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

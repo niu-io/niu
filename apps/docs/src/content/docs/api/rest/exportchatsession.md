@@ -1,12 +1,12 @@
 ---
 title: "Export one owned saved conversation"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/chats/{id}/export"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export`
+`GET /api/v1/organizations/{organization}/projects/{project}/chats/{id}/export`
 
 Requires workspace read access and the authenticated conversation owner. Reads durable content directly, including sessions outside the latest-100 list. Excludes internal identifiers, settings, diagnostic errors and accounting. Conversation and attachment content is deliberately included and may contain user-supplied sensitive text. Legacy single-turn sessions become one turn. Does not export request Logs or billing evidence.
 
@@ -29,7 +29,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chats/{id}/export" \
   -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 

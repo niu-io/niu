@@ -228,6 +228,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [ProviderAccountInput](/docs/api/sdk/provideraccountinput/)
 - [ProviderAssetVideoInput](/docs/api/sdk/providerassetvideoinput/)
 - [ProviderBusiness](/docs/api/sdk/providerbusiness/)
+- [ProviderBusinessCreate](/docs/api/sdk/providerbusinesscreate/)
 - [ProviderCatalogMetadata](/docs/api/sdk/providercatalogmetadata/)
 - [ProviderCatalogModel](/docs/api/sdk/providercatalogmodel/)
 - [ProviderConfigurationUsage](/docs/api/sdk/providerconfigurationusage/)

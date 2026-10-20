@@ -26,8 +26,8 @@ describe('WorkspaceKeyConnection', () => {
       if (url.startsWith('/api/v1/workspaces?')) {
         return new Response(JSON.stringify({
           data: [
-            { id: '00000000-0000-4000-8000-000000000101', name: 'Production Gateway', organization_name: 'Niu Cloud', route_slug: 'production-gateway', created_at_ms: 1760000000000 },
-            { id: '00000000-0000-4000-8000-000000000102', name: 'Staging Sandbox', organization_name: 'Niu Cloud', route_slug: 'staging-sandbox', created_at_ms: 1760005000000 },
+            { id: '00000000-0000-4000-8000-000000000101', name: 'Production Gateway', organization_name: 'Niu Cloud', slug: 'production-gateway', created_at_ms: 1760000000000 },
+            { id: '00000000-0000-4000-8000-000000000102', name: 'Staging Sandbox', organization_name: 'Niu Cloud', slug: 'staging-sandbox', created_at_ms: 1760005000000 },
           ],
           next_cursor: null,
         }), { status: 200, headers: { 'content-type': 'application/json' } });

@@ -1,12 +1,12 @@
 ---
 title: "Refresh upstream verification session"
-description: "POST /v1/media/verification-sessions/{id}/refresh"
+description: "POST /v1/media/verifications/{id}/refresh"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /v1/media/verification-sessions/{id}/refresh`
+`POST /v1/media/verifications/{id}/refresh`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Empty body only. One explicit bounded query for an active genuine saved token. Upstream resolution can create a group, so a durable query claim prevents concurrent or uncertain replay. In-flight or after-send uncertain queries are exposed as unknown. Genuine waiting/processing results permit a later explicit query. Other states return unchanged without an upstream call. Only actual decoded verified GroupId binds a person group; no fake completion or local detector.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/verification-sessions/{id}/refresh" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/verifications/{id}/refresh" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

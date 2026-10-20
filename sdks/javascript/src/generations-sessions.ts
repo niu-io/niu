@@ -48,7 +48,7 @@ function revision(value: string): string {
 }
 /** Existing Chat writes remain available through the guarded NiuAdminClient Chat methods. */
 export function createGenerationsSessionsClient(request: Request, organization: string, workspace: string) {
-  const root=`/organizations/${id(organization)}/projects/${id(workspace)}/generations-sessions`;
+  const root=`/organizations/${id(organization)}/projects/${id(workspace)}/generations`;
   const path=(session: string)=>`${root}/${id(session)}`;
   return {
     list(query: GenerationsSessionPageOptions = {}, options?: Options): Promise<VideoGenerationsSessionPage> {

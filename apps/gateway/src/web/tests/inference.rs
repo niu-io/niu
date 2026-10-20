@@ -1695,7 +1695,7 @@ async fn chat_session_api_persists_content_and_requires_authentication(pool: PgP
     let scope = state.store.default_workspace().await.unwrap();
     let app = router(state.clone());
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chat-sessions",
+        "/admin/v1/organizations/{}/projects/{}/chats",
         scope.organization_id, scope.project_id
     );
     let id = Uuid::new_v4();
@@ -1860,7 +1860,7 @@ async fn chat_session_api_persists_content_and_requires_authentication(pool: PgP
         (
             "Bearer niu-test-admin-token-that-is-long-1234",
             format!(
-                "/admin/v1/organizations/{}/projects/{}/chat-sessions/{id}/export",
+                "/admin/v1/organizations/{}/projects/{}/chats/{id}/export",
                 scope.organization_id, other.project_id
             ),
             StatusCode::NOT_FOUND,
@@ -3584,7 +3584,7 @@ async fn chat_session_archive_rejects_readers_inference_keys_and_other_owners(po
         .unwrap();
     let app = router(state.clone());
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chat-sessions",
+        "/admin/v1/organizations/{}/projects/{}/chats",
         scope.organization_id, scope.project_id
     );
     for (token, expected) in [

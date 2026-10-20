@@ -1,7 +1,7 @@
 # Model routing: current constraints and required implementation
 
 Status: evolving implementation design, 2026-10-10. The additive
-[text route pool implementation](../reference/model-route-pools.md) now provides
+[text route pool implementation](../reference/pools.md) now provides
 candidate administration and pre-dispatch selection, with bounded Chat failover
 for qualified OpenRouter authentication rejection. Broad business failover and
 paid pool qualification remain open.
@@ -88,7 +88,7 @@ polling must not create a replacement generation on another Supplier.
 | Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Implemented; actual priority/protocol/disabled-member selection, scope rejection and concurrent weighted traffic verified; long-run distribution open |
 | Safe failover orchestration | Distinct attempts, bounded retries and deadlines, no uncertain resubmission | Bounded Chat OpenRouter authentication-rejection successor implemented; broader adapters/statuses and failure combinations open |
 | Health and recovery | Defined cooldown and re-entry under concurrent gateways without a probe flood | Qualified canonical OpenRouter authentication-refusal cooldown implemented; cross-adapter qualification remains open |
-| Financial and performance qualification | Actual multi-candidate traffic reconciles reservations, charges and route attribution under contention | [Actual priced selection and in-flight membership change](../reference/model-route-pools.md) reconciled; broad contention/capacity remain unverified |
+| Financial and performance qualification | Actual multi-candidate traffic reconciles reservations, charges and route attribution under contention | [Actual priced selection and in-flight membership change](../reference/pools.md) reconciled; broad contention/capacity remain unverified |
 
 For delivery, verify current-input requests and independently inspect selected
 route records, HTTP results, actual usage, reservations and ledger artifacts.

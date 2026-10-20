@@ -7,6 +7,7 @@ use crate::{Store, StoreError, TenantScope};
 #[derive(sqlx::FromRow, serde::Serialize)]
 pub struct KeyView {
     pub id: Uuid,
+    pub slug: String,
     pub revision: i64,
     pub name: String,
     pub allowed_models: Vec<String>,
@@ -201,8 +202,8 @@ impl Store {
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         // Issuance and its audit record commit together; bound contention on
         // either write so a failed request never leaves an undisclosed key.
-        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at) VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $7::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $7 * interval '1 second' END)")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64))
+        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at, slug) VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $7::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $7 * interval '1 second' END,$8)")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64)).bind(crate::workspace_creation::workspace_slug_from_name(name))
             .execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'issued')")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut **tx).await?;
@@ -378,7 +379,7 @@ impl Store {
         let scope = principal.scope;
         let id = principal.key_id;
         let key: KeyView = sqlx::query_as(
-            "SELECT k.id,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -480,7 +481,7 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let key: Option<KeyView> = sqlx::query_as(
-            "SELECT k.id,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,(SELECT floor(extract(epoch FROM a.dispatched_at)*1000)::bigint FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -639,6 +640,7 @@ impl Store {
             };
             details.push(serde_json::json!({
                 "id": key.id,
+                "slug": key.slug,
                 "revision": key.revision,
                 "name": key.name,
                 "allowed_models": key.allowed_models,
@@ -730,7 +732,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT k.id,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,revision,name,allowed_models,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
+            "SELECT k.id,k.slug,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,slug,revision,name,allowed_models,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
         );
         query
             .push(" WHERE k.organization_id=")
@@ -841,7 +843,7 @@ impl Store {
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id FROM api_keys WHERE id=$3")
+        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id,slug) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id,slug FROM api_keys WHERE id=$3")
             .bind(id).bind(hash).bind(old).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut *tx).await?;

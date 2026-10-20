@@ -5,6 +5,22 @@ import RouterPending from './RouterPending';
 import RouteFallback from './RouteFallback';
 import Administration from './Administration';
 
+function providerSectionPath(section: string) {
+  return (section === 'configuration' || section === 'api-keys') ? 'keys' : section === 'consumption' ? 'usage' : section;
+}
+
+function LegacyProviderDetailSectionRedirect() {
+  const { provider, supplier } = useParams();
+  const location = useLocation();
+  return <Navigate replace to={`/providers/${encodeURIComponent(provider ?? supplier ?? '')}/usage${location.search}${location.hash}`} />;
+}
+
+function LegacyAdminProviderDetailRedirect({ section }: { section: string }) {
+  const { providerId = '' } = useParams();
+  const location = useLocation();
+  return <Navigate replace to={`/admin/providers/${encodeURIComponent(providerId)}/${section}${location.search}${location.hash}`} />;
+}
+
 function LegacyProviderOverviewRedirect() {
   const location = useLocation();
   return <Navigate to={'/admin/providers' + location.search + location.hash} replace />;
@@ -13,7 +29,7 @@ function LegacyProviderOverviewRedirect() {
 function LegacyProviderSectionRedirect() {
   const { section } = useParams();
   const location = useLocation();
-  return <Navigate to={`/admin/providers/${section}${location.search}${location.hash}`} replace />;
+  return <Navigate to={`/admin/providers/${providerSectionPath(section ?? "")}${location.search}${location.hash}`} replace />;
 }
 
 function LegacyAdminProviderSectionRedirect({ section }: { section: string }) {
@@ -22,20 +38,20 @@ function LegacyAdminProviderSectionRedirect({ section }: { section: string }) {
   const provider = search.get('provider') ?? search.get('supplier');
   search.delete('provider');
   search.delete('supplier');
-  return <Navigate to={`${provider ? `/admin/providers/${encodeURIComponent(provider)}/${section}` : '/admin/providers'}${search.size ? '?' + search.toString() : ''}${location.hash}`} replace />;
+  return <Navigate to={`${provider ? `/admin/providers/${encodeURIComponent(provider)}/${providerSectionPath(section)}` : '/admin/providers'}${search.size ? '?' + search.toString() : ''}${location.hash}`} replace />;
 }
 
 function LegacyAdminSupplierDetailRedirect() {
   const { supplierId, section } = useParams();
   const location = useLocation();
-  const suffix = section ? `/${section}` : '';
+  const suffix = section ? `/${providerSectionPath(section)}` : '';
   return <Navigate to={`/admin/providers/${encodeURIComponent(supplierId ?? '')}${suffix}${location.search}${location.hash}`} replace />;
 }
 
 function LegacyProviderAccountRedirect() {
   const { provider, section } = useParams();
   const location = useLocation();
-  const suffix = section ? `/${section}` : '';
+  const suffix = section ? `/${providerSectionPath(section)}` : '';
   return <Navigate to={`/providers/${encodeURIComponent(provider ?? '')}${suffix}${location.search}${location.hash}`} replace />;
 }
 
@@ -87,19 +103,31 @@ export const appRoutes: RouteObject[] = [{
         { path: 'providers/configuration', element: <LegacyProviderOverviewRedirect /> },
         { path: 'providers/manage/members', element: <LegacyProviderOverviewRedirect /> },
         { path: 'providers/manage/:section', element: <LegacyProviderSectionRedirect /> },
+        { path: 'providers/:provider/consumption', element: <LegacyProviderDetailSectionRedirect /> },
         { path: 'providers/:provider/:section?', lazy: async () => ({ Component: (await import('@/features/provider-business/page')).default }) },
         { path: 'admin', element: <Administration />, children: [
           { index: true, element: <Navigate to="providers" replace /> },
-          { path: 'commercial', lazy: async () => ({ Component: (await import('@/features/commercial-position/page')).default }) },
-          { path: 'customer-accounts', lazy: async () => ({ Component: (await import('@/features/customer-accounts/page')).default }) },
+          { path: 'commercial', element: <LegacyPathRedirect to="/admin/reports" /> },
+          { path: 'customer-accounts', element: <LegacyPathRedirect to="/admin/balances" /> },
+          { path: 'route-pools', element: <LegacyPathRedirect to="/admin/pools" /> },
+          { path: 'payment-gateways', element: <LegacyPathRedirect to="/admin/payments" /> },
+          { path: 'financial-reports', element: <LegacyPathRedirect to="/admin/reports" /> },
+          { path: 'reports', lazy: async () => ({ Component: (await import('@/features/commercial-position/page')).default }) },
+          { path: 'account-balances', element: <LegacyPathRedirect to="/admin/balances" /> },
+          { path: 'balances', lazy: async () => ({ Component: (await import('@/features/customer-accounts/page')).default }) },
           { path: 'pricing', lazy: async () => ({ Component: (await import('@/features/retail-pricing/page')).default }) },
-          { path: 'audit-logs', lazy: async () => ({ Component: (await import('@/features/audit-logs/page')).default }) },
+          { path: 'audit-logs', element: <LegacyPathRedirect to="/admin/audit" /> },
+          { path: 'audit', lazy: async () => ({ Component: (await import('@/features/audit-logs/page')).default }) },
           { path: 'branding', lazy: async () => ({ Component: (await import('@/features/branding/page')).default }) },
-          ...['payments'].map(path => ({ path, lazy: async () => ({ Component: (await import('@/features/platform/page')).default }) })),
+          { path: 'payments', lazy: async () => ({ Component: (await import('@/features/platform/page')).default }) },
           { path: 'providers', lazy: async () => ({ Component: (await import('@/features/providers/page')).default }) },
-          { path: 'route-pools', lazy: async () => ({ Component: (await import('@/features/route-pools/page')).default }) },
-          ...['overview', 'models', 'consumption', 'settlements', 'members', 'configuration'].map(section => ({ path: 'providers/' + section, element: <LegacyAdminProviderSectionRedirect section={section} /> })),
+          { path: 'model-pools', element: <LegacyPathRedirect to="/admin/pools" /> },
+          { path: 'pools', lazy: async () => ({ Component: (await import('@/features/route-pools/page')).default }) },
+          ...['overview', 'models', 'usage', 'consumption', 'settlements', 'members', 'keys', 'api-keys', 'configuration'].map(section => ({ path: 'providers/' + section, element: <LegacyAdminProviderSectionRedirect section={section} /> })),
           { path: 'providers/:providerId', lazy: async () => ({ Component: (await import('@/features/providers/page')).default }) },
+          { path: 'providers/:providerId/api-keys', element: <LegacyAdminProviderDetailRedirect section="keys" /> },
+          { path: 'providers/:providerId/configuration', element: <LegacyAdminProviderDetailRedirect section="keys" /> },
+          { path: 'providers/:providerId/consumption', element: <LegacyAdminProviderDetailRedirect section="usage" /> },
           { path: 'providers/:providerId/:section', lazy: async () => ({ Component: (await import('@/features/providers/page')).default }) },
           { path: 'suppliers', element: <LegacyProviderOverviewRedirect /> },
           ...['overview', 'models', 'consumption', 'settlements', 'members', 'configuration'].map(section => ({ path: 'suppliers/' + section, element: <LegacyAdminProviderSectionRedirect section={section} /> })),
@@ -108,6 +136,7 @@ export const appRoutes: RouteObject[] = [{
         ] },
         { path: 'suppliers', element: <LegacyProviderOverviewRedirect /> },
         { path: 'suppliers/manage/:section', element: <LegacyProviderSectionRedirect /> },
+        { path: 'suppliers/:supplier/consumption', element: <LegacyProviderDetailSectionRedirect /> },
         { path: 'suppliers/:supplier/:section?', lazy: async () => ({ Component: (await import('@/features/provider-business/page')).default }) },
         { path: 'supplier-accounts', element: <LegacyProviderOverviewRedirect /> },
         { path: 'supplier-accounts/manage/:section', element: <LegacyProviderSectionRedirect /> },

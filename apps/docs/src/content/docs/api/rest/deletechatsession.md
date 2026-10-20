@@ -1,12 +1,12 @@
 ---
 title: "Delete an owned Chat session in a workspace"
-description: "DELETE /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}"
+description: "DELETE /api/v1/organizations/{organization}/projects/{project}/chats/{id}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
+`DELETE /api/v1/organizations/{organization}/projects/{project}/chats/{id}`
 
 Requires write access to the workspace. Deletion is scoped to the authenticated owner and workspace. Missing or already deleted sessions return the same result without disclosing another owner's history. Does not delete request accounting or billing records.
 
@@ -29,7 +29,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chats/{id}" \
   -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 

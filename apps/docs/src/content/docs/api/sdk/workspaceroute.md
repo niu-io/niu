@@ -14,6 +14,8 @@ export type WorkspaceRoute = {
     id: string;
     organization_id: string;
     name: string;
+    slug: string;
+    slug_aliases: string[]; /** @deprecated Use slug. */
     route_slug: string;
 };
 ```

@@ -1,12 +1,12 @@
 ---
 title: "Read a mutable personal Video composer"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/video-draft"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/video/draft"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/video-draft`
+`GET /api/v1/organizations/{organization}/projects/{project}/video/draft`
 
 One mutable actor-private Video composer per workspace. Operators are isolated; installation credentials share the installation actor. Read requires workspace Read permission. Absent state returns null payload and revision zero. Retention is 30 days after the last confirmed edit; expired content is hidden immediately and background maintenance erases it. Reads expose the expiry tombstone revision before maintenance. Saved key/model/reference identities are context only, including unavailable historical resources; they confer no current access or readiness. No inference, Provider calls, reservation, media reads or inspection occur.
 
@@ -29,7 +29,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/video-draft" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/video/draft" \
   -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 

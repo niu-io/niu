@@ -22,6 +22,7 @@ export type {
 
 export type ProjectKey = {
   id: string;
+  slug?: string;
   revision?: number;
   name: string;
   allowed_models: string[];

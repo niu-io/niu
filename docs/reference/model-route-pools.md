@@ -20,10 +20,10 @@ handler-generated platform administration operations (installation credentials o
 an explicitly authorized platform administrator; ordinary company/workspace
 ownership does not grant access):
 
-- `GET /admin/v1/model-route-pools?alias=...` reads a pool.
-- `PUT /admin/v1/model-route-pools` creates or updates a pool with `alias`,
+- `GET /admin/v1/pools?alias=...` reads a pool.
+- `PUT /admin/v1/pools` creates or updates a pool with `alias`,
   `organization_id`, `enabled`, `expected_revision` and `candidates`.
-- `GET /admin/v1/model-route-pools/history?alias=...&before_revision=...` returns
+- `GET /admin/v1/pools/history?alias=...&before_revision=...` returns
   at most 100 immutable revisions in descending order.
 
 Start with expected revision zero. Updates must match the current revision.
@@ -403,7 +403,7 @@ it does not qualify every export or a platform routing-diagnostics API.
 
 ## Discover and paginate managed pools
 
-`GET /admin/v1/model-route-pools/index` lists current shared and personal pool
+`GET /admin/v1/pools/index` lists current shared and personal pool
 configurations for installation credentials or explicitly granted platform
 administrators. Ordinary company ownership and inference keys do not grant access.
 Enabled and disabled pools are included. Results contain the same pool objects as

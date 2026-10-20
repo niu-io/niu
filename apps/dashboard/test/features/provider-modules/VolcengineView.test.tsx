@@ -103,7 +103,7 @@ it('exposes material inspection, rename, and deletion plus group deletion with r
       if (url.includes('/media/verification')) {
         return Response.json({ data: [], next_cursor: null });
       }
-      if (url.includes('/media/asset-operations/prepare') && method === 'POST') {
+      if (url.includes('/media/operations/prepare') && method === 'POST') {
         latestOpId = crypto.randomUUID();
         return Response.json({
           data: {
@@ -122,7 +122,7 @@ it('exposes material inspection, rename, and deletion plus group deletion with r
           asset: null,
         });
       }
-      if (url.includes(`/media/asset-operations/${latestOpId}/dispatch`) && method === 'POST') {
+      if (url.includes(`/media/operations/${latestOpId}/dispatch`) && method === 'POST') {
         dispatchedBodies.push(body);
         if (body.action === 'rename_asset') {
           assetRecord = {
@@ -166,7 +166,7 @@ it('exposes material inspection, rename, and deletion plus group deletion with r
           asset: assetRecord,
         });
       }
-      if (url.includes('/media-operations') || url.includes('/media/asset-operations')) {
+      if (url.includes('/media-operations') || url.includes('/media/operations')) {
         return Response.json({ data: operations, next_cursor: null });
       }
       if (url.includes(`/media/assets/${assetId}`) && method === 'GET') {
@@ -175,7 +175,7 @@ it('exposes material inspection, rename, and deletion plus group deletion with r
       if (url.includes('/media/assets')) {
         return Response.json({ data: [assetRecord], next_cursor: null });
       }
-      if (url.includes('/media/asset-groups')) {
+      if (url.includes('/media/groups')) {
         return Response.json({ data: [groupRecord], next_cursor: null });
       }
       throw new Error(`Unhandled fetch: ${method} ${url}`);

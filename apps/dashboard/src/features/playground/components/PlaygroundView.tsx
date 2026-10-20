@@ -427,7 +427,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const exportController = useRef<AbortController | null>(null);
   const sessionTitle = (item: SavedComparison) => item.title || item.prompt.split('\n')[0];
 
-  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chat-sessions`;
+  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats`;
   const historyIdentity = `${token}\u0000${historyEndpoint}`;
   const historyScope = useRef(historyIdentity);
   historyScope.current = historyIdentity;
@@ -506,7 +506,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState('');
   const [historyRevision, setHistoryRevision] = useState(0);
-  const draft=useChatDraft({token,endpoint:`/api/v1/organizations/${organization}/projects/${workspaceId}/chat-draft`,
+  const draft=useChatDraft({token,endpoint:`/api/v1/organizations/${organization}/projects/${workspaceId}/chats/draft`,
     identity:JSON.stringify([token,organization,workspaceId,session?.operator?.id]),
     enabled:Boolean(token&&organization&&workspaceId&&!historyLoading&&!historyError),
     value:{sessionId:activeComparisonId,prompt,models:selectedModels,attachments,settings:{systemPrompt,maxTokens,temperature,logPayloads}},
@@ -613,7 +613,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     ? `/workspaces/${workspacePathSegment(workspace, workspaces)}`
     : '/workspaces/default';
   const sessionKeys = chatKeys.filter(key => key.organizationId === organization && key.projectId === workspaceId);
-  const [workspaceKeys, setWorkspaceKeys] = useState<Array<{id: string; name: string; allowed_models?: string[]; revoked: boolean; expired: boolean}>>([]);
+  const [workspaceKeys, setWorkspaceKeys] = useState<Array<{id: string; slug?: string; name: string; allowed_models?: string[]; revoked: boolean; expired: boolean}>>([]);
   const [keyLoadError, setKeyLoadError] = useState('');
   const [workspaceKeysReady, setWorkspaceKeysReady] = useState(false);
   useEffect(() => {
@@ -640,12 +640,12 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     : modelAliases, [modelAliases, allowedModels]);
   const apiKey = managedKey ? token : selectedKey?.token ?? manualKey.trim();
   const chatEndpoint = '/v1/chat/completions';
-  const keyIds = keyChoices.map(key => key.id).join('\u0000');
+  const keyIds = keyChoices.map(key => key.id).join('\u0000') + '\u0000' + workspaceKeys.map(key => key.slug ?? '').join('\u0000');
   const preferredKey = new URLSearchParams(location.search).get('key');
   const preferredModel = new URLSearchParams(location.search).get('model');
 
   useEffect(() => {
-    const preferred = preferredKey;
+    const preferred = workspaceKeys.find(key => key.slug === preferredKey)?.id ?? preferredKey;
     if (preferred && keyChoices.some(key => key.id === preferred)) setSelectedKeyId(preferred);
     else if (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId)) setSelectedKeyId(keyChoices[0]?.id ?? 'manual');
   }, [preferredKey, keyIds]);

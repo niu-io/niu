@@ -1,12 +1,12 @@
 ---
 title: "Prepare a native material operation without dispatch"
-description: "POST /v1/media/asset-operations/prepare"
+description: "POST /v1/media/operations/prepare"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /v1/media/asset-operations/prepare`
+`POST /v1/media/operations/prepare`
 
 Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Commits the existing immutable request hash and resource binding without a Provider call. Same UUID and changed payload returns409. Full original payload is required for later dispatch; source URLs are not retained. Preparation is not Provider readiness.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path and required-header placeholders with the values required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/asset-operations/prepare" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/operations/prepare" \
   -H "Authorization: Bearer $NIU_API_KEY" \
   -H 'Idempotency-Key: <IDEMPOTENCY_KEY>' \
   -H 'Content-Type: application/json' \

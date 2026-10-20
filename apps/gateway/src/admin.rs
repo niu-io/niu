@@ -57,7 +57,15 @@ fn default_billing_currency() -> String {
 #[serde(deny_unknown_fields)]
 pub struct WorkspaceInput {
     name: String,
+    slug: Option<String>,
+    spending_limit: Option<WorkspaceCreationLimitInput>,
     organization_id: Option<Uuid>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkspaceCreationLimitInput {
+    currency: String,
+    limit_nanos: String,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -321,7 +329,9 @@ pub async fn default_workspace(
 ///                 "id",
 ///                 "organization_id",
 ///                 "name",
-///                 "route_slug"
+///                 "route_slug",
+///                 "slug",
+///                 "slug_aliases"
 ///               ],
 ///               "properties": {
 ///                 "id": {
@@ -338,7 +348,20 @@ pub async fn default_workspace(
 ///                 "route_slug": {
 ///                   "type": "string",
 ///                   "maxLength": 81,
-///                   "description": "Immutable routing reference, never a display label or authorization grant."
+///                   "description": "Deprecated compatibility alias for slug.",
+///                   "deprecated": true
+///                 },
+///                 "slug": {
+///                   "type": "string",
+///                   "maxLength": 81,
+///                   "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+///                 },
+///                 "slug_aliases": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "string"
+///                   },
+///                   "description": "Previously issued slugs accepted for existing bookmarks."
 ///                 }
 ///               }
 ///             }
@@ -365,10 +388,10 @@ pub async fn workspace_route(
 ) -> Result<([(axum::http::HeaderName, &'static str); 1], Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
     if route_slug.is_empty()
-        || route_slug.len() > 81
+        || route_slug.chars().count() > 81
         || !route_slug
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            .chars()
+            .all(|c| c.is_alphanumeric() && !c.is_uppercase() || c == '-')
     {
         return Err(ApiError::not_found());
     }
@@ -501,7 +524,9 @@ pub struct WorkspacePageQuery {
 ///         "active_key_count",
 ///         "requests_30d",
 ///         "requests_by_day",
-///         "last_request_at_ms"
+///         "last_request_at_ms",
+///         "slug",
+///         "slug_aliases"
 ///       ],
 ///       "properties": {
 ///         "id": {
@@ -515,7 +540,8 @@ pub struct WorkspacePageQuery {
 ///           "type": "string",
 ///           "maxLength": 81,
 ///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-///           "description": "Immutable routing reference; never a display label or authorization grant."
+///           "description": "Deprecated compatibility alias for slug.",
+///           "deprecated": true
 ///         },
 ///         "organization_id": {
 ///           "type": "string",
@@ -570,6 +596,19 @@ pub struct WorkspacePageQuery {
 ///             "null"
 ///           ],
 ///           "format": "int64"
+///         },
+///         "slug": {
+///           "type": "string",
+///           "maxLength": 81,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///           "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+///         },
+///         "slug_aliases": {
+///           "type": "array",
+///           "items": {
+///             "type": "string"
+///           },
+///           "description": "Previously issued slugs accepted for existing bookmarks."
 ///         }
 ///       }
 ///     }
@@ -911,7 +950,7 @@ pub async fn delete_workspace(
 ///         "description": "Company scope is not permitted, or the workspace from the original idempotent creation has been deleted."
 ///       },
 ///       "409": {
-///         "description": "Idempotency-Key already belongs to different creation input."
+///         "description": "The requested slug is already in use, or Idempotency-Key belongs to different creation input."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input."
@@ -939,6 +978,23 @@ pub async fn delete_workspace(
 ///           ],
 ///           "format": "uuid",
 ///           "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
+///         },
+///         "spending_limit": {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": ["currency", "limit_nanos"],
+///           "properties": {
+///             "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+///             "limit_nanos": {"type": "string", "pattern": "^[0-9]+$", "description": "Nonnegative nanounits, at most 9223372036854775807."}
+///           },
+///           "description": "Optional lifetime retail cap in an existing company account currency. Requires an owner or installation administrator. Saved atomically with the workspace; omitted means no limit."
+///         },
+///         "slug": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 48,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///           "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
 ///         }
 ///       }
 ///     }
@@ -952,6 +1008,30 @@ pub async fn create_workspace(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
     validate_name(&input.name)?;
+    if let Some(slug) = &input.slug {
+        if slug.is_empty()
+            || slug.chars().count() > 48
+            || slug == "default"
+            || !slug
+                .bytes()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+            || slug.starts_with('-')
+            || slug.ends_with('-')
+            || slug.contains("--")
+        {
+            return Err(ApiError::invalid_request(
+                "Slug must be 1–48 lowercase letters, numbers, or single hyphens; default is reserved.",
+            ));
+        }
+    }
+    let spending_limit = input.spending_limit.map(|limit| {
+        if limit.currency.len() != 3 || !limit.currency.bytes().all(|c| c.is_ascii_uppercase())
+            || limit.limit_nanos.is_empty() || !limit.limit_nanos.bytes().all(|c| c.is_ascii_digit()) {
+            return Err(ApiError::invalid_request("Enter a currency and a nonnegative exact spending limit."));
+        }
+        let limit_nanos = limit.limit_nanos.parse::<i64>().map_err(|_| ApiError::invalid_request("Spending limit exceeds the supported range."))?;
+        Ok(niu_storage::WorkspaceCreationLimit { currency: limit.currency, limit_nanos })
+    }).transpose()?;
     let creation_key =
         creation_idempotency_key(&headers)?.map(|key_sha256| niu_storage::WorkspaceCreationKey {
             actor: audit_actor(authorization),
@@ -973,9 +1053,11 @@ pub async fn create_workspace(
     };
     let scope = state
         .store
-        .create_workspace_with_key(
+        .create_workspace_with_limit(
             organization_id,
             &input.name,
+            input.slug.as_deref(),
+            spending_limit,
             creation_key,
             match authorization {
                 crate::state::AdminAuthorization::Installation => None,
@@ -1260,6 +1342,7 @@ pub async fn project(
         headers,
         Json(WorkspaceInput {
             name: input.name,
+            slug: None,
             organization_id: Some(organization_id),
         }),
     )
@@ -2308,7 +2391,8 @@ pub struct KeyListQuery {
 ///         "expires_at_ms",
 ///         "last_used_at_ms",
 ///         "revoked",
-///         "expired"
+///         "expired",
+///         "slug"
 ///       ],
 ///       "properties": {
 ///         "id": {
@@ -2350,6 +2434,12 @@ pub struct KeyListQuery {
 ///         },
 ///         "expired": {
 ///           "type": "boolean"
+///         },
+///         "slug": {
+///           "type": "string",
+///           "maxLength": 48,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///           "description": "Stable readable slug for product URLs. Renaming preserves it."
 ///         }
 ///       }
 ///     },

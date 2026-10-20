@@ -84,7 +84,8 @@ Content type: `application/json`.
         "website_url",
         "logo_url",
         "id",
-        "revision"
+        "revision",
+        "slug"
       ],
       "properties": {
         "name": {
@@ -106,6 +107,12 @@ Content type: `application/json`.
         "revision": {
           "type": "integer",
           "format": "int64"
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 48,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Stable readable slug for product URLs. Renaming preserves it."
         }
       }
     }

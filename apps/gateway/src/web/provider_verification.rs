@@ -141,7 +141,7 @@ fn failure(error: FastRouterActionError) -> (Option<u16>, Option<String>, bool) 
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/verification-sessions",
+///   "path": "/v1/media/verifications",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createMediaVerificationSession",
@@ -427,7 +427,7 @@ pub(super) async fn create(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/verification-sessions",
+///   "path": "/v1/media/verifications",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listMediaVerificationSessions",
@@ -556,7 +556,7 @@ pub(super) async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/verification-sessions/{id}",
+///   "path": "/v1/media/verifications/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getMediaVerificationSession",
@@ -654,7 +654,7 @@ pub(super) async fn get(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/verification-sessions/{id}/link",
+///   "path": "/v1/media/verifications/{id}/link",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getMediaVerificationLink",
@@ -781,7 +781,7 @@ pub(super) async fn link(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/verification-sessions/{id}/refresh",
+///   "path": "/v1/media/verifications/{id}/refresh",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "refreshMediaVerificationSession",

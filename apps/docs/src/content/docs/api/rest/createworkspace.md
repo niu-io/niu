@@ -79,6 +79,13 @@ Location: **header**. Optional. One header containing visible ASCII characters. 
       ],
       "format": "uuid",
       "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
     }
   }
 }
@@ -106,7 +113,9 @@ Content type: `application/json`.
     "active_key_count",
     "requests_30d",
     "requests_by_day",
-    "last_request_at_ms"
+    "last_request_at_ms",
+    "slug",
+    "slug_aliases"
   ],
   "properties": {
     "id": {
@@ -120,7 +129,8 @@ Content type: `application/json`.
       "type": "string",
       "maxLength": 81,
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Immutable routing reference; never a display label or authorization grant."
+      "description": "Deprecated compatibility alias for slug.",
+      "deprecated": true
     },
     "organization_id": {
       "type": "string",
@@ -175,6 +185,19 @@ Content type: `application/json`.
         "null"
       ],
       "format": "int64"
+    },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+    },
+    "slug_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Previously issued slugs accepted for existing bookmarks."
     }
   }
 }
@@ -198,7 +221,7 @@ Company scope is not permitted, or the workspace from the original idempotent cr
 
 ### HTTP 409
 
-Idempotency-Key already belongs to different creation input.
+The requested slug is already in use, or Idempotency-Key belongs to different creation input.
 
 ### HTTP 422
 

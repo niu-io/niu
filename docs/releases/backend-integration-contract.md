@@ -18,7 +18,7 @@ merchant or upstream integration to be activated.
 The text-only backend dependency identified by the frontend recovery audit now
 has implemented actor-owned routes. See the [complete contract and retention
 rules](../reference/video-submission-intents.md) and the generated handler OpenAPI.
-Under `/admin/v1/organizations/{organization}/projects/{project}/video-intents`:
+Under `/admin/v1/organizations/{organization}/projects/{project}/video/intents`:
 
 - `GET` lists the actor's metadata index with scoped cursor pagination.
 - `PUT /{intent}` saves an immutable validated request and original selected-key
@@ -561,9 +561,9 @@ schemas rather than treating the older table as a complete current inventory.
 | Interface | Contract and SDK | Required frontend behavior |
 | --- | --- | --- |
 | Workspace key pages: `GET W/keys?limit=...&after=...` | `listWorkspaceKeyPage`; [paging contract](../reference/workspace-key-directory.md) | Follow the scoped cursor; omission preserves the legacy full-list mode. Never treat the first page as all keys. |
-| Saved Chat pages: `GET W/chat-sessions?limit=...&after=...` | `listChatSessionPage`; [history paging](../reference/chat-history-pagination.md) | Follow next_cursor; body bounds can shorten a page below the requested row count. Preserve stale-cursor 409 and capacity 413. |
-| Saved Chat detail: `GET W/chat-sessions/{id}` | `getChatSession`; [detail contract](../reference/chat-session-detail.md) | Read a session directly even outside the latest list window. Archive state, revision and guardedWrites are server-owned. |
-| Guarded Chat save: `PUT W/chat-sessions/{id}` | `saveChatSessionIfCurrent`; [write guards](../reference/chat-session-write-guards.md) | Use null for create-only and the fetched revision for updates. Reconcile 409; legacy unguarded saves cannot overwrite protected sessions. An older server may save without confirming guards, so reload on an unconfirmed SDK response. |
+| Saved Chat pages: `GET W/chats?limit=...&after=...` | `listChatSessionPage`; [history paging](../reference/chat-history-pagination.md) | Follow next_cursor; body bounds can shorten a page below the requested row count. Preserve stale-cursor 409 and capacity 413. |
+| Saved Chat detail: `GET W/chats/{id}` | `getChatSession`; [detail contract](../reference/chat-session-detail.md) | Read a session directly even outside the latest list window. Archive state, revision and guardedWrites are server-owned. |
+| Guarded Chat save: `PUT W/chats/{id}` | `saveChatSessionIfCurrent`; [write guards](../reference/chat-session-write-guards.md) | Use null for create-only and the fetched revision for updates. Reconcile 409; legacy unguarded saves cannot overwrite protected sessions. An older server may save without confirming guards, so reload on an unconfirmed SDK response. |
 | Video observations: `GET /v1/video/jobs/{job}/observations`; `GET K/video/jobs/{job}/observations` | [observation contract](../reference/video-query-observations.md) and generated handler schemas | Preserve unknown billable quantity and customer charge. Observation availability does not establish paid settlement. |
 
 This update corrects documented no-expiration behavior and indexes newer

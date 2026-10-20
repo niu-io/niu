@@ -168,7 +168,7 @@ mod company_creation;
 mod company_directory;
 mod company_write_authorization;
 mod workspace_creation;
-pub use workspace_creation::WorkspaceCreationKey;
+pub use workspace_creation::{WorkspaceCreationKey, WorkspaceCreationLimit};
 mod billing;
 pub use billing::{CustomerCategoryRates, CustomerTariffPublication};
 mod customer_balance_grants;
@@ -264,9 +264,9 @@ pub use codex_report::{
 pub use keys::{IssuedKey, KeyView, Principal};
 pub use pricing::{PriceInput, TokenRates};
 pub use providers::{
-    ProviderMembership, ProviderOfferInput, ProviderOfferQualificationInput, ProviderOfferSchedule,
-    ProviderQualificationInput, ProviderQualificationRevocationInput, SupplierProfile,
-    SupplierProfileUpdate,
+    ProviderBusinessCreate, ProviderMembership, ProviderOfferInput,
+    ProviderOfferQualificationInput, ProviderOfferSchedule, ProviderQualificationInput,
+    ProviderQualificationRevocationInput, SupplierProfile, SupplierProfileUpdate,
 };
 
 mod request_payloads;
@@ -306,6 +306,8 @@ pub struct WorkspaceRoute {
     pub organization_id: Uuid,
     pub name: String,
     pub route_slug: String,
+    pub slug: String,
+    pub slug_aliases: Vec<String>,
 }
 
 #[derive(sqlx::FromRow, serde::Serialize)]
@@ -313,6 +315,8 @@ pub struct WorkspaceResource {
     pub id: Uuid,
     /// Stable routing reference. Never use as a display name or authorization.
     pub route_slug: String,
+    pub slug: String,
+    pub slug_aliases: Vec<String>,
     pub is_default: bool,
     pub name: String,
     pub organization_id: Uuid,
@@ -409,6 +413,8 @@ pub enum StoreError {
     InvalidObservation,
     #[error("database operation failed")]
     Database(#[from] sqlx::Error),
+    #[error("workspace slug is already in use")]
+    WorkspaceSlugTaken,
     #[error("database migration failed")]
     Migration(#[from] sqlx::migrate::MigrateError),
     #[error("record not found in tenant scope or transition already applied")]
@@ -658,7 +664,7 @@ impl Store {
         organization_id: Option<Uuid>,
         project_id: Option<Uuid>,
     ) -> Result<Option<WorkspaceRoute>, StoreError> {
-        Ok(sqlx::query_as("SELECT id,organization_id,name,route_slug FROM projects WHERE route_slug=$1 AND ($2::uuid IS NULL OR organization_id=$2) AND ($3::uuid IS NULL OR id=$3)")
+        Ok(sqlx::query_as("SELECT p.id,p.organization_id,p.name,p.route_slug,p.route_slug AS slug,ARRAY(SELECT a.slug FROM workspace_slug_aliases a WHERE a.project_id=p.id) AS slug_aliases FROM projects p WHERE (p.route_slug=$1 OR EXISTS(SELECT 1 FROM workspace_slug_aliases a WHERE a.project_id=p.id AND a.slug=$1)) AND ($2::uuid IS NULL OR p.organization_id=$2) AND ($3::uuid IS NULL OR p.id=$3)")
             .bind(route_slug)
             .bind(organization_id)
             .bind(project_id)
@@ -762,7 +768,7 @@ impl Store {
                     sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,'USD')")
                         .bind(Uuid::new_v4()).bind(organization_id).execute(&mut *tx).await?;
                 }
-                sqlx::query("INSERT INTO projects (id,organization_id,name) VALUES ($1,$2,'Default project')")
+                sqlx::query("INSERT INTO projects (id,organization_id,name) VALUES ($1,$2,'Default workspace')")
                     .bind(project_id).bind(organization_id).execute(&mut *tx).await?;
                 sqlx::query(
                     "INSERT INTO default_workspace (organization_id,project_id) VALUES ($1,$2)",

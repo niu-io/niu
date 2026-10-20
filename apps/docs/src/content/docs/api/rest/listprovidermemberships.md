@@ -78,7 +78,8 @@ Content type: `application/json`.
         "required": [
           "id",
           "name",
-          "role"
+          "role",
+          "slug"
         ],
         "properties": {
           "id": {
@@ -94,6 +95,12 @@ Content type: `application/json`.
               "manager",
               "viewer"
             ]
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 48,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable readable slug for product URLs. Renaming preserves it."
           }
         }
       }

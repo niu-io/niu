@@ -1,4 +1,5 @@
-import { Link, useSearchParams, useParams } from 'react-router';
+import { useProviderParams } from '@/app/provider-route';
+import { Link, useSearchParams } from 'react-router';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ProviderLogo from '@/components/ProviderLogo';
@@ -25,7 +26,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   refreshWorkspace: () => Promise<void>;
 }) {
   const [search] = useSearchParams();
-  const { providerId: routeProviderId, supplierId: routeSupplierId } = useParams();
+  const { providerId: routeProviderId, supplierId: routeSupplierId } = useProviderParams();
   const routeScopedId = routeProviderId ?? routeSupplierId;
   const providerId = routeScopedId ?? search.get('provider') ?? search.get('supplier');
   const connectionsPath = '/api/v1/vendors' + (providerId ? '?supplier=' + encodeURIComponent(providerId) : '');
@@ -390,7 +391,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const selectedOwnerName = selectedConnection?.provider?.name ?? selectedConnection?.supplier?.name;
 
   return <>
-    {providerId && <div className="supplier-section-heading">{!routeScopedId && <h2>API keys &amp; routes</h2>}<p>Configure API keys and the model routes they serve.</p></div>}
+    {providerId && <div className="supplier-section-heading">{!routeScopedId && <h2>API keys</h2>}<p>Configure API keys and the model routes they serve.</p></div>}
     <PageHeader title="Providers" action={canManage && <>{<Button type="button" className="header-icon-action" aria-label={providerId ? 'Add API key' : 'Add provider'} title={providerId ? 'Add API key' : 'Add provider'} onClick={() => { setError(''); setAddingConnection(true); }}><Router size={16} aria-hidden="true" /><span>{providerId ? 'Add API key' : 'Add provider'}</span></Button>}</>} />
     {error && !addingConnection && !editingConnection && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingConnections || loadingModels} onClick={() => void retryData()}>Retry</Button></div>}
     <div className="supplier-detail-layout">
@@ -404,7 +405,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       />}
       {!loadingConnections && selectedConnection ? <section className="supplier-detail-header" aria-labelledby="vendor-detail-title">
         <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedConnection)} size="large" /><div><h2 id="vendor-detail-title">{selectedConnection.name}</h2><p>{providerAdapterApiLabels[selectedConnection.adapter]}</p></div><span className={'vendor-status-badge' + (selectedConnection.enabled ? ' is-enabled' : '')}>{selectedConnection.enabled ? 'Enabled' : 'Disabled'}</span></div>
-        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>Model routes{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />Edit API key</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/route-pools">Route pools</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>Model catalog</Link></Button></div></div>
+        <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedConnection.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>Model routes{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingConnection(true); }}><Pencil size={15} />Edit API key</Button><Button asChild size="sm" variant="ghost"><Link to="/admin/pools">Model pools</Link></Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>Model catalog</Link></Button></div></div>
         {!selectedConnection.has_credential && <p className="error-text" role="status">No credential stored. Edit this API key to configure access.</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedConnection.id}`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedConnection.id}:cooldown`} token={token} vendorId={selectedConnection.id} />}

@@ -1,12 +1,12 @@
 ---
 title: "Get authenticated upstream verification link"
-description: "GET /v1/media/verification-sessions/{id}/link"
+description: "GET /v1/media/verifications/{id}/link"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/media/verification-sessions/{id}/link`
+`GET /v1/media/verifications/{id}/link`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Explicit authenticated disclosure of the genuine external H5 URL to the current authorized workspace. Known expiry is checked before disclosure; absent upstream expiry is not replaced with invented entitlement. Only waiting/processing sessions expose a link. No raw BytedToken field, anonymous NIU link or local biometric processing. Cache-Control no-store and Referrer-Policy no-referrer.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/verification-sessions/{id}/link" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/verifications/{id}/link" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

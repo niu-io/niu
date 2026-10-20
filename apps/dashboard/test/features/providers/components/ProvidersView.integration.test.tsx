@@ -113,13 +113,20 @@ describe('provider administration workflow', () => {
       {id:'provider/first',name:'First model',context_length:null},
       {id:'provider/second',name:'Second model',context_length:null},
     ]} catalogLoading={false} catalogError="" disabled={false} onCancel={() => {}} onSave={async () => {}} />);
-    await user.click(screen.getByLabelText('Find a provider model'));
+    await user.click(screen.getByLabelText('Upstream model'));
     await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'Second');
     expect(screen.queryByRole('menuitemradio', {name:/First model/})).toBeNull();
     await user.click(screen.getByRole('menuitemradio', {name:/Second model/}));
     expect((screen.getByLabelText('Niu model alias') as HTMLInputElement).value).toBe('provider/second');
-    expect((screen.getByLabelText('Upstream model ID') as HTMLInputElement).value).toBe('provider/second');
+    expect(screen.getByLabelText('Upstream model').textContent).toContain('provider/second');
     expect(screen.queryByRole('menu')).toBeNull();
+    await user.clear(screen.getByLabelText('Niu model alias'));
+    await user.type(screen.getByLabelText('Niu model alias'), 'team/custom');
+    await user.click(screen.getByLabelText('Upstream model'));
+    await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'First');
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(screen.getByLabelText('Upstream model').textContent).toContain('provider/first');
+    expect((screen.getByLabelText('Niu model alias') as HTMLInputElement).value).toBe('team/custom');
   });
 
   it('clears the previous model facts when the upstream mapping changes', async () => {
@@ -128,11 +135,12 @@ describe('provider administration workflow', () => {
     render(<ModelMappingForm model={null} catalog={[{id:'provider/first',name:'First model',context_length:128000,
       catalog:{name:'First model',description:'First model description',context_length:128000,input_price:'0.000001'}}]}
       catalogLoading={false} catalogError="" disabled={false} onCancel={()=>{}} onSave={saved}/>);
-    await user.click(screen.getByLabelText('Find a provider model'));
+    await user.click(screen.getByLabelText('Upstream model'));
     await user.click(screen.getByRole('menuitemradio',{name:/First model/}));
-    await user.clear(screen.getByLabelText('Upstream model ID'));
-    await user.type(screen.getByLabelText('Upstream model ID'),'provider/different');
-    await user.click(screen.getByRole('button',{name:'Add mapping',exact:true}));
+    await user.click(screen.getByLabelText('Upstream model'));
+    await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'provider/different');
+    await user.click(screen.getByRole('menuitem', {name:'Use model ID “provider/different”'}));
+    await user.click(screen.getByRole('button',{name:'Add model',exact:true}));
     expect(saved).toHaveBeenCalledTimes(1);
     const input=saved.mock.calls[0][0];
     expect(input.upstream_model).toBe('provider/different');
@@ -148,8 +156,10 @@ describe('provider administration workflow', () => {
     expect(screen.getByText('Private model. Available only to the account that owns this API key.')).toBeTruthy();
     expect(screen.queryByRole('checkbox', { name: /Show in public catalog/ })).toBeNull();
     await user.type(screen.getByLabelText('Niu model alias'), 'private/first');
-    await user.type(screen.getByLabelText('Upstream model ID'), 'model-first');
-    await user.click(screen.getByRole('button', { name: 'Add mapping' }));
+    await user.click(screen.getByLabelText('Upstream model'));
+    await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'model-first');
+    await user.click(screen.getByRole('menuitem', {name:'Use model ID “model-first”'}));
+    await user.click(screen.getByRole('button', { name: 'Add model' }));
     await waitFor(() => expect(api.calls.some(call => call.method === 'POST' && call.path.endsWith('/models'))).toBe(true));
     const saved = api.calls.find(call => call.method === 'POST' && call.path.endsWith('/models'))?.body;
     expect(saved?.public_catalog).toBe(false);
@@ -170,8 +180,8 @@ describe('provider administration workflow', () => {
     await openModels(user);
     await user.click(await screen.findByRole('button', { name: 'Edit', exact: true }));
     await user.click(screen.getByRole('checkbox', { name: /Function tools/ }));
-    await user.click(screen.getByRole('button', { name: 'Save mapping' }));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save mapping' })).toBeNull());
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull());
     const write = api.calls.find(call => call.method === 'POST' && call.path.endsWith('/models'))?.body;
     expect(write).toMatchObject({ expected_revision: 7, capabilities: { supports_tool_calls: true } });
     expect(write).not.toHaveProperty('pricing');
@@ -221,11 +231,13 @@ describe('provider administration workflow', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Add model' }));
     await user.type(screen.getByLabelText('Niu model alias'), 'team/fast');
-    await user.type(screen.getByLabelText('Upstream model ID'), 'openai/gpt-4.1-mini');
+    await user.click(screen.getByLabelText('Upstream model'));
+    await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'openai/gpt-4.1-mini');
+    await user.click(screen.getByRole('menuitem', {name:'Use model ID “openai/gpt-4.1-mini”'}));
     await user.click(screen.getByRole('checkbox', { name: /Show in public catalog/ }));
     await user.click(screen.getByRole('checkbox', { name: /Function tools/ }));
     await user.click(screen.getByRole('checkbox', { name: /Streaming tools/ }));
-    await user.click(screen.getByRole('button', { name: 'Add mapping' }));
+    await user.click(screen.getByRole('button', { name: 'Add model' }));
 
     expect(await screen.findByText('team/fast')).toBeTruthy();
     const createModel = api.calls.find(call => call.path === '/api/v1/vendors/vendor-1/models' && call.method === 'POST');
@@ -246,7 +258,7 @@ describe('provider administration workflow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.click(screen.getByRole('checkbox', { name: /Enabled for inference/ }));
-    await user.click(screen.getByRole('button', { name: 'Save mapping' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText('Disabled')).toBeTruthy();
     const updateModel = api.calls.filter(call => call.path === '/api/v1/vendors/vendor-1/models' && call.method === 'POST')[1];
     expect(updateModel?.body).toMatchObject({ alias: 'team/fast', enabled: false, expected_revision: 1 });
@@ -491,8 +503,10 @@ it('shows a rejected model-route save inside its dialog and preserves the draft'
   await openModels(user);
   await user.click(await screen.findByRole('button', { name: 'Add model', exact: true }));
   await user.type(screen.getByLabelText('Niu model alias'), 'team/fast');
-  await user.type(screen.getByLabelText('Upstream model ID'), 'upstream-model');
-  await user.click(screen.getByRole('button', { name: 'Add mapping' }));
+  await user.click(screen.getByLabelText('Upstream model'));
+  await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'upstream-model');
+  await user.click(screen.getByRole('menuitem', {name:'Use model ID “upstream-model”'}));
+  await user.click(screen.getByRole('button', { name: 'Add model' }));
   expect((await screen.findByRole('alert')).textContent).toContain('Model alias already exists');
   expect((screen.getByLabelText('Niu model alias') as HTMLInputElement).value).toBe('team/fast');
 });
@@ -509,7 +523,7 @@ it('reads explicitly linked configurations when returning from Provider pricing'
   await screen.findByRole('heading', { name: openRouter.name });
   expect(calls).toContain('/api/v1/vendors?supplier=business-fixture');
   expect(calls).not.toContain('/api/v1/vendors');
-  expect(screen.getByRole('heading', { name: 'API keys & routes' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Add provider' })).toBeNull();
 });
 
@@ -528,10 +542,12 @@ it('retries catalog discovery inside the model editor without losing its draft',
   await user.click(screen.getByRole('button',{name:'Add model',exact:true}));
   await screen.findByRole('button',{name:'Retry model catalog'});
   await user.type(screen.getByLabelText('Niu model alias'),'team/custom');
-  await user.type(screen.getByLabelText('Upstream model ID'),'custom-model');
+  await user.click(screen.getByLabelText('Upstream model'));
+  await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'custom-model');
+  await user.click(screen.getByRole('menuitem', {name:'Use model ID “custom-model”'}));
   await user.click(screen.getByRole('button',{name:'Retry model catalog'}));
   await screen.findByText('1 model available');
   expect((screen.getByLabelText('Niu model alias') as HTMLInputElement).value).toBe('team/custom');
-  expect((screen.getByLabelText('Upstream model ID') as HTMLInputElement).value).toBe('custom-model');
+  expect(screen.getByLabelText('Upstream model').textContent).toContain('custom-model');
   expect(reads).toBe(2);
 });

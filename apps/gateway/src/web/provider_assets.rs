@@ -588,7 +588,7 @@ async fn mutate_with_route(
 
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-groups",
+///   "path": "/v1/media/groups",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "create_groupProviderAsset",
@@ -1083,7 +1083,7 @@ pub(super) async fn create_group(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-groups/{id}",
+///   "path": "/v1/media/groups/{id}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "update_groupProviderAsset",
@@ -1221,7 +1221,7 @@ pub(super) async fn update_group(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-groups/{id}",
+///   "path": "/v1/media/groups/{id}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "delete_groupProviderAsset",
@@ -1758,7 +1758,7 @@ fn page_limit(value: Option<u32>) -> Result<i64, ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-groups",
+///   "path": "/v1/media/groups",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "list_groupsProviderAsset",
@@ -1999,7 +1999,7 @@ pub(super) async fn list_assets(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-groups/{id}",
+///   "path": "/v1/media/groups/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "get_groupProviderAsset",
@@ -2223,7 +2223,7 @@ pub(super) async fn get_asset(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-operations/{id}",
+///   "path": "/v1/media/operations/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "get_operationProviderAsset",
@@ -2335,7 +2335,7 @@ pub(super) async fn get_operation(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-groups/{id}/refresh",
+///   "path": "/v1/media/groups/{id}/refresh",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "refresh_groupProviderAsset",
@@ -2637,7 +2637,7 @@ pub(super) struct OperationListQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-operations",
+///   "path": "/v1/media/operations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "list_operationsProviderAsset",
@@ -2765,7 +2765,7 @@ pub(super) async fn list_operations(
 }
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-operations/by-idempotency/{id}",
+///   "path": "/v1/media/operations/by-idempotency/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "get_operation_by_idempotencyProviderAsset",
@@ -3028,7 +3028,7 @@ fn required_idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
 
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-operations/prepare",
+///   "path": "/v1/media/operations/prepare",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "prepareProviderAssetOperation",
@@ -3353,7 +3353,7 @@ pub(super) async fn prepare_operation(
 
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-operations/{id}/dispatch",
+///   "path": "/v1/media/operations/{id}/dispatch",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "dispatchProviderAssetOperation",
@@ -3506,7 +3506,7 @@ pub(super) async fn dispatch_operation(
 
 /// ```openapi
 /// {
-///   "path": "/v1/media/asset-operations/{id}/cancel",
+///   "path": "/v1/media/operations/{id}/cancel",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "cancelPreparedProviderAssetOperation",
@@ -3622,7 +3622,7 @@ pub(super) async fn cancel_operation(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}/cancel",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "cancelPreparedWorkspaceProviderAssetOperation",
@@ -3850,7 +3850,7 @@ async fn authorize_historical_operations(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listHistoricalWorkspaceProviderAssetOperations",
@@ -4049,7 +4049,7 @@ async fn historical_operation(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getHistoricalWorkspaceProviderAssetOperation",
@@ -4194,7 +4194,7 @@ pub(super) async fn get_historical_operation(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getHistoricalWorkspaceProviderAssetOperationByIdempotency",

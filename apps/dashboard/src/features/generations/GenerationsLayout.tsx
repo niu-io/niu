@@ -16,7 +16,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
   const { isMobile, setOpenMobile } = useSidebar();
   const workspace = content?.history.context.workspace;
   const workspaces = content?.history.context.workspaces ?? (workspace ? [workspace] : []);
-  const workspaceSegment = workspace ? (!workspace.route_slug && workspace.name.length <= 1 ? workspace.id : workspacePathSegment(workspace, workspaces)) : undefined;
+  const workspaceSegment = workspace ? (!workspace.slug && !workspace.route_slug && workspace.name.length <= 1 ? workspace.id : workspacePathSegment(workspace, workspaces)) : undefined;
   const workspaceQuery = workspaceSegment ? `&workspace=${encodeURIComponent(workspaceSegment)}` : '';
   const [listTarget, setListTarget] = useState<HTMLDivElement | null>(null);
   const scrollNode = useRef<HTMLDivElement | null>(null);

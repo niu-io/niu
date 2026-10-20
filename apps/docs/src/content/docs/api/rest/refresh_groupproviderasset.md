@@ -1,12 +1,12 @@
 ---
 title: "Refresh one owned Provider group"
-description: "POST /v1/media/asset-groups/{id}/refresh"
+description: "POST /v1/media/groups/{id}/refresh"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /v1/media/asset-groups/{id}/refresh`
+`POST /v1/media/groups/{id}/refresh`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/asset-groups/{id}/refresh" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/groups/{id}/refresh" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

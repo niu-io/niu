@@ -1,5 +1,5 @@
+import { useProviderParams } from '@/app/provider-route';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router';
 import { ChevronDown } from 'lucide-react';
 import { providerLogoPresets, providerLogoSource } from '@/features/providers/provider-logos';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
@@ -15,7 +15,7 @@ type Profile = { name: string; description: string; website_url: string; logo_ur
 const empty = { name: '', description: '', website_url: '', logo_url: '' };
 const conflictMessage = 'These details changed since you opened this page. Reload the saved details before saving again.';
 export default function ProviderSettings() {
-  const { providerId, supplierId } = useParams();
+  const { providerId, supplierId } = useProviderParams();
   const activeProviderId = providerId ?? supplierId ?? '';
   const { token } = useDashboardContext();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -69,7 +69,7 @@ export default function ProviderSettings() {
     <div className="supplier-section-heading"><h2>Settings</h2><p>Manage this provider’s identity and business information.</p></div>
     {loading ? <p role="status">Loading provider details…</p> : !profile ? <div><p role="alert">{error}</p><Button variant="outline" onClick={() => setReload(value => value + 1)}>Retry</Button></div> :
       <form onSubmit={event => void save(event)} className="space-y-7">
-        <div className="space-y-2"><h3 className="font-medium">Business profile</h3><p className="text-sm text-muted-foreground">These details identify the provider. API endpoints and credentials are managed in API keys &amp; routes.</p></div>
+        <div className="space-y-2"><h3 className="font-medium">Business profile</h3><p className="text-sm text-muted-foreground">These details identify the provider. API endpoints and credentials are managed in API keys.</p></div>
         <fieldset disabled={busy} className="space-y-6">
           <div className="flex items-start gap-4"><div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label="Provider logo preview">{draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt="Provider logo" className="size-full object-contain" referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}</div><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="supplier-logo">Logo URL</Label><Input id="supplier-logo" type="url" maxLength={2048} value={draft.logo_url} onChange={event => change('logo_url', event.target.value)} placeholder="https://example.com/logo.png" aria-describedby="supplier-logo-help" /><p id="supplier-logo-help" className="text-sm text-muted-foreground">Choose a preset or use a publicly accessible image URL. Leave it empty to use the default logo.{brokenLogo ? ' The image could not be loaded.' : ''}</p></div></div>
           <DropdownMenu>

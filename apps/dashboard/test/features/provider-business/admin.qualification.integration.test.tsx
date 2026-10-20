@@ -142,7 +142,7 @@ describe("installation Provider qualification workflow", () => {
   });
   it("summarizes media offers on Overview and links to dedicated pricing without repeating rates", async () => {
     setup("1000000000", false, true, "overview");
-    const link=await screen.findByRole("link",{name:"Models & pricing"});
+    const link=await screen.findByRole("link",{name:"Models"});
     expect(link.getAttribute("href")).toBe(`/admin/providers/${supplierId}/models`);
     expect(screen.getByText("Media offers").parentElement?.textContent).toBe("Media offers1");
     expect(screen.getByText("Text offers").parentElement?.textContent).toBe("Text offers0");

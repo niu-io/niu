@@ -1,12 +1,12 @@
 ---
 title: "Delete a Provider asset group"
-description: "DELETE /v1/media/asset-groups/{id}"
+description: "DELETE /v1/media/groups/{id}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /v1/media/asset-groups/{id}`
+`DELETE /v1/media/groups/{id}`
 
 Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Provider or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Claims one durable operation before one upstream mutation. After-send errors retain unknown and never authorize automatic replay; accepted operation does not imply Provider processing readiness. Group deletion is destructive and includes its Provider assets.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/v1/media/asset-groups/{id}" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/v1/media/groups/{id}" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

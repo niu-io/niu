@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type WorkspaceInput = {
     name: string;
+    slug?: string;
     organization_id?: string | null;
 };
 ```

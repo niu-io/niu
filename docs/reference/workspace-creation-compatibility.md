@@ -7,7 +7,7 @@ It does not maintain a separate authorization or persistence implementation.
 
 Both endpoints accept the same optional `Idempotency-Key` and share the
 actor-scoped receipt namespace. A retry can switch endpoints when its resolved
-company and name remain identical. Changed input returns 409. Keep the original
+company and name remain identical and the canonical request omitted `slug`. An explicit `slug` is part of the idempotency input and must be replayed through the canonical endpoint. Changed input returns 409. Keep the original
 key after an uncertain response; without a key, successful calls create distinct
 workspaces. The canonical handler rechecks current member/session authorization
 inside the creation transaction, including after idempotency lock waits.

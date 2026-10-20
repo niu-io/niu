@@ -11,8 +11,8 @@ import type { ProviderMediaOfferInput, ProviderMediaOfferModel } from '../../../
 type Page = { data: ProviderMediaOfferModel[]; has_more: boolean; next_after: string | null };
 
 /** Publish a pinned model/credential binding; purchase terms and review are separate. */
-export default function MediaOfferPublisher({ token, supplier, initialModel = '', onClose, onSaved }: {
-  token: string; supplier: string; initialModel?: string; onClose: () => void; onSaved: () => void;
+export default function MediaOfferPublisher({ token, supplier, supplierSlug, initialModel = '', onClose, onSaved }: {
+  token: string; supplier: string; supplierSlug?: string; initialModel?: string; onClose: () => void; onSaved: () => void;
 }) {
   const inRouter = useInRouterContext();
   const [models, setModels] = useState<ProviderMediaOfferModel[]>([]);
@@ -25,7 +25,7 @@ export default function MediaOfferPublisher({ token, supplier, initialModel = ''
   const [frozen, setFrozen] = useState<ProviderMediaOfferInput | null>(null);
   const endpoint = `/api/v1/providers/${encodeURIComponent(supplier)}`;
   const chosen = models.find(model => model.model_alias === selected);
-  const configurationHref = `/admin/providers/${encodeURIComponent(supplier)}/configuration`;
+  const configurationHref = `/admin/providers/${encodeURIComponent(supplierSlug || supplier)}/keys`;
 
   useEffect(() => {
     const controller = new AbortController();

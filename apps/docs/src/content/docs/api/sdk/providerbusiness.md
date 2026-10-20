@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 /** Platform-only credential configuration metadata. Secret values are never returned. */
 export type ProviderBusiness = {
+    slug: string;
     id: string;
     name: string;
     api_keys: number;

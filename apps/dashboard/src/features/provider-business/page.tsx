@@ -1,6 +1,6 @@
+import { useProviderParams } from '@/app/provider-route';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEffect, useState } from "react";
-import { useParams } from "react-router";
 import { IconArrowDownLeft as ArrowDownLeft } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
@@ -73,12 +73,12 @@ const date = (value: string) =>
 
 export default function ProviderBusinessRoute() {
   const context = useDashboardContext();
-  const { provider, supplier } = useParams();
+  const { provider, supplier } = useProviderParams();
   const activeProvider = provider ?? supplier;
   const membership = context.session?.provider_memberships?.find(
     (item) => item.id === activeProvider,
   );
-  if (!context.token || !membership)
+  if (!context.session || !membership)
     return (
       <>
         <PageHeader title="Providers" />
@@ -119,8 +119,8 @@ function ProviderBusiness({
   refreshAccess: () => Promise<void>;
 }) {
   const [days, setDays] = useState("30");
-  const { section = "overview" } = useParams();
-  const tab = section === "models" ? "offers" : section === "consumption" ? "earnings" : section === "settlements" ? "settlements" : "overview";
+  const { section = "overview" } = useProviderParams();
+  const tab = section === "models" ? "offers" : section === "usage" ? "earnings" : section === "settlements" ? "settlements" : "overview";
   const showPeriod = tab === "overview" || tab === "earnings";
   const [currency, setCurrency] = useState("");
   const [data, setData] = useState<Dashboard | null>(null);

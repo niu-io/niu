@@ -17,7 +17,7 @@ export function createMediaVerificationClient(
   reference: (id: string) => string,
   query: (input: { model: string; after?: string; limit?: number }) => string,
 ) {
-  const path = '/media/verification-sessions';
+  const path = '/media/verifications';
   return {
     create: (input: MediaVerificationInput, options?: MediaAssetMutationOptions) => send<{ data: MediaVerificationSession }>(path, 'POST', {
       model: input.model,

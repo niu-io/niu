@@ -6,7 +6,7 @@ remains open.
 
 ## HTTP and SDK
 
-`GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
+`GET /admin/v1/organizations/{organization}/projects/{project}/chats/{id}`
 returns `{data, archived, revision, guardedWrites}`. `data` is the complete saved conversation, including
 supported settings, attachments, results and nested turns. `archived` comes from
 the separate native archive state. Successful responses set

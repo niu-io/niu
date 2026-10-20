@@ -1,3 +1,5 @@
+import { useDashboardContext } from '@/app/dashboard-context';
+import { resolveProvider } from '@/app/provider-route';
 import ProviderAdministration from '@/features/provider-business/admin';
 import { Navigate, useLocation, useParams, useSearchParams } from 'react-router';
 import ProviderList from './ProviderList';
@@ -5,14 +7,16 @@ import ProviderSettings from '@/features/provider-business/ProviderSettings';
 import ConnectGate from '@/app/ConnectGate';
 import ProvidersView from './components/ProvidersView';
 
-const validSections = new Set(["overview", "configuration", "models", "consumption", "settlements", "members", "settings"]);
+const validSections = new Set(["overview", "keys", "models", "usage", "settlements", "members", "settings"]);
 
 export default function ProvidersRoute() {
   const { providerId, supplierId, section } = useParams();
   const activeProviderId = providerId ?? supplierId;
+  const context = useDashboardContext();
   const [search] = useSearchParams();
   const location = useLocation();
   if (!activeProviderId) return <ProviderList />;
+  if (context.providerDirectory && !resolveProvider(activeProviderId, context.providerDirectory)) return <p role="status">{context.providerDirectoryLoading ? 'Loading Provider…' : 'Provider unavailable.'}</p>;
   if (search.get("properties") === "supplier" || search.get("properties") === "provider") {
     const query = new URLSearchParams(search);
     query.delete('properties');
@@ -22,7 +26,7 @@ export default function ProvidersRoute() {
     return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}${location.search}${location.hash}`} />;
   }
   if (section === "settings") return <ProviderSettings key={activeProviderId} />;
-  if (section !== "configuration") return <ProviderAdministration />;
+  if (section !== "keys") return <ProviderAdministration />;
   return <ConnectGate>
     {({ token, session, refreshWorkspace }) => session
       ? <ProvidersView key={`${token}:${activeProviderId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath="/models" />

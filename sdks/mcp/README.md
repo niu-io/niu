@@ -66,10 +66,10 @@ For MCP development, run `pnpm install --frozen-lockfile` from the Niu checkout 
 
 ### 4. Native media capabilities, assets, verification & image ingestions
 - `list_media_capabilities` (`GET /v1/media/capabilities`)
-- `media_asset_groups` (`list`, `create`, `get`, `update`, `delete`, `refresh` on `/v1/media/asset-groups`)
+- `media_asset_groups` (`list`, `create`, `get`, `update`, `delete`, `refresh` on `/v1/media/groups`)
 - `media_assets` (`list`, `create`, `get`, `rename`, `delete`, `refresh` on `/v1/media/assets`)
-- `media_asset_operations` (`list`, `get`, `get_by_idempotency`, `prepare`, `dispatch`, `cancel` on `/v1/media/asset-operations`)
-- `media_verification_sessions` (`list`, `create`, `get`, `refresh`, `link` on `/v1/media/verification-sessions`)
+- `media_asset_operations` (`list`, `get`, `get_by_idempotency`, `prepare`, `dispatch`, `cancel` on `/v1/media/operations`)
+- `media_verification_sessions` (`list`, `create`, `get`, `refresh`, `link` on `/v1/media/verifications`)
 - `media_image_ingestions` (`prepare_source`, `erase_source`, `list`, `prepare_consent`, `get_consent`, `revoke_consent`, `dispatch`, `get_readiness`, `refresh_readiness`)
 
 ### 5. MCP resources & prompts

@@ -120,7 +120,7 @@ fn revision(v: &str) -> Result<i64, ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionCreate",
@@ -906,7 +906,7 @@ pub(in crate::web) async fn create(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsSessionGet",
@@ -1027,7 +1027,7 @@ pub(in crate::web) async fn get(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsSessionList",
@@ -1197,7 +1197,7 @@ pub(in crate::web) async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "generationsSessionUpdate",
@@ -1330,7 +1330,7 @@ pub(in crate::web) async fn update(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionAppend",
@@ -1476,7 +1476,7 @@ pub(in crate::web) async fn append(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/task",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionAttach",
@@ -1615,7 +1615,7 @@ pub(in crate::web) async fn attach(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "generationsSessionDeleteInstruction",
@@ -1742,7 +1742,7 @@ pub(in crate::web) async fn delete_instruction(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/intent",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionBindIntent",

@@ -10,6 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type ProviderProfile = {
+    slug: string;
     id: string;
     name: string;
     description: string;

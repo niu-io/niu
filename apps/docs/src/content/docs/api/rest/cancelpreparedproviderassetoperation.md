@@ -1,12 +1,12 @@
 ---
 title: "Cancel an unclaimed native material preparation"
-description: "POST /v1/media/asset-operations/{id}/cancel"
+description: "POST /v1/media/operations/{id}/cancel"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /v1/media/asset-operations/{id}/cancel`
+`POST /v1/media/operations/{id}/cancel`
 
 Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Only prepared can transition to not_sent; a not_sent replay is unchanged. Unknown or acknowledged returns409 and cannot be canceled. No Provider call. This key-scoped endpoint requires current original-key authority; use the workspace historical cancellation endpoint after key expiry or revocation.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/asset-operations/{id}/cancel" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/operations/{id}/cancel" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 

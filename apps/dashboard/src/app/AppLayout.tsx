@@ -1,4 +1,4 @@
-import { IconPalette, IconHistory, IconRoute } from '@tabler/icons-react';
+import { IconPalette, IconHistory, IconRoute, IconWallet } from '@tabler/icons-react';
 import { IconKey as KeyRound, IconUsers as Users } from '@tabler/icons-react';
 import RouterPending from './RouterPending';
 import { IconListDetails } from '@tabler/icons-react';
@@ -37,6 +37,7 @@ import { useAccountAppearance } from './useAccountAppearance';
 import WorkspaceSwitcher, { WorkspaceCreateDialog } from './WorkspaceSwitcher';
 import WorkspaceRecovery from './WorkspaceRecovery';
 import { useGatewayConnection } from './useGatewayConnection';
+import { providerPathSegment, resolveProvider, type ProviderIdentity } from './provider-route';
 import { resolveWorkspacePathSegment, workspacePathSegment, workspaceDisplayName, workspaceModelsHref } from './workspace-route';
 import { useBranding } from './branding';
 
@@ -96,7 +97,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const [search] = useSearchParams();
   const navigate = useNavigate();
-  const [providerDirectory, setProviders] = useState<{id: string; name: string}[]>([]);
+  const [providerDirectory, setProviders] = useState<ProviderIdentity[]>([]);
   const [directoryOwner, setDirectoryOwner] = useState('');
   const providers = directoryOwner === context.token ? providerDirectory : [];
   const [loading, setLoading] = useState(false);
@@ -111,7 +112,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
     }
     const controller = new AbortController();
     setLoading(true);setError('');
-    void request<{data: {id: string; name: string}[]}>(context.token, '/api/v1/providers', 'GET', undefined, controller.signal)
+    void request<{data: ProviderIdentity[]}>(context.token, '/api/v1/providers', 'GET', undefined, controller.signal)
       .then(result => {
         if (!Array.isArray(result.data)) throw new Error('Invalid provider list');
         if (!controller.signal.aborted) { setProviders(result.data);setDirectoryOwner(context.token);setError(''); }
@@ -121,23 +122,24 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
     return () => controller.abort();
   }, [context.token, context.session, retryRevision]);
   const selected = adminProvider ?? provider ?? search.get('provider') ?? search.get('supplier') ?? providers[0]?.id ?? '';
-  const membership = providers.find(item => item.id === selected);
+  const membership = resolveProvider(selected, providers);
+  const selectedSegment = membership ? providerPathSegment(membership) : selected;
 
   const location = useLocation();
   const entries = provider ? [
     { to: `/providers/${provider}`, label: 'Overview', end: true },
-    { to: `/providers/${provider}/models`, label: 'Models & pricing', end: false },
-    { to: `/providers/${provider}/consumption`, label: 'Usage', end: false },
+    { to: `/providers/${provider}/models`, label: 'Models', end: false },
+    { to: `/providers/${provider}/usage`, label: 'Usage', end: false },
     { to: `/providers/${provider}/settlements`, label: 'Settlements', end: false },
   ] : [
     { to: '/admin/providers', label: 'Providers', end: false },
-    { to: '/admin/route-pools', label: 'Route pools', end: false },
-    { to: '/admin/commercial', label: 'Financial statements', end: false },
-    { to: '/admin/customer-accounts', label: 'Customer accounts', end: false },
-    { to: '/admin/pricing', label: 'Customer pricing', end: false },
+    { to: '/admin/pools', label: 'Model pools', end: false },
+    { to: '/admin/reports', label: 'Financial reports', end: false },
+    { to: '/admin/balances', label: 'Account balances', end: false },
+    { to: '/admin/pricing', label: 'Pricing', end: false },
     { to: '/admin/payments', label: 'Payment gateways', end: false },
-    { to: '/admin/branding', label: 'Branding & theme', end: false },
-    { to: '/admin/audit-logs', label: 'Audit logs', end: false },
+    { to: '/admin/branding', label: 'Branding', end: false },
+    { to: '/admin/audit', label: 'Audit logs', end: false },
   ];
   return <>
     <SidebarHeader className="sidebar-heading">
@@ -148,23 +150,23 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
         </Button></DropdownMenuTrigger>
         <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
           <DropdownMenuLabel className="workspace-switcher-menu-title">Providers</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={selected} onValueChange={id => {
+          <DropdownMenuRadioGroup value={membership?.id ?? selected} onValueChange={id => {
             const section = location.pathname.split('/')[adminProvider ? 4 : 3];
             const nextSearch = new URLSearchParams(location.search);
             for (const key of ['provider', 'supplier', 'create', 'properties']) nextSearch.delete(key);
-            navigate(`${adminProvider ? '/admin' : ''}/providers/${encodeURIComponent(id)}${section ? '/' + section : ''}${nextSearch.size ? '?' + nextSearch.toString() : ''}${location.hash}`);
+            navigate(`${adminProvider ? '/admin' : ''}/providers/${encodeURIComponent(providerPathSegment(providers.find(item => item.id === id) ?? {id}))}${section ? '/' + section : ''}${nextSearch.size ? '?' + nextSearch.toString() : ''}${location.hash}`);
             if (isMobile) setOpenMobile(false);
           }}>{providers.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}><span>{item.name}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>
           {loading && <DropdownMenuLabel role="status">Loading providers…</DropdownMenuLabel>}
           {!loading && !error && providers.length === 0 && <DropdownMenuLabel>No providers yet</DropdownMenuLabel>}
           {error && <><div className="workspace-switcher-error" role="alert">{error}</div><DropdownMenuItem onSelect={event => {event.preventDefault();setRetryRevision(value => value + 1);}}>Retry provider list</DropdownMenuItem></>}
-          {!adminProvider && (context.session?.kind === 'installation' || context.session?.permissions.platform_admin) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/providers/' + encodeURIComponent(selected) + '/settings')}><Settings2 size={16} />Provider settings</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/providers/overview?create=provider' + (selected ? '&provider=' + encodeURIComponent(selected) : ''))}><Plus size={16} />Add provider</DropdownMenuItem></>}
+          {!adminProvider && (context.session?.kind === 'installation' || context.session?.permissions.platform_admin) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/providers/' + encodeURIComponent(selectedSegment) + '/settings')}><Settings2 size={16} />Provider settings</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/providers/overview?create=provider' + (selected ? '&provider=' + encodeURIComponent(selectedSegment) : ''))}><Plus size={16} />Add provider</DropdownMenuItem></>}
         </DropdownMenuContent>
       </DropdownMenu></div>}
     </SidebarHeader>
     <SidebarContent className="workspace-sidebar-content">
       <nav aria-label={provider ? "Provider navigation" : "Admin navigation"}><SidebarMenu className="workspace-nav-menu">
-        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys & routes' ? KeyRound : item.label === 'Portal access' ? Users : item.label === 'Providers' ? RailSuppliers : item.label === 'Route pools' ? IconRoute : item.label === 'Customer accounts' ? Users : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding & theme' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models & pricing' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
+        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys' ? KeyRound : item.label === 'Members' ? Users : item.label === 'Providers' ? RailSuppliers : item.label === 'Model pools' ? IconRoute : item.label === 'Account balances' ? IconWallet : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
           <SidebarMenuButton asChild isActive={location.pathname === item.to || (!provider && location.pathname.startsWith(item.to + "/"))} className="nav-item provider-zone-item">
             <NavLink to={item.to} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{item.label}</span></NavLink>
           </SidebarMenuButton>
@@ -224,18 +226,35 @@ export default function AppLayout() {
   const supplierManagement = supplierArea && location.pathname !== '/providers' && location.pathname !== '/suppliers';
   const adminSupplierId = adminArea && (location.pathname.startsWith('/admin/providers/') || location.pathname.startsWith('/admin/suppliers/')) ? location.pathname.split('/')[3] : '';
   const supplierTabsRef = useRef<HTMLDivElement>(null);
-  const [adminSupplierName, setAdminSupplierName] = useState('');
+  const [providerDirectory, setProviderDirectory] = useState<ProviderIdentity[]>([]);
+  const [providerDirectoryOwner, setProviderDirectoryOwner] = useState('');
+  const [providerDirectoryLoading, setProviderDirectoryLoading] = useState(false);
+  const providerDirectoryIdentity = session ? `${token}:${session.kind}:${session.operator?.id ?? ''}` : '';
+  const authorizedProviders = session && providerDirectoryOwner === providerDirectoryIdentity ? providerDirectory : [];
+  const adminSupplierName = resolveProvider(adminSupplierId, authorizedProviders)?.name ?? '';
   const [supplierProfileRevision, setSupplierProfileRevision] = useState(0);
   useEffect(() => { const refresh = () => setSupplierProfileRevision(value => value + 1); window.addEventListener('niu:supplier-profile-updated', refresh); window.addEventListener('niu:provider-profile-updated', refresh); return () => { window.removeEventListener('niu:supplier-profile-updated', refresh); window.removeEventListener('niu:provider-profile-updated', refresh); }; }, []);
   useEffect(() => {
-    setAdminSupplierName('');
-    if (!adminSupplierId || !token) return;
+    if (!supplierArea || !session) return;
+    if (session.kind !== 'installation' && !session.permissions.platform_admin) {
+      setProviderDirectory(session.provider_memberships ?? []); setProviderDirectoryOwner(providerDirectoryIdentity); return;
+    }
     const controller = new AbortController();
-    void request<{ data: {id: string; name: string}[] }>(token, '/api/v1/providers', 'GET', undefined, controller.signal).then(result => {
-      if (!controller.signal.aborted) setAdminSupplierName(result.data.find(item => item.id === adminSupplierId)?.name ?? 'Provider unavailable');
-    }).catch(() => {});
+    setProviderDirectoryLoading(true);
+    void request<{data: ProviderIdentity[]}>(token, '/api/v1/providers', 'GET', undefined, controller.signal).then(result => {
+      if (!controller.signal.aborted) {setProviderDirectory(result.data);setProviderDirectoryOwner(providerDirectoryIdentity);}
+    }).catch(() => {}).finally(() => {if (!controller.signal.aborted) setProviderDirectoryLoading(false);});
     return () => controller.abort();
-  }, [adminSupplierId, token, supplierProfileRevision]);
+  }, [supplierArea, token, session, supplierProfileRevision, providerDirectoryIdentity]);
+  useEffect(() => {
+    const parts = location.pathname.split('/');
+    const index = parts[1] === 'admin' ? 3 : 2;
+    if (parts[index - 1] !== 'providers' && parts[index - 1] !== 'suppliers') return;
+    const provider = resolveProvider(decodeURIComponent(parts[index] ?? ''), authorizedProviders);
+    if (!provider?.slug || parts[index] === provider.slug) return;
+    parts[index] = encodeURIComponent(provider.slug);
+    navigate({pathname: parts.join('/'), search:location.search, hash:location.hash}, {replace:true});
+  }, [location.pathname, location.search, location.hash, authorizedProviders, navigate]);
   const workspaceDirectoryArea = location.pathname === '/workspaces' || location.pathname === '/workspaces/';
   const usesSelectedWorkspace = workspaceDirectoryArea || isGlobalChat || location.pathname.startsWith('/activity') || settingsArea || supplierArea || location.pathname === '/models' || location.pathname.startsWith('/models/');
   const loginArea = location.pathname === '/login' || location.pathname === '/installation';
@@ -570,12 +589,12 @@ export default function AppLayout() {
     }
   }, [organizations, workspaces, selectWorkspace, navigate]);
 
-  const createWorkspace = useCallback(async (name: string, organizationId?: string) => {
+  const createWorkspace = useCallback(async (name: string, organizationId?: string, slug?: string, spendingLimit?: {currency: string; limit_nanos: string}) => {
     if (!token) throw new Error('Sign in before creating a workspace.');
     const response = await fetch('/api/v1/workspaces', {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name, organization_id: organizationId || null }),
+      body: JSON.stringify({ name, slug, spending_limit: spendingLimit, organization_id: organizationId || null }),
     });
     const body = await response.json().catch(() => null) as (Workspace & { error?: { message?: string } }) | null;
     if (!response.ok || !body) throw new Error(body?.error?.message ?? `Could not create workspace (${response.status}).`);
@@ -699,6 +718,8 @@ export default function AppLayout() {
         && (!current.profile || profile.revision >= current.profile.revision)
         ? {...current, profile} : current);
     },
+    providerDirectory: authorizedProviders,
+    providerDirectoryLoading,
     organizations,
     organization: organizations.find(item => item.id === (routeWorkspace?.organization_id ?? selectedOrganizationId)) ?? organizations[0] ?? null,
     selectOrganization,
@@ -727,7 +748,7 @@ export default function AppLayout() {
     modelsError,
     refreshModels,
     refreshWorkspace,
-  }), [appearance, sessionChecked, token, session, profileConnectionRevision, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, selectedWorkspace, effectiveWorkspaceError, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
+  }), [authorizedProviders, providerDirectoryLoading, appearance, sessionChecked, token, session, profileConnectionRevision, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, selectedWorkspace, effectiveWorkspaceError, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
   const activePath = location.pathname.startsWith('/workspaces/')
     ? location.pathname.split('/').filter(Boolean).slice(2).join('/') || '.'
     : location.pathname.replace(/^\/+|\/+$/g, '');
@@ -742,7 +763,7 @@ export default function AppLayout() {
     : helpArea
       ? 'Documentation'
     : supplierArea
-      ? ({ commercial: 'Financial statements', 'customer-accounts': 'Customer accounts', oauth: 'OAuth providers', payments: 'Payment gateways', pricing: 'Customer pricing', branding: 'Branding & theme', 'audit-logs': 'Audit logs', 'route-pools': 'Route pools', overview: 'Overview', configuration: 'API keys & routes', models: 'Models & pricing', consumption: 'Usage', settlements: 'Settlements', members: 'Portal access', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? ((location.pathname === '/admin/providers' || location.pathname === '/admin/suppliers') ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
+      ? ({ 'reports': 'Financial reports', 'balances': 'Account balances', oauth: 'OAuth providers', 'payments': 'Payment gateways', pricing: 'Pricing', branding: 'Branding', 'audit': 'Audit logs', 'pools': 'Model pools', overview: 'Overview', 'keys': 'API keys', models: 'Models', usage: 'Usage', settlements: 'Settlements', members: 'Members', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? ((location.pathname === '/admin/providers' || location.pathname === '/admin/suppliers') ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
       : activePath === 'keys/new'
         ? 'New API key'
         : activePath.startsWith('keys/')
@@ -822,7 +843,7 @@ export default function AppLayout() {
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/activity" className={`rail-item${activePath.startsWith('activity') ? ' selected' : ''}`} aria-label="Activity"><ChartNoAxesCombined size={23} aria-hidden="true" /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Activity</TooltipContent></Tooltip>
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={modelsHref} reloadDocument={!token} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models"><RailModels size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Models</TooltipContent></Tooltip>
       </>}
-      <div className="rail-bottom">{((isInstallation && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${session.provider_memberships[0].id}` : '/providers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? "Admin" : "Providers"}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? "Admin" : "Providers"}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation">{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Documentation</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
+      <div className="rail-bottom">{((isInstallation && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? "Admin" : "Providers"}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? "Admin" : "Providers"}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation">{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Documentation</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
     </nav>
     <div className="app-rail-spacer" aria-hidden="true" />
     {hasSidebar && <Sidebar
@@ -855,7 +876,7 @@ export default function AppLayout() {
           {isGuardrailEditor && <><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block">/</BreadcrumbSeparator></>}
           {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="sm:hidden"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6" aria-label="Show parent pages">…</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>Guardrails</NavLink></DropdownMenuItem>{isGuardrailEditor && <DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></BreadcrumbItem><BreadcrumbSeparator className="sm:hidden">/</BreadcrumbSeparator></>}
           <BreadcrumbItem className="min-w-0"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 max-w-full gap-1 px-1 py-1" aria-label="Switch workspace page"><h1 className="dashboard-route-title">{title}</h1><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeNavigation?.to ?? ''} onValueChange={value => navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)}>{scopedNavigation.filter(item => item.destination === 'Workspace').map(item => <DropdownMenuRadioItem key={item.to} value={item.to}>{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></BreadcrumbItem>
-        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin">Admin</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin/providers">Providers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/providers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Provider…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : adminArea ? 'Admin' : supplierArea ? 'Providers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={modelsHref} reloadDocument={!token}>Models</NavLink> : title}</h1></Breadcrumb>}
+        </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin/providers">Providers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/providers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Provider…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(adminArea || workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : supplierArea ? 'Providers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={modelsHref} reloadDocument={!token}>Models</NavLink> : title}</h1></Breadcrumb>}
         <div id="dashboard-page-actions" className="dashboard-page-actions" />
       </header>}
       <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>
@@ -864,7 +885,7 @@ export default function AppLayout() {
         {(helpArea || gateway.everConnected) && <div className="gateway-route-content" hidden={!helpArea && gatewayStatus !== 'online'}>
           {adminSupplierId && <Tabs value={location.pathname.split('/')[4] || 'overview'} onValueChange={section => navigate(`/admin/providers/${encodeURIComponent(adminSupplierId)}${section === 'overview' ? '' : '/' + section}`)} className="mb-6 min-w-0">
             <div ref={supplierTabsRef} className="max-w-full overflow-x-auto"><TabsList variant="line" aria-label="Provider sections">
-              {[['overview', 'Overview'], ['configuration', 'API keys & routes'], ['models', 'Models & pricing'], ['consumption', 'Usage'], ['settlements', 'Settlements'], ['members', 'Portal access'], ['settings', 'Settings']].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
+              {[['overview', 'Overview'], ['keys', 'API keys'], ['models', 'Models'], ['usage', 'Usage'], ['settlements', 'Settlements'], ['members', 'Members'], ['settings', 'Settings']].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
             </TabsList></div>
           </Tabs>}
           {helpArea ? <Outlet context={context} /> : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !supplierArea && !settingsArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}

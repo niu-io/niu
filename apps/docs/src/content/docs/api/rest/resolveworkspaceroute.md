@@ -78,7 +78,9 @@ Content type: `application/json`.
     "id",
     "organization_id",
     "name",
-    "route_slug"
+    "route_slug",
+    "slug",
+    "slug_aliases"
   ],
   "properties": {
     "id": {
@@ -95,7 +97,20 @@ Content type: `application/json`.
     "route_slug": {
       "type": "string",
       "maxLength": 81,
-      "description": "Immutable routing reference, never a display label or authorization grant."
+      "description": "Deprecated compatibility alias for slug.",
+      "deprecated": true
+    },
+    "slug": {
+      "type": "string",
+      "maxLength": 81,
+      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+    },
+    "slug_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Previously issued slugs accepted for existing bookmarks."
     }
   }
 }

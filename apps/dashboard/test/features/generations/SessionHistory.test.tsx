@@ -13,8 +13,8 @@ it('merges saved chat and video sessions across accessible workspaces and preser
  const calls:string[]=[];
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
   calls.push(path);
-  if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-  if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'chat-b',title:'Other workspace conversation',prompt:'B',createdAt:200}]});
+  if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.endsWith('/chats'))return Response.json({data:[{id:'chat-b',title:'Other workspace conversation',prompt:'B',createdAt:200}]});
   if(path.includes(`${b.id}/generations/tasks`))return Response.json({data:[],has_more:false,next_cursor:null});
   if(path.includes('cursor=cursor'))return Response.json({data:[{id:'older-video',kind:'video',model:'Older model',state:'succeeded',created_at:new Date(50).toISOString(),updated_at:new Date(50).toISOString()}],has_more:false,next_cursor:null});
   return Response.json({data:[{id:'video-a',kind:'video',model:'Video model',state:'succeeded',created_at:new Date(300).toISOString(),updated_at:new Date(300).toISOString()}],has_more:true,next_cursor:'cursor'});
@@ -35,10 +35,10 @@ it('merges saved chat and video sessions across accessible workspaces and preser
 it('discards history that resolves after the account and workspace change',async()=>{
  let finish!:(value:Response)=>void;
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
-  if(path.includes(a.id)&&path.endsWith('/chat-sessions'))return new Promise<Response>(resolve=>{finish=resolve;});
-  if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.includes(a.id)&&path.endsWith('/chats'))return new Promise<Response>(resolve=>{finish=resolve;});
+  if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
   if(path.includes('/generations/tasks'))return Response.json({data:[],has_more:false,next_cursor:null});
-  if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'current',title:'Current account session',prompt:'',createdAt:100}]});
+  if(path.endsWith('/chats'))return Response.json({data:[{id:'current',title:'Current account session',prompt:'',createdAt:100}]});
   throw new Error('Unexpected request');
  }));
  const tree=(ctx:DashboardContext)=><MemoryRouter><SidebarProvider><SessionHistory context={ctx}/></SidebarProvider></MemoryRouter>;
@@ -54,8 +54,8 @@ it('keeps available chat and video history when earlier workspaces fail',async()
  const workspaces=['bad1','bad2','bad3','bad4','good'].map((name,index)=>({...a,id:`00000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,name}));
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
   if(!path.includes(workspaces[4].id))return Response.json({error:{message:'Unavailable'}},{status:403});
-  if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-  if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'available-chat',title:'Available conversation',prompt:'',createdAt:100}]});
+  if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.endsWith('/chats'))return Response.json({data:[{id:'available-chat',title:'Available conversation',prompt:'',createdAt:100}]});
   return Response.json({data:[{id:'available-video',kind:'video',model:'Available video',state:'succeeded',created_at:new Date(200).toISOString(),updated_at:new Date(200).toISOString()}],has_more:false,next_cursor:null});
  }));
  render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspace:workspaces[0],workspaces}}/></SidebarProvider></MemoryRouter>);
@@ -70,8 +70,8 @@ it('aborts pagination and rejects an old page after leaving and returning to the
  let signal:AbortSignal|undefined;
  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
   if(path.includes('cursor=')){signal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});}
-  if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-  if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+  if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.endsWith('/chats'))return Response.json({data:[]});
   return Response.json({data:[],has_more:path.includes(a.id),next_cursor:path.includes(a.id)?'cursor':null});
  }));
  const tree=(workspace:typeof a)=><MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspace,workspaces:[workspace]}}/></SidebarProvider></MemoryRouter>;
@@ -92,8 +92,8 @@ it('discovers a saved input, confirms deletion and preserves its original job',a
  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
   calls.push({path,method:init?.method??'GET',body:init?.body ? JSON.parse(String(init.body)):null});
   if(init?.method==='DELETE')return Response.json({data:{id:intent,revision:2,deleted:true}});
-  if(path.includes('/video-intents?'))return Response.json({data:[{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained'}],has_more:false,next_before:null});
-  if(path.endsWith(`/video-intents/${intent}`))return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:'Actual video model',funding_mode:'owner_funded',request:{model:'Actual video model',content:[{type:'text',text:'Sunset landscape'}]},submission_state:'dispatched',job:{id:job,object:'video.job',model:'Actual video model',status:'succeeded'}}});
+  if(path.includes('/video/intents?'))return Response.json({data:[{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained'}],has_more:false,next_before:null});
+  if(path.endsWith(`/video/intents/${intent}`))return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:'Actual video model',funding_mode:'owner_funded',request:{model:'Actual video model',content:[{type:'text',text:'Sunset landscape'}]},submission_state:'dispatched',job:{id:job,object:'video.job',model:'Actual video model',status:'succeeded'}}});
   return Response.json({data:[]});
  }));
  render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspaces:[a],session:{permissions:{write:true}}} as DashboardContext} currentKeys={[]} videos={[{id:job,object:'video.job',model:'Actual video model',status:'succeeded',created_at_ms:'1790000000000',keyId:key}]}/></SidebarProvider></MemoryRouter>);
@@ -112,7 +112,7 @@ it('discovers a saved input, confirms deletion and preserves its original job',a
  await user.click(screen.getByRole('button',{name:'Delete input',exact:true}));
  await screen.findByRole('link',{name:'Video · Actual video model'});
  expect(screen.queryByRole('link',{name:'Video · Sunset landscape'})).toBeNull();
- expect(calls.filter(call=>call.method==='DELETE')).toEqual([{path:expect.stringContaining(`/video-intents/${intent}`),method:'DELETE',body:{expected_revision:1}}]);
+ expect(calls.filter(call=>call.method==='DELETE')).toEqual([{path:expect.stringContaining(`/video/intents/${intent}`),method:'DELETE',body:{expected_revision:1}}]);
  expect(calls.some(call=>call.method==='POST')).toBe(false);
  expect(document.body.textContent).not.toContain(intent);
 });
@@ -121,8 +121,8 @@ it('keeps an erasable row after revoked-key denial and keeps failed deletion in 
  const intent='55555555-5555-4555-8555-555555555555';
  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
   if(init?.method==='DELETE')return Response.json({error:{message:'Storage unavailable'}},{status:503});
-  if(path.includes('/video-intents?'))return Response.json({data:[{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained'}],has_more:false,next_before:null});
-  if(path.includes('/video-intents/'))return Response.json({error:{message:'Key revoked'}},{status:403});
+  if(path.includes('/video/intents?'))return Response.json({data:[{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained'}],has_more:false,next_before:null});
+  if(path.includes('/video/intents/'))return Response.json({error:{message:'Key revoked'}},{status:403});
   return Response.json({data:[]});
  }));
  render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspaces:[a],session:{permissions:{write:true}}} as DashboardContext} currentKeys={[]}/></SidebarProvider></MemoryRouter>);

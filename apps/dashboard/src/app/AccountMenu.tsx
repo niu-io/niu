@@ -1,3 +1,4 @@
+import { providerPathSegment } from './provider-route';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { IconLogout as LogOut } from "@tabler/icons-react";
@@ -58,7 +59,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine />Activity</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref} reloadDocument={!token}><Boxes />Models</Link></DropdownMenuItem>
             </>}
-            {((platformAdmin && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${session.provider_memberships[0].id}` : '/providers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? "Admin" : "Providers"}</Link></DropdownMenuItem>}
+            {((platformAdmin && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? "Admin" : "Providers"}</Link></DropdownMenuItem>}
             <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />Documentation</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}

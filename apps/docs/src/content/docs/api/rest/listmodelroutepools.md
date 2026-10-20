@@ -1,12 +1,12 @@
 ---
 title: "List platform-managed model route pools"
-description: "GET /api/v1/model-route-pools/index"
+description: "GET /api/v1/pools/index"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/model-route-pools/index`
+`GET /api/v1/pools/index`
 
 Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels.
 
@@ -29,7 +29,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/model-route-pools/index" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pools/index" \
   -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 

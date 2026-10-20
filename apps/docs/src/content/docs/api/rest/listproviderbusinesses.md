@@ -67,7 +67,8 @@ Content type: `application/json`.
           "api_keys",
           "models",
           "members",
-          "qualification_status"
+          "qualification_status",
+          "slug"
         ],
         "properties": {
           "id": {
@@ -117,6 +118,12 @@ Content type: `application/json`.
               "qualified",
               "unqualified"
             ]
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 48,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable readable slug for product URLs. Renaming preserves it."
           }
         }
       }

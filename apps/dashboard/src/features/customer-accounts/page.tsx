@@ -42,14 +42,14 @@ function Accounts({ token }: { token: string }) {
       setCompanies(current => after ? [...current, ...page.data.filter(row => !current.some(saved => saved.organization_id === row.organization_id))] : page.data);
       setCursor(page.next_after);
     } catch (reason) {
-      if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : 'Customer accounts unavailable.'); setFailedCursor(after); }
+      if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : 'Customer balances unavailable.'); setFailedCursor(after); }
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
-  return <section className="min-w-0 space-y-5" aria-label="Customer accounts">
-    <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Company balances are shared across workspaces. Credit permits borrowing; it does not add funds or recognize revenue.</p><Button variant="outline" disabled={loading} onClick={() => void load()}><IconRefresh size={16} />Refresh accounts</Button></div>
+  return <section className="min-w-0 space-y-5" aria-label="Account balances">
+    <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Manage customer balances, credit limits, and noncash grants. Each company shares its balance across workspaces. Credit permits borrowing; it does not add funds or recognize revenue.</p><Button variant="outline" disabled={loading} onClick={() => void load()}><IconRefresh size={16} />Refresh balances</Button></div>
     {notice && <p role="status">{notice}</p>}
-    {loading && !companies.length && <p role="status">Loading customer accounts…</p>}
+    {loading && !companies.length && <p role="status">Loading customer balances…</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>Retry</Button></AlertDescription></Alert>}
     {!loading && !error && !companies.length && <p>No customer companies are available.</p>}
     {!!companies.length && <Table aria-label="Customer billing accounts"><TableHeader><TableRow>{['Company', 'Currency', 'Posted balance', 'Approved credit', 'Outstanding liability', 'Available capacity', 'Actions'].map((name, index) => <TableHead key={name} className={index > 1 && index < 6 ? 'text-right whitespace-nowrap' : 'whitespace-nowrap'}>{name}</TableHead>)}</TableRow></TableHeader>

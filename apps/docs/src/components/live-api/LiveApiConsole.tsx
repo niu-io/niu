@@ -212,7 +212,7 @@ export default function LiveApiConsole() {
         setError(`${reason ?? "Request failed."} (HTTP ${failure.status}). ${attempt
           ? "A saved attempt reference was returned. Check saved diagnostics or workspace Logs."
           : reason ? "No saved attempt reference was returned." : "No saved attempt reference was returned; the outcome is unconfirmed. Do not automatically retry."}`);
-        const workspaceRoot = "/workspaces/" + encodeURIComponent(selection.workspace.route_slug);
+        const workspaceRoot = "/workspaces/" + encodeURIComponent(selection.workspace.slug);
         if (reason && type.startsWith("key_")) {
           setRemedy({ href: workspaceRoot + "/keys/" + encodeURIComponent(selection.keyId), label: "Review API key limits" });
         } else if (type === "workspace_spending_limit_exceeded" || type === "budget_exceeded") {
@@ -392,7 +392,7 @@ export default function LiveApiConsole() {
               <a
                 href={
                   "/workspaces/" +
-                  encodeURIComponent(selection.workspace.route_slug) +
+                  encodeURIComponent(selection.workspace.slug) +
                   "/executions/"
                 }
               >

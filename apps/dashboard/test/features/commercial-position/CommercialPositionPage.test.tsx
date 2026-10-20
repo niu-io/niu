@@ -135,7 +135,7 @@ it('renders a structured financial statement with period comparisons, active mod
   const user = userEvent.setup();
 
   render(
-    <MemoryRouter initialEntries={['/admin/commercial']}>
+    <MemoryRouter initialEntries={['/admin/reports']}>
       <CommercialPositionPage />
     </MemoryRouter>,
   );

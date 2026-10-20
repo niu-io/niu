@@ -63,33 +63,46 @@ impl Store {
         expected_revision: i64,
         actor: Option<OperatorAuditActor>,
     ) -> Result<i64, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        Self::set_workspace_limit_in_tx(&mut tx, scope, currency, limit_nanos, expected_revision, actor).await?;
+        tx.commit().await?;
+        Ok(expected_revision + 1)
+    }
+
+    pub(crate) async fn set_workspace_limit_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        currency: &str,
+        limit_nanos: i64,
+        expected_revision: i64,
+        actor: Option<OperatorAuditActor>,
+    ) -> Result<(), StoreError> {
         if limit_nanos < 0 || expected_revision < 0 || expected_revision == i64::MAX {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
         let actor_value = match actor {
             None => String::new(),
             Some(OperatorAuditActor::Installation) => "installation".into(),
             Some(OperatorAuditActor::Operator(id)) => {
                 sqlx::query("SELECT id FROM admin_operators WHERE id=$1 AND role='owner' AND revoked_at IS NULL AND organization_id=$2 AND (project_id IS NULL OR project_id=$3) FOR SHARE")
-                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Unauthorized)?;
+                    .bind(id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Unauthorized)?;
                 id.to_string()
             }
         };
         sqlx::query("SELECT set_config('niu.workspace_limit_actor',$1,true)")
             .bind(actor_value)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
         let account: Uuid = sqlx::query_scalar("SELECT a.id FROM customer_balance_accounts a JOIN projects p ON p.organization_id=a.organization_id WHERE a.organization_id=$1 AND a.currency=$2 AND p.id=$3 FOR NO KEY UPDATE OF a")
             .bind(scope.organization_id).bind(currency).bind(scope.project_id)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let committed: bool =
             sqlx::query_scalar("SELECT niu_customer_workspace_committed($1,$2,$3)>$4")
                 .bind(scope.organization_id)
                 .bind(scope.project_id)
                 .bind(account)
                 .bind(limit_nanos)
-                .fetch_one(&mut *tx)
+                .fetch_one(&mut **tx)
                 .await?;
         if committed {
             return Err(StoreError::BudgetExceeded);
@@ -97,17 +110,16 @@ impl Store {
         let changed = if expected_revision == 0 {
             sqlx::query("INSERT INTO customer_workspace_spending_limits(organization_id,project_id,account_id,currency,limit_nanos,revision) VALUES($1,$2,$3,$4,$5,1) ON CONFLICT DO NOTHING")
                 .bind(scope.organization_id).bind(scope.project_id).bind(account).bind(currency).bind(limit_nanos)
-                .execute(&mut *tx).await?.rows_affected()
+                .execute(&mut **tx).await?.rows_affected()
         } else {
             sqlx::query("UPDATE customer_workspace_spending_limits SET limit_nanos=$5,revision=revision+1 WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 AND currency=$4 AND revision=$6")
                 .bind(scope.organization_id).bind(scope.project_id).bind(account).bind(currency).bind(limit_nanos).bind(expected_revision)
-                .execute(&mut *tx).await?.rows_affected()
+                .execute(&mut **tx).await?.rows_affected()
         };
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
-        Ok(expected_revision + 1)
+        Ok(())
     }
 
     pub async fn customer_workspace_spending_limit(

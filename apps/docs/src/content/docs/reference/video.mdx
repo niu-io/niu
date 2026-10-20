@@ -168,18 +168,18 @@ acknowledgement; recover its saved operation without resending it.
 
 | HTTP endpoint | JavaScript SDK |
 | --- | --- |
-| `GET`, `POST /v1/media/asset-groups` | `media.groups.list()`, `media.groups.create()` |
-| `GET`, `PATCH`, `DELETE /v1/media/asset-groups/{id}` | `media.groups.retrieve()`, `.update()`, `.delete()` |
-| `POST /v1/media/asset-groups/{id}/refresh` | `media.groups.refresh()` |
+| `GET`, `POST /v1/media/groups` | `media.groups.list()`, `media.groups.create()` |
+| `GET`, `PATCH`, `DELETE /v1/media/groups/{id}` | `media.groups.retrieve()`, `.update()`, `.delete()` |
+| `POST /v1/media/groups/{id}/refresh` | `media.groups.refresh()` |
 | `GET`, `POST /v1/media/assets` | `media.assets.list()`, `media.assets.create()` |
 | `GET`, `PATCH`, `DELETE /v1/media/assets/{id}` | `media.assets.retrieve()`, `.update()`, `.delete()` |
 | `POST /v1/media/assets/{id}/refresh` | `media.assets.refresh()` |
-| `GET /v1/media/asset-operations` | `media.operations.list()` |
-| `GET /v1/media/asset-operations/{id}` | `media.operations.retrieve()` |
-| `GET /v1/media/asset-operations/by-idempotency/{id}` | `media.operations.retrieveByIdempotency()` |
-| `POST /v1/media/asset-operations/prepare` | `media.operations.prepare()` |
-| `POST /v1/media/asset-operations/{id}/dispatch` | `media.operations.dispatch()` |
-| `POST /v1/media/asset-operations/{id}/cancel` | `media.operations.cancel()` |
+| `GET /v1/media/operations` | `media.operations.list()` |
+| `GET /v1/media/operations/{id}` | `media.operations.retrieve()` |
+| `GET /v1/media/operations/by-idempotency/{id}` | `media.operations.retrieveByIdempotency()` |
+| `POST /v1/media/operations/prepare` | `media.operations.prepare()` |
+| `POST /v1/media/operations/{id}/dispatch` | `media.operations.dispatch()` |
+| `POST /v1/media/operations/{id}/cancel` | `media.operations.cancel()` |
 
 ### Separate preparation from dispatch
 
@@ -259,10 +259,10 @@ human flow has been completed or that an account obtained additional entitlement
 
 | HTTP endpoint | JavaScript SDK |
 | --- | --- |
-| `POST`, `GET /v1/media/verification-sessions` | `media.verification.create()`, `.list()` |
-| `GET /v1/media/verification-sessions/{id}` | `media.verification.retrieve()` |
-| `GET /v1/media/verification-sessions/{id}/link` | `media.verification.link()` |
-| `POST /v1/media/verification-sessions/{id}/refresh` | `media.verification.refresh()` |
+| `POST`, `GET /v1/media/verifications` | `media.verification.create()`, `.list()` |
+| `GET /v1/media/verifications/{id}` | `media.verification.retrieve()` |
+| `GET /v1/media/verifications/{id}/link` | `media.verification.link()` |
+| `POST /v1/media/verifications/{id}/refresh` | `media.verification.refresh()` |
 
 ## Billing and diagnostics
 

@@ -102,7 +102,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
             if(page.has_more&&page.next_before)nextIntents.push({scope:tenant,before:page.next_before});
           }catch{if(!controller.signal.aborted)failedRead=true;}
           {
-            const page=await read<{data:Chat[]}>(`${currentScope}/chat-sessions`);
+            const page=await read<{data:Chat[]}>(`${currentScope}/chats`);
             if(page)chatRows.push(...page.data.map(chat=>({...chat,workspaceId:item.id})));
           }
           try {
@@ -124,7 +124,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       if(!id)return '';
       const found=knownWorkspaces.find(item=>item.id===id);
       if(!found)return id;
-      if(!found.route_slug && found.name.length<=1)return found.id;
+      if(!found.slug && !found.route_slug && found.name.length<=1)return found.id;
       return workspacePathSegment(found,knownWorkspaces);
     };
     const merged=new Map(savedVideos.filter(item=>!item.sessionId||unavailableSessionWorkspaces.has(item.workspaceId??'')).map(item=>[item.id,item]));

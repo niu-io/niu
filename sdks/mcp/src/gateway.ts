@@ -368,7 +368,7 @@ export async function requestMediaEndpoint(
   if (options?.idempotencyKey !== undefined) {
     assertUuid(options.idempotencyKey, "idempotency_key UUID");
     if (
-      path.startsWith("/media/asset-operations/") &&
+      path.startsWith("/media/operations/") &&
       options.idempotencyKey === "00000000-0000-0000-0000-000000000000"
     ) {
       throw new Error("A non-nil idempotency_key UUID is required for media asset operation preparation/dispatch");

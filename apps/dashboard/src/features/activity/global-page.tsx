@@ -59,7 +59,7 @@ async function readRequestPage(url: string, token: string, signal: AbortSignal):
 }
 const root = (workspace: Workspace) => `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests`;
 const name = (workspace: Workspace) => workspaceDisplayName(workspace.name) || 'Workspace';
-const scopeSegment = (workspace: Workspace, list: Workspace[]) => !workspace.route_slug && workspace.id.length <= 1 ? workspace.id : workspacePathSegment(workspace, list);
+const scopeSegment = (workspace: Workspace, list: Workspace[]) => !workspace.slug && !workspace.route_slug && workspace.id.length <= 1 ? workspace.id : workspacePathSegment(workspace, list);
 const scopeHref = (workspace: Workspace, list: Workspace[], page: string) => `/workspaces/${scopeSegment(workspace, list)}/${page}`;
 function chargeLabel(request: Request) {
   if (request.customer_charge_status === 'charged' && request.customer_charge_currency && request.customer_charge_nanos !== null) return money(request.customer_charge_nanos, request.customer_charge_currency);

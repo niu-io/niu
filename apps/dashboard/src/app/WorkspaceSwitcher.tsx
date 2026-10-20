@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSidebar } from '@/components/ui/sidebar';
 import type { DashboardContext } from './dashboard-context';
-import { workspaceDisplayName } from './workspace-route';
+import { workspaceDisplayName, workspaceSlugFromName } from './workspace-route';
 
 export default function WorkspaceSwitcher({ context, onCreateWorkspace }: {
   context: DashboardContext;
@@ -79,6 +79,8 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
 }) {
   const { organization, createWorkspace } = context;
   const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
   const openerRef = useRef<HTMLElement | null>(null);
@@ -86,6 +88,8 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
   useEffect(() => {
     if (!open) return;
     setName('');
+    setSlug('');
+    setSlugEdited(false);
     setCreateError('');
   }, [open]);
 
@@ -95,7 +99,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
     setSaving(true);
     setCreateError('');
     try {
-      await createWorkspace(name.trim(), organization?.id);
+      await createWorkspace(name.trim(), organization?.id, slug);
       onOpenChange(false);
     } catch (cause) {
       setCreateError(cause instanceof Error ? cause.message : 'Could not create workspace.');
@@ -115,9 +119,11 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange }: {
         <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
       </DialogHeader>
       <form onSubmit={submitCreate} className="niu-modal-form">
-        <div className="grid gap-2"><Label htmlFor="workspace-name">Workspace name</Label><Input id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Product experiments" /></div>
+        <div className="grid gap-2"><Label htmlFor="workspace-name">Workspace name</Label><Input id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder="e.g. Product experiments" /></div>
+        <div className="grid gap-2"><Label htmlFor="workspace-slug">Slug</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder="product-experiments" aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">Used in /workspaces/{slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.</p></div>
+        {slug === 'default' && <p className="error-text" role="alert">The slug “default” is reserved. Choose a different slug.</p>}
         {createError && <p className="error-text" role="alert">{createError}</p>}
-        <div className="workspace-create-actions"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create workspace'}</Button></div>
+        <div className="workspace-create-actions"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" disabled={saving || !name.trim() || !slug || slug === 'default'}>{saving ? 'Creating…' : 'Create workspace'}</Button></div>
       </form>
     </DialogContent>
   </Dialog>;

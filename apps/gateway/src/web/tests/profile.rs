@@ -46,7 +46,7 @@ async fn chat_drafts_are_durable_private_and_revision_checked(pool: PgPool) {
         .unwrap();
     let app = router(state);
     let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/chat-draft",
+        "/admin/v1/organizations/{}/projects/{}/chats/draft",
         workspace.organization_id, workspace.project_id
     );
     let payload = json!({"sessionId":null,"prompt":"Unsent question","models":["fast"],"attachments":[{"name":"note.md","type":"text","content":"Unsent context"}],"settings":{"systemPrompt":"Be concise","maxTokens":512,"temperature":0.7,"logPayloads":true}});
@@ -109,7 +109,7 @@ async fn chat_drafts_are_durable_private_and_revision_checked(pool: PgPool) {
         .unwrap();
     assert_eq!(response.headers().get("cache-control").unwrap(), "no-store");
     let foreign_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/chat-draft",
+        "/admin/v1/organizations/{}/projects/{}/chats/draft",
         workspace.organization_id,
         Uuid::new_v4()
     );

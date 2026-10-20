@@ -3,7 +3,7 @@ import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
 import { IconBan as Ban } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
-import { Link, useLocation, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
 }) {
   const { keyId = '' } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const root = workspacePath(location.pathname);
   const [keys, setKeys] = useState<ProjectKey[]>([]);
   const [loadedScope, setLoadedScope] = useState('');
@@ -81,7 +82,11 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
     return () => controller.abort();
   }, [collectionPath, keyId, token, revision]);
 
-  const key = !loading && !loadFailed && loadedScope === scopeIdentity ? keys.find(item => item.id === keyId) : undefined;
+  const key = !loading && !loadFailed && loadedScope === scopeIdentity ? keys.find(item => item.slug === keyId || item.id === keyId) : undefined;
+
+  useEffect(() => {
+    if (key?.slug && key.slug !== keyId) navigate({pathname: `${root}/keys/${encodeURIComponent(key.slug)}`, search:location.search, hash:location.hash}, {replace:true});
+  }, [key?.slug, keyId, root, location.search, location.hash, navigate]);
 
   const getKeyRpm = (item?: ProjectKey) => item?.request_rate_limit?.requests_per_minute ?? item?.requests_per_minute ?? null;
   const getKeyConc = (item?: ProjectKey) => item?.concurrency_limit?.max_concurrent_requests ?? item?.max_concurrent_requests ?? null;

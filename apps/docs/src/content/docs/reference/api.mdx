@@ -87,7 +87,7 @@ not qualification of media overruns or every provider. See the
 ## Route pool updates during generation
 
 Platform administrators can discover saved pools through
-`GET /api/v1/model-route-pools/index`, or the SDK's `listModelRoutePools` method.
+`GET /api/v1/pools/index`, or the SDK's `listModelRoutePools` method.
 Pass `limit` (1–100, default 50), then use the returned `next_after` as `after` for
 the next page. The list includes enabled and disabled configurations. Its live
 alias-based traversal is not a snapshot; refresh from the first page to see
@@ -118,7 +118,7 @@ credential after a canonical OpenRouter immediate HTTP 401, once durable
 nonexecution and released reservations are confirmed. The limit is two submitted
 attempts under one operation and deadline, preserving customer price and funding
 source. Other errors and streams already returned to the client are not retried. See the
-[route pool contract and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md).
+[route pool contract and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/pools.md).
 
 ## Customer request diagnostics
 

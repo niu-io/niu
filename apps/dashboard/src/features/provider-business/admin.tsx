@@ -1,9 +1,10 @@
+import { useProviderParams, providerPathSegment } from '@/app/provider-route';
 import { IconSearch } from '@tabler/icons-react';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { IconX as X } from "@tabler/icons-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router";
+import { Link, Navigate, useSearchParams } from "react-router";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconDots as Dots } from "@tabler/icons-react";
@@ -21,7 +22,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { request, writeMayHaveCommitted, ProviderRequestError } from "@/features/providers/api";
 import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,7 +32,7 @@ import type { Operator } from "@/features/operators/api";
 
 import { type ProviderSetup } from '@/features/providers/provider-setup';
 
-type Business = ProviderSetup & { id: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
+type Business = ProviderSetup & { id: string; slug?: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
 type ProviderMember = { operator_id: string; name: string; role: string; active: boolean; revoked: boolean };
 type AdminData = {
   balances: { currency: string; earned_nanos: string; unpaid_nanos: string; paid_nanos: string }[];
@@ -69,7 +69,7 @@ const sha256Pattern = "[0-9a-f]{64}";
 export default function ProviderAdministration() {
   const { session, token } = useDashboardContext();
   if (!(session?.kind === "installation" || session?.permissions.platform_admin) && session?.provider_memberships?.length)
-    return <Navigate to={`/providers/${session.provider_memberships[0].id}`} replace />;
+    return <Navigate to={`/providers/${providerPathSegment(session.provider_memberships[0])}`} replace />;
   if (!(session?.kind === "installation" || session?.permissions.platform_admin))
     return (
       <>
@@ -87,7 +87,7 @@ export default function ProviderAdministration() {
   return <Administration key={token} token={token} />;
 }
 function Administration({ token }: { token: string }) {
-  const { section = "overview", providerId, supplierId } = useParams();
+  const { section = "overview", providerId, supplierId } = useProviderParams();
   const routeProviderId = providerId ?? supplierId;
   const [loading, setLoading] = useState(true);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -332,9 +332,9 @@ function Administration({ token }: { token: string }) {
   const supplierQualified = selectedBusiness?.qualification_status === "qualified";
   const sectionTitle = {
     overview: "Overview",
-    consumption: "Usage",
-    members: "Portal access",
-    models: "Models & pricing",
+    usage: "Usage",
+    members: "Members",
+    models: "Models",
     settlements: "Settlements",
   }[section] ?? "Providers";
   const sectionAction =
@@ -543,9 +543,9 @@ function Administration({ token }: { token: string }) {
             <div className="provider-admin-section-heading"><h2>API connection</h2></div>
             <p className="px-6 pb-4 text-sm text-muted-foreground">Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.</p>
             <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>Setup step</TableHead><TableHead>Status</TableHead><TableHead>Action</TableHead></TableRow></TableHeader><TableBody>
-              <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${selected}/configuration`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${selected}/configuration`}>Configure models</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Managed by workspace</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Customer pricing</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>Configure models</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Managed by workspace</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Pricing</Link></Button></TableCell></TableRow>
             </TableBody></ShadcnTable>
             <p className="px-6 pt-4 text-sm text-muted-foreground">Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.</p>
           </div>}
@@ -562,7 +562,7 @@ function Administration({ token }: { token: string }) {
             </TableRow>)}</TableBody>
           </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No provider portal access granted</EmptyTitle><EmptyDescription>API keys and model routes work without portal access.</EmptyDescription></EmptyHeader></Empty>)}
           {section === "overview" && <div className="provider-admin-block">
-            <div className="provider-admin-section-heading"><h2>Model offers</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(selected)}/models`}>Models & pricing</Link></Button></div>
+            <div className="provider-admin-section-heading"><h2>Model offers</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>Models</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
               <div><span>Text offers</span><strong>{textOffers.length}</strong></div>
               <div><span>Media offers</span><strong>{mediaOffers.length}</strong></div>
@@ -589,7 +589,7 @@ function Administration({ token }: { token: string }) {
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
             {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label="Provider pricing category"><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
             <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="px-6 pb-4"><Popover><PopoverTrigger asChild><Button type="button" variant={offerQuery.trim() ? "secondary" : "outline"} size={offerQuery.trim() ? "sm" : "icon"} aria-label={offerQuery.trim() ? `Filter provider models: ${offerQuery.trim()}` : "Filter provider models"} title="Filter models"><IconSearch size={16} aria-hidden="true" />{offerQuery.trim() && <span className="max-w-36 truncate">{offerQuery.trim()}</span>}</Button></PopoverTrigger><PopoverContent align="start" className="w-72 space-y-2"><Input ref={offerSearch} autoFocus type="search" aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} />{offerQuery && <Button type="button" variant="ghost" size="sm" onClick={() => setOfferQuery("")}>Reset search</Button>}</PopoverContent></Popover></div>}
+            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
               visibleOffers.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle>No matching models</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>Clear search</Button></EmptyContent></Empty> :
               <div className="table-wrap">
@@ -657,7 +657,7 @@ function Administration({ token }: { token: string }) {
               </div>) : <p className="provider-inline-empty">No provider charges recorded yet.</p>}
             </div>
           </div>}
-          {section === "consumption" && <>
+          {section === "usage" && <>
             <div className="provider-admin-section-heading"><h2>Consumption by model</h2><span>Last 90 days</span></div>
             {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Accrued charges</TableHead><TableHead>Unpaid</TableHead></TableRow></TableHeader><TableBody>
               {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString()}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString()} ({BigInt(row.prompt_tokens).toLocaleString()} / {BigInt(row.completion_tokens).toLocaleString()})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
@@ -671,7 +671,7 @@ function Administration({ token }: { token: string }) {
           </>}
         </section>
       )}
-      {mediaPublishing && <MediaOfferPublisher key={selected} token={token} supplier={selected} initialModel={mediaOfferModel} onClose={() => setMediaPublishing(false)} onSaved={() => { setMediaPublishing(false); setRevision(value => value + 1); setNotice("Media offer saved. Review is required before activation."); }} />}
+      {mediaPublishing && <MediaOfferPublisher key={selected} token={token} supplier={selected} supplierSlug={businesses.find(item => item.id === selected)?.slug} initialModel={mediaOfferModel} onClose={() => setMediaPublishing(false)} onSaved={() => { setMediaPublishing(false); setRevision(value => value + 1); setNotice("Media offer saved. Review is required before activation."); }} />}
       <Dialog open={Boolean(dialog)} onOpenChange={(value) => {
           if (!value && !busy) { offerRequest.current?.abort(); offerReadSequence.current += 1; setDialog(""); setSearch(current => { current.delete("create"); current.delete("properties"); return current; }, { replace: true }); }
         }}>

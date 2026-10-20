@@ -1,4 +1,5 @@
-SELECT p.id,p.name,p.route_slug,
+SELECT p.id,p.name,p.route_slug,p.route_slug AS slug,
+    ARRAY(SELECT a.slug FROM workspace_slug_aliases a WHERE a.project_id=p.id) AS slug_aliases,
     o.id AS organization_id,o.name AS organization_name,(EXTRACT(EPOCH FROM p.created_at)*1000)::bigint AS created_at_ms,
     (SELECT COUNT(*) FROM api_keys k WHERE k.organization_id=p.organization_id AND k.project_id=p.id AND k.revoked_at IS NULL AND k.expires_at>now()) AS active_key_count,
     (SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=now()-interval '30 days') AS requests_30d,

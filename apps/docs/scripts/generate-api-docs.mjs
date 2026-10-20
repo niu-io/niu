@@ -116,7 +116,7 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   operations++;
   const group = /^\/v1\/(video|media|images)/.test(route) ? 'Video and media APIs'
     : /^\/v1(?:\/|$)|^\/v1beta\//.test(route) ? 'Model APIs'
-    : /^\/api\/v1\/(providers|provider-memberships|vendors|routing-registry|model-route-pools)/.test(route) ? 'Providers and routing APIs'
+    : /^\/api\/v1\/(providers|provider-memberships|vendors|routing-registry|pools)/.test(route) ? 'Providers and routing APIs'
     : /^\/api\/v1\/(auth\/|session$|operators)/.test(route) ? 'Authentication and sessions'
     : /^\/api\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|metrics|models|pricing|financial-summary|commercial-position)/.test(route) ? 'Workspace and company APIs'
     : 'Service endpoints';

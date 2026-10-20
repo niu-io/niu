@@ -5,6 +5,22 @@ import { NiuAdminClient, NiuAPIError } from '../dist/index.js';
 const id = '12345678-1234-1234-1234-123456789abc';
 const scope = { organizationId: id, projectId: id };
 
+test('Provider creation accepts optional profile details while preserving name-only callers', async () => {
+  const calls = [];
+  const client = new NiuAdminClient({ adminToken: 'test', fetch: async (url, init) => {
+    calls.push({url, init}); return Response.json({data: {id, slug: 'provider'}});
+  }});
+  const input = {name: 'Provider', description: 'Model services', website_url: 'https://example.com', logo_url: 'https://example.com/logo.png'};
+  await client.createProviderBusiness(input);
+  await client.createProviderBusiness('Name only');
+  await client.createSupplierBusiness(input);
+  assert.deepEqual(calls.map(call => JSON.parse(call.init.body)), [input, {name: 'Name only'}, input]);
+  for (const call of calls) {
+    assert.equal(call.init.method, 'POST');
+    assert.ok(call.url.endsWith('/providers'));
+  }
+});
+
 test('detector disclosure and decision reads remain scoped, cancellable and bodyless', async () => {
   const calls = [];
   const abort = new AbortController();
@@ -67,7 +83,7 @@ test('Chat export reads one durable scoped conversation without mutation', async
   const exported = {format:'niu-chat',version:1,title:'Conversation',turns:[{prompt:'Hello',results:[{model:'fast',content:'Hi',phase:'complete'}]}]};
   const client = new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json(exported);}});
   assert.deepEqual(await client.exportChatSession(scope,id,{signal:abort.signal}),exported);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chat-sessions/${id}/export`));
+  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chats/${id}/export`));
   assert.equal(calls[0].init.method,'GET'); assert.equal(calls[0].init.body,undefined);
   assert.equal(calls[0].init.signal,abort.signal);
   assert.throws(()=>client.exportChatSession(scope,'../foreign'),/UUID/);
@@ -264,8 +280,8 @@ test('Chat lifecycle uses scoped backend history and bodyless deletion', async (
   }});
   assert.equal((await client.listChatSessions(scope)).data[0].title, 'Saved conversation');
   assert.equal(await client.deleteChatSession(scope, id, { signal: abort.signal }), undefined);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chat-sessions`));
-  assert.ok(calls[1].url.endsWith(`/chat-sessions/${id}`));
+  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chats`));
+  assert.ok(calls[1].url.endsWith(`/chats/${id}`));
   assert.equal(calls[1].init.method, 'DELETE');
   assert.equal(calls[1].init.body, undefined);
   assert.equal(calls[1].init.signal, abort.signal);
@@ -284,7 +300,7 @@ test('Chat save sends ordered branch results to the scoped backend', async () =>
   ] };
   assert.deepEqual(await client.saveChatSession(scope, id, session), { saved: true });
   assert.equal(call.init.method, 'PUT');
-  assert.ok(call.url.endsWith(`/organizations/${id}/projects/${id}/chat-sessions/${id}`));
+  assert.ok(call.url.endsWith(`/organizations/${id}/projects/${id}/chats/${id}`));
   assert.deepEqual(JSON.parse(call.init.body), session);
 });
 
@@ -836,12 +852,12 @@ test('Chat archive and restore use explicit scoped state and cancellation withou
     return init.method === 'PUT' ? new Response(null,{status:204}) : Response.json({data:[]});
   }});
   assert.deepEqual(await client.listArchivedChatSessions(scope,{signal:abort.signal}),{data:[]});
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chat-sessions?archived=true`));
+  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chats?archived=true`));
   assert.equal(calls[0].init.body,undefined);
   for(const archived of [true,false]) {
     assert.equal(await client.setChatSessionArchived(scope,id,archived,{signal:abort.signal}),undefined);
     const call=calls.at(-1);
-    assert.ok(call.url.endsWith(`/chat-sessions/${id}/archive`));
+    assert.ok(call.url.endsWith(`/chats/${id}/archive`));
     assert.equal(call.init.method,'PUT');
     assert.deepEqual(JSON.parse(call.init.body),{archived});
     assert.equal(call.init.signal,abort.signal);
@@ -1509,3 +1525,32 @@ test('validates and URL-encodes admin path parameters against path traversal', a
   assert.throws(() => client.setRetailMediaEnrollment(id, 'not-a-uuid', { enrolled: true, expected_version: '0', idempotency_key: id, reason: 'ok' }), /UUID/);
 });
 
+
+test('generation sessions use the generations collection alongside tasks and artifacts', async () => {
+  const calls = [];
+  const client = new NiuAdminClient({adminToken: 'test', fetch: async (url, init) => {
+    calls.push({url, init});
+    return Response.json({data: []});
+  }});
+  const generations = client.generations(scope);
+  await generations.sessions.list();
+  await generations.sessions.listChat();
+  await generations.sessions.retrieve(id);
+  await generations.sessions.retrieveChat(id);
+  await generations.sessions.create(id, {title: 'Video'});
+  await generations.sessions.update(id, {expected_revision: '1', title: 'Renamed', archived: true});
+  await generations.sessions.appendTurn(id, id, {expected_revision: '2', instruction: {kind: 'video', prompt: 'Test'}});
+  await generations.sessions.attachTask(id, id, {expected_revision: '3', task_id: id});
+  await generations.sessions.bindIntent(id, id, {expected_revision: '4', intent_id: id});
+  await generations.sessions.deleteInstruction(id, id, '5');
+  await generations.tasks.list();
+  await generations.artifacts.list();
+  const root = `/organizations/${id}/projects/${id}/generations`;
+  assert.deepEqual(calls.map(({url}) => new URL(url).pathname.replace(/^\/(?:api|admin)\/v1/, '') + new URL(url).search), [
+    root, `${root}?category=chat`, `${root}/${id}`, `${root}/${id}?category=chat`,
+    `${root}/${id}`, `${root}/${id}`, `${root}/${id}/turns/${id}`,
+    `${root}/${id}/turns/${id}/task`, `${root}/${id}/turns/${id}/intent`,
+    `${root}/${id}/turns/${id}`, `${root}/tasks`, `${root}/artifacts`,
+  ]);
+  assert.deepEqual(calls.map(({init}) => init.method), ['GET', 'GET', 'GET', 'GET', 'PUT', 'PATCH', 'PUT', 'PUT', 'PUT', 'DELETE', 'GET', 'GET']);
+});

@@ -122,9 +122,10 @@ listSupplierBusinesses(options?: RequestOptions): Promise<{
 
 ```typescript
 /** Create a business identity; this does not qualify supply or publish an offer. */
-createProviderBusiness(name: string, options?: RequestOptions): Promise<{
+createProviderBusiness(input: string | ProviderBusinessCreate, options?: RequestOptions): Promise<{
     data: {
         id: string;
+        slug: string;
     };
 }>;
 ```
@@ -132,9 +133,10 @@ createProviderBusiness(name: string, options?: RequestOptions): Promise<{
 ### createSupplierBusiness
 
 ```typescript
-createSupplierBusiness(name: string, options?: RequestOptions): Promise<{
+createSupplierBusiness(input: string | ProviderBusinessCreate, options?: RequestOptions): Promise<{
     data: {
         id: string;
+        slug: string;
     };
 }>;
 ```

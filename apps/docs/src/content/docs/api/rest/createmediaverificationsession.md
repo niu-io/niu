@@ -1,12 +1,12 @@
 ---
 title: "Create upstream human verification session"
-description: "POST /v1/media/verification-sessions"
+description: "POST /v1/media/verifications"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /v1/media/verification-sessions`
+`POST /v1/media/verifications`
 
 Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Forwards only caller-supplied optional subject_name and return_url to the upstream H5 service. Exactly one creation follows a durable claim. All after-send failures remain unknown without automatic retry. A created session is not human completion or a local liveness approval. Token and H5 URL are encrypted and absent from ordinary metadata and logs.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/verification-sessions" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/verifications" \
   -H "Authorization: Bearer $NIU_API_KEY" \
   -H 'Content-Type: application/json' \
   --data @request.json

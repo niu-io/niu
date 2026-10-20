@@ -1523,6 +1523,112 @@ async fn platform_epay_configuration_is_encrypted_validated_and_applied(pool: Pg
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
+async fn provider_creation_saves_optional_profile_atomically(pool: PgPool) {
+    let app = router(test_state(None, pool.clone()));
+    let minimal = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({"name":"Name only"})),
+    )
+    .await;
+    assert_eq!(minimal.0, StatusCode::OK);
+    let minimal_path = format!(
+        "/api/v1/providers/{}",
+        minimal.1["data"]["id"].as_str().unwrap()
+    );
+    let minimal_profile = call(&app, Method::GET, &minimal_path, ADMIN, None).await.1;
+    for field in ["description", "website_url", "logo_url"] {
+        assert_eq!(minimal_profile["data"][field], "");
+    }
+    let created = call(
+        &app,
+        Method::POST,
+        "/api/v1/providers",
+        ADMIN,
+        Some(json!({
+            "name":" Complete Provider ",
+            "description":" Model services\nFor applications ",
+            "website_url":" https://example.com ",
+            "logo_url":" https://example.com/logo.png "
+        })),
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::OK);
+    let id = Uuid::parse_str(created.1["data"]["id"].as_str().unwrap()).unwrap();
+    let profile = call(
+        &app,
+        Method::GET,
+        &format!("/api/v1/providers/{id}"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(profile.0, StatusCode::OK);
+    assert_eq!(profile.1["data"]["name"], "Complete Provider");
+    assert_eq!(
+        profile.1["data"]["description"],
+        "Model services\nFor applications"
+    );
+    assert_eq!(profile.1["data"]["website_url"], "https://example.com");
+    assert_eq!(
+        profile.1["data"]["logo_url"],
+        "https://example.com/logo.png"
+    );
+    assert_eq!(profile.1["data"]["revision"], 1);
+    let events: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM provider_audit_events WHERE provider_id=$1 AND action='provider_created'")
+        .bind(id).fetch_one(&pool).await.unwrap();
+    assert_eq!(events, 1);
+    let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM provider_businesses")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    for invalid in [
+        json!({"name":"Invalid profile", "description":"x".repeat(2001)}),
+        json!({"name":"Invalid profile", "description":"bad\u{0000}description"}),
+        json!({"name":"Invalid profile", "website_url":"javascript:alert(1)"}),
+        json!({"name":"Invalid profile", "website_url":"https://user:secret@example.com"}),
+        json!({"name":"Invalid profile", "logo_url":"data:image/png;base64,invalid"}),
+        json!({"name":"Invalid profile", "logo_url":"ftp://example.com/logo.png"}),
+    ] {
+        assert_eq!(
+            call(
+                &app,
+                Method::POST,
+                "/api/v1/providers",
+                ADMIN,
+                Some(invalid)
+            )
+            .await
+            .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    let after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM provider_businesses")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        after, before,
+        "invalid optional metadata must not create a partial Provider"
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            "/api/v1/providers",
+            ADMIN,
+            Some(json!({"name":"Unsupported", "type":"openrouter"}))
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
 async fn supplier_profile_is_durable_validated_and_revision_guarded(pool: PgPool) {
     let state = test_state(None, pool.clone());
     let store = state.store.clone();

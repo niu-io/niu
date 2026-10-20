@@ -22,7 +22,7 @@ describe('RoutePoolsPage', () => {
     const user = userEvent.setup();
     const writes: Array<Record<string, unknown>> = [];
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
-      if (path.startsWith('/api/v1/model-route-pools/index')) {
+      if (path.startsWith('/api/v1/pools/index')) {
         return {
           data: [
             {
@@ -47,12 +47,13 @@ describe('RoutePoolsPage', () => {
           next_after: null,
         };
       }
-      if (path === '/api/v1/vendors') return { data: [] };
-      if (path === '/api/v1/model-route-pools' && method === 'PUT') {
+      if (path === '/api/v1/vendors') return { data: [{ id: 'test-provider', name: 'Direct Provider' }] };
+      if (path === '/api/v1/vendors/test-provider/models') return { data: [{ alias: 'direct-sonnet-v2', upstream_model: 'claude-sonnet-4', pricing: {} }] };
+      if (path === '/api/v1/pools' && method === 'PUT') {
         writes.push(body as Record<string, unknown>);
         return { data: { revision: 5 } };
       }
-      if (path.startsWith('/api/v1/model-route-pools/history')) {
+      if (path.startsWith('/api/v1/pools/history')) {
         return {
           data: [
             {
@@ -82,16 +83,22 @@ describe('RoutePoolsPage', () => {
     expect(container.textContent).not.toContain('11111111-1111-4111-8111-111111111111');
 
     // Secondary search popover filter
-    await user.click(screen.getByRole('button', { name: 'Filter route pools' }));
-    const searchInput = await screen.findByRole('searchbox', { name: 'Filter route pools' });
+    await user.click(screen.getByRole('button', { name: 'Filter model pools' }));
+    const searchInput = await screen.findByRole('searchbox', { name: 'Filter model pools' });
     await user.type(searchInput, 'claude-sonnet-4');
     expect(screen.queryByText('acme-private-sonnet')).toBeNull();
-    expect(within(screen.getByRole('table', { name: 'Model route pools' })).getByText('claude-sonnet-4')).toBeTruthy();
+    expect(within(screen.getByRole('table', { name: 'Model pools' })).getByText('claude-sonnet-4')).toBeTruthy();
 
     // Edit pool
     await user.click(screen.getByRole('button', { name: 'Edit pool' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('heading', { name: 'Edit claude-sonnet-4' })).toBeTruthy();
+    await user.click(within(dialog).getByLabelText('Candidate model #1'));
+    const modelSearch = await screen.findByLabelText('Search candidate models 1');
+    await user.type(modelSearch, 'Direct Provider');
+    await screen.findByRole('menuitemradio', { name: /direct-sonnet-v2/ });
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(within(dialog).getByLabelText('Candidate model #1').textContent).toContain('direct-sonnet-v2');
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(writes.length).toBe(1));
@@ -101,7 +108,7 @@ describe('RoutePoolsPage', () => {
       enabled: true,
       expected_revision: 4,
       candidates: [
-        { alias: 'anthropic-direct-sonnet-4', priority: 100, weight: 800, enabled: true },
+        { alias: 'direct-sonnet-v2', priority: 100, weight: 800, enabled: true },
         { alias: 'openrouter-sonnet-4', priority: 50, weight: 1000, enabled: true },
       ],
     });
@@ -110,11 +117,11 @@ describe('RoutePoolsPage', () => {
   it('reconciles uncertain pool writes without reposting', async () => {
     const user = userEvent.setup();
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET') => {
-      if (path.startsWith('/api/v1/model-route-pools/index')) {
+      if (path.startsWith('/api/v1/pools/index')) {
         return { data: [], has_more: false, next_after: null };
       }
       if (path === '/api/v1/vendors') return { data: [] };
-      if (path === '/api/v1/model-route-pools' && method === 'PUT') {
+      if (path === '/api/v1/pools' && method === 'PUT') {
         throw new VendorRequestError('Service unavailable', 503);
       }
       throw new Error(`Unexpected request: ${method} ${path}`);
@@ -126,12 +133,14 @@ describe('RoutePoolsPage', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText('No model route pools configured yet.');
-    await user.click(screen.getAllByRole('button', { name: 'Create route pool' })[0]);
+    await screen.findByText('No model pools configured yet.');
+    await user.click(screen.getAllByRole('button', { name: 'Create model pool' })[0]);
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('Pool alias'), 'gpt-5');
-    await user.type(within(dialog).getByLabelText('Candidate route alias #1'), 'openai-gpt-5');
-    await user.click(within(dialog).getByRole('button', { name: 'Create route pool' }));
+    await user.click(within(dialog).getByLabelText('Candidate model #1'));
+    await user.type(screen.getByLabelText('Search candidate models 1'), 'openai-gpt-5');
+    await user.click(screen.getByRole('menuitem', { name: 'Use existing alias “openai-gpt-5”' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Create model pool' }));
 
     expect(await screen.findByText(/write could not be confirmed/i)).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();

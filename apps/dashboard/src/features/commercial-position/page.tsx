@@ -1,3 +1,4 @@
+import { providerPathSegment } from '@/app/provider-route';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import {
@@ -457,6 +458,7 @@ export default function CommercialPositionPage() {
 }
 
 function CommercialStatement({ token }: { token: string }) {
+  const { providerDirectory } = useDashboardContext();
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
   const [refresh, setRefresh] = useState(0);
@@ -1323,7 +1325,7 @@ function CommercialStatement({ token }: { token: string }) {
                           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                             <Link
                               className="hover:underline"
-                              to={'/admin/providers/' + encodeURIComponent(row.supplier_id)}
+                              to={'/admin/providers/' + encodeURIComponent(providerPathSegment(providerDirectory?.find(item => item.id === row.supplier_id) ?? {id:row.supplier_id}))}
                             >
                               {row.supplier_name}
                             </Link>

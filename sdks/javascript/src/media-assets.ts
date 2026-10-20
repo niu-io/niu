@@ -88,12 +88,12 @@ export function createMediaAssetsClient(send: MediaAssetSender) {
     capabilities: (model?: string, options?: RequestOptions) => send<NativeProviderCapabilities>(`/media/capabilities${nativeCapabilityQuery(model)}`, 'GET', undefined, options),
     verification: createMediaVerificationClient(send, reference, query),
     groups: {
-      list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetGroup>>(`/media/asset-groups${query(input)}`, 'GET', undefined, options),
-      create: (input: { model: string; name: string; description?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>('/media/asset-groups', 'POST', input, options),
-      retrieve: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetGroup }>(`/media/asset-groups/${reference(id)}${query({ model })}`, 'GET', undefined, options),
-      update: (id: string, input: { model: string; name?: string; description?: string; expected_revision?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>(`/media/asset-groups/${reference(id)}`, 'PATCH', input, options),
-      delete: (id: string, input: { model: string; expected_revision?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>(`/media/asset-groups/${reference(id)}${query(input)}`, 'DELETE', undefined, options),
-      refresh: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetGroup }>(`/media/asset-groups/${reference(id)}/refresh${query({ model })}`, 'POST', undefined, options),
+      list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetGroup>>(`/media/groups${query(input)}`, 'GET', undefined, options),
+      create: (input: { model: string; name: string; description?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>('/media/groups', 'POST', input, options),
+      retrieve: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetGroup }>(`/media/groups/${reference(id)}${query({ model })}`, 'GET', undefined, options),
+      update: (id: string, input: { model: string; name?: string; description?: string; expected_revision?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>(`/media/groups/${reference(id)}`, 'PATCH', input, options),
+      delete: (id: string, input: { model: string; expected_revision?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>(`/media/groups/${reference(id)}${query(input)}`, 'DELETE', undefined, options),
+      refresh: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetGroup }>(`/media/groups/${reference(id)}/refresh${query({ model })}`, 'POST', undefined, options),
     },
     assets: {
       list: (input: PageQuery & { group_id?: string }, options?: RequestOptions) => send<MediaAssetPage<MediaAsset>>(`/media/assets${query(input)}`, 'GET', undefined, options),
@@ -105,16 +105,16 @@ export function createMediaAssetsClient(send: MediaAssetSender) {
     },
     operations: {
       /** Metadata-only durable preparation. Never calls the Provider. */
-      prepare: (input: MediaAssetOperationInput, options: MediaAssetPreparationOptions) => send<MediaAssetMutation>('/media/asset-operations/prepare', 'POST', input, options),
+      prepare: (input: MediaAssetOperationInput, options: MediaAssetPreparationOptions) => send<MediaAssetMutation>('/media/operations/prepare', 'POST', input, options),
       /** Explicit one-shot dispatch of an existing preparation, using its original full request and UUID. */
-      dispatch: (id: string, input: MediaAssetOperationInput, options: MediaAssetPreparationOptions) => send<MediaAssetMutation>(`/media/asset-operations/${reference(id)}/dispatch`, 'POST', input, options),
+      dispatch: (id: string, input: MediaAssetOperationInput, options: MediaAssetPreparationOptions) => send<MediaAssetMutation>(`/media/operations/${reference(id)}/dispatch`, 'POST', input, options),
       /** Cancel an unclaimed preparation only. Unknown operations cannot be canceled or resent. */
-      cancel: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/asset-operations/${reference(id)}/cancel${query({ model })}`, 'POST', undefined, options),
+      cancel: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/operations/${reference(id)}/cancel${query({ model })}`, 'POST', undefined, options),
       /** Read persisted operations newest first. Never retries a mutation. */
-      list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetOperation>>(`/media/asset-operations${query(input)}`, 'GET', undefined, options),
+      list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetOperation>>(`/media/operations${query(input)}`, 'GET', undefined, options),
       /** A 404 does not establish that the original request was never sent. */
-      retrieveByIdempotency: (idempotencyKey: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/asset-operations/by-idempotency/${reference(idempotencyKey)}${query({ model })}`, 'GET', undefined, options),
-      retrieve: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/asset-operations/${reference(id)}${query({ model })}`, 'GET', undefined, options),
+      retrieveByIdempotency: (idempotencyKey: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/operations/by-idempotency/${reference(idempotencyKey)}${query({ model })}`, 'GET', undefined, options),
+      retrieve: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/operations/${reference(id)}${query({ model })}`, 'GET', undefined, options),
     },
   };
 }

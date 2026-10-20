@@ -145,7 +145,7 @@ fn validate(payload: &Payload) -> Result<(), ApiError> {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-draft",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/draft",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVideoComposerDraft",
@@ -476,7 +476,7 @@ fn validate(payload: &Payload) -> Result<(), ApiError> {
 ///   }
 /// }
 /// ```
-/// GET /admin/v1/organizations/{organization}/projects/{project}/video-draft.
+/// GET /admin/v1/organizations/{organization}/projects/{project}/video/draft.
 /// Actor-private read; expired payload is immediately unavailable. Saved key and
 /// reference IDs are context, never current authorization or media readiness.
 pub async fn draft(
@@ -499,7 +499,7 @@ pub async fn draft(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video-draft",
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/draft",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveVideoComposerDraft",

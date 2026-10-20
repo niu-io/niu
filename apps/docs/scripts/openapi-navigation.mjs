@@ -12,7 +12,7 @@ const groups = [
   ['Providers and routing', [
     ['Providers', 'Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints.', '^/api/v1/(?:providers|provider-memberships)'],
     ['Provider API connections', 'Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics.', '^/api/v1/vendors(?!/[^/]+/asset-management)'],
-    ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|model-route-pools)'],
+    ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|pools)'],
   ]],
   ['Authentication and access', [
     ['Authentication', 'Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session$)'],
@@ -21,10 +21,10 @@ const groups = [
   ]],
   ['Workspaces and content', [
     ['Companies and workspaces', 'Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces.', '^/api/v1/(?:workspaces|setup/default-workspace|organizations(?:/[^/]+/projects(?:/[^/]+)?)?$)'],
-    ['Chat sessions', 'Saved conversations, drafts, exports and archive state. Saving content does not invoke a model.', '/chat-(?:sessions|draft)'],
-    ['Generation history', 'Durable generation sessions, saved tasks, artifacts and video request drafts.', '/projects/[^/]+/(?:generations(?:-sessions|/)|video-(?:draft|intents))'],
+    ['Chat sessions', 'Saved conversations, drafts, exports and archive state. Saving content does not invoke a model.', '/chats(?:/|$)'],
+    ['Generation history', 'Durable generation sessions, saved tasks, artifacts and video request drafts.', '/projects/[^/]+/(?:generations(?:/|$)|video/(?:draft|intents))'],
     ['Workspace assets', 'Saved workspace assets and their content.', '/projects/[^/]+/assets(?:/|$)'],
-    ['Media assets and verification', 'Upstream-specific asset groups, materials, operations and verification sessions. These are distinct from Provider onboarding.', '/(?:media/(?:asset|verification|capabilities)|asset-group-intents|asset-management)'],
+    ['Media assets and verification', 'Upstream-specific asset groups, materials, operations and verification sessions. These are distinct from Provider onboarding.', '/(?:media/(?:asset|group|operation|verification|capabilities)|asset-group-intents|asset-management)'],
     ['Image ingestion', 'Image sources, inspection, ingestion and readiness reads.', '^/v1/media/(?:image-|sources/)'],
   ]],
   ['Usage and billing', [

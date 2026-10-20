@@ -108,9 +108,10 @@ it('does not submit the parent mapping until Save mapping and preserves pricing 
   const editor = within(screen.getByRole('dialog',{name:'Video configuration'}));
   await user.click(editor.getByRole('button',{name:'Apply configuration'}));
   expect(onSave).not.toHaveBeenCalled();
-  await user.clear(screen.getByLabelText('Upstream model ID'));
-  await user.type(screen.getByLabelText('Upstream model ID'),'updated-upstream');
-  await user.click(screen.getByRole('button',{name:'Save mapping',exact:true}));
+  await user.click(screen.getByLabelText('Upstream model'));
+  await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'updated-upstream');
+  await user.click(screen.getByRole('menuitem', {name:'Use model ID “updated-upstream”'}));
+  await user.click(screen.getByRole('button',{name:'Save changes',exact:true}));
   await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
   const body=onSave.mock.calls[0][0];
   expect(body.expected_revision).toBe(7);
@@ -133,7 +134,7 @@ it('cancel leaves the original mapping untouched, and removal is only a draft un
   await user.click(screen.getByRole('button',{name:'Remove configuration'}));
   expect(onSave).not.toHaveBeenCalled();
   expect(screen.getByText('No video schema configured')).toBeTruthy();
-  await user.click(screen.getByRole('button',{name:'Save mapping',exact:true}));
+  await user.click(screen.getByRole('button',{name:'Save changes',exact:true}));
   expect(onSave.mock.calls[0][0].capabilities.video_schema).toBeUndefined();
 });
 

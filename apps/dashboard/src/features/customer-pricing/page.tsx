@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { IconChevronDown, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
+import { workspaceDisplayName } from '@/app/workspace-route';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +12,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { money } from '@/lib/money';
 import { VendorRequestError } from '@/features/providers/api';
@@ -48,9 +48,9 @@ function PricingTargets({ token }: { token: string }) {
   useEffect(() => { if (selectedId && !selected && cursor && !loading && !error) void load(cursor); }, [selectedId, selected, cursor, loading, error]);
   return <div className="space-y-6 pt-4">
     <div className="flex flex-wrap items-center gap-3">
-      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="max-w-full" disabled={loading && !targets.length}><span className="truncate">{selected ? `${selected.organization_name} · ${selected.workspace_name}` : 'Choose company and workspace'}</span><IconChevronDown size={16} className="shrink-0"/></Button></DropdownMenuTrigger>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="max-w-full" disabled={loading && !targets.length}><span className="truncate">{selected ? `${selected.organization_name} · ${workspaceDisplayName(selected.workspace_name)}` : 'Choose company and workspace'}</span><IconChevronDown size={16} className="shrink-0"/></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={selectedId ?? ''} onValueChange={value => setSearch(current => { current.set('target', value); return current; })}>
-          {targets.map(row => <DropdownMenuRadioItem key={row.workspace_id} value={row.workspace_id}>{row.organization_name} · {row.workspace_name}</DropdownMenuRadioItem>)}
+          {targets.map(row => <DropdownMenuRadioItem key={row.workspace_id} value={row.workspace_id}>{row.organization_name} · {workspaceDisplayName(row.workspace_name)}</DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup>{cursor && <DropdownMenuItem disabled={loading} onSelect={event => { event.preventDefault(); void load(cursor); }}>{loading ? 'Loading…' : 'More workspaces'}</DropdownMenuItem>}</DropdownMenuContent>
       </DropdownMenu>
       <Button variant="ghost" aria-label="Refresh pricing targets" disabled={loading} onClick={() => void load()}><IconRefresh size={16}/></Button>
@@ -95,20 +95,12 @@ function Prices({ token, target }: { token: string; target: PricingTarget }) {
     return () => request.abort();
   }, [token, modelReload]);
   return <>
-    <PageHeader title="Customer pricing" action={<Button disabled={!loaded || loading || !modelsReady || !modelNames.length} onClick={() => { setNotice(''); setEditor({previous:null}); }}>Publish price</Button>}/>
+    <PageHeader title="Pricing" action={<Button disabled={!loaded || loading || !modelsReady || !modelNames.length} onClick={() => { setNotice(''); setEditor({previous:null}); }}>Publish price</Button>}/>
     <div className="flex flex-wrap items-center gap-3">
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button type="button" variant={filter.trim() ? 'secondary' : 'outline'} size={filter.trim() ? 'sm' : 'icon'} aria-label={filter.trim() ? `Filter customer models: ${filter.trim()}` : 'Filter customer models'} title="Filter models">
-            <IconSearch size={16} aria-hidden="true" />
-            {filter.trim() && <span className="max-w-36 truncate">{filter.trim()}</span>}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-72 space-y-2">
-          <Input autoFocus type="search" aria-label="Filter customer models" placeholder="Filter models" value={filter} onChange={event => setFilter(event.target.value)} />
-          {filter && <Button type="button" variant="ghost" size="sm" onClick={() => setFilter('')}>Reset search</Button>}
-        </PopoverContent>
-      </Popover>
+      <div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm">
+        <IconSearch size={16} className="shrink-0" aria-hidden="true" />
+        <Input type="search" aria-label="Filter customer models" placeholder="Filter by model name…" value={filter} onChange={event => setFilter(event.target.value)} />
+      </div>
       <Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button>
     </div>
     {notice && <p role="status">{notice}</p>}
@@ -160,7 +152,7 @@ function PriceEditor({token,target,previous,modelNames,onClose,onSaved}: {token:
     }catch(reason){if(!request.signal.aborted){if(reason instanceof PublicationUnconfirmedError){setConflict(true);setError(reason.message);}else if(reason instanceof VendorRequestError && reason.status===409){setConflict(true);setError('This price changed or could not be published. Your draft is preserved. Load the current price before trying again.');}else setError(reason instanceof Error?reason.message:'Price could not be saved.');}}
     finally{if(!request.signal.aborted)setBusy(false);}
   }
-  return <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{previous?'Edit customer price':'Publish customer price'}</DialogTitle><DialogDescription>{target.organization_name} · {target.workspace_name}. Changes apply to future admitted requests.</DialogDescription></DialogHeader>
+  return <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{previous?'Edit customer price':'Publish customer price'}</DialogTitle><DialogDescription>{target.organization_name} · {workspaceDisplayName(target.workspace_name)}. Changes apply to future admitted requests.</DialogDescription></DialogHeader>
     <form className="grid gap-4" onSubmit={save}>
       <div className="grid gap-2"><Label>Model</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={!!previous||busy||conflict} className="justify-between">{model||'Choose model'}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={model} onValueChange={setModel}>{modelNames.map(name=><DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
       <div className="grid gap-2"><Label htmlFor="price-currency">Currency</Label><Input id="price-currency" required maxLength={3} pattern="[A-Z]{3}" value={currency} disabled={busy} onChange={event=>setCurrency(event.target.value.toUpperCase())}/></div>
@@ -190,7 +182,7 @@ function PriceHistory({token,target,price,onClose}:{token:string;target:PricingT
     finally{if(!request.signal.aborted)setBusy(false);}
   }
   useEffect(()=>{void load();return()=>controller.current?.abort();},[token,target,price]);
-  return <Dialog open onOpenChange={open=>{if(!open)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Price history</DialogTitle><DialogDescription>{price.model_alias} · {target.workspace_name}</DialogDescription></DialogHeader>
+  return <Dialog open onOpenChange={open=>{if(!open)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Price history</DialogTitle><DialogDescription>{price.model_alias} · {workspaceDisplayName(target.workspace_name)}</DialogDescription></DialogHeader>
     {error&&<Alert variant="destructive"><AlertDescription>{error}<Button variant="outline" disabled={busy} onClick={()=>void load(failed)}>Retry history</Button></AlertDescription></Alert>}{busy&&<p role="status">Loading price revisions…</p>}
     {rows.map(row=><section key={row.revision} className="space-y-2 border-b py-3"><div className="flex flex-wrap items-center gap-2"><span>{new Date(row.created_at).toLocaleString()}</span>{row.is_current&&<Badge variant="secondary">Current</Badge>}</div><dl className="grid grid-cols-2 gap-2 text-sm"><dt>Input / 1M</dt><dd>{money(row.prompt_rate,row.currency)}</dd><dt>Output / 1M</dt><dd>{money(row.completion_rate,row.currency)}</dd><dt>Cache read / 1M</dt><dd>{row.cached_prompt_rate==null?'Input rate':money(row.cached_prompt_rate,row.currency)}</dd><dt>Reasoning output / 1M</dt><dd>{row.reasoning_completion_rate==null?'Output rate':money(row.reasoning_completion_rate,row.currency)}</dd><dt>Fixed request fee</dt><dd>{money(row.request_fee_nanos??'0',row.currency)}</dd><dt>Minimum charge</dt><dd>{money(row.minimum_charge_nanos??'0',row.currency)}</dd></dl></section>)}
     {cursor&&<Button variant="outline" disabled={busy} onClick={()=>void load(cursor)}>Older revisions</Button>}

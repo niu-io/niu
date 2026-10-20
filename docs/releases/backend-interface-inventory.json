@@ -2544,7 +2544,7 @@
     {
       "area": "saved_chat",
       "method": "GET",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-draft",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats/draft",
       "handler": "crate::admin::chat_sessions::draft",
       "contract_source": "contracts/openapi.yaml",
       "operation_id": "getChatDraft",
@@ -2563,7 +2563,7 @@
     {
       "area": "saved_chat",
       "method": "PUT",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-draft",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats/draft",
       "handler": "crate::admin::chat_sessions::save_draft",
       "contract_source": "contracts/openapi.yaml",
       "operation_id": "saveChatDraft",
@@ -2582,7 +2582,7 @@
     {
       "area": "saved_chat",
       "method": "GET",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats",
       "handler": "crate::admin::chat_sessions::list",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "listChatSessions",
@@ -2601,7 +2601,7 @@
     {
       "area": "saved_chat",
       "method": "DELETE",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats/{id}",
       "handler": "crate::admin::chat_sessions::delete",
       "contract_source": "contracts/openapi.yaml",
       "operation_id": "deleteChatSession",
@@ -2620,7 +2620,7 @@
     {
       "area": "saved_chat",
       "method": "GET",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats/{id}",
       "handler": "crate::admin::chat_sessions::get",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "getChatSession",
@@ -2639,7 +2639,7 @@
     {
       "area": "saved_chat",
       "method": "PUT",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats/{id}",
       "handler": "crate::admin::chat_sessions::save",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "saveChatSession",
@@ -2658,7 +2658,7 @@
     {
       "area": "saved_chat",
       "method": "PUT",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats/{id}/archive",
       "handler": "crate::admin::chat_sessions::archive",
       "contract_source": "contracts/openapi.yaml",
       "operation_id": "setChatSessionArchived",
@@ -2677,7 +2677,7 @@
     {
       "area": "saved_chat",
       "method": "GET",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chats/{id}/export",
       "handler": "crate::admin::chat_sessions::export",
       "contract_source": "contracts/openapi.yaml",
       "operation_id": "exportChatSession",
@@ -4348,7 +4348,7 @@
     {
       "area": "video",
       "method": "GET",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video/intents",
       "handler": "super::inference::video_intents::list",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "listVideoSubmissionIntents",
@@ -4370,7 +4370,7 @@
     {
       "area": "video",
       "method": "DELETE",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video/intents/{intent}",
       "handler": "super::inference::video_intents::delete",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "deleteVideoSubmissionIntent",
@@ -4392,7 +4392,7 @@
     {
       "area": "video",
       "method": "GET",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video/intents/{intent}",
       "handler": "super::inference::video_intents::get",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "getVideoSubmissionIntent",
@@ -4414,7 +4414,7 @@
     {
       "area": "video",
       "method": "PUT",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video/intents/{intent}",
       "handler": "super::inference::video_intents::save",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "saveVideoSubmissionIntent",
@@ -4436,7 +4436,7 @@
     {
       "area": "video",
       "method": "POST",
-      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit",
       "handler": "super::inference::video_intents::submit",
       "contract_source": "contracts/generated/handler-operations.json",
       "operation_id": "submitVideoSubmissionIntent",

@@ -58,7 +58,7 @@ const serverChats = new Map<string, unknown>();
 const serverDrafts = new Map<string,{payload:unknown;revision:number}>();
 function stubChatFetch(fallback: ReturnType<typeof vi.fn>) {
   vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,init?:RequestInit)=>{
-    if(String(input).endsWith('/chat-draft')) {
+    if(String(input).endsWith('/chats/draft')) {
       const prior=serverDrafts.get(String(input))??{payload:null,revision:0};
       if(init?.method==='PUT') {const body=JSON.parse(String(init.body));if(body.expected_revision!==prior.revision)return Promise.resolve(new Response(null,{status:409}));const saved={payload:body.payload,revision:prior.revision+1};serverDrafts.set(String(input),saved);return Promise.resolve(jsonResponse({data:saved}));}
       return Promise.resolve(jsonResponse({data:prior}));
@@ -70,7 +70,7 @@ function stubChatFetch(fallback: ReturnType<typeof vi.fn>) {
 function stubFetch(fallback: ReturnType<typeof vi.fn>) {
   stubChatFetch( vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    if (url.includes('/chat-sessions')) {
+    if (url.includes('/chats')) {
       if (init?.method === 'DELETE') { serverChats.delete(url); return Promise.resolve(new Response(null, { status: 204 })); }
       if (init?.method === 'PUT') { serverChats.set(url, JSON.parse(String(init.body))); return Promise.resolve(jsonResponse({ saved: true })); }
       return Promise.resolve(jsonResponse({ data: [...serverChats.entries()].filter(([key]) => key.startsWith(url + '/')).map(([, value]) => value) }));
@@ -109,7 +109,7 @@ describe('Global Chat', () => {
   });
   it.each(['older', 'missing'])('opens only the explicitly requested saved session: %s', async requested => {
     for (const [id, prompt, createdAt] of [['latest', 'Latest conversation', 2], ['older', 'Requested conversation', 1]] as const) {
-      serverChats.set(`/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/${id}`, {
+      serverChats.set(`/api/v1/organizations/org-a/projects/workspace-a/chats/${id}`, {
         id, prompt, createdAt, results: [],
       });
     }
@@ -170,7 +170,7 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
     const user=userEvent.setup();renderPlayground(['fast','other']);
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
-    serverDrafts.set('/api/v1/organizations/org-a/projects/workspace-a/chat-draft',{revision:1,payload:{sessionId:null,prompt:'Other tab',models:['fast'],attachments:[],settings:{systemPrompt:'Remote instructions',maxTokens:512,temperature:0.7,logPayloads:true}}});
+    serverDrafts.set('/api/v1/organizations/org-a/projects/workspace-a/chats/draft',{revision:1,payload:{sessionId:null,prompt:'Other tab',models:['fast'],attachments:[],settings:{systemPrompt:'Remote instructions',maxTokens:512,temperature:0.7,logPayloads:true}}});
     await user.type(screen.getByLabelText('Prompt for all selected models'),'My local draft');
     await user.click(screen.getByRole('button',{name:'Chat settings',exact:true}));
     await user.type(screen.getByLabelText('System instructions'),'My local instructions');
@@ -220,7 +220,7 @@ describe('Global Chat', () => {
   it('retries failed history without reporting an empty chat list', async () => {
     let historyReads=0;
     stubChatFetch(vi.fn(async (input:RequestInfo | URL) => {
-      if (String(input).endsWith('/chat-sessions')) {
+      if (String(input).endsWith('/chats')) {
         historyReads++;
         return historyReads===1 ? new Response('{}',{status:503}) : jsonResponse({data:[{id:'saved',prompt:'Recovered conversation',createdAt:1,results:[]}]});
       }
@@ -237,7 +237,7 @@ describe('Global Chat', () => {
   });
 
   it('preserves a saved model selection while the account catalog reloads', async () => {
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved', {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/saved', {
       id: 'saved', prompt: 'Saved selection', createdAt: 1,
       results: [{ model: 'fast', content: 'Saved answer', phase: 'complete', elapsedMs: 10,
         promptTokens: 1, completionTokens: 1, totalTokens: 2, attemptId: null, error: null }],
@@ -282,7 +282,7 @@ describe('Global Chat', () => {
     });
     expect(JSON.parse(content)).toEqual(exported);
     const call = fetch.mock.calls.find(([input]) => String(input).endsWith('/export'));
-    expect(String(call?.[0])).toBe('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved/export');
+    expect(String(call?.[0])).toBe('/api/v1/organizations/org-a/projects/workspace-a/chats/saved/export');
   });
   it('keeps history and reports failed export without downloading', async () => {
     const item = { id: 'saved', prompt: 'Saved diagnosis', createdAt: 1, results: [] };
@@ -297,7 +297,7 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: 'Actions for Saved diagnosis' })).toBeTruthy();
   });
   it('restores customer charge states without displaying legacy Provider accounting', async () => {
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/accounting', {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/accounting', {
       id: 'accounting', prompt: 'Customer accounting', createdAt: 1,
       results: ['charged', 'pending', 'unpriced', 'not_charged', 'owner_funded'].map((status, index) => ({
         model: ['fast', 'strong', 'balanced', 'unused', 'personal'][index], content: 'Fixture response', phase: 'complete', elapsedMs: 10,
@@ -354,7 +354,7 @@ describe('Global Chat', () => {
     ]);
   });
   it('confirms server deletion and clears the active conversation after success', async () => {
-    const url = '/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/saved';
+    const url = '/api/v1/organizations/org-a/projects/workspace-a/chats/saved';
     serverChats.set(url, { id: 'saved', prompt: 'Saved diagnosis', createdAt: 1, results: [] });
     stubFetch(vi.fn(async () => jsonResponse({ data: [] })));
     const user = userEvent.setup();
@@ -392,7 +392,7 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: 'Actions for Saved diagnosis' })).toBeTruthy();
   });
   it('opens a catalog model in a fresh draft while preserving earlier conversations', async () => {
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/older', {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/older', {
       id:'older', prompt:'Earlier task', createdAt:1,
       results:[{model:'other',content:'Earlier response',phase:'complete',elapsedMs:10,promptTokens:null,completionTokens:null,totalTokens:null,attemptId:null,error:null}],
     });
@@ -404,16 +404,16 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button',{name:'Edit comparison models (1 selected)'})).toBeTruthy();
     expect(serverChats.size).toBe(1);
   });
-  it('starts a fresh single-model draft from key setup without replacing saved history', async () => {
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/older', {
+  it.each(['one-key','one-model'])('starts a fresh single-model draft from key setup (%s) without replacing saved history', async (keyReference) => {
+    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/older', {
       id: 'older', prompt: 'Earlier task', createdAt: 1,
       results: [{ model: 'other', content: 'Earlier response', phase: 'complete', elapsedMs: 10,
         promptTokens: null, completionTokens: null, totalTokens: null, attemptId: null,
         error: null, cashNanos: null, apiEquivalentNanos: null, currency: null }],
     });
-    stubFetch(vi.fn(async () => jsonResponse({ data: [{ id: 'one-key', name: 'One model', allowed_models: ['fast'], revoked: false, expired: false }] })));
+    stubFetch(vi.fn(async () => jsonResponse({ data: [{ id: 'other-key', name: 'Other key', allowed_models: ['other'], revoked: false, expired: false }, { id: 'one-key', slug: 'one-model', name: 'One model', allowed_models: ['fast'], revoked: false, expired: false }] })));
     const user = userEvent.setup();
-    render(<SidebarProvider><MemoryRouter initialEntries={['/chat?key=one-key&new=1']}>
+    render(<SidebarProvider><MemoryRouter initialEntries={[`/chat?key=${keyReference}&new=1`]}>
       <PlaygroundView token="admin-session" models={['fast', 'other']} initialScope={scope} />
     </MemoryRouter></SidebarProvider>);
     await screen.findByRole('link', { name: 'Earlier task', exact: true });
@@ -454,7 +454,7 @@ describe('Global Chat', () => {
     let finish!: (response:Response)=>void;
     stubChatFetch(vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
       const url=String(input);calls.push(url);
-      if(init?.method==='PUT' && url.includes('/chat-sessions/'))return new Promise<Response>(resolve=>{finish=resolve;});
+      if(init?.method==='PUT' && url.includes('/chats/'))return new Promise<Response>(resolve=>{finish=resolve;});
       if(url.endsWith('/keys'))return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]});
       return jsonResponse({data:[]});
     }));
@@ -902,7 +902,7 @@ it('archives and restores backend history without deleting conversation content'
   stubChatFetch(vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
     const url=String(input);
     if(url.endsWith('/saved/archive')) { archived=JSON.parse(String(init?.body)).archived; mutations.push(archived); return new Response(null,{status:204}); }
-    if(url.includes('/chat-sessions')) return jsonResponse({data: archived===url.endsWith('?archived=true') ? [item] : []});
+    if(url.includes('/chats')) return jsonResponse({data: archived===url.endsWith('?archived=true') ? [item] : []});
     return jsonResponse({data:[]});
   }));
   const user=userEvent.setup(); renderPlayground();
@@ -955,7 +955,7 @@ it('keeps archived content when restore fails and distinguishes archive read err
 
 it('persists existing chat settings on panel dismissal without sending another message', async () => {
  serverChats.clear();
- const url='/api/v1/organizations/org-a/projects/workspace-a/chat-sessions/settings-only';
+ const url='/api/v1/organizations/org-a/projects/workspace-a/chats/settings-only';
  const originalResponse={model:'fast',content:'Original answer',phase:'complete',elapsedMs:10,promptTokens:1,completionTokens:1,totalTokens:2,attemptId:null,error:null};
  serverChats.set(url,{id:'settings-only',prompt:'Saved conversation',createdAt:1,results:[originalResponse],settings:{systemPrompt:'',maxTokens:512,temperature:0.7,logPayloads:true}});
  stubFetch(vi.fn(async ()=>jsonResponse({data:[]})));

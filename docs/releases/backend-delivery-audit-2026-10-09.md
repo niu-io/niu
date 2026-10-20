@@ -9,7 +9,7 @@ internal-readiness gate. Fixture outcomes have no evidentiary weight.
 
 | Required area | Current actual evidence | Still unverified or incomplete |
 | --- | --- | --- |
-| Supplier configuration | [Independent credentials and prices](supplier-workspace-backend-verification-2026-10-09.md); [priced candidate selection, separate expenses and immutable history](../reference/model-route-pools.md); startup now checks unbound/disabled credentials | Full commercial settlement workflow; broader provider coverage; [offline master-key rotation is implemented](../reference/offline-key-rotation.md), with broader populated-domain qualification still pending |
+| Supplier configuration | [Independent credentials and prices](supplier-workspace-backend-verification-2026-10-09.md); [priced candidate selection, separate expenses and immutable history](../reference/pools.md); startup now checks unbound/disabled credentials | Full commercial settlement workflow; broader provider coverage; [offline master-key rotation is implemented](../reference/offline-key-rotation.md), with broader populated-domain qualification still pending |
 | Workspace API keys | [Granular controls](../product/backend-capability-checklist.md); [credit-backed spending refusal, partial refunds and in-flight rotation](../reference/internal-credit-workflow-live.md); [actual text overrun settlement and zero remaining allowance](../reference/api-key-spending-limits.md#actual-text-overrun-rotation-and-restart--2026-10-10); platform grants do not expand customer scope | Other estimator-overrun paths and sustained multi-instance limiter contention; mixed-key completion batches now have scoped actual evidence |
 | Prepaid and accounting | [Actual credit-backed charges, debits, refunds, invoices and reconciliation](../reference/internal-credit-workflow-live.md); [shared-company contention](../reference/company-credit-concurrency-live.md); [nonempty recovery and database fault runs](../reference/financial-backlog-restart-live.md); [payment configuration, checkout and grant lifecycle](../reference/payment-aggregators.md) | Received-cash funding/reversal evidence and complete customer-funded media settlement. Credit-backed evidence is not a received-cash top-up; activation of every merchant is not required |
 | Request diagnostics | Actual request detail/CSV and [positive customer-charge reports](../reference/internal-credit-workflow-live.md#customer-reporting-with-actual-positive-charges); [structured-stream failures and disconnect liabilities](../reference/structured-output-streaming.md) | Full protocol/input/error matrix and complete media charge reporting; no overall diagnosis workflow claim |
@@ -102,7 +102,7 @@ round trips or by a green fixture workflow:
    shared client's implicit reqwest retry policy is now explicitly disabled.
    [Schema and candidate-policy review](../architecture/model-routing-evolution.md)
    identified the original one-alias/one-credential constraint. Additive
-   [text pools](../reference/model-route-pools.md) now separate the customer alias
+   [text pools](../reference/pools.md) now separate the customer alias
    from selected mappings and implement revisioned priority/weight policies.
    Actual personal Chat/Responses selection, bounded weighted traffic, and
    customer-priced candidate/revision attribution with distinct configured expenses

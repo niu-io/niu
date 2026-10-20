@@ -81,7 +81,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/chat-draft": {
+    "/api/v1/organizations/{organization}/projects/{project}/chats/draft": {
       "get": {
         "operationId": "getChatDraft",
         "x-niu-implementation": "implemented",
@@ -209,7 +209,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/chat-sessions": {
+    "/api/v1/organizations/{organization}/projects/{project}/chats": {
       "get": {
         "operationId": "listChatSessions",
         "x-niu-implementation": "implemented",
@@ -317,7 +317,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}": {
+    "/api/v1/organizations/{organization}/projects/{project}/chats/{id}": {
       "get": {
         "operationId": "getChatSession",
         "x-niu-implementation": "implemented",
@@ -4692,7 +4692,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/video-draft": {
+    "/api/v1/organizations/{organization}/projects/{project}/video/draft": {
       "get": {
         "operationId": "getVideoComposerDraft",
         "x-niu-implementation": "implemented",
@@ -5798,7 +5798,9 @@
                     "id",
                     "organization_id",
                     "name",
-                    "route_slug"
+                    "route_slug",
+                    "slug",
+                    "slug_aliases"
                   ],
                   "properties": {
                     "id": {
@@ -5815,7 +5817,20 @@
                     "route_slug": {
                       "type": "string",
                       "maxLength": 81,
-                      "description": "Immutable routing reference, never a display label or authorization grant."
+                      "description": "Deprecated compatibility alias for slug.",
+                      "deprecated": true
+                    },
+                    "slug": {
+                      "type": "string",
+                      "maxLength": 81,
+                      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+                    },
+                    "slug_aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Previously issued slugs accepted for existing bookmarks."
                     }
                   }
                 }
@@ -5971,7 +5986,7 @@
             "description": "Company scope is not permitted, or the workspace from the original idempotent creation has been deleted."
           },
           "409": {
-            "description": "Idempotency-Key already belongs to different creation input."
+            "description": "The requested slug is already in use, or Idempotency-Key belongs to different creation input."
           },
           "503": {
             "description": "Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input."
@@ -16909,7 +16924,8 @@
                         "required": [
                           "id",
                           "name",
-                          "role"
+                          "role",
+                          "slug"
                         ],
                         "properties": {
                           "id": {
@@ -16925,6 +16941,12 @@
                               "manager",
                               "viewer"
                             ]
+                          },
+                          "slug": {
+                            "type": "string",
+                            "maxLength": 48,
+                            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                            "description": "Stable readable slug for product URLs. Renaming preserves it."
                           }
                         }
                       }
@@ -16948,7 +16970,7 @@
       "post": {
         "operationId": "createProviderBusiness",
         "summary": "Create a Provider business identity",
-        "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.",
+        "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.",
         "requestBody": {
           "required": true,
           "content": {
@@ -16965,6 +16987,21 @@
                     "minLength": 1,
                     "maxLength": 100,
                     "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved value is trimmed."
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Optional business description, trimmed before saving. Newlines and tabs are allowed; other control characters are rejected."
+                  },
+                  "website_url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "description": "Optional HTTP or HTTPS website URL without embedded credentials. Trimmed before saving; empty string leaves the website unset."
+                  },
+                  "logo_url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "description": "Optional HTTP or HTTPS image URL without embedded credentials. Trimmed before saving; empty string uses the default logo."
                   }
                 }
               }
@@ -16985,12 +17022,19 @@
                     "data": {
                       "type": "object",
                       "required": [
-                        "id"
+                        "id",
+                        "slug"
                       ],
                       "properties": {
                         "id": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "slug": {
+                          "type": "string",
+                          "maxLength": 48,
+                          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                          "description": "Stable readable slug for product URLs. Renaming preserves it."
                         }
                       }
                     }
@@ -17000,7 +17044,7 @@
             }
           },
           "400": {
-            "description": "Invalid Provider name"
+            "description": "Invalid Provider name or profile metadata"
           },
           "401": {
             "description": "Missing, expired or revoked administrative credential"
@@ -17051,7 +17095,8 @@
                           "api_keys",
                           "models",
                           "members",
-                          "qualification_status"
+                          "qualification_status",
+                          "slug"
                         ],
                         "properties": {
                           "id": {
@@ -17101,6 +17146,12 @@
                               "qualified",
                               "unqualified"
                             ]
+                          },
+                          "slug": {
+                            "type": "string",
+                            "maxLength": 48,
+                            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                            "description": "Stable readable slug for product URLs. Renaming preserves it."
                           }
                         }
                       }
@@ -17172,7 +17223,8 @@
                         "website_url",
                         "logo_url",
                         "id",
-                        "revision"
+                        "revision",
+                        "slug"
                       ],
                       "properties": {
                         "name": {
@@ -17194,6 +17246,12 @@
                         "revision": {
                           "type": "integer",
                           "format": "int64"
+                        },
+                        "slug": {
+                          "type": "string",
+                          "maxLength": 48,
+                          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                          "description": "Stable readable slug for product URLs. Renaming preserves it."
                         }
                       }
                     }
@@ -17259,7 +17317,8 @@
                         "website_url",
                         "logo_url",
                         "id",
-                        "revision"
+                        "revision",
+                        "slug"
                       ],
                       "properties": {
                         "name": {
@@ -17281,6 +17340,12 @@
                         "revision": {
                           "type": "integer",
                           "format": "int64"
+                        },
+                        "slug": {
+                          "type": "string",
+                          "maxLength": 48,
+                          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                          "description": "Stable readable slug for product URLs. Renaming preserves it."
                         }
                       }
                     }
@@ -20300,7 +20365,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/model-route-pools": {
+    "/api/v1/pools": {
       "get": {
         "operationId": "getModelRoutePool",
         "security": [
@@ -20489,7 +20554,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/model-route-pools/history": {
+    "/api/v1/pools/history": {
       "get": {
         "operationId": "listModelRoutePoolHistory",
         "security": [
@@ -20572,7 +20637,7 @@
         "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access."
       }
     },
-    "/api/v1/model-route-pools/index": {
+    "/api/v1/pools/index": {
       "get": {
         "operationId": "listModelRoutePools",
         "summary": "List platform-managed model route pools",
@@ -23286,7 +23351,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/{session}": {
       "put": {
         "operationId": "generationsSessionCreate",
         "summary": "Create a private video generations session",
@@ -23592,7 +23657,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations": {
       "get": {
         "operationId": "generationsSessionList",
         "summary": "List private generations sessions",
@@ -23721,7 +23786,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}": {
       "put": {
         "operationId": "generationsSessionAppend",
         "summary": "Append one retained video instruction",
@@ -23937,7 +24002,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/task": {
       "put": {
         "operationId": "generationsSessionAttach",
         "summary": "Attach an existing authorized video task",
@@ -24049,7 +24114,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/intent": {
+    "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/intent": {
       "put": {
         "operationId": "generationsSessionBindIntent",
         "summary": "Bind a saved Video intent to a private turn",
@@ -25976,7 +26041,7 @@
         "x-niu-status": "Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence."
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}": {
+    "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}": {
       "put": {
         "operationId": "saveVideoSubmissionIntent",
         "summary": "Save an immutable video submission intent with typed Niu references",
@@ -26310,7 +26375,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/video-intents": {
+    "/api/v1/organizations/{organization}/projects/{project}/video/intents": {
       "get": {
         "operationId": "listVideoSubmissionIntents",
         "summary": "List the current actor video intent index",
@@ -26425,7 +26490,7 @@
         "x-niu-status": "Durable text and typed Niu material-reference intent persistence with explicit submission. URL, inline data and ingested-image intent drafts remain unsupported; full browser restoration and customer-funded video qualification remain separate."
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit": {
+    "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit": {
       "post": {
         "operationId": "submitVideoSubmissionIntent",
         "summary": "Explicitly submit or replay an immutable saved video intent",
@@ -26812,7 +26877,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/media/asset-groups": {
+    "/v1/media/groups": {
       "post": {
         "operationId": "create_groupProviderAsset",
         "summary": "Create a Provider asset group",
@@ -26997,7 +27062,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/media/asset-groups/{id}": {
+    "/v1/media/groups/{id}": {
       "patch": {
         "operationId": "update_groupProviderAsset",
         "summary": "Update Provider group metadata",
@@ -27779,7 +27844,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/media/asset-operations/{id}": {
+    "/v1/media/operations/{id}": {
       "get": {
         "operationId": "get_operationProviderAsset",
         "summary": "Read a saved Provider mutation operation",
@@ -27864,7 +27929,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/media/asset-groups/{id}/refresh": {
+    "/v1/media/groups/{id}/refresh": {
       "post": {
         "operationId": "refresh_groupProviderAsset",
         "summary": "Refresh one owned Provider group",
@@ -28034,7 +28099,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/media/asset-operations": {
+    "/v1/media/operations": {
       "get": {
         "operationId": "list_operationsProviderAsset",
         "summary": "List saved Provider mutation operations",
@@ -28142,7 +28207,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/media/asset-operations/by-idempotency/{id}": {
+    "/v1/media/operations/by-idempotency/{id}": {
       "get": {
         "operationId": "get_operation_by_idempotencyProviderAsset",
         "summary": "Read a saved Provider operation by request idempotency UUID",
@@ -28228,7 +28293,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/media/asset-operations/prepare": {
+    "/v1/media/operations/prepare": {
       "post": {
         "operationId": "prepareProviderAssetOperation",
         "summary": "Prepare a native material operation without dispatch",
@@ -28343,7 +28408,7 @@
         }
       }
     },
-    "/v1/media/asset-operations/{id}/dispatch": {
+    "/v1/media/operations/{id}/dispatch": {
       "post": {
         "operationId": "dispatchProviderAssetOperation",
         "summary": "Explicitly dispatch an existing native material preparation",
@@ -28467,7 +28532,7 @@
         }
       }
     },
-    "/v1/media/asset-operations/{id}/cancel": {
+    "/v1/media/operations/{id}/cancel": {
       "post": {
         "operationId": "cancelPreparedProviderAssetOperation",
         "summary": "Cancel an unclaimed native material preparation",
@@ -28557,7 +28622,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}/cancel": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}/cancel": {
       "post": {
         "operationId": "cancelPreparedWorkspaceProviderAssetOperation",
         "summary": "Abandon an unclaimed native operation after key expiry",
@@ -28766,7 +28831,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/operations": {
       "get": {
         "operationId": "listHistoricalWorkspaceProviderAssetOperations",
         "summary": "List historical native material operations",
@@ -28911,7 +28976,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}": {
       "get": {
         "operationId": "getHistoricalWorkspaceProviderAssetOperation",
         "summary": "Read historical native material operations",
@@ -29033,7 +29098,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}": {
+    "/api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}": {
       "get": {
         "operationId": "getHistoricalWorkspaceProviderAssetOperationByIdempotency",
         "summary": "Read historical native material operations",
@@ -29224,7 +29289,7 @@
         }
       }
     },
-    "/v1/media/verification-sessions": {
+    "/v1/media/verifications": {
       "post": {
         "operationId": "createMediaVerificationSession",
         "summary": "Create upstream human verification session",
@@ -29430,7 +29495,7 @@
         }
       }
     },
-    "/v1/media/verification-sessions/{id}": {
+    "/v1/media/verifications/{id}": {
       "get": {
         "operationId": "getMediaVerificationSession",
         "summary": "Read saved verification session",
@@ -29512,7 +29577,7 @@
         }
       }
     },
-    "/v1/media/verification-sessions/{id}/link": {
+    "/v1/media/verifications/{id}/link": {
       "get": {
         "operationId": "getMediaVerificationLink",
         "summary": "Get authenticated upstream verification link",
@@ -29617,7 +29682,7 @@
         }
       }
     },
-    "/v1/media/verification-sessions/{id}/refresh": {
+    "/v1/media/verifications/{id}/refresh": {
       "post": {
         "operationId": "refreshMediaVerificationSession",
         "summary": "Refresh upstream verification session",
@@ -31994,7 +32059,9 @@
           "active_key_count",
           "requests_30d",
           "requests_by_day",
-          "last_request_at_ms"
+          "last_request_at_ms",
+          "slug",
+          "slug_aliases"
         ],
         "properties": {
           "id": {
@@ -32008,7 +32075,8 @@
             "type": "string",
             "maxLength": 81,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-            "description": "Immutable routing reference; never a display label or authorization grant."
+            "description": "Deprecated compatibility alias for slug.",
+            "deprecated": true
           },
           "organization_id": {
             "type": "string",
@@ -32063,6 +32131,19 @@
               "null"
             ],
             "format": "int64"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+          },
+          "slug_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Previously issued slugs accepted for existing bookmarks."
           }
         }
       },
@@ -32086,6 +32167,13 @@
             ],
             "format": "uuid",
             "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 48,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Optional unique slug. When omitted, generated from the name using pinyin for Chinese, normalized separators, and a numeric suffix on collisions. The value default is reserved."
           }
         }
       },
@@ -32115,7 +32203,8 @@
           "expires_at_ms",
           "last_used_at_ms",
           "revoked",
-          "expired"
+          "expired",
+          "slug"
         ],
         "properties": {
           "id": {
@@ -32157,6 +32246,12 @@
           },
           "expired": {
             "type": "boolean"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 48,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable readable slug for product URLs. Renaming preserves it."
           }
         }
       },

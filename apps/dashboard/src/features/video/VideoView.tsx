@@ -191,7 +191,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);setAllKeys(payload.data);setKeysScope(keyScopeIdentity);
       setKeyId(current=>{
         const requested=search.get('key');
-        if(requested)return requested;
+        if(requested)return active.find(key=>key.slug===requested||key.id===requested)?.id ?? requested;
         const restored=restoredComposer.current;
         if(restored?.identity===composerIdentity&&restored.keyId)return restored.keyId;
         if(search.get('job')||search.get('intent'))return current;
@@ -204,7 +204,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   },[token,scopePath,keysRevision,composerReady,composerIdentity,selected,intentId,busy==='create']);
 
   const requestedKey=search.get('key');
-  useEffect(()=>{if(requestedKey && (selected||intentId||(composerReady&&keys.some(key=>key.id===requestedKey))))setKeyId(requestedKey);},[requestedKey,keys,selected,intentId,composerReady]);
+  useEffect(()=>{if(requestedKey && (selected||intentId||(composerReady&&keys.some(key=>key.id===requestedKey||key.slug===requestedKey))))setKeyId(keys.find(key=>key.slug===requestedKey)?.id ?? requestedKey);},[requestedKey,keys,selected,intentId,composerReady]);
   useEffect(()=>{
     const controller=new AbortController(); const changedScope=loadedBase.current !== base;
     if(changedScope)setModels([]);

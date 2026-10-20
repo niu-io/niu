@@ -149,8 +149,8 @@ pub async fn capture(
         .extensions()
         .get::<axum::extract::MatchedPath>()
         .is_some_and(|route| matches!(route.as_str(),
-            "/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit"
-            | "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit"));
+            "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit"
+            | "/admin/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit"));
     let video = path == "/v1/video/jobs" || saved_video_submit;
     let inference = video
         || matches!(

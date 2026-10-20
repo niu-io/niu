@@ -1,12 +1,12 @@
 ---
 title: "Explicitly dispatch an existing native material preparation"
-description: "POST /v1/media/asset-operations/{id}/dispatch"
+description: "POST /v1/media/operations/{id}/dispatch"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /v1/media/asset-operations/{id}/dispatch`
+`POST /v1/media/operations/{id}/dispatch`
 
 Current selected key, exact model/account/channel and workspace Write authority required. Safe Niu references only; no Provider identifiers, source URLs, credentials or procurement prices returned. Requires an already saved operation matching the original idempotency UUID and full canonical input. Never creates a missing preparation. Atomic prepared-to-unknown claim precedes a single Provider call; unknown and terminal records never redispatch. No automatic retries.
 
@@ -32,7 +32,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path and required-header placeholders with the values required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/asset-operations/{id}/dispatch" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/media/operations/{id}/dispatch" \
   -H "Authorization: Bearer $NIU_API_KEY" \
   -H 'Idempotency-Key: <IDEMPOTENCY_KEY>' \
   -H 'Content-Type: application/json' \

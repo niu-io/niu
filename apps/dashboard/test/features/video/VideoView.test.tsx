@@ -28,7 +28,7 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
   const sessions=new Map<string,{id:string;workspace_id:string;category:string;title:string;archived:boolean;revision:string;turns:Array<{id:string;sequence:string;created_at:string;content_expires_at:string;content_state:string;instruction:unknown;intent:unknown;task_id:string|null;task: null}>}>();
   vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
     calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null,headers:new Headers(init?.headers)});
-    if(path.endsWith('/video-draft')){
+    if(path.endsWith('/video/draft')){
       const prior=drafts.get(path)??{revision:0,content_state:'empty',expires_at_ms:null,payload:null};
       if(init?.method==='PUT'){
         const body=JSON.parse(String(init.body));
@@ -38,9 +38,9 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
       }
       return Response.json({data:prior});
     }
-    if(path.includes('/generations-sessions?'))return Response.json({data:[],has_more:false,next_before:null});
-    if(path.includes('/generations-sessions/')){
-      const match=path.match(/\/organizations\/[^/]+\/projects\/([^/]+)\/generations-sessions\/([^/?]+)(?:\/turns\/([^/?]+)(\/intent)?)?/);
+    if(path.includes('/generations?'))return Response.json({data:[],has_more:false,next_before:null});
+    if(/\/generations\/[0-9a-f-]{36}(?:[/?]|$)/.test(path)){
+      const match=path.match(/\/organizations\/[^/]+\/projects\/([^/]+)\/generations\/([^/?]+)(?:\/turns\/([^/?]+)(\/intent)?)?/);
       if(!match)return Response.json({error:{message:'Not found'}},{status:404});
       const [,wsId,sessionId,turnId,isBind]=match;
       const sessionKey=`${wsId}:${sessionId}`;
@@ -63,7 +63,7 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
         return Response.json({data:updated});
       }
       const body=JSON.parse(String(init?.body));
-      const intentEntry=[...intents.entries()].find(([k])=>k.endsWith(`/video-intents/${body.intent_id}`));
+      const intentEntry=[...intents.entries()].find(([k])=>k.endsWith(`/video/intents/${body.intent_id}`));
       const intentDoc=intentEntry?.[1] as {model:string}|undefined;
       if(intentEntry&&intentDoc)intents.set(intentEntry[0],{...intentDoc,session_binding:{session_id:sessionId,turn_id:turnId}});
       const nextRev=String(Number(existing.revision)+1);
@@ -75,8 +75,8 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
     if(path.includes('/generations/tasks/') && path.endsWith('/diagnostics'))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false,lifecycle}});
     if(path.includes('/generations/tasks/'))return Response.json({data:{id:path.split('/').at(-1),kind:'video',model:catalogModel.id,state:'queued',created_at:'1970-01-01T00:00:00Z',updated_at:'1970-01-01T00:00:00Z',artifacts:[]}});
     if(path.includes('/v1/media/capabilities'))return Response.json({modules:[]});
-    if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+    if(path.endsWith('/chats'))return Response.json({data:[]});
     if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Review key',allowed_models:['*'],revoked:false,expired:false}]});
     if(path.endsWith('/models'))return Response.json({object:'list',data:[catalogModel]});
     if(path.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});
@@ -86,7 +86,7 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
       if(response.ok){const submitted=await response.clone().json();const savedPath=path.slice(0,-'/submit'.length);const saved=intents.get(savedPath);if(saved)intents.set(savedPath,{...saved as object,submission_state:'dispatched',job:submitted});}
       return response;
     }
-    if(path.includes('/video-intents/')){
+    if(path.includes('/video/intents/')){
       if(init?.method==='PUT'){
         const body=JSON.parse(String(init.body));
         const saved={id:path.split('/').at(-1),revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:body.key_id,key_id:body.key_id,model:body.request.model,funding_mode:'customer',request:body.request,submission_state:'saved',job:null};
@@ -106,7 +106,7 @@ it('restores original saved input after job-only navigation without submitting a
  const calls=mockFetch();const fallback=globalThis.fetch;
  const intent='55555555-5555-4555-8555-555555555555';
  const saved={id:intent,revision:1,created_at_ms:'1700000000000',expires_at_ms:'1800000000000',content_state:'retained',key_id:key,model:model.id,request:videoRequest(model,'Original saved orange ball',initialControls(model)),submission_state:'dispatched',job:{id:job,model:model.id,status:'queued'}};
- vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>path.includes('/video-intents?')?Response.json({data:[saved],has_more:false,next_before:null}):path.endsWith('/video-intents/'+intent)?Response.json({data:saved}):fallback(path,init)));
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>path.includes('/video/intents?')?Response.json({data:[saved],has_more:false,next_before:null}):path.endsWith('/video/intents/'+intent)?Response.json({data:saved}):fallback(path,init)));
  mount(true,`/generations?mode=video&job=${job}&key=${key}`);
  await screen.findByRole('heading',{name:'Video · Original saved orange ball'});
  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
@@ -118,7 +118,7 @@ it('keeps job-only lookup failure visible and restores the input after explicit 
  const calls=mockFetch();const fallback=globalThis.fetch;let unavailable=true;
  const intent='55555555-5555-4555-8555-555555555555';
  const saved={id:intent,revision:1,created_at_ms:'1700000000000',expires_at_ms:'1800000000000',content_state:'retained',key_id:key,model:model.id,request:videoRequest(model,'Recovered original input',initialControls(model)),submission_state:'dispatched',job:{id:job,model:model.id,status:'queued'}};
- vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>path.includes('/video-intents?')?(unavailable?Response.json({error:{message:'Saved input temporarily unavailable'}},{status:503}):Response.json({data:[saved],has_more:false,next_before:null})):path.endsWith('/video-intents/'+intent)?Response.json({data:saved}):fallback(path,init)));
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>path.includes('/video/intents?')?(unavailable?Response.json({error:{message:'Saved input temporarily unavailable'}},{status:503}):Response.json({data:[saved],has_more:false,next_before:null})):path.endsWith('/video/intents/'+intent)?Response.json({data:saved}):fallback(path,init)));
  mount(true,`/generations?mode=video&job=${job}&key=${key}`);
  await screen.findByText('Saved input temporarily unavailable');
  expect(screen.queryByRole('heading',{name:'Video · Recovered original input'})).toBeNull();
@@ -151,7 +151,7 @@ it('requires a current estimate, invalidates it when input changes and submits o
   const submits=calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'));
   expect(submits).toHaveLength(1);
   expect(submits[0].body).toEqual({expected_revision:1});
-  const saves=calls.filter(call=>call.path.includes('/video-intents/') && (call.body as {request?:unknown})?.request);
+  const saves=calls.filter(call=>call.path.includes('/video/intents/') && (call.body as {request?:unknown})?.request);
   expect(saves).toHaveLength(1);
   expect(saves[0].body).toMatchObject({key_id:key,request:{model:model.id,duration:7,frames_per_second:24,content:[{type:'text',text:'A mountain sunrise'}]}});
   expect(document.body.textContent).not.toContain(job);
@@ -163,7 +163,7 @@ it('does not automatically retry a lost paid submission response',async()=>{
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText('Network unavailable');
-  await waitFor(()=>expect(calls.some(call=>call.path.includes('/video-intents/') && call.body===null)).toBe(true));
+  await waitFor(()=>expect(calls.some(call=>call.path.includes('/video/intents/') && call.body===null)).toBe(true));
   expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
 });
 it('shows a credential rate refusal without retrying or presenting a queued video',async()=>{
@@ -176,7 +176,7 @@ it('shows a credential rate refusal without retrying or presenting a queued vide
   await screen.findByText('Estimated CNY 1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText(message);
-  await waitFor(()=>expect(calls.some(call=>call.path.includes('/video-intents/') && call.body===null)).toBe(true));
+  await waitFor(()=>expect(calls.some(call=>call.path.includes('/video/intents/') && call.body===null)).toBe(true));
   expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
   expect(screen.queryByText('Queued')).toBeNull();
   expect(screen.queryByText('Succeeded')).toBeNull();
@@ -195,7 +195,7 @@ it('restores immutable input and the original job from an intent URL without dis
   const intent='77777777-7777-4777-8777-777777777777';
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>{
     const path=String(input);
-    if(path.endsWith(`/video-intents/${intent}`)){
+    if(path.endsWith(`/video/intents/${intent}`)){
       calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null});
       return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:model.id,funding_mode:'customer',request:{model:model.id,content:[{type:'text',text:'Saved landscape'}],duration:7,resolution:'720p',ratio:'16:9',frames_per_second:24},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'queued'}}});
     }
@@ -300,9 +300,9 @@ it('recovers a failed saved-job read without submitting another generation',asyn
   const reads:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
     reads.push(path);
-    if(path.endsWith('/video-draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
-    if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/video/draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
+    if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+    if(path.endsWith('/chats'))return Response.json({data:[]});
     if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Review key',allowed_models:['*'],revoked:false,expired:false}]});
     if(path.includes('/v1/media/capabilities'))return Response.json({modules:[]});
     if(path.endsWith('/models'))return Response.json({object:'list',data:[model]});
@@ -328,9 +328,9 @@ it('does not leave a saved job loading forever when no active API key remains',a
   const calls:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
     calls.push(path);
-    if(path.endsWith('/video-draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
-    if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/video/draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
+    if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+    if(path.endsWith('/chats'))return Response.json({data:[]});
     if(path.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
     if(path.endsWith(`/generations/tasks/${job}/diagnostics`))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false}});
     if(path.endsWith(`/generations/tasks/${job}`))return Response.json({data:{id:job,kind:'video',model:model.id,state:'queued',created_at:'1970-01-01T00:00:00Z',updated_at:'1970-01-01T00:00:00Z',artifacts:[]}});
@@ -359,10 +359,10 @@ it('retries a failed API-key read before loading models without submitting a vid
  const calls:string[]=[];
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
    calls.push(path);
-   if(path.endsWith('/video-draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
-   if(path.includes('/generations-sessions?'))return Response.json({data:[],has_more:false,next_before:null});
-   if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-   if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+   if(path.endsWith('/video/draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
+   if(path.includes('/generations?'))return Response.json({data:[],has_more:false,next_before:null});
+   if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+   if(path.endsWith('/chats'))return Response.json({data:[]});
    if(path.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
    if(path.includes('/v1/media/capabilities'))return Response.json({modules:[]});
    if(path.endsWith('/keys')) {
@@ -483,9 +483,9 @@ it('waits for the new workspace key list instead of querying it with the old key
   vi.stubGlobal('fetch',vi.fn(async(input:string,init?:RequestInit)=>{
     const headers=new Headers(init?.headers);
     requests.push({path:input,keyId:headers.get('x-niu-key-id')});
-    if(input.endsWith('/video-draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
-    if(input.endsWith('/video-intents') || input.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
-    if(input.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(input.endsWith('/video/draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
+    if(input.endsWith('/video/intents') || input.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
+    if(input.endsWith('/chats'))return Response.json({data:[]});
     if(input.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
     if(input.includes('/v1/media/capabilities'))return Response.json({modules:[]});
     if(input.endsWith('/keys'))return input.includes(other.id) ? new Promise<Response>(resolve=>{finish=resolve;}) : Response.json({data:[{id:key,name:'Original key',allowed_models:['*'],revoked:false,expired:false}]});
@@ -510,7 +510,7 @@ it('restores the original job when reopening the same intent without dispatch',a
   const intent='77777777-7777-4777-8777-777777777777';
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>{
     const path=String(input);
-    if(path.endsWith(`/video-intents/${intent}`)){
+    if(path.endsWith(`/video/intents/${intent}`)){
       calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null});
       return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:model.id,funding_mode:'customer',session_binding:{session_id:'88888888-8888-4888-8888-888888888888',turn_id:'99999999-9999-4999-8999-999999999999'},request:{model:model.id,content:[{type:'text',text:'Saved landscape'}],duration:7,resolution:'720p',ratio:'16:9',frames_per_second:24},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'queued'}}});
     }
@@ -536,7 +536,7 @@ it('keeps saved prompt in the conversation and submits a fresh draft with a new 
   const calls=mockFetch();const delegate=globalThis.fetch;
   const intent='77777777-7777-4777-8777-777777777777';
   vi.stubGlobal('fetch',vi.fn(async(input,init)=>{
-    if(String(input).endsWith(`/video-intents/${intent}`))return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',key_id:key,model:model.id,session_binding:{session_id:'88888888-8888-4888-8888-888888888888',turn_id:'99999999-9999-4999-8999-999999999999'},request:{model:model.id,content:[{type:'text',text:'Original video scene'}],duration:5,resolution:'720p',ratio:'16:9'},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'succeeded'}}});
+    if(String(input).endsWith(`/video/intents/${intent}`))return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',key_id:key,model:model.id,session_binding:{session_id:'88888888-8888-4888-8888-888888888888',turn_id:'99999999-9999-4999-8999-999999999999'},request:{model:model.id,content:[{type:'text',text:'Original video scene'}],duration:5,resolution:'720p',ratio:'16:9'},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'succeeded'}}});
     return delegate(input,init);
   }));
   mount(true,`/generations?mode=video&intent=${intent}`);const user=userEvent.setup();

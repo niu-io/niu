@@ -1,12 +1,12 @@
 ---
 title: "Restore a saved video intent and its historical job"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}"
+description: "GET /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+`GET /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}`
 
 Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.
 
@@ -29,7 +29,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/video-intents/{intent}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}" \
   -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 

@@ -6,7 +6,7 @@ management APIs require the signed-in actor's workspace permission; they do not
 use a workspace API key as a management session.
 
 All paths below are relative to
-`/admin/v1/organizations/{organization}/projects/{project}/video-intents`.
+`/admin/v1/organizations/{organization}/projects/{project}/video/intents`.
 The legacy `project` path segment means workspace.
 
 | Method | Suffix | Behavior |

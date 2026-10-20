@@ -9,6 +9,7 @@ use uuid::Uuid;
 #[derive(Serialize, sqlx::FromRow)]
 pub struct ProviderMembership {
     pub id: Uuid,
+    pub slug: String,
     pub name: String,
     pub role: String,
 }
@@ -16,11 +17,21 @@ pub struct ProviderMembership {
 #[derive(Serialize, sqlx::FromRow)]
 pub struct SupplierProfile {
     pub id: Uuid,
+    pub slug: String,
     pub name: String,
     pub description: String,
     pub website_url: String,
     pub logo_url: String,
     pub revision: i64,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderBusinessCreate {
+    pub name: String,
+    pub description: Option<String>,
+    pub website_url: Option<String>,
+    pub logo_url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +54,23 @@ fn valid_profile_url(value: &str) -> bool {
                     && url.username().is_empty()
                     && url.password().is_none()
             }))
+}
+
+fn valid_profile_fields(
+    name: &str,
+    description: Option<&str>,
+    website: Option<&str>,
+    logo: Option<&str>,
+) -> bool {
+    valid_text(name, 100)
+        && description.is_none_or(|value| {
+            value.chars().count() <= 2000
+                && !value
+                    .chars()
+                    .any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t'))
+        })
+        && website.is_none_or(valid_profile_url)
+        && logo.is_none_or(valid_profile_url)
 }
 
 /// Optional edits distinguish omission from explicit category clearing.
@@ -149,7 +177,7 @@ impl Store {
         )
     }
     pub async fn provider_businesses(&self) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'name',p.name,'logo_url',p.logo_url,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND vm.enabled),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=v.id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL),'qualification_status',CASE WHEN niu_supplier_qualification_current(p.id) THEN 'qualified' ELSE 'unqualified' END) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND vm.enabled),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=v.id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL),'qualification_status',CASE WHEN niu_supplier_qualification_current(p.id) THEN 'qualified' ELSE 'unqualified' END) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
     }
 
     pub async fn qualify_provider_business(
@@ -391,7 +419,7 @@ impl Store {
         &self,
         operator: Uuid,
     ) -> Result<Vec<ProviderMembership>, StoreError> {
-        Ok(sqlx::query_as("SELECT p.id,p.name,m.role FROM provider_businesses p JOIN provider_memberships m ON m.provider_id=p.id JOIN admin_operators a ON a.id=m.operator_id WHERE m.operator_id=$1 AND m.active AND a.revoked_at IS NULL AND p.deleted_at IS NULL ORDER BY p.name,p.id")
+        Ok(sqlx::query_as("SELECT p.id,p.slug,p.name,m.role FROM provider_businesses p JOIN provider_memberships m ON m.provider_id=p.id JOIN admin_operators a ON a.id=m.operator_id WHERE m.operator_id=$1 AND m.active AND a.revoked_at IS NULL AND p.deleted_at IS NULL ORDER BY p.name,p.id")
             .bind(operator).fetch_all(&self.pool).await?)
     }
 
@@ -406,7 +434,14 @@ impl Store {
     }
 
     pub async fn create_provider_business(&self, name: &str) -> Result<Uuid, StoreError> {
-        self.create_provider_business_recorded(name, None).await
+        self.create_provider_business_recorded(
+            &ProviderBusinessCreate {
+                name: name.into(),
+                ..Default::default()
+            },
+            None,
+        )
+        .await
     }
 
     pub async fn create_provider_business_audited(
@@ -414,23 +449,45 @@ impl Store {
         name: &str,
         actor: OperatorAuditActor,
     ) -> Result<Uuid, StoreError> {
-        self.create_provider_business_recorded(name, Some(actor))
+        self.create_provider_business_recorded(
+            &ProviderBusinessCreate {
+                name: name.into(),
+                ..Default::default()
+            },
+            Some(actor),
+        )
+        .await
+    }
+
+    pub async fn create_provider_business_with_profile_audited(
+        &self,
+        input: &ProviderBusinessCreate,
+        actor: OperatorAuditActor,
+    ) -> Result<Uuid, StoreError> {
+        self.create_provider_business_recorded(input, Some(actor))
             .await
     }
 
     async fn create_provider_business_recorded(
         &self,
-        name: &str,
+        input: &ProviderBusinessCreate,
         actor: Option<OperatorAuditActor>,
     ) -> Result<Uuid, StoreError> {
-        if !valid_text(name, 100) {
+        let description = input.description.as_deref().map(str::trim);
+        let website = input.website_url.as_deref().map(str::trim);
+        let logo = input.logo_url.as_deref().map(str::trim);
+        if !valid_profile_fields(&input.name, description, website, logo) {
             return Err(StoreError::InvalidAccount);
         }
         let id = Uuid::new_v4();
         let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query("INSERT INTO provider_businesses(id,name) VALUES($1,$2)")
+        sqlx::query("INSERT INTO provider_businesses(id,name,slug,description,website_url,logo_url) VALUES($1,$2,$3,$4,$5,$6)")
             .bind(id)
-            .bind(name.trim())
+            .bind(input.name.trim())
+            .bind(crate::workspace_creation::workspace_slug_from_name(&input.name))
+            .bind(description.unwrap_or_default())
+            .bind(website.unwrap_or_default())
+            .bind(logo.unwrap_or_default())
             .execute(&mut *tx)
             .await?;
         let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
@@ -444,7 +501,7 @@ impl Store {
         &self,
         provider: Uuid,
     ) -> Result<Option<SupplierProfile>, StoreError> {
-        Ok(sqlx::query_as("SELECT id,name,description,website_url,logo_url,profile_revision AS revision FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL")
+        Ok(sqlx::query_as("SELECT id,slug,name,description,website_url,logo_url,profile_revision AS revision FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL")
             .bind(provider).fetch_optional(&self.pool).await?)
     }
 
@@ -476,20 +533,13 @@ impl Store {
         let description = input.description.as_deref().map(str::trim);
         let website = input.website_url.as_deref().map(str::trim);
         let logo = input.logo_url.as_deref().map(str::trim);
-        if !valid_text(&input.name, 100)
-            || description.is_some_and(|v| {
-                v.chars().count() > 2000
-                    || v.chars()
-                        .any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t'))
-            })
-            || website.is_some_and(|v| !valid_profile_url(v))
-            || logo.is_some_and(|v| !valid_profile_url(v))
+        if !valid_profile_fields(&input.name, description, website, logo)
             || input.expected_revision.is_some_and(|v| v < 1)
         {
             return Err(StoreError::InvalidAccount);
         }
         let mut tx = self.begin_bounded_recording().await?;
-        let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($6::bigint IS NULL OR profile_revision=$6) RETURNING id,name,description,website_url,logo_url,profile_revision AS revision")
+        let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($6::bigint IS NULL OR profile_revision=$6) RETURNING id,slug,name,description,website_url,logo_url,profile_revision AS revision")
             .bind(provider).bind(input.name.trim()).bind(description).bind(website).bind(logo).bind(input.expected_revision)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());

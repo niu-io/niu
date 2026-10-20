@@ -1,7 +1,7 @@
 import { it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router';
+import { MemoryRouter, Routes, Route, createMemoryRouter, RouterProvider } from 'react-router';
 import KeyDetailView from '@/features/keys/components/KeyDetailView';
 vi.mock('@/features/executions/components/GatewayActivity', () => ({ default: () => null }));
 vi.mock('@/features/keys/components/KeyGuardrails', () => ({ default: () => null }));
@@ -88,4 +88,20 @@ it('hides stale key details and ignores a late revocation after changing scope',
   await user.click(screen.getByRole('button',{name:'Revoke key'}));
   expect(screen.queryByText('Key revoked. Requests using it will be rejected.')).toBeNull();
   expect((screen.getByRole('button',{name:'Confirm revoke'}) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('redirects an old key ID bookmark to its stable slug and edits by the API ID', async () => {
+  const record={id:'00000000-0000-4000-8000-000000000123',slug:'production',revision:3,name:'Application key',allowed_models:['*'],expires_at_ms:null,revoked:false,expired:false};
+  const fetcher=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='PATCH' ? Response.json({revision:4}) : Response.json({data:[record]}));
+  vi.stubGlobal('fetch',fetcher);
+  const router=createMemoryRouter([{path:'/workspaces/:workspace/keys/:keyId',element:<KeyDetailView token="test" models={['fast']} canWrite initialScope={{organizationId:'org',projectId:'demo'}}/>}],{initialEntries:[`/workspaces/demo/keys/${record.id}?view=limits#settings`]});
+  render(<RouterProvider router={router}/>);
+  await waitFor(()=>expect(router.state.location.pathname).toBe('/workspaces/demo/keys/production'));
+  expect(router.state.location.search).toBe('?view=limits');expect(router.state.location.hash).toBe('#settings');
+  const user=userEvent.setup();await user.click(await screen.findByRole('button',{name:'Edit key'}));
+  await user.clear(screen.getByLabelText('Name'));await user.type(screen.getByLabelText('Name'),'Renamed key');
+  await user.click(screen.getByRole('button',{name:'Save changes'}));
+  await screen.findByRole('heading',{name:'Renamed key'});
+  expect(fetcher.mock.calls.find(([,init])=>init?.method==='PATCH')?.[0]).toBe(`/api/v1/workspaces/demo/keys/${record.id}`);
+  expect(router.state.location.pathname).toBe('/workspaces/demo/keys/production');
 });

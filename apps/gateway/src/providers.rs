@@ -84,7 +84,7 @@ async fn platform_or_member(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderMemberships",
-///     "summary": "List the signed-in operator\u2019s complete active Provider memberships",
+///     "summary": "List the signed-in operator’s complete active Provider memberships",
 ///     "description": "Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.",
 ///     "security": [
 ///       {
@@ -119,7 +119,8 @@ async fn platform_or_member(
 ///                     "required": [
 ///                       "id",
 ///                       "name",
-///                       "role"
+///                       "role",
+///                       "slug"
 ///                     ],
 ///                     "properties": {
 ///                       "id": {
@@ -135,6 +136,12 @@ async fn platform_or_member(
 ///                           "manager",
 ///                           "viewer"
 ///                         ]
+///                       },
+///                       "slug": {
+///                         "type": "string",
+///                         "maxLength": 48,
+///                         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///                         "description": "Stable readable slug for product URLs. Renaming preserves it."
 ///                       }
 ///                     }
 ///                   }
@@ -213,11 +220,6 @@ pub async fn set_offer(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"active":input.active}})))
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Name {
-    name: String,
-}
 /// ```openapi
 /// {
 ///   "path": "/api/v1/providers",
@@ -225,7 +227,7 @@ pub struct Name {
 ///   "operation": {
 ///     "operationId": "createProviderBusiness",
 ///     "summary": "Create a Provider business identity",
-///     "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.",
+///     "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -242,6 +244,21 @@ pub struct Name {
 ///                 "minLength": 1,
 ///                 "maxLength": 100,
 ///                 "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved value is trimmed."
+///               },
+///               "description": {
+///                 "type": "string",
+///                 "maxLength": 2000,
+///                 "description": "Optional business description, trimmed before saving. Newlines and tabs are allowed; other control characters are rejected."
+///               },
+///               "website_url": {
+///                 "type": "string",
+///                 "maxLength": 2048,
+///                 "description": "Optional HTTP or HTTPS website URL without embedded credentials. Trimmed before saving; empty string leaves the website unset."
+///               },
+///               "logo_url": {
+///                 "type": "string",
+///                 "maxLength": 2048,
+///                 "description": "Optional HTTP or HTTPS image URL without embedded credentials. Trimmed before saving; empty string uses the default logo."
 ///               }
 ///             }
 ///           }
@@ -262,12 +279,19 @@ pub struct Name {
 ///                 "data": {
 ///                   "type": "object",
 ///                   "required": [
-///                     "id"
+///                     "id",
+///                     "slug"
 ///                   ],
 ///                   "properties": {
 ///                     "id": {
 ///                       "type": "string",
 ///                       "format": "uuid"
+///                     },
+///                     "slug": {
+///                       "type": "string",
+///                       "maxLength": 48,
+///                       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///                       "description": "Stable readable slug for product URLs. Renaming preserves it."
 ///                     }
 ///                   }
 ///                 }
@@ -277,7 +301,7 @@ pub struct Name {
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid Provider name"
+///         "description": "Invalid Provider name or profile metadata"
 ///       },
 ///       "401": {
 ///         "description": "Missing, expired or revoked administrative credential"
@@ -307,15 +331,21 @@ pub struct Name {
 pub async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(input): Json<Name>,
+    Json(input): Json<niu_storage::ProviderBusinessCreate>,
 ) -> Result<Json<Value>, ApiError> {
     let authorization = state.authorize_platform_headers(&headers).await?;
     let id = state
         .store
-        .create_provider_business_audited(&input.name, supplier_audit_actor(authorization))
+        .create_provider_business_with_profile_audited(&input, supplier_audit_actor(authorization))
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data":{"id":id}})))
+    let profile = state
+        .store
+        .supplier_profile(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":{"id":id,"slug":profile.slug}})))
 }
 /// ```openapi
 /// {
@@ -361,7 +391,8 @@ pub async fn create(
 ///                     "website_url",
 ///                     "logo_url",
 ///                     "id",
-///                     "revision"
+///                     "revision",
+///                     "slug"
 ///                   ],
 ///                   "properties": {
 ///                     "name": {
@@ -383,6 +414,12 @@ pub async fn create(
 ///                     "revision": {
 ///                       "type": "integer",
 ///                       "format": "int64"
+///                     },
+///                     "slug": {
+///                       "type": "string",
+///                       "maxLength": 48,
+///                       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///                       "description": "Stable readable slug for product URLs. Renaming preserves it."
 ///                     }
 ///                   }
 ///                 }
@@ -468,7 +505,8 @@ pub async fn profile(
 ///                     "website_url",
 ///                     "logo_url",
 ///                     "id",
-///                     "revision"
+///                     "revision",
+///                     "slug"
 ///                   ],
 ///                   "properties": {
 ///                     "name": {
@@ -490,6 +528,12 @@ pub async fn profile(
 ///                     "revision": {
 ///                       "type": "integer",
 ///                       "format": "int64"
+///                     },
+///                     "slug": {
+///                       "type": "string",
+///                       "maxLength": 48,
+///                       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///                       "description": "Stable readable slug for product URLs. Renaming preserves it."
 ///                     }
 ///                   }
 ///                 }
@@ -2036,7 +2080,8 @@ pub async fn record_settlement(
 ///                       "api_keys",
 ///                       "models",
 ///                       "members",
-///                       "qualification_status"
+///                       "qualification_status",
+///                       "slug"
 ///                     ],
 ///                     "properties": {
 ///                       "id": {
@@ -2046,7 +2091,10 @@ pub async fn record_settlement(
 ///                       "name": {
 ///                         "type": "string"
 ///                       },
-///                       "logo_url": { "type": "string", "description": "Saved Provider logo URL; empty uses the default logo." },
+///                       "logo_url": {
+///                         "type": "string",
+///                         "description": "Saved Provider logo URL; empty uses the default logo."
+///                       },
 ///                       "api_keys": {
 ///                         "type": "integer",
 ///                         "minimum": 0
@@ -2059,16 +2107,36 @@ pub async fn record_settlement(
 ///                         "type": "integer",
 ///                         "minimum": 0
 ///                       },
-///                       "offers": {"type":"integer","minimum":0,"description":"Saved model offers with agreed Provider rates."},
-///                       "ready_offers": {"type":"integer","minimum":0,"description":"Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."},
-///                       "enabled_api_keys": {"type":"integer","minimum":0},
-///                       "enabled_model_routes": {"type":"integer","minimum":0},
+///                       "offers": {
+///                         "type": "integer",
+///                         "minimum": 0,
+///                         "description": "Saved model offers with agreed Provider rates."
+///                       },
+///                       "ready_offers": {
+///                         "type": "integer",
+///                         "minimum": 0,
+///                         "description": "Active offers with current Provider and exact offer/rate qualification, enabled matching routes and saved credentials. Customer selling prices and authorization remain workspace-specific; this is not a live health check."
+///                       },
+///                       "enabled_api_keys": {
+///                         "type": "integer",
+///                         "minimum": 0
+///                       },
+///                       "enabled_model_routes": {
+///                         "type": "integer",
+///                         "minimum": 0
+///                       },
 ///                       "qualification_status": {
 ///                         "type": "string",
 ///                         "enum": [
 ///                           "qualified",
 ///                           "unqualified"
 ///                         ]
+///                       },
+///                       "slug": {
+///                         "type": "string",
+///                         "maxLength": 48,
+///                         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///                         "description": "Stable readable slug for product URLs. Renaming preserves it."
 ///                       }
 ///                     }
 ///                   }

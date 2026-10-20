@@ -1,12 +1,12 @@
 ---
 title: "Read immutable model candidate pool revisions"
-description: "GET /api/v1/model-route-pools/history"
+description: "GET /api/v1/pools/history"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/model-route-pools/history`
+`GET /api/v1/pools/history`
 
 Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
@@ -29,7 +29,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/model-route-pools/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pools/history" \
   -H "Authorization: Bearer $NIU_SESSION_TOKEN"
 ```
 

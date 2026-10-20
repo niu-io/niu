@@ -94,7 +94,9 @@ Content type: `application/json`.
           "active_key_count",
           "requests_30d",
           "requests_by_day",
-          "last_request_at_ms"
+          "last_request_at_ms",
+          "slug",
+          "slug_aliases"
         ],
         "properties": {
           "id": {
@@ -108,7 +110,8 @@ Content type: `application/json`.
             "type": "string",
             "maxLength": 81,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-            "description": "Immutable routing reference; never a display label or authorization grant."
+            "description": "Deprecated compatibility alias for slug.",
+            "deprecated": true
           },
           "organization_id": {
             "type": "string",
@@ -163,6 +166,19 @@ Content type: `application/json`.
               "null"
             ],
             "format": "int64"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 81,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+          },
+          "slug_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Previously issued slugs accepted for existing bookmarks."
           }
         }
       }
