@@ -1,9 +1,34 @@
 ---
-title: Generations sessions, tasks and artifacts
-description: Persist private video timelines and inspect saved tasks and outputs across workspace API keys.
+title: Generations
+description: Start a Chat or Video generation, compare models, and return to saved work.
 ---
 
-Niu provides an additive dashboard API for durable video sessions, existing-task association, task history and generated-output history. Use a current dashboard session, not an inference key. All paths below share the prefix `/api/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
+Open **Generations** in the product navigation to work with Chat and Video. Your saved sessions and drafts live on the server; returning in another browser does not depend on the first browser's storage.
+
+## Start a Chat
+
+1. Choose **New generation** in the history sidebar. On a narrow screen, use the history toggle to open it.
+2. Open the API-key control and select the intended workspace and an active workspace key. The key's model grants and current workspace policy determine what is available. If no usable key is available, create one in **API keys** or ask a workspace administrator for access.
+3. Choose a model, or select multiple models for a comparison. Enter a prompt and send it. Each selected model makes its own request and can incur its own charge; a comparison is not one shared model call.
+4. Read each model's result independently. A failed model does not establish the outcome of the other models. Open workspace **Logs** for saved execution status, timing, usage and any customer charge.
+
+The Stop control ends the browser's wait. It does not prove that upstream work stopped or that no charge occurred. After a timeout or uncertain result, inspect Logs and the saved session before sending another request.
+
+## Create a Video
+
+Choose the Video workflow and an authorized video model. Enter the prompt and only the inputs and settings supported by that model. Review the current estimate before generating when the workflow requires one; changing inputs invalidates the previous estimate. Submission, upstream completion, output availability and settled billing are separate states.
+
+Follow [Video generation](/docs/reference/video/) for reference inputs, model-specific controls, saved results and recovery. Provider tools appear only for a supported configured context; choosing a video model does not grant every material or verification capability.
+
+## Return to saved work
+
+Open a saved Chat or Video from generation history. Use its session menu to rename or archive supported sessions, and **Archived sessions** to find archived work. Saved history does not renew an expired key or grant permission to generate again.
+
+A saved Video task can retain readable history even when its original key expires. An available preview, a copied workspace material and an upstream result are distinct resources. Refreshing an upstream result and saving it to the workspace library are explicit actions; opening history does not generate a replacement. See [Material library](/docs/reference/workspace-materials/) for retained copies and sharing.
+
+## Integrate saved sessions
+
+The remaining sections describe the management API and SDK for applications integrating saved work. Use a current dashboard session, not an inference key. All paths below share the prefix `/api/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
 
 The JavaScript SDK exposes `admin.generations(scope).sessions`, `.tasks` and `.artifacts`. Existing Chat sessions, comparison branches, Video job APIs, dashboard key-scoped bridges and submission intents remain compatible. Session reads provide a discriminated `chat`/`video` timeline projection. Use `sessions.listChat` / `sessions.retrieveChat` for the read-only Chat bridge (`category=chat`); the default reads and new mutations use `video`. Chat writes continue through the existing guarded save methods. Storage remains compatible, categories remain separate, and Tasks/Artifacts inventory currently covers video rather than all text executions.
 
