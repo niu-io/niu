@@ -8,13 +8,23 @@ Start with the [API quickstart](/docs/guides/api-quickstart/) for HTTP requests 
 
 The [REST specification](/docs/api/rest/) is generated from the complete OpenAPI contract. The [SDK reference](/docs/api/sdk/) is generated from public TypeScript declarations. Download the [bundled OpenAPI JSON](/docs/openapi/public.json) for tools that consume the specification. Interface changes are checked against generated output in CI.
 
-## Operator roles and sessions
+## Choose management credentials
 
 Management automation uses the authority required by the specific operation; a customer workspace key is not a platform administrator credential. Read [administrator access](/docs/admin/access/) and [security](/docs/security/overview/) for setup, sign-in, session restoration and revocation. Exact authentication and session schemas are in the [REST reference](/docs/api/rest/).
 
-## Automatic gateway activity and task correlation
+## Inspect request activity
 
 [Request logs](/docs/concepts/execution-observation/) describe usage and timing recorded for requests handled by Niu. Optional client correlation metadata does not turn these records into an external agent execution trace. Niu does not own task orchestration, external tool logs or outcome evaluation.
+
+## Find the right reference
+
+| Task | Start here |
+| --- | --- |
+| Send an application request | [API tutorial](/docs/guides/api-quickstart/) or [SDK tutorial](/docs/guides/sdk-quickstart/) |
+| Check a field, response or authentication requirement | [Generated REST specification](/docs/api/rest/) |
+| Find a typed client method | [Generated SDK reference](/docs/api/sdk/) |
+| Restore Chat or Video work | [Generations](/docs/reference/generations/) |
+| Understand a saved request or charge | [Request logs](/docs/concepts/execution-observation/) and [Usage and billing](/docs/concepts/performance-and-cost/) |
 
 ## Administration
 
