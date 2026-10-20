@@ -2816,6 +2816,20 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
 .key-table .key-name-link { max-width: 220px; white-space: normal; overflow-wrap: anywhere; }
 .key-table .key-name-link svg { flex-shrink: 0; }
 .key-table .key-model-summary { max-width: 220px; }
+.key-list { container-type: inline-size; }
+/* Adapt to the available canvas, including expanded navigation.
+   Secondary metadata remains available on the key detail page. */
+@container (max-width: 1250px) {
+  .key-table :is(th, td):nth-child(4),
+  .key-table :is(th, td):nth-child(5) { display: none; }
+  .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }
+}
+@container (max-width: 720px) {
+  .key-table { min-width: 0; width: 100%; }
+  .key-table .key-table-metadata { display: none; }
+  .key-table td:first-child { min-width: 0; }
+  .key-table .key-name-link { max-width: none; }
+}
 
 /* Flat section surfaces: navigation and content are separated by tone.
    Reserve elevation for floating controls; retain table and input affordances. */
