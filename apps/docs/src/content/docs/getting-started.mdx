@@ -3,36 +3,42 @@ title: Getting started
 description: Configure model access, create a workspace API key and make a request.
 ---
 
-Send your first request through Niu using a workspace API key and a configured model.
+Send your first request using a workspace API key and a model available to that key.
 
 ## Set up model access
 
-1. **Start Niu.** Follow the [deployment guide](/docs/deployment/single-container/), or run `pnpm dev` for local development.
-2. **Open the dashboard.** Sign in with your account. For local development, use the account configured by the launcher.
-3. **Connect a Provider.** Choose its Provider adapter, save its API credential, and configure model routes using the [model route guide](/docs/configuration/models/). Confirm your route appears in **Models**.
-4. **Create an API key.** Select a workspace and open **API keys → New API key**. Enter a name and expiration, then select **Create key**. The key can call every model route available in the workspace. Copy its secret now; it cannot be retrieved later.
+1. **Open the dashboard and select a workspace.** Sign in with your member account. For local development, use the account configured by the launcher.
+2. **Create an API key.** Open **API keys → New API key**, enter a name, choose the intended model access and expiration, then select **Create key**. Key creation requires write access. A viewer should ask a workspace owner or administrator for application access.
+3. **Copy the secret and base URL.** The secret is shown once. Keep it in your application's secret store; it cannot be retrieved later. Model grants, enabled routes, source restrictions, limits and applicable customer funding determine what the key can call.
+
+If you are setting up a new installation, first [deploy Niu](/docs/deployment/single-container/) or run `pnpm dev`. A platform administrator must then [connect a Provider and model routes](/docs/admin/suppliers/) and configure any applicable [customer pricing](/docs/admin/pricing/). Workspace ownership alone does not grant platform administration. An empty model list is a reason to check this setup with your administrator.
 
 ## Make a request
 
-Use your workspace key and a model alias from **Models**. The example below uses
-`fast`, the alias in the example container configuration. Replace it with your
-configured alias.
+Set your installation's origin and workspace key, then discover the models the key can access. Container installations normally use port 2555; repository development uses port 2566. Hosted Niu uses `https://niu.io`.
 
 ```sh
+export NIU_ORIGIN='http://localhost:2555'
 export NIU_API_KEY='your-issued-client-key'
-curl http://localhost:2555/v1/chat/completions \
+curl --fail-with-body "$NIU_ORIGIN/v1/models" \
+  -H "Authorization: Bearer $NIU_API_KEY"
+```
+
+Choose an `id` for a model that supports Chat completions. Model availability does not establish support for every protocol or optional parameter. Replace `your-model-alias` below with that ID; the `fast` alias in the example configuration is not present on every installation.
+
+```sh
+export NIU_MODEL='your-model-alias'
+curl --fail-with-body "$NIU_ORIGIN/v1/chat/completions" \
   -H "Authorization: Bearer $NIU_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"fast","messages":[{"role":"user","content":"Hello"}]}'
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":64}"
 ```
 
 The base URL for compatible clients is `http://localhost:2555/v1` in the container,
-or `http://127.0.0.1:2566/v1` in development. Replace `fast` with the actual alias
-available in your workspace when using a dashboard-managed route. The key dialog
-provides the base URL and a client example for your running installation.
+or `http://127.0.0.1:2566/v1` in development. The key dialog provides the base URL for your running installation. The [API tutorial](/docs/guides/api-quickstart/) covers streaming and error handling.
 
 Open workspace **Logs** to inspect status, timing, reported tokens, and retained
-request and response payloads. **Usage** shows consumption and customer charges.
+request and response payloads. **Activity** shows consumption; **Billing** shows customer charges and spending limits.
 See [request logs](/docs/concepts/execution-observation/) for capture and retention settings.
 
 Applications authenticate with workspace keys. Keep Provider credentials and
