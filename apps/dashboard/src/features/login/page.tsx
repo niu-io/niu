@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { IconKey, IconMail, IconSparkles } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -111,69 +112,155 @@ export default function LoginRoute() {
     setLocalError('');setAccessToken('');setPassword('');setMode(next);
   }
 
+  const showModeSwitch = (mode === 'password' && tokenLogin) || (mode === 'token' && memberLogin);
+
   return <main className="dashboard-login">
-    <section className="dashboard-login-card" aria-label="Sign in">
+    <header className="dashboard-login-topbar">
       <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
         <img src={logo} alt="" />
         <span>{branding.display_name}</span>
       </Link>
-      <nav aria-label="Public resources" className="mb-6 flex items-center justify-center gap-2">
+      <nav aria-label="Public resources" className="dashboard-login-nav">
         <Button asChild variant="ghost" size="sm"><a href="/models/">Models</a></Button>
         <Button asChild variant="ghost" size="sm"><a href="/docs/">Documentation</a></Button>
       </nav>
-      <h1>Sign in</h1>
-      <p className="dashboard-login-intro">Sign in to manage workspaces, API keys, model routes, and billing.</p>
-      <form className="dashboard-login-form" onSubmit={submit}>
-          {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && <p role="status">Password changed. Sign in again.</p>}
-          {mode==='token'?<div className="dashboard-login-field">
-            <Label htmlFor="local-access-token">User access token</Label>
-            <Input key="access-token" id="local-access-token" type="password" autoComplete="off" autoFocus spellCheck={false}
-              value={accessToken} onChange={event=>setAccessToken(event.target.value)}
-              disabled={submitting} required maxLength={256}/>
-            <p className="text-sm text-muted-foreground">Use the temporary access token your workspace owner shared with you.</p>
-          </div>:<>
-          <div className="dashboard-login-field"><Label htmlFor="local-username">Email</Label>
-          <Input
-            key="email"
-            id="local-username"
-            type="email"
-            autoComplete="username"
-            disabled={submitting}
-            autoFocus
-            onChange={event => setUsername(event.target.value)}
-            value={username}
-            required
-          />
-          </div><div className="dashboard-login-field"><Label htmlFor="local-password">Password</Label>
-          <Input
-            id="local-password"
-            autoComplete="current-password"
-            disabled={submitting}
-            onChange={event => setPassword(event.target.value)}
-            type="password"
-            value={password}
-            required
-          />
-          </div></>}
-          {(localError || context.error) && <p className="dashboard-login-error" role="alert">{localError || context.error}</p>}
-        {configurationFailed && <>
-          <p className="dashboard-login-error" role="alert">Sign-in is temporarily unavailable.</p>
-          <Button type="button" variant="outline" disabled={checking} onClick={() => {
-            setChecking(true);
-            setConfigurationFailed(false);
-            setLocalError('');
-            setConfigurationAttempt(value => value + 1);
-          }}>Try again</Button>
-        </>}
-        <Button type="submit" disabled={submitting || checking || configurationFailed || !(mode==='token'?tokenLogin:memberLogin)}>{submitting ? 'Signing in…' : checking ? 'Loading…' : 'Sign in'}</Button>
-        {mode==='password'&&tokenLogin&&<Button type="button" variant="ghost" disabled={submitting||checking} onClick={()=>changeMode('token')}>Use an access token</Button>}
-        {mode==='token'&&memberLogin&&<Button type="button" variant="ghost" disabled={submitting||checking} onClick={()=>changeMode('password')}>Use email and password</Button>}
-      </form>
-      {demoLogin && <div className="mt-6 border-t pt-6">
-        <Button type="button" variant="outline" className="w-full" disabled={submitting || checking}
-          onClick={() => void signIn('demo')}>Try the demo</Button>
-        <p className="mt-2 text-center text-sm text-muted-foreground">Explore Niu in a shared demo workspace.</p>
-      </div>}
-    </section>
+    </header>
+    <div className="dashboard-login-stage">
+      <section className="dashboard-login-card" aria-label="Sign in">
+        <div className="dashboard-login-header">
+          <h1>Sign in</h1>
+          <p className="dashboard-login-intro">Sign in to manage workspaces, API keys, model routes, and billing.</p>
+        </div>
+        <form className="dashboard-login-form" onSubmit={submit}>
+          {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && (
+            <p className="dashboard-login-status" role="status">Password changed. Sign in again.</p>
+          )}
+          {mode === 'token' ? (
+            <div className="dashboard-login-field">
+              <Label htmlFor="local-access-token">User access token</Label>
+              <Input
+                key="access-token"
+                id="local-access-token"
+                type="password"
+                placeholder="Paste your access token"
+                autoComplete="off"
+                autoFocus
+                spellCheck={false}
+                value={accessToken}
+                onChange={event => setAccessToken(event.target.value)}
+                disabled={submitting}
+                required
+                maxLength={256}
+              />
+              <p className="dashboard-login-hint">Use the temporary access token your workspace owner shared with you.</p>
+            </div>
+          ) : (
+            <>
+              <div className="dashboard-login-field">
+                <Label htmlFor="local-username">Email</Label>
+                <Input
+                  key="email"
+                  id="local-username"
+                  type="email"
+                  placeholder="name@company.com"
+                  autoComplete="username"
+                  disabled={submitting}
+                  autoFocus
+                  onChange={event => setUsername(event.target.value)}
+                  value={username}
+                  required
+                />
+              </div>
+              <div className="dashboard-login-field">
+                <Label htmlFor="local-password">Password</Label>
+                <Input
+                  id="local-password"
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  disabled={submitting}
+                  onChange={event => setPassword(event.target.value)}
+                  type="password"
+                  value={password}
+                  required
+                />
+              </div>
+            </>
+          )}
+          {(localError || context.error) && (
+            <p className="dashboard-login-error" role="alert">{localError || context.error}</p>
+          )}
+          {configurationFailed && (
+            <div className="dashboard-login-unavailable">
+              <p className="dashboard-login-error" role="alert">Sign-in is temporarily unavailable.</p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={checking}
+                onClick={() => {
+                  setChecking(true);
+                  setConfigurationFailed(false);
+                  setLocalError('');
+                  setConfigurationAttempt(value => value + 1);
+                }}
+              >
+                Try again
+              </Button>
+            </div>
+          )}
+          <Button
+            type="submit"
+            className="dashboard-login-submit"
+            disabled={submitting || checking || configurationFailed || !(mode === 'token' ? tokenLogin : memberLogin)}
+          >
+            {submitting ? 'Signing in…' : checking ? 'Loading…' : 'Sign in'}
+          </Button>
+        </form>
+        {(showModeSwitch || demoLogin) && (
+          <div className="dashboard-login-secondary">
+            {mode === 'password' && tokenLogin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="dashboard-login-switch"
+                disabled={submitting || checking}
+                onClick={() => changeMode('token')}
+              >
+                <IconKey size={15} aria-hidden="true" />
+                <span>Use an access token</span>
+              </Button>
+            )}
+            {mode === 'token' && memberLogin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="dashboard-login-switch"
+                disabled={submitting || checking}
+                onClick={() => changeMode('password')}
+              >
+                <IconMail size={15} aria-hidden="true" />
+                <span>Use email and password</span>
+              </Button>
+            )}
+            {demoLogin && (
+              <div className="dashboard-login-demo">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="dashboard-login-demo-button"
+                  disabled={submitting || checking}
+                  onClick={() => void signIn('demo')}
+                >
+                  <IconSparkles size={15} aria-hidden="true" />
+                  <span>Try the demo</span>
+                </Button>
+                <p className="dashboard-login-demo-caption">Explore Niu in a shared demo workspace.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
   </main>;
 }
