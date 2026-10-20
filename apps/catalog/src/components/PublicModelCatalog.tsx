@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { IconCheck, IconCopy, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { Button } from '../../../dashboard/src/components/ui/button';
 import { Input } from '../../../dashboard/src/components/ui/input';
-import { Badge } from '../../../dashboard/src/components/ui/badge';
 
 type PublicModel = {
   id: string;
@@ -142,16 +141,16 @@ export default function PublicModelCatalog() {
           {strings(catalog?.input_modalities).map(value => {
             const term = `input:${value}`;
             const active = terms.includes(term.toLocaleLowerCase());
-            return <Badge key={'in-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(term)}>{value} input</button></Badge>;
+            return <Button key={'in-' + value} type="button" size="sm" variant={active ? 'default' : 'secondary'} className="catalog-modality-chip h-6 rounded-full px-2 text-xs" aria-pressed={active} onClick={() => toggleTerm(term)}>{value} input</Button>;
           })}
           {strings(catalog?.output_modalities).map(value => {
             const term = `output:${value}`;
             const active = terms.includes(term.toLocaleLowerCase());
-            return <Badge key={'out-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(term)}>{value} output</button></Badge>;
+            return <Button key={'out-' + value} type="button" size="sm" variant={active ? 'default' : 'secondary'} className="catalog-modality-chip h-6 rounded-full px-2 text-xs" aria-pressed={active} onClick={() => toggleTerm(term)}>{value} output</Button>;
           })}
           {supported.some(([key]) => key === 'streaming' || key === 'messages_streaming') && (() => {
             const active = terms.includes('streaming');
-            return <Badge asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm('streaming')}>Streaming</button></Badge>;
+            return <Button type="button" size="sm" variant={active ? 'default' : 'secondary'} className="catalog-modality-chip h-6 rounded-full px-2 text-xs" aria-pressed={active} onClick={() => toggleTerm('streaming')}>Streaming</Button>;
           })()}
         </div>
         <div className="catalog-model-footer">{(context || output) && <p className="catalog-model-limits">{[context && `${context} token context`, output && `${output} max output tokens`].filter(Boolean).join(' · ')}</p>}
