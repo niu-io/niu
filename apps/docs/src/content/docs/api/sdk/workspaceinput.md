@@ -12,6 +12,10 @@ Generated from the checked-in source. Do not edit this reference by hand.
 export type WorkspaceInput = {
     name: string;
     slug?: string;
+    spending_limit?: {
+        currency: string;
+        limit_nanos: string;
+    };
     organization_id?: string | null;
 };
 ```

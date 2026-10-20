@@ -5161,7 +5161,7 @@ HTTP 409: Workspace retains dependent business records.
 
 `GET /api/v1/workspaces/{workspace}/keys`
 
-Returns workspace API keys along with their current spending limits, request/token rate limits, concurrency limits, IP allowlist policy, and 60-second usage window in a single response.
+Returns workspace API keys along with their current spending limits, request/token rate limits, concurrency limits, IP allowlist policy, and 60-second usage window in a single response. Requires an installation credential or member session with workspace read access. Workspace inference API keys do not authorize key management. Without limit or after, returns the complete compatibility directory without next_cursor. Supplying either selects a bounded page (default 50, maximum 100). Follow next_cursor until null.
 
 Implementation: `implemented`. Operation: `listWorkspaceKeys`.
 
@@ -5215,25 +5215,65 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
-  "required": [
-    "data"
-  ],
-  "properties": {
-    "data": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    },
-    "next_cursor": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "format": "uuid"
-    }
-  }
+  "$ref": "#/components/schemas/WorkspaceKeyDetailPage"
+}
+```
+
+HTTP 400: Invalid path, query or input. Framework parsing failures may be plain text.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 401: Missing, expired or revoked management credential.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 403: Insufficient management permission.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 404: Workspace or key not found in the authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 503: Durable storage or required configuration is unavailable.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
 }
 ```
 
@@ -5241,7 +5281,7 @@ Content type: `application/json`.
 
 `POST /api/v1/workspaces/{workspace}/keys`
 
-Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint.
+Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.
 
 Implementation: `implemented`. Operation: `createWorkspaceKey`.
 
@@ -5358,24 +5398,105 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
-  "required": [
-    "id",
-    "token",
-    "key"
-  ],
-  "properties": {
-    "id": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "token": {
-      "type": "string"
-    },
-    "key": {
-      "type": "object"
-    }
-  }
+  "$ref": "#/components/schemas/IssuedWorkspaceKeyDetail"
+}
+```
+
+HTTP 400: Invalid path, query or input. Framework parsing failures may be plain text.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 401: Missing, expired or revoked management credential.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 403: Insufficient management permission.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 404: Workspace or key not found in the authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 503: Durable storage or required configuration is unavailable.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 409: Revision or write conflict; reload current state before retrying.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 413: Request body exceeds the route limit.
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 415: Unsupported request Content-Type.
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 422: JSON body does not match the input type.
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
 }
 ```
 
@@ -5383,7 +5504,7 @@ Content type: `application/json`.
 
 `GET /api/v1/workspaces/{workspace}/keys/{key}`
 
-Returns metadata, spending limits, RPM/TPM/concurrency limits, IP allowlist policy, and 60-second usage window for a single workspace API key.
+Returns metadata, spending limits, RPM/TPM/concurrency limits, IP allowlist policy, and 60-second usage window for a single workspace API key. Requires an installation credential or member session with workspace read access. Workspace inference API keys do not authorize key management.
 
 Implementation: `implemented`. Operation: `getWorkspaceKey`.
 
@@ -5427,7 +5548,65 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object"
+  "$ref": "#/components/schemas/WorkspaceKeyDetail"
+}
+```
+
+HTTP 400: Invalid path, query or input. Framework parsing failures may be plain text.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 401: Missing, expired or revoked management credential.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 403: Insufficient management permission.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 404: Workspace or key not found in the authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 503: Durable storage or required configuration is unavailable.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
 }
 ```
 
@@ -5435,7 +5614,7 @@ Content type: `application/json`.
 
 `PATCH /api/v1/workspaces/{workspace}/keys/{key}`
 
-Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted.
+Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.
 
 Implementation: `implemented`. Operation: `updateWorkspaceKey`.
 
@@ -5491,7 +5670,105 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object"
+  "$ref": "#/components/schemas/WorkspaceKeyDetail"
+}
+```
+
+HTTP 400: Invalid path, query or input. Framework parsing failures may be plain text.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 401: Missing, expired or revoked management credential.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 403: Insufficient management permission.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 404: Workspace or key not found in the authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 503: Durable storage or required configuration is unavailable.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 409: Revision or write conflict; reload current state before retrying.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 413: Request body exceeds the route limit.
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 415: Unsupported request Content-Type.
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 422: JSON body does not match the input type.
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
 }
 ```
 
@@ -5499,7 +5776,7 @@ Content type: `application/json`.
 
 `DELETE /api/v1/workspaces/{workspace}/keys/{key}`
 
-Idempotently revokes a workspace API key within the authorized workspace scope.
+Idempotently revokes a workspace API key within the authorized workspace scope. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.
 
 Implementation: `implemented`. Operation: `revokeWorkspaceKey`.
 
@@ -5539,11 +5816,69 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 HTTP 204: Key revoked
 
+HTTP 400: Invalid path, query or input. Framework parsing failures may be plain text.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 401: Missing, expired or revoked management credential.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 403: Insufficient management permission.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 404: Workspace or key not found in the authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 503: Durable storage or required configuration is unavailable.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 ## Rotate a workspace API key while preserving its policies and expiry
 
 `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`
 
-Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage.
+Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.
 
 Implementation: `implemented`. Operation: `rotateWorkspaceKey`.
 
@@ -5587,24 +5922,75 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
-  "required": [
-    "id",
-    "token",
-    "key"
-  ],
-  "properties": {
-    "id": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "token": {
-      "type": "string"
-    },
-    "key": {
-      "type": "object"
-    }
-  }
+  "$ref": "#/components/schemas/IssuedWorkspaceKeyDetail"
+}
+```
+
+HTTP 400: Invalid path, query or input. Framework parsing failures may be plain text.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 401: Missing, expired or revoked management credential.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 403: Insufficient management permission.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 404: Workspace or key not found in the authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 503: Durable storage or required configuration is unavailable.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+HTTP 409: Revision or write conflict; reload current state before retrying.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
 }
 ```
 
@@ -21789,6 +22175,28 @@ Content type: `application/json`.
 
 HTTP 200: A normalized chat completion or compatible event stream.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 Content type: `application/json`.
 
 ```json
@@ -21808,25 +22216,267 @@ Content type: `text/event-stream`.
 
 HTTP 400: Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Provider dispatch.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 401: Missing or invalid gateway credentials.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 409: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 501: Tool or structured-output capability is disabled, or the requested combination is unsupported. The unsupported_operation_error message identifies the feature and a supported request alternative; rejection occurs before admission or upstream dispatch.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 502: Provider request failed.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 402: Insufficient balance or spending limit exceeded.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 422: Configured pricing requires an unavailable token category (unsupported_token_pricing), or a token admission bound is unavailable. Chat reads explicit prompt_tokens_details.cache_write_tokens as a subset of total input, alongside cache reads and reasoning output; missing categories remain unknown. Priced text content blocks accept bounded ephemeral cache_control metadata.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 429: API key request, concurrency or token rate limit exceeded.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 503: Durable storage or configured route unavailable. guardrail_output_busy identifies exhausted full-output collection capacity before admission or dispatch.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 ## Create OpenAI-compatible text embeddings
 
@@ -25781,6 +26431,28 @@ Content type: `application/json`.
 
 HTTP 200: Native sanitized Message or opted-in text SSE. Tool turns may require a client continuation. Inspect usage and billing diagnostics separately.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 Content type: `application/json`.
 
 ```json
@@ -25953,6 +26625,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 }
 ```
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 401: Invalid Niu key.
 
 Response header: `x-niu-error-code`.
@@ -25962,6 +26656,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 ```json
 {
   "type": "string"
+}
+```
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
 }
 ```
 
@@ -25977,6 +26693,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 }
 ```
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 404: Model unavailable or outside key grants.
 
 Response header: `x-niu-error-code`.
@@ -25989,6 +26727,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 }
 ```
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 402: Insufficient spending capacity.
 
 Response header: `x-niu-error-code`.
@@ -25998,6 +26758,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 ```json
 {
   "type": "string"
+}
+```
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
 }
 ```
 
@@ -26014,6 +26796,28 @@ Response header: `x-niu-error-code`.
 }
 ```
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 429: Key rate, concurrency or token limit.
 
 Response header: `x-niu-error-code`.
@@ -26023,6 +26827,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 ```json
 {
   "type": "string"
+}
+```
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
 }
 ```
 
@@ -26038,6 +26864,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 }
 ```
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 502: Upstream failure or invalid response; execution may be uncertain.
 
 Response header: `x-niu-error-code`.
@@ -26050,6 +26898,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 }
 ```
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 503: Service unavailable.
 
 Response header: `x-niu-error-code`.
@@ -26059,6 +26929,28 @@ Niu-specific machine-readable reason, such as key_spending_limit_exceeded or bud
 ```json
 {
   "type": "string"
+}
+```
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
 }
 ```
 
@@ -26183,6 +27075,28 @@ Content type: `application/json`.
 ### Responses
 
 HTTP 200: A validated Responses API text response with the public model alias.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 Content type: `application/json`.
 
@@ -26355,27 +27269,291 @@ Content type: `text/event-stream`.
 
 HTTP 400: Invalid body, unsupported field or invalid request shape.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 401: Missing or invalid gateway credentials.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 404: Model alias does not exist or is unavailable to this key.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 409: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 501: Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 502: Provider request failed or returned an invalid text response. Valid terminal usage is retained for accounting even when output delivery is rejected; an HTTP error alone does not prove nonexecution or authorize a safe retry.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 402: Insufficient balance or spending limit exceeded.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 422: Invalid JSON or unsupported token admission/pricing requirements. Responses reads explicit input_tokens_details.cache_write_tokens alongside cache reads and reasoning output; missing categories remain unknown. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 HTTP 429: API key request, concurrency or token rate limit exceeded.
 
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 HTTP 503: Durable storage or configured route unavailable.
+
+Response header: `x-niu-attempt-id`.
+
+Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+Response header: `x-niu-operation-id`.
+
+Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 ## List durable workspace video jobs
 
@@ -34930,6 +36108,40 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### IssuedWorkspaceKeyDetail
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "token",
+    "key"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "token": {
+      "type": "string",
+      "description": "One-time secret returned only on creation or rotation. Store securely; never included in key directories or detail reads."
+    },
+    "key": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/WorkspaceKeyDetail"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Post-write detail snapshot; can be null if the key is removed before this read. The issued secret is still returned only once."
+    }
+  }
+}
+```
+
 ### KeyConcurrencyConcurrencyLimit
 
 ```json
@@ -40059,6 +41271,26 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "format": "uuid",
       "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
     },
+    "spending_limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "limit_nanos"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "limit_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Nonnegative nanounits, at most 9223372036854775807."
+        }
+      },
+      "description": "Optional lifetime retail cap in an existing company account currency. Requires an owner or installation administrator. Saved atomically with the workspace; omitted means no limit."
+    },
     "slug": {
       "type": "string",
       "minLength": 1,
@@ -40395,6 +41627,331 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### WorkspaceKeyConcurrency
+
+```json
+{
+  "type": "object",
+  "required": [
+    "max_concurrent_requests",
+    "active_requests",
+    "revision"
+  ],
+  "properties": {
+    "max_concurrent_requests": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "active_requests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Decimal policy revision; null means no saved policy."
+    }
+  }
+}
+```
+
+### WorkspaceKeyDetail
+
+```json
+{
+  "description": "Workspace management key metadata and customer policies. Never contains the API secret or Provider procurement information.",
+  "allOf": [
+    {
+      "$ref": "#/components/schemas/WorkspaceKey"
+    },
+    {
+      "type": "object",
+      "required": [
+        "spending_limits",
+        "request_rate_limit",
+        "token_rate_limit",
+        "concurrency_limit",
+        "token_usage_window",
+        "ip_policy"
+      ],
+      "properties": {
+        "spending_limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/WorkspaceKeySpendingAccount"
+          }
+        },
+        "request_rate_limit": {
+          "$ref": "#/components/schemas/WorkspaceKeyRequestRate"
+        },
+        "token_rate_limit": {
+          "$ref": "#/components/schemas/WorkspaceKeyTokenRate"
+        },
+        "concurrency_limit": {
+          "$ref": "#/components/schemas/WorkspaceKeyConcurrency"
+        },
+        "token_usage_window": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/WorkspaceKeyUsageWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null when no snapshot is available; never infer zero usage."
+        },
+        "ip_policy": {
+          "$ref": "#/components/schemas/WorkspaceKeyIpPolicy"
+        }
+      }
+    }
+  ]
+}
+```
+
+### WorkspaceKeyDetailPage
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/WorkspaceKeyDetail"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Present when limit or after selects paging. Null ends the directory."
+    }
+  }
+}
+```
+
+### WorkspaceKeyIpPolicy
+
+```json
+{
+  "type": "object",
+  "required": [
+    "allowed_cidrs",
+    "revision"
+  ],
+  "properties": {
+    "allowed_cidrs": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "Null permits any source; an empty array denies every source."
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Decimal policy revision; null means no saved policy."
+    }
+  }
+}
+```
+
+### WorkspaceKeyRequestRate
+
+```json
+{
+  "type": "object",
+  "required": [
+    "requests_per_minute",
+    "revision"
+  ],
+  "properties": {
+    "requests_per_minute": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Decimal policy revision; null means no saved policy."
+    }
+  }
+}
+```
+
+### WorkspaceKeySpendingAccount
+
+```json
+{
+  "type": "object",
+  "required": [
+    "currency",
+    "limit_nanos",
+    "committed_nanos",
+    "remaining_nanos",
+    "revision"
+  ],
+  "properties": {
+    "currency": {
+      "type": "string"
+    },
+    "limit_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Customer allowance in currency nanounits; null means unlimited."
+    },
+    "committed_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Customer committed amount in currency nanounits."
+    },
+    "remaining_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Remaining customer allowance in currency nanounits; null when unlimited."
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Decimal policy revision; null means no saved policy."
+    }
+  }
+}
+```
+
+### WorkspaceKeyTokenRate
+
+```json
+{
+  "type": "object",
+  "required": [
+    "tokens_per_minute",
+    "revision"
+  ],
+  "properties": {
+    "tokens_per_minute": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Decimal policy revision; null means no saved policy."
+    },
+    "snapshot_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "known_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "reserved_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "unbounded_requests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "committed_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    }
+  }
+}
+```
+
+### WorkspaceKeyUsageWindow
+
+```json
+{
+  "type": "object",
+  "required": [
+    "window_seconds",
+    "window_end",
+    "requests",
+    "known_usage_requests",
+    "unknown_usage_requests",
+    "known_prompt_tokens",
+    "known_completion_tokens"
+  ],
+  "properties": {
+    "window_seconds": {
+      "type": "integer",
+      "const": 60
+    },
+    "window_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "requests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "known_usage_requests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unknown_usage_requests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "known_prompt_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "known_completion_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    }
+  }
+}
+```
+
 ### WorkspaceSpendingHistory
 
 ```json
@@ -40522,7 +42079,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
 ```json
 {
   "type": "http",
-  "scheme": "bearer"
+  "scheme": "bearer",
+  "description": "Bearer credential accepted by this operation. Inference uses a workspace API key; management requires an authorized member session or installation credential. See the operation description for required authority and scope."
 }
 ```
 
@@ -40532,6 +42090,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
 {
   "type": "apiKey",
   "in": "header",
-  "name": "X-Niu-API-Key"
+  "name": "X-Niu-API-Key",
+  "description": "Workspace inference API key sent in X-Niu-API-Key. Does not grant member or platform management authority."
 }
 ```

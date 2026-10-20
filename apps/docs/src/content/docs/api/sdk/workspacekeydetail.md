@@ -12,9 +12,10 @@ Generated from the checked-in source. Do not edit this reference by hand.
 export type WorkspaceKeyDetail = WorkspaceKey & {
     spending_limits: KeySpendingAccount[];
     request_rate_limit: KeyRequestRateLimit;
-    token_rate_limit: KeyTokenRateLimit;
+    /** Budget snapshot fields are absent if the key disappears during enrichment. */
+    token_rate_limit: Pick<KeyTokenRateLimit, 'tokens_per_minute' | 'revision'> & Partial<Omit<KeyTokenRateLimit, 'tokens_per_minute' | 'revision'>>;
     concurrency_limit: KeyConcurrencyLimit;
-    token_usage_window: KeyTokenUsageWindow;
+    token_usage_window: KeyTokenUsageWindow | null;
     ip_policy: KeyIpPolicy;
 };
 ```

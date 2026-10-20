@@ -1,4 +1,5 @@
 export type { GenerationsVideoIntentReference } from './generations-sessions.js';
+import { notifyResponse } from './response-metadata.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 import type { ContextPriceTier } from './admin.js';
 import { waitForVideoJob, type VideoWaitOptions } from './video-wait.js';
@@ -322,6 +323,29 @@ export class NiuAPIError extends Error {
   }
 }
 
+/** Failure after response headers arrive. Status remains the actual HTTP status.
+ * Inspect kind and responseBody; partial output never makes a failed stream safe to retry.
+ * Caller cancellation preserves the AbortSignal's original reason instead.
+ */
+export class NiuStreamError extends NiuAPIError {
+  readonly kind: 'api' | 'invalid_stream' | 'incomplete_stream' | 'transport';
+  readonly eventType?: string;
+
+  constructor(
+    kind: NiuStreamError['kind'], message: string, response: Response,
+    responseBody?: unknown, eventType?: string, cause?: unknown,
+  ) {
+    const metadata = NiuAPIError.fromResponse(response, responseBody);
+    super(metadata.status, responseBody, metadata.requestId, metadata.attemptId,
+      metadata.operationId, metadata.gatewayCode, metadata.retryAfter);
+    this.name = 'NiuStreamError';
+    this.message = message;
+    this.kind = kind;
+    this.eventType = eventType;
+    if (cause !== undefined) this.cause = cause;
+  }
+}
+
 export type VideoResultAvailability = { video: 'available' | 'missing' | 'unavailable'; last_frame: 'available' | 'missing' | 'unavailable' };
 
 export type VideoLifecycleTiming = {
@@ -630,18 +654,18 @@ export class NiuClient {
     const response = await this.send('/messages', { ...request, stream: true }, options, 'text/event-stream');
     if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) {
       await response.body?.cancel();
-      throw new Error('Expected an event-stream response');
+      throw new NiuStreamError('invalid_stream', 'Expected an event-stream response', response);
     }
-    yield* parseChatStream(response.body, options.signal, 'messages');
+    yield* parseChatStream(response, options.signal, 'messages');
   }
 
   private async *streamResponses(request: ResponsesRequest, options: RequestOptions = {}): AsyncGenerator<unknown> {
     const response = await this.send('/responses', { ...request, stream: true }, options, 'text/event-stream');
     if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) {
       await response.body?.cancel();
-      throw new Error('Expected an event-stream response');
+      throw new NiuStreamError('invalid_stream', 'Expected an event-stream response', response);
     }
-    yield* parseChatStream(response.body, options.signal, 'responses');
+    yield* parseChatStream(response, options.signal, 'responses');
   }
 
   private async *streamChat(request: ChatStreamRequest, options: RequestOptions = {}): AsyncGenerator<unknown> {
@@ -652,9 +676,9 @@ export class NiuClient {
     }, options, 'text/event-stream');
     if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) {
       await response.body?.cancel();
-      throw new Error('Expected an event-stream response');
+      throw new NiuStreamError('invalid_stream', 'Expected an event-stream response', response);
     }
-    yield* parseChatStream(response.body, options.signal);
+    yield* parseChatStream(response, options.signal);
   }
 
   private async send(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, accept: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = body === undefined ? 'GET' : 'POST', nativeGemini = false): Promise<Response> {
@@ -695,6 +719,7 @@ export class NiuClient {
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: options.signal,
     });
+    await notifyResponse(response, options);
     if (!response.ok) {
       throw NiuAPIError.fromResponse(response, await readPayload(response));
     }
@@ -707,19 +732,28 @@ export type VideoCreateOptions = RequestOptions & {
   idempotencyKey?: string;
 };
 
+export type ResponseMetadata = {
+  readonly status: number;
+  readonly requestId: string | null;
+  readonly attemptId: string | null;
+  readonly operationId: string | null;
+};
+
 export type RequestOptions = {
   signal?: AbortSignal;
+  /** Called once when response headers arrive, including streams and HTTP errors. Does not consume the body. */
+  onResponse?: (metadata: ResponseMetadata) => void;
   /** Override payload retention for this request. Metadata collection is unaffected. */
   logPayloads?: boolean;
 };
 
-function errorMessage(body: unknown, status: number): string {
+function errorMessage(body: unknown, status: number, fallback = `Niu API request failed with status ${status}`): string {
   if (typeof body === 'object' && body !== null) {
     const root = body as { error?: { message?: unknown }; message?: unknown };
     if (typeof root.error?.message === 'string') return root.error.message;
     if (typeof root.message === 'string') return root.message;
   }
-  return `Niu API request failed with status ${status}`;
+  return fallback;
 }
 
 
@@ -728,9 +762,9 @@ async function readPayload(response: Response): Promise<unknown> {
   try { return text ? JSON.parse(text) : undefined; } catch { return text; }
 }
 
-async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal, protocol: 'chat' | 'responses' | 'messages' = 'chat'): AsyncGenerator<unknown> {
+async function* parseChatStream(response: Response, signal?: AbortSignal, protocol: 'chat' | 'responses' | 'messages' = 'chat'): AsyncGenerator<unknown> {
   const responses = protocol === 'responses';
-  const reader = body.getReader();
+  const reader = response.body!.getReader();
   const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
   const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -738,56 +772,74 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
   let data = '';
   let skipLF = false;
   let eventSize = 0;
-  let errorEvent = false;
+  let eventType: string | undefined;
   try {
     for (;;) {
       signal?.throwIfAborted();
       const result = await reader.read();
       signal?.throwIfAborted();
       if (result.done) break;
-      const text = decoder.decode(result.value, { stream: true });
+      let text: string;
+      try { text = decoder.decode(result.value, { stream: true }); }
+      catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, eventType, cause); }
       for (const char of text) {
         if (skipLF) { skipLF = false; if (char === '\n') continue; }
         const point = char.codePointAt(0)!;
         eventSize += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
-        if (eventSize > (responses ? 16 * 1024 * 1024 : 65_536)) throw new Error('SSE event exceeds client buffer limit');
+        if (eventSize > (responses ? 16 * 1024 * 1024 : 65_536)) throw new NiuStreamError('invalid_stream', 'SSE event exceeds client buffer limit', response, undefined, eventType);
         if (char !== '\r' && char !== '\n') { line += char; continue; }
         skipLF = char === '\r';
         if (line === '') {
           signal?.throwIfAborted();
           eventSize = 0;
-          if (errorEvent) throw new Error('Upstream returned an SSE error event');
+          if (eventType === 'error' && data === '') throw new NiuStreamError('api', 'Upstream returned an SSE error event', response, undefined, eventType);
           if (data !== '') {
             const event = data.slice(0, -1);
             data = '';
             if (event === '[DONE]') {
-              if (protocol !== 'chat') throw new Error('Stream ended without its protocol terminal event');
+              if (eventType === 'error') throw new NiuStreamError('api', 'Upstream returned an SSE error event', response, event, eventType);
+              if (protocol !== 'chat') throw new NiuStreamError('incomplete_stream', 'Stream ended without its protocol terminal event', response);
               return;
             }
-            const value: unknown = JSON.parse(event);
-            if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('Invalid chat stream event');
-            if ('error' in value) throw new Error(errorMessage(value, 200));
-            if (responses && 'type' in value && value.type === 'response.failed') throw new Error('Upstream response failed');
+            let value: unknown;
+            try { value = JSON.parse(event); }
+            catch (cause) {
+              throw new NiuStreamError(eventType === 'error' ? 'api' : 'invalid_stream',
+                eventType === 'error' ? 'Upstream returned an SSE error event' : 'Invalid JSON stream event', response, event, eventType, cause);
+            }
+            if (eventType === 'error') throw new NiuStreamError('api', errorMessage(value, response.status, 'Upstream returned an SSE error event'), response, value, eventType);
+            if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new NiuStreamError('invalid_stream', 'Invalid chat stream event', response, value, eventType);
+            if ('error' in value) throw new NiuStreamError('api', errorMessage(value, response.status, 'Upstream stream failed'), response, value, eventType);
+            if (responses && 'type' in value && value.type === 'response.failed') {
+              const nested = 'response' in value ? value.response : undefined;
+              throw new NiuStreamError('api', errorMessage(nested, response.status, 'Upstream response failed'), response, value, 'response.failed');
+            }
             yield value;
             if (protocol === 'messages' && 'type' in value && value.type === 'message_stop') return;
             if (responses && 'type' in value && (value.type === 'response.completed' || value.type === 'response.incomplete')) return;
           }
-          errorEvent = false;
+          eventType = undefined;
         } else if (!line.startsWith(':')) {
           const colon = line.indexOf(':');
           const field = colon < 0 ? line : line.slice(0, colon);
           let value = colon < 0 ? '' : line.slice(colon + 1);
           if (value.startsWith(' ')) value = value.slice(1);
           if (field === 'data') data += value + '\n';
-          if (field === 'event') errorEvent = value === 'error';
+          if (field === 'event') eventType = value;
         }
         line = '';
       }
     }
-    throw new Error('Stream ended without a terminal event');
+    try { decoder.decode(); }
+    catch (cause) { throw new NiuStreamError('invalid_stream', 'Invalid UTF-8 stream', response, undefined, eventType, cause); }
+    throw new NiuStreamError('incomplete_stream', 'Stream ended without a terminal event', response);
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof NiuStreamError) throw error;
+    throw new NiuStreamError('transport', 'Stream transport failed', response, undefined, eventType, error);
   } finally {
     signal?.removeEventListener('abort', abort);
-    try { await reader.cancel(); } finally { reader.releaseLock(); }
+    try { await reader.cancel().catch(() => {}); } finally { reader.releaseLock(); }
   }
 }
 

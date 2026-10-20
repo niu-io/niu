@@ -1,4 +1,5 @@
 import { NiuAPIError, type RequestOptions } from './index.js';
+import { notifyResponse } from './response-metadata.js';
 
 export type MemberSession = {
   /** Routing references only; do not display internal identifiers. */
@@ -74,6 +75,7 @@ export class NiuAuthClient {
       ...init, method: init.method ?? 'POST', signal: options.signal, redirect: 'error',
       credentials: 'omit', cache: 'no-store',
     });
+    await notifyResponse(response, options);
     if (empty && response.status === 204) return;
     const text = await response.text();
     let payload: unknown;

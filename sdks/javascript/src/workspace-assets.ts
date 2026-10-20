@@ -1,4 +1,5 @@
-import { NiuAPIError } from './index.js';
+import { NiuAPIError, type RequestOptions } from './index.js';
+import { notifyResponse } from './response-metadata.js';
 
 /** Durable local content; this is not Provider ingestion or generation permission. */
 export type WorkspaceAssetKind = 'image' | 'video' | 'audio';
@@ -12,7 +13,7 @@ export type WorkspaceAssetPageOptions = { kind?: WorkspaceAssetKind; after?: str
 
 /** Binary transfers use the same fixed credentials and reject redirects. */
 export async function assetBinaryRequest(fetcher: typeof globalThis.fetch, base: string, token: string,
-  path: string, options: { signal?: AbortSignal }, input?: { contentType: string; bytes: Uint8Array }): Promise<Response> {
+  path: string, options: RequestOptions, input?: { contentType: string; bytes: Uint8Array }): Promise<Response> {
   if (input && (input.bytes.byteLength < 1 || input.bytes.byteLength > 8 * 1024 * 1024)) {
     throw new RangeError('Workspace materials require 1 byte to 8 MiB');
   }
@@ -22,6 +23,7 @@ export async function assetBinaryRequest(fetcher: typeof globalThis.fetch, base:
       ...(input ? { 'content-type': input.contentType } : {}) },
     body: input ? new Uint8Array(input.bytes).buffer : undefined,
   });
+  await notifyResponse(response, options);
   if (!response.ok) {
     const text = await response.text(); let payload: unknown;
     try { payload = text ? JSON.parse(text) : undefined; } catch { payload = text; }

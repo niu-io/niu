@@ -29,11 +29,22 @@ Use the credential and permission scope described above. Each object below is an
 
 ## HTTP request
 
-Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
+
+Authentication alternative: `bearerAuth`.
 
 ```sh
 curl --fail-with-body -X POST "$NIU_ORIGIN/v1/messages" \
-  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data @request.json
+```
+
+Authentication alternative: `niuApiKeyAuth`.
+
+```sh
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/messages" \
+  -H "X-Niu-API-Key: $NIU_API_KEY" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```
@@ -362,6 +373,27 @@ Location: **header**. Optional.
 
 Native sanitized Message or opted-in text SSE. Tool turns may require a client continuation. Inspect usage and billing diagnostics separately.
 
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 Content type: `application/json`.
 
 ```json
@@ -535,6 +567,20 @@ Response headers:
     "schema": {
       "type": "string"
     }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
   }
 }
 ```
@@ -551,6 +597,20 @@ Response headers:
     "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
     "schema": {
       "type": "string"
+    }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
     }
   }
 }
@@ -569,6 +629,20 @@ Response headers:
     "schema": {
       "type": "string"
     }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
   }
 }
 ```
@@ -586,6 +660,20 @@ Response headers:
     "schema": {
       "type": "string"
     }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
   }
 }
 ```
@@ -602,6 +690,20 @@ Response headers:
     "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
     "schema": {
       "type": "string"
+    }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
     }
   }
 }
@@ -622,6 +724,20 @@ Response headers:
         "unsupported_token_pricing"
       ]
     }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
   }
 }
 ```
@@ -638,6 +754,20 @@ Response headers:
     "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
     "schema": {
       "type": "string"
+    }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
     }
   }
 }
@@ -656,6 +786,20 @@ Response headers:
     "schema": {
       "type": "string"
     }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
   }
 }
 ```
@@ -673,6 +817,20 @@ Response headers:
     "schema": {
       "type": "string"
     }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
   }
 }
 ```
@@ -689,6 +847,20 @@ Response headers:
     "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
     "schema": {
       "type": "string"
+    }
+  },
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
     }
   }
 }

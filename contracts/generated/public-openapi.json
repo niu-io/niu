@@ -28152,40 +28152,232 @@
                   "description": "Chat completion SSE chunks. HTTP 200 starts the stream; preserve terminal evidence and optional usage rather than treating a disconnected stream as complete."
                 }
               }
+            },
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
             }
           },
           "400": {
-            "description": "Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Provider dispatch."
+            "description": "Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Provider dispatch.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid gateway credentials."
+            "description": "Missing or invalid gateway credentials.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "402": {
-            "description": "Insufficient balance or spending limit exceeded."
+            "description": "Insufficient balance or spending limit exceeded.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal."
+            "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type."
+            "description": "Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "413": {
-            "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
+            "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Configured pricing requires an unavailable token category (unsupported_token_pricing), or a token admission bound is unavailable. Chat reads explicit prompt_tokens_details.cache_write_tokens as a subset of total input, alongside cache reads and reasoning output; missing categories remain unknown. Priced text content blocks accept bounded ephemeral cache_control metadata."
+            "description": "Configured pricing requires an unavailable token category (unsupported_token_pricing), or a token admission bound is unavailable. Chat reads explicit prompt_tokens_details.cache_write_tokens as a subset of total input, alongside cache reads and reasoning output; missing categories remain unknown. Priced text content blocks accept bounded ephemeral cache_control metadata.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "429": {
-            "description": "API key request, concurrency or token rate limit exceeded."
+            "description": "API key request, concurrency or token rate limit exceeded.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "501": {
-            "description": "Tool or structured-output capability is disabled, or the requested combination is unsupported. The unsupported_operation_error message identifies the feature and a supported request alternative; rejection occurs before admission or upstream dispatch."
+            "description": "Tool or structured-output capability is disabled, or the requested combination is unsupported. The unsupported_operation_error message identifies the feature and a supported request alternative; rejection occurs before admission or upstream dispatch.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "502": {
-            "description": "Provider request failed."
+            "description": "Provider request failed.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "503": {
-            "description": "Durable storage or configured route unavailable. guardrail_output_busy identifies exhausted full-output collection capacity before admission or dispatch."
+            "description": "Durable storage or configured route unavailable. guardrail_output_busy identifies exhausted full-output collection capacity before admission or dispatch.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           }
         },
         "x-niu-status": "Basic chat is implemented for configured native provider routes. Local buffered_full output rules support single-choice plain text streaming: retain the real upstream stream until terminal evidence, inspect the complete bounded output, then emit compatible sanitized chunks. Required output withholding emits a guardrail_output_withheld SSE error without [DONE]; known executed usage remains billable. Text buffering is limited to 1 MiB and total stream bytes to 2 MiB, with four concurrent collectors per process. Output rules with tools or structured format remain unsupported. Observation-only plain-text streams preserve delivery and asynchronously record clear, matched or indeterminate without transforming output. Mandatory and observation rules compose across workspace/key scopes. Optional collection and inspection have separate bounded capacity; observation overload does not deny the request. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
@@ -29555,6 +29747,22 @@
                   "description": "Native message_start, text content block events, cumulative message_delta and message_stop. Sanitized error events terminate failed streams."
                 }
               }
+            },
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
             }
           },
           "400": {
@@ -29564,6 +29772,20 @@
                 "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
                 "schema": {
                   "type": "string"
+                }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               }
             }
@@ -29576,6 +29798,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
               }
             }
           },
@@ -29586,6 +29822,20 @@
                 "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
                 "schema": {
                   "type": "string"
+                }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               }
             }
@@ -29598,6 +29848,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
               }
             }
           },
@@ -29608,6 +29872,20 @@
                 "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
                 "schema": {
                   "type": "string"
+                }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               }
             }
@@ -29622,6 +29900,20 @@
                     "unsupported_token_pricing"
                   ]
                 }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
               }
             }
           },
@@ -29632,6 +29924,20 @@
                 "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
                 "schema": {
                   "type": "string"
+                }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               }
             }
@@ -29644,6 +29950,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
               }
             }
           },
@@ -29655,6 +29975,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
               }
             }
           },
@@ -29665,6 +29999,20 @@
                 "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
                 "schema": {
                   "type": "string"
+                }
+              },
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               }
             }
@@ -29942,43 +30290,251 @@
                   "type": "string"
                 }
               }
+            },
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
             }
           },
           "400": {
-            "description": "Invalid body, unsupported field or invalid request shape."
+            "description": "Invalid body, unsupported field or invalid request shape.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid gateway credentials."
+            "description": "Missing or invalid gateway credentials.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "402": {
-            "description": "Insufficient balance or spending limit exceeded."
+            "description": "Insufficient balance or spending limit exceeded.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal."
+            "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Model alias does not exist or is unavailable to this key."
+            "description": "Model alias does not exist or is unavailable to this key.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type."
+            "description": "Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "413": {
-            "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
+            "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "422": {
-            "description": "Invalid JSON or unsupported token admission/pricing requirements. Responses reads explicit input_tokens_details.cache_write_tokens alongside cache reads and reasoning output; missing categories remain unknown. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits."
+            "description": "Invalid JSON or unsupported token admission/pricing requirements. Responses reads explicit input_tokens_details.cache_write_tokens alongside cache reads and reasoning output; missing categories remain unknown. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "429": {
-            "description": "API key request, concurrency or token rate limit exceeded."
+            "description": "API key request, concurrency or token rate limit exceeded.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "501": {
-            "description": "Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission."
+            "description": "Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "502": {
-            "description": "Provider request failed or returned an invalid text response. Valid terminal usage is retained for accounting even when output delivery is rejected; an HTTP error alone does not prove nonexecution or authorize a safe retry."
+            "description": "Provider request failed or returned an invalid text response. Valid terminal usage is retained for accounting even when output delivery is rejected; an HTTP error alone does not prove nonexecution or authorize a safe retry.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           },
           "503": {
-            "description": "Durable storage or configured route unavailable."
+            "description": "Durable storage or configured route unavailable.",
+            "headers": {
+              "x-niu-attempt-id": {
+                "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "x-niu-operation-id": {
+                "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           }
         },
         "x-niu-status": "Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.",
@@ -40093,7 +40649,7 @@
       "get": {
         "operationId": "listWorkspaceKeys",
         "summary": "List workspace API keys with aggregated limits and policies",
-        "description": "Returns workspace API keys along with their current spending limits, request/token rate limits, concurrency limits, IP allowlist policy, and 60-second usage window in a single response.",
+        "description": "Returns workspace API keys along with their current spending limits, request/token rate limits, concurrency limits, IP allowlist policy, and 60-second usage window in a single response. Requires an installation credential or member session with workspace read access. Workspace inference API keys do not authorize key management. Without limit or after, returns the complete compatibility directory without next_cursor. Supplying either selects a bounded page (default 50, maximum 100). Follow next_cursor until null.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -40134,25 +40690,62 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    },
-                    "next_cursor": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "format": "uuid"
-                    }
-                  }
+                  "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyDetailPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked management credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient management permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace or key not found in the authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage or required configuration is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
                 }
               }
             }
@@ -40165,7 +40758,7 @@
       "post": {
         "operationId": "createWorkspaceKey",
         "summary": "Create a workspace API key with optional initial limits and policies",
-        "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint.",
+        "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -40269,24 +40862,102 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "token",
-                    "key"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "token": {
-                      "type": "string"
-                    },
-                    "key": {
-                      "type": "object"
-                    }
-                  }
+                  "$ref": "#/components/schemas/handler_operations_json_IssuedWorkspaceKeyDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked management credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient management permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace or key not found in the authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or write conflict; reload current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the route limit.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported request Content-Type.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "JSON body does not match the input type.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage or required configuration is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
                 }
               }
             }
@@ -40301,7 +40972,7 @@
       "get": {
         "operationId": "getWorkspaceKey",
         "summary": "Retrieve a workspace API key with its policies and usage window",
-        "description": "Returns metadata, spending limits, RPM/TPM/concurrency limits, IP allowlist policy, and 60-second usage window for a single workspace API key.",
+        "description": "Returns metadata, spending limits, RPM/TPM/concurrency limits, IP allowlist policy, and 60-second usage window for a single workspace API key. Requires an installation credential or member session with workspace read access. Workspace inference API keys do not authorize key management.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -40334,7 +41005,62 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked management credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient management permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace or key not found in the authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage or required configuration is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
                 }
               }
             }
@@ -40347,7 +41073,7 @@
       "patch": {
         "operationId": "updateWorkspaceKey",
         "summary": "Update workspace API key metadata and policies",
-        "description": "Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted.",
+        "description": "Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -40390,7 +41116,102 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked management credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient management permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace or key not found in the authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or write conflict; reload current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the route limit.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported request Content-Type.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "JSON body does not match the input type.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage or required configuration is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
                 }
               }
             }
@@ -40403,7 +41224,7 @@
       "delete": {
         "operationId": "revokeWorkspaceKey",
         "summary": "Revoke a workspace API key",
-        "description": "Idempotently revokes a workspace API key within the authorized workspace scope.",
+        "description": "Idempotently revokes a workspace API key within the authorized workspace scope. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -40433,6 +41254,61 @@
         "responses": {
           "204": {
             "description": "Key revoked"
+          },
+          "400": {
+            "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked management credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient management permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace or key not found in the authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage or required configuration is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -40444,7 +41320,7 @@
       "post": {
         "operationId": "rotateWorkspaceKey",
         "summary": "Rotate a workspace API key while preserving its policies and expiry",
-        "description": "Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage.",
+        "description": "Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -40477,24 +41353,72 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "token",
-                    "key"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "token": {
-                      "type": "string"
-                    },
-                    "key": {
-                      "type": "object"
-                    }
-                  }
+                  "$ref": "#/components/schemas/handler_operations_json_IssuedWorkspaceKeyDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked management credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient management permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace or key not found in the authorized scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or write conflict; reload current state before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage or required configuration is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/handler_operations_json_ApiErrorResponse"
                 }
               }
             }
@@ -50786,6 +51710,26 @@
             "format": "uuid",
             "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
           },
+          "spending_limit": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "currency",
+              "limit_nanos"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "limit_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Nonnegative nanounits, at most 9223372036854775807."
+              }
+            },
+            "description": "Optional lifetime retail cap in an existing company account currency. Requires an owner or installation administrator. Saved atomically with the workspace; omitted means no limit."
+          },
           "slug": {
             "type": "string",
             "minLength": 1,
@@ -52443,30 +53387,349 @@
             "maximum": 32
           }
         }
+      },
+      "handler_operations_json_WorkspaceKeyDetailPage": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyDetail"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Present when limit or after selects paging. Null ends the directory."
+          }
+        }
+      },
+      "handler_operations_json_WorkspaceKeyDetail": {
+        "description": "Workspace management key metadata and customer policies. Never contains the API secret or Provider procurement information.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/handler_operations_json_WorkspaceKey"
+          },
+          {
+            "type": "object",
+            "required": [
+              "spending_limits",
+              "request_rate_limit",
+              "token_rate_limit",
+              "concurrency_limit",
+              "token_usage_window",
+              "ip_policy"
+            ],
+            "properties": {
+              "spending_limits": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeySpendingAccount"
+                }
+              },
+              "request_rate_limit": {
+                "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyRequestRate"
+              },
+              "token_rate_limit": {
+                "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyTokenRate"
+              },
+              "concurrency_limit": {
+                "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyConcurrency"
+              },
+              "token_usage_window": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyUsageWindow"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Null when no snapshot is available; never infer zero usage."
+              },
+              "ip_policy": {
+                "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyIpPolicy"
+              }
+            }
+          }
+        ]
+      },
+      "handler_operations_json_WorkspaceKeySpendingAccount": {
+        "type": "object",
+        "required": [
+          "currency",
+          "limit_nanos",
+          "committed_nanos",
+          "remaining_nanos",
+          "revision"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "limit_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Customer allowance in currency nanounits; null means unlimited."
+          },
+          "committed_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Customer committed amount in currency nanounits."
+          },
+          "remaining_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Remaining customer allowance in currency nanounits; null when unlimited."
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Decimal policy revision; null means no saved policy."
+          }
+        }
+      },
+      "handler_operations_json_WorkspaceKeyRequestRate": {
+        "type": "object",
+        "required": [
+          "requests_per_minute",
+          "revision"
+        ],
+        "properties": {
+          "requests_per_minute": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Decimal policy revision; null means no saved policy."
+          }
+        }
+      },
+      "handler_operations_json_WorkspaceKeyTokenRate": {
+        "type": "object",
+        "required": [
+          "tokens_per_minute",
+          "revision"
+        ],
+        "properties": {
+          "tokens_per_minute": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Decimal policy revision; null means no saved policy."
+          },
+          "snapshot_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "known_tokens": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "reserved_tokens": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "unbounded_requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "committed_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "handler_operations_json_WorkspaceKeyConcurrency": {
+        "type": "object",
+        "required": [
+          "max_concurrent_requests",
+          "active_requests",
+          "revision"
+        ],
+        "properties": {
+          "max_concurrent_requests": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "active_requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Decimal policy revision; null means no saved policy."
+          }
+        }
+      },
+      "handler_operations_json_WorkspaceKeyUsageWindow": {
+        "type": "object",
+        "required": [
+          "window_seconds",
+          "window_end",
+          "requests",
+          "known_usage_requests",
+          "unknown_usage_requests",
+          "known_prompt_tokens",
+          "known_completion_tokens"
+        ],
+        "properties": {
+          "window_seconds": {
+            "type": "integer",
+            "const": 60
+          },
+          "window_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "known_usage_requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unknown_usage_requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "known_prompt_tokens": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "known_completion_tokens": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "handler_operations_json_WorkspaceKeyIpPolicy": {
+        "type": "object",
+        "required": [
+          "allowed_cidrs",
+          "revision"
+        ],
+        "properties": {
+          "allowed_cidrs": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Null permits any source; an empty array denies every source."
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Decimal policy revision; null means no saved policy."
+          }
+        }
+      },
+      "handler_operations_json_IssuedWorkspaceKeyDetail": {
+        "type": "object",
+        "required": [
+          "id",
+          "token",
+          "key"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "token": {
+            "type": "string",
+            "description": "One-time secret returned only on creation or rotation. Store securely; never included in key directories or detail reads."
+          },
+          "key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/handler_operations_json_WorkspaceKeyDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Post-write detail snapshot; can be null if the key is removed before this read. The issued secret is still returned only once."
+          }
+        }
       }
     },
     "securitySchemes": {
       "memberCookie": {
+        "description": "Browser member session cookie. Same-origin and CSRF checks still apply to browser writes.",
         "type": "apiKey",
         "in": "cookie",
         "name": "__Host-niu_member_session"
       },
       "bearerAuth": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "description": "Bearer credential accepted by this operation. Inference uses a workspace API key; management requires an authorized member session or installation credential. See the operation description for required authority and scope."
       },
       "niuApiKeyAuth": {
         "type": "apiKey",
         "in": "header",
-        "name": "X-Niu-API-Key"
+        "name": "X-Niu-API-Key",
+        "description": "Workspace inference API key sent in X-Niu-API-Key. Does not grant member or platform management authority."
       },
       "adminBearerAuth": {
+        "description": "Management bearer credential. The operation determines whether installation authority or a scoped member role is required; ordinary inference keys are insufficient.",
         "type": "http",
         "scheme": "bearer"
       },
       "operatorBearer": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "description": "Member session bearer credential. Provider membership and role are checked per operation; company ownership alone does not grant Provider authority."
       }
     },
     "parameters": {

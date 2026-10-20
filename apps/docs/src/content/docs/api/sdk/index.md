@@ -15,6 +15,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [NiuAPIError](/docs/api/sdk/niuapierror/)
 - [NiuAuthClient](/docs/api/sdk/niuauthclient/)
 - [NiuClient](/docs/api/sdk/niuclient/)
+- [NiuStreamError](/docs/api/sdk/niustreamerror/)
 
 ## Request, response, and configuration types
 
@@ -272,6 +273,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [RequestPayload](/docs/api/sdk/requestpayload/)
 - [RequestTiming](/docs/api/sdk/requesttiming/)
 - [RequestUsageReconciliation](/docs/api/sdk/requestusagereconciliation/)
+- [ResponseMetadata](/docs/api/sdk/responsemetadata/)
 - [ResponsesMessage](/docs/api/sdk/responsesmessage/)
 - [ResponsesOutputText](/docs/api/sdk/responsesoutputtext/)
 - [ResponsesReasoning](/docs/api/sdk/responsesreasoning/)

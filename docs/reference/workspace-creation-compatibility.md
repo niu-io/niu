@@ -1,6 +1,8 @@
 # Workspace creation compatibility
 
-New clients should use `POST /admin/v1/workspaces`. The legacy
+New clients should use `POST /api/v1/workspaces`, the public contract and SDK
+entry point. `POST /admin/v1/workspaces` remains a supported alias registered
+to the same handler. The legacy
 `POST /admin/v1/organizations/{organization}/projects` endpoint delegates to the
 same creation handler while retaining its `{id, organization_id, name}` response.
 It does not maintain a separate authorization or persistence implementation.
@@ -11,6 +13,13 @@ company and name remain identical and the canonical request omitted `slug`. An e
 key after an uncertain response; without a key, successful calls create distinct
 workspaces. The canonical handler rechecks current member/session authorization
 inside the creation transaction, including after idempotency lock waits.
+
+The canonical `/api/v1/workspaces` route and its `/admin/v1/workspaces` alias
+use the same method, request, response, authorization and receipt namespace.
+The older organization/workspace creation route keeps its legacy response shape
+and the replay restrictions above. No alias is removed by this documentation
+update. The verification below predates the canonical-prefix guidance; it
+does not represent a new execution against `/api/v1`.
 
 ## Current-input verification — 2026-10-11
 

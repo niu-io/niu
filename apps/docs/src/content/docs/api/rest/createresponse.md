@@ -29,11 +29,22 @@ Use the credential and permission scope described above. Each object below is an
 
 ## HTTP request
 
-Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
+
+Authentication alternative: `bearerAuth`.
 
 ```sh
 curl --fail-with-body -X POST "$NIU_ORIGIN/v1/responses" \
-  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data @request.json
+```
+
+Authentication alternative: `niuApiKeyAuth`.
+
+```sh
+curl --fail-with-body -X POST "$NIU_ORIGIN/v1/responses" \
+  -H "X-Niu-API-Key: $NIU_API_KEY" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```
@@ -136,6 +147,27 @@ Location: **header**. Optional. Optional opaque task correlation key. Requests w
 ### HTTP 200
 
 A validated Responses API text response with the public model alias.
+
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
 
 Content type: `application/json`.
 
@@ -310,49 +342,301 @@ Content type: `text/event-stream`.
 
 Invalid body, unsupported field or invalid request shape.
 
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 ### HTTP 401
 
 Missing or invalid gateway credentials.
+
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
 
 ### HTTP 402
 
 Insufficient balance or spending limit exceeded.
 
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 ### HTTP 403
 
 Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.
+
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
 
 ### HTTP 404
 
 Model alias does not exist or is unavailable to this key.
 
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 ### HTTP 409
 
 Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
+
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
 
 ### HTTP 413
 
 Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 ### HTTP 422
 
 Invalid JSON or unsupported token admission/pricing requirements. Responses reads explicit input_tokens_details.cache_write_tokens alongside cache reads and reasoning output; missing categories remain unknown. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits.
+
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
 
 ### HTTP 429
 
 API key request, concurrency or token rate limit exceeded.
 
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 ### HTTP 501
 
 Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
+
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
 
 ### HTTP 502
 
 Provider request failed or returned an invalid text response. Valid terminal usage is retained for accounting even when output delivery is rejected; an HTTP error alone does not prove nonexecution or authorize a safe retry.
 
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
 ### HTTP 503
 
 Durable storage or configured route unavailable.
+
+Response headers:
+
+```json
+{
+  "x-niu-attempt-id": {
+    "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "x-niu-operation-id": {
+    "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+    "schema": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
 
 ## Behavior and supported scope
 

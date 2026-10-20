@@ -22,10 +22,18 @@ No OpenAPI security scheme is required. Other request validation still applies.
 
 ## HTTP request
 
-Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/payments/epay/notify"
+curl --fail-with-body -X GET "$NIU_ORIGIN/payments/epay/notify" \
+  --url-query 'pid=<PID>' \
+  --url-query 'out_trade_no=<OUT_TRADE_NO>' \
+  --url-query 'trade_no=<TRADE_NO>' \
+  --url-query 'type=<TYPE>' \
+  --url-query 'money=<MONEY>' \
+  --url-query 'trade_status=<TRADE_STATUS>' \
+  --url-query 'sign=<SIGN>' \
+  --url-query 'sign_type=<SIGN_TYPE>'
 ```
 
 ## Parameters

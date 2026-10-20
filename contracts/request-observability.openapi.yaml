@@ -45,7 +45,7 @@ paths:
         '404': { description: Workspace is outside the authenticated scope. }
 components:
   securitySchemes:
-    adminBearerAuth: { type: http, scheme: bearer }
+    adminBearerAuth: { type: http, scheme: bearer , description: "Management bearer credential. The operation determines whether installation authority or a scoped member role is required; ordinary inference keys are insufficient." }
   parameters:
     LogPayloads:
       name: x-niu-log-payloads

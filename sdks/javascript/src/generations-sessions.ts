@@ -1,4 +1,6 @@
 /** Actor-private timelines. These methods never submit or refresh inference. */
+import type { RequestOptions } from './index.js';
+import { iterateCursorItems } from './pagination.js';
 export type GenerationsInstruction = { kind: 'video'; prompt: string };
 export type GenerationsTaskReference = { id: string; kind: 'video'; model: string; artifacts: Array<{task_id:string;kind:'video'|'last_frame';availability:'available'|'expired'|'deleted'|'unavailable'}>; status: 'submission_unknown' | 'queued' | 'running' | 'succeeded' | 'failed' | 'unknown' | 'reconciliation_required' };
 /** Canonical Video draft identity (restore with getVideoIntent); the separate turn instruction may be a review note. Reading or binding never submits generation. */
@@ -36,7 +38,7 @@ export type GenerationsSessionSummary = VideoGenerationsSessionSummary | ChatGen
 export type GenerationsSession = VideoGenerationsSession | ChatGenerationsSession;
 export type GenerationsSessionPage = {data:GenerationsSessionSummary[];has_more:boolean;next_before:string|null};
 export type GenerationsSessionPageOptions = { before?: string; limit?: number; archived?: boolean };
-type Options = { signal?: AbortSignal };
+type Options = RequestOptions;
 type Request = <T>(path: string, body?: unknown, options?: Options, method?: string) => Promise<T>;
 function id(value: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)) throw new TypeError('A canonical UUID is required');
@@ -50,7 +52,7 @@ function revision(value: string): string {
 export function createGenerationsSessionsClient(request: Request, organization: string, workspace: string) {
   const root=`/organizations/${id(organization)}/projects/${id(workspace)}/generations`;
   const path=(session: string)=>`${root}/${id(session)}`;
-  return {
+  const client = {
     list(query: GenerationsSessionPageOptions = {}, options?: Options): Promise<VideoGenerationsSessionPage> {
       const qs=new URLSearchParams();
       if (query.before!==undefined) qs.set('before',id(query.before));
@@ -65,6 +67,20 @@ export function createGenerationsSessionsClient(request: Request, organization: 
       if (query.archived!==undefined) qs.set('archived',String(query.archived));
       return request(`${root}?${qs}`,undefined,options,'GET');
     },
+    /** Iterate saved Video timelines; never submits or refreshes a task. */
+    iterate(query: GenerationsSessionPageOptions = {}, options: Options = {}): AsyncGenerator<VideoGenerationsSessionSummary> {
+      return iterateCursorItems(async before => {
+        const page = await client.list({ ...query, before }, options);
+        return { data: page.data, nextCursor: page.next_before, hasMore: page.has_more };
+      }, query.before, options.signal);
+    },
+    /** Iterate the read-only Chat inventory, preserving category and archive selection. */
+    iterateChat(query: GenerationsSessionPageOptions = {}, options: Options = {}): AsyncGenerator<ChatGenerationsSessionSummary> {
+      return iterateCursorItems(async before => {
+        const page = await client.listChat({ ...query, before }, options);
+        return { data: page.data, nextCursor: page.next_before, hasMore: page.has_more };
+      }, query.before, options.signal);
+    },
     retrieveChat(session: string, options?: Options): Promise<{data:ChatGenerationsSession}> {return request(`${path(session)}?category=chat`,undefined,options,'GET');},
     retrieve(session: string, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(path(session),undefined,options,'GET');},
     create(session: string, input: {title: string}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(path(session),{expected_revision:'0',title:input.title},options,'PUT');},
@@ -78,4 +94,5 @@ export function createGenerationsSessionsClient(request: Request, organization: 
     },
     deleteInstruction(session: string, turn: string, expectedRevision: string, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}/turns/${id(turn)}`,{expected_revision:revision(expectedRevision)},options,'DELETE');},
   };
+  return client;
 }

@@ -564,7 +564,7 @@ paths:
 
 components:
   securitySchemes:
-    adminBearerAuth: { type: http, scheme: bearer }
+    adminBearerAuth: { type: http, scheme: bearer , description: "Management bearer credential. The operation determines whether installation authority or a scoped member role is required; ordinary inference keys are insufficient." }
   schemas:
     DetectorProcessingDescription:
       type: object

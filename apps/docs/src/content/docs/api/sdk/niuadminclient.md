@@ -227,6 +227,16 @@ listWorkspaces(options?: RequestOptions): Promise<{
 }>;
 ```
 
+### iterateWorkspaces
+
+```typescript
+/** Iterate the live directory. Errors propagate; stale cursors are never silently restarted. */
+iterateWorkspaces(query?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): AsyncGenerator<Workspace>;
+```
+
 ### listCompaniesPage
 
 ```typescript
@@ -363,65 +373,47 @@ listPlatformAuditEvents(query?: PlatformAuditQuery, options?: RequestOptions): P
 /** Actor-private saved timelines; explicit task actions query existing work only. */
 generations(scope: TenantScope): {
     sessions: {
-        list(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: {
-            signal?: AbortSignal;
-        }): Promise<import("./generations-sessions.js").VideoGenerationsSessionPage>;
-        listChat(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: {
-            signal?: AbortSignal;
-        }): Promise<import("./generations-sessions.js").ChatGenerationsSessionPage>;
-        retrieveChat(session: string, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        list(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): Promise<import("./generations-sessions.js").VideoGenerationsSessionPage>;
+        listChat(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): Promise<import("./generations-sessions.js").ChatGenerationsSessionPage>;
+        iterate(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): AsyncGenerator<import("./generations-sessions.js").VideoGenerationsSessionSummary>;
+        iterateChat(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): AsyncGenerator<import("./generations-sessions.js").ChatGenerationsSessionSummary>;
+        retrieveChat(session: string, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").ChatGenerationsSession;
         }>;
-        retrieve(session: string, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        retrieve(session: string, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").VideoGenerationsSession;
         }>;
         create(session: string, input: {
             title: string;
-        }, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        }, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").VideoGenerationsSession;
         }>;
         update(session: string, input: {
             expected_revision: string;
             title: string;
             archived: boolean;
-        }, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        }, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").VideoGenerationsSession;
         }>;
         appendTurn(session: string, turn: string, input: {
             expected_revision: string;
             instruction: import("./generations-sessions.js").GenerationsInstruction;
-        }, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        }, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").VideoGenerationsSession;
         }>;
         attachTask(session: string, turn: string, input: {
             expected_revision: string;
             task_id: string;
-        }, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        }, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").VideoGenerationsSession;
         }>;
         bindIntent(session: string, turn: string, input: {
             expected_revision: string;
             intent_id: string;
-        }, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        }, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").VideoGenerationsSession;
         }>;
-        deleteInstruction(session: string, turn: string, expectedRevision: string, options?: {
-            signal?: AbortSignal;
-        }): Promise<{
+        deleteInstruction(session: string, turn: string, expectedRevision: string, options?: RequestOptions): Promise<{
             data: import("./generations-sessions.js").VideoGenerationsSession;
         }>;
     };
@@ -1015,7 +1007,7 @@ getWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOpt
 ```typescript
 /** Workspace owner/admin write access. Requires an explicit finite or null lifetime. */
 createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey & {
-    key: WorkspaceKeyDetail;
+    key: WorkspaceKeyDetail | null;
 }>;
 ```
 
@@ -1030,7 +1022,9 @@ updateWorkspaceKey(scope: TenantScope | string, keyId: string, input: WorkspaceK
 
 ```typescript
 /** Returns the replacement secret once; preserves expiry and shared lineage limits. */
-rotateWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey>;
+rotateWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey & {
+    key: WorkspaceKeyDetail | null;
+}>;
 ```
 
 ### revokeWorkspaceKey
@@ -1047,6 +1041,16 @@ revokeWorkspaceKey(scope: TenantScope | string, keyId: string, options?: Request
 listWorkspaceKeys(scope: TenantScope | string, options?: RequestOptions): Promise<{
     data: WorkspaceKeyDetail[];
 }>;
+```
+
+### iterateWorkspaceKeys
+
+```typescript
+/** Iterate authorized key details without materializing the complete directory. */
+iterateWorkspaceKeys(scope: TenantScope | string, query?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): AsyncGenerator<WorkspaceKeyDetail>;
 ```
 
 ### listWorkspaceKeyPage
@@ -2249,6 +2253,16 @@ listModelRoutePools(query?: {
 }>;
 ```
 
+### iterateModelRoutePools
+
+```typescript
+/** Iterate the live pool directory, preserving alias cursors and platform authority. */
+iterateModelRoutePools(query?: {
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): AsyncGenerator<ModelRoutePool>;
+```
+
 ### setModelRoutePool
 
 ```typescript
@@ -2484,6 +2498,7 @@ saveChatDraft(scope: TenantScope, payload: ChatDraftPayload | null, expectedRevi
 ### listChatSessions
 
 ```typescript
+/** Compatibility view of the latest 100 sessions. Use iterateChatSessions for full history. */
 listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{
     data: ChatSession[];
 }>;
@@ -2496,9 +2511,17 @@ listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{
 listChatSessionPage(scope: TenantScope, query?: ChatSessionPageQuery, options?: RequestOptions): Promise<ChatSessionPage>;
 ```
 
+### iterateChatSessions
+
+```typescript
+/** Live owner-scoped history. Short pages may continue; a stale cursor surfaces its 409. */
+iterateChatSessions(scope: TenantScope, query?: ChatSessionPageQuery, options?: RequestOptions): AsyncGenerator<ChatSession>;
+```
+
 ### listArchivedChatSessions
 
 ```typescript
+/** Compatibility view of the latest 100 archived sessions. */
 listArchivedChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{
     data: ChatSession[];
 }>;

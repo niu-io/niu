@@ -353,7 +353,7 @@ fn require_owner_for_policy(auth: AdminAuthorization) -> Result<(), ApiError> {
 ///   "operation": {
 ///     "operationId": "listWorkspaceKeys",
 ///     "summary": "List workspace API keys with aggregated limits and policies",
-///     "description": "Returns workspace API keys along with their current spending limits, request/token rate limits, concurrency limits, IP allowlist policy, and 60-second usage window in a single response.",
+///     "description": "Returns workspace API keys along with their current spending limits, request/token rate limits, concurrency limits, IP allowlist policy, and 60-second usage window in a single response. Requires an installation credential or member session with workspace read access. Workspace inference API keys do not authorize key management. Without limit or after, returns the complete compatibility directory without next_cursor. Supplying either selects a bounded page (default 50, maximum 100). Follow next_cursor until null.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -394,22 +394,380 @@ fn require_owner_for_policy(auth: AdminAuthorization) -> Result<(), ApiError> {
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
-///               "type": "object",
-///               "required": ["data"],
-///               "properties": {
-///                 "data": {
-///                   "type": "array",
-///                   "items": {
-///                     "type": "object"
-///                   }
-///                 },
-///                 "next_cursor": {
-///                   "type": ["string", "null"],
-///                   "format": "uuid"
-///                 }
-///               }
+///               "$ref": "#/components/schemas/WorkspaceKeyDetailPage"
 ///             }
 ///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked management credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Insufficient management permission.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "404": {
+///         "description": "Workspace or key not found in the authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage or required configuration is unavailable.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       }
+///     }
+///   },
+///   "schemas": {
+///     "WorkspaceKeySpendingAccount": {
+///       "type": "object",
+///       "required": [
+///         "currency",
+///         "limit_nanos",
+///         "committed_nanos",
+///         "remaining_nanos",
+///         "revision"
+///       ],
+///       "properties": {
+///         "currency": {
+///           "type": "string"
+///         },
+///         "limit_nanos": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Customer allowance in currency nanounits; null means unlimited."
+///         },
+///         "committed_nanos": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$",
+///           "description": "Customer committed amount in currency nanounits."
+///         },
+///         "remaining_nanos": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Remaining customer allowance in currency nanounits; null when unlimited."
+///         },
+///         "revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Decimal policy revision; null means no saved policy."
+///         }
+///       }
+///     },
+///     "WorkspaceKeyRequestRate": {
+///       "type": "object",
+///       "required": [
+///         "requests_per_minute",
+///         "revision"
+///       ],
+///       "properties": {
+///         "requests_per_minute": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "minimum": 0
+///         },
+///         "revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Decimal policy revision; null means no saved policy."
+///         }
+///       }
+///     },
+///     "WorkspaceKeyConcurrency": {
+///       "type": "object",
+///       "required": [
+///         "max_concurrent_requests",
+///         "active_requests",
+///         "revision"
+///       ],
+///       "properties": {
+///         "max_concurrent_requests": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "minimum": 0
+///         },
+///         "active_requests": {
+///           "type": "integer",
+///           "minimum": 0
+///         },
+///         "revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Decimal policy revision; null means no saved policy."
+///         }
+///       }
+///     },
+///     "WorkspaceKeyTokenRate": {
+///       "type": "object",
+///       "required": [
+///         "tokens_per_minute",
+///         "revision"
+///       ],
+///       "properties": {
+///         "tokens_per_minute": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "minimum": 0
+///         },
+///         "revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Decimal policy revision; null means no saved policy."
+///         },
+///         "snapshot_at": {
+///           "type": "string",
+///           "format": "date-time"
+///         },
+///         "known_tokens": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "reserved_tokens": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "unbounded_requests": {
+///           "type": "integer",
+///           "minimum": 0
+///         },
+///         "committed_tokens": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$"
+///         }
+///       }
+///     },
+///     "WorkspaceKeyUsageWindow": {
+///       "type": "object",
+///       "required": [
+///         "window_seconds",
+///         "window_end",
+///         "requests",
+///         "known_usage_requests",
+///         "unknown_usage_requests",
+///         "known_prompt_tokens",
+///         "known_completion_tokens"
+///       ],
+///       "properties": {
+///         "window_seconds": {
+///           "type": "integer",
+///           "const": 60
+///         },
+///         "window_end": {
+///           "type": "string",
+///           "format": "date-time"
+///         },
+///         "requests": {
+///           "type": "integer",
+///           "minimum": 0
+///         },
+///         "known_usage_requests": {
+///           "type": "integer",
+///           "minimum": 0
+///         },
+///         "unknown_usage_requests": {
+///           "type": "integer",
+///           "minimum": 0
+///         },
+///         "known_prompt_tokens": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "known_completion_tokens": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         }
+///       }
+///     },
+///     "WorkspaceKeyIpPolicy": {
+///       "type": "object",
+///       "required": [
+///         "allowed_cidrs",
+///         "revision"
+///       ],
+///       "properties": {
+///         "allowed_cidrs": {
+///           "type": [
+///             "array",
+///             "null"
+///           ],
+///           "items": {
+///             "type": "string"
+///           },
+///           "description": "Null permits any source; an empty array denies every source."
+///         },
+///         "revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Decimal policy revision; null means no saved policy."
+///         }
+///       }
+///     },
+///     "WorkspaceKeyDetail": {
+///       "description": "Workspace management key metadata and customer policies. Never contains the API secret or Provider procurement information.",
+///       "allOf": [
+///         {
+///           "$ref": "#/components/schemas/WorkspaceKey"
+///         },
+///         {
+///           "type": "object",
+///           "required": [
+///             "spending_limits",
+///             "request_rate_limit",
+///             "token_rate_limit",
+///             "concurrency_limit",
+///             "token_usage_window",
+///             "ip_policy"
+///           ],
+///           "properties": {
+///             "spending_limits": {
+///               "type": "array",
+///               "items": {
+///                 "$ref": "#/components/schemas/WorkspaceKeySpendingAccount"
+///               }
+///             },
+///             "request_rate_limit": {
+///               "$ref": "#/components/schemas/WorkspaceKeyRequestRate"
+///             },
+///             "token_rate_limit": {
+///               "$ref": "#/components/schemas/WorkspaceKeyTokenRate"
+///             },
+///             "concurrency_limit": {
+///               "$ref": "#/components/schemas/WorkspaceKeyConcurrency"
+///             },
+///             "token_usage_window": {
+///               "anyOf": [
+///                 {
+///                   "$ref": "#/components/schemas/WorkspaceKeyUsageWindow"
+///                 },
+///                 {
+///                   "type": "null"
+///                 }
+///               ],
+///               "description": "Null when no snapshot is available; never infer zero usage."
+///             },
+///             "ip_policy": {
+///               "$ref": "#/components/schemas/WorkspaceKeyIpPolicy"
+///             }
+///           }
+///         }
+///       ]
+///     },
+///     "IssuedWorkspaceKeyDetail": {
+///       "type": "object",
+///       "required": [
+///         "id",
+///         "token",
+///         "key"
+///       ],
+///       "properties": {
+///         "id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "token": {
+///           "type": "string",
+///           "description": "One-time secret returned only on creation or rotation. Store securely; never included in key directories or detail reads."
+///         },
+///         "key": {
+///           "anyOf": [
+///             {
+///               "$ref": "#/components/schemas/WorkspaceKeyDetail"
+///             },
+///             {
+///               "type": "null"
+///             }
+///           ],
+///           "description": "Post-write detail snapshot; can be null if the key is removed before this read. The issued secret is still returned only once."
+///         }
+///       }
+///     },
+///     "WorkspaceKeyDetailPage": {
+///       "type": "object",
+///       "required": [
+///         "data"
+///       ],
+///       "properties": {
+///         "data": {
+///           "type": "array",
+///           "items": {
+///             "$ref": "#/components/schemas/WorkspaceKeyDetail"
+///           }
+///         },
+///         "next_cursor": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "format": "uuid",
+///           "description": "Present when limit or after selects paging. Null ends the directory."
 ///         }
 ///       }
 ///     }
@@ -455,7 +813,7 @@ pub async fn list_keys(
 ///   "operation": {
 ///     "operationId": "createWorkspaceKey",
 ///     "summary": "Create a workspace API key with optional initial limits and policies",
-///     "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint.",
+///     "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -479,29 +837,74 @@ pub async fn list_keys(
 ///         "application/json": {
 ///           "schema": {
 ///             "type": "object",
-///             "required": ["name", "ttl_seconds"],
+///             "required": [
+///               "name",
+///               "ttl_seconds"
+///             ],
 ///             "properties": {
-///               "name": { "type": "string" },
+///               "name": {
+///                 "type": "string"
+///               },
 ///               "allowed_models": {
 ///                 "type": "array",
-///                 "items": { "type": "string" }
-///               },
-///               "ttl_seconds": { "type": ["integer", "null"] },
-///               "spending_limit": {
-///                 "type": ["object", "null"],
-///                 "required": ["currency", "limit_nanos"],
-///                 "properties": {
-///                   "currency": { "type": "string" },
-///                   "limit_nanos": { "type": ["string", "null"] }
+///                 "items": {
+///                   "type": "string"
 ///                 }
 ///               },
-///               "requests_per_minute": { "type": ["integer", "null"] },
-///               "tokens_per_minute": { "type": ["integer", "null"] },
-///               "max_concurrent_requests": { "type": ["integer", "null"] },
+///               "ttl_seconds": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ]
+///               },
+///               "spending_limit": {
+///                 "type": [
+///                   "object",
+///                   "null"
+///                 ],
+///                 "required": [
+///                   "currency",
+///                   "limit_nanos"
+///                 ],
+///                 "properties": {
+///                   "currency": {
+///                     "type": "string"
+///                   },
+///                   "limit_nanos": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ]
+///                   }
+///                 }
+///               },
+///               "requests_per_minute": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ]
+///               },
+///               "tokens_per_minute": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ]
+///               },
+///               "max_concurrent_requests": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ]
+///               },
 ///               "allowed_cidrs": {
-///                 "type": ["array", "null"],
+///                 "type": [
+///                   "array",
+///                   "null"
+///                 ],
 ///                 "description": "Empty array denies every source; null or omission leaves sources unrestricted.",
-///                 "items": { "type": "string" }
+///                 "items": {
+///                   "type": "string"
+///                 }
 ///               }
 ///             }
 ///           }
@@ -514,13 +917,102 @@ pub async fn list_keys(
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
-///               "type": "object",
-///               "required": ["id", "token", "key"],
-///               "properties": {
-///                 "id": { "type": "string", "format": "uuid" },
-///                 "token": { "type": "string" },
-///                 "key": { "type": "object" }
-///               }
+///               "$ref": "#/components/schemas/IssuedWorkspaceKeyDetail"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked management credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Insufficient management permission.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "404": {
+///         "description": "Workspace or key not found in the authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage or required configuration is unavailable.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "409": {
+///         "description": "Revision or write conflict; reload current state before retrying.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "413": {
+///         "description": "Request body exceeds the route limit.",
+///         "content": {
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "415": {
+///         "description": "Unsupported request Content-Type.",
+///         "content": {
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "422": {
+///         "description": "JSON body does not match the input type.",
+///         "content": {
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
 ///             }
 ///           }
 ///         }
@@ -614,7 +1106,7 @@ pub async fn create_key(
 ///   "operation": {
 ///     "operationId": "getWorkspaceKey",
 ///     "summary": "Retrieve a workspace API key with its policies and usage window",
-///     "description": "Returns metadata, spending limits, RPM/TPM/concurrency limits, IP allowlist policy, and 60-second usage window for a single workspace API key.",
+///     "description": "Returns metadata, spending limits, RPM/TPM/concurrency limits, IP allowlist policy, and 60-second usage window for a single workspace API key. Requires an installation credential or member session with workspace read access. Workspace inference API keys do not authorize key management.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -626,13 +1118,19 @@ pub async fn create_key(
 ///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       },
 ///       {
 ///         "name": "key",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       }
 ///     ],
 ///     "responses": {
@@ -640,7 +1138,64 @@ pub async fn create_key(
 ///         "description": "Workspace API key detail",
 ///         "content": {
 ///           "application/json": {
-///             "schema": { "type": "object" }
+///             "schema": {
+///               "$ref": "#/components/schemas/WorkspaceKeyDetail"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked management credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Insufficient management permission.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "404": {
+///         "description": "Workspace or key not found in the authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage or required configuration is unavailable.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
 ///           }
 ///         }
 ///       }
@@ -671,7 +1226,7 @@ pub async fn get_key(
 ///   "operation": {
 ///     "operationId": "updateWorkspaceKey",
 ///     "summary": "Update workspace API key metadata and policies",
-///     "description": "Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted.",
+///     "description": "Updates key name, model grants, spending limit, RPM/TPM/concurrency limits, and IP allowlist policy in a single request and returns the updated key detail. Omitting ip_policy leaves it unchanged. Within ip_policy, explicit allowed_cidrs: [] denies every source and null permits any source, matching the independent IP policy endpoint. Existing saved policies are not reinterpreted. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -683,20 +1238,28 @@ pub async fn get_key(
 ///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       },
 ///       {
 ///         "name": "key",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       }
 ///     ],
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
 ///         "application/json": {
-///           "schema": { "type": "object" }
+///           "schema": {
+///             "type": "object"
+///           }
 ///         }
 ///       }
 ///     },
@@ -705,7 +1268,104 @@ pub async fn get_key(
 ///         "description": "Updated workspace API key detail",
 ///         "content": {
 ///           "application/json": {
-///             "schema": { "type": "object" }
+///             "schema": {
+///               "$ref": "#/components/schemas/WorkspaceKeyDetail"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked management credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Insufficient management permission.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "404": {
+///         "description": "Workspace or key not found in the authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage or required configuration is unavailable.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "409": {
+///         "description": "Revision or write conflict; reload current state before retrying.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "413": {
+///         "description": "Request body exceeds the route limit.",
+///         "content": {
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "415": {
+///         "description": "Unsupported request Content-Type.",
+///         "content": {
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "422": {
+///         "description": "JSON body does not match the input type.",
+///         "content": {
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
 ///           }
 ///         }
 ///       }
@@ -901,7 +1561,7 @@ pub async fn update_key(
 ///   "operation": {
 ///     "operationId": "revokeWorkspaceKey",
 ///     "summary": "Revoke a workspace API key",
-///     "description": "Idempotently revokes a workspace API key within the authorized workspace scope.",
+///     "description": "Idempotently revokes a workspace API key within the authorized workspace scope. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -913,18 +1573,79 @@ pub async fn update_key(
 ///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       },
 ///       {
 ///         "name": "key",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       }
 ///     ],
 ///     "responses": {
 ///       "204": {
 ///         "description": "Key revoked"
+///       },
+///       "400": {
+///         "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked management credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Insufficient management permission.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "404": {
+///         "description": "Workspace or key not found in the authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage or required configuration is unavailable.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       }
 ///     }
 ///   }
@@ -952,7 +1673,7 @@ pub async fn revoke_key(
 ///   "operation": {
 ///     "operationId": "rotateWorkspaceKey",
 ///     "summary": "Rotate a workspace API key while preserving its policies and expiry",
-///     "description": "Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage.",
+///     "description": "Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -964,13 +1685,19 @@ pub async fn revoke_key(
 ///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       },
 ///       {
 ///         "name": "key",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       }
 ///     ],
 ///     "responses": {
@@ -979,13 +1706,72 @@ pub async fn revoke_key(
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
-///               "type": "object",
-///               "required": ["id", "token", "key"],
-///               "properties": {
-///                 "id": { "type": "string", "format": "uuid" },
-///                 "token": { "type": "string" },
-///                 "key": { "type": "object" }
-///               }
+///               "$ref": "#/components/schemas/IssuedWorkspaceKeyDetail"
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid path, query or input. Framework parsing failures may be plain text.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked management credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Insufficient management permission.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "404": {
+///         "description": "Workspace or key not found in the authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage or required configuration is unavailable.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
+///       },
+///       "409": {
+///         "description": "Revision or write conflict; reload current state before retrying.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
 ///             }
 ///           }
 ///         }

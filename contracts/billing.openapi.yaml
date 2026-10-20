@@ -175,7 +175,7 @@ components:
                 properties:
                   id: { type: string, format: uuid }
   securitySchemes:
-    adminBearerAuth: { type: http, scheme: bearer }
+    adminBearerAuth: { type: http, scheme: bearer , description: "Management bearer credential. The operation determines whether installation authority or a scoped member role is required; ordinary inference keys are insufficient." }
   parameters:
     TopupOrder: { name: order, in: path, required: true, schema: { type: string, format: uuid } }
     Organization: { name: organization, in: path, required: true, schema: { type: string, format: uuid } }

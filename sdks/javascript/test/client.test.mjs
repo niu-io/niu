@@ -2,6 +2,61 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NiuAPIError, NiuClient } from '../dist/index.js';
 
+test('a completion exposes the attempt reference needed to read its customer charge', async () => {
+  const attemptId = '12345678-1234-1234-1234-123456789abc';
+  const calls = [];
+  const client = new NiuClient({apiKey: 'test', fetch: async (url, init) => {
+    calls.push({url, method: init.method});
+    if (init.method === 'POST') return Response.json({id: 'upstream-completion', choices: []}, {
+      headers: {'x-niu-attempt-id': attemptId, 'x-request-id': 'request-reference'},
+    });
+    return Response.json({data: {
+      id: attemptId, model: 'fast', provider_model: null, request_kind: 'inference',
+      created_at: '2026-10-20T00:00:00Z', dispatched_at: null, completed_at: null,
+      duration_ms: null, execution: 'confirmed_completed', usage_confidence: 'reported',
+      usage: {prompt_tokens: '10', completion_tokens: '20', cached_input_tokens: null, cache_write_input_tokens: null, reasoning_output_tokens: null},
+      customer_charge: {status: 'charged', currency: 'USD', amount_nanos: '1000'},
+      timing: null, finish_reasons: null, failure: null, output_guardrail_outcome: null,
+    }});
+  }});
+  let metadata;
+  const completion = await client.chat.completions({model: 'fast', messages: [{role: 'user', content: 'Hi'}]}, {
+    onResponse: value => {metadata = value;},
+  });
+  assert.equal(completion.id, 'upstream-completion');
+  assert.deepEqual(metadata, {status: 200, attemptId, requestId: 'request-reference', operationId: null});
+  const generation = await client.getGeneration(metadata.attemptId);
+  assert.equal(generation.data.customer_charge.amount_nanos, '1000');
+  assert.deepEqual(calls, [
+    {url: 'http://localhost:2555/v1/chat/completions', method: 'POST'},
+    {url: `http://localhost:2555/v1/generations/${attemptId}`, method: 'GET'},
+  ]);
+});
+
+test('response metadata arrives before streaming content and preserves HTTP errors', async () => {
+  const seen = [];
+  const client = new NiuClient({apiKey: 'test', fetch: async (_url, init) => {
+    if (JSON.parse(init.body).stream) return new Response('data: {"id":"chunk","choices":[]}\n\ndata: [DONE]\n\n', {headers: {'content-type': 'text/event-stream'}});
+    return Response.json({error: {message: 'Denied'}}, {status: 403, headers: {'x-niu-attempt-id': 'attempt-reference'}});
+  }});
+  for await (const _chunk of client.chat.stream({model: 'fast', messages: []}, {onResponse: metadata => seen.push(metadata.status)})) seen.push('chunk');
+  assert.deepEqual(seen, [200, 'chunk']);
+  await assert.rejects(client.chat.completions({model: 'fast', messages: []}, {onResponse: metadata => seen.push(metadata.attemptId)}), error => error instanceof NiuAPIError && error.status === 403);
+  assert.equal(seen.at(-1), 'attempt-reference');
+});
+
+test('a response observer failure cancels the body without retrying the request', async () => {
+  let calls = 0;
+  let cancelled = false;
+  const client = new NiuClient({apiKey: 'test', fetch: async () => {
+    calls++;
+    return new Response(new ReadableStream({cancel() {cancelled = true;}}));
+  }});
+  await assert.rejects(client.models.list({onResponse() {throw new Error('Observer failed');}}), /Observer failed/);
+  assert.equal(calls, 1);
+  assert.equal(cancelled, true);
+});
+
 test('lists models with bearer authorization', async () => {
   let captured;
   const client = new NiuClient({
@@ -428,24 +483,20 @@ test('introspects current API key and generation details via /v1/key and /v1/gen
         data: {
           id: generationId,
           model: 'openai/gpt-5',
-          protocol: 'openai_chat',
-          request_kind: 'chat',
-          status: 'confirmed_completed',
-          http_status: 200,
-          streamed: true,
-          tokens_prompt: 10,
-          tokens_completion: 20,
-          tokens_cached_prompt: null,
-          tokens_cache_write_prompt: null,
-          tokens_reasoning: null,
-          usage: '1000',
-          currency: 'USD',
-          billing_status: 'charged',
-          latency_ms: 420,
-          generation_time_ms: 380,
+          provider_model: null,
+          request_kind: 'inference',
+          execution: 'confirmed_completed',
+          usage_confidence: 'reported',
+          usage: {prompt_tokens: '10', completion_tokens: '20', cached_input_tokens: null, cache_write_input_tokens: null, reasoning_output_tokens: null},
+          customer_charge: {status: 'charged', amount_nanos: '1000', currency: 'USD'},
+          duration_ms: 420,
+          dispatched_at: '2026-10-15T00:00:00Z',
           created_at: '2026-10-15T00:00:00Z',
           completed_at: '2026-10-15T00:00:01Z',
-          finish_reason: null,
+          timing: null,
+          finish_reasons: null,
+          failure: null,
+          output_guardrail_outcome: null,
         },
       });
     },
@@ -457,6 +508,8 @@ test('introspects current API key and generation details via /v1/key and /v1/gen
 
   const gen = await client.getGeneration(generationId);
   assert.equal(gen.data.model, 'openai/gpt-5');
+  assert.equal(gen.data.usage.completion_tokens, '20');
+  assert.equal(gen.data.customer_charge.amount_nanos, '1000');
   assert.equal(calls[1].url, `https://niu.example/v1/generations/${generationId}`);
   assert.throws(() => client.getGeneration('../invalid'), TypeError);
 });

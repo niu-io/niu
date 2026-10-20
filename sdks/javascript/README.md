@@ -57,9 +57,70 @@ for await (const chunk of niu.chat.stream({
 }
 ```
 
-The iterator requests provider usage events. Breaking the loop cancels the response body; `AbortSignal` also cancels the underlying fetch. Cancellation does not prove that the provider stopped execution or incurred no cost. Missing terminal events, invalid JSON and events exceeding the client's 65,536 UTF-16-unit buffer limit throw errors. The SDK does not retry or reconnect a stream automatically.
+The iterator requests provider usage events. Breaking the loop cancels the response body; `AbortSignal` also cancels the underlying fetch. Cancellation does not prove that the provider stopped execution or incurred no cost. The event buffer limit is 65,536 UTF-8 bytes for Chat and Messages, and 16 MiB for Responses. The SDK does not retry or reconnect a stream automatically.
+
+Failures after headers arrive throw `NiuStreamError`, a subclass of `NiuAPIError`.
+Its `kind` distinguishes `api`, `invalid_stream`, `incomplete_stream` and
+`transport`. `responseBody` retains the failing API event, `eventType` retains
+its SSE event type when available, and request/attempt/operation references
+remain available. `status` is the actual HTTP status and can be 200 for a failed
+stream. Caller cancellation throws the original `AbortSignal` reason instead.
+HTTP failures before streaming remain `NiuAPIError`.
 
 ## Server-side account and quota collection
+
+### Query the charge for a completion
+
+Capture the Niu attempt reference from response metadata, then query that attempt
+with the same authorized workspace credential. The completion body's `id` may be
+an upstream identifier; do not substitute it for the Niu attempt reference.
+
+```ts
+let attemptId: string | null = null;
+const completion = await niu.chat.completions({
+  model: 'fast',
+  messages: [{ role: 'user', content: 'Hello' }],
+}, { onResponse: metadata => { attemptId = metadata.attemptId; } });
+
+if (attemptId) {
+  const { data } = await niu.getGeneration(attemptId);
+  console.log(data.customer_charge);
+}
+```
+
+All three clients (`NiuClient`, `NiuAdminClient` and `NiuAuthClient`) support
+`onResponse`. It receives status and available request, attempt and operation
+references once when headers arrive, including streaming and HTTP error
+responses, binary transfers and empty 204 responses. It does not consume response content. Missing references are null;
+never retry inference to obtain one. If the callback throws, the SDK cancels the
+response body and propagates the error without retrying. Cancellation does not
+establish that upstream execution stopped or that no charge was incurred.
+
+### Traverse management directories
+
+Use `iterateWorkspaces`, `iterateWorkspaceKeys`, `iterateChatSessions` and
+`iterateModelRoutePools` for item-by-item traversal. Saved inventory also offers
+`admin.generations(scope).sessions.iterate()` for Video and `.iterateChat()` for
+Chat. Their existing page methods and wire cursor names remain available.
+
+```ts
+for await (const session of admin.iterateChatSessions(scope, { archived: true }, { signal })) {
+  consumeSession(session);
+}
+```
+
+Iterators follow explicit continuation even after a short or empty page.
+They stop on a null cursor, reject missing or repeated cursors, and preserve
+filters and credentials. Breaking the loop prevents further page requests.
+Authorization errors and stale-cursor conflicts propagate without automatic
+restart. These are live views, not frozen snapshots; concurrent changes can
+move records between pages. Legacy `listChatSessions` and
+`listArchivedChatSessions` still return at most the latest 100 sessions.
+
+Workspace key details can contain a null usage snapshot; that does not mean
+zero usage. Creation and rotation return their secret once, with a nullable
+post-write `key` snapshot if the key disappears before enrichment. Keep policy
+revision strings and exact monetary strings intact.
 
 `NiuAuthClient` exchanges an existing member's password for a scoped session
 and revokes that session on sign-out. Production password login requires the

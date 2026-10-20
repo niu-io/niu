@@ -29,11 +29,22 @@ Use the credential and permission scope described above. Each object below is an
 
 ## HTTP request
 
-Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
+
+Authentication alternative: `bearerAuth`.
 
 ```sh
 curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/verifications/{id}" \
-  -H "Authorization: Bearer $NIU_API_KEY"
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
+  --url-query 'model=<MODEL>'
+```
+
+Authentication alternative: `niuApiKeyAuth`.
+
+```sh
+curl --fail-with-body -X GET "$NIU_ORIGIN/v1/media/verifications/{id}" \
+  -H "X-Niu-API-Key: $NIU_API_KEY" \
+  --url-query 'model=<MODEL>'
 ```
 
 ## Parameters

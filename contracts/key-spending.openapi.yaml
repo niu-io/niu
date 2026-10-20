@@ -16,7 +16,7 @@ paths:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}~1history/get'
 components:
   securitySchemes:
-    bearerAuth: { type: http, scheme: bearer }
+    bearerAuth: { type: http, scheme: bearer , description: "Bearer credential accepted by this operation. Inference uses a workspace API key; management requires an authorized member session or installation credential. See the operation description for required authority and scope." }
   parameters:
     Organization: { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
     Workspace: { name: project, in: path, required: true, schema: { type: string, format: uuid } }

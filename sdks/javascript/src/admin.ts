@@ -1,4 +1,6 @@
 export type OperatorAccessRole = 'owner' | 'admin' | 'viewer';
+import { notifyResponse } from './response-metadata.js';
+import { iterateCursorItems } from './pagination.js';
 export type OperatorRoleUpdate = { role: OperatorAccessRole; expected_role: OperatorAccessRole };
 export type OperatorAccessView = {
   id: string; name: string; role: OperatorAccessRole;
@@ -657,9 +659,10 @@ export type WorkspaceKeyIpPolicyPatch = {
 export type WorkspaceKeyDetail = WorkspaceKey & {
   spending_limits: KeySpendingAccount[];
   request_rate_limit: KeyRequestRateLimit;
-  token_rate_limit: KeyTokenRateLimit;
+  /** Budget snapshot fields are absent if the key disappears during enrichment. */
+  token_rate_limit: Pick<KeyTokenRateLimit, 'tokens_per_minute' | 'revision'> & Partial<Omit<KeyTokenRateLimit, 'tokens_per_minute' | 'revision'>>;
   concurrency_limit: KeyConcurrencyLimit;
-  token_usage_window: KeyTokenUsageWindow;
+  token_usage_window: KeyTokenUsageWindow | null;
   ip_policy: KeyIpPolicy;
 };
 export type WorkspaceKeyPage = { data: WorkspaceKey[]; next_cursor: string | null };
@@ -1261,13 +1264,16 @@ export class NiuAdminClient {
   /** Traverse the complete authorized directory; errors never return a partial result. */
   async listWorkspaces(options?: RequestOptions): Promise<{ data: Workspace[] }> {
     const data: Workspace[] = [];
-    let after: string | undefined;
-    do {
-      const page = await this.listWorkspacesPage({ after }, options);
-      data.push(...page.data);
-      after = page.next_cursor ?? undefined;
-    } while (after);
+    for await (const workspace of this.iterateWorkspaces({}, options)) data.push(workspace);
     return { data };
+  }
+
+  /** Iterate the live directory. Errors propagate; stale cursors are never silently restarted. */
+  iterateWorkspaces(query: { after?: string; limit?: number } = {}, options: RequestOptions = {}): AsyncGenerator<Workspace> {
+    return iterateCursorItems(async after => {
+      const page = await this.listWorkspacesPage({ ...query, after }, options);
+      return { data: page.data, nextCursor: page.next_cursor };
+    }, query.after, options.signal);
   }
 
   /** Read a scoped page; a missing or foreign cursor returns 409. */
@@ -1766,7 +1772,7 @@ export class NiuAdminClient {
   }
 
   /** Workspace owner/admin write access. Requires an explicit finite or null lifetime. */
-  createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey & { key: WorkspaceKeyDetail }> {
+  createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey & { key: WorkspaceKeyDetail | null }> {
     if (typeof input.name !== 'string' || !input.name.trim()) throw new TypeError('Key name is required');
     if (input.ttl_seconds !== null && (!Number.isSafeInteger(input.ttl_seconds) || input.ttl_seconds < 1 || input.ttl_seconds > 31_536_000)) {
       throw new TypeError('Key lifetime must be explicit null or an integer from 1 to 31536000');
@@ -1782,7 +1788,7 @@ export class NiuAdminClient {
   }
 
   /** Returns the replacement secret once; preserves expiry and shared lineage limits. */
-  rotateWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
+  rotateWorkspaceKey(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey & { key: WorkspaceKeyDetail | null }> {
     return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys/${uuid(keyId)}/rotate`, {}, options, 'POST');
   }
 
@@ -1794,6 +1800,14 @@ export class NiuAdminClient {
   /** Scoped key metadata without secrets; uncertain dispatches still count as last use. */
   listWorkspaceKeys(scope: TenantScope | string, options?: RequestOptions): Promise<{ data: WorkspaceKeyDetail[] }> {
     return this.apiRequest(`/workspaces/${this.resolveWorkspaceId(scope)}/keys`, undefined, options);
+  }
+
+  /** Iterate authorized key details without materializing the complete directory. */
+  iterateWorkspaceKeys(scope: TenantScope | string, query: { after?: string; limit?: number } = {}, options: RequestOptions = {}): AsyncGenerator<WorkspaceKeyDetail> {
+    return iterateCursorItems(async after => {
+      const page = await this.listWorkspaceKeyPage(scope, { ...query, after }, options);
+      return { data: page.data, nextCursor: page.next_cursor };
+    }, query.after, options.signal);
   }
 
   /** Explicit bounded page; the complete-directory method remains compatible. */
@@ -2615,6 +2629,14 @@ export class NiuAdminClient {
     return this.request(`/pools/index${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
+  /** Iterate the live pool directory, preserving alias cursors and platform authority. */
+  iterateModelRoutePools(query: { after?: string; limit?: number } = {}, options: RequestOptions = {}): AsyncGenerator<ModelRoutePool> {
+    return iterateCursorItems(async after => {
+      const page = await this.listModelRoutePools({ ...query, after }, options);
+      return { data: page.data, nextCursor: page.next_after, hasMore: page.has_more };
+    }, query.after, options.signal);
+  }
+
   setModelRoutePool(input: ModelRoutePoolInput, options?: RequestOptions): Promise<{ data: { revision: number } }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Use an exact nonnegative pool revision');
     return this.request('/pools', input, options, 'PUT');
@@ -2786,6 +2808,7 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats/draft`, { expected_revision: expectedRevision, payload }, options, 'PUT');
   }
 
+  /** Compatibility view of the latest 100 sessions. Use iterateChatSessions for full history. */
   listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{ data: ChatSession[] }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats`, undefined, options);
   }
@@ -2802,6 +2825,15 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats?${params}`, undefined, options);
   }
 
+  /** Live owner-scoped history. Short pages may continue; a stale cursor surfaces its 409. */
+  iterateChatSessions(scope: TenantScope, query: ChatSessionPageQuery = {}, options: RequestOptions = {}): AsyncGenerator<ChatSession> {
+    return iterateCursorItems(async after => {
+      const page = await this.listChatSessionPage(scope, { ...query, after }, options);
+      return { data: page.data, nextCursor: page.next_cursor };
+    }, query.after, options.signal);
+  }
+
+  /** Compatibility view of the latest 100 archived sessions. */
   listArchivedChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{ data: ChatSession[] }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chats?archived=true`, undefined, options);
   }
@@ -3301,6 +3333,7 @@ export class NiuAdminClient {
       signal: options.signal,
       redirect: 'error',
     });
+    await notifyResponse(response, options);
     const text = await response.text();
     let payload: unknown;
     try { payload = text ? JSON.parse(text) : undefined; } catch { payload = text; }
@@ -3337,6 +3370,7 @@ export class NiuAdminClient {
       signal: options.signal,
       redirect: 'error',
     });
+    await notifyResponse(response, options);
     if (!response.ok) {
       const text = await response.text();
       let payload: unknown;
@@ -3373,6 +3407,7 @@ export class NiuAdminClient {
       signal: options.signal,
       redirect: 'error',
     });
+    await notifyResponse(response, options);
     if (!response.ok) {
       const text=await response.text();let payload:unknown;
       try {payload=text ? JSON.parse(text):undefined;} catch {payload=text;}

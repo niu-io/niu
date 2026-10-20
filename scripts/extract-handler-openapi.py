@@ -8,8 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SECURITY_SCHEMES = {
-    'bearerAuth': {'type': 'http', 'scheme': 'bearer'},
-    'niuApiKeyAuth': {'type': 'apiKey', 'in': 'header', 'name': 'X-Niu-API-Key'},
+    'bearerAuth': {'type': 'http', 'scheme': 'bearer', 'description': 'Bearer credential accepted by this operation. Inference uses a workspace API key; management requires an authorized member session or installation credential. See the operation description for required authority and scope.'},
+    'niuApiKeyAuth': {'type': 'apiKey', 'in': 'header', 'name': 'X-Niu-API-Key', 'description': 'Workspace inference API key sent in X-Niu-API-Key. Does not grant member or platform management authority.'},
 }
 
 

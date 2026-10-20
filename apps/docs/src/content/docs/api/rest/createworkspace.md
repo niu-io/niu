@@ -26,11 +26,11 @@ Use the credential and permission scope described above. Each object below is an
 
 ## HTTP request
 
-Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
 curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/workspaces" \
-  -H "Authorization: Bearer $NIU_SESSION_TOKEN" \
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```
@@ -79,6 +79,26 @@ Location: **header**. Optional. One header containing visible ASCII characters. 
       ],
       "format": "uuid",
       "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
+    },
+    "spending_limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "limit_nanos"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "limit_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Nonnegative nanounits, at most 9223372036854775807."
+        }
+      },
+      "description": "Optional lifetime retail cap in an existing company account currency. Requires an owner or installation administrator. Saved atomically with the workspace; omitted means no limit."
     },
     "slug": {
       "type": "string",

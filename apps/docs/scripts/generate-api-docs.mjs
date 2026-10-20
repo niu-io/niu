@@ -5,6 +5,7 @@ import ts from 'typescript';
 import YAML from 'yaml';
 import { isDeepStrictEqual } from 'node:util';
 import { addOpenApiNavigation } from './openapi-navigation.mjs';
+import { requestExamples } from './request-examples.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const check = process.argv.includes('--check');
 const outputFlag = process.argv.indexOf('--output-dir');
@@ -128,7 +129,6 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   lines.push('## Authentication','', security.length ? 'Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.' : 'No OpenAPI security scheme is required. Other request validation still applies.', '', ...block('json', JSON.stringify(security,null,2)));
   const body = operation.requestBody?.$ref ? pointer(spec, operation.requestBody.$ref.slice(1)) : operation.requestBody;
   const mediaType = Object.keys(body?.content || {})[0];
-  const authName = route.startsWith('/api/') ? 'NIU_SESSION_TOKEN' : 'NIU_API_KEY';
   const parameters = new Map();
   for (const raw of [...(item.parameters || []), ...(operation.parameters || [])]) {
     const parameter = raw.$ref ? pointer(spec, raw.$ref.slice(1)) : raw;
@@ -136,20 +136,16 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
     parameters.set(parameter.in + ':' + name, parameter);
   }
   const params = [...(item.parameters || []), ...(operation.parameters || [])].map(p => p.$ref ? pointer(spec, p.$ref.slice(1)) : p);
-  const command = ['curl --fail-with-body -X '+method.toUpperCase()+' \"$NIU_ORIGIN'+route+'\"'];
-  if (security.length) command.push('  -H \"Authorization: Bearer $'+authName+'\"');
-  const requiredHeaders = [...parameters.values()].filter(p => p.in === 'header' && p.required);
-  for (const parameter of requiredHeaders) {
-    const name = parameter.name.toLowerCase();
-    if ((name === 'authorization' && security.length) || (name === 'content-type' && mediaType)) continue;
-    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(parameter.name)) throw new Error('Invalid header parameter name');
-    // Never embed schema examples: required headers may carry credentials or private origins.
-    const placeholder = parameter.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
-    const header = parameter.name + ': <' + placeholder + '>';
-    command.push("  -H '" + header.replaceAll("'", "'\"'\"'") + "'");
+  const examples = requestExamples({
+    route, method, parameters: [...parameters.values()], security,
+    schemes: spec.components.securitySchemes, mediaType,
+    resolve: value => value?.$ref ? pointer(spec, value.$ref.slice(1)) : value,
+  });
+  lines.push('## HTTP request', '', 'Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.', '');
+  for (const example of examples) {
+    if (examples.length > 1) lines.push('Authentication alternative: ' + (example.schemes.map(name => '`' + name + '`').join(' + ') || 'No credential') + '.', '');
+    lines.push(...block('sh', example.command));
   }
-  if (mediaType) command.push("  -H 'Content-Type: "+mediaType+"'", mediaType === 'application/json' ? '  --data @request.json' : '  --data-binary @request-body');
-  lines.push('## HTTP request', '', 'Set `NIU_ORIGIN` to your installation origin (without `/v1`). ' + (requiredHeaders.length ? 'Replace path and required-header placeholders with the values required by this operation.' : 'Replace path placeholders with the references required by this operation.') + ' Use the credential scope described above.', '', ...block('sh', command.join(' \\\n')));
   lines.push('## Parameters', '');
   if (!params.length) lines.push('No path, query, or header parameters are declared.', '');
   for (const p of params) lines.push(`### ${p.name}`, '', `Location: **${p.in}**. ${p.required ? '**Required.**' : 'Optional.'} ${p.description || ''}`, '', ...block('json', JSON.stringify(resolveSchema(p.schema || {}),null,2)));

@@ -498,6 +498,22 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///               "description": "Native message_start, text content block events, cumulative message_delta and message_stop. Sanitized error events terminate failed streams."
 ///             }
 ///           }
+///         },
+///         "headers": {
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           }
 ///         }
 ///       },
 ///       "400": {
@@ -507,6 +523,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
 ///             "schema": {
 ///               "type": "string"
+///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
 ///             }
 ///           }
 ///         }
@@ -519,6 +549,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "schema": {
 ///               "type": "string"
 ///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
 ///           }
 ///         }
 ///       },
@@ -529,6 +573,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
 ///             "schema": {
 ///               "type": "string"
+///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
 ///             }
 ///           }
 ///         }
@@ -541,6 +599,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "schema": {
 ///               "type": "string"
 ///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
 ///           }
 ///         }
 ///       },
@@ -551,6 +623,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
 ///             "schema": {
 ///               "type": "string"
+///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
 ///             }
 ///           }
 ///         }
@@ -565,6 +651,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                 "unsupported_token_pricing"
 ///               ]
 ///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
 ///           }
 ///         }
 ///       },
@@ -575,6 +675,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
 ///             "schema": {
 ///               "type": "string"
+///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
 ///             }
 ///           }
 ///         }
@@ -587,6 +701,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "schema": {
 ///               "type": "string"
 ///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
 ///           }
 ///         }
 ///       },
@@ -598,6 +726,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "schema": {
 ///               "type": "string"
 ///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
 ///           }
 ///         }
 ///       },
@@ -608,6 +750,20 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
 ///             "schema": {
 ///               "type": "string"
+///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Niu attempt UUID, available once an attempt has been dispatched. Use this reference with GET /v1/generations/{id}; it is distinct from an upstream response ID. May be absent on early rejection.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           },
+///           "x-niu-operation-id": {
+///             "description": "Niu operation UUID grouping the request execution. Distinct from the attempt UUID; may be absent before dispatch.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
 ///             }
 ///           }
 ///         }
