@@ -24,9 +24,10 @@ bd dolt remote list
 
 The configured Dolt remote is `git+https://github.com/niu-io/niu.git`. Dolt data
 uses `refs/dolt/data`; an ordinary source `git push` does not publish task state.
-The initial integration initializes local storage and the remote configuration;
-it does **not** publish the database. Before the first publication, or for an
-offline issue-only reconstruction, initialize and import the checked-in snapshot:
+The initial database was published on 2026-10-21 with explicit authorization.
+A fresh remote bootstrap retrieved all 43 task records and 39 review references
+at publication. For an offline issue-only reconstruction, initialize and import
+the checked-in snapshot:
 
 ```sh
 bd init --prefix niu --skip-agents --skip-hooks --non-interactive
