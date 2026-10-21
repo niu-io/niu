@@ -1,5 +1,7 @@
 # Niu API design review against OpenRouter
 
+**Task tracking:** Current follow-up ownership, dependencies and execution status live in [Beads](../development/beads.md); search by the stable finding ID. Statuses below are dated review evidence, not a second live backlog.
+
 Second review and additive implementation: 2026-10-20. Scope: route semantics,
 authentication, response contracts, JavaScript SDK behavior, generated examples
 and compatibility. The review findings below preserve the pre-fix evidence;

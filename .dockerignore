@@ -12,3 +12,6 @@ coverage
 .DS_Store
 enterprise
 internal
+
+# Development task database and review snapshots
+.beads

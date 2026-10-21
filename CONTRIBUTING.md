@@ -25,6 +25,13 @@ See [`docs/architecture/repository-ownership.md`](docs/architecture/repository-o
 - **Python**: `3.12` or newer (used for verification, OpenAPI extraction, and release scripts)
 - **PostgreSQL**: `17` (for local development via `pnpm dev` or storage integration tests)
 
+## Work tracking
+
+Use [Beads for task coordination and review follow-up](docs/development/beads.md).
+It holds current ownership, dependencies, progress and acceptance evidence.
+Keep Markdown for requirements, review evidence and decisions. GitHub Issues are
+optional public discussion records, not a mirrored internal backlog.
+
 ## Local Development
 
 Start the complete local stack (isolated local PostgreSQL cluster, Rust gateway, dashboard, docs, and catalog dev servers) with a single command:

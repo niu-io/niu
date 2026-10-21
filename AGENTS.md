@@ -8,6 +8,16 @@ This repository contains only Niu's public project. Internal research, enterpris
 
 The implementation reuses individual source modules, not a complete upstream repository or its history. Keep each imported module small, traceable, independently licensed, and explicit about behavior that remains unimplemented.
 
+## Work tracking and review follow-up
+
+Use **Beads (`bd`) as the primary work tracker**, especially for tasks discovered during code, API and UX reviews. Run `bd prime` at session start and after compaction; use `bd ready`, `bd show <id>` and `bd update <id> --claim` before starting tracked work. Use a distinct public-safe `BEADS_ACTOR` for each concurrent worker. Keep task ownership, priority, dependencies, progress, blockers and acceptance evidence in Beads. See [the workflow](docs/development/beads.md) for setup, synchronization and handoff.
+
+Before creating a review task, search for the existing finding/reference and update or reopen it rather than duplicating it. Record the trigger, impact, source/revision, evidence limits and observable acceptance criteria; link related findings and use blocking edges only for real prerequisites. Revalidate older findings against the current implementation before changing code. A review-only request permits review records and task capture, not product implementation.
+
+Markdown holds durable requirements, review evidence, design decisions and dated verification records; link those records to the bead. Do not maintain a second live backlog, owner/status table or TODO checklist in Markdown. Historical review statuses remain dated evidence, with current execution state in Beads. Use GitHub Issues only when explicitly requested or needed for external/public discussion; link them to the bead instead of mirroring the backlog or automatically publishing review findings.
+
+Keep a task open while implementation awaits verification; use a `needs-verification` label when useful. Close it only with evidence matching its acceptance scope, or an explicit duplicate/rejected/superseded disposition. In the handoff record completed work, unverified behavior, blockers and the next action. Commit the Dolt working set and refresh the portable issue snapshot; report unpushed task state honestly. Beads does not authorize git commits, remote publication, delegation or product changes beyond the active task.
+
 ## API route naming
 
 Use a single word for each API route segment unless a compound is strictly necessary to preserve meaning or an external compatibility contract. Prefer concise resource nouns and resource hierarchy over concatenated internal type names. Apply route changes consistently to handlers, contracts, SDKs, consumers, tests and generated documentation.

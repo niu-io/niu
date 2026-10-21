@@ -1,0 +1,7 @@
+# Shared Beads defaults. Runtime databases and credentials stay local.
+issue-prefix: niu
+sync.remote: "git+https://github.com/niu-io/niu.git"
+dolt.auto-commit: on
+# Use scripts/beads-snapshot.py to omit automatically inferred owner emails.
+export:
+  auto: false
