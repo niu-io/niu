@@ -261,7 +261,7 @@ pub use codex_report::{
     CodexRateOverride, CodexRateSnapshot, CodexUsageImportFinish, CodexUsageImportStart,
     CodexUsageResponseInput, CodexUsageTokens,
 };
-pub use keys::{IssuedKey, KeyView, Principal};
+pub use keys::{IssuedKey, KeyMutationResult, KeyMutationStatus, KeyView, Principal};
 pub use pricing::{PriceInput, TokenRates};
 pub use providers::{
     ProviderBusinessCreate, ProviderMembership, ProviderOfferInput,
