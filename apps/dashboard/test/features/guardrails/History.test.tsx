@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Routes, Route } from "react-router";
 import GuardrailHistory from "../../../src/features/guardrails/History";
 
 const row = (revision: number) => ({
@@ -271,4 +271,26 @@ it('uses established pattern names in history while preserving custom expression
   expect(screen.getByText('confidential-[0-9]+').tagName).toBe('CODE');
   expect(screen.getByText('Pattern name unavailable',{exact:false})).toBeTruthy();
   for(const code of ['email_v1','niu_api_key_v1','api_key_prefix_v1',privateCode]) expect(screen.queryByText(code,{exact:false})).toBeNull();
+});
+
+it('opens an exact recorded revision outside the loaded history page without granting a reader restore rights',async()=>{
+ const paths:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(input)=>{
+  const path=String(input);paths.push(path);
+  return Response.json(path.endsWith('/revisions/1')?{data:{revision:1,policy:{name:'Historical screening',models:{mode:'inherit'},providers:{mode:'inherit'}}}}:{data:[row(3)],next_cursor:2});
+ }));
+ render(<MemoryRouter initialEntries={['/workspaces/example/guardrails/history?revision=1&from=blocked']}><Routes><Route path="/workspaces/:workspace/guardrails/history" element={<GuardrailHistory token="reader" endpoint="/scope/guardrails" canWrite={false}/>}/></Routes></MemoryRouter>);
+ expect(await screen.findByRole('heading',{name:'Historical screening'})).toBeTruthy();
+ expect(paths).toContain('/scope/guardrails/revisions/1');
+ expect(screen.queryByRole('button',{name:'Restore this version'})).toBeNull();
+ expect(screen.getByRole('link',{name:'Return to blocked requests'}).getAttribute('href')).toBe('/workspaces/example/guardrails/denials');
+ await userEvent.click(screen.getAllByRole('button',{name:'Close',exact:true})[0]);
+ await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+});
+
+it('rejects a different revision returned for a historical lookup',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async(input)=>Response.json(String(input).includes('/revisions/')?{data:{revision:2,policy:{name:'Wrong policy',models:{mode:'inherit'},providers:{mode:'inherit'}}}}:{data:[row(3)],next_cursor:null})));
+ render(<MemoryRouter initialEntries={['/history?revision=1']}><GuardrailHistory token="reader" endpoint="/scope/guardrails" canWrite={false}/></MemoryRouter>);
+ expect(await screen.findByText('The requested policy version could not be confirmed.')).toBeTruthy();
+ expect(screen.queryByRole('heading',{name:'Wrong policy'})).toBeNull();
 });

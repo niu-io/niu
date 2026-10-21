@@ -1,3 +1,5 @@
+import DetectorPreview from '@/features/guardrails/DetectorPreview';
+import type { DetectorBinding } from '@/features/guardrails/ExternalDetectors';
 import { useEffect, useRef, useState } from 'react';
 import KeyGuardrailHistory from './KeyGuardrailHistory';
 import { Link } from 'react-router';
@@ -12,7 +14,7 @@ import { request, VendorRequestError } from '@/features/providers/api';
 
 type Access = { mode: 'inherit' | 'allow_all' | 'allow_list' | 'deny_all'; values?: string[] };
 type Rule = { pattern?: string; preset?: string; action: string };
-type Policy = { name: string; models: Access; providers: Access; input_rules?: Rule[]; input_detectors?: unknown[]; output?: { mode: string; rules: Rule[] } };
+type Policy = { name: string; models: Access; providers: Access; input_rules?: Rule[]; input_detectors?: DetectorBinding[]; output?: { mode: string; rules: Rule[] } };
 const ruleText = (rule: Rule, observe = false) => `${observe ? 'Observe' : rule.action === 'block' ? 'Block' : 'Redact'} · ${rule.preset === 'email_v1' ? 'Email addresses' : rule.preset === 'api_key_prefix_v1' ? 'API key prefixes' : rule.preset === 'niu_api_key_v1' ? 'Niu API keys' : rule.pattern || 'Unsupported rule'}`;
 type Assignment = { assignment_revision: number; policy_revision: number | null; policy: Policy | null };
 type Version = { revision: number; policy_name: string; active: boolean };
@@ -72,7 +74,7 @@ export default function KeyGuardrails({ token, endpoint, workspaceEndpoint, root
     if (!open || choice === 'none') { setDetailLoading(false); return; }
     const controller = new AbortController(); setDetailLoading(true); setEditError('');
     void request<{ data: { revision: number; policy: Policy } }>(token, `${workspaceEndpoint}/revisions/${choice}`, 'GET', undefined, controller.signal)
-      .then(result => { if (!controller.signal.aborted) setSelected(result.data.policy); })
+      .then(result => { if (controller.signal.aborted) return; if (result.data?.revision !== Number(choice) || !result.data.policy) throw new Error('The selected policy version could not be confirmed.'); setSelected(result.data.policy); })
       .catch(cause => { if (!controller.signal.aborted) setEditError(cause instanceof Error ? cause.message : 'Could not load this policy version.'); })
       .finally(() => { if (!controller.signal.aborted) setDetailLoading(false); });
     return () => controller.abort();
@@ -123,8 +125,8 @@ export default function KeyGuardrails({ token, endpoint, workspaceEndpoint, root
           <DropdownMenu><DropdownMenuTrigger asChild><Button id="key-policy-choice" variant="outline" className="key-guardrails-choice" disabled={saving || listLoading || conflict}>{choiceLabel}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="key-guardrails-menu"><DropdownMenuRadioGroup value={choice} onValueChange={setChoice}><DropdownMenuRadioItem value="none">No additional key policy</DropdownMenuRadioItem>{versions.map(version => <DropdownMenuRadioItem key={version.revision} value={String(version.revision)}>{version.policy_name} · Version {version.revision}{version.active ? ' (workspace current)' : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           {listLoading && <p role="status">Loading saved versions…</p>}
           {cursor && <Button variant="outline" disabled={listLoading || saving || conflict} onClick={() => void loadMore()}>Load older versions</Button>}
-          {detailLoading ? <p role="status">Loading policy…</p> : selected && <dl className="key-guardrails-summary"><div><dt>Models</dt><dd>{accessText(selected.models)}</dd></div><div><dt>Providers</dt><dd>{accessText(selected.providers)}</dd></div><div><dt>Input rules</dt><dd>{selected.input_rules?.length ? selected.input_rules.map((rule, index) => <p key={index}>{ruleText(rule)}</p>) : 'None'}</dd></div>{Boolean(selected.input_detectors?.length) && <div><dt>External input checks</dt><dd>{selected.input_detectors?.length} required {selected.input_detectors?.length === 1 ? "check" : "checks"} · matches and unavailable services block requests</dd></div>}<div><dt>Output rules</dt><dd>{selected.output ? <><p>{selected.output.mode === "observe_only" ? "Observe only · response unchanged" : selected.output.mode === "buffered_full" ? "Buffered responses required" : "Output mode unavailable"}</p>{selected.output.rules.map((rule, index) => <p key={index}>{ruleText(rule, selected.output?.mode === "observe_only")}</p>)}</> : 'None'}</dd></div></dl>}
-          {choice !== 'none' && selected && <Button asChild variant="link"><Link to={`${root}/guardrails/history`}>Inspect saved rules in policy history</Link></Button>}
+          {detailLoading ? <p role="status">Loading policy…</p> : selected && <dl className="key-guardrails-summary"><div><dt>Models</dt><dd>{accessText(selected.models)}</dd></div><div><dt>Providers</dt><dd>{accessText(selected.providers)}</dd></div><div><dt>Input rules</dt><dd>{selected.input_rules?.length ? selected.input_rules.map((rule, index) => <p key={index}>{ruleText(rule)}</p>) : 'None'}</dd></div>{Boolean(selected.input_detectors?.length) && <div><dt>External input checks</dt><dd><DetectorPreview token={token} endpoint={workspaceEndpoint} bindings={selected.input_detectors!} /></dd></div>}<div><dt>Output rules</dt><dd>{selected.output ? <><p>{selected.output.mode === "observe_only" ? "Observe only · response unchanged" : selected.output.mode === "buffered_full" ? "Buffered responses required" : "Output mode unavailable"}</p>{selected.output.rules.map((rule, index) => <p key={index}>{ruleText(rule, selected.output?.mode === "observe_only")}</p>)}</> : 'None'}</dd></div></dl>}
+          {choice !== 'none' && selected && <Button asChild variant="link"><Link to={`${root}/guardrails/history?revision=${encodeURIComponent(choice)}`}>Inspect saved rules in policy history</Link></Button>}
           {listError && <Alert variant="destructive"><AlertDescription>{listError} <Button variant="outline" disabled={saving} onClick={() => { setOpen(false); }}>Close and retry</Button></AlertDescription></Alert>}
           {editError && <Alert variant="destructive"><AlertDescription>{editError}</AlertDescription></Alert>}
           <DialogFooter>{conflict ? <Button onClick={() => { setOpen(false); setReload(value => value + 1); }}>Reload Guardrails</Button> : <><Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button><Button disabled={saving || unchanged || listLoading || detailLoading || !!editError || !!listError || (choice !== 'none' && !selected)} onClick={() => void save()}>{saving ? 'Saving…' : 'Save assignment'}</Button></>}</DialogFooter>

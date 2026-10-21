@@ -21,7 +21,7 @@ function setup({ assigned = false, writer = true, active = true, failed = false,
       if (historyFailed) return Response.json({ error: { message: 'History unavailable' } }, { status: 503 });
       return url.includes('?') ? Response.json({ data: [{ revision: 2, policy_name: 'Older policy', active: false }], next_cursor: null }) : Response.json({ data: [{ revision: 7, policy_name: policy.name, active: true }], next_cursor: paginated ? 7 : null });
     }
-    if (url.includes('/revisions/')) return Response.json({ data: { revision: 7, policy: observation ? {...policy,output:{mode:"observe_only",rules:[{preset:"niu_api_key_v1",action:"block"}]}} : policy } });
+    if (url.includes('/revisions/')) return Response.json({ data: { revision: Number(url.split('/').at(-1)), policy: observation ? {...policy,output:{mode:"observe_only",rules:[{preset:"niu_api_key_v1",action:"block"}]}} : policy } });
     return Response.json({ data: url === endpoint ? assigned ? { assignment_revision: 4, policy_revision: 7, policy } : null : { revision: 7, policy } });
   }));
   render(<MemoryRouter><KeyGuardrails token="test-token" endpoint={endpoint} workspaceEndpoint={workspace} root="/workspaces/test" canWrite={writer} active={active} /></MemoryRouter>);
@@ -102,4 +102,10 @@ it('labels an observation assignment without claiming enforcement', async()=>{
   await screen.findByText('Observe only · response unchanged');
   expect(screen.getByText('Observe · Niu API keys')).not.toBeNull();
   expect(screen.queryByText('Buffered responses required')).toBeNull();
+});
+
+it('links inspection to the exact selected policy version',async()=>{
+ const {user}=setup();
+ await choose(user,'Restricted policy · Version 7 (workspace current)');
+ expect((await screen.findByRole('link',{name:'Inspect saved rules in policy history'})).getAttribute('href')).toBe('/workspaces/test/guardrails/history?revision=7');
 });

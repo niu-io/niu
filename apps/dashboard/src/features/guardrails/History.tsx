@@ -1,5 +1,7 @@
+import DetectorPreview from './DetectorPreview';
+import type { DetectorBinding } from './ExternalDetectors';
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { IconHistory, IconRefresh } from "@tabler/icons-react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -49,7 +51,7 @@ type Version = {
     models: Access;
     providers: Access;
     input_rules?: ContentRule[];
-    input_detectors?: unknown[];
+    input_detectors?: DetectorBinding[];
     output?: { mode: string; rules: ContentRule[] };
   };
 };
@@ -67,11 +69,16 @@ export default function GuardrailHistory({
   token,
   endpoint,
   canWrite = false,
+  onRestored,
 }: {
   token: string;
   endpoint: string;
   canWrite?: boolean;
+  onRestored?: () => void;
 }) {
+  const [search, setSearch] = useSearchParams();
+  const requestedRevision = search.get("revision");
+  const fromBlock = search.get("from") === "blocked";
   const [rows, setRows] = useState<Revision[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +93,20 @@ export default function GuardrailHistory({
   const [restored, setRestored] = useState(false);
   const pending = useRef<AbortController | null>(null);
   const versionOpener = useRef<HTMLButtonElement | null>(null);
+  const refreshButton = useRef<HTMLButtonElement | null>(null);
+
+  function closeVersion() {
+    setSelected(null);
+    if (requestedRevision) setSearch(current => { current.delete('revision'); current.delete('from'); return current; }, {replace:true});
+  }
+  useEffect(() => {
+    if (!requestedRevision || !/^[1-9][0-9]*$/.test(requestedRevision)) return;
+    const revision = Number(requestedRevision);
+    if (!Number.isSafeInteger(revision)) return;
+    setSelected(current => current?.revision === revision ? current : rows.find(row => row.revision === revision) ?? {
+      revision, policy_name:'Saved policy', active:false, actor_name:'', activated_at:'', restored_from_revision:null,
+    });
+  }, [requestedRevision, rows]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -140,7 +161,9 @@ export default function GuardrailHistory({
       controller.signal,
     )
       .then((result) => {
-        if (!controller.signal.aborted) setVersion(result.data);
+        if (controller.signal.aborted) return;
+        if (result.data?.revision !== selected.revision || !result.data.policy) throw new Error('The requested policy version could not be confirmed.');
+        setVersion(result.data);
       })
       .catch((cause) => {
         if (!controller.signal.aborted)
@@ -171,8 +194,9 @@ export default function GuardrailHistory({
         expected_revision: active.revision,
         target_revision: version.revision,
       });
-      setSelected(null);
+      closeVersion();
       setRestored(true);
+      onRestored?.();
       setReload((value) => value + 1);
     } catch (cause) {
       const stale = cause instanceof VendorRequestError && cause.status === 409;
@@ -231,7 +255,7 @@ export default function GuardrailHistory({
   return (
     <div className="guardrails-page">
       <PageHeader title="Policy history" action={
-        <Button variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label="Refresh policy history" title="Refresh policy history" aria-disabled={loading || restoring} onClick={() => {if (!loading && !restoring) setReload(value => value + 1);}}>
+        <Button ref={refreshButton} variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label="Refresh policy history" title="Refresh policy history" aria-disabled={loading || restoring} onClick={() => {if (!loading && !restoring) setReload(value => value + 1);}}>
           <IconRefresh aria-hidden="true" /><span>Refresh</span>
         </Button>
       } />
@@ -327,23 +351,28 @@ export default function GuardrailHistory({
       <Dialog
         open={selected !== null}
         onOpenChange={(open) => {
-          if (!open && !restoring) setSelected(null);
+          if (!open && !restoring) closeVersion();
         }}
       >
         <DialogContent className="guardrails-version-dialog" onCloseAutoFocus={event => {
           if (versionOpener.current?.isConnected) {
             event.preventDefault();
             versionOpener.current.focus();
+          } else if (refreshButton.current?.isConnected) {
+            event.preventDefault();
+            refreshButton.current.focus();
           }
           versionOpener.current = null;
         }}>
           <DialogHeader>
-            <DialogTitle>{selected?.policy_name}</DialogTitle>
+            <DialogTitle>{version?.policy.name || selected?.policy_name}</DialogTitle>
             <DialogDescription>
               Version {selected?.revision}
               {selected?.active ? " · Active when history was loaded" : ""}
             </DialogDescription>
           </DialogHeader>
+          {fromBlock && <p className="text-sm text-muted-foreground">This is a saved policy referenced by the blocked request. A workspace administrator can change future policy; this does not change the recorded event.</p>}
+          {fromBlock && <Button asChild variant="link" className="justify-start px-0"><Link to="../denials" relative="path">Return to blocked requests</Link></Button>}
           {detailError && (
             <Alert variant="destructive">
               <AlertDescription>{detailError}</AlertDescription>
@@ -379,7 +408,7 @@ export default function GuardrailHistory({
                   <p>No input rules</p>
                 )}
               </section>
-              {Boolean(version.policy.input_detectors?.length) && <section><h3>External input checks</h3><p>{version.policy.input_detectors?.length} required {version.policy.input_detectors?.length === 1 ? "check" : "checks"} · matches and unavailable services block requests</p></section>}
+              {Boolean(version.policy.input_detectors?.length) && <section><h3>External input checks</h3><DetectorPreview token={token} endpoint={endpoint} bindings={version.policy.input_detectors!} /></section>}
               <section>
                 <h3>Output rules</h3>
                 {version.policy.output ? (
@@ -412,14 +441,14 @@ export default function GuardrailHistory({
             <Button
               variant="outline"
               disabled={restoring}
-              onClick={() => setSelected(null)}
+              onClick={closeVersion}
             >
               Close
             </Button>
             {conflict ? (
               <Button
                 onClick={() => {
-                  setSelected(null);
+                  closeVersion();
                   setReload((value) => value + 1);
                 }}
               >
@@ -429,7 +458,7 @@ export default function GuardrailHistory({
               canWrite &&
               !selected?.active && (
                 <Button
-                  disabled={!version || restoring}
+                  disabled={!version || restoring || !rows.some(row => row.active) || rows.some(row => row.active && row.revision === version.revision)}
                   onClick={() => void restore()}
                 >
                   {restoring ? "Restoring…" : "Restore this version"}

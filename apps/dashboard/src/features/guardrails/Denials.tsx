@@ -23,6 +23,9 @@ const reasons: Record<string, string> = {
   policy_changed: 'Policy changed before dispatch',
 };
 const policyLabel = (name: string | null, revision: number | null) => revision ? `${name || 'Saved policy'} · Version ${revision}` : 'None';
+const policyEvidence = (name: string | null, revision: number | null) => revision && Number.isSafeInteger(revision) && revision > 0
+  ? <Link className="underline underline-offset-4" to={`../history?revision=${revision}&from=blocked`} relative="path">{policyLabel(name, revision)}</Link>
+  : 'No saved policy evidence';
 const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Time unavailable';
 
 export default function GuardrailDenials({ token, endpoint }: { token: string; endpoint: string }) {
@@ -55,15 +58,15 @@ export default function GuardrailDenials({ token, endpoint }: { token: string; e
     </>} />
     
     
-    <p className="guardrails-intro">Latest 100 recorded blocks before model dispatch. Some admission denials are not recorded. For output blocks, open request details in Logs.</p>
+    <p className="guardrails-intro">Latest 100 recorded blocks before model dispatch. Select a saved policy to inspect the rules referenced by a block. A workspace administrator can change policy for future requests. These pre-dispatch events may have no request log. Some admission denials are not recorded. Logs contain output blocks after dispatch.</p>
     {loading ? <p role="status">Loading blocked requests…</p> : error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : !rows.length ? <Empty className="guardrails-empty"><EmptyHeader><EmptyMedia variant="icon"><IconShieldOff aria-hidden="true" /></EmptyMedia><EmptyTitle>No recorded blocks in this workspace.</EmptyTitle></EmptyHeader></Empty> : <Table className="sm:min-w-[680px] table-fixed">
       <TableHeader><TableRow><TableHead>Reason</TableHead><TableHead className="hidden sm:table-cell">API key</TableHead><TableHead className="hidden sm:table-cell">Time</TableHead><TableHead className="hidden sm:table-cell">Workspace policy</TableHead><TableHead className="hidden sm:table-cell">Key policy</TableHead></TableRow></TableHeader>
       <TableBody>{rows.map((row, index) => <TableRow key={index}><TableCell className="whitespace-normal break-words">{reasons[row.reason] || 'Request blocked by Guardrails'}<div className="text-muted-foreground text-xs mt-1">{row.stage === 'dispatch' ? 'Before dispatch' : row.stage === 'batch_admission' ? 'During admission' : 'Before admission'}</div><dl className="mt-4 grid gap-3 text-sm sm:hidden">
         <div><dt className="text-xs text-muted-foreground">API key</dt><dd>{row.key_name || 'Unnamed key'}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Time</dt><dd>{time(row.recorded_at)}</dd></div>
-        <div><dt className="text-xs text-muted-foreground">Workspace policy</dt><dd>{policyLabel(row.workspace_policy_name, row.workspace_revision)}</dd></div>
-        <div><dt className="text-xs text-muted-foreground">Key policy</dt><dd>{policyLabel(row.key_policy_name, row.key_policy_revision)}</dd></div>
-      </dl></TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{row.key_name || 'Unnamed key'}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{time(row.recorded_at)}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{policyLabel(row.workspace_policy_name, row.workspace_revision)}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{policyLabel(row.key_policy_name, row.key_policy_revision)}</TableCell></TableRow>)}</TableBody>
+        <div><dt className="text-xs text-muted-foreground">Workspace policy</dt><dd>{policyEvidence(row.workspace_policy_name, row.workspace_revision)}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">Key policy</dt><dd>{policyEvidence(row.key_policy_name, row.key_policy_revision)}</dd></div>
+      </dl></TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{row.key_name || 'Unnamed key'}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{time(row.recorded_at)}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{policyEvidence(row.workspace_policy_name, row.workspace_revision)}</TableCell><TableCell className="hidden sm:table-cell whitespace-normal break-words">{policyEvidence(row.key_policy_name, row.key_policy_revision)}</TableCell></TableRow>)}</TableBody>
     </Table>}
   </div>;
 }
