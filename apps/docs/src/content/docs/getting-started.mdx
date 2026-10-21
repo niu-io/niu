@@ -1,35 +1,34 @@
 ---
 title: Getting started
-description: Configure model access, create a workspace API key and make a request.
+description: Use an existing Niu workspace to make your first request.
 ---
 
-Send your first request through Niu using a workspace API key and a configured model.
+This guide is for developers using an existing Niu installation. You need an account with access to a workspace. If you are installing Niu for others, start with [installation setup](#installation-setup) below.
 
-## Set up model access
+## Prepare your workspace
 
-1. **Start Niu.** Follow the [deployment guide](/docs/deployment/single-container/), or run `pnpm dev` for local development.
-2. **Open the dashboard.** Sign in with your account. For local development, use the account configured by the launcher.
-3. **Connect a Provider.** Choose its Provider adapter, save its API credential, and configure model routes using the [model route guide](/docs/configuration/models/). Confirm your route appears in **Models**.
-4. **Create an API key.** Select a workspace and open **API keys → New API key**. Enter a name and expiration, then select **Create key**. The key can call every model route available in the workspace. Copy its secret now; it cannot be retrieved later.
+1. **Sign in and choose your workspace.** Ask its owner for access if you have not been added. A read-only membership cannot create keys or run requests.
+2. **Check model access.** Open **Models** to find an available text model. If none is available, ask your workspace owner or installation administrator to enable access. You do not need to configure a Provider yourself.
+3. **Check available credits and limits.** The account owner can add credits in **Settings → Credits**. Workspace and API-key spending limits also apply. If Niu says payment setup is required, the installation administrator must finish setup before requests can run.
+4. **Create an API key.** Open **API keys → New API key** in the selected workspace. Name it, choose the allowed models and expiration, then select **Create key**. Copy its secret when shown; it cannot be retrieved later. Keep it on your application server, out of source control and browser-delivered code.
+
+A model appearing in the catalog is not a guarantee that every protocol or optional parameter works. Use an available text model for this first Chat request.
 
 ## Make a request
 
-Use your workspace key and a model alias from **Models**. The example below uses
-`fast`, the alias in the example container configuration. Replace it with your
-configured alias.
+Copy the base URL from the key dialog for your installation, and use an available text model from **Models**. Replace both placeholders below; `NIU_BASE_URL` includes `/v1`.
 
 ```sh
-export NIU_API_KEY='your-issued-client-key'
-curl http://localhost:2555/v1/chat/completions \
+export NIU_BASE_URL='https://your-niu-installation.example/v1'
+export NIU_API_KEY='your-workspace-api-key'
+export NIU_MODEL='your-available-text-model'
+curl --fail-with-body "$NIU_BASE_URL/chat/completions" \
   -H "Authorization: Bearer $NIU_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"fast","messages":[{"role":"user","content":"Hello"}]}'
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one sentence.\"}],\"max_tokens\":64}"
 ```
 
-The base URL for compatible clients is `http://localhost:2555/v1` in the container,
-or `http://127.0.0.1:2566/v1` in development. Replace `fast` with the actual alias
-available in your workspace when using a dashboard-managed route. The key dialog
-provides the base URL and a client example for your running installation.
+Container installations normally use `http://localhost:2555/v1`; repository development uses `http://127.0.0.1:2566/v1`. Hosted Niu uses `https://niu.io/v1`.
 
 Open workspace **Logs** to inspect status, timing, reported tokens, and retained
 request and response payloads. **Usage** shows consumption and customer charges.
@@ -40,11 +39,16 @@ installation administrator tokens on the server. A coding agent can use the same
 key through the [MCP server](/docs/guides/mcp/). Hosted Niu pins the gateway
 address to `https://niu.io/v1`.
 
-## Run Niu locally
+## Installation setup
 
-For repository setup, requirements, and build commands, follow
-[Local development](/docs/guides/local-development/). For a container installation,
-use the [deployment guide](/docs/deployment/single-container/).
+These tasks belong to the installation administrator, not an ordinary API consumer:
+
+1. Deploy Niu using [the container guide](/docs/deployment/single-container/) or [local development](/docs/guides/local-development/).
+2. Configure the platform currency and an available payment gateway. Mock payments are for testing only: model requests still incur real upstream charges.
+3. Connect and qualify Provider supply using [the model route guide](/docs/configuration/models/), then publish customer selling prices in **Admin → Pricing**. A saved API credential alone does not make a model ready to sell.
+4. Provision customer access and confirm the workspace owner can sign in, manage credits and choose available models before handing over the installation.
+
+Keep Provider credentials and installation administrator tokens on the server. They are not customer application keys.
 
 ## Current limitations
 
