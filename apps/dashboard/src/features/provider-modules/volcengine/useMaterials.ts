@@ -1,9 +1,9 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useDashboardContext} from '@/app/dashboard-context';
 import {keyRequest,workspaceKeyPath,type ProjectKey} from '@/features/keys/api';
-import {type MediaAssetGroup,type MediaAsset,type MediaAssetOperation} from '../../../../../../sdks/javascript/src/media-assets';
-import {NiuAdminClient,type NativeProviderModule} from '../../../../../../sdks/javascript/src/admin';
-import type {MediaVerificationSession} from '../../../../../../sdks/javascript/src/media-verification';
+import {type MediaAssetGroup,type MediaAsset,type MediaAssetOperation} from '@niu-io/sdk/media-assets';
+import {NiuAdminClient,type NativeProviderModule} from '@niu-io/sdk/admin';
+import type {MediaVerificationSession} from '@niu-io/sdk/media-verification';
 
 async function allPages<T>(read:(after?:string)=>Promise<{data:T[];next_cursor:string|null}>){
  const rows:T[]=[];const cursors=new Set<string>();let after:string|undefined;

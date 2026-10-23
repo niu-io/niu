@@ -120,23 +120,71 @@ fn remove_credentials_bounded(value: &mut Value, depth: usize) {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PayloadCaptureMode {
+    DefaultOn,
+    OptIn,
+    Disabled,
+}
+
+impl PayloadCaptureMode {
+    pub(crate) fn from_env_value(value: Option<&str>) -> Self {
+        match value.map(str::trim) {
+            None | Some("") | Some("true") | Some("1") | Some("on") | Some("default") => {
+                Self::DefaultOn
+            }
+            Some(v)
+                if v.eq_ignore_ascii_case("false")
+                    || v == "0"
+                    || v.eq_ignore_ascii_case("off")
+                    || v.eq_ignore_ascii_case("opt-in")
+                    || v.eq_ignore_ascii_case("opt_in") =>
+            {
+                Self::OptIn
+            }
+            Some(v) if v.eq_ignore_ascii_case("disabled") || v.eq_ignore_ascii_case("never") => {
+                Self::Disabled
+            }
+            Some(_) => Self::DefaultOn,
+        }
+    }
+
+    pub(crate) fn from_env() -> Self {
+        let value = std::env::var("NIU_REQUEST_PAYLOAD_CAPTURE").ok();
+        Self::from_env_value(value.as_deref())
+    }
+}
+
 pub(crate) fn payload_capture_enabled(headers: &axum::http::HeaderMap) -> Result<bool, ApiError> {
+    payload_capture_enabled_with_mode(headers, PayloadCaptureMode::from_env())
+}
+
+pub(crate) fn payload_capture_enabled_with_mode(
+    headers: &axum::http::HeaderMap,
+    mode: PayloadCaptureMode,
+) -> Result<bool, ApiError> {
     let mut values = headers.get_all("x-niu-log-payloads").iter();
     let Some(value) = values.next() else {
-        return Ok(true);
+        return Ok(matches!(mode, PayloadCaptureMode::DefaultOn));
     };
     if values.next().is_some() {
         return Err(ApiError::invalid_request(
             "Use one x-niu-log-payloads header with true or false",
         ));
     }
-    match value.to_str() {
-        Ok(value) if value.eq_ignore_ascii_case("true") => Ok(true),
-        Ok(value) if value.eq_ignore_ascii_case("false") => Ok(false),
-        _ => Err(ApiError::invalid_request(
-            "x-niu-log-payloads must be true or false",
-        )),
+    let header_enabled = match value.to_str() {
+        Ok(value) if value.eq_ignore_ascii_case("true") => true,
+        Ok(value) if value.eq_ignore_ascii_case("false") => false,
+        _ => {
+            return Err(ApiError::invalid_request(
+                "x-niu-log-payloads must be true or false",
+            ));
+        }
+    };
+    if matches!(mode, PayloadCaptureMode::Disabled) {
+        return Ok(false);
     }
+    Ok(header_enabled)
 }
 
 pub async fn capture(
@@ -259,4 +307,67 @@ pub async fn capture(
         },
     );
     Response::from_parts(parts, Body::from_stream(stream))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::{HeaderMap, HeaderValue};
+
+    #[test]
+    fn payload_capture_mode_respects_deployment_policy_and_request_headers() {
+        let empty = HeaderMap::new();
+        assert_eq!(
+            payload_capture_enabled_with_mode(&empty, PayloadCaptureMode::from_env_value(None))
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            payload_capture_enabled_with_mode(
+                &empty,
+                PayloadCaptureMode::from_env_value(Some("opt-in"))
+            )
+            .unwrap(),
+            false
+        );
+        assert_eq!(
+            payload_capture_enabled_with_mode(
+                &empty,
+                PayloadCaptureMode::from_env_value(Some("disabled"))
+            )
+            .unwrap(),
+            false
+        );
+
+        let mut opt_in = HeaderMap::new();
+        opt_in.insert("x-niu-log-payloads", HeaderValue::from_static("true"));
+        assert_eq!(
+            payload_capture_enabled_with_mode(&opt_in, PayloadCaptureMode::OptIn).unwrap(),
+            true
+        );
+        assert_eq!(
+            payload_capture_enabled_with_mode(&opt_in, PayloadCaptureMode::Disabled).unwrap(),
+            false
+        );
+
+        let mut opt_out = HeaderMap::new();
+        opt_out.insert("x-niu-log-payloads", HeaderValue::from_static("false"));
+        assert_eq!(
+            payload_capture_enabled_with_mode(&opt_out, PayloadCaptureMode::DefaultOn).unwrap(),
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn payload_write_semaphore_bounds_concurrent_writers() {
+        assert_eq!(PAYLOAD_WRITE_CONCURRENCY.available_permits(), 4);
+        let p1 = PAYLOAD_WRITE_CONCURRENCY.acquire().await.unwrap();
+        let p2 = PAYLOAD_WRITE_CONCURRENCY.acquire().await.unwrap();
+        let p3 = PAYLOAD_WRITE_CONCURRENCY.acquire().await.unwrap();
+        let p4 = PAYLOAD_WRITE_CONCURRENCY.acquire().await.unwrap();
+        assert_eq!(PAYLOAD_WRITE_CONCURRENCY.available_permits(), 0);
+        assert!(PAYLOAD_WRITE_CONCURRENCY.try_acquire().is_err());
+        drop((p1, p2, p3, p4));
+        assert_eq!(PAYLOAD_WRITE_CONCURRENCY.available_permits(), 4);
+    }
 }

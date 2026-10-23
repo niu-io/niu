@@ -23,7 +23,7 @@ import { modelIdentity } from "@/lib/providers";
 import { money } from "@/lib/money";
 import { request, ProviderRequestError } from "@/features/providers/api";
 
-type Offer = import("../../../../../sdks/javascript/src/admin").ProviderOffer;
+type Offer = import("@niu-io/sdk/admin").ProviderOffer;
 type Dashboard = {
   id: string;
   name: string;

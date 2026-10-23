@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { request } from '@/features/providers/api';
-import type { ProviderMediaOfferInput, ProviderMediaOfferModel } from '../../../../../sdks/javascript/src/admin';
+import type { ProviderMediaOfferInput, ProviderMediaOfferModel } from '@niu-io/sdk/admin';
 
 type Page = { data: ProviderMediaOfferModel[]; has_more: boolean; next_after: string | null };
 

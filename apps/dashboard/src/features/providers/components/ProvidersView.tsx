@@ -30,7 +30,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const routeScopedId = routeProviderId ?? routeSupplierId;
   const providerId = routeScopedId ?? search.get('provider') ?? search.get('supplier');
   const connectionsPath = '/api/v1/vendors' + (providerId ? '?supplier=' + encodeURIComponent(providerId) : '');
-  const canManage = (session.kind === 'installation' || session.permissions.platform_admin) && session.permissions.manage_operators;
+  const canManage = Boolean(session.permissions?.platform_admin || (session.kind === 'installation' && session.permissions?.manage_operators !== false));
   const [connections, setConnections] = useState<ProviderConnection[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState('');
   const [models, setModels] = useState<ProviderModel[]>([]);
@@ -251,7 +251,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
         throw new Error('API key saved, but the Provider list could not be refreshed. Refresh the list to view it.');
       }
       if (signal.aborted || generation !== authGeneration.current) return;
-      void refreshWorkspace().catch(() => {});
+      void refreshWorkspace().catch(() => { /* Workspace refresh updates its own catalog/session error state. */ });
     });
   }
 
@@ -268,7 +268,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       if (signal.aborted || generation !== authGeneration.current || currentScope.current.token !== token) return;
       setConnections(previous => previous.map(connection => connection.id === result.data.id ? { ...result.data, provider: connection.provider ?? connection.supplier, supplier: connection.supplier } : connection));
       setEditingConnection(false);
-      void refreshWorkspace().catch(() => {});
+      void refreshWorkspace().catch(() => { /* Workspace refresh updates its own catalog/session error state. */ });
     });
   }
 
@@ -287,7 +287,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       // Configuration writes do not return dispatch eligibility. Read it again
       // after saving rather than retaining a stale availability badge.
       await reloadModels(connectionId);
-      void refreshWorkspace().catch(() => {});
+      void refreshWorkspace().catch(() => { /* Workspace refresh updates its own catalog/session error state. */ });
     });
   }
 

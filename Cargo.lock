@@ -2519,7 +2519,6 @@ dependencies = [
  "libc",
  "litellm-core",
  "md-5",
- "niu-benchmark",
  "niu-execution",
  "niu-media",
  "niu-metered-cost",

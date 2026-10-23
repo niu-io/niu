@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
 import { request, ProviderRequestError } from '@/features/providers/api';
-import type { ProviderMediaRateCard, ProviderMediaRateModel, ProviderMediaRateRecord, CustomerMediaRateCard, CustomerMediaRateModel, CustomerMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
+import type { ProviderMediaRateCard, ProviderMediaRateModel, ProviderMediaRateRecord, CustomerMediaRateCard, CustomerMediaRateModel, CustomerMediaRateRecord } from '@niu-io/sdk/admin';
 
 type RateModel = ProviderMediaRateModel & Partial<Pick<CustomerMediaRateModel, 'vendor_id'>>;
 type ModelPage = { data: RateModel[]; has_more: boolean; next_after: string | null };

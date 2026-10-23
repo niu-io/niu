@@ -6,7 +6,7 @@ Status: current public runtime, 2026-10-10. This document describes the gateway 
 
 Hosted Niu uses one domain, `niu.io`, and one public gateway process. There is no application subdomain. Marketing, documentation, the model catalog, the dashboard, and the APIs are paths on that origin. Community builds use the same process and the same paths; without a marketing artifact, `/` redirects to `/workspaces/default/`.
 
-PostgreSQL is the only required external service. The gateway applies its own migrations at startup. The default admission pool is 10 connections per process (`NIU_DATABASE_MAX_CONNECTIONS`, from 1 to 256). Scheduled content maintenance has a separate pool capped at one additional connection per process.
+PostgreSQL is the only required external service. The gateway applies its own migrations at startup (unless `NIU_SKIP_STARTUP_MIGRATIONS=1` is set after an explicit `niu-gateway --migrate-only` phase). The default admission pool is 32 connections per process (`NIU_DATABASE_MAX_CONNECTIONS`, from 1 to 256), with a 5-second pool acquisition timeout and a 15-second idle-in-transaction session timeout. Scheduled content maintenance has a separate pool capped at one additional connection per process.
 
 The process serves inference, management APIs, member sessions, health checks, static files, and in-process recovery. Static files are built artifacts read from disk (`NIU_SITE_DIR`, `NIU_DOCS_DIR`, `NIU_CATALOG_DIR`, `NIU_DASHBOARD_DIR`). They do not use the database. Serving them from this process does not justify splitting domains. A CDN in front of the same host can cache public files; the gateway remains the origin for `/v1/`, `/admin/v1/`, `/catalog/v1/`, and payment callbacks.
 
@@ -90,9 +90,9 @@ Dashboard sign-in is a member password session. The installation administrator t
 
 ## Outside the current product
 
-Paired-benchmark analysis and external execution-record import are retired from the current product surface. The Gateway does not register their HTTP routes, and the dashboard does not mount their tools. Historical database rows remain retained; retiring the workflow does not delete them or their referenced accounting history.
+Paired-benchmark analysis (`crates/benchmark`, crate `niu-benchmark`) and external execution-record import are retired from the current product surface. The Gateway does not depend on `niu-benchmark`, does not register benchmark HTTP routes, and the dashboard does not mount their tools; `crates/benchmark` and the standalone floating-point cost reference `crates/cost` (`niu-cost`, retained for pinned LiteLLM import provenance in `litellm-cost-SOURCE-SHA256.txt`) are excluded from workspace `default-members` and the gateway dependency graph. Historical database rows remain retained; retiring the workflow does not delete them or their referenced accounting history.
 
-Retained execution-observation types are compatibility artifacts, not supported ingestion APIs or a task investigation product. External orchestration products own task execution and acceptance. Niu Chat, Activity and request Logs describe requests Niu handled. The Gateway does not load legacy extension task adapters or run a task sandbox; supported Plugins use the explicit public Plugin contracts.
+Retained execution-observation types (`crates/execution`, crate `niu-execution`) are compatibility artifacts for historical task/attempt status vocabulary, not supported ingestion APIs or a task investigation product. External orchestration products own task execution and acceptance. Niu Chat, Activity and request Logs describe requests Niu handled. The Gateway does not load legacy extension task adapters or run a task sandbox; supported Plugins use the explicit public Plugin contracts.
 
 ## Open implementation and qualification work
 
@@ -107,20 +107,17 @@ This is a gap inventory, not an implementation order. The product focus and rele
 
 ## Unified route publication: implementation constraints
 
-This remains unimplemented. The existing repeatable-read catalog composition is
-not a published inference generation. Inference currently resolves pool,
-personal and shared/static routes through separate reads in
-`apps/gateway/src/vendors/models.rs`; `ManagedRouteSnapshot` pins selected
-mapping and pool revisions, not a complete registry generation.
-Catalog composition now lives in `apps/gateway/src/vendors/catalog_compiler.rs`;
+Unified route publication is implemented and active at startup and during inference. Startup initializes the published route registry via `Store::bootstrap_route_registry` in `apps/gateway/src/state.rs`, and the current active generation is inspectable at `/api/v1/routing-registry`. Catalog discovery and inference resolve static and database-backed text and managed video routes from the active published snapshot through `apps/gateway/src/vendors/publication.rs` (`snapshot()`) and `apps/gateway/src/vendors/models.rs` (`resolve_published`), pinning the resolved generation on the attempt (`customer_attempt_route_generations` and video submission identity).
+
+Catalog and route compilation lives in `apps/gateway/src/vendors/catalog_compiler.rs`;
 the outer layer acquires the database inputs once and passes static routes and
 caller scope explicitly. It reuses the existing candidate-selection and model
 conversion helpers, performs no database or upstream calls, and does not decrypt
-credentials. Its dedicated storage projection now omits credential ciphertext
-from both the SELECT output and the compiler input type. Actual inference retains
-its credential-bearing route loader; both paths share metadata decoding and model
-conversion. Endpoints and procurement metadata remain server-only even without
-credentials. This is a compilation boundary, not publication or inference pinning.
+credentials. Its dedicated storage projection omits credential ciphertext
+from both the SELECT output and the compiler input type. Both catalog discovery and
+inference share metadata decoding and model conversion from the published snapshot,
+while actual dispatch retains live credential decryption and eligibility checks.
+Endpoints and procurement metadata remain server-only even without credentials.
 A current-input regression exercised concurrent disablement, 103 pools, personal
 scope isolation, static shadowing, two actual completions and independently
 reconciled charges after restart.

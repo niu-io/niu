@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { videoIntentHistory } from '../src/features/video/intent-history';
-import type { VideoSubmissionIntent } from '../../../sdks/javascript/src/admin';
-import { NiuAPIError } from '../../../sdks/javascript/src/index';
+import type { VideoSubmissionIntent } from '@niu-io/sdk/admin';
+import { NiuAPIError } from '@niu-io/sdk';
 const scope={organizationId:'company',projectId:'workspace'};
 const entry={id:'intent',revision:1,expires_at_ms:'1800000000000',content_state:'retained' as const};
 const document:VideoSubmissionIntent={...entry,original_key_id:'key',key_id:'rotated-key',model:'Video model',funding_mode:'owner_funded',request:{model:'Video model',content:[{type:'text',text:'A landscape\nwith sunset'}]},submission_state:'dispatched',job:{id:'original-job',object:'video.job',model:'Video model',status:'queued'}};

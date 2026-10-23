@@ -31,7 +31,10 @@ impl Store {
         Ok(())
     }
     pub async fn generations_session_id_by_reference(
-        &self, scope: TenantScope, owner: &str, reference: &str,
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        reference: &str,
     ) -> Result<Option<Uuid>, StoreError> {
         Ok(sqlx::query_scalar("SELECT id FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND public_reference=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(reference)

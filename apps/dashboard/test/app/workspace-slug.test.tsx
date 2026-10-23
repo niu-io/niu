@@ -20,6 +20,16 @@ describe('workspace slugs', () => {
     const workspace = {id:'internal', name:'Renamed', slug:'research', route_slug:'legacy', slug_aliases:['research-old'], organization_id:'org', organization_name:'Company'};
     expect(workspacePathSegment(workspace, [workspace])).toBe('research');
     expect(resolveWorkspacePathSegment('research-old', [workspace])).toBe(workspace);
+    expect(resolveWorkspacePathSegment('internal', [workspace])).toBe(workspace);
+  });
+  it('disambiguates colliding legacy workspace names without exposing internal UUID suffixes', () => {
+    const first = {id:'11111111-1111-4111-8111-111111111111', name:'Research', organization_id:'org', organization_name:'Company'};
+    const second = {id:'22222222-2222-4222-8222-222222222222', name:'Research', organization_id:'org', organization_name:'Company'};
+    const list = [first, second];
+    expect(workspacePathSegment(first, list)).toBe('research');
+    expect(workspacePathSegment(second, list)).toBe('research-2');
+    expect(resolveWorkspacePathSegment('research-2', list)).toBe(second);
+    expect(resolveWorkspacePathSegment('research-22222222', list)).toBe(second);
   });
   it('suggests pinyin, preserves manual edits, and retains collision errors', async () => {
     const user = userEvent.setup();

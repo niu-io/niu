@@ -1,6 +1,6 @@
 import { money } from '@/lib/money';
 import { mediaAmount } from '@/lib/media-price';
-import type { RetailSchedule } from '../../../../../sdks/javascript/src/admin';
+import type { RetailSchedule } from '@niu-io/sdk/admin';
 
 export function SellingSchedule({ schedule, currency, compact = false }: { schedule: RetailSchedule; currency: string; compact?: boolean }) {
   if (schedule.kind === 'media') {

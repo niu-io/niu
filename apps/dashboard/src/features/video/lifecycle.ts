@@ -1,4 +1,4 @@
-import type {VideoLifecycleTiming} from '../../../../../sdks/javascript/src/index';
+import type {VideoLifecycleTiming} from '@niu-io/sdk';
 export function observedLifecycle(timing:VideoLifecycleTiming) {
   const submitted=timing.submitted_unix_ms;
   if(submitted == null || !Number.isSafeInteger(submitted) || submitted<0)return null;

@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { request, ProviderRequestError, writeMayHaveCommitted, type ProviderConnection, type ProviderModel } from '@/features/providers/api';
-import type { ModelRoutePool, ModelRoutePoolCandidate, ModelRoutePoolRevision } from '../../../../../sdks/javascript/src/admin';
+import type { ModelRoutePool, ModelRoutePoolCandidate, ModelRoutePoolRevision } from '@niu-io/sdk/admin';
 
 type ScopeFilter = 'all' | 'shared' | 'organization';
 type DiscoveredRoute = { alias: string; providerName: string; upstreamModel: string; ownerFunded: boolean; priced: boolean };

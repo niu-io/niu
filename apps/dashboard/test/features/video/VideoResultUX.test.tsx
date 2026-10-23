@@ -2,7 +2,7 @@ import {render,screen,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {expect,it,vi} from 'vitest';
 import VideoResult from '@/features/video/VideoResult';
-import type {NiuAdminClient} from '../../../../../sdks/javascript/src/admin';
+import type {NiuAdminClient} from '@niu-io/sdk/admin';
 const scope={organizationId:'organization',projectId:'workspace'};
 function fixture(availability='available') {
  const content=vi.fn(async()=>new Response(new Uint8Array([0,0,0,12,102,116,121,112,105,115,111,109]),{headers:{'content-type':'video/mp4'}}));

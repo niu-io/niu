@@ -42,7 +42,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
   const { session, token, signOut, organizations, organization, selectOrganization, workspaceLoading, workspaceError } = context;
   const modelsHref = token ? workspaceModelsHref(context.workspace, context.workspaces) : '/models/';
   const installation = session?.kind === 'installation';
-  const platformAdmin = installation || Boolean(session?.permissions.platform_admin);
+  const platformAdmin = Boolean(session?.permissions?.platform_admin || (installation && session?.permissions?.manage_operators !== false));
   const supplierOnly = supplierArea && !installation && !session?.operator;
   const label = profile?.name || (installation ? 'Administrator access' : 'Account');
   const avatarInitial = (session ? label[0] : 'N').toUpperCase();
@@ -59,7 +59,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine />Activity</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref} reloadDocument={!token}><Boxes />Models</Link></DropdownMenuItem>
             </>}
-            {((platformAdmin && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? "Admin" : "Providers"}</Link></DropdownMenuItem>}
+            {(platformAdmin || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? "Admin" : "Providers"}</Link></DropdownMenuItem>}
             <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />Documentation</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconRefresh } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { keyRequest } from '../api';
-import type { KeyTokenUsageWindow } from '../../../../../../sdks/javascript/src/admin';
+import type { KeyTokenUsageWindow } from '@niu-io/sdk/admin';
 
 const exact = (value: unknown): value is string => typeof value === 'string' && /^\d{1,64}$/.test(value);
 function checked(value: KeyTokenUsageWindow) {

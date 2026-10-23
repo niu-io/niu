@@ -17,6 +17,11 @@ CARGO_TOML = ROOT / "Cargo.toml"
 PACKAGE_JSON = ROOT / "package.json"
 COMPOSE_YAML = ROOT / "compose.yaml"
 INSTALL_SH = ROOT / "scripts" / "install.sh"
+README_MD = ROOT / "README.md"
+SECURITY_MD = ROOT / "SECURITY.md"
+ARCHITECTURE_MD = ROOT / "ARCHITECTURE.md"
+ENV_EXAMPLE = ROOT / ".env.example"
+RENDER_YAML = ROOT / "render.yaml"
 CHANGELOG_MD = ROOT / "CHANGELOG.md"
 REPO_URL = "https://github.com/niu-io/niu"
 
@@ -30,6 +35,8 @@ COMPOSE_IMAGE_PATTERN = re.compile(
 INSTALL_SH_VERSION_PATTERN = re.compile(
     r'^(DEFAULT_VERSION="v)([^"]+)(")', re.MULTILINE
 )
+README_IMAGE_PATTERN = re.compile(r"(ghcr\.io/niu-io/niu:v)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)")
+README_FLAG_VERSION_PATTERN = re.compile(r"(--version\s+v)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)")
 CONVENTIONAL_COMMIT_PATTERN = re.compile(
     r"^(?P<type>[a-zA-Z]+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
 )
@@ -81,6 +88,16 @@ def read_versions() -> dict[str, str]:
     if not install_sh_match:
         raise RuntimeError('could not find DEFAULT_VERSION="v<version>" in scripts/install.sh')
     install_sh_version = install_sh_match.group(2)
+    if "(default: ${DEFAULT_VERSION})" not in install_sh_text:
+        raise RuntimeError("scripts/install.sh usage() must interpolate ${DEFAULT_VERSION}")
+
+    readme_text = README_MD.read_text(encoding="utf-8")
+    readme_image_match = README_IMAGE_PATTERN.search(readme_text)
+    if not readme_image_match:
+        raise RuntimeError("could not find ghcr.io/niu-io/niu:v<version> in README.md")
+    readme_flag_versions = set(m.group(2) for m in README_FLAG_VERSION_PATTERN.finditer(readme_text))
+    if len(readme_flag_versions) != 1:
+        raise RuntimeError(f"inconsistent --version tags in README.md: {sorted(readme_flag_versions)}")
 
     return {
         "VERSION": version_file,
@@ -89,7 +106,28 @@ def read_versions() -> dict[str, str]:
         "package.json": package_version,
         "compose.yaml": compose_version,
         "scripts/install.sh": install_sh_version,
+        "README.md(image)": readme_image_match.group(2),
+        "README.md(--version)": next(iter(readme_flag_versions)),
     }
+
+
+def check_operator_docs_consistency() -> list[str]:
+    errors: list[str] = []
+    # Check that server/operator config docs use NIU_ADMIN_TOKENS (not singular NIU_ADMIN_TOKEN)
+    # except for explicit shell client Bearer examples ($NIU_ADMIN_TOKEN).
+    singular_token_re = re.compile(r"(?<!\$)\bNIU_ADMIN_TOKEN\b")
+    for doc_path in (README_MD, SECURITY_MD, ARCHITECTURE_MD, ENV_EXAMPLE, COMPOSE_YAML, RENDER_YAML, INSTALL_SH):
+        text = doc_path.read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if singular_token_re.search(line):
+                errors.append(f"{doc_path.relative_to(ROOT)}:{lineno}: singular NIU_ADMIN_TOKEN found (expected NIU_ADMIN_TOKENS)")
+
+    arch_text = ARCHITECTURE_MD.read_text(encoding="utf-8")
+    if "32 connections per process (`NIU_DATABASE_MAX_CONNECTIONS`" not in arch_text:
+        errors.append("ARCHITECTURE.md does not document the 32 default for NIU_DATABASE_MAX_CONNECTIONS")
+    if "This remains unimplemented" in arch_text or "bootstrap_route_registry" not in arch_text:
+        errors.append("ARCHITECTURE.md unified route publication section contradicts implemented bootstrap_route_registry")
+    return errors
 
 
 def check_versions(expected_tag: str | None) -> int:
@@ -115,7 +153,12 @@ def check_versions(expected_tag: str | None) -> int:
             )
             return 1
 
-    print(f"Niu version verified: v{canonical}")
+    doc_errors = check_operator_docs_consistency()
+    if doc_errors:
+        print("Operator documentation consistency errors:\n  " + "\n  ".join(doc_errors), file=sys.stderr)
+        return 1
+
+    print(f"Niu version and operator documentation verified: v{canonical}")
     return 0
 
 
@@ -345,6 +388,13 @@ def set_version(raw_version: str, create_tag: bool, update_changelog: bool) -> i
     if count != 1:
         raise RuntimeError("failed to update DEFAULT_VERSION in scripts/install.sh")
     INSTALL_SH.write_text(install_sh_updated, encoding="utf-8")
+
+    readme_text = README_MD.read_text(encoding="utf-8")
+    readme_updated, img_count = README_IMAGE_PATTERN.subn(rf"\g<1>{version}", readme_text)
+    readme_updated, flag_count = README_FLAG_VERSION_PATTERN.subn(rf"\g<1>{version}", readme_updated)
+    if img_count == 0 or flag_count == 0:
+        raise RuntimeError("failed to update version references in README.md")
+    README_MD.write_text(readme_updated, encoding="utf-8")
 
     cargo_lock_text = CARGO_LOCK.read_text(encoding="utf-8")
     cargo_lock_updated, lock_count = CARGO_LOCK_NIU_PATTERN.subn(

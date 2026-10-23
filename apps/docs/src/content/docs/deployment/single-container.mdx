@@ -96,7 +96,17 @@ Each POST returns `201`. Use the returned IDs in the next path. The key response
 
 New keys can access all model routes available in their workspace. Keys with explicit model restrictions receive a filtered model listing. Revocation and expiry are rechecked at dispatch admission. Organization creation and default-workspace setup require the installation bootstrap token. Scoped operators can manage permitted workspace resources according to their role; operator/session management requires an owner.
 
-Non-streaming responses include `x-niu-operation-id` and `x-niu-attempt-id` after dispatch, including provider errors. Streaming responses include these IDs on successful establishment. The OpenAI-compatible streaming adapter persists completion and valid usage at the terminal event. Request `stream_options: {"include_usage": true}` when supported by the provider; the JavaScript SDK does this automatically. Missing/conflicting usage stays unknown, and interrupted streams remain uncertain. SSE events larger than 64 KiB are rejected. `/readyz` checks database availability; `/healthz` reports process liveness.
+Non-streaming responses include `x-niu-operation-id` and `x-niu-attempt-id` after dispatch, including provider errors. Streaming responses include these IDs on successful establishment. Every HTTP request also accepts or generates an edge correlation header (`x-request-id`) and echoes it on responses, including pre-dispatch authentication (`401`) and readiness (`503`) responses. The OpenAI-compatible streaming adapter persists completion and valid usage at the terminal event. Request `stream_options: {"include_usage": true}` when supported by the provider; the JavaScript SDK does this automatically. Missing/conflicting usage stays unknown, and interrupted streams remain uncertain. SSE events larger than 64 KiB are rejected. `/readyz` verifies database reachability, embedded migration schema currency, active routing registry resolution, and encryption key operability within a bounded timeout; `/healthz` reports process liveness.
+
+## Rolling deployments, migrations, and observability
+
+For zero-downtime rolling upgrades across multiple gateway instances:
+
+1. Run `niu-gateway --migrate-only` as a dedicated pre-deploy migration job. If a migration fails, the job exits non-zero and existing serving instances remain untouched.
+2. Optionally run `niu-gateway --check-schema` (or start gateway instances with `NIU_SKIP_STARTUP_MIGRATIONS=true`) so application instances verify exact schema currency at startup without contending on migration locks.
+3. Gate load-balancer traffic on `GET /readyz` (`200 OK`) while keeping `GET /healthz` for process liveness.
+4. Configure request payload capture policy with `NIU_REQUEST_PAYLOAD_CAPTURE`: `default` (captures sanitized request/response bodies unless `x-niu-log-payloads: false` is sent), `opt-in` (captures only when `x-niu-log-payloads: true` is sent), or `disabled` (never captures payloads). Retained payloads expire after 24 hours.
+5. Scrape `GET /api/v1/metrics` using an installation administrator bearer token. Responses include `instance_id` (configurable via `NIU_INSTANCE_ID`) and `started_at_ms` so multi-instance scrapers can distinguish replicas and detect process counter resets across restarts.
 
 
 ## Manage keys in the dashboard

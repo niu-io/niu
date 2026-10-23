@@ -320,29 +320,66 @@ fn currency_valid(currency: &str) -> bool {
     currency.len() == 3 && currency.bytes().all(|b| b.is_ascii_uppercase())
 }
 
+pub(crate) const TRIGGER_CODE_MAPPINGS: &[(&str, fn() -> StoreError)] = &[
+    ("P0005", || StoreError::Unauthorized),
+    ("P0006", || StoreError::Conflict),
+    ("P0007", || StoreError::AccountUnavailable),
+    ("P0008", || StoreError::BudgetExceeded),
+    ("P0009", || StoreError::InvalidPrice),
+    ("P0010", || StoreError::Conflict),
+    ("P0011", || StoreError::Conflict),
+    ("P0020", || StoreError::KeyRequestRateExceeded),
+    ("P0021", || StoreError::KeyConcurrencyExceeded),
+    ("P0022", || StoreError::KeyTokenRateExceeded),
+    ("P0023", || StoreError::KeyTokenBoundRequired),
+    ("P0024", || StoreError::ManagedRouteChanged),
+    ("P0025", || StoreError::VendorRequestRateExceeded),
+    ("P0026", || StoreError::KeyRequestRateDisabled),
+    ("P0027", || StoreError::VendorRequestRateDisabled),
+    ("P0028", || StoreError::GatewayRequestDeadlineExceeded),
+    ("P0039", || StoreError::ProcurementUnavailable),
+];
+
+pub(crate) const TRIGGER_CONSTRAINT_MAPPINGS: &[(&str, fn() -> StoreError)] = &[
+    ("customer_workspace_spending_limit_exceeded", || {
+        StoreError::WorkspaceSpendingLimitExceeded
+    }),
+    ("customer_key_spending_limit_exceeded", || {
+        StoreError::KeySpendingLimitExceeded
+    }),
+];
+
 pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
-    let code = error
-        .as_database_error()
-        .and_then(|database_error| database_error.code())
-        .map(|code| code.into_owned());
-    match code.as_deref() {
-        Some("P0024") => StoreError::ManagedRouteChanged,
-        Some("P0028") => StoreError::GatewayRequestDeadlineExceeded,
-        Some("P0020") => StoreError::KeyRequestRateExceeded,
-        Some("P0025") => StoreError::VendorRequestRateExceeded,
-        Some("P0026") => StoreError::KeyRequestRateDisabled,
-        Some("P0027") => StoreError::VendorRequestRateDisabled,
-        Some("P0021") => StoreError::KeyConcurrencyExceeded,
-        Some("P0022") => StoreError::KeyTokenRateExceeded,
-        Some("P0023") => StoreError::KeyTokenBoundRequired,
-        Some("P0005") => StoreError::Unauthorized,
-        Some("P0006" | "P0010" | "P0011") => StoreError::Conflict,
-        Some("P0007") => StoreError::AccountUnavailable,
-        Some("P0008") => StoreError::BudgetExceeded,
-        Some("P0039") => StoreError::ProcurementUnavailable,
-        Some("P0009") => StoreError::InvalidPrice,
-        _ => StoreError::Database(error),
+    if let Some(database_error) = error.as_database_error() {
+        if let Some(constraint) = database_error.constraint() {
+            for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
+                if *expected == constraint {
+                    return constructor();
+                }
+            }
+        }
+        if let Some(code) = database_error.code() {
+            for (expected, constructor) in TRIGGER_CODE_MAPPINGS {
+                if *expected == code.as_ref() {
+                    return constructor();
+                }
+            }
+        }
     }
+    StoreError::Database(error)
+}
+
+pub(crate) fn map_reservation_error(error: sqlx::Error) -> StoreError {
+    if let Some(database_error) = error.as_database_error() {
+        if let Some(constraint) = database_error.constraint() {
+            for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
+                if *expected == constraint {
+                    return constructor();
+                }
+            }
+        }
+    }
+    StoreError::Database(error)
 }
 
 impl Store {
@@ -412,7 +449,11 @@ impl Store {
             .await
     }
 
-    pub async fn request_id_by_reference(&self, scope: TenantScope, reference: &str) -> Result<Option<Uuid>, StoreError> {
+    pub async fn request_id_by_reference(
+        &self,
+        scope: TenantScope,
+        reference: &str,
+    ) -> Result<Option<Uuid>, StoreError> {
         Ok(sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND public_reference=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(reference)
             .fetch_optional(&self.pool).await?)

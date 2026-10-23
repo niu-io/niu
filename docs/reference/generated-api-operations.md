@@ -40142,6 +40142,3619 @@ HTTP 404: Actor-owned session is absent
 
 HTTP 409: Stale revision, changed idempotent identity, archive or task association conflict
 
+## Read workspace customer charges, tariffs and latest 100 invoices
+
+`GET /api/v1/workspaces/{workspace}/billing`
+
+Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getCustomerBillingByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Billing overview
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "balances",
+        "unresolved",
+        "unpriced",
+        "tariffs",
+        "invoices"
+      ],
+      "properties": {
+        "balances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "currency",
+              "charged_nanos",
+              "unbilled_nanos",
+              "due_nanos",
+              "paid_nanos"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string"
+              },
+              "charged_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "unbilled_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "due_nanos": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                ],
+                "description": "Invoiced charges without an invoice receipt or matching balance debit."
+              },
+              "paid_nanos": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                ],
+                "description": "Charges settled by a balance debit or invoice receipt, counted once, including balance debits before invoicing."
+              }
+            }
+          }
+        },
+        "unresolved": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          ],
+          "description": "Dispatched non-personal requests with a text or media price binding but no corresponding charge; excludes confirmed nonexecution."
+        },
+        "unpriced": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          ],
+          "description": "Dispatched non-personal requests without either a text or media price binding; excludes confirmed nonexecution."
+        },
+        "tariffs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "model_alias",
+              "revision",
+              "currency",
+              "prompt_rate",
+              "completion_rate"
+            ],
+            "properties": {
+              "model_alias": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "prompt_rate": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completion_rate": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "minimum_charge_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
+              },
+              "cached_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              },
+              "request_fee_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+              },
+              "reasoning_completion_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+              },
+              "cache_write_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
+              },
+              "context_tiers": {
+                "type": "array",
+                "maxItems": 32,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "minimum_input_tokens",
+                    "prompt_rate",
+                    "completion_rate"
+                  ],
+                  "properties": {
+                    "minimum_input_tokens": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+                    },
+                    "prompt_rate": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+                    },
+                    "completion_rate": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+                    },
+                    "cached_prompt_rate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[0-9]+$",
+                      "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+                    },
+                    "cache_write_prompt_rate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[0-9]+$",
+                      "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+                    },
+                    "reasoning_completion_rate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[0-9]+$",
+                      "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+                    }
+                  }
+                },
+                "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+              },
+              "discount_baseline_revision": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid",
+                "description": "Original selling-price revision for an explicit discount. API reference only; never a UI label. Resulting rates, currency, category presence and context thresholds are checked against the original. Existing requests retain their pinned revision."
+              },
+              "pricing_source": {
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "platform"
+                ]
+              },
+              "promotion_scope": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "customer",
+                  "global",
+                  null
+                ]
+              },
+              "price_version": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "selected_at": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Selection cutoff as Unix seconds; informational, not a pinned request quote."
+              }
+            }
+          }
+        },
+        "invoices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "from_ms",
+              "to_ms",
+              "currency",
+              "amount_nanos",
+              "created_at",
+              "status",
+              "payment_reference"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "from_ms": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "to_ms": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "amount_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "issued",
+                  "paid"
+                ],
+                "description": "Paid when an invoice receipt exists or every included charge is settled by a matching balance debit or has zero value. Credit-backed account debt remains separate."
+              },
+              "payment_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Invalid or expired credential
+
+HTTP 404: Workspace outside authorized scope
+
+## List workspace spending currencies
+
+`GET /api/v1/workspaces/{workspace}/spending-limit`
+
+Workspace readers may discover company account currencies and this workspace commitment without company-balance access. Absent limits and revisions are null. No state is changed. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listWorkspaceSpendingLimitsByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/WorkspaceSpendingSummary"
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
+
+## Read a workspace spending limit
+
+`GET /api/v1/workspaces/{workspace}/spending-limit/{currency}`
+
+Workspace read permission required. Returns data: null when no explicit limit exists. Does not expose company funds or other workspace usage. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getWorkspaceSpendingLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/WorkspaceSpendingSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
+
+## Set a workspace spending limit
+
+`PUT /api/v1/workspaces/{workspace}/spending-limit/{currency}`
+
+Scoped owner or installation administrator required. Both input fields are nonnegative decimal strings, not null. expected_revision 0 creates the first limit; later writes require the saved revision. Zero denies new paid liability; there is no null reset on this endpoint. A limit below existing commitment is rejected. Writes append actor history and never change company funds. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setWorkspaceSpendingLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/WorkspaceSpendingInput"
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
+
+HTTP 402: Limit is below existing workspace commitment
+
+HTTP 409: Revision conflict or unavailable currency account
+
+HTTP 422: JSON input shape is invalid
+
+## List workspace spending revisions
+
+`GET /api/v1/workspaces/{workspace}/spending-limit/{currency}/history`
+
+Workspace read permission required. Descending immutable history. before_revision is exclusive. next_before_revision is a decimal string or null; an exactly full final page can yield an empty following page. Baseline timestamps and actor data may be null. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listWorkspaceSpendingLimitHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before_revision"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/WorkspaceSpendingHistory"
+      }
+    },
+    "next_before_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
+
+## Read automatically retained gateway request activity
+
+`GET /api/v1/workspaces/{workspace}/requests`
+
+Returns metadata for model attempts admitted by Niu, newest first by default, with the requested sort applied to the whole range. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole workspace scope. summary totals cover the selected filters independent of page. Rows and summary in one response share a database snapshot. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. All workspace responses exclude Provider expenses and platform margins, including for installation administrators. Customer-facing charges and nullable observed request phase timing are included. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listProjectGatewayActivityByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`http_status` (query, optional)
+
+Recorded delivery HTTP status, or unknown when absent; independent of Provider execution.
+
+```json
+{
+  "type": "string",
+  "pattern": "^(unknown|[1-5][0-9]{2})$"
+}
+```
+
+`sort` (query, optional)
+
+Full-range order. Known latency/token values precede unknown values; time and ID break ties. Live traversal is not a cross-page snapshot.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "time_desc",
+    "time_asc",
+    "latency_desc",
+    "input_desc",
+    "output_desc"
+  ],
+  "default": "time_desc"
+}
+```
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+Exclusive cursor from the previous page's next_cursor; continue strictly after this attempt in the same sort order; preserve sort and filters across pages.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+`from_ms` (query, optional)
+
+Inclusive creation-time lower bound as Unix epoch milliseconds.
+
+```json
+{
+  "type": "integer",
+  "format": "int64"
+}
+```
+
+`to_ms` (query, optional)
+
+Exclusive creation-time upper bound as Unix epoch milliseconds.
+
+```json
+{
+  "type": "integer",
+  "format": "int64"
+}
+```
+
+`model_alias` (query, optional)
+
+Exact public model alias filter.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+`operation_id` (query, optional)
+
+Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key_id` (query, optional)
+
+Workspace API key ID filter. Matches the dispatched key or a captured requested key in saved admission-denial evidence while the attempt remains unsent. Does not change billing attribution. Key names and IDs are visible only within the authorized workspace.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`status` (query, optional)
+
+Exact gateway execution state, or output_withheld for recorded blocked/indeterminate output inspection. delivery_failed selects recorded HTTP errors (400–599). recorded_failure selects persisted upstream failure observations, including errors delivered inside HTTP 200 streams, and saved Gateway admission denials while the attempt remains unsent. Missing failure observations are not inferred from execution uncertainty. Completion at the Provider does not establish successful response delivery.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "not_sent",
+    "may_have_executed",
+    "confirmed_completed",
+    "confirmed_not_executed",
+    "output_withheld",
+    "delivery_failed",
+    "recorded_failure"
+  ]
+}
+```
+
+### Responses
+
+HTTP 200: Gateway activity wrapped in data, nullable next_cursor, and summary. Each entry includes attempt_id, operation_id, optional workspace api_key_id/key_name and task_id, an optional summary of the latest supplemental execution record for that task, public model alias and nullable provider-reported model, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable customer charge currency/amount/status and request phase timing. Integer quantities and amounts are decimal strings. Pages follow the requested sort; next_cursor is the last attempt_id when further matching entries remain. summary covers all rows matching the filters, not only the current page.
+
+Response header: `Cache-Control`.
+
+Request diagnostics must not be cached.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor",
+    "summary"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/GatewayActivity"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "request_count",
+        "usage_count",
+        "prompt_tokens",
+        "completion_tokens",
+        "timing_count",
+        "average_duration_ms"
+      ],
+      "properties": {
+        "request_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "usage_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "prompt_tokens": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "completion_tokens": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "timing_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "average_duration_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Rounded mean of completed gateway request totals over all matching requests. Interrupted phase measurements are excluded. Historical rows without phase timing are excluded because their dispatch interval uses a different boundary. No eligible samples returns null."
+        },
+        "unresolved_customer_charge_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unpriced_request_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "owner_funded_request_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Dispatched requests using the account owner\u2019s API credential without a Niu customer debit."
+        },
+        "delivery_statuses": {
+          "type": "array",
+          "description": "Counts by recorded delivery HTTP status across all matching requests in the summary snapshot. Null means unknown, not successful or failed.",
+          "items": {
+            "type": "object",
+            "required": [
+              "http_status",
+              "request_count"
+            ],
+            "properties": {
+              "http_status": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 100,
+                "maximum": 599
+              },
+              "request_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "customer_charges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "currency",
+              "amount_nanos",
+              "charged_requests"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "amount_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "charged_requests": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "usage_by_model": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "model_alias",
+              "request_count",
+              "usage_count",
+              "prompt_tokens",
+              "completion_tokens",
+              "unknown_usage_count"
+            ],
+            "properties": {
+              "model_alias": {
+                "type": "string"
+              },
+              "request_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "usage_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "prompt_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completion_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "unknown_usage_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "charges_by_model": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "type": "object",
+                "description": "Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Provider expenses are excluded.",
+                "required": [
+                  "currency",
+                  "amount_nanos",
+                  "request_count",
+                  "charged_requests",
+                  "unresolved_requests",
+                  "unpriced_requests",
+                  "not_charged_requests"
+                ],
+                "properties": {
+                  "currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "amount_nanos": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  },
+                  "request_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "charged_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "unresolved_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "unpriced_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "not_charged_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": [
+                  "model_alias"
+                ],
+                "properties": {
+                  "model_alias": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "charges_by_key": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "type": "object",
+                "description": "Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Provider expenses are excluded.",
+                "required": [
+                  "currency",
+                  "amount_nanos",
+                  "request_count",
+                  "charged_requests",
+                  "unresolved_requests",
+                  "unpriced_requests",
+                  "not_charged_requests"
+                ],
+                "properties": {
+                  "currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "amount_nanos": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  },
+                  "request_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "charged_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "unresolved_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "unpriced_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "not_charged_requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": [
+                  "api_key_id",
+                  "key_name"
+                ],
+                "properties": {
+                  "api_key_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "key_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "usage_by_key": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "api_key_id",
+              "key_name",
+              "request_count",
+              "usage_count",
+              "prompt_tokens",
+              "completion_tokens",
+              "unknown_usage_count"
+            ],
+            "properties": {
+              "api_key_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "key_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "request_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "usage_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "prompt_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completion_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "unknown_usage_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "latency_percentiles": {
+          "type": "object",
+          "description": "Discrete percentiles of completed gateway body-consumption durations across the filtered range, independent of pagination. Incomplete or missing measurements are excluded. This is not client receipt time or upstream-only generation time.",
+          "required": [
+            "boundary",
+            "sample_count",
+            "p50_ms",
+            "p95_ms",
+            "p99_ms"
+          ],
+          "properties": {
+            "boundary": {
+              "type": "string",
+              "const": "gateway_body_ms"
+            },
+            "sample_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "p50_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "p95_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "p99_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        },
+        "token_categories": {
+          "type": "object",
+          "description": "Explicitly reported token subsets over the full filtered snapshot. Sums cover reported requests only; null means no observations. Missing category data is never inferred as zero, and no category-specific billing rate is implied.",
+          "required": [
+            "cache_write_input_tokens",
+            "cached_input_tokens",
+            "cache_write_input_requests",
+            "cached_input_requests",
+            "cache_write_input_unknown_requests",
+            "cached_input_unknown_requests",
+            "reasoning_output_tokens",
+            "reasoning_output_requests",
+            "reasoning_output_unknown_requests"
+          ],
+          "properties": {
+            "cache_write_input_tokens": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9]+$"
+            },
+            "cached_input_tokens": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9]+$"
+            },
+            "cache_write_input_requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cached_input_requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cache_write_input_unknown_requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cached_input_unknown_requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reasoning_output_tokens": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9]+$"
+            },
+            "reasoning_output_requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reasoning_output_unknown_requests": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "request_histogram": {
+          "type": "array",
+          "maxItems": 24,
+          "description": "Nonempty time buckets over all filtered requests, independent of pagination. Buckets and other summary aggregates share one database snapshot. Empty ranges return an empty array.",
+          "items": {
+            "type": "object",
+            "required": [
+              "start_ms",
+              "end_ms",
+              "request_count"
+            ],
+            "properties": {
+              "start_ms": {
+                "type": "integer"
+              },
+              "end_ms": {
+                "type": "integer"
+              },
+              "request_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Administrator authentication required.
+
+HTTP 400: Invalid path or query parameter.
+
+HTTP 404: Resource missing or outside authorized workspace/owner scope.
+
+## Read a recorded gateway request
+
+`GET /api/v1/workspaces/{workspace}/requests/{attempt}`
+
+Scoped workspace read access required. Accepts a durable run reference or a legacy attempt UUID. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getGatewayRequestByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`attempt` (path, required)
+
+```json
+{
+  "type": "string",
+  "description": "Durable run reference or legacy attempt UUID"
+}
+```
+
+### Responses
+
+HTTP 200: Saved request metadata. Cache-Control: no-store.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/GatewayRequestMetadata"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace read permission denied
+
+HTTP 404: Workspace or request unavailable in this scope
+
+## Supplement missing native request usage from captured OpenRouter evidence
+
+`POST /api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation`
+
+Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while its vendor revision remains current and enabled. New captured references pin the dispatched upstream model independently of later mapping edits; legacy references without that binding still require the unchanged enabled model revision. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Eligible requests have unknown aggregate usage, or confirmed provider-reported totals with missing cache-read/reasoning quantities and no posted customer charge. For known totals, metadata must match both totals and every reported known category, and add at least one previously missing category. Cache-write quantities are not supplied by this lookup; existing quantities are preserved. Canonical metadata must confirm not-cancelled execution with stop/length/tool_calls and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage/category state and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `reconcileRequestUsageByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`attempt` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+### Responses
+
+HTTP 200: Supplemental usage recorded; settlement may remain pending.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "source_version",
+    "recorded_at",
+    "prompt_tokens",
+    "completion_tokens",
+    "cached_input_tokens",
+    "reasoning_output_tokens",
+    "cache_write_input_tokens",
+    "original_execution",
+    "upstream_finish_reason",
+    "upstream_cancelled"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "recorded"
+      ]
+    },
+    "source_version": {
+      "type": "string",
+      "enum": [
+        "openrouter-native-generation-v1",
+        "openrouter-native-generation-v2"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prompt_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_input_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "reasoning_output_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "cache_write_input_tokens": {
+      "type": "null"
+    },
+    "original_execution": {
+      "type": "string",
+      "enum": [
+        "confirmed_completed",
+        "may_have_executed"
+      ]
+    },
+    "upstream_finish_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "stop",
+        "length",
+        "tool_calls",
+        null
+      ],
+      "description": "Null for legacy v1 receipts; never backfilled."
+    },
+    "upstream_cancelled": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "enum": [
+        false,
+        null
+      ],
+      "description": "Explicit false for v2 terminal evidence; null for legacy v1 receipts."
+    }
+  }
+}
+```
+
+HTTP 400: Malformed JSON input.
+
+HTTP 422: Input must be an empty JSON object; unknown fields are rejected.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Installation write access required.
+
+HTTP 404: Scope unavailable.
+
+HTTP 409: Ineligible completion, changed route or conflicting evidence. usage_reconciliation_identity_mismatch means upstream model/reference identity differs from captured request evidence; identities are not exposed. usage_reconciliation_incomplete means matching provider metadata does not confirm a non-cancelled terminal generation. Usage and charges remain unresolved in both cases.
+
+HTTP 502: Upstream metadata unavailable, refused, malformed, oversized or timed out.
+
+HTTP 503: Storage or credential decryption unavailable, including a bounded record-lock or statement timeout. A failed recording transaction preserves prior usage and leaves no partial receipt; retry does not resubmit inference.
+
+## Read recorded supplemental request usage
+
+`GET /api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation`
+
+Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Provider price or endpoint is exposed. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getRequestUsageReconciliationByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`attempt` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Supplemental usage recorded; settlement may remain pending.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "source_version",
+    "recorded_at",
+    "prompt_tokens",
+    "completion_tokens",
+    "cached_input_tokens",
+    "reasoning_output_tokens",
+    "cache_write_input_tokens",
+    "original_execution",
+    "upstream_finish_reason",
+    "upstream_cancelled"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "recorded"
+      ]
+    },
+    "source_version": {
+      "type": "string",
+      "enum": [
+        "openrouter-native-generation-v1",
+        "openrouter-native-generation-v2"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prompt_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_input_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "reasoning_output_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "cache_write_input_tokens": {
+      "type": "null"
+    },
+    "original_execution": {
+      "type": "string",
+      "enum": [
+        "confirmed_completed",
+        "may_have_executed"
+      ]
+    },
+    "upstream_finish_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "stop",
+        "length",
+        "tool_calls",
+        null
+      ],
+      "description": "Null for legacy v1 receipts; never backfilled."
+    },
+    "upstream_cancelled": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "enum": [
+        false,
+        null
+      ],
+      "description": "Explicit false for v2 terminal evidence; null for legacy v1 receipts."
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required.
+
+HTTP 404: No recorded receipt in the authorized workspace.
+
+HTTP 503: Storage or credential decryption unavailable.
+
+## List API key spending limits
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/spending-limit`
+
+Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Provider costs or company balance are exposed. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeySpendingLimitsByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Account currencies and lifetime key commitments; null limit means unlimited and null revision means never configured.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency",
+          "limit_nanos",
+          "revision",
+          "committed_nanos",
+          "remaining_nanos"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "limit_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "committed_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "remaining_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Maximum of cap minus committed customer amount and zero; null for unlimited. This is key allowance only, not company balance or guaranteed admission."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
+## Set API key spending limit
+
+`PUT /api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}`
+
+Workspace/company owner or installation administrator. Cap includes settled customer charges minus refunds plus unreleased reservations, across secret rotations. Lowering below committed liability is rejected. Account and workspace limits still apply. Writes do not add funds. Null explicitly restores unlimited; omission is rejected. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setKeySpendingLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "limit_nanos",
+    "expected_revision"
+  ],
+  "properties": {
+    "limit_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Nonnegative signed-64-bit nanounits or explicit null."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: New immutable policy revision recorded.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid amount or currency
+
+HTTP 401: Authentication required
+
+HTTP 402: Proposed limit is below committed key liability
+
+HTTP 403: Owner permission required
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 409: Stale revision, missing account, or unresolved attribution
+
+HTTP 422: Missing or invalid body fields
+
+## List API key spending history
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}/history`
+
+Descending immutable revision history shared across rotations. Use the last returned revision as before_revision for the next page. Returns currency, nullable limit_nanos, revision, recorded_at, actor_kind and actor_name; never an internal actor identifier. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeySpendingLimitHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Data array of policy revisions
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency",
+          "limit_nanos",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "limit_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
+## Read API key source policy
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/ip-policy`
+
+Scoped readers may inspect the policy shared across secret rotations. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getKeyIpPolicyByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Null revision means never configured. Null networks permit all sources; an empty array denies all sources.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "allowed_cidrs",
+        "revision"
+      ],
+      "properties": {
+        "allowed_cidrs": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "description": "IPv4/IPv6 addresses or CIDRs, normalized to network CIDRs. Null permits all; empty denies all."
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 503: Storage read unavailable, including a bounded lock or statement timeout. Preserve known policy/history; this does not permit bypassing source restrictions.
+
+## Set API key source policy
+
+`PUT /api/v1/workspaces/{workspace}/keys/{key}/ip-policy`
+
+Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setKeyIpPolicyByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "allowed_cidrs",
+    "expected_revision"
+  ],
+  "properties": {
+    "allowed_cidrs": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "description": "IPv4/IPv6 addresses or CIDRs, normalized to network CIDRs. Null permits all; empty denies all."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: New policy and immutable history committed atomically.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid network or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Owner permission required
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 409: Stale policy revision
+
+HTTP 422: Missing or invalid JSON fields
+
+## List API key source policy history
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/ip-policy/history`
+
+Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeyIpPolicyHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy history; no internal actor identifiers.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "allowed_cidrs",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "allowed_cidrs": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "IPv4/IPv6 addresses or CIDRs, normalized to network CIDRs. Null permits all; empty denies all."
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 503: Storage read unavailable, including a bounded lock or statement timeout. Preserve known policy/history; this does not permit bypassing source restrictions.
+
+## Read API key request rate policy
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit`
+
+Scoped readers may inspect the policy shared across secret rotations. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getKeyRequestRateLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Null revision means never configured. Null removes the limit; zero denies dispatch.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/KeyRequestRatePolicy"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+## Set API key request rate policy
+
+`PUT /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit`
+
+Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setKeyRequestRateLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requests_per_minute",
+    "expected_revision"
+  ],
+  "properties": {
+    "requests_per_minute": {
+      "$ref": "#/components/schemas/KeyRequestRateRequestLimit"
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: New policy and immutable history committed atomically. Rolling windows persist across revisions.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Owner permission required
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 409: Stale policy revision
+
+HTTP 422: Missing or invalid JSON fields
+
+## List API key request rate policy history
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit/history`
+
+Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeyRequestRateLimitHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy history; no internal actor identifiers.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "requests_per_minute",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "requests_per_minute": {
+            "$ref": "#/components/schemas/KeyRequestRateRequestLimit"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+## Read API key token usage window
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/token-usage-window`
+
+Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Provider cost. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getKeyTokenUsageWindowByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: One consistent database snapshot, including an empty window for an unused key.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "window_seconds",
+        "window_end",
+        "requests",
+        "known_usage_requests",
+        "unknown_usage_requests",
+        "known_prompt_tokens",
+        "known_completion_tokens"
+      ],
+      "properties": {
+        "window_seconds": {
+          "type": "integer",
+          "const": 60
+        },
+        "window_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "known_usage_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_usage_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "known_prompt_tokens": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "known_completion_tokens": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Read permission required
+
+HTTP 404: Workspace outside operator scope or key absent from workspace
+
+## Read API key concurrency policy
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit`
+
+Scoped readers may inspect the policy shared across secret rotations. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getKeyConcurrencyLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Null revision means never configured. Null removes the limit; zero denies dispatch.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/KeyConcurrencyPolicy"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient management permission
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+## Set API key concurrency policy
+
+`PUT /api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit`
+
+Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setKeyConcurrencyLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "max_concurrent_requests",
+    "expected_revision"
+  ],
+  "properties": {
+    "max_concurrent_requests": {
+      "$ref": "#/components/schemas/KeyConcurrencyConcurrencyLimit"
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: New policy and immutable history committed atomically. Existing unresolved work remains counted across revisions.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Owner permission required
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 409: Stale policy revision
+
+HTTP 422: Missing or invalid JSON fields
+
+## List API key concurrency policy history
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit/history`
+
+Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeyConcurrencyLimitHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy history; no internal actor identifiers.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "max_concurrent_requests",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "max_concurrent_requests": {
+            "$ref": "#/components/schemas/KeyConcurrencyConcurrencyLimit"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient management permission
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+## Inspect requests contributing unresolved key capacity
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/capacity`
+
+Workspace read authority required. Includes the full secret-rotation lineage. Concurrency uses unresolved dispatched requests. Tokens uses reservations and unbounded usage from unresolved dispatches plus completed unknown-usage requests in the rolling 60-second window, matching the token-budget calculation; known recent usage is not returned here. Each page has a fresh statement snapshot. UUID keyset cursor is internal; rows may resolve between pages. Refresh to restart investigation. This read does not contact Providers, reconcile usage, release reservations or retry requests. No credentials, prompt content or procurement data. Cache-Control no-store. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeyCapacityRequestsByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`kind` (query, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "concurrency",
+    "tokens"
+  ],
+  "default": "concurrency"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Matching current contributors and snapshot count
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "total",
+    "snapshot_at",
+    "next_after"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "model_alias",
+          "key_name",
+          "created_at",
+          "dispatched_at",
+          "completed_at",
+          "execution",
+          "reserved_tokens"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "model_alias": {
+            "type": "string"
+          },
+          "key_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dispatched_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "may_have_executed",
+              "confirmed_completed"
+            ]
+          },
+          "reserved_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      }
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "snapshot_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient management permission
+
+HTTP 404: Key or workspace outside the authorized scope
+
+HTTP 409: Cursor unavailable; restart pagination
+
+## Read API key token rate policy
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit`
+
+Scoped readers may inspect the policy shared across secret rotations. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getKeyTokenRateLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Null revision means never configured. Null removes the limit; zero denies dispatch.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/KeyTokenRatePolicy"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+## Set API key token rate policy
+
+`PUT /api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit`
+
+Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setKeyTokenRateLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tokens_per_minute",
+    "expected_revision"
+  ],
+  "properties": {
+    "tokens_per_minute": {
+      "$ref": "#/components/schemas/KeyTokenRateTokenRateLimit"
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: New policy and immutable history committed atomically. Existing unresolved work remains counted across revisions.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Owner permission required
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 409: Stale policy revision
+
+HTTP 422: Missing or invalid JSON fields
+
+## List API key token rate policy history
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit/history`
+
+Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeyTokenRateLimitHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy history; no internal actor identifiers.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "tokens_per_minute",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "tokens_per_minute": {
+            "$ref": "#/components/schemas/KeyTokenRateTokenRateLimit"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.

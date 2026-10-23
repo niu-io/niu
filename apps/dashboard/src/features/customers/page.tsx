@@ -10,7 +10,7 @@ import {Label} from '@/components/ui/label';
 import {Alert,AlertDescription,AlertTitle} from '@/components/ui/alert';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Table,TableHeader,TableHead,TableBody,TableRow,TableCell} from '@/components/ui/table';
-import {NiuAdminClient,type CompanyMetadata} from '../../../../../sdks/javascript/src/admin';
+import {NiuAdminClient,type CompanyMetadata} from '@niu-io/sdk/admin';
 import CustomerSetup from './setup';
 import {readPending,savePending,clearPending,type PendingCreation} from './pending';
 

@@ -38,3 +38,32 @@ export function amountFromNanos(nanos: string): string {
   if (!/^\d{1,19}$/.test(nanos) || BigInt(nanos) > MAX_NANOS) throw new Error('Invalid currency amount.');
   return money(nanos, '').trim();
 }
+
+function formatExactCommaMoney(nanos: bigint | string, currency: string, minDecimals: number): string {
+  const val = typeof nanos === 'bigint' ? nanos : BigInt(nanos || '0');
+  const negative = val < 0n;
+  const abs = negative ? -val : val;
+  const whole = abs / NANOS_PER_UNIT;
+  const rawFrac = (abs % NANOS_PER_UNIT).toString().padStart(9, '0').replace(/0+$/, '');
+  const frac = rawFrac.length < minDecimals ? rawFrac.padEnd(minDecimals, '0') : rawFrac;
+  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const sym = currencySymbol(currency);
+  const prefix = sym && /^[A-Z]{3}$/.test(sym) ? `${sym} ` : sym;
+  return `${negative && abs > 0n ? '-' : ''}${prefix}${wholeFormatted}.${frac}`;
+}
+
+/**
+ * Formats financial statement figures (revenue, costs, payables, cash receipts, balances)
+ * with at least 4 decimal places (.0000) while preserving full sub-4-decimal nanounit precision.
+ */
+export function formatFinancialMoney(nanos: bigint | string, currency: string): string {
+  return formatExactCommaMoney(nanos, currency, 4);
+}
+
+/**
+ * Formats model unit prices / offer quotes with at least 2 decimal places (.00)
+ * while preserving full significant nanounit precision (up to 9 decimal places).
+ */
+export function formatRateMoney(nanos: bigint | string, currency: string): string {
+  return formatExactCommaMoney(nanos, currency, 2);
+}

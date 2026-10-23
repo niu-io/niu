@@ -95,6 +95,34 @@ for (const item of [spec, ...Object.values(spec.paths).flatMap(item => Object.va
 }
 addOpenApiNavigation(spec);
 outputs.set('contracts/generated/public-openapi.json', JSON.stringify(spec, null, 2) + '\n');
+function buildAudienceView(title, audiences) {
+  const allowed = new Set(audiences);
+  const filteredPaths = {};
+  for (const [route, item] of Object.entries(spec.paths)) {
+    const filteredItem = {};
+    for (const [key, value] of Object.entries(item)) {
+      if (!methods.has(key)) {
+        filteredItem[key] = value;
+      } else if (allowed.has(value?.['x-niu-authority']?.audience)) {
+        filteredItem[key] = value;
+      }
+    }
+    if (Object.keys(filteredItem).some(k => methods.has(k))) {
+      filteredPaths[route] = filteredItem;
+    }
+  }
+  return {
+    openapi: spec.openapi,
+    info: { ...spec.info, title },
+    servers: spec.servers,
+    paths: filteredPaths,
+    components: spec.components,
+  };
+}
+outputs.set('contracts/generated/views/model-openapi.json', JSON.stringify(buildAudienceView('Niu Model & Inference API', ['model', 'public']), null, 2) + '\n');
+outputs.set('contracts/generated/views/customer-management-openapi.json', JSON.stringify(buildAudienceView('Niu Customer Workspace & Billing Management API', ['customer-management']), null, 2) + '\n');
+outputs.set('contracts/generated/views/console-openapi.json', JSON.stringify(buildAudienceView('Niu Console & Saved Session API', ['console']), null, 2) + '\n');
+outputs.set('contracts/generated/views/platform-provider-openapi.json', JSON.stringify(buildAudienceView('Niu Platform & Provider Administration API', ['platform', 'provider']), null, 2) + '\n');
 const generated = 'Generated from the checked-in source. Do not edit this reference by hand.';
 function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, 'tableOfContents: false', '---', '', generated, '', ...lines].join('\n') + '\n'; }
 function block(language, value) { return ['```' + language, value, '```', '']; }

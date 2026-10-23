@@ -1,4 +1,4 @@
-import { currencySymbol } from '@/lib/money';
+import { currencySymbol, formatFinancialMoney, formatRateMoney } from '@/lib/money';
 import { usePlatformCurrency } from '@/app/platform-currency';
 import { providerPathSegment } from '@/app/provider-route';
 import { useEffect, useMemo, useState } from 'react';
@@ -38,7 +38,7 @@ import type {
   CommercialPosition,
   CommercialPositionRow,
   CustomerFinancialSummary,
-} from '../../../../../sdks/javascript/src/admin';
+} from '@niu-io/sdk/admin';
 
 type PeriodMode = 'mtd' | 'month' | 'range' | 'rolling';
 
@@ -64,39 +64,6 @@ type ResolvedInterval = {
 
 
 
-
-/**
- * Formats financial statement figures (revenue, costs, payables, cash receipts, balances)
- * to standard 4 decimal places (.0000) with $ or ¥ currency symbols.
- */
-function formatFinancialMoney(nanos: bigint | string, currency: string): string {
-  const val = typeof nanos === 'bigint' ? nanos : BigInt(nanos || '0');
-  const negative = val < 0n;
-  const abs = negative ? -val : val;
-  const scaled4 = (abs + 50_000n) / 100_000n;
-  const whole = scaled4 / 10_000n;
-  const frac = (scaled4 % 10_000n).toString().padStart(4, '0');
-  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const sym = currencySymbol(currency);
-  return `${negative && scaled4 > 0n ? '-' : ''}${sym}${wholeFormatted}.${frac}`;
-}
-
-/**
- * Formats model unit prices / offer quotes with $ or ¥ and preserves full significant
- * decimal precision (up to 9 decimal places, minimum 2 decimal places).
- */
-function formatRateMoney(nanos: bigint | string, currency: string): string {
-  const val = typeof nanos === 'bigint' ? nanos : BigInt(nanos || '0');
-  const negative = val < 0n;
-  const abs = negative ? -val : val;
-  const scale = 1_000_000_000n;
-  const whole = abs / scale;
-  const rawFrac = (abs % scale).toString().padStart(9, '0').replace(/0+$/, '');
-  const frac = rawFrac.length < 2 ? rawFrac.padEnd(2, '0') : rawFrac;
-  const wholeFormatted = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const sym = currencySymbol(currency);
-  return `${negative && abs > 0n ? '-' : ''}${sym}${wholeFormatted}.${frac}`;
-}
 
 function buildRecentMonths(count = 12, now = new Date()): MonthOption[] {
   const curYear = now.getUTCFullYear();
@@ -1367,10 +1334,10 @@ function CommercialStatement({ token }: { token: string }) {
                               formatFinancialMoney(rowCharge, row.currency)
                             )}
                           </div>
-                          {(rowGifts >= 50_000n || rowRefunds >= 50_000n) && (
+                          {(rowGifts > 0n || rowRefunds > 0n) && (
                             <div className="text-xs text-muted-foreground">
-                              {rowGifts >= 50_000n ? `Gift -${formatFinancialMoney(rowGifts, row.currency)}` : ''}
-                              {rowRefunds >= 50_000n
+                              {rowGifts > 0n ? `Gift -${formatFinancialMoney(rowGifts, row.currency)}` : ''}
+                              {rowRefunds > 0n
                                 ? ` Refund -${formatFinancialMoney(rowRefunds, row.currency)}`
                                 : ''}
                             </div>
@@ -1501,7 +1468,7 @@ function CommercialStatement({ token }: { token: string }) {
           {/* Print-only formal document footer */}
           <footer className="commercial-print-only commercial-print-footer hidden">
             <div className="commercial-print-notes">
-              <strong>Accounting &amp; Attribution Notes:</strong> Accrual operating revenue is recognized net of recorded customer balance refunds and consumed promotional gift allowances. Cost of supply reflects accrued Provider payables for matched dispatch cohorts; personal owner-funded calls are excluded. Financial statement figures are rounded to 4 decimal places (.0000); model unit quotes retain full tariff precision.
+              <strong>Accounting &amp; Attribution Notes:</strong> Accrual operating revenue is recognized net of recorded customer balance refunds and consumed promotional gift allowances. Cost of supply reflects accrued Provider payables for matched dispatch cohorts; personal owner-funded calls are excluded. Financial statement figures display at least 4 decimal places (.0000) while preserving exact nanounit precision; model unit quotes retain full tariff precision.
             </div>
             <div className="commercial-print-footer-bar">
               <div className="commercial-print-footer-brand">
@@ -1548,7 +1515,7 @@ function StatementRow({
 }) {
   const formatVal = (val: bigint | null) => {
     if (val === null) return 'Unavailable';
-    if (negateDisplay && val >= 50_000n) return `-${formatFinancialMoney(val, currency)}`;
+    if (negateDisplay && val > 0n) return `-${formatFinancialMoney(val, currency)}`;
     return formatFinancialMoney(val, currency);
   };
   return (

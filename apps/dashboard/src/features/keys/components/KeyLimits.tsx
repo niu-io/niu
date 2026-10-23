@@ -8,7 +8,7 @@ import { keyRequest, KeyRequestError } from '../api';
 import KeyPolicyHistory from './KeyPolicyHistory';
 import KeyTokenUsage from './KeyTokenUsage';
 import KeyCapacity from './KeyCapacity';
-import type { KeyRequestRateLimit, KeyConcurrencyLimit, KeyTokenRateLimit } from '../../../../../../sdks/javascript/src/admin';
+import type { KeyRequestRateLimit, KeyConcurrencyLimit, KeyTokenRateLimit } from '@niu-io/sdk/admin';
 
 type Policy = KeyRequestRateLimit | KeyConcurrencyLimit | KeyTokenRateLimit;
 type Field = 'requests_per_minute' | 'max_concurrent_requests' | 'tokens_per_minute';

@@ -53,37 +53,8 @@ export async function listOperators(token: string, organization?: string, signal
   return { data };
 }
 
-export class AdminRequestError extends Error {
-  constructor(message: string, readonly status: number) {
-    super(message);
-    this.name = 'AdminRequestError';
-  }
-}
-
-export async function request<T>(
-  token: string,
-  path: string,
-  method = 'GET',
-  body?: unknown,
-  signal?: AbortSignal,
-): Promise<T> {
-  const response = await fetch(path, {
-    method,
-    signal,
-    headers: {
-      authorization: 'Bearer ' + token,
-      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    cache: 'no-store',
-  });
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
-    throw new AdminRequestError(payload?.error?.message ?? 'Request failed (' + response.status + ')', response.status);
-  }
-  if (response.status === 204) return undefined as T;
-  return await response.json() as T;
-}
+import { ApiRequestError as AdminRequestError, request } from '@/lib/api-client';
+export { AdminRequestError, request };
 
 export function formatExpiry(unixSeconds: number) {
   return new Date(unixSeconds * 1000).toLocaleString(undefined, {

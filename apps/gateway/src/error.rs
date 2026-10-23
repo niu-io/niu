@@ -12,7 +12,14 @@ pub struct ApiError {
 impl ApiError {
     pub fn from_store(error: niu_storage::StoreError) -> Self {
         match error {
-            niu_storage::StoreError::Database(ref error) if error.as_database_error().and_then(|db| db.constraint()) == Some("platform_currency_guard") => Self::invalid_request("Use the configured platform currency. Configure it once in Admin → Account balances."),
+            niu_storage::StoreError::Database(ref error)
+                if error.as_database_error().and_then(|db| db.constraint())
+                    == Some("platform_currency_guard") =>
+            {
+                Self::invalid_request(
+                    "Use the configured platform currency. Configure it once in Admin → Account balances.",
+                )
+            }
             niu_storage::StoreError::InvalidVendor => {
                 Self::invalid_request("Invalid vendor or model configuration")
             }

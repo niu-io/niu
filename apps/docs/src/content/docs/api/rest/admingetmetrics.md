@@ -45,7 +45,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Process-local counters. Token totals cover only complete provider-reported usage. Unknown attempts include missing or invalid usage, failures, cancellations, native adapter calls without usage provenance, and streams without trustworthy usage/termination evidence. Durable attempt evidence is stored separately; this metrics endpoint is process-local.
+Process-local counters keyed by instance_id and started_at_ms so multi-instance scrapers can distinguish replicas and detect counter resets on process restart. Token totals cover only complete provider-reported usage. Unknown attempts include missing or invalid usage, failures, cancellations, native adapter calls without usage provenance, and streams without trustworthy usage/termination evidence. Durable attempt evidence is stored separately; this metrics endpoint is process-local.
 
 Content type: `application/json`.
 
@@ -53,6 +53,15 @@ Content type: `application/json`.
 {
   "type": "object",
   "properties": {
+    "instance_id": {
+      "type": "string",
+      "description": "Unique process/replica identifier (configured via NIU_INSTANCE_ID or generated per process startup)."
+    },
+    "started_at_ms": {
+      "type": "integer",
+      "format": "int64",
+      "description": "Process startup timestamp in Unix milliseconds for counter-reset detection."
+    },
     "requests_total": {
       "type": "integer"
     },

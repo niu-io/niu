@@ -172,6 +172,27 @@ pub(crate) async fn validate_retained_content(
     Ok(())
 }
 
+/// Fast read-only readiness probe for encryption operability without scanning
+/// the entire retained content history on every health check.
+pub(crate) async fn verify_encryption_readiness(
+    store: &Store,
+    cipher: Option<&CredentialCipher>,
+) -> Result<(), niu_storage::StoreError> {
+    if store.encryption_rotation_active().await? {
+        return Err(niu_storage::StoreError::Conflict);
+    }
+    if let Some((vendor, ciphertext)) = store.vendor_credential_page(None).await?.into_iter().next()
+    {
+        let cipher = cipher.ok_or(niu_storage::StoreError::Conflict)?;
+        cipher
+            .open(vendor, &ciphertext)
+            .map_err(|_| niu_storage::StoreError::Conflict)?;
+    } else if cipher.is_none() && store.has_registered_vendors().await? {
+        return Err(niu_storage::StoreError::Conflict);
+    }
+    Ok(())
+}
+
 /// Authenticate retained legacy records without enabling their product surface.
 pub(crate) async fn validate_saved_codex_credentials(
     store: &Store,

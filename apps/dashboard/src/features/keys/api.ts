@@ -7,7 +7,7 @@ import type {
   KeyIpPolicy,
   WorkspaceKeyCreateInput,
   WorkspaceKeyUpdateInput,
-} from '../../../../../sdks/javascript/src/admin';
+} from '@niu-io/sdk/admin';
 
 export type {
   KeySpendingAccount,

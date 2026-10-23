@@ -102,5 +102,85 @@
   {
     "source": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/intent",
     "target": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/intent"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/billing",
+    "target": "/api/v1/workspaces/{workspace}/billing"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/spending-limit",
+    "target": "/api/v1/workspaces/{workspace}/spending-limit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+    "target": "/api/v1/workspaces/{workspace}/spending-limit/{currency}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
+    "target": "/api/v1/workspaces/{workspace}/spending-limit/{currency}/history"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/requests",
+    "target": "/api/v1/workspaces/{workspace}/requests"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}",
+    "target": "/api/v1/workspaces/{workspace}/requests/{attempt}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+    "target": "/api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}/history"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/ip-policy"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/ip-policy/history"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit/history"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/token-usage-window"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit/history"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/capacity"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit/history"
   }
 ]

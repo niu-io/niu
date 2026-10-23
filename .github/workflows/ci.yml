@@ -6,6 +6,7 @@ on:
       - main
     tags:
       - "*"
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -100,6 +101,13 @@ jobs:
         run: pnpm --dir sdks/mcp run check
       - name: Build MCP server
         run: pnpm --dir sdks/mcp run build
+      - name: Execute gating documentation and SDK behavioral tests
+        run: |
+          pnpm --filter @niu-io/docs test:api
+          pnpm --dir sdks/javascript test
+          pnpm --dir sdks/agent-connect test
+          pnpm --dir sdks/mcp test
+          pnpm --filter @niu-io/dashboard test
 
   fixtures:
     uses: ./.github/workflows/fixtures.yml

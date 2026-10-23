@@ -95,43 +95,13 @@ export type ModelWrite = Omit<ProviderModel, 'vendor_id' | 'revision' | 'pricing
   expected_revision: number | null;
 };
 
-export class ProviderRequestError extends Error {
-  constructor(message: string, readonly status: number) {
-    super(message);
-    this.name = 'ProviderRequestError';
-  }
-}
-export { ProviderRequestError as VendorRequestError };
+import { ApiRequestError as ProviderRequestError, request } from '@/lib/api-client';
+export { ProviderRequestError, ProviderRequestError as VendorRequestError, request };
 
 // A timeout, transport failure or server error cannot establish that a write
 // was rejected before commit. Explicit client rejections retain correction flow.
 export function writeMayHaveCommitted(reason: unknown): boolean {
   return !(reason instanceof ProviderRequestError && reason.status >= 400 && reason.status < 500 && reason.status !== 408);
-}
-
-export async function request<T>(
-  token: string,
-  path: string,
-  method = 'GET',
-  body?: unknown,
-  signal?: AbortSignal,
-): Promise<T> {
-  const response = await fetch(path, {
-    method,
-    signal,
-    cache: 'no-store',
-    headers: {
-      authorization: 'Bearer ' + token,
-      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
-    throw new ProviderRequestError(payload?.error?.message ?? 'Request failed (' + response.status + ')', response.status);
-  }
-  if (response.status === 204) return undefined as T;
-  return await response.json() as T;
 }
 
 export function defaultApiBase(adapter: ProviderAdapter) {

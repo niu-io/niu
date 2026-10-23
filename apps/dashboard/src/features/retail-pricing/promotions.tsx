@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { request, writeMayHaveCommitted } from '@/features/providers/api';
 import { SellingSchedule } from './schedule';
-import type { RetailPriceRecord, RetailPromotionPage, RetailPromotionRetirement, RetailPublicationResult } from '../../../../../sdks/javascript/src/admin';
+import type { RetailPriceRecord, RetailPromotionPage, RetailPromotionRetirement, RetailPublicationResult } from '@niu-io/sdk/admin';
 
 type Promotion = RetailPromotionPage['data'][number] & { pricing_health?: PricingHealth };
 type Observed = { row: Promotion; asOf: string; version: string };

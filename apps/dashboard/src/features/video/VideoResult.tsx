@@ -1,12 +1,12 @@
 import {Link} from 'react-router';
 import {useEffect,useRef,useState} from 'react';
 import {FolderDown,RefreshCw,Check,MoreHorizontal,Download,Film,LoaderCircle,Trash2} from 'lucide-react';
-import type {GenerationArtifactCapture} from '../../../../../sdks/javascript/src/generation-artifact-capture';
+import type {GenerationArtifactCapture} from '@niu-io/sdk/generation-artifact-capture';
 import {Button} from '@/components/ui/button';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter,DialogClose} from '@/components/ui/dialog';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,DropdownMenuSeparator} from '@/components/ui/dropdown-menu';
 import {readVideoResultResponse,videoResultError} from './result';
-import {NiuAdminClient,type TenantScope,type GenerationTask} from '../../../../../sdks/javascript/src/admin';
+import {NiuAdminClient,type TenantScope,type GenerationTask} from '@niu-io/sdk/admin';
 
 export default function VideoResult({client,scope,task,keyId,canWrite,libraryHref}:{client:NiuAdminClient;scope:TenantScope;task:string;keyId?:string;canWrite:boolean;libraryHref?:string}) {
   const authority=Boolean(canWrite&&keyId);

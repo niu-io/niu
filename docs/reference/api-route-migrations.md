@@ -73,6 +73,26 @@ operation for additional key, owner, retention or submission restrictions.
 | PUT, DELETE | `W/sessions/{session}/turns/{turn}` | `L/generations/{session}/turns/{turn}` |
 | PUT | `W/sessions/{session}/turns/{turn}/task` | `L/generations/{session}/turns/{turn}/task` |
 | PUT | `W/sessions/{session}/turns/{turn}/intent` | `L/generations/{session}/turns/{turn}/intent` |
+| GET | `W/billing` | `L/billing` |
+| GET | `W/spending-limit` | `L/spending-limit` |
+| GET, PUT | `W/spending-limit/{currency}` | `L/spending-limit/{currency}` |
+| GET | `W/spending-limit/{currency}/history` | `L/spending-limit/{currency}/history` |
+| GET | `W/requests` | `L/requests` |
+| GET | `W/requests/{attempt}` | `L/requests/{attempt}` |
+| GET, POST | `W/requests/{attempt}/usage-reconciliation` | `L/requests/{attempt}/usage-reconciliation` |
+| GET | `W/keys/{key}/spending-limit` | `L/keys/{key}/spending-limit` |
+| PUT | `W/keys/{key}/spending-limit/{currency}` | `L/keys/{key}/spending-limit/{currency}` |
+| GET | `W/keys/{key}/spending-limit/{currency}/history` | `L/keys/{key}/spending-limit/{currency}/history` |
+| GET, PUT | `W/keys/{key}/ip-policy` | `L/keys/{key}/ip-policy` |
+| GET | `W/keys/{key}/ip-policy/history` | `L/keys/{key}/ip-policy/history` |
+| GET, PUT | `W/keys/{key}/request-rate-limit` | `L/keys/{key}/request-rate-limit` |
+| GET | `W/keys/{key}/request-rate-limit/history` | `L/keys/{key}/request-rate-limit/history` |
+| GET | `W/keys/{key}/token-usage-window` | `L/keys/{key}/token-usage-window` |
+| GET, PUT | `W/keys/{key}/concurrency-limit` | `L/keys/{key}/concurrency-limit` |
+| GET | `W/keys/{key}/concurrency-limit/history` | `L/keys/{key}/concurrency-limit/history` |
+| GET | `W/keys/{key}/capacity` | `L/keys/{key}/capacity` |
+| GET, PUT | `W/keys/{key}/token-rate-limit` | `L/keys/{key}/token-rate-limit` |
+| GET | `W/keys/{key}/token-rate-limit/history` | `L/keys/{key}/token-rate-limit/history` |
 
 Alias contracts are derived from the same handler annotations through
 `contracts/route-aliases.json`. The extractor checks route registration and

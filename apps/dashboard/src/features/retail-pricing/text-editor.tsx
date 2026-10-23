@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
 import { registeredRetailModels } from './api';
-import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '../../../../../sdks/javascript/src/admin';
+import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '@niu-io/sdk/admin';
 
 import { categories, ratesFrom, checkedRates, type Rates, type Tier } from './text-terms';
 

@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioG
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { money } from '@/lib/money';
 import { VendorRequestError } from '@/features/providers/api';
-import type { CustomerTariffHistoryEntry } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerTariffHistoryEntry } from '@niu-io/sdk/admin';
 import { PublicationUnconfirmedError, listPricingModels, listPricingTargets, listCustomerPrices, readPriceHistory, publishCustomerPrice, priceFromNanos, priceToNanos, type PricingTarget, type CurrentTariff } from './api';
 
 export default function CustomerPricingRoute() {

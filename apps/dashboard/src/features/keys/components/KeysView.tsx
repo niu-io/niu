@@ -74,7 +74,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   initialScope: { organizationId: string; projectId: string } | null;
 }) {
   const { workspace, workspaceLoading, rememberChatKey, forgetChatKey, session } = useDashboardContext();
-  const canManagePlatform = Boolean((session?.kind === 'installation' || session?.permissions?.platform_admin) && session?.permissions?.manage_operators);
+  const canManagePlatform = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const location = useLocation();
   const navigate = useNavigate();
   const [keys, setKeys] = useState<ProjectKey[]>([]);

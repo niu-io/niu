@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { IconPaperclip, IconX, IconChevronDown } from '@tabler/icons-react';
-import type { VideoModel } from '../../../../../sdks/javascript/src/index';
+import type { VideoModel } from '@niu-io/sdk';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Label} from '@/components/ui/label';
-import {NiuAdminClient,type TenantScope} from '../../../../../sdks/javascript/src/admin';
-import type {WorkspaceAsset} from '../../../../../sdks/javascript/src/workspace-assets';
-import {NiuAPIError} from '../../../../../sdks/javascript/src/index';
+import {NiuAdminClient,type TenantScope} from '@niu-io/sdk/admin';
+import type {WorkspaceAsset} from '@niu-io/sdk/workspace-assets';
+import {NiuAPIError} from '@niu-io/sdk';
 import { DropdownMenuItem, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import type { ImageReference,SavedVideoReferences } from './request';
 export type NamedImageReference = ImageReference & { name: string };

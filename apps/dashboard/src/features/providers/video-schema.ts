@@ -1,4 +1,4 @@
-import type { VideoOutputSchema } from '../../../../../sdks/javascript/src/admin';
+import type { VideoOutputSchema } from '@niu-io/sdk/admin';
 // Versioned request constraints for one exact model/channel; not qualification.
 export type VideoControl =
   | { kind: 'integer'; minimum: number; maximum: number; default: number | null }

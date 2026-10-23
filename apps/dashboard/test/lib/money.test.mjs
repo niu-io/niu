@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountToNanos, money } from '../../src/lib/money.ts';
+import { amountFromNanos, amountToNanos, formatFinancialMoney, formatRateMoney, money } from '../../src/lib/money.ts';
 
 describe('money formatting', () => {
   it('retains nanounits beyond Number precision', () => {
@@ -8,6 +8,17 @@ describe('money formatting', () => {
     expect(money('1', 'EUR')).toBe('€0.000000001');
     expect(money('0', 'USD')).toBe('$0.00');
     expect(money('-1', 'USD')).toBe('-$0.000000001');
+  });
+
+  it('formats financial and rate amounts with exact sub-4-decimal nanounits and comma grouping', () => {
+    expect(formatFinancialMoney('800000000', 'USD')).toBe('$0.8000');
+    expect(formatFinancialMoney('100000000000', 'USD')).toBe('$100.0000');
+    expect(formatFinancialMoney('12345', 'USD')).toBe('$0.000012345');
+    expect(formatFinancialMoney('-1', 'USD')).toBe('-$0.000000001');
+    expect(formatFinancialMoney('9223372036854775807', 'USD')).toBe('$9,223,372,036.854775807');
+    expect(formatRateMoney('3000000', 'USD')).toBe('$0.003');
+    expect(formatRateMoney('2400000000', 'USD')).toBe('$2.40');
+    expect(amountFromNanos('12345')).toBe('0.000012345');
   });
 });
 

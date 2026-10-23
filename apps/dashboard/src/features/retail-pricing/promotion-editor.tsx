@@ -11,7 +11,7 @@ import { amountFromNanos, amountToNanos, money } from '@/lib/money';
 import { mediaAmount, mediaAmountUnits } from '@/lib/media-price';
 import { retailCustomers, type RetailCustomer } from './api';
 import { categories, checkedRates, ratesFrom, type Rates } from './text-terms';
-import type { RetailPriceRecord, RetailPromotionPublication, RetailPublicationResult, RetailSchedule } from '../../../../../sdks/javascript/src/admin';
+import type { RetailPriceRecord, RetailPromotionPublication, RetailPublicationResult, RetailSchedule } from '@niu-io/sdk/admin';
 
 function discountedRates(draft: Rates, original: Parameters<typeof ratesFrom>[0]) {
   const rates = checkedRates(draft);

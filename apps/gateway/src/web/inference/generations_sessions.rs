@@ -1022,9 +1022,15 @@ pub(in crate::web) async fn get(
     let id = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => match view.category {
-            Category::Video => s.store.generations_session_id_by_reference(sc, &own, &id).await,
+            Category::Video => {
+                s.store
+                    .generations_session_id_by_reference(sc, &own, &id)
+                    .await
+            }
             Category::Chat => s.store.chat_session_id_by_reference(sc, &own, &id).await,
-        }.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+        }
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?,
     };
     match view.category {
         Category::Video => loaded(&s, sc, &own, id).await,

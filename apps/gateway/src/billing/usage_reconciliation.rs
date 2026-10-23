@@ -1,8 +1,9 @@
 //! Installation-triggered, bounded lookup of previously captured generation evidence.
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::State,
     http::{HeaderMap, header},
     response::{IntoResponse, Response},
 };

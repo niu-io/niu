@@ -98,7 +98,7 @@ pub async fn exchange(
     let mut response = StatusCode::NO_CONTENT.into_response();
     response.headers_mut().insert(
         header::SET_COOKIE,
-        runtime.cookie_header(&input.token, remaining.min(28_800) as u32),
+        runtime.cookie_header(&input.token, remaining.min(28_800) as u32)?,
     );
     response.headers_mut().insert(
         header::CACHE_CONTROL,

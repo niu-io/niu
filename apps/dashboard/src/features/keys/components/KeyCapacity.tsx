@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { keyRequest } from '../api';
-import type { KeyCapacityPage, KeyCapacityRequest } from '../../../../../../sdks/javascript/src/admin';
+import type { KeyCapacityPage, KeyCapacityRequest } from '@niu-io/sdk/admin';
 
 function checked(page: KeyCapacityPage) {
   if (!page || !Array.isArray(page.data) || !Number.isSafeInteger(page.total) || page.total < 0 || !Number.isFinite(Date.parse(page.snapshot_at)) || (page.next_after !== null && (typeof page.next_after !== 'string' || !page.next_after))) throw new Error('Capacity details could not be verified.');

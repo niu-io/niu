@@ -1,7 +1,8 @@
 use super::{
-    AdminPermission, ApiError, AppState, HeaderMap, Json, Path, Query, State, TenantScope, Uuid,
-    Value, authorize_project, json,
+    AdminPermission, ApiError, AppState, HeaderMap, Json, Query, State, TenantScope, Uuid, Value,
+    authorize_project, json,
 };
+use crate::web::workspace_path::WorkspacePath as Path;
 use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -529,7 +530,11 @@ pub async fn history(
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CapacityPage { kind: Option<String>, after: Option<Uuid>, limit: Option<i64> }
+pub struct CapacityPage {
+    kind: Option<String>,
+    after: Option<Uuid>,
+    limit: Option<i64>,
+}
 /// ```openapi
 /// {
 ///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity",
@@ -721,14 +726,30 @@ pub async fn capacity(
     headers: HeaderMap,
     Query(query): Query<CapacityPage>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize_project(&state,&headers,AdminPermission::Read,organization,workspace).await?;
-    let kind=query.kind.as_deref().unwrap_or("concurrency");
-    let limit=query.limit.unwrap_or(50);
-    if !matches!(kind,"concurrency"|"tokens") || !(1..=100).contains(&limit) {
-        return Err(ApiError::invalid_request("Use concurrency or tokens and a page size from 1 to 100."));
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization,
+        workspace,
+    )
+    .await?;
+    let kind = query.kind.as_deref().unwrap_or("concurrency");
+    let limit = query.limit.unwrap_or(50);
+    if !matches!(kind, "concurrency" | "tokens") || !(1..=100).contains(&limit) {
+        return Err(ApiError::invalid_request(
+            "Use concurrency or tokens and a page size from 1 to 100.",
+        ));
     }
-    let scope=TenantScope {organization_id:organization,project_id:workspace};
-    let result=state.store.key_capacity_requests(scope,key,kind,query.after,limit).await
-        .map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?;
-    Ok(([("cache-control","no-store")],Json(result)))
+    let scope = TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    let result = state
+        .store
+        .key_capacity_requests(scope, key, kind, query.after, limit)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(([("cache-control", "no-store")], Json(result)))
 }

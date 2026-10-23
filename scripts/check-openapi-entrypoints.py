@@ -74,11 +74,16 @@ def generated_method_visible(file, path, method, generated_file, seen=None):
     return generated_method_visible(target_file, path, method, generated_file, seen)
 
 
+def registered_routes(source):
+    routes = set(re.findall(r'\.route\(\s*"([^"\n]+)"', source))
+    for suffix in re.findall(r'\.dual_route\(\s*"([^"\n]*)"', source):
+        routes.add(f'/admin/v1{suffix}' if suffix else '/admin/v1')
+        routes.add(f'/api/v1{suffix}' if suffix else '/api/v1')
+    return routes
+
+
 def main():
-    routes = set(re.findall(
-        r'\.route\(\s*"([^"\n]+)"',
-        (ROOT / 'apps/gateway/src/web/routes.rs').read_text(),
-    ))
+    routes = registered_routes((ROOT / 'apps/gateway/src/web/routes.rs').read_text())
     root_paths = path_keys((ROOT / 'contracts/openapi.yaml').read_text())
     missing = []
     checked = set()

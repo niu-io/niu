@@ -640,11 +640,237 @@ async fn readiness_and_liveness_do_not_require_credentials(pool: sqlx::PgPool) {
     for path in ["/healthz", "/readyz", "/enterprise/readyz"] {
         let response = app
             .clone()
-            .oneshot(Request::get(path).body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                Request::get(path)
+                    .header("x-request-id", "req_probe_correlation_1")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("x-request-id")
+                .and_then(|v| v.to_str().ok()),
+            Some("req_probe_correlation_1")
+        );
     }
+
+    // Unauthenticated 401 and installation metrics 200 preserve/echo x-request-id
+    let unauthorized = app
+        .clone()
+        .oneshot(
+            Request::get("/api/v1/metrics")
+                .header("x-request-id", "req_auth_401")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        unauthorized
+            .headers()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok()),
+        Some("req_auth_401")
+    );
+
+    let metrics_resp = app
+        .clone()
+        .oneshot(
+            Request::get("/api/v1/metrics")
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(metrics_resp.status(), StatusCode::OK);
+    let metrics_bytes = axum::body::to_bytes(metrics_resp.into_body(), 65536)
+        .await
+        .unwrap();
+    let metrics_body: serde_json::Value = serde_json::from_slice(&metrics_bytes).unwrap();
+    assert!(
+        metrics_body["instance_id"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty())
+    );
+    assert!(
+        metrics_body["started_at_ms"]
+            .as_u64()
+            .is_some_and(|t| t > 0)
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn readiness_fault_injection_checks_schema_registry_and_encryption_while_liveness_stays_ok(
+    pool: sqlx::PgPool,
+) {
+    // 1. Active route registry missing when compiler is attached -> /readyz 503, /healthz 200
+    let mut compiler_state = test_state(None, pool.clone());
+    compiler_state.store = compiler_state
+        .store
+        .with_route_compiler(std::sync::Arc::new(
+            crate::vendors::publication::Compiler::new(
+                compiler_state.config.models.clone(),
+                ["NIU_UPSTREAM_API_KEY".to_owned()].into_iter().collect(),
+            )
+            .unwrap(),
+        ));
+    let compiler_app = router(compiler_state);
+    let ready_missing_reg = compiler_app
+        .clone()
+        .oneshot(
+            Request::get("/readyz")
+                .header("x-request-id", "req_fault_reg")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ready_missing_reg.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        ready_missing_reg
+            .headers()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok()),
+        Some("req_fault_reg")
+    );
+    let health_ok = compiler_app
+        .clone()
+        .oneshot(
+            Request::get("/healthz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(health_ok.status(), StatusCode::OK);
+
+    // 2. Encryption key missing or mismatched when a vendor is registered -> /readyz 503, /healthz 200
+    let mut no_cipher_state = test_state(None, pool.clone());
+    let vendor_id = uuid::Uuid::new_v4();
+    let cipher = crate::vendors::crypto::CredentialCipher::new(&"11".repeat(32)).unwrap();
+    let sealed = cipher.seal(vendor_id, "secret-key").unwrap();
+    no_cipher_state
+        .store
+        .create_vendor(niu_storage::VendorInput {
+            id: vendor_id,
+            name: "Test Vendor".into(),
+            adapter: "openrouter".into(),
+            api_base: "https://openrouter.ai/api/v1".into(),
+            credential_ciphertext: sealed,
+            enabled: true,
+        })
+        .await
+        .unwrap();
+    let mut mismatched_cipher_state = no_cipher_state.clone();
+    mismatched_cipher_state.vendor_cipher = Some(std::sync::Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(&"22".repeat(32)).unwrap(),
+    ));
+    let mismatched_cipher_app = router(mismatched_cipher_state);
+    let ready_mismatched_cipher = mismatched_cipher_app
+        .clone()
+        .oneshot(
+            Request::get("/readyz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        ready_mismatched_cipher.status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+
+    no_cipher_state.vendor_cipher = None;
+    let no_cipher_app = router(no_cipher_state.clone());
+    let ready_no_cipher = no_cipher_app
+        .clone()
+        .oneshot(
+            Request::get("/readyz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ready_no_cipher.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+    // 3. Schema drift -> /readyz 503, /healthz 200; valid cipher + current schema -> /readyz 200
+    let mut valid_cipher_state = no_cipher_state;
+    valid_cipher_state.vendor_cipher = Some(std::sync::Arc::new(cipher));
+    let app = router(valid_cipher_state);
+    sqlx::query(
+        "UPDATE _sqlx_migrations SET success = FALSE WHERE version = (SELECT MAX(version) FROM _sqlx_migrations)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let ready_bad_schema = app
+        .clone()
+        .oneshot(
+            Request::get("/readyz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ready_bad_schema.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let health_still_ok = app
+        .clone()
+        .oneshot(
+            Request::get("/healthz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(health_still_ok.status(), StatusCode::OK);
+    sqlx::query(
+        "UPDATE _sqlx_migrations SET success = TRUE WHERE version = (SELECT MAX(version) FROM _sqlx_migrations)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let ready_recovered = app
+        .clone()
+        .oneshot(
+            Request::get("/readyz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ready_recovered.status(), StatusCode::OK);
+
+    // 4. DB unreachable (pool closed) -> /readyz 503, /healthz 200
+    pool.close().await;
+    let ready_closed = app
+        .clone()
+        .oneshot(
+            Request::get("/readyz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ready_closed.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let health_closed = app
+        .oneshot(
+            Request::get("/healthz")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(health_closed.status(), StatusCode::OK);
 }
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
@@ -1103,11 +1329,22 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         );
     }
     // UX-26: record the original decision before a later policy activation.
-    let denied_snapshot = state.store.guardrail_snapshot(scope, assignment_key.id)
-        .await.unwrap().unwrap();
-    state.store.record_guardrail_preparation_denial(
-        scope, assignment_key.id, &denied_snapshot, "model_denied",
-    ).await.unwrap();
+    let denied_snapshot = state
+        .store
+        .guardrail_snapshot(scope, assignment_key.id)
+        .await
+        .unwrap()
+        .unwrap();
+    state
+        .store
+        .record_guardrail_preparation_denial(
+            scope,
+            assignment_key.id,
+            &denied_snapshot,
+            "model_denied",
+        )
+        .await
+        .unwrap();
     let relaxed = json!({"schema_version":1,"name":"Relaxed","models":{"mode":"allow_all"},"providers":{"mode":"inherit"}});
     state
         .store
@@ -1115,10 +1352,19 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         .await
         .unwrap();
     for (target, expected) in [(scope, StatusCode::OK), (other, StatusCode::FORBIDDEN)] {
-        let response = app.clone().oneshot(Request::get(format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/denials", target.organization_id, target.project_id,
-        )).header("authorization", format!("Bearer {}", viewer.token))
-          .body(axum::body::Body::empty()).unwrap()).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::get(format!(
+                    "/api/v1/organizations/{}/projects/{}/guardrails/denials",
+                    target.organization_id, target.project_id,
+                ))
+                .header("authorization", format!("Bearer {}", viewer.token))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), expected);
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         if expected == StatusCode::OK {
@@ -3907,50 +4153,354 @@ async fn identity_only_owner_creation_replays_without_credentials(pool: PgPool) 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn saved_detector_policy_restore_and_assignment_revalidate_current_eligibility(pool: PgPool) {
-    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
     use crate::guardrails::detector::{Config, CostMode, Runtime};
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
     let mut state = test_state(None, pool);
-    state.store.configure_platform_currency("USD").await.unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     crate::payments::readiness::configure_test_gateway(&mut state).await;
     let scope = state.store.default_workspace().await.unwrap();
-    let operator_scope = OperatorScope { organization_id: scope.organization_id, project_id: Some(scope.project_id) };
-    let writer = state.store.create_operator(operator_scope, "Policy manager", OperatorRole::Admin, 3600, OperatorAuditActor::Installation).await.unwrap();
-    let reader = state.store.create_operator(operator_scope, "Policy reader", OperatorRole::Viewer, 3600, OperatorAuditActor::Installation).await.unwrap();
-    let key = state.store.issue_key(scope, "Policy review key", &["*".into()], 3600).await.unwrap();
+    let operator_scope = OperatorScope {
+        organization_id: scope.organization_id,
+        project_id: Some(scope.project_id),
+    };
+    let writer = state
+        .store
+        .create_operator(
+            operator_scope,
+            "Policy manager",
+            OperatorRole::Admin,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let reader = state
+        .store
+        .create_operator(
+            operator_scope,
+            "Policy reader",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "Policy review key", &["*".into()], 3600)
+        .await
+        .unwrap();
     let config = Config {
-        authorized_workspaces: vec![scope.project_id], cost_mode: CostMode::DeclaredUnmetered,
-        endpoint: "http://127.0.0.1:1/detect".into(), api_key_env: "PATH".into(), revision: "saved-v1".into(),
-        recipient: "Original screening service".into(), region: "Local".into(), retention: "None".into(),
-        timeout_ms: 500, concurrency: 1, max_text_bytes: 1024,
+        authorized_workspaces: vec![scope.project_id],
+        cost_mode: CostMode::DeclaredUnmetered,
+        endpoint: "http://127.0.0.1:1/detect".into(),
+        api_key_env: "PATH".into(),
+        revision: "saved-v1".into(),
+        recipient: "Original screening service".into(),
+        region: "Local".into(),
+        retention: "None".into(),
+        timeout_ms: 500,
+        concurrency: 1,
+        max_text_bytes: 1024,
     };
     let saved = json!({"schema_version":1,"name":"Saved screening","models":{"mode":"inherit"},"providers":{"mode":"inherit"},"input_detectors":[{"detector":"review","configuration_fingerprint":config.fingerprint(),"consent_to_external_processing":true}]});
-    state.store.activate_workspace_guardrail(scope, 0, &saved).await.unwrap();
+    state
+        .store
+        .activate_workspace_guardrail(scope, 0, &saved)
+        .await
+        .unwrap();
     let current = json!({"schema_version":1,"name":"Current policy","models":{"mode":"inherit"},"providers":{"mode":"inherit"}});
-    state.store.activate_workspace_guardrail(scope, 1, &current).await.unwrap();
-    let base = format!("/api/v1/organizations/{}/projects/{}/guardrails", scope.organization_id, scope.project_id);
-    let assignment = format!("/api/v1/organizations/{}/projects/{}/keys/{}/guardrail", scope.organization_id, scope.project_id, key.id);
+    state
+        .store
+        .activate_workspace_guardrail(scope, 1, &current)
+        .await
+        .unwrap();
+    let base = format!(
+        "/api/v1/organizations/{}/projects/{}/guardrails",
+        scope.organization_id, scope.project_id
+    );
+    let assignment = format!(
+        "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
+        scope.organization_id, scope.project_id, key.id
+    );
     for mode in ["changed", "removed", "workspace-disabled", "matching"] {
         let mut candidate = config.clone();
-        if mode == "changed" { candidate.recipient = "Replacement service".into(); }
-        if mode == "workspace-disabled" { candidate.authorized_workspaces.clear(); }
+        if mode == "changed" {
+            candidate.recipient = "Replacement service".into();
+        }
+        if mode == "workspace-disabled" {
+            candidate.authorized_workspaces.clear();
+        }
         let mut runtime_state = state.clone();
-        runtime_state.detectors = Arc::new(if mode == "removed" { HashMap::new() } else { HashMap::from([("review".into(), Runtime::new(candidate))]) });
+        runtime_state.detectors = Arc::new(if mode == "removed" {
+            HashMap::new()
+        } else {
+            HashMap::from([("review".into(), Runtime::new(candidate))])
+        });
         let app = router(runtime_state);
         for credential in [&reader.token, &writer.token] {
             for (method, path, body) in [
-                ("POST", format!("{base}/rollback"), json!({"expected_revision":2,"target_revision":1})),
-                ("PUT", assignment.clone(), json!({"expected_assignment_revision":0,"policy_revision":1})),
+                (
+                    "POST",
+                    format!("{base}/rollback"),
+                    json!({"expected_revision":2,"target_revision":1}),
+                ),
+                (
+                    "PUT",
+                    assignment.clone(),
+                    json!({"expected_assignment_revision":0,"policy_revision":1}),
+                ),
             ] {
-                let response = app.clone().oneshot(Request::builder().method(method).uri(path)
-                    .header("authorization", format!("Bearer {credential}"))
-                    .header("content-type", "application/json")
-                    .body(axum::body::Body::from(body.to_string())).unwrap()).await.unwrap();
-                let expected = if credential == &reader.token { StatusCode::FORBIDDEN } else if mode == "matching" { StatusCode::OK } else { StatusCode::BAD_REQUEST };
+                let response = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method(method)
+                            .uri(path)
+                            .header("authorization", format!("Bearer {credential}"))
+                            .header("content-type", "application/json")
+                            .body(axum::body::Body::from(body.to_string()))
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                let expected = if credential == &reader.token {
+                    StatusCode::FORBIDDEN
+                } else if mode == "matching" {
+                    StatusCode::OK
+                } else {
+                    StatusCode::BAD_REQUEST
+                };
                 assert_eq!(response.status(), expected, "{mode}: {method}");
             }
         }
-        let head = state.store.workspace_guardrail(scope).await.unwrap().unwrap();
+        let head = state
+            .store
+            .workspace_guardrail(scope)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(head["revision"], if mode == "matching" { 3 } else { 2 });
-        assert_eq!(state.store.workspace_guardrail_revision(scope, 1).await.unwrap(), Some(saved.clone()));
+        assert_eq!(
+            state
+                .store
+                .workspace_guardrail_revision(scope, 1)
+                .await
+                .unwrap(),
+            Some(saved.clone())
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_foreign_workspaces(
+    pool: PgPool,
+) {
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+    let mut state = test_state(None, pool);
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let org_a = state
+        .store
+        .create_prepaid_organization("Workspace alias org A", "USD")
+        .await
+        .unwrap();
+    let org_b = state
+        .store
+        .create_prepaid_organization("Workspace alias org B", "USD")
+        .await
+        .unwrap();
+    let ws_a = state
+        .store
+        .create_project(org_a, "Workspace A")
+        .await
+        .unwrap();
+    let ws_b = state
+        .store
+        .create_project(org_b, "Workspace B")
+        .await
+        .unwrap();
+    let operator_a = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: org_a,
+                project_id: Some(ws_a.project_id),
+            },
+            "Operator A",
+            OperatorRole::Admin,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let key_a = state
+        .store
+        .issue_key(ws_a, "Key A", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let app = router(state);
+
+    for (canonical, legacy) in [
+        (
+            format!("/api/v1/workspaces/{}/billing", ws_a.project_id),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/billing",
+                org_a, ws_a.project_id
+            ),
+        ),
+        (
+            format!("/api/v1/workspaces/{}/spending-limit", ws_a.project_id),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/spending-limit",
+                org_a, ws_a.project_id
+            ),
+        ),
+        (
+            format!("/api/v1/workspaces/{}/requests", ws_a.project_id),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/requests",
+                org_a, ws_a.project_id
+            ),
+        ),
+        (
+            format!(
+                "/api/v1/workspaces/{}/keys/{}/spending-limit",
+                ws_a.project_id, key_a.id
+            ),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/keys/{}/spending-limit",
+                org_a, ws_a.project_id, key_a.id
+            ),
+        ),
+        (
+            format!(
+                "/api/v1/workspaces/{}/keys/{}/ip-policy",
+                ws_a.project_id, key_a.id
+            ),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/keys/{}/ip-policy",
+                org_a, ws_a.project_id, key_a.id
+            ),
+        ),
+        (
+            format!(
+                "/api/v1/workspaces/{}/keys/{}/request-rate-limit",
+                ws_a.project_id, key_a.id
+            ),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/keys/{}/request-rate-limit",
+                org_a, ws_a.project_id, key_a.id
+            ),
+        ),
+        (
+            format!(
+                "/api/v1/workspaces/{}/keys/{}/concurrency-limit",
+                ws_a.project_id, key_a.id
+            ),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/keys/{}/concurrency-limit",
+                org_a, ws_a.project_id, key_a.id
+            ),
+        ),
+        (
+            format!(
+                "/api/v1/workspaces/{}/keys/{}/token-rate-limit",
+                ws_a.project_id, key_a.id
+            ),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/keys/{}/token-rate-limit",
+                org_a, ws_a.project_id, key_a.id
+            ),
+        ),
+        (
+            format!(
+                "/api/v1/workspaces/{}/keys/{}/capacity",
+                ws_a.project_id, key_a.id
+            ),
+            format!(
+                "/api/v1/organizations/{}/projects/{}/keys/{}/capacity",
+                org_a, ws_a.project_id, key_a.id
+            ),
+        ),
+    ] {
+        let canonical_res = app
+            .clone()
+            .oneshot(
+                Request::get(&canonical)
+                    .header("authorization", format!("Bearer {}", operator_a.token))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(canonical_res.status(), StatusCode::OK, "{canonical}");
+        let mut canonical_json: Value = serde_json::from_slice(
+            &canonical_res
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+
+        let legacy_res = app
+            .clone()
+            .oneshot(
+                Request::get(&legacy)
+                    .header("authorization", format!("Bearer {}", operator_a.token))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(legacy_res.status(), StatusCode::OK, "{legacy}");
+        let mut legacy_json: Value =
+            serde_json::from_slice(&legacy_res.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        if let Some(obj) = canonical_json.as_object_mut() {
+            obj.remove("snapshot_at");
+        }
+        if let Some(obj) = canonical_json
+            .get_mut("data")
+            .and_then(Value::as_object_mut)
+        {
+            obj.remove("snapshot_at");
+        }
+        if let Some(obj) = legacy_json.as_object_mut() {
+            obj.remove("snapshot_at");
+        }
+        if let Some(obj) = legacy_json.get_mut("data").and_then(Value::as_object_mut) {
+            obj.remove("snapshot_at");
+        }
+        assert_eq!(canonical_json, legacy_json, "parity for {canonical}");
+
+        let foreign_path =
+            canonical.replace(&ws_a.project_id.to_string(), &ws_b.project_id.to_string());
+        let foreign_res = app
+            .clone()
+            .oneshot(
+                Request::get(&foreign_path)
+                    .header("authorization", format!("Bearer {}", operator_a.token))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            foreign_res.status(),
+            StatusCode::NOT_FOUND,
+            "foreign workspace must return 404: {foreign_path}"
+        );
     }
 }

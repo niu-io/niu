@@ -1255,3 +1255,149 @@ async fn customer_warning_changes_are_revision_checked_without_changing_credit(p
         1
     );
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn posted_balance_counter_is_o1_on_100k_entries_and_prevents_concurrent_double_spend(
+    pool: PgPool,
+) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let company = store
+        .create_prepaid_organization("100k ledger owner", "USD")
+        .await
+        .unwrap();
+    let workspace = store
+        .create_project(company, "100k workspace")
+        .await
+        .unwrap();
+    let account: Uuid = sqlx::query_scalar(
+        "SELECT id FROM customer_balance_accounts WHERE organization_id = $1 AND currency = 'USD'",
+    )
+    .bind(company)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Direct tampering with posted_balance_nanos is rejected by guard_customer_account_posted_balance
+    let tamper_err = sqlx::query(
+        "UPDATE customer_balance_accounts SET posted_balance_nanos = 999999 WHERE id = $1",
+    )
+    .bind(account)
+    .execute(&pool)
+    .await
+    .unwrap_err();
+    assert_eq!(
+        tamper_err.as_database_error().unwrap().constraint(),
+        Some("customer_account_posted_balance_guard")
+    );
+
+    // Insert 100,000 synthetic funding entries (10 nanos each = 1,000,000 nanos total)
+    sqlx::query(
+        "INSERT INTO customer_balance_entries(id, organization_id, account_id, currency, kind, amount_nanos, idempotency_key) \
+         SELECT gen_random_uuid(), $1, $2, 'USD', 'funding', 10, gen_random_uuid() \
+         FROM generate_series(1, 100000)",
+    )
+    .bind(company)
+    .bind(account)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let reconciled: bool =
+        sqlx::query_scalar("SELECT niu_verify_customer_account_posted_balance($1)")
+            .bind(account)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(
+        reconciled,
+        "posted_balance_nanos must match 100k ledger sum"
+    );
+
+    let posted: i64 = sqlx::query_scalar(
+        "SELECT posted_balance_nanos::bigint FROM customer_balance_accounts WHERE id = $1",
+    )
+    .bind(account)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(posted, 1_000_000);
+
+    // Verify EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) does not scan customer_balance_entries
+    let explain: serde_json::Value = sqlx::query_scalar(
+        "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) \
+         SELECT a.posted_balance_nanos + a.credit_limit_nanos - niu_customer_account_outstanding(a.id) >= 100 \
+         FROM customer_balance_accounts a WHERE a.id = $1",
+    )
+    .bind(account)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let explain_str = explain.to_string();
+    assert!(
+        !explain_str.contains("customer_balance_entries_account"),
+        "hot reservation check must not scan 100k customer_balance_entries: {explain_str}"
+    );
+
+    // Concurrent reservation benchmark: 8 contenders each trying to reserve 250,000 nanos
+    // against 1,000,000 nanos total capacity -> exactly 4 succeed, 4 fail with BudgetExceeded,
+    // zero double-spend and zero drift.
+    let mut attempts = Vec::new();
+    for _ in 0..8 {
+        let op = store
+            .create_operation(workspace, "gpt-4o-mini")
+            .await
+            .unwrap();
+        let attempt_id = store
+            .prepare_attempt(workspace, op, "gpt-4o-mini", "gpt-4o-mini")
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO customer_attempt_balance_accounts(attempt_id, organization_id, project_id, account_id, currency) \
+             VALUES ($1, $2, $3, $4, 'USD')",
+        )
+        .bind(attempt_id)
+        .bind(company)
+        .bind(workspace.project_id)
+        .bind(account)
+        .execute(&pool)
+        .await
+        .unwrap();
+        attempts.push(attempt_id);
+    }
+
+    let mut handles = Vec::new();
+    for attempt_id in attempts {
+        let s = store.clone();
+        handles.push(tokio::spawn(async move {
+            s.reserve_customer_balance(workspace, attempt_id, 250_000)
+                .await
+        }));
+    }
+    let mut ok_count = 0;
+    let mut budget_exceeded_count = 0;
+    for handle in handles {
+        match handle.await.unwrap() {
+            Ok(()) => ok_count += 1,
+            Err(niu_storage::StoreError::BudgetExceeded) => budget_exceeded_count += 1,
+            Err(other) => panic!("unexpected reservation error: {other:?}"),
+        }
+    }
+    assert_eq!(
+        ok_count, 4,
+        "exactly 4 of 8 x 250k reservations must succeed"
+    );
+    assert_eq!(
+        budget_exceeded_count, 4,
+        "remaining 4 must fail with BudgetExceeded"
+    );
+
+    let still_reconciled: bool =
+        sqlx::query_scalar("SELECT niu_verify_customer_account_posted_balance($1)")
+            .bind(account)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(still_reconciled);
+}

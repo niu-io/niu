@@ -10,6 +10,34 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./admin": {
+      "types": "./dist/admin.d.ts",
+      "import": "./dist/admin.js"
+    },
+    "./generation-artifact-capture": {
+      "types": "./dist/generation-artifact-capture.d.ts",
+      "import": "./dist/generation-artifact-capture.js"
+    },
+    "./generations-sessions": {
+      "types": "./dist/generations-sessions.d.ts",
+      "import": "./dist/generations-sessions.js"
+    },
+    "./media-assets": {
+      "types": "./dist/media-assets.d.ts",
+      "import": "./dist/media-assets.js"
+    },
+    "./media-verification": {
+      "types": "./dist/media-verification.d.ts",
+      "import": "./dist/media-verification.js"
+    },
+    "./platform-audit": {
+      "types": "./dist/platform-audit.d.ts",
+      "import": "./dist/platform-audit.js"
+    },
+    "./workspace-assets": {
+      "types": "./dist/workspace-assets.d.ts",
+      "import": "./dist/workspace-assets.js"
     }
   },
   "files": ["dist", "examples", "README.md"],

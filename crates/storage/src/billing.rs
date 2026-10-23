@@ -304,7 +304,7 @@ SELECT jsonb_build_object(
         if revision != expected_revision {
             return Err(StoreError::Conflict);
         }
-        let safe:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE account_id=$1 AND released_at IS NULL) OR COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_entries WHERE account_id=$1),0)+$2-niu_customer_account_outstanding($1)>=0")
+        let safe:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE account_id=$1 AND released_at IS NULL) OR COALESCE((SELECT posted_balance_nanos FROM customer_balance_accounts WHERE id=$1),0)+$2-niu_customer_account_outstanding($1)>=0")
             .bind(account).bind(credit_limit_nanos).fetch_one(&mut *tx).await?;
         if !safe {
             return Err(StoreError::Unresolved);
@@ -1277,7 +1277,7 @@ pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
             Err(StoreError::Conflict)
         };
     }
-    let funded: bool = sqlx::query_scalar("SELECT COALESCE((SELECT SUM(e.amount_nanos) FROM customer_balance_entries e WHERE e.account_id=a.id),0)+a.credit_limit_nanos-niu_customer_account_outstanding(a.id)>=$2 FROM customer_balance_accounts a WHERE a.id=$1")
+    let funded: bool = sqlx::query_scalar("SELECT a.posted_balance_nanos+a.credit_limit_nanos-niu_customer_account_outstanding(a.id)>=$2 FROM customer_balance_accounts a WHERE a.id=$1")
             .bind(account).bind(maximum_nanos).fetch_one(&mut **tx).await?;
     if !funded {
         return Err(StoreError::BudgetExceeded);
@@ -1287,18 +1287,6 @@ pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
         .bind(maximum_nanos)
         .execute(&mut **tx)
         .await
-        .map_err(|err| match &err {
-            sqlx::Error::Database(db)
-                if db.message().contains("customer workspace spending limit exceeded") =>
-            {
-                StoreError::WorkspaceSpendingLimitExceeded
-            }
-            sqlx::Error::Database(db)
-                if db.message().contains("customer key spending limit exceeded") =>
-            {
-                StoreError::KeySpendingLimitExceeded
-            }
-            _ => StoreError::Database(err),
-        })?;
+        .map_err(crate::accounting::map_reservation_error)?;
     Ok(())
 }

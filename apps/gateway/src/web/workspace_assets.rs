@@ -328,9 +328,29 @@ pub(crate) async fn list(
         .list_workspace_assets(scope, query.kind, query.after, limit)
         .await
         .map_err(ApiError::from_store)?;
-    let sources = state.store.workspace_asset_sources(scope, &actor, &page.data.iter().map(|asset| asset.id).collect::<Vec<_>>()).await.map_err(ApiError::from_store)?;
-    let data = page.data.into_iter().map(|asset| { let source = sources.get(&asset.id).cloned().unwrap_or(Value::Null); let mut value = json!(asset); value["source"] = source; value }).collect::<Vec<_>>();
-    Ok(([("cache-control", "no-store")], Json(json!({"data":data,"next_cursor":page.next_cursor}))))
+    let sources = state
+        .store
+        .workspace_asset_sources(
+            scope,
+            &actor,
+            &page.data.iter().map(|asset| asset.id).collect::<Vec<_>>(),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    let data = page
+        .data
+        .into_iter()
+        .map(|asset| {
+            let source = sources.get(&asset.id).cloned().unwrap_or(Value::Null);
+            let mut value = json!(asset);
+            value["source"] = source;
+            value
+        })
+        .collect::<Vec<_>>();
+    Ok((
+        [("cache-control", "no-store")],
+        Json(json!({"data":data,"next_cursor":page.next_cursor})),
+    ))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -894,8 +914,15 @@ pub(crate) async fn get(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    let source = state.store.workspace_asset_sources(scope, &actor, &[asset]).await.map_err(ApiError::from_store)?.remove(&asset).unwrap_or(Value::Null);
-    let mut data = json!(data); data["source"] = source;
+    let source = state
+        .store
+        .workspace_asset_sources(scope, &actor, &[asset])
+        .await
+        .map_err(ApiError::from_store)?
+        .remove(&asset)
+        .unwrap_or(Value::Null);
+    let mut data = json!(data);
+    data["source"] = source;
     Ok(([("cache-control", "no-store")], Json(json!({"data":data}))))
 }
 #[derive(Deserialize)]
@@ -1141,8 +1168,15 @@ pub(crate) async fn rename(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    let source = state.store.workspace_asset_sources(scope, &actor, &[asset]).await.map_err(ApiError::from_store)?.remove(&asset).unwrap_or(Value::Null);
-    let mut data = json!(data); data["source"] = source;
+    let source = state
+        .store
+        .workspace_asset_sources(scope, &actor, &[asset])
+        .await
+        .map_err(ApiError::from_store)?
+        .remove(&asset)
+        .unwrap_or(Value::Null);
+    let mut data = json!(data);
+    data["source"] = source;
     Ok(([("cache-control", "no-store")], Json(json!({"data":data}))))
 }
 #[derive(Deserialize)]

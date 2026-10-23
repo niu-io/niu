@@ -67,12 +67,14 @@ fn https(value: &str) -> Result<Url, Error> {
 }
 impl Merchant {
     /// Internal binding of verified checkout settings; never expose the digest as a credential.
-    pub fn configuration_digest(&self, context: &[u8]) -> [u8;32] {
+    pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
         use hmac::{Hmac, Mac};
-        let mut mac = Hmac::<sha2::Sha256>::new_from_slice(self.secret.as_bytes()).expect("HMAC key");
+        let mut mac =
+            Hmac::<sha2::Sha256>::new_from_slice(self.secret.as_bytes()).expect("HMAC key");
         mac.update(b"niu:epay:verification:v1");
-        for field in [self.pid.as_bytes(),context] {
-            mac.update(&(field.len() as u64).to_be_bytes());mac.update(field);
+        for field in [self.pid.as_bytes(), context] {
+            mac.update(&(field.len() as u64).to_be_bytes());
+            mac.update(field);
         }
         mac.finalize().into_bytes().into()
     }
@@ -254,11 +256,20 @@ mod tests {
     }
     #[test]
     fn verification_binding_changes_with_credentials_and_checkout_context() {
-        let first=Merchant::new("1234".into(),"fixture-secret-0123456789".into()).unwrap();
-        let changed=Merchant::new("1234".into(),"changed-secret-0123456789".into()).unwrap();
-        assert_eq!(first.configuration_digest(b"checkout-a"),first.configuration_digest(b"checkout-a"));
-        assert_ne!(first.configuration_digest(b"checkout-a"),first.configuration_digest(b"checkout-b"));
-        assert_ne!(first.configuration_digest(b"checkout-a"),changed.configuration_digest(b"checkout-a"));
+        let first = Merchant::new("1234".into(), "fixture-secret-0123456789".into()).unwrap();
+        let changed = Merchant::new("1234".into(), "changed-secret-0123456789".into()).unwrap();
+        assert_eq!(
+            first.configuration_digest(b"checkout-a"),
+            first.configuration_digest(b"checkout-a")
+        );
+        assert_ne!(
+            first.configuration_digest(b"checkout-a"),
+            first.configuration_digest(b"checkout-b")
+        );
+        assert_ne!(
+            first.configuration_digest(b"checkout-a"),
+            changed.configuration_digest(b"checkout-a")
+        );
     }
 
     #[test]

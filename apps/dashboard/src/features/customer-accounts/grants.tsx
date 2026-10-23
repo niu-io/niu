@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IssuedGiftHistory } from './gift-corrections';
 import { request } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos, money } from '@/lib/money';
-import type { CustomerBalanceGrantInput, PreparedCustomerBalanceGrant, IssuedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerBalanceGrantInput, PreparedCustomerBalanceGrant, IssuedCustomerBalanceGrant } from '@niu-io/sdk/admin';
 import type { Editor } from './page';
 
 type Intent = PreparedCustomerBalanceGrant;

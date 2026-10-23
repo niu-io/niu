@@ -1707,9 +1707,10 @@ pub(super) async fn create_as(
         .as_array()
         .is_some_and(|items| items.iter().any(|item| item["type"] != "text"));
     let mut text_body = body.clone();
-    let text_positions: Vec<usize> = body["content"]
+    let content_items = body["content"]
         .as_array()
-        .unwrap()
+        .ok_or_else(|| ApiError::invalid_request("Video content must be an array"))?;
+    let text_positions: Vec<usize> = content_items
         .iter()
         .enumerate()
         .filter(|(_, item)| item["type"] == "text")

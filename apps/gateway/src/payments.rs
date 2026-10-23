@@ -1,7 +1,7 @@
 //! Trusted merchant reconciliation. No browser-return URL grants funding.
-pub(crate) mod readiness;
 mod configuration;
 pub(crate) mod mock_runtime;
+pub(crate) mod readiness;
 
 pub(crate) fn validate_mock_environment() -> Result<(), &'static str> {
     if std::env::var_os("NIU_MOCK_PAYMENT_URL").is_some()
@@ -38,10 +38,15 @@ use uuid::Uuid;
 
 pub(crate) async fn validate_mock_integrations(state: &AppState) -> Result<(), &'static str> {
     if mock_runtime::enabled().await
-        && (state.payments.is_some() || configuration::runtime(state).await
-            .map_err(|_| "Cannot validate test payment isolation")?.is_some())
+        && (state.payments.is_some()
+            || configuration::runtime(state)
+                .await
+                .map_err(|_| "Cannot validate test payment isolation")?
+                .is_some())
     {
-        return Err("Mock payments require an isolated installation without other merchant integrations");
+        return Err(
+            "Mock payments require an isolated installation without other merchant integrations",
+        );
     }
     Ok(())
 }
@@ -173,7 +178,8 @@ pub(crate) async fn integrations(
     let stripe_checkout = state
         .stripe_payments
         .as_ref()
-        .and_then(|runtime| runtime.checkout.as_ref()).filter(|_| mock_enabled);
+        .and_then(|runtime| runtime.checkout.as_ref())
+        .filter(|_| mock_enabled);
     Ok(Json(json!({"data": [
         {"id":"epay", "name":"EPay-compatible gateway", "configuration":"administration_api",
          "checkout":true, "signed_notifications":true, "query_recovery":"unsupported",
@@ -425,9 +431,17 @@ impl Runtime {
                 return SettleOutcome::Probed(Err(api_error));
             }
         };
-        let result=apply_verified_order(&state.store, organization, order, evidence).await;
+        let result = apply_verified_order(&state.store, organization, order, evidence).await;
         if result.is_ok() {
-            if let Err(error)=state.store.verify_payment_notified_settlement(order,"zhifux",&readiness::zhifux_configuration_digest(self)).await {
+            if let Err(error) = state
+                .store
+                .verify_payment_notified_settlement(
+                    order,
+                    "zhifux",
+                    &readiness::zhifux_configuration_digest(self),
+                )
+                .await
+            {
                 return SettleOutcome::Probed(Err(ApiError::from_store(error)));
             }
         }
@@ -560,14 +574,26 @@ pub(crate) async fn notify(
         .ok_or_else(|| ApiError::upstream_message("Payment integration is not configured"))?;
     // A receipt commits before acknowledgment; the worker independently verifies
     // actual payment. This callback never creates a paid ledger entry.
-    tokio::time::timeout(
-        Duration::from_secs(2),
-        async {
-            accept_notification(&state.store,&runtime.callback_merchant,&runtime.merchant,&input).await?;
-            let order=Uuid::parse_str(&input.order_no).map_err(|_| ApiError::invalid_request("Invalid payment notification"))?;
-            state.store.record_payment_signed_notification(order,"zhifux",&readiness::zhifux_configuration_digest(runtime)).await.map_err(ApiError::from_store)
-        },
-    )
+    tokio::time::timeout(Duration::from_secs(2), async {
+        accept_notification(
+            &state.store,
+            &runtime.callback_merchant,
+            &runtime.merchant,
+            &input,
+        )
+        .await?;
+        let order = Uuid::parse_str(&input.order_no)
+            .map_err(|_| ApiError::invalid_request("Invalid payment notification"))?;
+        state
+            .store
+            .record_payment_signed_notification(
+                order,
+                "zhifux",
+                &readiness::zhifux_configuration_digest(runtime),
+            )
+            .await
+            .map_err(ApiError::from_store)
+    })
     .await
     .map_err(|_| {
         ApiError::upstream_message("Payment notification processing timed out; retry delivery")
@@ -904,7 +930,15 @@ pub(crate) async fn create_topup(
             .await
             .map_err(ApiError::from_store)?
     {
-        state.store.bind_payment_checkout_verification(order.id,"zhifux",&readiness::zhifux_configuration_digest(runtime)).await.map_err(ApiError::from_store)?;
+        state
+            .store
+            .bind_payment_checkout_verification(
+                order.id,
+                "zhifux",
+                &readiness::zhifux_configuration_digest(runtime),
+            )
+            .await
+            .map_err(ApiError::from_store)?;
         let created = runtime.client.create_order(&order.id.simple().to_string(), amount, &input.payment_method, &runtime.notify_url).await
             .map_err(|failure| {
                 use niu_payments::zhifux_transport::Error;
@@ -940,7 +974,10 @@ pub(crate) async fn create_topup(
 }
 
 fn present_mock_checkout(state: &AppState, view: &mut Value) {
-    if let Some(checkout) = state.stripe_payments.as_ref().and_then(|runtime| runtime.checkout.as_ref())
+    if let Some(checkout) = state
+        .stripe_payments
+        .as_ref()
+        .and_then(|runtime| runtime.checkout.as_ref())
         && let Some(stored) = view["checkout_url"].as_str()
         && let Some(local) = checkout.client.mock_checkout_url(stored)
     {
@@ -1123,7 +1160,9 @@ pub(crate) async fn topup_history(
         .customer_topup_history(organization, query.before)
         .await
         .map_err(ApiError::from_store)?;
-    for item in &mut data { present_mock_checkout(&state, item); }
+    for item in &mut data {
+        present_mock_checkout(&state, item);
+    }
     Ok(Json(json!({"data":data,"next_cursor":next_cursor})))
 }
 
@@ -1285,7 +1324,11 @@ pub(crate) async fn payment_methods(
         ));
     }
     if query.currency.is_none() {
-        query.currency = state.store.platform_currency().await.map_err(ApiError::from_store)?;
+        query.currency = state
+            .store
+            .platform_currency()
+            .await
+            .map_err(ApiError::from_store)?;
     }
     let accounts = state
         .store
@@ -1333,7 +1376,10 @@ pub(crate) async fn payment_methods(
     {
         let currency = checkout.currency.to_ascii_uppercase();
         let mock_enabled = !mock_runtime::available() || mock_runtime::enabled().await;
-        let available = mock_enabled && accounts.iter().any(|account| account["currency"] == currency);
+        let available = mock_enabled
+            && accounts
+                .iter()
+                .any(|account| account["currency"] == currency);
         return Ok(Json(
             json!({"data":{"currency":currency,"payment_gateway":"stripe","available":available,
             "payment_methods":if available { checkout.methods.clone() } else { Vec::new() },
@@ -1698,12 +1744,19 @@ mod tests {
 
     #[sqlx::test(migrations = "../../crates/storage/migrations")]
     #[ignore = "requires PostgreSQL"]
-    async fn native_checkout_signed_notification_and_worker_settlement_qualify_current_configuration(pool: sqlx::PgPool) {
-        use axum::{extract::Query,routing::post,Router};
-        use md5::{Digest,Md5};
-        use std::sync::{Arc,atomic::{AtomicUsize,Ordering}};
-        let creations=Arc::new(AtomicUsize::new(0));let queries=Arc::new(AtomicUsize::new(0));
-        let create_count=creations.clone();let query_count=queries.clone();
+    async fn native_checkout_signed_notification_and_worker_settlement_qualify_current_configuration(
+        pool: sqlx::PgPool,
+    ) {
+        use axum::{Router, extract::Query, routing::post};
+        use md5::{Digest, Md5};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        let creations = Arc::new(AtomicUsize::new(0));
+        let queries = Arc::new(AtomicUsize::new(0));
+        let create_count = creations.clone();
+        let query_count = queries.clone();
         let merchant_app=Router::new().route("/startOrder",post(move |Query(input):Query<std::collections::HashMap<String,String>>| {let count=create_count.clone();async move {
             count.fetch_add(1,Ordering::SeqCst);
             Json(json!({"success":true,"code":200,"data":{"id":format!("native{}",input["orderNo"]),"payUrl":"https://checkout.example/payment"}}))
@@ -1711,34 +1764,130 @@ mod tests {
             count.fetch_add(1,Ordering::SeqCst);
             Json(json!({"success":true,"code":200,"data":{"orderId":format!("native{}",input["orderNo"]),"orderNo":input["orderNo"],"merchantNum":"merchant01","amount":"1.00","tradeMoney":"1.00","payType":"wxpaynative","orderState":"4"}}))
         }}));
-        let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();let base=format!("http://{}",listener.local_addr().unwrap());
-        let server=tokio::spawn(async move {axum::serve(listener,merchant_app).await.unwrap()});
-        let store=niu_storage::Store::from_pool(pool.clone());store.configure_platform_currency("CNY").await.unwrap();
-        let company=store.create_prepaid_organization("Native integration acceptance","CNY").await.unwrap();
-        let mut state=AppState::new(toml::from_str("[models]").unwrap(),store.clone(),crate::state::TokenSet::parse("NIU_ADMIN_TOKENS","native-fixture-installation-token-123456789".into()).unwrap(),std::collections::HashMap::new());
-        state.payments=Some(Arc::new(Runtime{callback_merchant:Merchant::new("merchant01".into(),"callback-test-secret".into()).unwrap(),merchant:"merchant01".into(),client:Client::fixture(&base,Merchant::new("merchant01".into(),"callback-test-secret".into()).unwrap(),&["https://checkout.example".into()]).unwrap(),query_started:Mutex::new(None),notify_url:"https://niu.example/payments/zhifux/notify".into(),payment_methods:vec!["wxpaynative".into()]}));
-        let app=crate::web::router(state.clone());
-        let path=format!("/api/v1/organizations/{company}/billing/topups");
-        let input=json!({"payment_gateway":"zhifux","currency":"CNY","amount_nanos":"1000000000","payment_method":"wxpaynative","idempotency_key":Uuid::new_v4()});
-        let response=app.clone().oneshot(Request::post(path).header("authorization","Bearer native-fixture-installation-token-123456789").header("content-type","application/json").body(Body::from(input.to_string())).unwrap()).await.unwrap();
-        assert_eq!(response.status(),StatusCode::OK);
-        let order:Uuid=sqlx::query_scalar("SELECT id FROM customer_topup_orders WHERE organization_id=$1").bind(company).fetch_one(&pool).await.unwrap();
-        let number=order.simple().to_string();let signature=format!("{:x}",Md5::digest(format!("1merchant01{number}1.00callback-test-secret")));
-        let notification=format!("merchantNum=merchant01&orderNo={number}&amount=1.00&state=1&sign={signature}");
-        let bad=app.clone().oneshot(Request::post("/payments/zhifux/notify").header("content-type","application/x-www-form-urlencoded").body(Body::from(notification.replace("amount=1.00","amount=2.00"))).unwrap()).await.unwrap();
-        assert_eq!(bad.status(),StatusCode::BAD_REQUEST);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server =
+            tokio::spawn(async move { axum::serve(listener, merchant_app).await.unwrap() });
+        let store = niu_storage::Store::from_pool(pool.clone());
+        store.configure_platform_currency("CNY").await.unwrap();
+        let company = store
+            .create_prepaid_organization("Native integration acceptance", "CNY")
+            .await
+            .unwrap();
+        let mut state = AppState::new(
+            toml::from_str("[models]").unwrap(),
+            store.clone(),
+            crate::state::TokenSet::parse(
+                "NIU_ADMIN_TOKENS",
+                "native-fixture-installation-token-123456789".into(),
+            )
+            .unwrap(),
+            std::collections::HashMap::new(),
+        );
+        state.payments = Some(Arc::new(Runtime {
+            callback_merchant: Merchant::new("merchant01".into(), "callback-test-secret".into())
+                .unwrap(),
+            merchant: "merchant01".into(),
+            client: Client::fixture(
+                &base,
+                Merchant::new("merchant01".into(), "callback-test-secret".into()).unwrap(),
+                &["https://checkout.example".into()],
+            )
+            .unwrap(),
+            query_started: Mutex::new(None),
+            notify_url: "https://niu.example/payments/zhifux/notify".into(),
+            payment_methods: vec!["wxpaynative".into()],
+        }));
+        let app = crate::web::router(state.clone());
+        let path = format!("/api/v1/organizations/{company}/billing/topups");
+        let input = json!({"payment_gateway":"zhifux","currency":"CNY","amount_nanos":"1000000000","payment_method":"wxpaynative","idempotency_key":Uuid::new_v4()});
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(path)
+                    .header(
+                        "authorization",
+                        "Bearer native-fixture-installation-token-123456789",
+                    )
+                    .header("content-type", "application/json")
+                    .body(Body::from(input.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let order: Uuid =
+            sqlx::query_scalar("SELECT id FROM customer_topup_orders WHERE organization_id=$1")
+                .bind(company)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let number = order.simple().to_string();
+        let signature = format!(
+            "{:x}",
+            Md5::digest(format!("1merchant01{number}1.00callback-test-secret"))
+        );
+        let notification =
+            format!("merchantNum=merchant01&orderNo={number}&amount=1.00&state=1&sign={signature}");
+        let bad = app
+            .clone()
+            .oneshot(
+                Request::post("/payments/zhifux/notify")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(
+                        notification.replace("amount=1.00", "amount=2.00"),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(bad.status(), StatusCode::BAD_REQUEST);
         for _ in 0..2 {
-            let response=app.clone().oneshot(Request::post("/payments/zhifux/notify").header("content-type","application/x-www-form-urlencoded").body(Body::from(notification.clone())).unwrap()).await.unwrap();
-            assert_eq!(response.status(),StatusCode::OK);
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::post("/payments/zhifux/notify")
+                        .header("content-type", "application/x-www-form-urlencoded")
+                        .body(Body::from(notification.clone()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
         }
-        assert_eq!(queries.load(Ordering::SeqCst),0,"callback acknowledgment never queries or funds");
+        assert_eq!(
+            queries.load(Ordering::SeqCst),
+            0,
+            "callback acknowledgment never queries or funds"
+        );
         assert!(!readiness::inspect(&state).await.unwrap().ready);
-        assert_eq!(state.payments.as_ref().unwrap().recover_next(&state,None).await.unwrap(),Some(order));
+        assert_eq!(
+            state
+                .payments
+                .as_ref()
+                .unwrap()
+                .recover_next(&state, None)
+                .await
+                .unwrap(),
+            Some(order)
+        );
         assert!(readiness::inspect(&state).await.unwrap().ready);
-        assert_eq!(creations.load(Ordering::SeqCst),1);assert_eq!(queries.load(Ordering::SeqCst),1);
-        let credits:i64=sqlx::query_scalar("SELECT count(*) FROM customer_balance_entries WHERE kind='funding'").fetch_one(&pool).await.unwrap();assert_eq!(credits,1);
-        let digest=readiness::zhifux_configuration_digest(state.payments.as_ref().unwrap());
-        assert!(store.payment_callback_verified("zhifux",&digest).await.unwrap());
+        assert_eq!(creations.load(Ordering::SeqCst), 1);
+        assert_eq!(queries.load(Ordering::SeqCst), 1);
+        let credits: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM customer_balance_entries WHERE kind='funding'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(credits, 1);
+        let digest = readiness::zhifux_configuration_digest(state.payments.as_ref().unwrap());
+        assert!(
+            store
+                .payment_callback_verified("zhifux", &digest)
+                .await
+                .unwrap()
+        );
         server.abort();
     }
 
@@ -2682,9 +2831,18 @@ pub(crate) async fn stripe_notify(
         .await
         .map_err(ApiError::from_store)?;
     if !mock_runtime::available() {
-        if let Some(currency) = state.store.platform_currency().await.map_err(ApiError::from_store)? {
+        if let Some(currency) = state
+            .store
+            .platform_currency()
+            .await
+            .map_err(ApiError::from_store)?
+        {
             if let Some(digest) = readiness::stripe_configuration_digest(runtime, &currency) {
-                state.store.verify_payment_callback(order.id, "stripe", &digest).await.map_err(ApiError::from_store)?;
+                state
+                    .store
+                    .verify_payment_callback(order.id, "stripe", &digest)
+                    .await
+                    .map_err(ApiError::from_store)?;
             }
         }
     }
@@ -2751,9 +2909,19 @@ mod stripe_tests {
             }),
         }));
         let qualified_runtime = state.stripe_payments.clone();
-        let digest = readiness::stripe_configuration_digest(qualified_runtime.as_ref().unwrap(), "USD").unwrap();
-        assert!(store.claim_customer_topup_creation(company, order.id).await.unwrap());
-        store.bind_payment_checkout_verification(order.id, "stripe", &digest).await.unwrap();
+        let digest =
+            readiness::stripe_configuration_digest(qualified_runtime.as_ref().unwrap(), "USD")
+                .unwrap();
+        assert!(
+            store
+                .claim_customer_topup_creation(company, order.id)
+                .await
+                .unwrap()
+        );
+        store
+            .bind_payment_checkout_verification(order.id, "stripe", &digest)
+            .await
+            .unwrap();
         store
             .bind_customer_topup_checkout(
                 company,
@@ -2843,7 +3011,12 @@ mod stripe_tests {
         );
         let failed_count: i64 = sqlx::query_scalar("SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1 AND kind='funding'").bind(company).fetch_one(&pool).await.unwrap();
         assert_eq!(failed_count, 0);
-        assert!(!store.payment_callback_verified("stripe", &digest).await.unwrap());
+        assert!(
+            !store
+                .payment_callback_verified("stripe", &digest)
+                .await
+                .unwrap()
+        );
         assert_eq!(
             store.customer_topup_paid(company, order.id).await.unwrap(),
             Some(false)
@@ -2883,12 +3056,25 @@ mod stripe_tests {
         );
         let count: i64 = sqlx::query_scalar("SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1 AND kind='funding'").bind(company).fetch_one(&pool).await.unwrap();
         assert_eq!(count, 1);
-        assert!(!store.payment_callback_verified("stripe", &digest).await.unwrap(), "disabled checkout must settle without qualifying current configuration");
+        assert!(
+            !store
+                .payment_callback_verified("stripe", &digest)
+                .await
+                .unwrap(),
+            "disabled checkout must settle without qualifying current configuration"
+        );
         recovered.stripe_payments = qualified_runtime;
-        let response = crate::web::router(recovered).oneshot(request(&fixture, true)).await.unwrap();
+        let response = crate::web::router(recovered)
+            .oneshot(request(&fixture, true))
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        assert!(store.payment_callback_verified("stripe", &digest).await.unwrap());
-
+        assert!(
+            store
+                .payment_callback_verified("stripe", &digest)
+                .await
+                .unwrap()
+        );
     }
 }
 
@@ -2963,9 +3149,18 @@ async fn create_stripe_topup(
             .map_err(ApiError::from_store)?
     {
         if !mock_runtime::available() {
-            if let Some(currency) = state.store.platform_currency().await.map_err(ApiError::from_store)? {
+            if let Some(currency) = state
+                .store
+                .platform_currency()
+                .await
+                .map_err(ApiError::from_store)?
+            {
                 if let Some(digest) = readiness::stripe_configuration_digest(runtime, &currency) {
-                    state.store.bind_payment_checkout_verification(order.id, "stripe", &digest).await.map_err(ApiError::from_store)?;
+                    state
+                        .store
+                        .bind_payment_checkout_verification(order.id, "stripe", &digest)
+                        .await
+                        .map_err(ApiError::from_store)?;
                 }
             }
         }
@@ -3094,7 +3289,9 @@ mod stripe_recovery_tests {
             .await
             .unwrap();
         sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,'CNY')").bind(Uuid::new_v4()).bind(company).execute(&pool).await.unwrap();
-        if configured_currency { store.configure_platform_currency("USD").await.unwrap(); }
+        if configured_currency {
+            store.configure_platform_currency("USD").await.unwrap();
+        }
         let mut rows = Vec::new();
         let mut responses = std::collections::HashMap::new();
         for (index, status) in ["paid", "pending", "expired"].into_iter().enumerate() {
@@ -3217,9 +3414,16 @@ mod stripe_recovery_tests {
                     methods: vec!["alipay".into()],
                 }),
             }));
-            let digest = readiness::stripe_configuration_digest(state.stripe_payments.as_ref().unwrap(), "USD").unwrap();
+            let digest = readiness::stripe_configuration_digest(
+                state.stripe_payments.as_ref().unwrap(),
+                "USD",
+            )
+            .unwrap();
             let app = crate::web::router(state);
-            for (gateway, currency) in [("epay", "CNY"), ("stripe", "USD")].into_iter().filter(|(gateway,_)| !configured_currency || *gateway == "stripe") {
+            for (gateway, currency) in [("epay", "CNY"), ("stripe", "USD")]
+                .into_iter()
+                .filter(|(gateway, _)| !configured_currency || *gateway == "stripe")
+            {
                 let response = app.clone().oneshot(Request::get(format!("/admin/v1/organizations/{company}/billing/payment-methods?payment_gateway={gateway}&currency={currency}"))
                     .header("authorization", "Bearer stripe-recovery-installation-token-123456789").body(Body::empty()).unwrap()).await.unwrap();
                 assert_eq!(response.status(), StatusCode::OK);
@@ -3235,7 +3439,7 @@ mod stripe_recovery_tests {
                 assert_eq!(value["data"]["payment_methods"], json!(["alipay"]));
             }
             let epay_key = Uuid::new_v4();
-            for _ in 0..if configured_currency {0} else {2} {
+            for _ in 0..if configured_currency { 0 } else { 2 } {
                 let response = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
                     .header("authorization", "Bearer stripe-recovery-installation-token-123456789").header("content-type", "application/json")
                     .body(Body::from(json!({"payment_gateway":"epay","currency":"CNY","amount_nanos":"1230000000","payment_method":"alipay","idempotency_key":epay_key}).to_string())).unwrap()).await.unwrap();
@@ -3250,7 +3454,12 @@ mod stripe_recovery_tests {
             }
             let captured: Option<Vec<u8>> = sqlx::query_scalar("SELECT configuration_digest FROM payment_checkout_verification WHERE order_id=$1 AND gateway='stripe'").bind(order.id).fetch_optional(&pool).await.unwrap();
             assert_eq!(captured, configured_currency.then(|| digest.to_vec()));
-            assert!(!store.payment_callback_verified("stripe", &digest).await.unwrap());
+            assert!(
+                !store
+                    .payment_callback_verified("stripe", &digest)
+                    .await
+                    .unwrap()
+            );
             assert!(
                 store
                     .customer_topup_checkout(company, order.id)
@@ -3289,7 +3498,13 @@ mod stripe_recovery_tests {
                     .unwrap(),
                 Some(status == "expired")
             );
-            assert!(!store.payment_callback_verified("stripe", &digest).await.unwrap(), "server reconciliation alone does not prove callback delivery");
+            assert!(
+                !store
+                    .payment_callback_verified("stripe", &digest)
+                    .await
+                    .unwrap(),
+                "server reconciliation alone does not prove callback delivery"
+            );
             if status == "pending" {
                 assert!(
                     store
@@ -3305,7 +3520,7 @@ mod stripe_recovery_tests {
         assert_eq!(funding, 1);
         assert_eq!(creations.load(std::sync::atomic::Ordering::SeqCst), 3);
         let epay_orders: i64 = sqlx::query_scalar("SELECT count(*) FROM customer_topup_orders WHERE organization_id=$1 AND aggregator='epay' AND currency='CNY'").bind(company).fetch_one(&pool).await.unwrap();
-        assert_eq!(epay_orders, if configured_currency {0} else {3});
+        assert_eq!(epay_orders, if configured_currency { 0 } else { 3 });
         let cny_credits: i64 = sqlx::query_scalar("SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1 AND currency='CNY' AND kind='funding'").bind(company).fetch_one(&pool).await.unwrap();
         assert_eq!(cny_credits, 0);
         server.abort();
@@ -3449,7 +3664,8 @@ async fn create_epay_topup(
             },
             configuration_revision,
             member,
-            &readiness::epay_configuration_digest(runtime).ok_or_else(|| ApiError::upstream_message("EPay checkout is not configured"))?,
+            &readiness::epay_configuration_digest(runtime)
+                .ok_or_else(|| ApiError::upstream_message("EPay checkout is not configured"))?,
             &|id| {
                 runtime
                     .verifier
@@ -3789,7 +4005,11 @@ async fn epay_notify_inner(
         .await
         .map_err(ApiError::from_store)?;
     if let Some(digest) = readiness::epay_configuration_digest(&runtime) {
-        state.store.verify_payment_callback(order.id,"epay",&digest).await.map_err(ApiError::from_store)?;
+        state
+            .store
+            .verify_payment_callback(order.id, "epay", &digest)
+            .await
+            .map_err(ApiError::from_store)?;
     }
     Ok(([("cache-control", "no-store")], "success"))
 }
@@ -4017,57 +4237,185 @@ mod epay_tests {
                 .await
                 .unwrap();
         assert_eq!(bindings, 0);
-        initial.store.configure_platform_currency("CNY").await.unwrap();
-        let digest = readiness::epay_configuration_digest(initial.epay_payments.as_ref().unwrap()).unwrap();
-        assert!(!readiness::inspect(&initial).await.unwrap().ready,"saved checkout alone is not operational proof");
-        let order:Uuid=fields["out_trade_no"].parse().unwrap();
-        assert_eq!(post(&app,&callback(order,"1.24")).await,StatusCode::BAD_REQUEST);
-        assert!(!initial.store.payment_callback_verified("epay",&digest).await.unwrap());
-        assert_eq!(post(&app,&callback(order,"1.23")).await,StatusCode::OK);
+        initial
+            .store
+            .configure_platform_currency("CNY")
+            .await
+            .unwrap();
+        let digest =
+            readiness::epay_configuration_digest(initial.epay_payments.as_ref().unwrap()).unwrap();
+        assert!(
+            !readiness::inspect(&initial).await.unwrap().ready,
+            "saved checkout alone is not operational proof"
+        );
+        let order: Uuid = fields["out_trade_no"].parse().unwrap();
+        assert_eq!(
+            post(&app, &callback(order, "1.24")).await,
+            StatusCode::BAD_REQUEST
+        );
+        assert!(
+            !initial
+                .store
+                .payment_callback_verified("epay", &digest)
+                .await
+                .unwrap()
+        );
+        assert_eq!(post(&app, &callback(order, "1.23")).await, StatusCode::OK);
         assert!(readiness::inspect(&initial).await.unwrap().ready);
-        assert_eq!(post(&app,&callback(order,"1.23")).await,StatusCode::OK);
-        let receipts:i64=sqlx::query_scalar("SELECT count(*) FROM payment_callback_verification WHERE order_id=$1").bind(order).fetch_one(&pool).await.unwrap();
-        assert_eq!(receipts,1,"replayed callbacks cannot mint fresh receipts");
-        let mut changed=state(pool.clone());
-        std::sync::Arc::get_mut(changed.epay_payments.as_mut().unwrap()).unwrap().checkout=Some(EPayCheckout {
-            endpoint:"https://checkout.example".into(),notify:"https://niu.example/payments/epay/notify".into(),
-            return_url:"https://niu.example/changed-return".into(),methods:vec!["alipay".into()],
+        assert_eq!(post(&app, &callback(order, "1.23")).await, StatusCode::OK);
+        let receipts: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM payment_callback_verification WHERE order_id=$1",
+        )
+        .bind(order)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(receipts, 1, "replayed callbacks cannot mint fresh receipts");
+        let mut changed = state(pool.clone());
+        std::sync::Arc::get_mut(changed.epay_payments.as_mut().unwrap())
+            .unwrap()
+            .checkout = Some(EPayCheckout {
+            endpoint: "https://checkout.example".into(),
+            notify: "https://niu.example/payments/epay/notify".into(),
+            return_url: "https://niu.example/changed-return".into(),
+            methods: vec!["alipay".into()],
         });
         assert!(!readiness::inspect(&changed).await.unwrap().ready);
-        assert_eq!(post(&crate::web::router(changed.clone()),&callback(order,"1.23")).await,StatusCode::OK);
-        assert!(!readiness::inspect(&changed).await.unwrap().ready,"old checkout replay cannot qualify changed configuration");
+        assert_eq!(
+            post(
+                &crate::web::router(changed.clone()),
+                &callback(order, "1.23")
+            )
+            .await,
+            StatusCode::OK
+        );
+        assert!(
+            !readiness::inspect(&changed).await.unwrap().ready,
+            "old checkout replay cannot qualify changed configuration"
+        );
     }
     #[sqlx::test(migrator = "niu_storage::MIGRATOR")]
     #[ignore = "requires PostgreSQL"]
-    async fn epay_disabling_checkout_preserves_signed_settlement_for_existing_orders(pool: sqlx::PgPool) {
-        let mut initial=state(pool.clone());
-        initial.vendor_cipher=Some(std::sync::Arc::new(crate::vendors::crypto::CredentialCipher::new("isolated-epay-encryption-key-123456789").unwrap()));
-        initial.store.configure_platform_currency("CNY").await.unwrap();
-        let company=initial.store.create_prepaid_organization("Disabled checkout recovery","CNY").await.unwrap();
-        let app=crate::web::router(initial.clone());
-        let auth="Bearer epay-test-installation-token-123456789";
-        let mut settings=json!({"expected_revision":"0","enabled":true,"merchant_id":"1234","key":"fixture-key-0123456789","endpoint":"https://checkout.example","notify_url":"https://niu.example/payments/epay/notify","return_url":"https://niu.example/settings/billing","methods":["alipay"]});
-        let response=app.clone().oneshot(Request::put("/api/v1/platform/payments/epay").header("authorization",auth).header("content-type","application/json").body(Body::from(settings.to_string())).unwrap()).await.unwrap();
-        assert_eq!(response.status(),StatusCode::OK);
-        let path=format!("/api/v1/organizations/{company}/billing/topups");
-        let input=json!({"payment_gateway":"epay","currency":"CNY","amount_nanos":"1230000000","payment_method":"alipay","idempotency_key":Uuid::new_v4()});
-        let response=app.clone().oneshot(Request::post(&path).header("authorization",auth).header("content-type","application/json").body(Body::from(input.to_string())).unwrap()).await.unwrap();
-        assert_eq!(response.status(),StatusCode::OK);
-        let order:Uuid=sqlx::query_scalar("SELECT id FROM customer_topup_orders WHERE organization_id=$1").bind(company).fetch_one(&pool).await.unwrap();
-        let mut rotated=settings.clone();rotated["expected_revision"]=json!("1");rotated["key"]=json!("replacement-key-0123456789");
-        let response=app.clone().oneshot(Request::put("/api/v1/platform/payments/epay").header("authorization",auth).header("content-type","application/json").body(Body::from(rotated.to_string())).unwrap()).await.unwrap();
-        assert_eq!(response.status(),StatusCode::CONFLICT,"pending orders retain original signing credentials");
-        settings["expected_revision"]=json!("1");settings["enabled"]=json!(false);settings["key"]=json!("");
-        let response=app.clone().oneshot(Request::put("/api/v1/platform/payments/epay").header("authorization",auth).header("content-type","application/json").body(Body::from(settings.to_string())).unwrap()).await.unwrap();
-        assert_eq!(response.status(),StatusCode::OK);
+    async fn epay_disabling_checkout_preserves_signed_settlement_for_existing_orders(
+        pool: sqlx::PgPool,
+    ) {
+        let mut initial = state(pool.clone());
+        initial.vendor_cipher = Some(std::sync::Arc::new(
+            crate::vendors::crypto::CredentialCipher::new("isolated-epay-encryption-key-123456789")
+                .unwrap(),
+        ));
+        initial
+            .store
+            .configure_platform_currency("CNY")
+            .await
+            .unwrap();
+        let company = initial
+            .store
+            .create_prepaid_organization("Disabled checkout recovery", "CNY")
+            .await
+            .unwrap();
+        let app = crate::web::router(initial.clone());
+        let auth = "Bearer epay-test-installation-token-123456789";
+        let mut settings = json!({"expected_revision":"0","enabled":true,"merchant_id":"1234","key":"fixture-key-0123456789","endpoint":"https://checkout.example","notify_url":"https://niu.example/payments/epay/notify","return_url":"https://niu.example/settings/billing","methods":["alipay"]});
+        let response = app
+            .clone()
+            .oneshot(
+                Request::put("/api/v1/platform/payments/epay")
+                    .header("authorization", auth)
+                    .header("content-type", "application/json")
+                    .body(Body::from(settings.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let path = format!("/api/v1/organizations/{company}/billing/topups");
+        let input = json!({"payment_gateway":"epay","currency":"CNY","amount_nanos":"1230000000","payment_method":"alipay","idempotency_key":Uuid::new_v4()});
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(&path)
+                    .header("authorization", auth)
+                    .header("content-type", "application/json")
+                    .body(Body::from(input.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let order: Uuid =
+            sqlx::query_scalar("SELECT id FROM customer_topup_orders WHERE organization_id=$1")
+                .bind(company)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let mut rotated = settings.clone();
+        rotated["expected_revision"] = json!("1");
+        rotated["key"] = json!("replacement-key-0123456789");
+        let response = app
+            .clone()
+            .oneshot(
+                Request::put("/api/v1/platform/payments/epay")
+                    .header("authorization", auth)
+                    .header("content-type", "application/json")
+                    .body(Body::from(rotated.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::CONFLICT,
+            "pending orders retain original signing credentials"
+        );
+        settings["expected_revision"] = json!("1");
+        settings["enabled"] = json!(false);
+        settings["key"] = json!("");
+        let response = app
+            .clone()
+            .oneshot(
+                Request::put("/api/v1/platform/payments/epay")
+                    .header("authorization", auth)
+                    .header("content-type", "application/json")
+                    .body(Body::from(settings.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
         assert!(!readiness::inspect(&initial).await.unwrap().ready);
-        let mut input=input;input["idempotency_key"]=json!(Uuid::new_v4());
-        let response=app.clone().oneshot(Request::post(&path).header("authorization",auth).header("content-type","application/json").body(Body::from(input.to_string())).unwrap()).await.unwrap();
-        assert_eq!(response.status(),StatusCode::BAD_REQUEST,"disabled integration must not admit checkout");
-        for _ in 0..2 { assert_eq!(post(&app,&callback(order,"1.23")).await,StatusCode::OK); }
-        let credits:i64=sqlx::query_scalar("SELECT count(*) FROM customer_balance_entries WHERE kind='funding'").fetch_one(&pool).await.unwrap();
-        assert_eq!(credits,1);
-        assert!(!readiness::inspect(&initial).await.unwrap().ready,"settlement does not re-enable disabled checkout");
+        let mut input = input;
+        input["idempotency_key"] = json!(Uuid::new_v4());
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(&path)
+                    .header("authorization", auth)
+                    .header("content-type", "application/json")
+                    .body(Body::from(input.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::BAD_REQUEST,
+            "disabled integration must not admit checkout"
+        );
+        for _ in 0..2 {
+            assert_eq!(post(&app, &callback(order, "1.23")).await, StatusCode::OK);
+        }
+        let credits: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM customer_balance_entries WHERE kind='funding'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(credits, 1);
+        assert!(
+            !readiness::inspect(&initial).await.unwrap().ready,
+            "settlement does not re-enable disabled checkout"
+        );
     }
 
     #[sqlx::test(migrator = "niu_storage::MIGRATOR")]
@@ -4145,8 +4493,13 @@ mod epay_tests {
         )
         .await
         .unwrap();
-        assert!(matches!(timed_out, StatusCode::BAD_GATEWAY | StatusCode::SERVICE_UNAVAILABLE),
-            "either the handler deadline or bounded storage wait may expire first; neither acknowledges payment: {timed_out}");
+        assert!(
+            matches!(
+                timed_out,
+                StatusCode::BAD_GATEWAY | StatusCode::SERVICE_UNAVAILABLE
+            ),
+            "either the handler deadline or bounded storage wait may expire first; neither acknowledges payment: {timed_out}"
+        );
         lock.rollback().await.unwrap();
         let bindings: i64 =
             sqlx::query_scalar("SELECT count(*) FROM customer_topup_provider_orders")

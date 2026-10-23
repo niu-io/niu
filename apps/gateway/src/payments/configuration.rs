@@ -105,14 +105,30 @@ pub(super) async fn runtime(state: &AppState) -> Result<Option<Arc<EPayRuntime>>
 /// Disabling new checkout must not prevent already-started orders from settling.
 /// Retained signing credentials remain usable; malformed checkout fields do not
 /// prevent signature verification, but cannot establish configuration evidence.
-pub(super) async fn notification_runtime(state: &AppState) -> Result<Option<Arc<EPayRuntime>>, ApiError> {
-    let (revision,mut settings)=settings(state).await?;
-    if revision==0 { return Ok(state.epay_payments.clone()); }
-    if settings.merchant_id.is_empty() || settings.key.is_empty() { return Ok(None); }
-    settings.enabled=true;
-    let verifier=niu_payments::epay::Merchant::new(settings.merchant_id.clone(),settings.key.clone()).map_err(|_|ApiError::upstream_message("Stored payment credentials are invalid"))?;
-    let checkout=settings.runtime().ok().flatten().and_then(|runtime|runtime.checkout);
-    Ok(Some(Arc::new(EPayRuntime{merchant:settings.merchant_id,verifier,checkout})))
+pub(super) async fn notification_runtime(
+    state: &AppState,
+) -> Result<Option<Arc<EPayRuntime>>, ApiError> {
+    let (revision, mut settings) = settings(state).await?;
+    if revision == 0 {
+        return Ok(state.epay_payments.clone());
+    }
+    if settings.merchant_id.is_empty() || settings.key.is_empty() {
+        return Ok(None);
+    }
+    settings.enabled = true;
+    let verifier =
+        niu_payments::epay::Merchant::new(settings.merchant_id.clone(), settings.key.clone())
+            .map_err(|_| ApiError::upstream_message("Stored payment credentials are invalid"))?;
+    let checkout = settings
+        .runtime()
+        .ok()
+        .flatten()
+        .and_then(|runtime| runtime.checkout);
+    Ok(Some(Arc::new(EPayRuntime {
+        merchant: settings.merchant_id,
+        verifier,
+        checkout,
+    })))
 }
 
 /// The revision accompanies checkout admission so another Gateway cannot
@@ -410,7 +426,9 @@ pub(crate) async fn save(
     };
     let _guard = state.payment_configuration_guard.write().await;
     if input.enabled && super::mock_runtime::enabled().await {
-        return Err(ApiError::invalid_request("Disable mock payments before enabling EPay"));
+        return Err(ApiError::invalid_request(
+            "Disable mock payments before enabling EPay",
+        ));
     }
     let (current_revision, previous) = settings(&state).await?;
     let expected = input

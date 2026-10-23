@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import KeyPolicyHistory from '@/features/keys/components/KeyPolicyHistory';
 import { request, VendorRequestError } from '../api';
-import type { VendorRequestRateLimit } from '../../../../../../sdks/javascript/src/admin';
+import type { VendorRequestRateLimit } from '@niu-io/sdk/admin';
 
 function valid(policy: VendorRequestRateLimit) {
   return typeof policy.revision === 'string' && /^(0|[1-9]\d*)$/.test(policy.revision) &&

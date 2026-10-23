@@ -1,4 +1,4 @@
-import type {VideoLifecycleTiming} from '../../../../../sdks/javascript/src/index';
+import type {VideoLifecycleTiming} from '@niu-io/sdk';
 import {observedLifecycle} from './lifecycle';
 const format=(ms:number)=>ms<1000 ? `${ms} ms`:`${(ms/1000).toFixed(1)} s`;
 export default function VideoLifecycle({timing}:{timing:VideoLifecycleTiming}) {

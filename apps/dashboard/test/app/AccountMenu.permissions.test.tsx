@@ -46,3 +46,12 @@ it('shows Admin for a user account with the platform administrator role', async 
   expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/providers');
   expect(screen.getByRole('menuitem', { name: 'Settings', exact: true })).toBeTruthy();
 });
+
+it('shows Admin for a granted platform administrator even when customer role lacks manage_operators', async () => {
+  await open({
+    kind: 'operator',
+    operator: { id: 'member-admin', role: 'admin', organization_id: 'company', project_id: null },
+    permissions: { read: true, write: true, manage_operators: false, platform_admin: true },
+  });
+  expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/providers');
+});

@@ -1304,7 +1304,11 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         axum::serve(listener, upstream).await.unwrap();
     });
     let mut state = test_state(None, pool.clone());
-    state.store.configure_platform_currency("USD").await.unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     crate::payments::readiness::configure_test_gateway(&mut state).await;
     state.vendor_cipher = Some(Arc::new(
         crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
@@ -1429,11 +1433,24 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         .0,
         StatusCode::NOT_FOUND
     );
-    let (status, scoped_models) = call(&app, Method::GET,
-        &format!("/admin/v1/models?organization_id={}&project_id={}", scope.organization_id, scope.project_id),
-        &operator.token, Value::Null).await;
+    let (status, scoped_models) = call(
+        &app,
+        Method::GET,
+        &format!(
+            "/admin/v1/models?organization_id={}&project_id={}",
+            scope.organization_id, scope.project_id
+        ),
+        &operator.token,
+        Value::Null,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
-    let personal = scoped_models["data"].as_array().unwrap().iter().find(|model| model["id"] == "fast").unwrap();
+    let personal = scoped_models["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|model| model["id"] == "fast")
+        .unwrap();
     assert_eq!(personal["billing_source"], "own_api_key");
     // A preexisting retail tariff must not label personally funded models.
     store
@@ -7907,13 +7924,22 @@ async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPo
         state
     };
     let state = make_state().await;
-    state.store.configure_platform_currency("USD").await.unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     let app = router(state.clone());
     let (status, created) = call(&app, Method::POST, "/api/v1/vendors", ADMIN,
         json!({"name":"Model setup key","adapter":"openai","api_base":"https://example.test/v1","api_key":"fixture-original-secret","enabled":true,"create_supplier":true})).await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     let id = created["data"]["id"].as_str().unwrap();
-    let provider = state.store.vendor_supplier(id.parse().unwrap()).await.unwrap().unwrap();
+    let provider = state
+        .store
+        .vendor_supplier(id.parse().unwrap())
+        .await
+        .unwrap()
+        .unwrap();
     let provider_id = provider["id"].as_str().unwrap();
     let collection = format!("/api/v1/vendors?supplier={provider_id}");
     let models_path = format!("/api/v1/vendors/{id}/models");
@@ -7929,15 +7955,48 @@ async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPo
     assert_eq!(models["data"][0]["alias"], "review/model");
     // Legacy route eligibility is not proof of an approved commercial offer.
     assert!(models["data"][0]["available"].is_boolean());
-    let (_, supply) = call(&reloaded, Method::GET, &format!("/api/v1/providers/{provider_id}/administration?days=90"), ADMIN, Value::Null).await;
+    let (_, supply) = call(
+        &reloaded,
+        Method::GET,
+        &format!("/api/v1/providers/{provider_id}/administration?days=90"),
+        ADMIN,
+        Value::Null,
+    )
+    .await;
     assert_eq!(supply["data"]["offers"], json!([]));
     let update = json!({"alias":"review/model","upstream_model":"upstream/updated","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":models["data"][0]["revision"]});
-    assert_eq!(call(&reloaded, Method::POST, &models_path, ADMIN, update.clone()).await.0, StatusCode::OK);
-    assert_eq!(call(&reloaded, Method::POST, &models_path, ADMIN, update).await.0, StatusCode::CONFLICT);
+    assert_eq!(
+        call(&reloaded, Method::POST, &models_path, ADMIN, update.clone())
+            .await
+            .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(&reloaded, Method::POST, &models_path, ADMIN, update)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
     let credential = json!({"name":"Updated model key","api_base":"https://example.test/v1","enabled":true,"api_key":"fixture-rotated-secret","expected_revision":inventory["data"][0]["revision"]});
     let credential_path = format!("/api/v1/vendors/{id}");
-    assert_eq!(call(&reloaded, Method::PUT, &credential_path, ADMIN, credential.clone()).await.0, StatusCode::OK);
-    assert_eq!(call(&reloaded, Method::PUT, &credential_path, ADMIN, credential).await.0, StatusCode::CONFLICT);
+    assert_eq!(
+        call(
+            &reloaded,
+            Method::PUT,
+            &credential_path,
+            ADMIN,
+            credential.clone()
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(&reloaded, Method::PUT, &credential_path, ADMIN, credential)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
     let final_app = router(make_state().await);
     let (_, persisted) = call(&final_app, Method::GET, &models_path, ADMIN, Value::Null).await;
     assert_eq!(persisted["data"][0]["upstream_model"], "upstream/updated");
@@ -7947,9 +8006,27 @@ async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPo
     assert_eq!(credentials["data"][0]["has_credential"], true);
     assert!(!credentials.to_string().contains("fixture-rotated-secret"));
     let scope = state.store.default_workspace().await.unwrap();
-    let customer = state.store.create_operator(OperatorScope {organization_id:scope.organization_id,project_id:None}, "Workspace owner", OperatorRole::Owner, 3600, OperatorAuditActor::Installation).await.unwrap();
+    let customer = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: None,
+            },
+            "Workspace owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
     for path in [&collection, &models_path] {
-        assert_eq!(call(&final_app, Method::GET, path, &customer.token, Value::Null).await.0, StatusCode::FORBIDDEN);
+        assert_eq!(
+            call(&final_app, Method::GET, path, &customer.token, Value::Null)
+                .await
+                .0,
+            StatusCode::FORBIDDEN
+        );
     }
 }
 
@@ -8036,33 +8113,114 @@ async fn retained_library_source_privacy_and_expired_reference_lifecycle(pool: P
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool: PgPool) {
-    let mut state=test_state(None,pool.clone());
+    let mut state = test_state(None, pool.clone());
     crate::payments::readiness::configure_test_gateway(&mut state).await;
-    let store=state.store.clone();store.configure_platform_currency("USD").await.unwrap();let scope=store.default_workspace().await.unwrap();
-    let owner=store.create_operator(OperatorScope {organization_id:scope.organization_id,project_id:None},"Capability reader",OperatorRole::Owner,3600,OperatorAuditActor::Installation).await.unwrap();
-    let vendor=store.create_vendor(niu_storage::VendorInput {id:Uuid::new_v4(),name:"Capability fixture".into(),adapter:"openai".into(),api_base:"https://example.test/v1".into(),enabled:true,credential_ciphertext:vec![17;48]}).await.unwrap();
-    store.assign_personal_vendor_owner(vendor.id,scope.organization_id,vendor.revision).await.unwrap();
-    let schema=json!({"version":1,"revision":"capability-fixture","model_alias":"stale-video","upstream_model":"fixture-video","channel":"ark-direct-v1","maximum_body_bytes":1024,"maximum_content_items":1,"inputs":{"text":{"maximum_items":1,"maximum_bytes":256,"https":false,"data_mime_types":[],"roles":[],"role_required":false}},"controls":{},"required_controls":[],"exclusive_controls":[],"callbacks_qualified":false});
-    for (alias,upstream,caps) in [
-        ("stale-video","fixture-video",json!({"video_schema":schema,"catalog":{"output_modalities":["text"]}})),
-        ("declared-text","fixture-text",json!({"catalog":{"output_modalities":["text"]}})),
-        ("legacy-unknown","fixture-unknown",json!({})),
-        ("declared-dual","fixture-dual",json!({"catalog":{"output_modalities":["text","video"]}})),
-    ] {store.upsert_vendor_model(vendor.id,niu_storage::VendorModelInput {alias:alias.into(),upstream_model:upstream.into(),public_catalog:false,enabled:true,capabilities:caps,pricing:None,expected_revision:None}).await.unwrap();}
-    let app=router(state);
-    let path=format!("/api/v1/models?organization_id={}&project_id={}",scope.organization_id,scope.project_id);
-    let (status,body)=call(&app,Method::GET,&path,&owner.token,Value::Null).await;
-    assert_eq!(status,StatusCode::OK,"{body}");
-    for (alias,chat,video) in [("stale-video",json!(false),true),("declared-text",json!(true),false),("legacy-unknown",Value::Null,false),("declared-dual",json!(true),false)] {
-        let row=body["data"].as_array().unwrap().iter().find(|row|row["id"]==alias).unwrap();
-        assert_eq!(row["generation_capabilities"],json!({"chat":chat,"video":video}),"{row}");
+    let store = state.store.clone();
+    store.configure_platform_currency("USD").await.unwrap();
+    let scope = store.default_workspace().await.unwrap();
+    let owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: None,
+            },
+            "Capability reader",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let vendor = store
+        .create_vendor(niu_storage::VendorInput {
+            id: Uuid::new_v4(),
+            name: "Capability fixture".into(),
+            adapter: "openai".into(),
+            api_base: "https://example.test/v1".into(),
+            enabled: true,
+            credential_ciphertext: vec![17; 48],
+        })
+        .await
+        .unwrap();
+    store
+        .assign_personal_vendor_owner(vendor.id, scope.organization_id, vendor.revision)
+        .await
+        .unwrap();
+    let schema = json!({"version":1,"revision":"capability-fixture","model_alias":"stale-video","upstream_model":"fixture-video","channel":"ark-direct-v1","maximum_body_bytes":1024,"maximum_content_items":1,"inputs":{"text":{"maximum_items":1,"maximum_bytes":256,"https":false,"data_mime_types":[],"roles":[],"role_required":false}},"controls":{},"required_controls":[],"exclusive_controls":[],"callbacks_qualified":false});
+    for (alias, upstream, caps) in [
+        (
+            "stale-video",
+            "fixture-video",
+            json!({"video_schema":schema,"catalog":{"output_modalities":["text"]}}),
+        ),
+        (
+            "declared-text",
+            "fixture-text",
+            json!({"catalog":{"output_modalities":["text"]}}),
+        ),
+        ("legacy-unknown", "fixture-unknown", json!({})),
+        (
+            "declared-dual",
+            "fixture-dual",
+            json!({"catalog":{"output_modalities":["text","video"]}}),
+        ),
+    ] {
+        store
+            .upsert_vendor_model(
+                vendor.id,
+                niu_storage::VendorModelInput {
+                    alias: alias.into(),
+                    upstream_model: upstream.into(),
+                    public_catalog: false,
+                    enabled: true,
+                    capabilities: caps,
+                    pricing: None,
+                    expected_revision: None,
+                },
+            )
+            .await
+            .unwrap();
+    }
+    let app = router(state);
+    let path = format!(
+        "/api/v1/models?organization_id={}&project_id={}",
+        scope.organization_id, scope.project_id
+    );
+    let (status, body) = call(&app, Method::GET, &path, &owner.token, Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    for (alias, chat, video) in [
+        ("stale-video", json!(false), true),
+        ("declared-text", json!(true), false),
+        ("legacy-unknown", Value::Null, false),
+        ("declared-dual", json!(true), false),
+    ] {
+        let row = body["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["id"] == alias)
+            .unwrap();
+        assert_eq!(
+            row["generation_capabilities"],
+            json!({"chat":chat,"video":video}),
+            "{row}"
+        );
         assert!(row.get("upstream_model").is_none());
     }
     // A valid stored schema for an unsupported preview channel must not fall
     // back to Chat merely because its old catalog metadata still says text.
-    let mut unsupported=schema;unsupported["channel"]=json!("fixture");
+    let mut unsupported = schema;
+    unsupported["channel"] = json!("fixture");
     store.upsert_vendor_model(vendor.id,niu_storage::VendorModelInput {alias:"stale-video".into(),upstream_model:"fixture-video".into(),public_catalog:false,enabled:true,capabilities:json!({"video_schema":unsupported,"catalog":{"output_modalities":["text"]}}),pricing:None,expected_revision:Some(1)}).await.unwrap();
-    let (_,updated)=call(&app,Method::GET,&path,&owner.token,Value::Null).await;
-    let row=updated["data"].as_array().unwrap().iter().find(|row|row["id"]=="stale-video").unwrap();
-    assert_eq!(row["generation_capabilities"],json!({"chat":false,"video":false}));
+    let (_, updated) = call(&app, Method::GET, &path, &owner.token, Value::Null).await;
+    let row = updated["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == "stale-video")
+        .unwrap();
+    assert_eq!(
+        row["generation_capabilities"],
+        json!({"chat":false,"video":false})
+    );
 }

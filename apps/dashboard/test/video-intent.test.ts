@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { VideoIntent } from '../src/features/video/intent';
-import type { VideoSubmissionIntent } from '../../../sdks/javascript/src/admin';
+import type { VideoSubmissionIntent } from '@niu-io/sdk/admin';
 
 const scope = { organizationId: 'organization', projectId: 'workspace' };
 const request = { model: 'video-model', content: [{ type: 'text' as const, text: 'A landscape' }] };

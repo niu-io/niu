@@ -1,11 +1,20 @@
 use crate::{Store, StoreError};
 impl Store {
     pub async fn platform_currency(&self) -> Result<Option<String>, StoreError> {
-        Ok(
+        if self.pool.is_closed() {
+            return Err(StoreError::Database(sqlx::Error::PoolClosed));
+        }
+        if let Some(currency) = self.platform_currency_cache.get() {
+            return Ok(Some(currency.clone()));
+        }
+        let found: Option<String> =
             sqlx::query_scalar("SELECT currency FROM platform_currency WHERE singleton")
                 .fetch_optional(&self.pool)
-                .await?,
-        )
+                .await?;
+        if let Some(ref value) = found {
+            let _ = self.platform_currency_cache.set(value.clone());
+        }
+        Ok(found)
     }
     /// A repeat of the same configuration is safe; a different value never converts money.
     pub async fn configure_platform_currency(&self, currency: &str) -> Result<(), StoreError> {
@@ -35,6 +44,7 @@ impl Store {
         sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) SELECT gen_random_uuid(),organization_id,$1 FROM (SELECT DISTINCT organization_id FROM customer_balance_accounts) companies ON CONFLICT (organization_id,currency) DO NOTHING")
             .bind(currency).execute(&mut *tx).await?;
         tx.commit().await?;
+        let _ = self.platform_currency_cache.set(currency.to_owned());
         Ok(())
     }
 }

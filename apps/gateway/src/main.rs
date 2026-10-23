@@ -3,10 +3,10 @@ mod admission;
 mod background_recovery;
 mod billing;
 mod branding;
-mod currency;
 mod catalog_metadata;
 mod codex;
 mod config;
+mod currency;
 mod customer_response;
 mod encryption_check;
 mod encryption_rotation;
@@ -63,8 +63,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if arguments.len() == 1 && arguments[0] == "--rotate-encryption-offline" {
             return encryption_rotation::run().await;
         }
+        if arguments.len() == 1 && arguments[0] == "--migrate-only" {
+            let url = env::var("NIU_DATABASE_URL").map_err(|_| "NIU_DATABASE_URL is required")?;
+            niu_storage::Store::migrate_only(&url)
+                .await
+                .map_err(|_| "Database migration failed")?;
+            println!("Database migrations applied and verified.");
+            return Ok(());
+        }
+        if arguments.len() == 1 && arguments[0] == "--check-schema" {
+            let url = env::var("NIU_DATABASE_URL").map_err(|_| "NIU_DATABASE_URL is required")?;
+            let store = niu_storage::Store::connect_read_only(&url)
+                .await
+                .map_err(|_| "Cannot connect to database for schema verification")?;
+            store
+                .require_current_inspection_schema()
+                .await
+                .map_err(|_| "Database schema does not match the embedded migration set")?;
+            println!("Database schema matches the embedded migration set.");
+            return Ok(());
+        }
         return Err(
-            "Usage: niu-gateway [--version | -V | --check-encryption | --rotate-encryption-offline]"
+            "Usage: niu-gateway [--version | -V | --migrate-only | --check-schema | --check-encryption | --rotate-encryption-offline]"
                 .into(),
         );
     }
@@ -78,7 +98,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     payments::validate_mock_environment()?;
     let payment_polling_enabled = payments::background_polling_enabled()?;
     if env::var_os("NIU_MOCK_PAYMENT_URL").is_some() {
-        let mock_bind = bind_address(env::var("NIU_BIND").ok().as_deref(), env::var("PORT").ok().as_deref())?;
+        let mock_bind = bind_address(
+            env::var("NIU_BIND").ok().as_deref(),
+            env::var("PORT").ok().as_deref(),
+        )?;
         if !mock_bind.ip().is_loopback() {
             return Err("Mock payments require a loopback gateway bind".into());
         }
@@ -129,11 +152,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
         });
     let video_recovery = video_recovery::spawn(&state, bg_shutdown_rx.clone())?;
-    let payment_account_checks = payments::readiness::spawn_account_checks(&state, bg_shutdown_rx.clone());
+    let payment_account_checks =
+        payments::readiness::spawn_account_checks(&state, bg_shutdown_rx.clone());
     // OAuth callbacks contain authorization codes: trace paths, never queries.
     let app = web::router(state).layer(TraceLayer::new_for_http().make_span_with(
         |request: &axum::http::Request<axum::body::Body>| {
-            tracing::debug_span!("http_request", method = %request.method(), path = %trace_path(request.uri().path()))
+            let request_id = request
+                .headers()
+                .get("x-request-id")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("-");
+            tracing::debug_span!(
+                "http_request",
+                method = %request.method(),
+                path = %trace_path(request.uri().path()),
+                request_id = %request_id
+            )
         },
     ));
 

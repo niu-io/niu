@@ -10,7 +10,7 @@ IMAGE_REPO="ghcr.io/niu-io/niu"
 GITHUB_REPO_RAW="https://raw.githubusercontent.com/niu-io/niu"
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage:
   install.sh <command> [options]
 
@@ -21,7 +21,7 @@ Commands:
   status      Show installed version, container state, and gateway readiness
 
 Options:
-  --version <vX.Y.Z>   Target Niu release tag (default: v0.2.19)
+  --version <vX.Y.Z>   Target Niu release tag (default: ${DEFAULT_VERSION})
   --dir <path>         Installation directory (default: /opt/niu, or current directory if compose.yaml exists)
   --port <port>        Host port to bind (default: 2555)
   --help               Show this help message

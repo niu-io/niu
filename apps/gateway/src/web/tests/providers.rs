@@ -368,7 +368,11 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = test_state(None, pool.clone());
     crate::payments::readiness::configure_test_gateway(&mut state).await;
-    state.store.configure_platform_currency("USD").await.unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     state.vendor_cipher = Some(Arc::new(
         crate::vendors::crypto::CredentialCipher::new(
             "billing-test-master-secret-at-least-32-characters",
@@ -852,7 +856,11 @@ async fn supplier_rate_http_updates_require_current_revision(pool: PgPool) {
 #[ignore = "requires PostgreSQL"]
 async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tariff(pool: PgPool) {
     let mut state = test_state(None, pool.clone());
-    state.store.configure_platform_currency("USD").await.unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     crate::payments::readiness::configure_test_gateway(&mut state).await;
     let store = state.store.clone();
     let scope = store.default_workspace().await.unwrap();

@@ -29,7 +29,7 @@ function workspaceSuffix(id: string) {
   return compactId.slice(0, 8) || 'workspace';
 }
 
-function legacyWorkspacePathSegment(workspace: Workspace, workspaces: Workspace[]) {
+function legacyIdDisambiguatedSegment(workspace: Workspace, workspaces: Workspace[]) {
   const slug = workspaceNameSlug(workspace.name);
   const collisions = workspaces.filter(item => item.id !== workspace.id && workspaceNameSlug(item.name) === slug);
   if (!collisions.length) return slug;
@@ -41,6 +41,19 @@ function legacyWorkspacePathSegment(workspace: Workspace, workspaces: Workspace[
   return suffixCollisions
     ? `${slug}-${workspace.id.replace(/[^a-z\d]/gi, '')}`
     : `${slug}-${suffix}`;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function legacyWorkspacePathSegment(workspace: Workspace, workspaces: Workspace[]) {
+  const slug = workspaceNameSlug(workspace.name);
+  const sameSlug = workspaces.filter(item => workspaceNameSlug(item.name) === slug);
+  if (sameSlug.length <= 1) return slug;
+  if (!UUID_PATTERN.test(workspace.id)) {
+    return legacyIdDisambiguatedSegment(workspace, workspaces);
+  }
+  const index = sameSlug.findIndex(item => item.id === workspace.id);
+  return index <= 0 ? slug : `${slug}-${index + 1}`;
 }
 
 /** Use the backend's immutable routing reference; names remain display labels. */
@@ -57,7 +70,7 @@ export function resolveWorkspacePathSegment(segment: string, workspaces: Workspa
   const slugMatches = workspaces.filter(item => workspacePathSegment(item, workspaces) === segment || item.slug_aliases?.includes(segment));
   if (slugMatches.length === 1) return slugMatches[0];
   // Retain existing name-based bookmarks, but only when they identify one workspace.
-  const legacyMatches = workspaces.filter(item => legacyWorkspacePathSegment(item, workspaces) === segment);
+  const legacyMatches = workspaces.filter(item => legacyWorkspacePathSegment(item, workspaces) === segment || legacyIdDisambiguatedSegment(item, workspaces) === segment);
   if (legacyMatches.length === 1) return legacyMatches[0];
   const idMatches = workspaces.filter(item => item.id === segment);
   return idMatches.length === 1 ? idMatches[0] : undefined;

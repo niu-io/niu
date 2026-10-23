@@ -298,8 +298,15 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, configuration_revision, member, None, None)
-            .await
+        self.create_customer_topup_inner(
+            organization,
+            input,
+            configuration_revision,
+            member,
+            None,
+            None,
+        )
+        .await
     }
 
     /// Atomically save a classic EPay intent and its locally generated checkout.
@@ -316,18 +323,39 @@ impl Store {
         if input.aggregator != "epay" || input.currency != "CNY" || revision < 0 {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, Some(revision), member, Some(build), None)
-            .await
+        self.create_customer_topup_inner(
+            organization,
+            input,
+            Some(revision),
+            member,
+            Some(build),
+            None,
+        )
+        .await
     }
 
     /// Capture effective configuration in the same transaction as the first local checkout.
     pub async fn create_authorized_epay_checkout_with_evidence(
-        &self, organization: Uuid, input: &TopupInput<'_>, revision: i64,
-        member: Option<crate::OperatorPrincipal>, digest: &[u8;32],
+        &self,
+        organization: Uuid,
+        input: &TopupInput<'_>,
+        revision: i64,
+        member: Option<crate::OperatorPrincipal>,
+        digest: &[u8; 32],
         build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
     ) -> Result<TopupOrder, StoreError> {
-        if input.aggregator != "epay" || input.currency != "CNY" || revision < 0 { return Err(StoreError::Conflict); }
-        self.create_customer_topup_inner(organization,input,Some(revision),member,Some(build),Some(digest)).await
+        if input.aggregator != "epay" || input.currency != "CNY" || revision < 0 {
+            return Err(StoreError::Conflict);
+        }
+        self.create_customer_topup_inner(
+            organization,
+            input,
+            Some(revision),
+            member,
+            Some(build),
+            Some(digest),
+        )
+        .await
     }
 
     async fn create_customer_topup_inner(
@@ -337,7 +365,7 @@ impl Store {
         configuration_revision: Option<i64>,
         member: Option<crate::OperatorPrincipal>,
         checkout: Option<&(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync)>,
-        evidence: Option<&[u8;32]>,
+        evidence: Option<&[u8; 32]>,
     ) -> Result<TopupOrder, StoreError> {
         if input.amount_nanos <= 0
             || input.currency.len() != 3
@@ -475,7 +503,7 @@ impl Store {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         order: &TopupOrder,
         build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
-        evidence: Option<&[u8;32]>,
+        evidence: Option<&[u8; 32]>,
     ) -> Result<(), StoreError> {
         let complete: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_topup_checkout WHERE order_id=$1) OR EXISTS(SELECT 1 FROM customer_topup_settlements WHERE order_id=$1) OR EXISTS(SELECT 1 FROM customer_topup_closures WHERE order_id=$1)")
             .bind(order.id).fetch_one(&mut **tx).await?;

@@ -1,5 +1,5 @@
-import type { VideoComposerDraftPayload } from '../../../../../sdks/javascript/src/admin';
-import type { VideoCreateRequest, VideoModel } from '../../../../../sdks/javascript/src/index';
+import type { VideoComposerDraftPayload } from '@niu-io/sdk/admin';
+import type { VideoCreateRequest, VideoModel } from '@niu-io/sdk';
 export type ControlValues = Record<string, string | boolean>;
 export type ImageReference = { url: string; role?: string };
 export const controlLabels: Record<string, string> = {resolution:'Resolution',ratio:'Aspect ratio',duration:'Duration (seconds)',frames_per_second:'Frame rate',seed:'Seed',watermark:'Watermark',camera_fixed:'Fixed camera',return_last_frame:'Last frame'};

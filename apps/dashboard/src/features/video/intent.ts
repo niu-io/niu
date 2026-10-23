@@ -1,5 +1,5 @@
-import type { NiuAdminClient, TenantScope, VideoIntentRequest, VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
-import type { RequestOptions } from '../../../../../sdks/javascript/src/index';
+import type { NiuAdminClient, TenantScope, VideoIntentRequest, VideoSubmissionIntent } from '@niu-io/sdk/admin';
+import type { RequestOptions } from '@niu-io/sdk';
 
 type IntentClient = Pick<NiuAdminClient, 'saveVideoIntent' | 'getVideoIntent' | 'submitVideoIntent' | 'deleteVideoIntent'>;
 

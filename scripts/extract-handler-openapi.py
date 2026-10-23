@@ -28,7 +28,8 @@ def registered_methods(source):
     """Read literal Axum route builders; skip quoted strings and comments."""
     result = {}
     tokens = re.compile(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/|[()]', re.S)
-    for route in re.finditer(r'\.route\(\s*"([^"\n]+)"', source):
+    for route in re.finditer(r'\.(route|dual_route)\(\s*"([^"\n]*)"', source):
+        kind, path = route[1], route[2]
         depth, end = 1, None
         for token in tokens.finditer(source, route.end()):
             if token.group() == '(':
@@ -39,11 +40,19 @@ def registered_methods(source):
                     end = token.start()
                     break
         if end is None:
-            raise SystemExit(f'Unclosed route registration: {route[1]}')
+            raise SystemExit(f'Unclosed route registration: {path}')
         body = source[route.end():end]
         body = re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/', '', body, flags=re.S)
         methods = re.findall(r'\b(get|post|put|patch|delete|head|options)\s*\(', body)
-        result.setdefault(route[1], set()).update(methods)
+        if kind == 'dual_route':
+            expanded = (
+                (f'/admin/v1{path}' if path else '/admin/v1'),
+                (f'/api/v1{path}' if path else '/api/v1'),
+            )
+            for target in expanded:
+                result.setdefault(target, set()).update(methods)
+        else:
+            result.setdefault(path, set()).update(methods)
     return result
 
 

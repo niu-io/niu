@@ -1,7 +1,7 @@
-import { NiuAPIError } from '../../../../../sdks/javascript/src/index';
-import type { RequestOptions } from '../../../../../sdks/javascript/src/index';
-import type { NiuAdminClient, TenantScope, VideoIntentRequest, VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
-import type { GenerationsTurn, VideoGenerationsSession } from '../../../../../sdks/javascript/src/generations-sessions';
+import { NiuAPIError } from '@niu-io/sdk';
+import type { RequestOptions } from '@niu-io/sdk';
+import type { NiuAdminClient, TenantScope, VideoIntentRequest, VideoSubmissionIntent } from '@niu-io/sdk/admin';
+import type { GenerationsTurn, VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 
 type Client = Pick<NiuAdminClient, 'generations' | 'saveVideoIntent' | 'getVideoIntent'>;
 export type VideoSessionIntentInput = {

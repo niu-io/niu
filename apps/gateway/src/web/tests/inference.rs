@@ -1705,50 +1705,125 @@ async fn exercise_terminal_stream(pool: PgPool, funded_without_merchant: bool) {
     async fn terminal_provider(Json(body): Json<Value>) -> Response {
         let reason = body["messages"][0]["content"].as_str().unwrap();
         let event = json!({"choices":[{"index":0,"delta":{"content":"Partial answer"},"finish_reason":reason}],"usage":{"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}});
-        Response::builder().header("content-type", "text/event-stream")
-            .body(axum::body::Body::from(format!("data: {event}\n\ndata: [DONE]\n\n"))).unwrap()
+        Response::builder()
+            .header("content-type", "text/event-stream")
+            .body(axum::body::Body::from(format!(
+                "data: {event}\n\ndata: [DONE]\n\n"
+            )))
+            .unwrap()
     }
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
-    let task = tokio::spawn(async move { axum::serve(listener, Router::new().route("/v1/chat/completions", post(terminal_provider))).await.unwrap() });
+    let task = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            Router::new().route("/v1/chat/completions", post(terminal_provider)),
+        )
+        .await
+        .unwrap()
+    });
     let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
-    if !funded_without_merchant { crate::payments::readiness::configure_test_gateway(&mut state).await; }
-    state.store.configure_platform_currency("USD").await.unwrap();
+    if !funded_without_merchant {
+        crate::payments::readiness::configure_test_gateway(&mut state).await;
+    }
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     let scope = state.store.default_workspace().await.unwrap();
     if funded_without_merchant {
-        assert!(!crate::payments::readiness::inspect(&state).await.unwrap().ready);
-        state.store.publish_customer_balance_grant(scope.organization_id, niu_storage::CustomerBalanceGrantPublication {
-            currency: "USD", amount_nanos: 1_000_000_000, reason: "Isolated self-hosted acceptance",
-            idempotency_key: Uuid::new_v4(),
-        }, niu_storage::OperatorAuditActor::Installation).await.unwrap();
+        assert!(
+            !crate::payments::readiness::inspect(&state)
+                .await
+                .unwrap()
+                .ready
+        );
+        state
+            .store
+            .publish_customer_balance_grant(
+                scope.organization_id,
+                niu_storage::CustomerBalanceGrantPublication {
+                    currency: "USD",
+                    amount_nanos: 1_000_000_000,
+                    reason: "Isolated self-hosted acceptance",
+                    idempotency_key: Uuid::new_v4(),
+                },
+                niu_storage::OperatorAuditActor::Installation,
+            )
+            .await
+            .unwrap();
     }
     personal_test_route(&mut state, scope.organization_id).await;
-    let key = state.store.issue_key(scope, "Outcome verification", &["fast".into()], 3600).await.unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "Outcome verification", &["fast".into()], 3600)
+        .await
+        .unwrap();
     for reason in ["stop", "length", "content_filter"] {
         let response = router(state.clone()).oneshot(Request::post("/v1/chat/completions")
             .header("authorization", "Bearer niu-test-admin-token-that-is-long-1234")
             .header("x-niu-key-id", key.id.to_string()).header("content-type", "application/json")
             .body(axum::body::Body::from(json!({"model":"fast","messages":[{"role":"user","content":reason}],"stream":true}).to_string())).unwrap()).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK, "{reason}");
-        let attempt: Uuid=response.headers()["x-niu-attempt-id"].to_str().unwrap().parse().unwrap();
+        let attempt: Uuid = response.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         let text = std::str::from_utf8(&bytes).unwrap();
-        let event: Value = text.lines().filter_map(|line| line.strip_prefix("data: "))
+        let event: Value = text
+            .lines()
+            .filter_map(|line| line.strip_prefix("data: "))
             .filter_map(|line| serde_json::from_str::<Value>(line).ok())
-            .find(|event| event["choices"][0]["finish_reason"].is_string()).unwrap();
+            .find(|event| event["choices"][0]["finish_reason"].is_string())
+            .unwrap();
         assert_eq!(event["choices"][0]["finish_reason"], reason);
         assert_eq!(event["choices"][0]["delta"]["content"], "Partial answer");
         assert!(text.contains("data: [DONE]"));
-        let record=state.store.gateway_request(scope,attempt).await.unwrap().unwrap();
+        let record = state
+            .store
+            .gateway_request(scope, attempt)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(record.reference.starts_with("run-"));
-        let url=format!("/api/v1/organizations/{}/projects/{}/requests/{}",scope.organization_id,scope.project_id,record.reference);
-        let response=router(state.clone()).oneshot(Request::get(url).header("authorization","Bearer niu-test-admin-token-that-is-long-1234").body(axum::body::Body::empty()).unwrap()).await.unwrap();
-        assert_eq!(response.status(),StatusCode::OK);
-        let details:Value=serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
-        assert_eq!(details["data"]["attempt_id"],attempt.to_string());
-        assert_eq!(details["data"]["reference"],record.reference);
-        let sibling=state.store.create_project(scope.organization_id,&format!("Other {reason}")).await.unwrap();
-        assert!(state.store.request_id_by_reference(sibling,&record.reference).await.unwrap().is_none());
+        let url = format!(
+            "/api/v1/organizations/{}/projects/{}/requests/{}",
+            scope.organization_id, scope.project_id, record.reference
+        );
+        let response = router(state.clone())
+            .oneshot(
+                Request::get(url)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let details: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(details["data"]["attempt_id"], attempt.to_string());
+        assert_eq!(details["data"]["reference"], record.reference);
+        let sibling = state
+            .store
+            .create_project(scope.organization_id, &format!("Other {reason}"))
+            .await
+            .unwrap();
+        assert!(
+            state
+                .store
+                .request_id_by_reference(sibling, &record.reference)
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
     task.abort();
 }
@@ -1758,9 +1833,16 @@ async fn exercise_terminal_stream(pool: PgPool, funded_without_merchant: bool) {
 async fn chat_terminal_outcomes_survive_router_and_store_reopen(pool: PgPool) {
     let mut state = test_state(None, pool.clone());
     crate::payments::readiness::configure_test_gateway(&mut state).await;
-    state.store.configure_platform_currency("USD").await.unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     let scope = state.store.default_workspace().await.unwrap();
-    let base = format!("/admin/v1/organizations/{}/projects/{}/chats", scope.organization_id, scope.project_id);
+    let base = format!(
+        "/admin/v1/organizations/{}/projects/{}/chats",
+        scope.organization_id, scope.project_id
+    );
     let auth = "Bearer niu-test-admin-token-that-is-long-1234";
     for (reason, content, phase, error) in [
         (Some("stop"), "Complete answer", "complete", None),
@@ -1770,40 +1852,102 @@ async fn chat_terminal_outcomes_survive_router_and_store_reopen(pool: PgPool) {
         (Some("tool_calls"), "", "complete", None),
         (Some("future_unknown_reason"), "Partial", "complete", None),
         (None, "Partial", "complete", None),
-        (None, "Partial", "failed", Some("The response stream ended before completion.")),
-        (None, "", "failed", Some("The model returned an invalid response.")),
+        (
+            None,
+            "Partial",
+            "failed",
+            Some("The response stream ended before completion."),
+        ),
+        (
+            None,
+            "",
+            "failed",
+            Some("The model returned an invalid response."),
+        ),
         (None, "Partial", "cancelled", None),
     ] {
         let id = Uuid::new_v4();
         let result = json!({"model":"fast","content":content,"phase":phase,"finishReason":reason,"error":error,"elapsedMs":10});
         let payload = json!({"id":id,"prompt":"Outcome verification","createdAt":1,"results":[result.clone()],"turns":[{"prompt":"Earlier turn","results":[result.clone()]}]});
-        let response = router(state.clone()).oneshot(Request::put(format!("{base}/{id}"))
-            .header("authorization", auth).header("content-type", "application/json")
-            .body(axum::body::Body::from(payload.to_string())).unwrap()).await.unwrap();
+        let response = router(state.clone())
+            .oneshot(
+                Request::put(format!("{base}/{id}"))
+                    .header("authorization", auth)
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(payload.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK, "save {reason:?}/{phase}");
-        let receipt: Value = serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        let receipt: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
         assert!(receipt["reference"].as_str().unwrap().starts_with("chat-"));
         // A new Store and router prove these values are not held in request-local memory.
         let mut reopened = test_state(None, pool.clone());
         crate::payments::readiness::configure_test_gateway(&mut reopened).await;
-        let response = router(reopened).oneshot(Request::get(format!("{base}/{id}"))
-            .header("authorization", auth).body(axum::body::Body::empty()).unwrap()).await.unwrap();
+        let response = router(reopened)
+            .oneshot(
+                Request::get(format!("{base}/{id}"))
+                    .header("authorization", auth)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        let restored: Value = serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        let restored: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
         let reference = restored["data"]["reference"].as_str().unwrap();
         assert!(reference.starts_with("chat-"));
         assert_eq!(receipt["reference"], reference);
-        let response = router(state.clone()).oneshot(Request::get(format!("{base}/{reference}"))
-            .header("authorization", auth).body(axum::body::Body::empty()).unwrap()).await.unwrap();
+        let response = router(state.clone())
+            .oneshot(
+                Request::get(format!("{base}/{reference}"))
+                    .header("authorization", auth)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        let by_reference: Value = serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        let by_reference: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
         assert_eq!(by_reference, restored);
-        assert!(state.store.chat_session_id_by_reference(scope, "different-owner", reference).await.unwrap().is_none());
-        assert!(sqlx::query("UPDATE chat_sessions SET public_reference='chat-999' WHERE id=$1")
-            .bind(id).execute(&pool).await.is_err());
-        for field in ["model", "content", "phase", "finishReason", "error", "elapsedMs"] {
-            assert_eq!(restored["data"]["results"][0][field], result[field], "latest {reason:?}/{phase}/{field}");
-            assert_eq!(restored["data"]["turns"][0]["results"][0][field], result[field], "history {reason:?}/{phase}/{field}");
+        assert!(
+            state
+                .store
+                .chat_session_id_by_reference(scope, "different-owner", reference)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            sqlx::query("UPDATE chat_sessions SET public_reference='chat-999' WHERE id=$1")
+                .bind(id)
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        for field in [
+            "model",
+            "content",
+            "phase",
+            "finishReason",
+            "error",
+            "elapsedMs",
+        ] {
+            assert_eq!(
+                restored["data"]["results"][0][field], result[field],
+                "latest {reason:?}/{phase}/{field}"
+            );
+            assert_eq!(
+                restored["data"]["turns"][0]["results"][0][field], result[field],
+                "history {reason:?}/{phase}/{field}"
+            );
         }
     }
 }

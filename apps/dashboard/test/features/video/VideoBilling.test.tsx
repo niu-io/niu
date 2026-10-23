@@ -2,7 +2,7 @@ import {render,screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {it,expect} from 'vitest';
 import VideoBilling from '@/features/video/VideoBilling';
-import type {VideoJobBilling} from '../../../../../sdks/javascript/src/index';
+import type {VideoJobBilling} from '@niu-io/sdk';
 const q=(numerator:string)=>({numerator,denominator:'1'});
 const billing:VideoJobBilling={mode:'customer',state:'reconciliation_required',currency:'CNY',reserved_nanos:'0',charge_nanos:'9007199254740993',usage:null,settled_usage:{meter:'video_tokens',quantity:q('9007199254740995'),billable_quantity:q('9007199254740996'),provenance:'Reported'},bound_exceeded:false,effective_output:null,estimate:null,price:{meter:'video_tokens',amount_units:'123456789',decimal_places:9,per_quantity:q('1000000'),minimum_quantity:q('1'),rounding:'HalfEven',resolution:'720p',reference_video:false,effective_from:'10',effective_until:null,discounts:[{multiplier:{numerator:'4',denominator:'5'},stacking:'Multiply',effective_from:'10',effective_until:null}]}};
 it('keeps exact settled quantities and customer rates distinct from unresolved observations',async()=>{

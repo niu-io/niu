@@ -44,7 +44,7 @@ type TaskEvidence = {
   }>;
 };
 type GatewayRequest = {
-  admission_denial?: import('../../../../../../sdks/javascript/src/admin').GatewayAdmissionDenial | null;
+  admission_denial?: import('@niu-io/sdk/admin').GatewayAdmissionDenial | null;
   request_kind?: 'video' | 'inference';
   attempt_id: string;
   reference?: string;

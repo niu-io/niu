@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import {expect,it,vi} from 'vitest';
 import VideoResult from '@/features/video/VideoResult';
 import {fetchVideoResult,ResultReadError} from '@/features/video/result';
-import type {NiuAdminClient} from '../../../../../sdks/javascript/src/admin';
+import type {NiuAdminClient} from '@niu-io/sdk/admin';
 
 const scope={organizationId:'organization',projectId:'workspace'};
 function makeClient(options:{

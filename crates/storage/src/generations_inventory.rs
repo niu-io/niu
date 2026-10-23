@@ -112,24 +112,42 @@ impl Store {
     /// Resolves only within the authorized workspace; generation_task performs
     /// the same actor-private visibility check as UUID-based saved-history reads.
     pub async fn generation_task_by_reference(
-        &self, scope: TenantScope, owner: &str, reference: &str,
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        reference: &str,
     ) -> Result<Option<Value>, StoreError> {
         let id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND public_reference=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(reference)
             .fetch_optional(&self.pool).await?;
-        match id { Some(id) => self.generation_task(scope, owner, id).await, None => Ok(None) }
+        match id {
+            Some(id) => self.generation_task(scope, owner, id).await,
+            None => Ok(None),
+        }
     }
 
     /// A workspace-readable saved copy does not make its actor-private source public.
     pub async fn workspace_asset_sources(
-        &self, scope: TenantScope, owner: &str, assets: &[Uuid],
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        assets: &[Uuid],
     ) -> Result<std::collections::HashMap<Uuid, Value>, StoreError> {
-        if assets.is_empty() { return Ok(std::collections::HashMap::new()); }
-        let sql = format!("{CTE} SELECT c.asset_id, jsonb_build_object('reference',i.public_reference,'kind','video','output',c.kind,'model',i.model,'created_at',i.created_at) FROM generations_artifact_captures c JOIN filtered i ON i.id=c.task_id WHERE c.organization_id=$1 AND c.project_id=$2 AND c.state='stored' AND c.asset_id=ANY($6)");
+        if assets.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let sql = format!(
+            "{CTE} SELECT c.asset_id, jsonb_build_object('reference',i.public_reference,'kind','video','output',c.kind,'model',i.model,'created_at',i.created_at) FROM generations_artifact_captures c JOIN filtered i ON i.id=c.task_id WHERE c.organization_id=$1 AND c.project_id=$2 AND c.state='stored' AND c.asset_id=ANY($6)"
+        );
         let rows: Vec<(Uuid, Value)> = sqlx::query_as(&sql)
-            .bind(scope.organization_id).bind(scope.project_id).bind(owner)
-            .bind(None::<String>).bind(None::<Uuid>).bind(assets)
-            .fetch_all(&self.pool).await?;
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(owner)
+            .bind(None::<String>)
+            .bind(None::<Uuid>)
+            .bind(assets)
+            .fetch_all(&self.pool)
+            .await?;
         Ok(rows.into_iter().collect())
     }
 

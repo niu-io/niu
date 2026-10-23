@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router';
 import { settingsHref } from '@/features/account/settings-page';
 import { Fragment, useEffect, useRef, useState } from 'react';
-import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '@niu-io/sdk/admin';
 import { useSearchParams } from 'react-router';
 import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';

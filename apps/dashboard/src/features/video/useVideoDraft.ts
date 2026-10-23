@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
-import {NiuAPIError} from '../../../../../sdks/javascript/src/index';
-import type {NiuAdminClient,TenantScope,VideoComposerDraftPayload,VideoComposerDraftState} from '../../../../../sdks/javascript/src/admin';
+import {NiuAPIError} from '@niu-io/sdk';
+import type {NiuAdminClient,TenantScope,VideoComposerDraftPayload,VideoComposerDraftState} from '@niu-io/sdk/admin';
 
 type Client=Pick<NiuAdminClient,'getVideoComposerDraft'|'saveVideoComposerDraft'>;
 export type VideoDraftTicket={identity:string;revision:number;payload:VideoComposerDraftPayload};

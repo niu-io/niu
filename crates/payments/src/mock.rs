@@ -44,11 +44,30 @@ mod transport_tests {
     fn rewrites_only_mock_capabilities_on_fixture_transport() {
         use crate::stripe_transport::Client;
         let key = "sk_test_mock_transport_key_123456789".to_owned();
-        let stored = format!("https://checkout.stripe.com/c/pay/cs_test_mock_{}", "a".repeat(48));
-        assert!(Client::new(key.clone(), false).unwrap().mock_checkout_url(&stored).is_none());
+        let stored = format!(
+            "https://checkout.stripe.com/c/pay/cs_test_mock_{}",
+            "a".repeat(48)
+        );
+        assert!(
+            Client::new(key.clone(), false)
+                .unwrap()
+                .mock_checkout_url(&stored)
+                .is_none()
+        );
         let fixture = Client::fixture(key, false, "http://127.0.0.1:2570/").unwrap();
-        assert_eq!(fixture.mock_checkout_url(&stored).is_some(), cfg!(all(feature = "mock-payments", debug_assertions)));
-        assert!(fixture.mock_checkout_url("https://checkout.stripe.com/c/pay/cs_test_real").is_none());
-        assert!(fixture.mock_checkout_url(&(stored + "?redirect=other")).is_none());
+        assert_eq!(
+            fixture.mock_checkout_url(&stored).is_some(),
+            cfg!(all(feature = "mock-payments", debug_assertions))
+        );
+        assert!(
+            fixture
+                .mock_checkout_url("https://checkout.stripe.com/c/pay/cs_test_real")
+                .is_none()
+        );
+        assert!(
+            fixture
+                .mock_checkout_url(&(stored + "?redirect=other"))
+                .is_none()
+        );
     }
 }

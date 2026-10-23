@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
-import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '../../../../../sdks/javascript/src/platform-audit';
+import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '@niu-io/sdk/platform-audit';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';

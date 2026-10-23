@@ -11,10 +11,10 @@ import { Label } from '@/components/ui/label';
 import type { DashboardContext } from '@/app/dashboard-context';
 import { workspacePathSegment } from '@/app/workspace-route';
 import { keyRequest } from '@/features/keys/api';
-import type { VideoJobHistory } from '../../../../../sdks/javascript/src/index';
-import { NiuAdminClient, type GenerationTask, type TenantScope } from '../../../../../sdks/javascript/src/admin';
+import type { VideoJobHistory } from '@niu-io/sdk';
+import { NiuAdminClient, type GenerationTask, type TenantScope } from '@niu-io/sdk/admin';
 import { videoIntentHistory, type VideoIntentHistoryRow } from '@/features/video/intent-history';
-import type { VideoGenerationsSessionSummary } from '../../../../../sdks/javascript/src/generations-sessions';
+import type { VideoGenerationsSessionSummary } from '@niu-io/sdk/generations-sessions';
 
 type Chat = {id:string;reference?:string;title?:string;prompt:string;createdAt:number};
 type Video = VideoJobHistory['data'][number] & {reference?:string;keyId?:string;workspaceId?:string;sessionId?:string|null};

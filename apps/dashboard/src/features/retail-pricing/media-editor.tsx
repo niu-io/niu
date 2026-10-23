@@ -14,7 +14,7 @@ import { registeredRetailModelChoices, type RetailModelChoice } from './api';
 import { money } from '@/lib/money';
 import { Link } from 'react-router';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, RetailStandardPublication } from '../../../../../sdks/javascript/src/admin';
+import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, RetailStandardPublication } from '@niu-io/sdk/admin';
 
 type MediaSchedule = Extract<RetailSchedule, { kind: 'media' }>;
 /** Explicit media dimensions and metering; price configuration is not qualification. */

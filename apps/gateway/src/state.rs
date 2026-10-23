@@ -193,6 +193,13 @@ fn require_demo_account_loopback_bind(
     Ok(())
 }
 
+fn resolve_demo_account_password(raw: Option<&str>) -> Result<String, Box<dyn std::error::Error>> {
+    let password = raw
+        .filter(|value| !value.trim().is_empty())
+        .ok_or("NIU_DEMO_ACCOUNT_ENABLED requires an explicit NIU_DEMO_ACCOUNT_PASSWORD")?;
+    Ok(password.to_owned())
+}
+
 impl AppState {
     pub async fn load_from_env() -> Result<Self, Box<dyn std::error::Error>> {
         let config = AppConfig::load()?;
@@ -268,7 +275,10 @@ impl AppState {
         state.vendor_cipher = vendor_cipher;
         state.payments = crate::payments::Runtime::from_env().await?.map(Arc::new);
         state.epay_payments = crate::payments::EPayRuntime::from_env()?.map(Arc::new);
-        state.stripe_payments = crate::payments::StripeRuntime::from_env(state.store.platform_currency().await?.as_deref())?.map(Arc::new);
+        state.stripe_payments = crate::payments::StripeRuntime::from_env(
+            state.store.platform_currency().await?.as_deref(),
+        )?
+        .map(Arc::new);
         crate::payments::validate_mock_integrations(&state).await?;
         state.password_auth = crate::admin::passwords::Runtime::from_env()
             .await?
@@ -281,10 +291,9 @@ impl AppState {
                 env::var("PORT").ok().as_deref(),
                 env::var("NIU_AUTH_PUBLIC_ORIGIN").ok().as_deref(),
             )?;
-            let demo_password = env::var("NIU_DEMO_ACCOUNT_PASSWORD")
-                .ok()
-                .filter(|v| !v.trim().is_empty())
-                .unwrap_or_else(|| "Hello123".to_owned());
+            let demo_password = resolve_demo_account_password(
+                env::var("NIU_DEMO_ACCOUNT_PASSWORD").ok().as_deref(),
+            )?;
             runtime
                 .provision_local_account(&state.store, "demo@niu.io", &demo_password)
                 .await?;
@@ -943,6 +952,17 @@ mod tests {
                 Some("http://niu.io")
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn demo_account_requires_explicit_password() {
+        assert!(super::resolve_demo_account_password(None).is_err());
+        assert!(super::resolve_demo_account_password(Some("")).is_err());
+        assert!(super::resolve_demo_account_password(Some("   ")).is_err());
+        assert_eq!(
+            super::resolve_demo_account_password(Some("explicit-demo-password-15chars")).unwrap(),
+            "explicit-demo-password-15chars"
         );
     }
 

@@ -1,5 +1,5 @@
 import { amountFromNanos, amountToNanos } from '@/lib/money';
-import type { RetailSchedule } from '../../../../../sdks/javascript/src/admin';
+import type { RetailSchedule } from '@niu-io/sdk/admin';
 
 export type TextSchedule = Extract<RetailSchedule, { kind: 'text' }>;
 export const categories = [

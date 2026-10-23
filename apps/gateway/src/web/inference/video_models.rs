@@ -94,9 +94,19 @@ pub(in crate::web) async fn models_as(
 /// configured preview support, not a key grant, price or live upstream guarantee.
 pub(in crate::web) fn configured_preview(route: &niu_storage::VendorCatalogRoute) -> bool {
     if route.model.capabilities["video_schema"]["channel"] == niu_media::openrouter::REVISION
-        && route.vendor.adapter != "openrouter" { return false; }
-    projection_with_images(&route.model.alias, &route.model.upstream_model,
-        &route.model.capabilities, route.personal_organization_id.is_some(), None, true).is_some()
+        && route.vendor.adapter != "openrouter"
+    {
+        return false;
+    }
+    projection_with_images(
+        &route.model.alias,
+        &route.model.upstream_model,
+        &route.model.capabilities,
+        route.personal_organization_id.is_some(),
+        None,
+        true,
+    )
+    .is_some()
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { request } from '@/features/providers/api';
 import { amountFromNanos } from '@/lib/money';
-import type { CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant } from '@niu-io/sdk/admin';
 import type { Editor } from './page';
 
 const base=(organization:string,currency:string)=>`/api/v1/organizations/${encodeURIComponent(organization)}/billing/accounts/${currency}/grants`;

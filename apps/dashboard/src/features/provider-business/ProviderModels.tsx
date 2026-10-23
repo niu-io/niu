@@ -10,7 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import ModelMappingForm from '@/features/providers/components/ModelMappingForm';
 import ProviderEditor from '@/features/providers/components/ProviderEditor';
 import { request, writeMayHaveCommitted, type ProviderConnection, type ProviderModel, type ModelWrite, type ProviderConnectionWrite, type ProviderCatalogModel } from '@/features/providers/api';
-import type { ProviderOffer } from '../../../../../sdks/javascript/src/admin';
+import type { ProviderOffer } from '@niu-io/sdk/admin';
 
 type Entry = { connection: ProviderConnection; model: ProviderModel };
 type Props = {

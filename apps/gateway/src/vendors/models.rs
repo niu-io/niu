@@ -488,20 +488,51 @@ async fn catalog_models(
 pub(crate) async fn generation_catalog(
     state: &AppState,
     organization_id: Option<uuid::Uuid>,
-) -> Result<(BTreeMap<String, ModelConfig>, BTreeMap<String, niu_storage::VendorCatalogRoute>), ApiError> {
+) -> Result<
+    (
+        BTreeMap<String, ModelConfig>,
+        BTreeMap<String, niu_storage::VendorCatalogRoute>,
+    ),
+    ApiError,
+> {
     if let Some(published) = super::publication::snapshot(state).await? {
-        let (unavailable, cooling_down) = state.store.route_registry_live_eligibility().await.map_err(ApiError::from_store)?;
-        let models = super::catalog_compiler::compile_published_catalog(&published.registry, &unavailable, &cooling_down, organization_id)?;
-        let routes = published.registry.routes.iter()
-            .filter(|(alias, _)| models.contains_key(*alias) && !published.registry.pools.contains_key(*alias))
-            .map(|(alias, route)| (alias.clone(), route.metadata.clone())).collect();
+        let (unavailable, cooling_down) = state
+            .store
+            .route_registry_live_eligibility()
+            .await
+            .map_err(ApiError::from_store)?;
+        let models = super::catalog_compiler::compile_published_catalog(
+            &published.registry,
+            &unavailable,
+            &cooling_down,
+            organization_id,
+        )?;
+        let routes = published
+            .registry
+            .routes
+            .iter()
+            .filter(|(alias, _)| {
+                models.contains_key(*alias) && !published.registry.pools.contains_key(*alias)
+            })
+            .map(|(alias, route)| (alias.clone(), route.metadata.clone()))
+            .collect();
         return Ok((models, routes));
     }
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
-    let models = super::catalog_compiler::compile_catalog(&static_models, &inputs, organization_id)?;
-    let routes = inputs.routes.into_iter()
-        .filter(|route| models.contains_key(&route.model.alias) && !inputs.pools.iter().any(|pool| pool.alias == route.model.alias))
-        .map(|route| (route.model.alias.clone(), route)).collect();
+    let models =
+        super::catalog_compiler::compile_catalog(&static_models, &inputs, organization_id)?;
+    let routes = inputs
+        .routes
+        .into_iter()
+        .filter(|route| {
+            models.contains_key(&route.model.alias)
+                && !inputs
+                    .pools
+                    .iter()
+                    .any(|pool| pool.alias == route.model.alias)
+        })
+        .map(|route| (route.model.alias.clone(), route))
+        .collect();
     Ok((models, routes))
 }
 

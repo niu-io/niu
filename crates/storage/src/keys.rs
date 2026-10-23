@@ -330,10 +330,12 @@ impl Store {
             return Err(StoreError::Unauthorized);
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        // Single-statement indexed lookup executes under its own PostgreSQL MVCC
+        // statement snapshot without paying BEGIN/set_config/COMMIT round-trips.
         let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
-            .bind(hash).fetch_optional(&mut *snapshot).await?;
-        snapshot.commit().await?;
+            .bind(hash)
+            .fetch_optional(&self.pool)
+            .await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
@@ -354,7 +356,6 @@ impl Store {
             return Err(StoreError::Unauthorized);
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row = sqlx::query(
             "SELECT k.id, k.organization_id, k.project_id, k.allowed_models, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
@@ -367,9 +368,8 @@ impl Store {
         )
         .bind(hash)
         .bind(source.map(|ip| ip.to_string()))
-        .fetch_optional(&mut *snapshot)
+        .fetch_optional(&self.pool)
         .await?;
-        snapshot.commit().await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
         let ip_allowed: bool = row.get("ip_allowed");
         if !ip_allowed {
@@ -393,11 +393,12 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Principal, StoreError> {
-        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row = sqlx::query("SELECT allowed_models FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
-            .bind(scope.organization_id).bind(scope.project_id).bind(id)
-            .fetch_optional(&mut *snapshot).await?;
-        snapshot.commit().await?;
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
         Ok(Principal {
             key_id: id,
@@ -412,7 +413,6 @@ impl Store {
         id: Uuid,
         source: Option<std::net::IpAddr>,
     ) -> Result<Principal, StoreError> {
-        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row = sqlx::query(
             "SELECT k.allowed_models, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
@@ -427,9 +427,8 @@ impl Store {
         .bind(scope.project_id)
         .bind(id)
         .bind(source.map(|ip| ip.to_string()))
-        .fetch_optional(&mut *snapshot)
+        .fetch_optional(&self.pool)
         .await?;
-        snapshot.commit().await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
         let ip_allowed: bool = row.get("ip_allowed");
         if !ip_allowed {
@@ -454,7 +453,6 @@ impl Store {
         id: Uuid,
         source: Option<std::net::IpAddr>,
     ) -> Result<(Principal, bool), StoreError> {
-        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row = sqlx::query(
             "SELECT k.organization_id, k.project_id, k.allowed_models, \
              CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true \
@@ -467,9 +465,8 @@ impl Store {
         )
         .bind(id)
         .bind(source.map(|ip| ip.to_string()))
-        .fetch_optional(&mut *snapshot)
+        .fetch_optional(&self.pool)
         .await?;
-        snapshot.commit().await?;
         let row = row.ok_or(StoreError::Unauthorized)?;
         let ip_allowed: bool = row.get("ip_allowed");
         Ok((

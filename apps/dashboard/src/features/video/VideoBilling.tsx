@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
-import type {VideoJobBilling} from '../../../../../sdks/javascript/src/index';
+import type {VideoJobBilling} from '@niu-io/sdk';
 import {money,currencySymbol} from '@/lib/money';
 import {Button} from '@/components/ui/button';
 import {Collapsible,CollapsibleTrigger,CollapsibleContent} from '@/components/ui/collapsible';

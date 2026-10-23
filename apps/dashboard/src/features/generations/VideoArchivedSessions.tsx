@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DashboardContext } from '@/app/dashboard-context';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { NiuAdminClient } from '../../../../../sdks/javascript/src/admin';
-import type { VideoGenerationsSessionSummary } from '../../../../../sdks/javascript/src/generations-sessions';
+import { NiuAdminClient } from '@niu-io/sdk/admin';
+import type { VideoGenerationsSessionSummary } from '@niu-io/sdk/generations-sessions';
 
 /** Video section of the existing archive dialog; restores metadata only. */
 export default function VideoArchivedSessions({context,open,disabled=false}:{context:DashboardContext;open:boolean;disabled?:boolean}) {

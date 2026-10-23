@@ -43,6 +43,65 @@ const groups = [
   ]],
 ];
 const methods = new Set(['get', 'post', 'put', 'patch', 'delete', 'head', 'options']);
+
+export function deriveOperationAuthority(path, method, operation) {
+  const security = operation.security ?? [];
+  const isMutation = !['get', 'head', 'options'].includes(method);
+  if (security.length === 0 || (security.length === 1 && Object.keys(security[0]).length === 0)) {
+    return {
+      audience: /^\/(?:v1\/models|catalog\/v1\/models)$/.test(path) ? 'model' : 'public',
+      principals: ['anonymous'],
+      required_capability: 'public',
+      scope: 'installation',
+    };
+  }
+  if (/^\/(?:v1|v1beta)(?:\/|$)/.test(path)) {
+    return {
+      audience: 'model',
+      principals: ['workspace_api_key', 'console_key_selection'],
+      required_capability: path === '/v1/key' || path.startsWith('/v1/generations/') || !isMutation ? 'read' : 'inference',
+      scope: 'workspace',
+    };
+  }
+  if (/^\/api\/v1\/(?:providers|provider-memberships)/.test(path)) {
+    return {
+      audience: 'provider',
+      principals: ['provider_member', 'platform_admin', 'installation_admin'],
+      required_capability: isMutation ? 'provider_manage' : 'read',
+      scope: 'provider',
+    };
+  }
+  if (
+    /^\/api\/v1\/(?:platform\/|vendors|routing-registry|pools|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
+    /\/billing\/(?:media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
+    /\/(?:tariffs|retail-price-enrollment|media-retail-price-enrollment|usage-reconciliation)/.test(path)
+  ) {
+    return {
+      audience: 'platform',
+      principals: ['platform_admin', 'installation_admin'],
+      required_capability: isMutation ? 'platform_admin' : 'read',
+      scope: 'platform',
+    };
+  }
+  if (
+    /^\/api\/v1\/(?:auth\/|session$)/.test(path) ||
+    /\/(?:chats\/draft|video\/(?:draft|intents)|sessions(?:\/|$)|generations(?:\/|$)|codex-connections)/.test(path)
+  ) {
+    return {
+      audience: 'console',
+      principals: ['operator_session', 'installation_admin'],
+      required_capability: isMutation ? 'write' : 'read',
+      scope: path.includes('/workspaces/') || path.includes('/projects/') ? 'workspace' : 'organization',
+    };
+  }
+  return {
+    audience: 'customer-management',
+    principals: ['operator_session', 'installation_admin'],
+    required_capability: isMutation ? 'write' : 'read',
+    scope: path.includes('/workspaces/') || path.includes('/projects/') ? 'workspace' : 'organization',
+  };
+}
+
 export function addOpenApiNavigation(spec) {
   const definitions = groups.flatMap(([, tags]) => tags.map(([name, description, pattern]) => ({name, description, match:new RegExp(pattern)})));
   const used = new Set();
@@ -51,6 +110,7 @@ export function addOpenApiNavigation(spec) {
     const tag = definitions.find(tag => tag.match.test(path));
     if (!tag) throw new Error(`OpenAPI documentation group missing for ${method.toUpperCase()} ${path}`);
     operation.tags = [tag.name];
+    operation['x-niu-authority'] = deriveOperationAuthority(path, method, operation);
     used.add(tag.name);
   }
   spec.tags = definitions.filter(tag => used.has(tag.name)).map(({name, description}) => ({name, description}));

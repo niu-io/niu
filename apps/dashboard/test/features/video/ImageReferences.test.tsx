@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import ImageReferences, {type NamedImageReference} from '@/features/video/ImageReferences';
-import type {VideoModel} from '../../../../../sdks/javascript/src/index';
+import type {VideoModel} from '@niu-io/sdk';
 const model={image_url:{maximum_items:2,maximum_bytes:128,https:false,data_mime_types:['image/png'],roles:['first_frame','last_frame'],role_required:true,requires_text:true,maximum_width:32,maximum_height:32,maximum_decoded_bytes:4096}} as VideoModel;
 function Harness(){const [images,setImages]=useState<NamedImageReference[]>([]);return <><ImageReferences model={model} images={images} onChange={setImages} disabled={false}/><output>{JSON.stringify(images)}</output></>;}
 it('reads a pending image, assigns a schema role and removes it',async()=>{

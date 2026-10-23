@@ -16,7 +16,7 @@ import { MediaStandardEditor } from './media-editor';
 import { PromotionEditor } from './promotion-editor';
 import { SellingSchedule } from './schedule';
 import { PromotionsManager } from './promotions';
-import type { RetailPriceRecord, RetailPriceHistory } from '../../../../../sdks/javascript/src/admin';
+import type { RetailPriceRecord, RetailPriceHistory } from '@niu-io/sdk/admin';
 
 const base = '/api/v1/pricing/standard-prices';
 const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : 'Date unavailable';

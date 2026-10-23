@@ -387,7 +387,7 @@ async fn authorize(
 pub async fn overview(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    crate::web::workspace_path::WorkspacePath((organization_id, project_id)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid)>,
 ) -> Result<Json<Value>, ApiError> {
     let scope = TenantScope {
         organization_id,

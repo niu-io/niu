@@ -33,7 +33,7 @@ import { IconWifiOff as WifiOff } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, useSidebar } from '@/components/ui/sidebar';
-import type { AdminSession, DashboardContext, GatewayStatus, Model, Organization, SessionChatKey, Workspace, WorkspaceProblem } from './dashboard-context';
+import { canManagePlatform, type AdminSession, type DashboardContext, type GatewayStatus, type Model, type Organization, type SessionChatKey, type Workspace, type WorkspaceProblem } from './dashboard-context';
 import { navigation } from './navigation';
 import AccountMenu from './AccountMenu';
 import { SettingsDialog, settingsHref, SettingsNavigation } from '@/features/account/settings-page';
@@ -111,7 +111,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
   const [error, setError] = useState('');
   useEffect(() => { const refresh = () => setRetryRevision(value => value + 1); window.addEventListener('niu:supplier-profile-updated', refresh); window.addEventListener('niu:provider-profile-updated', refresh); return () => { window.removeEventListener('niu:supplier-profile-updated', refresh); window.removeEventListener('niu:provider-profile-updated', refresh); }; }, []);
   useEffect(() => {
-    if (!(context.session?.kind === 'installation' || context.session?.permissions.platform_admin)) {
+    if (!canManagePlatform(context.session)) {
       setProviders(context.session?.provider_memberships ?? []);
       setDirectoryOwner(context.token);setError('');setLoading(false);
       return;
@@ -168,7 +168,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
           {loading && <DropdownMenuLabel role="status">Loading providers…</DropdownMenuLabel>}
           {!loading && !error && providers.length === 0 && <DropdownMenuLabel>No providers yet</DropdownMenuLabel>}
           {error && <><div className="workspace-switcher-error" role="alert">{error}</div><DropdownMenuItem onSelect={event => {event.preventDefault();setRetryRevision(value => value + 1);}}>Retry provider list</DropdownMenuItem></>}
-          {!adminProvider && (context.session?.kind === 'installation' || context.session?.permissions.platform_admin) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/providers/' + encodeURIComponent(selectedSegment) + '/settings')}><Settings2 size={16} />Provider settings</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/providers/overview?create=provider' + (selected ? '&provider=' + encodeURIComponent(selectedSegment) : ''))}><Plus size={16} />Add provider</DropdownMenuItem></>}
+          {!adminProvider && canManagePlatform(context.session) && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!membership || loading || Boolean(error)} onSelect={() => navigate('/admin/providers/' + encodeURIComponent(selectedSegment) + '/settings')}><Settings2 size={16} />Provider settings</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/admin/providers/overview?create=provider' + (selected ? '&provider=' + encodeURIComponent(selectedSegment) : ''))}><Plus size={16} />Add provider</DropdownMenuItem></>}
         </DropdownMenuContent>
       </DropdownMenu></div>}
     </SidebarHeader>
@@ -245,14 +245,14 @@ export default function AppLayout() {
   useEffect(() => { const refresh = () => setSupplierProfileRevision(value => value + 1); window.addEventListener('niu:supplier-profile-updated', refresh); window.addEventListener('niu:provider-profile-updated', refresh); return () => { window.removeEventListener('niu:supplier-profile-updated', refresh); window.removeEventListener('niu:provider-profile-updated', refresh); }; }, []);
   useEffect(() => {
     if (!supplierArea || !session) return;
-    if (session.kind !== 'installation' && !session.permissions.platform_admin) {
+    if (!canManagePlatform(session)) {
       setProviderDirectory(session.provider_memberships ?? []); setProviderDirectoryOwner(providerDirectoryIdentity); return;
     }
     const controller = new AbortController();
     setProviderDirectoryLoading(true);
     void request<{data: ProviderIdentity[]}>(token, '/api/v1/providers', 'GET', undefined, controller.signal).then(result => {
       if (!controller.signal.aborted) {setProviderDirectory(result.data);setProviderDirectoryOwner(providerDirectoryIdentity);}
-    }).catch(() => {}).finally(() => {if (!controller.signal.aborted) setProviderDirectoryLoading(false);});
+    }).catch(() => { /* Retain last resolved breadcrumb/slug directory; ProviderNav and ProvidersDirectory surface visible load errors and retry actions. */ }).finally(() => {if (!controller.signal.aborted) setProviderDirectoryLoading(false);});
     return () => controller.abort();
   }, [supplierArea, token, session, supplierProfileRevision, providerDirectoryIdentity]);
   useEffect(() => {
@@ -793,8 +793,8 @@ export default function AppLayout() {
   const destination = activeNavigation?.destination ?? 'Workspace';
   const platform = destination === 'Administration';
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
-  const hasSidebar = !helpArea && (!adminArea || ((session?.kind === 'installation' || session?.permissions.platform_admin) && session.permissions.manage_operators)) && (!settingsArea && (activityArea || supplierManagement || destination === 'Workspace'));
-  const isInstallation = session?.kind === 'installation' || Boolean(session?.permissions.platform_admin);
+  const isInstallation = canManagePlatform(session);
+  const hasSidebar = !helpArea && (!adminArea || isInstallation) && (!settingsArea && (activityArea || supplierManagement || destination === 'Workspace'));
   const setupBlocked = Boolean(token && !supplierArea && !settingsArea && !helpArea && paymentReadiness.status !== 'ready');
   const showWorkspaceAreas = !supplierArea || isInstallation || Boolean(session?.operator);
   const activeWorkspacePath = !isGlobalChat && routeWorkspaceId
@@ -854,7 +854,7 @@ export default function AppLayout() {
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/activity" className={`rail-item${activePath.startsWith('activity') ? ' selected' : ''}`} aria-label="Activity"><ChartNoAxesCombined size={23} aria-hidden="true" /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Activity</TooltipContent></Tooltip>
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={modelsHref} reloadDocument={!token} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models"><RailModels size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Models</TooltipContent></Tooltip>
       </>}
-      <div className="rail-bottom">{((isInstallation && session?.permissions.manage_operators) || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? "Admin" : "Providers"}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? "Admin" : "Providers"}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation">{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Documentation</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
+      <div className="rail-bottom">{(isInstallation || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? "Admin" : "Providers"}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? "Admin" : "Providers"}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation">{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Documentation</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
     </nav>
     <div className="app-rail-spacer" aria-hidden="true" />
     {hasSidebar && <Sidebar

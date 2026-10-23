@@ -317,7 +317,7 @@ async function runModel(
       if (buffered.trim()) consumeEvent(buffered);
       if (!terminalReceived) throw new Error('The response stream ended before completion. Inspect the request before trying again.');
     } finally {
-      if (!completed) void reader.cancel().catch(() => {});
+      if (!completed) void reader.cancel().catch(() => { /* Stream cancellation cleanup is best-effort. */ });
       reader.releaseLock();
     }
     const complete = result('complete');

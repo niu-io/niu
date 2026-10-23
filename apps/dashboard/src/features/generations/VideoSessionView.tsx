@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import type { DashboardContext } from '@/app/dashboard-context';
 import { workspacePathSegment } from '@/app/workspace-route';
 import { useBranding } from '@/app/branding';
-import { NiuAdminClient } from '../../../../../sdks/javascript/src/admin';
-import type { VideoGenerationsSession } from '../../../../../sdks/javascript/src/generations-sessions';
+import { NiuAdminClient } from '@niu-io/sdk/admin';
+import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import { GenerationSessionBindings } from './GenerationsLayout';
 import '../video/video.css';
 

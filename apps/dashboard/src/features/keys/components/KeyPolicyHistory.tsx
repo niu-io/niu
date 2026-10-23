@@ -4,7 +4,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { keyRequest } from '../api';
 import { money } from '@/lib/money';
-import type { KeyRequestRateLimitRevision, KeyConcurrencyLimitRevision, KeyTokenRateLimitRevision, KeyIpPolicyRevision, KeySpendingLimitRevision } from '../../../../../../sdks/javascript/src/admin';
+import type { KeyRequestRateLimitRevision, KeyConcurrencyLimitRevision, KeyTokenRateLimitRevision, KeyIpPolicyRevision, KeySpendingLimitRevision } from '@niu-io/sdk/admin';
 
 type Change = KeyRequestRateLimitRevision | KeyConcurrencyLimitRevision | KeyTokenRateLimitRevision | KeyIpPolicyRevision | KeySpendingLimitRevision;
 type Field = 'requests_per_minute' | 'max_concurrent_requests' | 'tokens_per_minute' | 'allowed_cidrs' | 'limit_nanos';

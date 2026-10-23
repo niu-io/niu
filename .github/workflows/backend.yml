@@ -46,11 +46,29 @@ jobs:
   rust:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: niu_test
+          POSTGRES_PASSWORD: niu_test
+          POSTGRES_DB: niu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U niu_test -d niu_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
+      - name: Configure disposable detector credential
+        run: python3 scripts/ci-fixture-env.py
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
 
@@ -67,13 +85,18 @@ jobs:
 
       - name: Compile workspace test targets without executing fixtures
         run: cargo +1.98.0 test --locked --workspace --no-run
+      - name: Execute gating PostgreSQL storage and gateway behavioral suites
+        run: |
+          cargo +1.98.0 test --locked -p niu-storage --test billing --test platform_currency -- --include-ignored
+          cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::observability::readiness_fault_injection_checks_schema_registry_and_encryption_while_liveness_stays_ok -- --include-ignored
+          cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::admin::workspace_scoped_customer_management_aliases_preserve_parity_and_deny_foreign_workspaces -- --include-ignored
       - name: Record backend verification scope
         if: always()
         run: |
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
-          Static checks only: formatting, import integrity, generated contracts,
-          compilation and Clippy. Fixture commands run separately as non-gating
-          diagnostics; their outcomes have zero evidentiary value. Functional,
-          stability, performance and release claims require actual current-input
-          end-to-end runs and independent final-artifact verification.
+          Blocking PR and main-branch checks: formatting, import integrity,
+          generated contracts, compilation, Clippy, and PostgreSQL 17 behavioral
+          suites (billing, platform currency, readiness fault injection, and
+          workspace-scoped customer-management parity). See
+          docs/reference/ci-verification-scope.md for the full verification matrix.
           EOF

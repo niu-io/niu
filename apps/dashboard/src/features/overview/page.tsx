@@ -7,13 +7,14 @@ import PageHeader from '@/components/PageHeader';
 import ConnectPrompt from '@/components/ConnectPrompt';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import { useDashboardContext } from '@/app/dashboard-context';
+import { workspacePathSegment } from '@/app/workspace-route';
 
 export default function OverviewRoute() {
-  const { token, workspace, models, session } = useDashboardContext();
-  const canManagePlatform = Boolean((session?.kind === 'installation' || session?.permissions?.platform_admin) && session?.permissions?.manage_operators);
+  const { token, workspace, workspaces, models, session } = useDashboardContext();
+  const canManagePlatform = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const { workspace: workspaceSegment } = useParams();
   const chatSearch = new URLSearchParams({ new: '1' });
-  if (workspaceSegment || workspace?.id) chatSearch.set('workspace', workspaceSegment || workspace!.id);
+  if (workspaceSegment || workspace) chatSearch.set('workspace', workspaceSegment || workspacePathSegment(workspace!, workspaces ?? [workspace!]));
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
   return <>
     <PageHeader title="Overview" action={token && <div className="overview-primary-actions">{models.length

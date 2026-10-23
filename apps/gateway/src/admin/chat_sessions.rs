@@ -959,8 +959,12 @@ pub async fn get(
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
     let id = match Uuid::parse_str(&id) {
         Ok(id) => id,
-        Err(_) => state.store.chat_session_id_by_reference(scope, &owner, &id)
-            .await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+        Err(_) => state
+            .store
+            .chat_session_id_by_reference(scope, &owner, &id)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?,
     };
     let value = state
         .store
@@ -1055,7 +1059,9 @@ fn conversation_export(mut payload: Value) -> Value {
         if let Some(results) = value.get_mut("results").and_then(Value::as_array_mut) {
             for result in results {
                 if let Some(object) = result.as_object_mut() {
-                    object.retain(|key, _| ["model", "content", "phase", "finishReason"].contains(&key.as_str()));
+                    object.retain(|key, _| {
+                        ["model", "content", "phase", "finishReason"].contains(&key.as_str())
+                    });
                 }
             }
         }
@@ -1669,8 +1675,11 @@ pub async fn save(
         .save_chat_session_guarded(scope, &owner, id, &payload, condition)
         .await
         .map_err(ApiError::from_store)?;
-    let reference = state.store.chat_session_reference(scope, &owner, id)
-        .await.map_err(ApiError::from_store)?;
+    let reference = state
+        .store
+        .chat_session_reference(scope, &owner, id)
+        .await
+        .map_err(ApiError::from_store)?;
     Ok(Json(if guarded {
         json!({"saved":true,"reference":reference,"revision":revision.to_string(),"guardedWrites":true})
     } else {

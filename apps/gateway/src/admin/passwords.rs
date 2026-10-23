@@ -136,7 +136,14 @@ impl Runtime {
             MEMBER_COOKIE
         }
     }
-    pub(super) fn cookie_header(&self, token: &str, max_age: u32) -> HeaderValue {
+    pub(super) fn cookie_header(&self, token: &str, max_age: u32) -> Result<HeaderValue, ApiError> {
+        if token.len() > 256
+            || !token
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ApiError::storage_unavailable());
+        }
         let secure = if self.local_development {
             ""
         } else {
@@ -146,7 +153,7 @@ impl Runtime {
             "{}={token}; Path=/{secure}; HttpOnly; SameSite=Lax; Max-Age={max_age}",
             self.cookie_name()
         ))
-        .expect("validated member token")
+        .map_err(|_| ApiError::storage_unavailable())
     }
 
     pub(crate) fn check_origin(&self, headers: &HeaderMap) -> Result<(), ApiError> {
@@ -245,7 +252,7 @@ pub async fn browser_login(
     let token = value["token"]
         .as_str()
         .ok_or_else(ApiError::storage_unavailable)?;
-    let cookie = runtime(&state)?.cookie_header(token, 28800);
+    let cookie = runtime(&state)?.cookie_header(token, 28800)?;
     let mut response = Json(json!({"session":value["session"]})).into_response();
     response.headers_mut().insert("set-cookie", cookie);
     Ok(response)
@@ -302,7 +309,7 @@ pub async fn browser_logout(
     let mut response = StatusCode::NO_CONTENT.into_response();
     response
         .headers_mut()
-        .insert("set-cookie", runtime(&state)?.cookie_header("", 0));
+        .insert("set-cookie", runtime(&state)?.cookie_header("", 0)?);
     Ok(response)
 }
 
@@ -629,7 +636,7 @@ pub async fn change_password(
     if browser {
         response
             .headers_mut()
-            .insert("set-cookie", runtime.cookie_header("", 0));
+            .insert("set-cookie", runtime.cookie_header("", 0)?);
     }
     Ok(response)
 }
@@ -670,6 +677,7 @@ mod development_tests {
         assert!(
             !local
                 .cookie_header("token", 28800)
+                .unwrap()
                 .to_str()
                 .unwrap()
                 .contains("Secure")
@@ -679,9 +687,15 @@ mod development_tests {
         assert!(
             production
                 .cookie_header("token", 28800)
+                .unwrap()
                 .to_str()
                 .unwrap()
                 .contains("Secure")
+        );
+        assert!(
+            production
+                .cookie_header("invalid;token\r\n", 28800)
+                .is_err()
         );
     }
 }

@@ -9,7 +9,7 @@ import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuRadioGr
 import {workspaceSlugFromName,workspacePathSegment} from '@/app/workspace-route';
 import {request} from '@/features/providers/api';
 import {listOperators,type Operator} from '@/features/operators/api';
-import type {NiuAdminClient,CompanyMetadata,Workspace,MemberPasswordConfiguration} from '../../../../../sdks/javascript/src/admin';
+import type {NiuAdminClient,CompanyMetadata,Workspace,MemberPasswordConfiguration} from '@niu-io/sdk/admin';
 
 import {readPending,savePending,clearPending,type PendingCreation} from './pending';
 

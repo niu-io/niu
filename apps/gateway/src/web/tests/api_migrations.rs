@@ -606,59 +606,196 @@ async fn workspace_creation_replays_across_api_and_admin_aliases(pool: PgPool) {
 async fn video_session_public_references_preserve_private_scope(pool: PgPool) {
     let mut state = test_state(None, pool.clone());
     crate::payments::readiness::configure_test_gateway(&mut state).await;
-    state.store.configure_platform_currency("USD").await.unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     let scope = state.store.default_workspace().await.unwrap();
     let id = Uuid::new_v4();
-    state.store.create_generations_session(scope, "installation", id, "Saved Video").await.unwrap();
-    let saved = state.store.generations_session(scope, "installation", id).await.unwrap().unwrap();
+    state
+        .store
+        .create_generations_session(scope, "installation", id, "Saved Video")
+        .await
+        .unwrap();
+    let saved = state
+        .store
+        .generations_session(scope, "installation", id)
+        .await
+        .unwrap()
+        .unwrap();
     let reference = saved["reference"].as_str().unwrap();
     assert!(reference.starts_with("video-"));
-    assert_eq!(state.store.generations_session_id_by_reference(scope, "installation", reference).await.unwrap(), Some(id));
-    assert!(state.store.generations_session_id_by_reference(scope, "other-owner", reference).await.unwrap().is_none());
+    assert_eq!(
+        state
+            .store
+            .generations_session_id_by_reference(scope, "installation", reference)
+            .await
+            .unwrap(),
+        Some(id)
+    );
+    assert!(
+        state
+            .store
+            .generations_session_id_by_reference(scope, "other-owner", reference)
+            .await
+            .unwrap()
+            .is_none()
+    );
     let app = router(state.clone());
     for identity in [id.to_string(), reference.to_owned()] {
-        let response = app.clone().oneshot(Request::get(format!("/api/v1/workspaces/{}/sessions/{identity}?category=video",scope.project_id))
-            .header("authorization", "Bearer niu-test-admin-token-that-is-long-1234")
-            .body(axum::body::Body::empty()).unwrap()).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::get(format!(
+                    "/api/v1/workspaces/{}/sessions/{identity}?category=video",
+                    scope.project_id
+                ))
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .body(axum::body::Body::empty())
+                .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        let body: Value = serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        let body: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
         assert_eq!(body["data"], saved);
     }
-    assert!(sqlx::query("UPDATE generations_sessions SET public_reference='video-999' WHERE id=$1").bind(id).execute(&pool).await.is_err());
+    assert!(
+        sqlx::query("UPDATE generations_sessions SET public_reference='video-999' WHERE id=$1")
+            .bind(id)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
 }
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn video_input_public_reference_preserves_dispatch_identity(pool: PgPool) {
-    let mut state=test_state(None,pool.clone());
+    let mut state = test_state(None, pool.clone());
     crate::payments::readiness::configure_test_gateway(&mut state).await;
-    state.store.configure_platform_currency("USD").await.unwrap();
-    let scope=state.store.default_workspace().await.unwrap();
-    let key=state.store.issue_key(scope,"Input fixture", &["fast".into()],3600).await.unwrap();
-    let id=Uuid::new_v4();
-    let request=json!({"model":"fast","content":[{"type":"text","text":"Private fixture prompt"}]});
-    state.store.save_video_intent(scope,"installation",niu_storage::VideoIntentInput{id,key_id:key.id,model:"fast",owner_funded:true,request:&request,request_digest:&[1;32]}).await.unwrap();
-    let session_id=Uuid::new_v4();let turn_id=Uuid::new_v4();
-    state.store.create_generations_session(scope,"installation",session_id,"Input timeline").await.unwrap();
-    state.store.append_generations_turn(scope,"installation",session_id,turn_id,1,&json!({"kind":"video","prompt":"Private fixture prompt"})).await.unwrap();
-    state.store.bind_generations_intent(scope,"installation",session_id,turn_id,2,id).await.unwrap();
-    let before=state.store.video_intent(scope,"installation",id).await.unwrap().unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    let scope = state.store.default_workspace().await.unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "Input fixture", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let id = Uuid::new_v4();
+    let request =
+        json!({"model":"fast","content":[{"type":"text","text":"Private fixture prompt"}]});
+    state
+        .store
+        .save_video_intent(
+            scope,
+            "installation",
+            niu_storage::VideoIntentInput {
+                id,
+                key_id: key.id,
+                model: "fast",
+                owner_funded: true,
+                request: &request,
+                request_digest: &[1; 32],
+            },
+        )
+        .await
+        .unwrap();
+    let session_id = Uuid::new_v4();
+    let turn_id = Uuid::new_v4();
+    state
+        .store
+        .create_generations_session(scope, "installation", session_id, "Input timeline")
+        .await
+        .unwrap();
+    state
+        .store
+        .append_generations_turn(
+            scope,
+            "installation",
+            session_id,
+            turn_id,
+            1,
+            &json!({"kind":"video","prompt":"Private fixture prompt"}),
+        )
+        .await
+        .unwrap();
+    state
+        .store
+        .bind_generations_intent(scope, "installation", session_id, turn_id, 2, id)
+        .await
+        .unwrap();
+    let before = state
+        .store
+        .video_intent(scope, "installation", id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(before.reference.starts_with("input-"));
     assert!(!before.reference.contains("Private"));
-    assert!(state.store.video_intent_id_by_reference(scope,"other-owner",&before.reference).await.unwrap().is_none());
-    let app=router(state.clone());
-    let mut responses=Vec::new();
-    for identity in [id.to_string(),before.reference.clone()] {
-        let (status,body)=call(&app,"GET",&format!("/api/v1/workspaces/{}/video/intents/{identity}",scope.project_id),ADMIN,None).await;
-        assert_eq!(status,StatusCode::OK,"{body}");responses.push(body);
+    assert!(
+        state
+            .store
+            .video_intent_id_by_reference(scope, "other-owner", &before.reference)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let app = router(state.clone());
+    let mut responses = Vec::new();
+    for identity in [id.to_string(), before.reference.clone()] {
+        let (status, body) = call(
+            &app,
+            "GET",
+            &format!(
+                "/api/v1/workspaces/{}/video/intents/{identity}",
+                scope.project_id
+            ),
+            ADMIN,
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        responses.push(body);
     }
-    assert_eq!(responses[0],responses[1]);
-    assert_eq!(responses[0]["data"]["reference"],before.reference);
-    assert_eq!(responses[0]["data"]["session_binding"],json!({"session_id":session_id,"turn_id":turn_id}));
-    let timeline=state.store.generations_session(scope,"installation",session_id).await.unwrap().unwrap();
-    assert_eq!(timeline["turns"][0]["intent"]["reference"],before.reference);
-    let after=state.store.video_intent(scope,"installation",id).await.unwrap().unwrap();
-    assert_eq!(before.submission_key,after.submission_key);
-    assert_eq!(before.request_digest,after.request_digest);
-    assert!(sqlx::query("UPDATE video_submission_intents SET public_reference='input-999' WHERE id=$1").bind(id).execute(&pool).await.is_err());
+    assert_eq!(responses[0], responses[1]);
+    assert_eq!(responses[0]["data"]["reference"], before.reference);
+    assert_eq!(
+        responses[0]["data"]["session_binding"],
+        json!({"session_id":session_id,"turn_id":turn_id})
+    );
+    let timeline = state
+        .store
+        .generations_session(scope, "installation", session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        timeline["turns"][0]["intent"]["reference"],
+        before.reference
+    );
+    let after = state
+        .store
+        .video_intent(scope, "installation", id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(before.submission_key, after.submission_key);
+    assert_eq!(before.request_digest, after.request_digest);
+    assert!(
+        sqlx::query("UPDATE video_submission_intents SET public_reference='input-999' WHERE id=$1")
+            .bind(id)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
 }

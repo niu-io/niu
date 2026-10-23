@@ -139,8 +139,9 @@ fn public_address(address: IpAddr) -> bool {
     }
 }
 impl Client {
-    pub fn configuration_digest(&self, context: &[u8]) -> [u8;32] {
-        let bound=serde_json::to_vec(&(self.base.as_str(),&self.checkout_origins,context)).expect("serializable checkout configuration");
+    pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
+        let bound = serde_json::to_vec(&(self.base.as_str(), &self.checkout_origins, context))
+            .expect("serializable checkout configuration");
         self.merchant.configuration_digest(&bound)
     }
     async fn resolve_public_addresses(
@@ -190,10 +191,29 @@ impl Client {
     /// Explicit loopback-only fixture transport; not part of distribution builds.
     #[cfg(feature = "test-fixtures")]
     pub fn fixture(base: &str, merchant: Merchant, origins: &[String]) -> Result<Self, Error> {
-        let base=Url::parse(base).map_err(|_|Error::Configuration)?;
-        let host:IpAddr=base.host_str().ok_or(Error::Configuration)?.parse().map_err(|_|Error::Configuration)?;
-        if base.scheme()!="http" || !host.is_loopback() || base.path()!="/" || !base.username().is_empty() || base.password().is_some() || base.query().is_some() || base.fragment().is_some() {return Err(Error::Configuration);}
-        Ok(Self{base,merchant,http:Self::builder().build().map_err(|_|Error::Configuration)?,dns_state:None,checkout_origins:checkout_origins(origins)?})
+        let base = Url::parse(base).map_err(|_| Error::Configuration)?;
+        let host: IpAddr = base
+            .host_str()
+            .ok_or(Error::Configuration)?
+            .parse()
+            .map_err(|_| Error::Configuration)?;
+        if base.scheme() != "http"
+            || !host.is_loopback()
+            || base.path() != "/"
+            || !base.username().is_empty()
+            || base.password().is_some()
+            || base.query().is_some()
+            || base.fragment().is_some()
+        {
+            return Err(Error::Configuration);
+        }
+        Ok(Self {
+            base,
+            merchant,
+            http: Self::builder().build().map_err(|_| Error::Configuration)?,
+            dns_state: None,
+            checkout_origins: checkout_origins(origins)?,
+        })
     }
     fn builder() -> reqwest::ClientBuilder {
         reqwest::Client::builder()

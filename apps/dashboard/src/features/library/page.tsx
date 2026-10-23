@@ -11,9 +11,9 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { NiuAdminClient, type TenantScope } from '../../../../../sdks/javascript/src/admin';
-import { NiuAPIError } from '../../../../../sdks/javascript/src/index';
-import type { WorkspaceAsset, WorkspaceAssetKind, WorkspaceAssetPage } from '../../../../../sdks/javascript/src/workspace-assets';
+import { NiuAdminClient, type TenantScope } from '@niu-io/sdk/admin';
+import { NiuAPIError } from '@niu-io/sdk';
+import type { WorkspaceAsset, WorkspaceAssetKind, WorkspaceAssetPage } from '@niu-io/sdk/workspace-assets';
 
 const kinds = {all:'All media',image:'Images',video:'Videos',audio:'Audio'};
 function checkedPage(page:WorkspaceAssetPage) {

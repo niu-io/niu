@@ -36,24 +36,39 @@ This repository is the complete self-hosted monorepo: single-process Rust gatewa
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKEN`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.5`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.23`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.2.0 --dir /opt/niu
+./scripts/install.sh install --version v0.2.23 --dir /opt/niu
 ```
 
 Once running on port `2555`:
 
 - **Default Entry (`/`)**: Redirects to `/workspaces/default/` (or `/installation` before first-time setup and `/login` when unauthenticated, with direct links to `/models/` and `/docs/`).
-- **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKEN` to configure upstream Providers (such as OpenRouter, OpenAI, Anthropic, or Bedrock) and publish model routes.
+- **Installation Setup (`/installation`)**: Authenticate with your `NIU_ADMIN_TOKENS` secret to configure the platform currency (`USD` or `CNY`), upstream Providers (such as OpenRouter, OpenAI, Anthropic, or Bedrock), published model routes, and either a payment gateway or a company funding arrangement (`/admin/balances`).
 - **Public Model Catalog (`/models/`)**: Browse routes enabled for `public_catalog`.
 - **Developer Documentation (`/docs/` & `/help/`)**: Read setup, routing, and API guides.
 
-### 2. Call the Inference API
+### 2. Enable Self-Hosted Funding & Call the Inference API
 
-Issue a workspace API key in the dashboard and call `/v1/chat/completions` using any OpenAI-compatible client or `curl`:
+Customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the default company using your installation token (`$NIU_ADMIN_TOKEN` from `NIU_ADMIN_TOKENS`), then issue a workspace API key and call `/v1/chat/completions`:
 
 ```sh
+# 1. Set the installation platform currency (one-time)
+curl -X PUT http://localhost:2555/api/v1/platform/currency \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"currency": "USD"}'
+
+# 2. Grant initial credits (e.g. $10.00 = 10000000000 nanounits) to the default company
+ORG_ID=$(curl -fsSL http://localhost:2555/api/v1/organizations \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])")
+curl -X POST "http://localhost:2555/api/v1/organizations/$ORG_ID/balance/grants" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"currency": "USD", "amount_nanos": "10000000000", "reason": "Self-hosted evaluation", "idempotency_key": "00000000-0000-4000-8000-000000000001"}'
+
+# 3. Issue a workspace API key and call /v1/chat/completions
 curl http://localhost:2555/v1/chat/completions \
   -H "Authorization: Bearer $NIU_API_KEY" \
   -H "Content-Type: application/json" \
@@ -71,7 +86,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.2.0 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.2.23 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu
@@ -80,7 +95,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ### 4. Deploy to Render
 
-The [Render Blueprint](render.yaml) provisions the gateway and a managed PostgreSQL database in your Render workspace. Provide your upstream Provider API key during setup; Render generates `NIU_ADMIN_TOKEN` and `NIU_VENDOR_ENCRYPTION_KEY`.
+The [Render Blueprint](render.yaml) provisions the gateway and a managed PostgreSQL database in your Render workspace. Provide your upstream Provider API key during setup; Render generates `NIU_ADMIN_TOKENS` and `NIU_VENDOR_ENCRYPTION_KEY`.
 
 ---
 
@@ -96,9 +111,10 @@ niu/
 ├── contracts/            # Versioned OpenAPI 3.1 specifications (niu.v1.json) and fixtures
 ├── crates/
 │   ├── storage/          # PostgreSQL persistence, migrations, encrypted credentials, budget reservations
-│   ├── execution/        # Request admission, routing, and execution primitives
-│   ├── cost/             # Model token pricing calculation engine
-│   ├── benchmark/        # Paired benchmark comparison runner
+│   ├── metered-cost/     # Exact integer rational media pricing engine
+│   ├── execution/        # Compatibility vocabulary for imported task records
+│   ├── cost/             # Standalone pinned LiteLLM floating-point cost reference (not linked by gateway)
+│   ├── benchmark/        # Standalone paired-experiment CLI (retired from gateway runtime)
 │   ├── plugin-api/       # Neutral plugin protocol types, capabilities, and hook envelopes
 │   └── plugin-sdk/       # Rust SDK for building Niu plugins over Unix domain sockets
 ├── plugins/              # Built-in open-source plugins (hello-echo, request-tagger, webhook-audit)

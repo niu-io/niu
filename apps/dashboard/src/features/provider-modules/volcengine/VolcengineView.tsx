@@ -9,8 +9,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 
-import type { MediaAsset, MediaAssetOperationInput } from '../../../../../../sdks/javascript/src/media-assets';
-import { NiuAPIError } from '../../../../../../sdks/javascript/src/index';
+import type { MediaAsset, MediaAssetOperationInput } from '@niu-io/sdk/media-assets';
+import { NiuAPIError } from '@niu-io/sdk';
 import {useMaterials,type NativeMaterialsContext} from './useMaterials';
 import {Table,TableHeader,TableRow,TableHead,TableBody,TableCell} from '@/components/ui/table';
 type DialogKind = 'group'|'edit'|'delete-group'|'material'|'inspect-asset'|'rename-asset'|'delete-asset'|'verification';
@@ -60,7 +60,10 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
     setDialogError('');
     setDialog(value);
     if(value==='inspect-asset'&&nextAsset&&data.client&&data.model){
-      void data.client.assets.retrieve(nextAsset.id,data.model).then(res=>setTargetAsset(curr=>curr?.id===nextAsset.id?res.data:curr)).catch(()=>{});
+      void data.client.assets.retrieve(nextAsset.id,data.model).then(res=>setTargetAsset(curr=>curr?.id===nextAsset.id?res.data:curr)).catch(()=>{
+        /* Retain last loaded material record while surfacing refresh status. */
+        setDialogError('Showing the last loaded material details; latest status could not be refreshed.');
+      });
     }
   }
   async function act(work:()=>Promise<unknown>){if(busy)return;setBusy(true);data.setError('');try{await work();await data.reload();}catch(e){data.setError(e instanceof Error?e.message:'Request failed');}finally{setBusy(false);}}

@@ -935,11 +935,16 @@ def main():
     bundle_status, bundle, _ = request("GET", bundle_match.group(1))
     assert bundle_status == 200 and len(bundle) > 500, "the dashboard JavaScript bundle was not served"
 
+    currency_status, _, _ = request(
+        "PUT", "/api/v1/platform/currency", payload={"currency": "USD"}, admin=True
+    )
+    assert currency_status == 200
     organization_status, organization, _ = request(
         "POST", "/admin/v1/organizations", payload={"name": "Package smoke"}, admin=True
     )
     assert organization_status == 201
     organization_id = organization["id"]
+    initialize_prepaid_account(organization_id)
     project_status, project, _ = request(
         "POST",
         f"/admin/v1/organizations/{organization_id}/projects",
@@ -978,7 +983,6 @@ def main():
     assert priced_status == 200
     assert priced_models["data"][0]["customer_pricing"] == expected_customer_price
 
-    initialize_prepaid_account(organization_id)
     assert_packaged_migration_history()
     member_token = initialize_member_administrator(organization_id, project_id)
     branding_state = PACKAGE_BRANDING.prepare_branding(request, database_value) if BRANDING_SMOKE else None

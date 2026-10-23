@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { GrantEditor, GrantHistory } from './grants';
 import { GiftCorrectionEditor } from './gift-corrections';
 import { amountFromNanos, amountToNanos, money } from '@/lib/money';
-import type { CustomerBalance, PreparedCustomerBalanceGrant, IssuedCustomerBalanceGrant } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerBalance, PreparedCustomerBalanceGrant, IssuedCustomerBalanceGrant } from '@niu-io/sdk/admin';
 
 type Company = { organization_id: string; organization_name: string; accounts: CustomerBalance[] };
 type AccountPage = { data: Company[]; next_after: string | null };

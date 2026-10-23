@@ -35,6 +35,16 @@ export type AdminSession = {
   permissions: { read: boolean; write: boolean; manage_operators: boolean; platform_admin?: boolean };
 };
 
+/**
+ * Platform administration is granted by installation tokens or explicit platform_admin
+ * membership, independent of the member's customer workspace operator-management role.
+ */
+export function canManagePlatform(session: AdminSession | null | undefined): boolean {
+  if (!session) return false;
+  if (session.permissions?.platform_admin) return true;
+  return session.kind === 'installation' && session.permissions?.manage_operators !== false;
+}
+
 export type DashboardContext = {
   appearance?: {ready:boolean; saving:boolean; error:string; reload:()=>void};
   token: string;

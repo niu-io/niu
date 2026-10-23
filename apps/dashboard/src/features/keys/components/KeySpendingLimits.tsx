@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { amountToNanos, money } from '@/lib/money';
 import { keyRequest, KeyRequestError } from '../api';
 import KeyPolicyHistory from './KeyPolicyHistory';
-import type { KeySpendingAccount } from '../../../../../../sdks/javascript/src/admin';
+import type { KeySpendingAccount } from '@niu-io/sdk/admin';
 
 const maxInt64 = 9223372036854775807n;
 const exact = (value: unknown): value is string => typeof value === 'string' && /^\d{1,64}$/.test(value);

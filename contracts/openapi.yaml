@@ -93,6 +93,46 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1sessions~1{session}~1turns~1{turn}~1task'
   /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/intent:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1sessions~1{session}~1turns~1{turn}~1intent'
+  /api/v1/workspaces/{workspace}/billing:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1billing'
+  /api/v1/workspaces/{workspace}/spending-limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1spending-limit'
+  /api/v1/workspaces/{workspace}/spending-limit/{currency}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1spending-limit~1{currency}'
+  /api/v1/workspaces/{workspace}/spending-limit/{currency}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1spending-limit~1{currency}~1history'
+  /api/v1/workspaces/{workspace}/requests:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1requests'
+  /api/v1/workspaces/{workspace}/requests/{attempt}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1requests~1{attempt}'
+  /api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1requests~1{attempt}~1usage-reconciliation'
+  /api/v1/workspaces/{workspace}/keys/{key}/spending-limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1spending-limit'
+  /api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1spending-limit~1{currency}'
+  /api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1spending-limit~1{currency}~1history'
+  /api/v1/workspaces/{workspace}/keys/{key}/ip-policy:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1ip-policy'
+  /api/v1/workspaces/{workspace}/keys/{key}/ip-policy/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1ip-policy~1history'
+  /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1request-rate-limit'
+  /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1request-rate-limit~1history'
+  /api/v1/workspaces/{workspace}/keys/{key}/token-usage-window:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1token-usage-window'
+  /api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1concurrency-limit'
+  /api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1concurrency-limit~1history'
+  /api/v1/workspaces/{workspace}/keys/{key}/capacity:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1capacity'
+  /api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1token-rate-limit'
+  /api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1token-rate-limit~1history'
   /api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1media-retail-price-enrollment'
   /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds:
@@ -297,6 +337,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
   /api/v1/platform/payments/integrations:
     $ref: './platform-configuration.openapi.yaml#/paths/~1api~1v1~1platform~1payments~1integrations'
+  /api/v1/platform/payments/stripe/verification:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1payments~1stripe~1verification'
   /api/v1/pools:
     $ref: './model-route-pools.openapi.yaml#/paths/~1api~1v1~1pools'
   /api/v1/pools/index:
@@ -2053,12 +2095,19 @@ paths:
         - adminBearerAuth: []
       responses:
         '200':
-          description: Process-local counters. Token totals cover only complete provider-reported usage. Unknown attempts include missing or invalid usage, failures, cancellations, native adapter calls without usage provenance, and streams without trustworthy usage/termination evidence. Durable attempt evidence is stored separately; this metrics endpoint is process-local.
+          description: Process-local counters keyed by instance_id and started_at_ms so multi-instance scrapers can distinguish replicas and detect counter resets on process restart. Token totals cover only complete provider-reported usage. Unknown attempts include missing or invalid usage, failures, cancellations, native adapter calls without usage provenance, and streams without trustworthy usage/termination evidence. Durable attempt evidence is stored separately; this metrics endpoint is process-local.
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  instance_id:
+                    type: string
+                    description: Unique process/replica identifier (configured via NIU_INSTANCE_ID or generated per process startup).
+                  started_at_ms:
+                    type: integer
+                    format: int64
+                    description: Process startup timestamp in Unix milliseconds for counter-reset detection.
                   requests_total:
                     type: integer
                   requests_failed:

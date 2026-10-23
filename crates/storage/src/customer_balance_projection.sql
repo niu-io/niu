@@ -1,8 +1,7 @@
 -- Shared customer/platform balance arithmetic; scoped company IDs are bound by the caller.
 WITH accounts AS MATERIALIZED (
                 SELECT a.*,
-                    COALESCE((SELECT SUM(e.amount_nanos) FROM customer_balance_entries e
-                        WHERE e.account_id=a.id),0) AS balance,
+                    a.posted_balance_nanos AS balance,
                     COALESCE((SELECT SUM(r.amount_nanos) FROM customer_balance_reservations r
                         WHERE r.account_id=a.id AND r.released_at IS NULL),0) AS reserved,
                     COALESCE((SELECT SUM(GREATEST(r.amount_nanos, COALESCE(m.amount_nanos,0)))

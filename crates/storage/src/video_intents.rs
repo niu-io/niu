@@ -66,7 +66,10 @@ impl Store {
     }
 
     pub async fn video_intent_id_by_reference(
-        &self, scope: TenantScope, owner: &str, reference: &str,
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        reference: &str,
     ) -> Result<Option<Uuid>, StoreError> {
         Ok(sqlx::query_scalar("SELECT id FROM video_submission_intents WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND public_reference=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(reference)

@@ -235,78 +235,95 @@ async fn platform_media_defaults_require_exact_dimensions_and_preserve_explicit_
 async fn retail_media_choices_validate_schema_and_hide_internal_configuration(pool: PgPool) {
     let store = fixture(&pool).await;
     let mut schema = json!({
-            "version": 1,
-            "revision": "ark-output-v1",
-            "model_alias": "seedance-2.0",
-            "upstream_model": "doubao-seedance-2-0",
-            "channel": "ark-direct-v1",
-            "maximum_body_bytes": 16384,
-            "maximum_content_items": 8,
-            "inputs": {
-                "text": {
-                    "maximum_items": 2,
-                    "maximum_bytes": 1024,
-                    "https": false,
-                    "data_mime_types": [],
-                    "roles": [],
-                    "role_required": false
-                },
-                "image_url": {
-                    "maximum_items": 4,
-                    "maximum_bytes": 512,
-                    "https": true,
-                    "data_mime_types": ["image/png"],
-                    "roles": ["first_frame", "reference_image"],
-                    "role_required": false
-                },
-                "video_url": {
-                    "maximum_items": 2,
-                    "maximum_bytes": 512,
-                    "https": true,
-                    "data_mime_types": [],
-                    "roles": ["reference_video"],
-                    "role_required": false
-                },
-                "audio_url": {
-                    "maximum_items": 2,
-                    "maximum_bytes": 512,
-                    "https": true,
-                    "data_mime_types": [],
-                    "roles": ["reference_audio"],
-                    "role_required": false
-                }
+        "version": 1,
+        "revision": "ark-output-v1",
+        "model_alias": "seedance-2.0",
+        "upstream_model": "doubao-seedance-2-0",
+        "channel": "ark-direct-v1",
+        "maximum_body_bytes": 16384,
+        "maximum_content_items": 8,
+        "inputs": {
+            "text": {
+                "maximum_items": 2,
+                "maximum_bytes": 1024,
+                "https": false,
+                "data_mime_types": [],
+                "roles": [],
+                "role_required": false
             },
-            "controls": {
-                "resolution": {"kind": "choice", "values": ["720p"], "default": "720p"},
-                "ratio": {"kind": "choice", "values": ["16:9"], "default": "16:9"},
-                "duration": {"kind": "integer", "minimum": 1, "maximum": 10, "default": 5},
-                "frames_per_second": {"kind": "integer", "minimum": 24, "maximum": 60, "default": 24}
+            "image_url": {
+                "maximum_items": 4,
+                "maximum_bytes": 512,
+                "https": true,
+                "data_mime_types": ["image/png"],
+                "roles": ["first_frame", "reference_image"],
+                "role_required": false
             },
-            "required_controls": [],
-            "exclusive_controls": [],
-            "callbacks_qualified": false,
-            "output": {
-                "specifications": [{"resolution": "720p", "ratio": "16:9", "width": 1280, "height": 720}],
-                "estimator": "SeedancePixelsV1",
-                "estimator_revision": "pixels-v1"
+            "video_url": {
+                "maximum_items": 2,
+                "maximum_bytes": 512,
+                "https": true,
+                "data_mime_types": [],
+                "roles": ["reference_video"],
+                "role_required": false
+            },
+            "audio_url": {
+                "maximum_items": 2,
+                "maximum_bytes": 512,
+                "https": true,
+                "data_mime_types": [],
+                "roles": ["reference_audio"],
+                "role_required": false
             }
-        });
+        },
+        "controls": {
+            "resolution": {"kind": "choice", "values": ["720p"], "default": "720p"},
+            "ratio": {"kind": "choice", "values": ["16:9"], "default": "16:9"},
+            "duration": {"kind": "integer", "minimum": 1, "maximum": 10, "default": 5},
+            "frames_per_second": {"kind": "integer", "minimum": 24, "maximum": 60, "default": 24}
+        },
+        "required_controls": [],
+        "exclusive_controls": [],
+        "callbacks_qualified": false,
+        "output": {
+            "specifications": [{"resolution": "720p", "ratio": "16:9", "width": 1280, "height": 720}],
+            "estimator": "SeedancePixelsV1",
+            "estimator_revision": "pixels-v1"
+        }
+    });
     schema["model_alias"] = json!("default-price");
     schema["upstream_model"] = json!("fixture");
     sqlx::query("UPDATE vendor_models SET capabilities=$1 WHERE alias='default-price'")
-        .bind(json!({"video_schema":schema})).execute(&pool).await.unwrap();
+        .bind(json!({"video_schema":schema}))
+        .execute(&pool)
+        .await
+        .unwrap();
     let page = store.registered_retail_models(None, 100).await.unwrap();
-    assert_eq!(page["data"], json!([{ "model_alias":"default-price", "media":{
-        "channel":"ark-direct-v1", "resolutions":["720p"], "reference_video":true, "meter":"video_tokens"
-    }}]));
+    assert_eq!(
+        page["data"],
+        json!([{ "model_alias":"default-price", "media":{
+            "channel":"ark-direct-v1", "resolutions":["720p"], "reference_video":true, "meter":"video_tokens"
+        }}])
+    );
     assert!(!page.to_string().contains("upstream_model"));
     assert!(!page.to_string().contains("maximum_body_bytes"));
     schema["upstream_model"] = json!("stale-mapping");
     sqlx::query("UPDATE vendor_models SET capabilities=$1 WHERE alias='default-price'")
-        .bind(json!({"video_schema":schema})).execute(&pool).await.unwrap();
+        .bind(json!({"video_schema":schema}))
+        .execute(&pool)
+        .await
+        .unwrap();
     assert!(store.registered_retail_models(None, 100).await.unwrap()["data"][0]["media"].is_null());
     sqlx::query("UPDATE vendor_models SET capabilities=$1 WHERE alias='default-price'")
-        .bind(json!({"video_schema":{"version":99}})).execute(&pool).await.unwrap();
+        .bind(json!({"video_schema":{"version":99}}))
+        .execute(&pool)
+        .await
+        .unwrap();
     assert!(store.registered_retail_models(None, 100).await.unwrap()["data"][0]["media"].is_null());
-    assert!(store.registered_retail_models(Some("missing-cursor"), 100).await.is_err());
+    assert!(
+        store
+            .registered_retail_models(Some("missing-cursor"), 100)
+            .await
+            .is_err()
+    );
 }

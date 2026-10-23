@@ -15,9 +15,9 @@ evidence. Container and frontend acceptance are outside this record.
 
 | Facility | Implemented limit | Meaning and boundary |
 | --- | --- | --- |
-| Main database pool | `NIU_DATABASE_MAX_CONNECTIONS`, integer 1–256; default 10 | Per Gateway process, shared by admission, reads, financial work and several workers. Not a database-wide connection ceiling. |
+| Main database pool | `NIU_DATABASE_MAX_CONNECTIONS`, integer 1–256; default 32 (historical S12-2 runs on 2026-10-12 used the earlier default of 10) | Per Gateway process, shared by admission, reads, financial work and several workers. Not a database-wide connection ceiling. |
 | Content maintenance | Separate pool, maximum 1 connection per Gateway | Identified as `niu-content-retention`; additional to the main pool. Multiple Gateway processes each have this allocation. |
-| Ordinary pool acquisition | SQLx 0.8.6 default acquisition timeout, 30 seconds | Confirmed from the installed dependency source. Individual callers can impose a shorter timeout. This is not a SQL execution deadline. |
+| Ordinary pool acquisition | 5-second acquisition timeout and 15-second `idle_in_transaction_session_timeout` (`crates/storage/src/lib.rs`) | Individual callers can impose a shorter timeout. This is not a SQL execution deadline. |
 | Shared bounded recording/read transactions | 250 ms lock wait; 2 s statement execution | Includes directory cursor and page reads in one snapshot after `c24e75b7`. Applies after connection acquisition; not a total transaction or universal endpoint deadline. |
 | Financial/content background ownership | 250 ms connection wait; nonblocking transaction advisory ownership | A losing contender skips that domain. Financial stages retain one connection for the claimed transaction; contenders may briefly acquire connections. |
 | Background scheduling | 5-second interval, missed ticks skipped | Cadence is an implementation setting, not a recovery completion SLA. Ledger pages and retention domains have their own finite batch limits. |

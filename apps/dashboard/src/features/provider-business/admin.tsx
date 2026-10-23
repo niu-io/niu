@@ -30,7 +30,7 @@ import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
 import MediaOfferPublisher from "./MediaOfferPublisher";
-import type { ProviderOffer } from "../../../../../sdks/javascript/src/admin";
+import type { ProviderOffer } from "@niu-io/sdk/admin";
 import type { Operator } from "@/features/operators/api";
 
 import { type ProviderSetup } from '@/features/providers/provider-setup';

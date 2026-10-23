@@ -1,52 +1,58 @@
-# CI verification scope
+# CI Verification Scope and Gating Contract
 
-Niu separates blocking build checks from fixture execution. Fixture outcomes have
-zero evidentiary value, whether positive or negative. They do not establish a
-defect, regression, performance result, acceptance or release readiness.
+This document defines the continuous integration (CI) gating contract across `.github/workflows/ci.yml`, `.github/workflows/backend.yml`, and `.github/workflows/fixtures.yml`.
 
-## Blocking checks
+## 1. Pull Request and Main-Branch Blocking Gates
 
-Backend checks retain formatting, import integrity, generated API consistency,
-Clippy and compilation of all workspace test targets without executing them.
-Public build checks also retain dependency-license checks, dashboard/docs/catalog
-and SDK/MCP type checks and builds, public-boundary scans, released migration
-immutability, container construction and inspection of the final runtime assets.
-Compilation checks establish only that the checked source compiles.
+Every pull request and push to `main` (or release tag) is gated by blocking checks in `.github/workflows/ci.yml` and `.github/workflows/backend.yml`. A failure in any of the suites below fails the workflow run and blocks merge or release qualification.
 
-Released SQL migration files remain byte-for-byte identical to their published
-tag. The guardrail rejection-context correction is appended as migration `0352`,
-instead of rewriting released migration `0333`. An isolated PostgreSQL 17 run
-applied the released schema followed by the appended migration; independent
-catalog inspection confirmed the resulting function's volatility and diagnostic
-scope/revision fields. This verifies that bounded schema transition, not a
-deployed gateway's behavior or a complete release.
+### 1.1 Web, Contract, and SDK Blocking Gates (`.github/workflows/ci.yml` — `web` job)
 
-The browser-image build explicitly includes the public contracts and JavaScript
-SDK TypeScript configuration consumed by documentation generation. The upgrade
-baseline uses the current build recipe with the previous release's unmodified
-source tree. It is a rebuilt baseline, not the original published image; report
-that distinction when interpreting any independently verified upgrade run.
+Triggered on `push` (`main`, tags `*`), `pull_request`, and `workflow_dispatch`:
 
-## Fixture diagnostics
+- **Public boundary & license verification**:
+  - `python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs`
+  - `node scripts/verify-js-licenses.mjs`
+  - `python3 scripts/check-public-boundary.py --root . apps/dashboard/dist apps/docs/dist apps/catalog/dist`
+- **Dashboard typecheck, production build, and full behavioral test suite (113 test files / 992 tests)**:
+  - `pnpm --filter @niu-io/dashboard check`
+  - `pnpm --filter @niu-io/dashboard build`
+  - `pnpm --filter @niu-io/dashboard test`
+- **OpenAPI contract, audience views, and SDK parity**:
+  - `pnpm check:api`
+  - `pnpm --filter @niu-io/docs test:api`
+  - `pnpm --filter @niu-io/docs check && pnpm --filter @niu-io/docs build`
+  - `pnpm check:catalog && pnpm build:catalog`
+- **Official SDK & MCP typechecks, builds, and unit tests**:
+  - `pnpm --dir sdks/javascript run check && pnpm --dir sdks/javascript run build && pnpm --dir sdks/javascript test`
+  - `pnpm --dir sdks/agent-connect run check && pnpm --dir sdks/agent-connect run build && pnpm --dir sdks/agent-connect test`
+  - `pnpm --dir sdks/mcp run check && pnpm --dir sdks/mcp run build && pnpm --dir sdks/mcp test`
 
-The reusable `fixtures.yml` workflow executes the existing Rust, PostgreSQL,
-Python, dashboard, documentation-generation and SDK/MCP fixture commands. It is
-called by the public build workflow and can also be dispatched manually. Its
-jobs and execution steps are explicitly non-gating. Each command runs separately
-so that one command cannot prevent later commands from being executed. These
-jobs do not load production credentials or access an existing application
-database; PostgreSQL and detector credentials are disposable CI resources.
+### 1.2 Rust Static and PostgreSQL 17 Behavioral Blocking Gates (`.github/workflows/backend.yml` — `rust` job)
 
-Package smoke and upgrade commands use mock upstreams. They remain available as
-non-gating fixture diagnostics after blocking image construction and artifact
-inspection. Neither their execution nor any outcome qualifies a deployed
-application or an upgrade. Raw command logs remain available in Actions; do not
-use their outcomes for decisions or claims.
+Triggered on `push` (`main`), `pull_request` (matching backend/contract paths), and `workflow_dispatch`, backed by a live `postgres:17` service container (`DATABASE_URL=postgres://niu_test:niu_test@127.0.0.1:5432/niu_test`):
 
-## Acceptance
+- **Static & contract integrity gates**:
+  - `cargo +1.98.0 fmt --all -- --check`
+  - `python3 scripts/verify-imports.py`
+  - `python3 scripts/extract-handler-openapi.py --check`
+  - `python3 scripts/check-openapi-entrypoints.py`
+  - `cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings`
+  - `cargo +1.98.0 test --locked --workspace --no-run`
+- **Blocking PostgreSQL 17 behavioral suites**:
+  - `cargo +1.98.0 test --locked -p niu-storage --test billing --test platform_currency -- --include-ignored`
+    - Verifies double-entry ledger invariants, `posted_balance_nanos` O(1) statement-level transition-table maintenance, 8-way concurrent reservation contention, trigger SQLSTATE/CONSTRAINT error mapping, and singleton platform currency enforcement.
+  - `cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::observability::readiness_fault_injection_checks_schema_registry_and_encryption_while_liveness_stays_ok -- --include-ignored`
+    - Verifies `/health/ready` vs `/health/live` separation and fault-injected database schema, model registry, and encryption key checks.
+  - `cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::admin::workspace_scoped_customer_management_aliases_preserve_parity_and_deny_foreign_workspaces -- --include-ignored`
+    - Verifies canonical `/api/v1/workspaces/{workspace}/...` and legacy customer-management route parity and cross-workspace isolation (`404 Not Found` on foreign workspaces).
 
-A green build is not release approval. Integrated behavior requires actual
-current-input end-to-end execution and independent verification of its final
-artifacts, with the deployed revision and exercised scope recorded. Missing
-evidence remains unverified. The [first-release plan](../releases/first-release.md)
-retains the product acceptance requirements independently of CI status.
+### 1.3 Container Package and Migration Immutability Gates (`.github/workflows/ci.yml` — `package` job)
+
+- `python3 scripts/check-migration-history.py previous-source/crates/storage/migrations crates/storage/migrations`
+- `docker buildx build --load --tag niu-io/niu:ci .`
+- Runtime image user (`10001:10001`), asset completeness, and `check-public-boundary.py` scan on extracted `/app`.
+
+## 2. Non-Gating Diagnostic Suites (`.github/workflows/fixtures.yml`)
+
+Long-running full-workspace fixture sweeps and mock-upstream smoke scripts in `.github/workflows/fixtures.yml` remain scheduled/callable with `continue-on-error: true` for diagnostic visibility while legacy UI test fixtures (such as pre-workspace-slug mock URL fixtures in older integration files) are incrementally migrated. Only the blocking suites listed in Section 1 establish merge and release qualification.

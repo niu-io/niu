@@ -65,6 +65,14 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
      if (!['get','post','put','patch','delete','head','options'].includes(method)) continue;
      assert.equal(operation.tags.length, 1);
      assert.ok(tags.has(operation.tags[0]));
+     assert.ok(operation['x-niu-authority']?.audience);
+     assert.ok(Array.isArray(operation['x-niu-authority']?.principals) && operation['x-niu-authority'].principals.length > 0);
+     assert.ok(operation['x-niu-authority']?.required_capability);
+     assert.ok(operation['x-niu-authority']?.scope);
+   }
+   for (const view of ['model-openapi.json', 'customer-management-openapi.json', 'console-openapi.json', 'platform-provider-openapi.json']) {
+     const parsedView = JSON.parse(readFileSync(join(directory, 'contracts/generated/views', view), 'utf8'));
+     assert.ok(Object.keys(parsedView.paths).length > 0, view);
    }
    assert.deepEqual(new Set(spec['x-tagGroups'].flatMap(group => group.tags)), tags);
    assert.match(spec.info.description, /Authentication and scope/);

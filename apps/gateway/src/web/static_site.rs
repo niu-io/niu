@@ -6,7 +6,10 @@ use axum::{
     routing::get,
 };
 use tower::ServiceExt;
-use tower_http::services::{ServeDir, ServeFile};
+use tower_http::{
+    compression::{CompressionLayer, predicate::NotForContentType},
+    services::{ServeDir, ServeFile},
+};
 
 use crate::state::AppState;
 
@@ -61,6 +64,8 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/login",
         "/installation",
         "/admin",
+        "/admin/customers",
+        "/admin/settings",
         "/admin/reports",
         "/admin/balances",
         "/admin/pools",
@@ -228,20 +233,66 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                 ServeFile::new(format!("{catalog_dir}/favicon.ico")),
             ),
     };
-    app.layer(middleware::from_fn(static_cache_headers))
+    app.layer(middleware::from_fn(static_cache_headers)).layer(
+        CompressionLayer::new().compress_when(NotForContentType::const_new("text/event-stream")),
+    )
 }
+
+fn is_known_workspace_subpath(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix("/workspaces/") else {
+        return true;
+    };
+    let trimmed = rest.trim_matches('/');
+    if trimmed.is_empty() {
+        return true;
+    }
+    let mut segments = trimmed.split('/');
+    let _workspace = segments.next();
+    let Some(section) = segments.next() else {
+        return true;
+    };
+    matches!(
+        section,
+        "models"
+            | "providers-admin"
+            | "vendors"
+            | "provider-capabilities"
+            | "video"
+            | "keys"
+            | "organization"
+            | "settings"
+            | "users"
+            | "operators"
+            | "guardrails"
+            | "billing"
+            | "usage"
+            | "activity"
+            | "library"
+            | "executions"
+            | "costs"
+            | "playground"
+            | "subscriptions"
+    )
+}
+
+const DASHBOARD_CSP_REPORT_ONLY: &str = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 async fn static_cache_headers(
     request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Response {
-    let path = request.uri().path();
-    let is_static_asset = path.starts_with("/_astro/")
+    let path = request.uri().path().to_owned();
+    let is_immutable_asset = path.starts_with("/_astro/")
         || path.starts_with("/assets/")
-        || path.starts_with("/_catalog/")
+        || path.starts_with("/_catalog/");
+    let is_static_asset = is_immutable_asset
         || path.starts_with("/catalog-assets/")
         || path.starts_with("/site-assets/");
+    let unknown_workspace_route = !is_known_workspace_subpath(&path);
     let mut response = next.run(request).await;
+    if unknown_workspace_route && response.status() == axum::http::StatusCode::OK {
+        *response.status_mut() = axum::http::StatusCode::NOT_FOUND;
+    }
     if response
         .headers()
         .get(axum::http::header::CONTENT_TYPE)
@@ -249,10 +300,40 @@ async fn static_cache_headers(
         .is_some_and(|value| value.starts_with("text/html"))
     {
         // Entry documents reference versioned assets; always revalidate after a release.
-        response.headers_mut().insert(
+        let headers = response.headers_mut();
+        headers.insert(
             axum::http::header::CACHE_CONTROL,
             axum::http::HeaderValue::from_static("no-cache"),
         );
+        headers.insert(
+            axum::http::header::X_CONTENT_TYPE_OPTIONS,
+            axum::http::HeaderValue::from_static("nosniff"),
+        );
+        headers.insert(
+            axum::http::header::X_FRAME_OPTIONS,
+            axum::http::HeaderValue::from_static("DENY"),
+        );
+        headers.insert(
+            axum::http::header::REFERRER_POLICY,
+            axum::http::HeaderValue::from_static("strict-origin-when-cross-origin"),
+        );
+        headers.insert(
+            axum::http::header::HeaderName::from_static("permissions-policy"),
+            axum::http::HeaderValue::from_static(
+                "camera=(), microphone=(), geolocation=(), payment=()",
+            ),
+        );
+        headers.insert(
+            axum::http::header::HeaderName::from_static("content-security-policy-report-only"),
+            axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY),
+        );
+    } else if is_immutable_asset && response.status().is_success() {
+        response
+            .headers_mut()
+            .entry(axum::http::header::CACHE_CONTROL)
+            .or_insert(axum::http::HeaderValue::from_static(
+                "public, max-age=31536000, immutable",
+            ));
     } else if is_static_asset && response.status().is_success() {
         response
             .headers_mut()

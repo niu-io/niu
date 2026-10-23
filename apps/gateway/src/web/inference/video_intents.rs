@@ -673,8 +673,12 @@ pub(in crate::web) async fn get(
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
     let id = match Uuid::parse_str(&id) {
         Ok(id) => id,
-        Err(_) => state.store.video_intent_id_by_reference(scope, &owner, &id)
-            .await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+        Err(_) => state
+            .store
+            .video_intent_id_by_reference(scope, &owner, &id)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?,
     };
     Ok(Json(
         restored(

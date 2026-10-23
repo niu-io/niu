@@ -1,8 +1,9 @@
 //! Per-key customer spending management; secret rotations share one limit.
 use super::{
-    AdminPermission, ApiError, AppState, HeaderMap, Json, Path, Query, State, TenantScope, Uuid,
-    Value, authorize_project, json,
+    AdminPermission, ApiError, AppState, HeaderMap, Json, Query, State, TenantScope, Uuid, Value,
+    authorize_project, json,
 };
+use crate::web::workspace_path::WorkspacePath as Path;
 use serde::Deserialize;
 
 #[derive(Deserialize)]

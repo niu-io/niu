@@ -17,12 +17,22 @@ impl Store {
         }
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let mut value: Option<Value> = sqlx::query_scalar(include_str!("key_capacity.sql"))
-            .bind(scope.organization_id).bind(scope.project_id).bind(key)
-            .bind(kind).bind(after).bind(limit).fetch_optional(&mut *snapshot).await?;
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(key)
+            .bind(kind)
+            .bind(after)
+            .bind(limit)
+            .fetch_optional(&mut *snapshot)
+            .await?;
         snapshot.commit().await?;
         if let Some(row) = value.as_mut() {
-            if row["cursor_valid"] != true { return Err(StoreError::Conflict); }
-            row.as_object_mut().ok_or(StoreError::Conflict)?.remove("cursor_valid");
+            if row["cursor_valid"] != true {
+                return Err(StoreError::Conflict);
+            }
+            row.as_object_mut()
+                .ok_or(StoreError::Conflict)?
+                .remove("cursor_valid");
         }
         Ok(value)
     }

@@ -295,6 +295,40 @@ async fn dashboard_entry_documents_require_revalidation() {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK, "{path}");
         assert_eq!(response.headers()["cache-control"], "no-cache", "{path}");
+        assert_eq!(
+            response.headers()["x-content-type-options"],
+            "nosniff",
+            "{path}"
+        );
+        assert_eq!(response.headers()["x-frame-options"], "DENY", "{path}");
+        assert_eq!(
+            response.headers()["referrer-policy"],
+            "strict-origin-when-cross-origin",
+            "{path}"
+        );
+        assert!(
+            response.headers()["permissions-policy"]
+                .to_str()
+                .unwrap()
+                .contains("camera=()"),
+            "{path}"
+        );
+        assert!(
+            response.headers()["content-security-policy-report-only"]
+                .to_str()
+                .unwrap()
+                .contains("frame-ancestors 'none'"),
+            "{path}"
+        );
+    }
+    for unknown_workspace_path in [
+        "/workspaces/default/nonexistent",
+        "/workspaces/default/agent-connect",
+    ] {
+        assert_eq!(
+            body(&app, unknown_workspace_path, StatusCode::NOT_FOUND).await,
+            "workspace shell"
+        );
     }
 }
 
@@ -324,23 +358,32 @@ async fn workspace_catalog_context_uses_dashboard_without_shadowing_public_catal
 async fn static_asset_prefixes_emit_public_cache_control() {
     let fixture = Fixture::new();
     let app = fixture.router(true);
-    for path in [
-        "/assets/app.js",
-        "/_astro/style.css",
-        "/_catalog/style.css",
-        "/catalog-assets/models.js",
-        "/site-assets/brand.png",
+    for (path, expected_cache) in [
+        ("/assets/app.js", "public, max-age=31536000, immutable"),
+        ("/_astro/style.css", "public, max-age=31536000, immutable"),
+        ("/_catalog/style.css", "public, max-age=31536000, immutable"),
+        ("/catalog-assets/models.js", "public, max-age=3600"),
+        ("/site-assets/brand.png", "public, max-age=3600"),
     ] {
         let response = app
             .clone()
-            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("accept-encoding", "gzip")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK, "{path}");
         assert_eq!(
             response.headers()["cache-control"],
-            "public, max-age=3600",
+            expected_cache,
             "{path}"
         );
+        if path == "/assets/app.js" {
+            assert_eq!(response.headers()["content-encoding"], "gzip", "{path}");
+        }
     }
 }

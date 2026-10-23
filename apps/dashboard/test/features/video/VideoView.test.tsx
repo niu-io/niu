@@ -6,7 +6,7 @@ import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import SessionView from '@/features/video/VideoView';
 import type { DashboardContext } from '@/app/dashboard-context';
-import type { VideoModel } from '../../../../../sdks/javascript/src/index';
+import type { VideoModel } from '@niu-io/sdk';
 import { initialControls,videoRequest } from '@/features/video/request';
 import GenerationsLayout from '@/features/generations/GenerationsLayout';
 import type { ComponentProps } from 'react';

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { keyRequest, KeyRequestError } from '../api';
 import KeyPolicyHistory from './KeyPolicyHistory';
-import type { KeyIpPolicy } from '../../../../../../sdks/javascript/src/admin';
+import type { KeyIpPolicy } from '@niu-io/sdk/admin';
 
 type Mode = 'all' | 'listed' | 'blocked';
 const names = { all: 'Allow all sources', listed: 'Allow listed sources', blocked: 'Block all sources' };

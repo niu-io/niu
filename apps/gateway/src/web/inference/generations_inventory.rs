@@ -1070,10 +1070,13 @@ pub(in crate::web) async fn task(
     let data = if let Ok(uuid) = Uuid::parse_str(&id) {
         state.store.generation_task(scope, &actor, uuid).await
     } else {
-        state.store.generation_task_by_reference(scope, &actor, &id).await
+        state
+            .store
+            .generation_task_by_reference(scope, &actor, &id)
+            .await
     }
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
+    .map_err(ApiError::from_store)?
+    .ok_or_else(ApiError::not_found)?;
     Ok((
         [("cache-control".into(), "private, no-store".into())],
         Json(serde_json::json!({"data":data})),

@@ -1,6 +1,6 @@
 import type { PricingHealth } from '@/features/retail-pricing/pricing-health';
 import { request, writeMayHaveCommitted, type Vendor, type VendorModel } from '@/features/providers/api';
-import type { CustomerTariffHistory, CustomerTariffInput, CustomerTariff } from '../../../../../sdks/javascript/src/admin';
+import type { CustomerTariffHistory, CustomerTariffInput, CustomerTariff } from '@niu-io/sdk/admin';
 
 export type PricingTarget = { organization_id: string; organization_name: string; workspace_id: string; workspace_name: string };
 export type CurrentTariff = CustomerTariff & { created_at: string; pricing_health?: PricingHealth };

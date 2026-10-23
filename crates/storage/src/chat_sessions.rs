@@ -98,7 +98,10 @@ impl Store {
     }
 
     pub async fn chat_session_reference(
-        &self, scope: TenantScope, owner: &str, id: Uuid,
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        id: Uuid,
     ) -> Result<Option<String>, StoreError> {
         Ok(sqlx::query_scalar("SELECT public_reference FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
@@ -107,7 +110,10 @@ impl Store {
 
     /// Resolve only within the caller's already authorized workspace and owner.
     pub async fn chat_session_id_by_reference(
-        &self, scope: TenantScope, owner: &str, reference: &str,
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        reference: &str,
     ) -> Result<Option<Uuid>, StoreError> {
         Ok(sqlx::query_scalar("SELECT id FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND public_reference=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(reference)

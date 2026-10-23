@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MediaRatePublisher from '../../../src/features/provider-business/MediaRatePublisher';
-import type { SupplierMediaRateRecord } from '../../../../../sdks/javascript/src/admin';
+import type { SupplierMediaRateRecord } from '@niu-io/sdk/admin';
 
 const offer = '9c9d4c10-710e-447f-a37b-ae4894a606d4';
 const endpoint = '/api/v1/providers/supplier-a';

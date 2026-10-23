@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-import type { PlatformPricingHealth } from '../../../../../sdks/javascript/src/admin';
+import type { PlatformPricingHealth } from '@niu-io/sdk/admin';
 export type PricingHealth = PlatformPricingHealth;
 
 /** Confidential platform price diagnostics; never use in customer surfaces. */

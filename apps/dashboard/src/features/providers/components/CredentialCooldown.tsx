@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { request } from '../api';
-import type { VendorCooldown } from '../../../../../../sdks/javascript/src/admin';
+import type { VendorCooldown } from '@niu-io/sdk/admin';
 
 function readable(value: VendorCooldown) {
   return value.policy_revision === 'openrouter-auth-cooldown-v1' &&

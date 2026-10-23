@@ -1,8 +1,8 @@
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
-mod platform_currency;
 mod payment_verification;
+mod platform_currency;
 mod workspace_asset_video_dispatch;
 pub use workspace_asset_video_dispatch::{
     WorkspaceAssetVideoDispatch, WorkspaceAssetVideoReference,
@@ -195,8 +195,8 @@ pub use retail_selection::RetailSelection;
 pub use retail_text_bindings::RetailTextEnrollmentPublication;
 mod customer_invoice_history;
 mod customer_tariff_history;
-mod key_concurrency;
 mod key_capacity;
+mod key_concurrency;
 mod key_ip;
 mod key_request_rate;
 mod key_spending;
@@ -288,6 +288,7 @@ pub struct Store {
     pool: PgPool,
     route_compiler: Option<std::sync::Arc<dyn RouteRegistryCompiler>>,
     branding_cache: BrandingCache,
+    platform_currency_cache: std::sync::Arc<std::sync::OnceLock<String>>,
 }
 
 #[derive(Clone, Copy)]
@@ -560,8 +561,31 @@ impl Store {
             })
             .connect(url)
             .await?;
+        let skip_migrations = std::env::var("NIU_SKIP_STARTUP_MIGRATIONS")
+            .ok()
+            .is_some_and(|v| matches!(v.trim(), "1" | "true" | "TRUE" | "yes" | "YES"));
+        if skip_migrations {
+            let store = Self::from_pool(pool);
+            store.require_current_inspection_schema().await?;
+            Ok(store)
+        } else {
+            migration_compatibility::run(&pool).await?;
+            Ok(Self::from_pool(pool))
+        }
+    }
+
+    /// Explicit migration job entrypoint for rolling deployments. Applies all
+    /// embedded migrations and verifies schema currency without starting listeners.
+    pub async fn migrate_only(url: &str) -> Result<Self, StoreError> {
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(std::time::Duration::from_secs(30))
+            .connect(url)
+            .await?;
         migration_compatibility::run(&pool).await?;
-        Ok(Self::from_pool(pool))
+        let store = Self::from_pool(pool);
+        store.require_current_inspection_schema().await?;
+        Ok(store)
     }
 
     /// Offline inspection of an existing schema. Never runs migrations; every
@@ -629,6 +653,7 @@ impl Store {
             pool,
             route_compiler: None,
             branding_cache: std::sync::Arc::new(std::sync::RwLock::new(None)),
+            platform_currency_cache: std::sync::Arc::new(std::sync::OnceLock::new()),
         }
     }
 
@@ -1164,20 +1189,7 @@ impl Store {
                     }
                     return Err(StoreError::Database(error));
                 }
-                return Err(match code.as_deref() {
-                    Some("P0024") => StoreError::ManagedRouteChanged,
-                    Some("P0028") => StoreError::GatewayRequestDeadlineExceeded,
-                    Some("P0020") => StoreError::KeyRequestRateExceeded,
-                    Some("P0025") => StoreError::VendorRequestRateExceeded,
-                    Some("P0026") => StoreError::KeyRequestRateDisabled,
-                    Some("P0027") => StoreError::VendorRequestRateDisabled,
-                    Some("P0021") => StoreError::KeyConcurrencyExceeded,
-                    Some("P0022") => StoreError::KeyTokenRateExceeded,
-                    Some("P0023") => StoreError::KeyTokenBoundRequired,
-                    Some("P0007") => StoreError::AccountUnavailable,
-                    Some("P0006") => StoreError::Conflict,
-                    _ => StoreError::Database(error),
-                });
+                return Err(crate::accounting::map_gateway_admission_error(error));
             }
         };
 

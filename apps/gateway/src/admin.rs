@@ -1008,7 +1008,12 @@ pub async fn create_workspace(
     Json(input): Json<WorkspaceInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
-    crate::payments::readiness::require_creation_ready(&state, authorization, input.organization_id).await?;
+    crate::payments::readiness::require_creation_ready(
+        &state,
+        authorization,
+        input.organization_id,
+    )
+    .await?;
     validate_name(&input.name)?;
     if let Some(slug) = &input.slug
         && (slug.is_empty()
@@ -3426,7 +3431,7 @@ pub(super) fn gateway_activity_filter(
 /// ```
 pub async fn gateway_request(
     State(state): State<AppState>,
-    Path((organization_id, project_id, attempt)): Path<(Uuid, Uuid, String)>,
+    crate::web::workspace_path::WorkspacePath((organization_id, project_id, attempt)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     authorize_project(
@@ -3439,8 +3444,18 @@ pub async fn gateway_request(
     .await?;
     let attempt = match Uuid::parse_str(&attempt) {
         Ok(id) => id,
-        Err(_) => state.store.request_id_by_reference(TenantScope {organization_id, project_id}, &attempt)
-            .await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+        Err(_) => state
+            .store
+            .request_id_by_reference(
+                TenantScope {
+                    organization_id,
+                    project_id,
+                },
+                &attempt,
+            )
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?,
     };
     let data = state
         .store
@@ -4591,7 +4606,7 @@ pub async fn gateway_request(
 /// ```
 pub async fn gateway_activity(
     State(state): State<AppState>,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    crate::web::workspace_path::WorkspacePath((organization_id, project_id)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid)>,
     headers: HeaderMap,
     Query(query): Query<GatewayActivityQuery>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {

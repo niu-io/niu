@@ -91,7 +91,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
       setConfirmDisable(true);
       return;
     }
-    void save().catch(() => {});
+    void save().catch(() => { /* Parent onSave mutate handler records and displays the error. */ });
   }
 
   const title = activeConnection ? activeConnection.name : 'Configure API access';
@@ -156,7 +156,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         <div><strong id="vendor-disable-title">Disable this API key?</strong><p>Models mapped to this key will stop receiving new requests.</p></div>
         <div className="vendor-confirm-actions">
           <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => setConfirmDisable(false)}>Keep enabled</Button>
-          <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={() => void save(false).catch(() => {})}>{disabled ? 'Saving…' : 'Confirm disable'}</Button>
+          <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={() => void save(false).catch(() => { /* Parent onSave mutate handler records and displays the error. */ })}>{disabled ? 'Saving…' : 'Confirm disable'}</Button>
         </div>
       </div>}
 

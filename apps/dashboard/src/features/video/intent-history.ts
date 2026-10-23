@@ -1,5 +1,5 @@
-import { NiuAPIError, type RequestOptions, type VideoJobHistoryQuery } from '../../../../../sdks/javascript/src/index';
-import type { NiuAdminClient, TenantScope, VideoIntentIndexEntry, VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
+import { NiuAPIError, type RequestOptions, type VideoJobHistoryQuery } from '@niu-io/sdk';
+import type { NiuAdminClient, TenantScope, VideoIntentIndexEntry, VideoSubmissionIntent } from '@niu-io/sdk/admin';
 
 export type VideoIntentHistoryRow = VideoIntentIndexEntry & {
   scope: TenantScope;
