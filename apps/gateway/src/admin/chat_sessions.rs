@@ -1,8 +1,9 @@
 use super::{
-    AdminPermission, ApiError, AppState, HeaderMap, Json, Path, State, TenantScope, Uuid, Value,
+    AdminPermission, ApiError, AppState, HeaderMap, Json, State, TenantScope, Uuid, Value,
     authorize, json,
 };
 use crate::state::AdminAuthorization;
+use crate::web::workspace_path::WorkspacePath as Path;
 
 fn safe_nonnegative_integer(value: &Value) -> bool {
     value.as_u64().is_some_and(|n| n <= 9_007_199_254_740_991)
@@ -28,6 +29,9 @@ fn valid_results(payload: &Value) -> bool {
                             .is_some_and(|content| content.len() <= 512 * 1024)
                         && result.get("error").is_none_or(|v| {
                             v.is_null() || v.as_str().is_some_and(|s| s.len() <= 8192)
+                        })
+                        && result.get("finishReason").is_none_or(|v| {
+                            v.is_null() || v.as_str().is_some_and(|s| s.len() <= 128)
                         })
                         && result.get("attemptId").is_none_or(|v| {
                             v.is_null() || v.as_str().is_some_and(|s| s.len() <= 128)
@@ -61,6 +65,7 @@ fn sanitize_results(results: &mut Value) {
                 "content",
                 "elapsedMs",
                 "phase",
+                "finishReason",
                 "promptTokens",
                 "completionTokens",
                 "totalTokens",
@@ -574,6 +579,88 @@ pub struct ArchiveInput {
     archived: bool,
 }
 
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "setChatSessionArchived",
+///     "summary": "Archive or restore the authenticated owner's Chat session",
+///     "description": "Updates backend-owned archive state without changing content or conversation ordering. Autosaves preserve archive state. Repeating the same value is idempotent.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "archived"
+///             ],
+///             "properties": {
+///               "archived": {
+///                 "type": "boolean"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "204": {
+///         "description": "Archive state saved."
+///       },
+///       "400": {
+///         "description": "Invalid input."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Workspace write access required."
+///       },
+///       "404": {
+///         "description": "No session in the caller's owner and workspace scope."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn archive(
     State(state): State<AppState>,
     Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
@@ -762,7 +849,7 @@ pub async fn list(
 ///     "operationId": "getChatSession",
 ///     "x-niu-implementation": "implemented",
 ///     "summary": "Read one complete owned saved Chat conversation",
-///     "description": "Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable.",
+///     "description": "Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable. Accepts an internal UUID alias or permanent chat reference; both require the same workspace and personal-owner authorization. The returned data includes its server-assigned reference.",
 ///     "parameters": [
 ///       {
 ///         "name": "organization",
@@ -788,7 +875,7 @@ pub async fn list(
 ///         "required": true,
 ///         "schema": {
 ///           "type": "string",
-///           "format": "uuid"
+///           "description": "Internal UUID alias or permanent chat reference"
 ///         }
 ///       }
 ///     ],
@@ -861,7 +948,7 @@ pub async fn list(
 /// ```
 pub async fn get(
     State(state): State<AppState>,
-    Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
+    Path((organization_id, project_id, id)): Path<(Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
@@ -870,6 +957,11 @@ pub async fn get(
         project_id,
     };
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
+    let id = match Uuid::parse_str(&id) {
+        Ok(id) => id,
+        Err(_) => state.store.chat_session_id_by_reference(scope, &owner, &id)
+            .await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+    };
     let value = state
         .store
         .chat_session_detail(scope, &owner, id)
@@ -879,6 +971,63 @@ pub async fn get(
     Ok(([("cache-control", "no-store")], Json(value)).into_response())
 }
 
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
+///   "method": "delete",
+///   "operation": {
+///     "operationId": "deleteChatSession",
+///     "summary": "Delete an owned Chat session in a workspace",
+///     "description": "Requires write access to the workspace. Deletion is scoped to the authenticated owner and workspace. Missing or already deleted sessions return the same result without disclosing another owner's history. Does not delete request accounting or billing records.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "204": {
+///         "description": "Session deleted or absent."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Workspace write access required."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn delete(
     State(state): State<AppState>,
     Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
@@ -906,7 +1055,7 @@ fn conversation_export(mut payload: Value) -> Value {
         if let Some(results) = value.get_mut("results").and_then(Value::as_array_mut) {
             for result in results {
                 if let Some(object) = result.as_object_mut() {
-                    object.retain(|key, _| ["model", "content", "phase"].contains(&key.as_str()));
+                    object.retain(|key, _| ["model", "content", "phase", "finishReason"].contains(&key.as_str()));
                 }
             }
         }
@@ -946,6 +1095,170 @@ fn conversation_export(mut payload: Value) -> Value {
     output
 }
 
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/export",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "exportChatSession",
+///     "summary": "Export one owned saved conversation",
+///     "description": "Requires workspace read access and the authenticated conversation owner. Reads durable content directly, including sessions outside the latest-100 list. Excludes internal identifiers, settings, diagnostic errors and accounting. Conversation and attachment content is deliberately included and may contain user-supplied sensitive text. Legacy single-turn sessions become one turn. Does not export request Logs or billing evidence.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Portable conversation JSON",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "format",
+///                 "version",
+///                 "turns"
+///               ],
+///               "properties": {
+///                 "format": {
+///                   "const": "niu-chat"
+///                 },
+///                 "version": {
+///                   "const": 1
+///                 },
+///                 "title": {
+///                   "type": "string"
+///                 },
+///                 "createdAt": {
+///                   "type": "integer",
+///                   "minimum": 0,
+///                   "maximum": 9007199254740991
+///                 },
+///                 "turns": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "prompt",
+///                       "results"
+///                     ],
+///                     "properties": {
+///                       "prompt": {
+///                         "type": "string"
+///                       },
+///                       "results": {
+///                         "type": "array",
+///                         "maxItems": 4,
+///                         "items": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "model",
+///                             "content",
+///                             "phase"
+///                           ],
+///                           "properties": {
+///                             "model": {
+///                               "type": "string"
+///                             },
+///                             "content": {
+///                               "type": "string"
+///                             },
+///                             "finishReason": {"type": ["string", "null"], "maxLength": 128, "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."},
+///                             "phase": {
+///                               "type": "string",
+///                               "enum": [
+///                                 "connecting",
+///                                 "streaming",
+///                                 "complete",
+///                                 "failed",
+///                                 "cancelled"
+///                               ]
+///                             }
+///                           }
+///                         }
+///                       },
+///                       "attachments": {
+///                         "type": "array",
+///                         "items": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "name",
+///                             "type",
+///                             "content"
+///                           ],
+///                           "properties": {
+///                             "name": {
+///                               "type": "string"
+///                             },
+///                             "type": {
+///                               "type": "string"
+///                             },
+///                             "content": {
+///                               "type": "string"
+///                             }
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Workspace read access required"
+///       },
+///       "404": {
+///         "description": "No saved conversation for this workspace and owner"
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable"
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn export(
     State(state): State<AppState>,
     Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
@@ -1070,6 +1383,7 @@ pub async fn export(
 ///                       "minimum": 0,
 ///                       "maximum": 9007199254740991
 ///                     },
+///                     "finishReason": {"type": ["string", "null"], "maxLength": 128, "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."},
 ///                     "phase": {
 ///                       "type": "string",
 ///                       "enum": [
@@ -1175,6 +1489,10 @@ pub async fn export(
 ///               "properties": {
 ///                 "saved": {
 ///                   "const": true
+///                 },
+///                 "reference": {
+///                   "type": ["string", "null"],
+///                   "description": "Permanent server-assigned Chat reference for product links."
 ///                 },
 ///                 "revision": {
 ///                   "type": "string",
@@ -1351,16 +1669,31 @@ pub async fn save(
         .save_chat_session_guarded(scope, &owner, id, &payload, condition)
         .await
         .map_err(ApiError::from_store)?;
+    let reference = state.store.chat_session_reference(scope, &owner, id)
+        .await.map_err(ApiError::from_store)?;
     Ok(Json(if guarded {
-        json!({"saved":true,"revision":revision.to_string(),"guardedWrites":true})
+        json!({"saved":true,"reference":reference,"revision":revision.to_string(),"guardedWrites":true})
     } else {
-        json!({"saved":true})
+        json!({"saved":true,"reference":reference})
     }))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn completion_reason_survives_sanitization_and_export_without_private_metadata() {
+        let mut payload = json!({"results":[{"model":"model","content":"Partial output","phase":"complete","elapsedMs":1,"finishReason":"length","private":"secret"}]});
+        assert!(valid_results(&payload));
+        sanitize_results(&mut payload["results"]);
+        assert_eq!(payload["results"][0]["finishReason"], "length");
+        assert!(payload["results"][0].get("private").is_none());
+        let exported = conversation_export(payload.clone());
+        assert_eq!(exported["turns"][0]["results"][0]["finishReason"], "length");
+        payload["results"][0]["finishReason"] = json!("x".repeat(129));
+        assert!(!valid_results(&payload));
+    }
 
     #[test]
     fn conversation_export_excludes_legacy_metadata_and_preserves_branches() {

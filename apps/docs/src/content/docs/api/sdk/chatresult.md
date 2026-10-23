@@ -18,6 +18,7 @@ export type ChatResult = {
     completionTokens?: number | null;
     totalTokens?: number | null;
     attemptId?: string | null;
+    attemptReference?: string | null;
     error?: string | null;
     customerChargeNanos?: string | null;
     customerChargeCurrency?: string | null;

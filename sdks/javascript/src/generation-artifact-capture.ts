@@ -64,10 +64,9 @@ function reference(value: string): string {
  */
 export function createGenerationArtifactCaptureClient(
   send: GenerationArtifactCaptureSender,
-  organization: string,
   workspace: string,
 ) {
-  const root = `/organizations/${reference(organization)}/projects/${reference(workspace)}/generations/artifacts`;
+  const root = `/workspaces/${reference(workspace)}/artifacts`;
   const path = (task: string, kind: GenerationArtifactKind) => {
     if (kind !== 'video' && kind !== 'last_frame') throw new TypeError('A video output kind is required');
     return `${root}/${reference(task)}/${kind}/capture`;

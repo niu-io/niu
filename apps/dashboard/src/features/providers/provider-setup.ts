@@ -17,8 +17,8 @@ export function providerAvailability(provider: ProviderSetup & { qualification_s
   };
   if (!provider.api_keys) return { label: 'Not ready', detail: 'No API key connected.', usable: false, action: 'Connect API key', section: 'keys' };
   if (!provider.enabled_api_keys) return { label: 'Disabled', detail: 'All API keys are disabled.', usable: false, action: 'Enable API key', section: 'keys' };
-  if (!provider.models) return { label: 'Not ready', detail: 'No model routes added.', usable: false, action: 'Add model routes', section: 'keys' };
-  if (!provider.enabled_model_routes) return { label: 'Disabled', detail: 'All model routes are disabled.', usable: false, action: 'Enable model routes', section: 'keys' };
+  if (!provider.models) return { label: 'Not ready', detail: 'No model routes added.', usable: false, action: 'Add models', section: 'models' };
+  if (!provider.enabled_model_routes) return { label: 'Disabled', detail: 'All model routes are disabled.', usable: false, action: 'Enable models', section: 'models' };
   if (provider.qualification_status !== 'qualified') return { label: 'Not qualified', detail: 'Provider review is missing, expired, or revoked.', usable: false, action: 'Review Provider', section: 'models' };
   if (!provider.offers) return { label: 'Not ready', detail: 'No agreed model offers.', usable: false, action: 'Add offers', section: 'models' };
   return { label: 'Not ready', detail: 'No active, qualified offers with an enabled route and credential.', usable: false, action: 'Review offers', section: 'models' };

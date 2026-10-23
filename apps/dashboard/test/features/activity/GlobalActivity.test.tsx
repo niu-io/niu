@@ -7,7 +7,7 @@ vi.mock('@/app/ConnectGate',()=>({default:({children}: {children: (value: unknow
 vi.mock('@/features/executions/components/GatewayActivity',()=>({default:({initialScope,statisticsOnly}: {initialScope:{projectId:string};statisticsOnly:boolean})=><p>{initialScope.projectId} scoped {statisticsOnly ? 'Overview' : 'Logs'}</p>}));
 const workspaces=[{id:'a',organization_id:'first',name:'Application',organization_name:'First organization'},{id:'b',organization_id:'second',name:'Research',organization_name:'Second organization'}];
 const summary=(amount='9007199254740993',currency='USD')=>({request_count:2,usage_count:1,prompt_tokens:'9007199254740993',completion_tokens:'2',customer_charges:[{currency,amount_nanos:amount}],unresolved_customer_charge_count:1,unpriced_request_count:0});
-const request={attempt_id:'request-reference',created_at:'2026-10-07T12:00:00Z',model:'model-one',execution:'confirmed_completed',prompt_tokens:'10',completion_tokens:'5',customer_charge_status:'owner_funded',customer_charge_currency:null,customer_charge_nanos:null};
+const request={attempt_id:'request-reference',reference:'run-1001',created_at:'2026-10-07T12:00:00Z',model:'model-one',execution:'confirmed_completed',prompt_tokens:'10',completion_tokens:'5',customer_charge_status:'owner_funded',customer_charge_currency:null,customer_charge_nanos:null};
 function mockData(fail=false){vi.stubGlobal('fetch',vi.fn(async (input:unknown,init:RequestInit)=>{
  expect((init.headers as Record<string,string>).authorization).toBe('Bearer authorized-token');
  const path=String(input);
@@ -39,7 +39,7 @@ describe('Global Activity',()=>{
  it('links global requests to diagnostics in their own workspace',async()=>{
   mockData();open('/activity/logs');
   const links=await screen.findAllByRole('link',{name:/Open model-one request/});
-  expect(links.map(link=>link.getAttribute('href')).sort()).toEqual(['/workspaces/a/executions#gateway-attempt-request-reference','/workspaces/b/executions#gateway-attempt-request-reference']);
+  expect(links.map(link=>link.getAttribute('href')).sort()).toEqual(['/workspaces/a/executions#gateway-attempt-run-1001','/workspaces/b/executions#gateway-attempt-run-1001']);
   expect(screen.getAllByText('Own API key').length).toBeGreaterThanOrEqual(2);
  });
  it.each(['click','Enter',' '])('opens request details from the whole row using %s',async action=>{

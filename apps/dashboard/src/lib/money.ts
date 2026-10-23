@@ -1,10 +1,21 @@
+/** Compact symbol for amounts; keep ISO codes in storage and currency settings. */
+export function currencySymbol(currency: string): string {
+  if (!currency) return '';
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+      .formatToParts(0).find(part => part.type === 'currency')?.value ?? currency;
+  } catch { return currency; }
+}
+
 // Keep every nanounit; converting to Number would round large balances.
 export function money(nanos: string, currency: string) {
   const amount = BigInt(nanos);
   const sign = amount < 0n ? '-' : '';
   const absolute = amount < 0n ? -amount : amount;
   const fraction = (absolute % 1_000_000_000n).toString().padStart(9, '0').replace(/0+$/, '');
-  return `${currency} ${sign}${absolute / 1_000_000_000n}${fraction ? '.' + fraction : '.00'}`;
+  const symbol = currencySymbol(currency);
+  const prefix = symbol && /^[A-Z]{3}$/.test(symbol) ? `${symbol} ` : symbol;
+  return `${sign}${prefix}${absolute / 1_000_000_000n}${fraction ? '.' + fraction : '.00'}`;
 }
 
 const NANOS_PER_UNIT = 1_000_000_000n;

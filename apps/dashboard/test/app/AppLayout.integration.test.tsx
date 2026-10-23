@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within, configure } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, matchRoutes, RouterProvider } from 'react-router';
 import { appRoutes } from '../../src/app/routes';
+// Route modules are loaded lazily; allow their initial import on busy CI workers.
+configure({asyncUtilTimeout:5000});
 
 function renderAt(path: string, requiresLogin = false) {
   const applicationFetch = globalThis.fetch;
@@ -31,7 +33,8 @@ async function signIn(user: ReturnType<typeof userEvent.setup>) {
 function mockHealth() {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
     const path = String(input);
-    const data = path === '/healthz' ? { status: 'ok', model_count: 0 }
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
+    const data = path.split('?')[0] === '/api/v1/payments/readiness' ? {data:{ready:true,reason:null}} : path === '/healthz' ? { status: 'ok', model_count: 0 }
 
       : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
       : path === '/api/v1/workspaces' ? { data: [{ id: 'default', name: 'Default', organization_id: 'org', organization_name: 'Demo' }, { id: 'production', name: 'Production', organization_id: 'org', organization_name: 'Demo' }] }
@@ -93,7 +96,8 @@ describe('dashboard route layout', () => {
     const id = '00000000-0000-4000-8000-000000000111';
     const calls: string[] = [];
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
-      const path = String(input); calls.push(path);
+      const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}}); calls.push(path);
       if (path === '/api/v1/providers') return Response.json({data:[{id,slug:'example-provider',name:'Example Provider',members:0}]});
       if (path === `/api/v1/providers/${id}`) return Response.json({data:{id,slug:'example-provider',name:'Example Provider',description:'',website_url:'',logo_url:'',revision:1}});
       return originalFetch(input,init);
@@ -206,10 +210,10 @@ describe('dashboard route layout', () => {
       return originalFetch(input,init);
     }));
     const router=renderAt('/models?workspace=default');
-    await screen.findByText('USD 1.00/M input tokens');
+    await screen.findByText('$1.00/M input tokens');
     await act(async()=>{await router.navigate('/models?workspace=production');});
-    await screen.findByText('USD 2.00/M input tokens');
-    expect(screen.queryByText('USD 1.00/M input tokens')).toBeNull();
+    await screen.findByText('$2.00/M input tokens');
+    expect(screen.queryByText('$1.00/M input tokens')).toBeNull();
     expect(scopedRequests).toContain('default');
     expect(scopedRequests).toContain('production');
   });
@@ -279,6 +283,7 @@ describe('dashboard route layout', () => {
     let listCalls = 0;
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       if (path === '/api/v1/workspaces') {
         listCalls += 1;
         if (listCalls > 1) return Response.json({error:{message:'List temporarily unavailable'}}, {status:503});
@@ -321,7 +326,7 @@ describe('dashboard route layout', () => {
     await user.click(screen.getByRole('button',{name:'Switch workspace'}));
     await user.click(screen.getByRole('menuitem',{name:'Create workspace'}));
     await user.type(await screen.findByLabelText('Workspace name'),'New workspace');
-    await user.click(within(screen.getByRole('dialog',{name:'Create a workspace'})).getByRole('button',{name:'Create workspace',exact:true}));
+    await user.click(within(screen.getByRole('dialog',{name:'Create workspace'})).getByRole('button',{name:'Create workspace',exact:true}));
     await screen.findByRole('heading',{name:'Overview',exact:true});
     expect(router.state.location.pathname).toBe('/workspaces/new-workspace');
   });
@@ -420,6 +425,7 @@ describe('dashboard route layout', () => {
     const calls: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       calls.push(path);
       if (path === '/healthz') return new Response(JSON.stringify({ status: 'ok' }));
       if (path === '/api/v1/session') return new Response(JSON.stringify({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }));
@@ -576,6 +582,7 @@ describe('dashboard route layout', () => {
     localStorage.setItem('niu.active-workspace', 'project-2');
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       calls.push(path);
       if (path === '/healthz') return json({ status: 'ok' });
       if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
@@ -616,6 +623,7 @@ describe('dashboard route layout', () => {
     const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       calls.push(path);
       if (path === '/healthz') return json({ status: 'ok' });
       if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
@@ -650,6 +658,7 @@ describe('dashboard route layout', () => {
     const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       if (path === '/healthz') return json({ status: 'ok' });
       if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
       if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
@@ -683,6 +692,7 @@ describe('dashboard route layout', () => {
     const firstKeys = new Promise<Response>(resolve => { finishFirstKeys = resolve; });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       if (path === '/healthz') return json({ status: 'ok' });
       if (path === '/api/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
       if (path.startsWith('/api/v1/models')) return json({ data: [{ id: 'fast', public_catalog: false }] });
@@ -721,6 +731,7 @@ describe('dashboard route layout', () => {
     const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       const method = init?.method ?? 'GET';
       calls.push({ path, method, body: typeof init?.body === 'string' ? init.body : undefined });
       if (path === '/healthz') return json({ status: 'ok' });
@@ -744,7 +755,7 @@ describe('dashboard route layout', () => {
 
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
     await user.click(screen.getByRole('menuitem', { name: 'Create workspace' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Create a workspace' });
+    const dialog = await screen.findByRole('dialog', { name: 'Create workspace' });
     await user.type(within(dialog).getByLabelText('Workspace name'), 'Research project');
     await user.click(within(dialog).getByRole('button', { name: 'Create workspace' }));
 
@@ -766,6 +777,7 @@ describe('dashboard route layout', () => {
     });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       const authorization = new Headers(init?.headers).get('authorization') ?? undefined;
       calls.push({ path, authorization });
       if (path === '/healthz') return json({ status: 'ok', model_count: 1 });
@@ -776,7 +788,7 @@ describe('dashboard route layout', () => {
       } });
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
-      if (path === '/api/v1/operators') return json({ data: [] });
+      if (path.split('?')[0] === '/api/v1/operators') return json({ data: [] });
       if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
       return json({ data: [] });
     }));
@@ -786,12 +798,12 @@ describe('dashboard route layout', () => {
     await signIn(user);
 
     expect(await screen.findByText('No users yet')).toBeTruthy();
-    expect(calls[0]).toEqual({ path: '/healthz', authorization: undefined });
+    expect(calls.find(call=>call.path === '/healthz')).toEqual({ path: '/healthz', authorization: undefined });
     expect(calls.find(call => call.path === '/api/v1/session')).toEqual({
       path: '/api/v1/session',
       authorization: 'Bearer niu-browser-member-session',
     });
-    expect(calls.some(call => call.path === '/api/v1/operators')).toBe(true);
+    expect(calls.some(call => call.path.split('?')[0] === '/api/v1/operators')).toBe(true);
     expect(screen.queryByText('Organization owner')).toBeNull();
   });
 
@@ -803,6 +815,7 @@ describe('dashboard route layout', () => {
     });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
       if (path === '/healthz') return json({ status: 'ok', model_count: 1 });
       if (path === '/api/v1/session') {
         return currentSessionRevoked
@@ -815,7 +828,7 @@ describe('dashboard route layout', () => {
       }
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
-      if (path === '/api/v1/operators') return json({ data: [{
+      if (path.split('?')[0] === '/api/v1/operators') return json({ data: [{
         id: 'owner-1', name: 'Current owner', role: 'owner', organization_id: 'org-1', project_id: null, revoked: false,
       }] });
       if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
@@ -890,4 +903,31 @@ describe('dashboard route layout', () => {
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByRole('menuitemradio', { name: 'Overview' }).getAttribute('aria-checked')).toBe('false');
   });
+});
+
+it('blocks workspace tools until payment setup is ready and preserves the administrator remedy', async () => {
+  mockHealth();
+  const original=globalThis.fetch;
+  let ready=false;
+  let unavailable=false;
+  vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input).split('?')[0]==='/api/v1/payments/readiness'
+    ? Promise.resolve(unavailable ? new Response('',{status:503}) : Response.json({data:{ready,reason:ready?null:'payment_setup_required'}})) : original(input,init)));
+  renderAt('/workspaces/default/keys');
+  await screen.findByRole('heading',{name:'Service setup required'});
+  expect(screen.getByRole('link',{name:'Configure payment gateways'}).getAttribute('href')).toBe('/admin/payments');
+  expect(screen.queryByRole('button',{name:'Create API key'})).toBeNull();
+  ready=true;
+  await userEvent.click(screen.getByRole('button',{name:'Check again'}));
+  await waitFor(()=>expect(screen.queryByRole('region',{name:'Service setup'})).toBeNull());
+  unavailable=true;
+  act(()=>window.dispatchEvent(new Event('focus')));
+  await screen.findByRole('heading',{name:'Could not verify service setup'});
+  expect(screen.getByText('We couldn’t check service setup. Your work is preserved. Check your connection and try again.')).toBeTruthy();
+  expect(screen.queryByRole('link',{name:'Configure payment gateways'})).toBeNull();
+  expect(document.getElementById('dashboard-page-actions')?.hidden).toBe(true);
+  unavailable=false;
+  await userEvent.click(screen.getByRole('button',{name:'Check again'}));
+  await waitFor(()=>expect(screen.queryByRole('region',{name:'Service setup'})).toBeNull());
+  expect(document.getElementById('dashboard-page-actions')?.hidden).toBe(false);
+
 });

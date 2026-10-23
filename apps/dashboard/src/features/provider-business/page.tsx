@@ -1,6 +1,9 @@
+import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
+import MediaRateHistory from './MediaRateHistory';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useProviderParams } from '@/app/provider-route';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconArrowDownLeft as ArrowDownLeft } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
@@ -41,6 +44,8 @@ type Dashboard = {
   };
   daily: { day: string; currency: string; amount_nanos: string }[];
   offers: Offer[];
+  offers_has_more?: boolean;
+  media_consumption?: MediaConsumptionRecord[];
   consumption: {
     model_alias: string;
     revision: string;
@@ -122,17 +127,24 @@ function ProviderBusiness({
   const { section = "overview" } = useProviderParams();
   const tab = section === "models" ? "offers" : section === "usage" ? "earnings" : section === "settlements" ? "settlements" : "overview";
   const showPeriod = tab === "overview" || tab === "earnings";
-  const [currency, setCurrency] = useState("");
+  const {currency} = usePlatformCurrency();
   const [data, setData] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
+  const [loadingOffers,setLoadingOffers]=useState(false);
+  const [offerError,setOfferError]=useState('');
+  const offerRequest=useRef<AbortController | null>(null);
+
   const path = `/api/v1/providers/${encodeURIComponent(provider)}`;
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
+    offerRequest.current?.abort();
+    setLoadingOffers(false);
+    setOfferError('');
     setData(null);
     setError("");
     void request<{ data: Dashboard }>(
@@ -161,15 +173,32 @@ function ProviderBusiness({
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
-    return () => controller.abort();
+    return () => { controller.abort(); offerRequest.current?.abort(); };
   }, [token, path, days, revision, refreshAccess]);
   useEffect(() => {
+    if(tab === 'offers')return;
     const timer = window.setInterval(
       () => setRevision((value) => value + 1),
       60_000,
     );
     return () => window.clearInterval(timer);
-  }, []);
+  }, [tab]);
+
+  async function moreOffers() {
+    if(!data?.offers_has_more || loadingOffers) return;
+    const after=data.offers.at(-1)?.model_alias;
+    if(!after)return;
+    const controller=new AbortController();offerRequest.current=controller;
+    setLoadingOffers(true);setOfferError('');
+    try {
+      const page=await request<{data:Offer[];next_after:string|null}>(token,`${path}/offers?limit=100&after=${encodeURIComponent(after)}`,'GET',undefined,controller.signal);
+      if(controller.signal.aborted)return;
+      if(page.next_after === after || (page.next_after && !page.data.length))throw new Error('The offer list changed. Refresh offers before continuing.');
+      setData(current=>current ? {...current,offers:[...current.offers,...page.data.filter(offer=>!current.offers.some(prior=>prior.id===offer.id))],offers_has_more:page.next_after!==null}:current);
+    } catch(error) {
+      if(!controller.signal.aborted)setOfferError(error instanceof Error ? error.message : 'Could not load more offers. Try again.');
+    } finally {if(!controller.signal.aborted)setLoadingOffers(false);}
+  }
 
   async function toggleOffer(offer: Offer) {
     if (busy) return;
@@ -202,15 +231,7 @@ function ProviderBusiness({
     }
   }
 
-  const currencies = [
-    ...new Set([
-      ...(data?.balances.map((item) => item.currency) ?? []),
-      ...(data?.offers.flatMap((item) => item.currency ? [item.currency] : []) ?? []),
-    ]),
-  ].sort();
-  const selectedCurrency = currencies.includes(currency)
-    ? currency
-    : (currencies[0] ?? "");
+  const selectedCurrency = currency;
   const balance = data?.balances.find(
     (item) => item.currency === selectedCurrency,
   );
@@ -283,13 +304,7 @@ function ProviderBusiness({
               <>
                 <div className="provider-section-heading">
                   <h2>Earnings at a glance</h2>
-                  {currencies.length > 0 && (
-                    <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Earnings currency" variant="outline" className="justify-between font-normal">{selectedCurrency}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={selectedCurrency} onValueChange={setCurrency}>
-                        {currencies.map(item => <DropdownMenuRadioItem value={item} key={item}>{item}</DropdownMenuRadioItem>)}
-                      </DropdownMenuRadioGroup></DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                  <span className="text-sm text-muted-foreground">{currency}</span>
                 </div>
                 <div className="provider-metrics">
                   <article className="provider-metric provider-metric-primary">
@@ -418,11 +433,10 @@ function ProviderBusiness({
                   <div>
                     <h2>Your model offers</h2>
                     <p>
-                      Agreed payout rates per million tokens. Rate revisions
-                      apply to new requests.
+                      Agreed payout rates. Text rates are per million tokens; media rates depend on the specification. Rate revisions apply to new requests.
                     </p>
                   </div>
-                  <span>{data.offers.length} offers</span>
+                  <span className="shrink-0">{data.offers.length} {data.offers.length === 1 ? 'offer' : 'offers'}{data.offers_has_more ? ' loaded · more available' : ''}</span>
                 </div>
                 {data.offers.length === 0 ? (
                   <Empty
@@ -446,7 +460,7 @@ function ProviderBusiness({
                                 : "Upstream unavailable"}
                           </span>
                         </div>
-                        {offer.rate_kind === "media" ? <div className="provider-offer-rates"><span>Media rates vary by specification.</span></div> : <div className="provider-offer-rates">
+                        {offer.rate_kind === "media" ? <div className="provider-offer-rates"><span>See agreed media rates below.</span></div> : <div className="provider-offer-rates">
                           <span>
                             Input{" "}
                             <strong>
@@ -503,6 +517,9 @@ function ProviderBusiness({
                     ))}
                   </div>
                 )}
+                {offerError && <p role="alert">{offerError}</p>}
+                {data.offers_has_more && <Button variant="outline" disabled={loadingOffers} onClick={()=>void moreOffers()}>{loadingOffers ? 'Loading offers…' : offerError ? 'Retry loading offers' : 'Load more offers'}</Button>}
+                {data.offers.some(offer=>offer.rate_kind === 'media') && <section className="mt-6" aria-label="Agreed media rates"><h3 className="mb-3 px-4 font-semibold sm:px-6">Agreed media rates</h3><MediaRateHistory token={token} supplier={provider} canConfigure={false} providerView /></section>}
                 <p className="provider-panel-note">
                   Price changes require a new agreed rate revision from Provider
                   management. Pausing prevents new admissions; requests already
@@ -553,12 +570,13 @@ function ProviderBusiness({
                       </TableBody>
                     </ShadcnTable>
                   </div>
-                ) : (
+                ) : Array.isArray(data.media_consumption) && data.media_consumption.length === 0 ? (
                   <Empty
                     title="No model consumption yet"
                     detail="Verified model consumption and earnings will appear here."
                   />
-                )}
+                ) : null}
+                <MediaConsumption records={data.media_consumption} />
               </section>
             )}
             {tab === "settlements" && (

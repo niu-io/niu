@@ -371,6 +371,7 @@ async fn functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries(
         .await
         .unwrap();
 
+    personal_test_route(&mut state, org).await;
     let app = router(state.clone());
 
     // 1. Key introspection (/v1/key)
@@ -415,7 +416,19 @@ async fn functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries(
         )
         .await
         .unwrap();
-    assert_eq!(chat_resp.status(), StatusCode::OK);
+    assert_eq!(
+        chat_resp.status(),
+        StatusCode::OK,
+        "error code: {:?}",
+        chat_resp.headers().get("x-niu-error-code")
+    );
+    assert!(
+        chat_resp.headers()["x-niu-operation-id"]
+            .to_str()
+            .unwrap()
+            .parse::<Uuid>()
+            .is_ok()
+    );
     let attempt_id: Uuid = chat_resp.headers()["x-niu-attempt-id"]
         .to_str()
         .unwrap()
@@ -451,6 +464,15 @@ async fn functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries(
         .await
         .unwrap();
     assert_eq!(stream_resp.status(), StatusCode::OK);
+    for header in ["x-niu-operation-id", "x-niu-attempt-id"] {
+        assert!(
+            stream_resp.headers()[header]
+                .to_str()
+                .unwrap()
+                .parse::<Uuid>()
+                .is_ok()
+        );
+    }
     let stream_text = String::from_utf8(
         stream_resp
             .into_body()
@@ -481,6 +503,15 @@ async fn functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries(
         .await
         .unwrap();
     assert_eq!(responses_resp.status(), StatusCode::OK);
+    for header in ["x-niu-operation-id", "x-niu-attempt-id"] {
+        assert!(
+            responses_resp.headers()[header]
+                .to_str()
+                .unwrap()
+                .parse::<Uuid>()
+                .is_ok()
+        );
+    }
     let responses_json: Value = serde_json::from_slice(
         &responses_resp
             .into_body()
@@ -527,6 +558,23 @@ async fn functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries(
         .await
         .unwrap();
     assert_eq!(own_gen.status(), StatusCode::OK);
+    let generation: Value =
+        serde_json::from_slice(&own_gen.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    super::api_migrations::validate_response("/v1/generations/{id}", "get", "200", &generation);
+    assert_eq!(generation["data"]["id"], attempt_id.to_string());
+    assert_eq!(generation["data"]["usage"]["prompt_tokens"], "9");
+    assert_eq!(generation["data"]["usage"]["completion_tokens"], "5");
+    // This fixture has no customer tariff: an absent retail charge must stay
+    // absent, even when the Provider supplied procurement cost in its response.
+    assert!(generation["data"]["customer_charge"]["amount_nanos"].is_null());
+    for confidential in [
+        "cost_details",
+        "upstream_inference_cost",
+        "supplier_cost",
+        "margin",
+    ] {
+        assert!(!generation.to_string().contains(confidential));
+    }
 
     let foreign_gen = app
         .clone()

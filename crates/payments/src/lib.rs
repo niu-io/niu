@@ -5,3 +5,5 @@ pub mod zhifux;
 pub mod zhifux_transport;
 
 pub mod epay;
+
+pub mod mock;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { PlatformCurrencyProvider } from './app/platform-currency';
 import { BrandingProvider } from './app/branding';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router';
@@ -12,6 +13,6 @@ const router = createDashboardRouter();
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrandingProvider><RouterProvider router={router} /></BrandingProvider>
+    <PlatformCurrencyProvider><BrandingProvider><RouterProvider router={router} /></BrandingProvider></PlatformCurrencyProvider>
   </React.StrictMode>,
 );

@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/operators`
 
-Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/workspace unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+Requires an owner or installation administrator. Results are scoped before pagination. Installation callers may filter by organization_id; members cannot change their authorized company/workspace scope. Returns identities and roles, never session credentials. Pass next_cursor as after until null. A missing or foreign cursor returns 409. Pages are live observations ordered by creation time and identity.
 
 Operation: `adminListOperators`.
 
@@ -35,7 +35,40 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/operators" \
 
 ## Parameters
 
-No path, query, or header parameters are declared.
+### organization_id
+
+Location: **query**. Optional.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### after
+
+Location: **query**. Optional.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### limit
+
+Location: **query**. Optional.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 1000,
+  "default": 1000
+}
+```
 
 ## Request body
 
@@ -47,6 +80,79 @@ No request body is declared.
 
 Persistent operator identities and assigned roles.
 
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role",
+          "organization_id",
+          "project_id",
+          "revoked"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### HTTP 400
+
+Invalid page limit, cursor syntax or unknown query field.
+
 ### HTTP 401
 
 Missing, invalid, expired or revoked credentials.
@@ -55,6 +161,14 @@ Missing, invalid, expired or revoked credentials.
 
 The authenticated operator is not an owner.
 
+### HTTP 404
+
+Requested company is outside the member scope.
+
+### HTTP 409
+
+Cursor is missing or outside the selected scope; refresh the directory.
+
 ## Behavior and supported scope
 
-Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/workspace unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+Requires an owner or installation administrator. Results are scoped before pagination. Installation callers may filter by organization_id; members cannot change their authorized company/workspace scope. Returns identities and roles, never session credentials. Pass next_cursor as after until null. A missing or foreign cursor returns 409. Pages are live observations ordered by creation time and identity.

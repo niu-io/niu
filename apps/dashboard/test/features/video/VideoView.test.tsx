@@ -38,9 +38,9 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
       }
       return Response.json({data:prior});
     }
-    if(path.includes('/generations?'))return Response.json({data:[],has_more:false,next_before:null});
-    if(/\/generations\/[0-9a-f-]{36}(?:[/?]|$)/.test(path)){
-      const match=path.match(/\/organizations\/[^/]+\/projects\/([^/]+)\/generations\/([^/?]+)(?:\/turns\/([^/?]+)(\/intent)?)?/);
+    if(path.includes('/sessions?'))return Response.json({data:[],has_more:false,next_before:null});
+    if(/\/sessions\/[0-9a-f-]{36}(?:[/?]|$)/.test(path)){
+      const match=path.match(/\/workspaces\/([^/]+)\/sessions\/([^/?]+)(?:\/turns\/([^/?]+)(\/intent)?)?/);
       if(!match)return Response.json({error:{message:'Not found'}},{status:404});
       const [,wsId,sessionId,turnId,isBind]=match;
       const sessionKey=`${wsId}:${sessionId}`;
@@ -71,9 +71,9 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
       sessions.set(sessionKey,updated);
       return Response.json({data:updated});
     }
-    if(path.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
-    if(path.includes('/generations/tasks/') && path.endsWith('/diagnostics'))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false,lifecycle}});
-    if(path.includes('/generations/tasks/'))return Response.json({data:{id:path.split('/').at(-1),kind:'video',model:catalogModel.id,state:'queued',created_at:'1970-01-01T00:00:00Z',updated_at:'1970-01-01T00:00:00Z',artifacts:[]}});
+    if(path.includes('/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
+    if(path.includes('/tasks/') && path.endsWith('/diagnostics'))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false,lifecycle}});
+    if(path.includes('/tasks/'))return Response.json({data:{id:path.split('/').at(-1),kind:'video',model:catalogModel.id,state:'queued',created_at:'1970-01-01T00:00:00Z',updated_at:'1970-01-01T00:00:00Z',artifacts:[]}});
     if(path.includes('/v1/media/capabilities'))return Response.json({modules:[]});
     if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
     if(path.endsWith('/chats'))return Response.json({data:[]});
@@ -102,6 +102,30 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
   }));
   return calls;
 }
+it.each([
+  null,
+  {},
+  {data:null},
+  {data:{id:job,kind:'video',model:model.id,state:'invalid'}},
+  {data:{id:job,kind:'video',model:model.id,state:'toString'}},
+  {data:{id:key,kind:'video',model:model.id,state:'queued'}},
+  {data:{id:job,kind:'video',model:null,state:'queued'}},
+])('surfaces malformed saved video response %j and reloads without dispatching',async(payload)=>{
+  const calls=mockFetch();const fallback=globalThis.fetch;let malformed=true;
+  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
+    if(path.endsWith(`/workspaces/${workspace.id}/tasks/${job}`))return Response.json(malformed ? payload : {data:{id:job,kind:'video',model:model.id,state:'queued'}});
+    if(path.endsWith(`/tasks/${job}/diagnostics`))return Response.json({error:{message:'Diagnostics unavailable'}},{status:503});
+    return fallback(path,init);
+  }));
+  mount(true,`/generations?mode=video&job=${job}&key=${key}`);
+  await screen.findByText('The server returned an invalid saved video. Reload status to try again.');
+  expect(screen.queryByText('Waiting to generate')).toBeNull();
+  malformed=false;
+  await userEvent.setup().click(screen.getByRole('button',{name:'Reload status',exact:true}));
+  await screen.findByText('Waiting to generate');
+  expect(screen.queryByText('The server returned an invalid saved video. Reload status to try again.')).toBeNull();
+  expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/estimate') || call.path.endsWith('/refresh'))).toBe(false);
+});
 it('restores original saved input after job-only navigation without submitting another generation',async()=>{
  const calls=mockFetch();const fallback=globalThis.fetch;
  const intent='55555555-5555-4555-8555-555555555555';
@@ -136,11 +160,11 @@ it('requires a current estimate, invalidates it when input changes and submits o
   await user.click(screen.getByRole('button',{name:'Additional settings'}));
   expect(screen.queryByRole('button',{name:'Generate video'})).toBeNull();
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
-  await screen.findByText('Estimated CNY 1.00');
+  await screen.findByText('Estimated ¥1.00');
   await user.type(screen.getByLabelText('Prompt'),' sunrise');
   expect(screen.queryByRole('button',{name:'Generate video'})).toBeNull();
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
-  await screen.findByText('Estimated CNY 1.00');
+  await screen.findByText('Estimated ¥1.00');
   await user.dblClick(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText('Queued');
   await user.click(screen.getByRole('button',{name:'Video details'}));
@@ -160,7 +184,7 @@ it('requires a current estimate, invalidates it when input changes and submits o
 it('does not automatically retry a lost paid submission response',async()=>{
   const calls=mockFetch(async()=>{throw new TypeError('Network unavailable');});mount();const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'A mountain');
-  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated ¥1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText('Network unavailable');
   await waitFor(()=>expect(calls.some(call=>call.path.includes('/video/intents/') && call.body===null)).toBe(true));
@@ -173,7 +197,7 @@ it('shows a credential rate refusal without retrying or presenting a queued vide
   await screen.findByRole('button',{name:'Video model'});
   await user.type(screen.getByLabelText('Prompt'),'A mountain');
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
-  await screen.findByText('Estimated CNY 1.00');
+  await screen.findByText('Estimated ¥1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText(message);
   await waitFor(()=>expect(calls.some(call=>call.path.includes('/video/intents/') && call.body===null)).toBe(true));
@@ -185,24 +209,27 @@ it('shows a credential rate refusal without retrying or presenting a queued vide
 it('reader can estimate but cannot submit',async()=>{
   const calls=mockFetch();mount(false);const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'A mountain');
-  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated ¥1.00');
   expect(screen.getByRole('button',{name:'Generate video'}).hasAttribute('disabled')).toBe(true);
   expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(0);
   await waitFor(()=>expect(screen.getByText(/Read access can estimate/)).toBeDefined());
 });
-it('restores immutable input and the original job from an intent URL without dispatch',async()=>{
+it.each(['77777777-7777-4777-8777-777777777777','input-1001'])('restores immutable input and original job from %s without dispatch',async(reference)=>{
   const calls=mockFetch();const delegate=globalThis.fetch;
   const intent='77777777-7777-4777-8777-777777777777';
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>{
     const path=String(input);
-    if(path.endsWith(`/video/intents/${intent}`)){
+    if(path.endsWith(`/video/intents/${intent}`)||path.endsWith(`/video/intents/input-1001`)){
       calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null});
-      return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:model.id,funding_mode:'customer',request:{model:model.id,content:[{type:'text',text:'Saved landscape'}],duration:7,resolution:'720p',ratio:'16:9',frames_per_second:24},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'queued'}}});
+      return Response.json({data:{id:intent,reference:'input-1001',session_binding:{session_id:'88888888-8888-4888-8888-888888888888',turn_id:'99999999-9999-4999-8999-999999999999'},revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:model.id,funding_mode:'customer',request:{model:model.id,content:[{type:'text',text:'Saved landscape'}],duration:7,resolution:'720p',ratio:'16:9',frames_per_second:24},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'queued'}}});
     }
     return delegate(input,init);
   }));
-  mount(true,`/generations?mode=video&intent=${intent}`);
+  function BookmarkProbe(){const location=useLocation();return <output data-testid="input-bookmark">{location.search+location.hash}</output>;}
+  const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
+  render(<MemoryRouter initialEntries={[`/generations?mode=video&intent=${reference}&session=88888888-8888-4888-8888-888888888888&turn=99999999-9999-4999-8999-999999999999&keep=1#saved`]}><SidebarProvider><BookmarkProbe/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
   await screen.findByText('Queued');
+  await waitFor(()=>{const address=screen.getByTestId('input-bookmark').textContent;expect(address).toContain('intent=input-1001');expect(address).toContain('keep=1');expect(address).toContain('#saved');expect(address).not.toContain('session=');expect(address).not.toContain('turn=');});
   expect(screen.getByRole('heading',{level:1,name:'Video · Saved landscape'})).toBeTruthy();
   expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('');
  expect(screen.getByText('Saved landscape')).toBeTruthy();
@@ -281,10 +308,10 @@ it('requires a reference role before estimation and invalidates the estimate whe
   await user.click(screen.getByRole('button',{name:'Role for frame.png'}));
   await user.click(screen.getByRole('menuitemradio',{name:'first frame'}));
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
-  await screen.findByText('Estimated CNY 1.00');
+  await screen.findByText('Estimated ¥1.00');
   expect(calls.find(call=>call.path.endsWith('/estimate'))?.body).toMatchObject({content:[{type:'text',text:'A mountain'},{type:'image_url',role:'first_frame'}]});
   await user.click(screen.getByRole('button',{name:'Remove frame.png'}));
-  expect(screen.queryByText('Estimated CNY 1.00')).toBeNull();
+  expect(screen.queryByText('Estimated ¥1.00')).toBeNull();
   expect(screen.getByRole('button',{name:'Estimate',exact:true}).hasAttribute('disabled')).toBe(true);
 });
 
@@ -306,9 +333,9 @@ it('recovers a failed saved-job read without submitting another generation',asyn
     if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Review key',allowed_models:['*'],revoked:false,expired:false}]});
     if(path.includes('/v1/media/capabilities'))return Response.json({modules:[]});
     if(path.endsWith('/models'))return Response.json({object:'list',data:[model]});
-    if(path.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
-    if(path.endsWith(`/generations/tasks/${job}/diagnostics`))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false}});
-    if(path.endsWith(`/generations/tasks/${job}`)){
+    if(path.includes('/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
+    if(path.endsWith(`/tasks/${job}/diagnostics`))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false}});
+    if(path.endsWith(`/tasks/${job}`)){
       expect(init?.method ?? 'GET').toBe('GET');
       if(++statusReads===1)return Response.json({error:{message:'Saved status temporarily unavailable'}},{status:503});
       return Response.json({data:{id:job,kind:'video',model:model.id,state:'queued',created_at:'1970-01-01T00:00:00Z',updated_at:'1970-01-01T00:00:00Z',artifacts:[]}});
@@ -324,20 +351,23 @@ it('recovers a failed saved-job read without submitting another generation',asyn
   expect(reads.some(path=>path.endsWith('/jobs'))).toBe(false);
 });
 
-it('does not leave a saved job loading forever when no active API key remains',async()=>{
+it.each([key,'old-key'])('restores saved history with a revoked key reference %s',async(reference)=>{
   const calls:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
     calls.push(path);
     if(path.endsWith('/video/draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
     if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
     if(path.endsWith('/chats'))return Response.json({data:[]});
-    if(path.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
-    if(path.endsWith(`/generations/tasks/${job}/diagnostics`))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false}});
-    if(path.endsWith(`/generations/tasks/${job}`))return Response.json({data:{id:job,kind:'video',model:model.id,state:'queued',created_at:'1970-01-01T00:00:00Z',updated_at:'1970-01-01T00:00:00Z',artifacts:[]}});
-    if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Old key',allowed_models:['*'],revoked:true,expired:false}]});
+    if(path.includes('/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
+    if(path.endsWith(`/tasks/${job}/diagnostics`))return Response.json({billing:{mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'},timings:{data:[],has_more:false}});
+    if(path.endsWith(`/tasks/${job}`))return Response.json({data:{id:job,kind:'video',model:model.id,state:'queued',created_at:'1970-01-01T00:00:00Z',updated_at:'1970-01-01T00:00:00Z',artifacts:[]}});
+    if(path.endsWith('/keys'))return Response.json({data:[{id:key,slug:'old-key',name:'Old key',allowed_models:['*'],revoked:true,expired:false}]});
     throw new Error(`No video API should be read without an active key: ${path}`);
   }));
-  mount(true,`/generations?mode=video&key=${key}&job=${job}`);
+  function Route(){return <output aria-label="Current route">{useLocation().search}</output>;}
+  const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
+  render(<MemoryRouter initialEntries={[`/generations?mode=video&key=${reference}&job=${job}`]}><SidebarProvider><Route/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
+  await waitFor(()=>expect(new URLSearchParams(screen.getByLabelText('Current route').textContent??'').get('key')).toBe('old-key'));
   await screen.findByText(/Saved history is available\. The original API key is revoked/);
   expect(screen.queryByText('Loading saved video…')).toBeNull();
   expect(calls.some(path=>path.includes('/v1/video/'))).toBe(false);
@@ -360,10 +390,10 @@ it('retries a failed API-key read before loading models without submitting a vid
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
    calls.push(path);
    if(path.endsWith('/video/draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
-   if(path.includes('/generations?'))return Response.json({data:[],has_more:false,next_before:null});
+   if(path.includes('/sessions?'))return Response.json({data:[],has_more:false,next_before:null});
    if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
    if(path.endsWith('/chats'))return Response.json({data:[]});
-   if(path.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
+   if(path.includes('/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
    if(path.includes('/v1/media/capabilities'))return Response.json({modules:[]});
    if(path.endsWith('/keys')) {
      if(++keyReads === 1)return Response.json({error:{message:'API keys temporarily unavailable'}},{status:503});
@@ -395,7 +425,7 @@ it.each(['accepted','uncertain'])('ignores a late %s submission after leaving an
   const view=render(tree(workspace));const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});
   await user.type(screen.getByLabelText('Prompt'),'Original request');
-  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated ¥1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await waitFor(()=>expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1));
   view.rerender(tree(other));
@@ -419,7 +449,7 @@ it('keeps paginated history from an old workspace out of the current workspace',
   const other={...workspace,id:'55555555-5555-4555-8555-555555555555',name:'Other workspace'};
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>{
     const path=String(input);
-    if(path.includes(workspace.id)&&path.includes('/generations/tasks?')) {
+    if(path.includes(workspace.id)&&path.includes('/tasks?')) {
       if(path.includes('cursor='))return pending;
       return Response.json({data:[],has_more:true,next_cursor:'2026-10-01T00:00:00Z'});
     }
@@ -445,7 +475,7 @@ it('does not navigate from an unmounted Video workspace when its create response
   const tree=(scope:typeof workspace)=><MemoryRouter initialEntries={['/chat?mode=video']}><SidebarProvider><LocationProbe/><VideoView key={scope.id} context={{...context,workspace:scope}}/></SidebarProvider></MemoryRouter>;
   const view=render(tree(workspace));const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'Original request');
-  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated ¥1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await waitFor(()=>{expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(([path])=>String(path).endsWith('/submit'))).toBe(true);expect(screen.getByLabelText('Current route').textContent).toContain('intent=');});
   const savedRoute=screen.getByLabelText('Current route').textContent;
@@ -465,7 +495,7 @@ it('keeps a late submission from replacing another intent in the same workspace'
   render(<MemoryRouter><SidebarProvider><RouteProbe/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
   const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'Original request');
-  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated ¥1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await waitFor(()=>expect(calls.filter(call=>call.path.endsWith('/submit'))).toHaveLength(1));
   await user.click(screen.getByRole('button',{name:'Open another intent'}));
@@ -486,7 +516,7 @@ it('waits for the new workspace key list instead of querying it with the old key
     if(input.endsWith('/video/draft'))return Response.json({data:{revision:0,content_state:'empty',expires_at_ms:null,payload:null}});
     if(input.endsWith('/video/intents') || input.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
     if(input.endsWith('/chats'))return Response.json({data:[]});
-    if(input.includes('/generations/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
+    if(input.includes('/tasks?'))return Response.json({data:[],has_more:false,next_cursor:null});
     if(input.includes('/v1/media/capabilities'))return Response.json({modules:[]});
     if(input.endsWith('/keys'))return input.includes(other.id) ? new Promise<Response>(resolve=>{finish=resolve;}) : Response.json({data:[{id:key,name:'Original key',allowed_models:['*'],revoked:false,expired:false}]});
     if(input.endsWith('/models'))return Response.json({data:[model]});
@@ -547,7 +577,7 @@ it('keeps saved prompt in the conversation and submits a fresh draft with a new 
   expect(screen.queryByRole('tab',{name:'Input'})).toBeNull();
   await user.type(screen.getByLabelText('Prompt'),'A fresh sunrise scene');
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
-  await screen.findByText('Estimated CNY 1.00');
+  await screen.findByText('Estimated ¥1.00');
   expect(calls.find(call=>call.path.endsWith('/estimate'))?.body).toMatchObject({content:[{type:'text',text:'A fresh sunrise scene'}]});
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText('Queued');
@@ -564,4 +594,39 @@ it('places video API key in the header consistently with Chat',async()=>{
   expect(keyPicker.closest('form')).toBeNull();
   await userEvent.click(keyPicker);
   expect(await screen.findByRole('menuitemradio',{name:'Review key'})).toBeTruthy();
+});
+
+it('opens a public run reference and uses the resolved identity for diagnostics',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).endsWith('/tasks/run-1000') ? Response.json({data:{id:job,reference:'run-1000',kind:'video',model:model.id,state:'failed'}}) : delegate(input,init)));
+  mount(false,'/generations?job=run-1000');
+  await screen.findByText('Failed');
+  await waitFor(()=>expect(calls.some(call=>call.path.endsWith(`/tasks/${job}/diagnostics`))).toBe(true));
+  expect(calls.some(call=>call.path.includes('/run-1000/diagnostics'))).toBe(false);
+  expect(calls.some(call=>call.body!==null)).toBe(false);
+});
+it('rejects a mismatched public run reference before reading diagnostics',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).endsWith('/tasks/run-1000') ? Response.json({data:{id:job,reference:'run-1001',kind:'video',model:model.id,state:'failed'}}) : delegate(input,init)));
+  mount(false,'/generations?job=run-1000');
+  await screen.findByText(/invalid saved video/);
+  expect(calls.some(call=>call.path.endsWith('/diagnostics'))).toBe(false);
+});
+it('canonicalizes legacy job bookmarks without dropping other query state or the fragment',async()=>{
+ mockFetch();const delegate=globalThis.fetch;
+ vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).endsWith(`/tasks/${job}`)||String(input).endsWith('/tasks/run-1000')?Response.json({data:{id:job,reference:'run-1000',kind:'video',model:model.id,state:'failed',session_id:'66666666-6666-4666-8666-666666666666'}}):delegate(input,init)));
+ function Location(){const value=useLocation();return <output aria-label="Public route">{value.search+value.hash}</output>;}
+ const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:false}}} as DashboardContext;
+ render(<MemoryRouter initialEntries={[`/generations?job=${job}&workspace=review-workspace&view=detail&session=66666666-6666-4666-8666-666666666666&turn=77777777-7777-4777-8777-777777777777#output`]}><SidebarProvider><Location/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
+ await waitFor(()=>expect(screen.getByLabelText('Public route').textContent).toBe('?job=run-1000&workspace=review-workspace&view=detail#output'));
+ await screen.findByText('Failed');
+});
+it('keeps pending diagnostics distinct from unavailable billing',async()=>{
+ mockFetch();const delegate=globalThis.fetch;let complete!: (response:Response)=>void;
+ vi.stubGlobal('fetch',vi.fn(async(input,init)=>String(input).endsWith(`/tasks/${job}/diagnostics`)?new Promise<Response>(resolve=>{complete=resolve;}):delegate(input,init)));
+ mount(false,`/generations?job=${job}`);
+ await screen.findByText('Queued');await userEvent.click(screen.getByRole('button',{name:'Video details'}));
+ expect(screen.getByText('Loading billing…')).toBeTruthy();expect(screen.queryByText('Billing is unavailable.')).toBeNull();
+ await act(async()=>complete(Response.json({billing:{mode:'customer',charge_nanos:'1000000000',currency:'USD'},timings:{data:[],has_more:false}})));
+ await screen.findByText('$1.00');expect(screen.queryByText('Loading billing…')).toBeNull();
 });

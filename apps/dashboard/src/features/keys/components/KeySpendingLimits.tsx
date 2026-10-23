@@ -1,3 +1,5 @@
+import { amountFromNanos } from '@/lib/money';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +24,7 @@ function checked(rows: KeySpendingAccount[]) {
     || new Set(rows.map(row => row.currency)).size !== rows.length) throw new Error('The spending limits response could not be read.');
   return rows;
 }
-const inputAmount = (row: KeySpendingAccount) => row.limit_nanos === null ? '' : money(row.limit_nanos, row.currency).slice(row.currency.length + 1);
+const inputAmount = (row: KeySpendingAccount) => row.limit_nanos === null ? '' : amountFromNanos(row.limit_nanos);
 function parseAmount(draft: string): string | null {
   if (!draft.trim()) return null;
   return /^0+(?:\.0{1,9})?$/.test(draft.trim()) ? '0' : amountToNanos(draft);
@@ -31,6 +33,7 @@ export default function KeySpendingLimits(props: {token: string; endpoint: strin
   return <SpendingPolicies key={`${props.token}:${props.endpoint}`} {...props} />;
 }
 function SpendingPolicies({token,endpoint,canWrite,active}: {token: string; endpoint: string; canWrite: boolean; active: boolean}) {
+  const {currency:platformCurrency} = usePlatformCurrency();
   const [rows,setRows] = useState<KeySpendingAccount[]>([]);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
@@ -83,11 +86,12 @@ function SpendingPolicies({token,endpoint,canWrite,active}: {token: string; endp
     } finally {if (!controller.signal.aborted) setSaving(false);}
   }
   return <Card><CardHeader><CardTitle>Spending limits</CardTitle><CardDescription>Lifetime customer spending allowances. Account and workspace limits still apply.</CardDescription></CardHeader><CardContent className="space-y-4">
+    {!platformCurrency && <p className="text-sm text-muted-foreground">Spending limits will be available after the platform currency is configured in Admin.</p>}
     {loading && <p role="status">Loading spending limits…</p>}
     {error && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" onClick={() => setReload(current => current+1)}>Retry spending limits</Button></div>}
     {!loading && !error && !rows.length && <p className="text-sm text-muted-foreground">No billing currency is available for this key yet.</p>}
-    {!loading && !error && rows.map(row => <div key={row.currency} className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-medium">{row.currency}</h3><div className="flex flex-wrap gap-1"><KeyPolicyHistory token={token} endpoint={`${endpoint}/${row.currency}`} label={`${row.currency} spending limit`} field="limit_nanos" currency={row.currency}/>{canWrite && active && <Button variant="outline" aria-label={`Edit ${row.currency} key spending limit`} onClick={() => {setCurrency(row.currency);setDraft(inputAmount(row));if (!conflicts.has(row.currency)) setEditError('');setNotice('');setOpen(true);}}>Edit</Button>}</div></div>
+    {!loading && !error && rows.filter(row => row.currency === platformCurrency || row.limit_nanos !== null || BigInt(row.committed_nanos) > 0n).map(row => <div key={row.currency} className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-medium">{row.currency}</h3><div className="flex flex-wrap gap-1"><KeyPolicyHistory token={token} endpoint={`${endpoint}/${row.currency}`} label={`${row.currency} spending limit`} field="limit_nanos" currency={row.currency}/>{canWrite && active && row.currency === platformCurrency && <Button variant="outline" aria-label={`Edit ${row.currency} key spending limit`} onClick={() => {setCurrency(row.currency);setDraft(inputAmount(row));if (!conflicts.has(row.currency)) setEditError('');setNotice('');setOpen(true);}}>Edit</Button>}</div></div>
       <dl className="grid gap-3 text-sm sm:grid-cols-3">{[['Lifetime limit',row.limit_nanos === null ? 'Unlimited' : money(row.limit_nanos,row.currency)],['Committed',money(row.committed_nanos,row.currency)],['Remaining allowance',row.remaining_nanos === null ? 'Unlimited' : money(row.remaining_nanos,row.currency)]].map(([label,value]) => <div key={label} className="min-w-0"><dt className="text-muted-foreground">{label}</dt><dd className="break-words">{value}</dd></div>)}</dl>
     </div>)}
     {!loading && !error && rows.length > 0 && <p className="text-sm text-muted-foreground">Committed amounts include charges minus refunds and reserved requests. These limits do not add funds or reset when the key is rotated. Own API key routes do not consume this allowance.</p>}

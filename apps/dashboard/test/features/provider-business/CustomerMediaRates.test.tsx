@@ -1,3 +1,4 @@
+vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -54,7 +55,7 @@ describe('customer media prices',()=>{
   const record={card:{revision:'44444444-4444-4444-8444-444444444444',vendor_id:vendor,offer_revision:model.offer_revision,vendor_revision:'4',model_revision:'2',schema_revision:'schema-2',maximum_quantity:q('200000'),liability_qualification_revision:'private-review',tariff:{revision:'private-price',dimensions:{model:'Video model',channel:'ark-direct-v1',resolution:'720p',reference_video:false},meter:'video_tokens',currency:'CNY',decimal_places:9,amount_units:'70',per_quantity:q('1000000'),minimum_quantity:q('0'),rounding:'Up',effective_from:'0',effective_until:null},discounts:[]},retirement_effective_until:null,created_at:null};
   vi.stubGlobal('fetch',vi.fn(async(input: RequestInfo|URL)=>{expect(String(input)).toBe(`${endpoint}/media-rates?limit=50`);return Response.json({data:[record],has_more:false,next_after:null});}));
   const user=userEvent.setup();render(<MediaRateHistory token="fixture" organization={organization} canConfigure={false}/>);
-  expect((screen.getByRole('button',{name:'Publish selling rate'}) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole('button',{name:'Publish selling rate'})).toBeNull();
   await user.click(await screen.findByRole('button',{name:/View rate.*Video model/}));
   expect(screen.getByRole('dialog',{name:'Media selling rate'})).toBeTruthy();
   expect(screen.queryByRole('button',{name:'Replace rate'})).toBeNull();expect(screen.queryByRole('button',{name:'End rate'})).toBeNull();

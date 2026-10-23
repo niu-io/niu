@@ -1,5 +1,6 @@
 //! Durable member-owned workspace material, separate from Provider assets,
 //! content-inspection approval and inference authorization.
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
@@ -8,7 +9,7 @@ use axum::{
     Json,
     body::{Body, to_bytes},
     extract::{
-        Path, Query, Request, State,
+        Query, Request, State,
         rejection::{JsonRejection, QueryRejection},
     },
     http::{HeaderMap, StatusCode, header},
@@ -90,7 +91,7 @@ pub(crate) struct ListQuery {
 ///   "operation": {
 ///     "operationId": "listWorkspaceAssets",
 ///     "summary": "List saved workspace materials",
-///     "description": "Member Read permission required. Scope is the selected workspace, not the creating actor. Lists active objects with metadata only, ordered by creation time then identity. limit defaults to 50 and must be 1\u2013100. after must be an active asset in the same workspace and kind filter or conflicts. Follow next_cursor; separate pages are not a frozen snapshot. No ciphertext, actor identifier, Provider URI, procurement or dispatch approval is returned.",
+///     "description": "Member Read permission required. Scope is the selected workspace, not the creating actor. Lists active objects with metadata only, ordered by creation time then identity. limit defaults to 50 and must be 1–100. after must be an active asset in the same workspace and kind filter or conflicts. Follow next_cursor; separate pages are not a frozen snapshot. No ciphertext, actor identifier, Provider URI, procurement or dispatch approval is returned.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -249,6 +250,43 @@ pub(crate) struct ListQuery {
 ///                       "updated_at_ms": {
 ///                         "type": "integer",
 ///                         "format": "int64"
+///                       },
+///                       "source": {
+///                         "type": [
+///                           "object",
+///                           "null"
+///                         ],
+///                         "description": "Authorized original generation context. Null when absent or not visible to this actor; sharing a retained copy does not grant source access.",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "reference",
+///                           "kind",
+///                           "output",
+///                           "model",
+///                           "created_at"
+///                         ],
+///                         "properties": {
+///                           "reference": {
+///                             "type": "string",
+///                             "pattern": "^run-[1-9][0-9]{0,18}$"
+///                           },
+///                           "kind": {
+///                             "const": "video"
+///                           },
+///                           "output": {
+///                             "enum": [
+///                               "video",
+///                               "last_frame"
+///                             ]
+///                           },
+///                           "model": {
+///                             "type": "string"
+///                           },
+///                           "created_at": {
+///                             "type": "string",
+///                             "format": "date-time"
+///                           }
+///                         }
 ///                       }
 ///                     }
 ///                   }
@@ -276,7 +314,7 @@ pub(crate) async fn list(
     input: Result<Query<ListQuery>, QueryRejection>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     let scope = scope(organization, project);
-    authorize(&state, &headers, scope, AdminPermission::Read).await?;
+    let actor = authorize(&state, &headers, scope, AdminPermission::Read).await?;
     let Query(query) =
         input.map_err(|_| ApiError::invalid_request("Invalid asset list filters"))?;
     let limit = query.limit.unwrap_or(50);
@@ -290,7 +328,9 @@ pub(crate) async fn list(
         .list_workspace_assets(scope, query.kind, query.after, limit)
         .await
         .map_err(ApiError::from_store)?;
-    Ok(([("cache-control", "no-store")], Json(json!(page))))
+    let sources = state.store.workspace_asset_sources(scope, &actor, &page.data.iter().map(|asset| asset.id).collect::<Vec<_>>()).await.map_err(ApiError::from_store)?;
+    let data = page.data.into_iter().map(|asset| { let source = sources.get(&asset.id).cloned().unwrap_or(Value::Null); let mut value = json!(asset); value["source"] = source; value }).collect::<Vec<_>>();
+    Ok(([("cache-control", "no-store")], Json(json!({"data":data,"next_cursor":page.next_cursor}))))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -441,6 +481,43 @@ pub(crate) struct UploadQuery {
 ///                     "updated_at_ms": {
 ///                       "type": "integer",
 ///                       "format": "int64"
+///                     },
+///                     "source": {
+///                       "type": [
+///                         "object",
+///                         "null"
+///                       ],
+///                       "description": "Authorized original generation context. Null when absent or not visible to this actor; sharing a retained copy does not grant source access.",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "reference",
+///                         "kind",
+///                         "output",
+///                         "model",
+///                         "created_at"
+///                       ],
+///                       "properties": {
+///                         "reference": {
+///                           "type": "string",
+///                           "pattern": "^run-[1-9][0-9]{0,18}$"
+///                         },
+///                         "kind": {
+///                           "const": "video"
+///                         },
+///                         "output": {
+///                           "enum": [
+///                             "video",
+///                             "last_frame"
+///                           ]
+///                         },
+///                         "model": {
+///                           "type": "string"
+///                         },
+///                         "created_at": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         }
+///                       }
 ///                     }
 ///                   }
 ///                 }
@@ -755,6 +832,43 @@ pub(crate) async fn upload(
 ///                     "updated_at_ms": {
 ///                       "type": "integer",
 ///                       "format": "int64"
+///                     },
+///                     "source": {
+///                       "type": [
+///                         "object",
+///                         "null"
+///                       ],
+///                       "description": "Authorized original generation context. Null when absent or not visible to this actor; sharing a retained copy does not grant source access.",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "reference",
+///                         "kind",
+///                         "output",
+///                         "model",
+///                         "created_at"
+///                       ],
+///                       "properties": {
+///                         "reference": {
+///                           "type": "string",
+///                           "pattern": "^run-[1-9][0-9]{0,18}$"
+///                         },
+///                         "kind": {
+///                           "const": "video"
+///                         },
+///                         "output": {
+///                           "enum": [
+///                             "video",
+///                             "last_frame"
+///                           ]
+///                         },
+///                         "model": {
+///                           "type": "string"
+///                         },
+///                         "created_at": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         }
+///                       }
 ///                     }
 ///                   }
 ///                 }
@@ -773,13 +887,15 @@ pub(crate) async fn get(
     Path((organization, project, asset)): Path<(Uuid, Uuid, Uuid)>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     let scope = scope(organization, project);
-    authorize(&state, &headers, scope, AdminPermission::Read).await?;
+    let actor = authorize(&state, &headers, scope, AdminPermission::Read).await?;
     let data = state
         .store
         .workspace_asset(scope, asset)
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    let source = state.store.workspace_asset_sources(scope, &actor, &[asset]).await.map_err(ApiError::from_store)?.remove(&asset).unwrap_or(Value::Null);
+    let mut data = json!(data); data["source"] = source;
     Ok(([("cache-control", "no-store")], Json(json!({"data":data}))))
 }
 #[derive(Deserialize)]
@@ -930,6 +1046,43 @@ pub(crate) struct RenameInput {
 ///                     "updated_at_ms": {
 ///                       "type": "integer",
 ///                       "format": "int64"
+///                     },
+///                     "source": {
+///                       "type": [
+///                         "object",
+///                         "null"
+///                       ],
+///                       "description": "Authorized original generation context. Null when absent or not visible to this actor; sharing a retained copy does not grant source access.",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "reference",
+///                         "kind",
+///                         "output",
+///                         "model",
+///                         "created_at"
+///                       ],
+///                       "properties": {
+///                         "reference": {
+///                           "type": "string",
+///                           "pattern": "^run-[1-9][0-9]{0,18}$"
+///                         },
+///                         "kind": {
+///                           "const": "video"
+///                         },
+///                         "output": {
+///                           "enum": [
+///                             "video",
+///                             "last_frame"
+///                           ]
+///                         },
+///                         "model": {
+///                           "type": "string"
+///                         },
+///                         "created_at": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         }
+///                       }
 ///                     }
 ///                   }
 ///                 }
@@ -988,6 +1141,8 @@ pub(crate) async fn rename(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    let source = state.store.workspace_asset_sources(scope, &actor, &[asset]).await.map_err(ApiError::from_store)?.remove(&asset).unwrap_or(Value::Null);
+    let mut data = json!(data); data["source"] = source;
     Ok(([("cache-control", "no-store")], Json(json!({"data":data}))))
 }
 #[derive(Deserialize)]

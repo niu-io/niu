@@ -28,7 +28,9 @@ it('keeps Admin navigation available on Provider detail routes', () => {
   expect(screen.getByRole('link', {name:'Providers'}).getAttribute('aria-current')).toBe('page');
   expect(screen.getByRole('link', {name:'Payment gateways'}).getAttribute('href')).toBe('/admin/payments');
   expect(screen.getByRole('link', {name:'Payment gateways'}).hasAttribute('aria-current')).toBe(false);
-  for (const name of ['All providers','Overview','API keys','Models','Usage','Settlements','Members','Settings']) {
+  const adminLinks=screen.getByRole('navigation',{name:'Admin navigation'}).querySelectorAll('a');
+  expect(adminLinks[adminLinks.length-1].getAttribute('href')).toBe('/admin/settings');
+  for (const name of ['All providers','Overview','API keys','Models','Usage','Settlements','Members']) {
     expect(screen.queryByRole('link', {name})).toBeNull();
   }
 });

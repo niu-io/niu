@@ -16,16 +16,16 @@ import { NiuAdminClient, type GenerationTask, type TenantScope } from '../../../
 import { videoIntentHistory, type VideoIntentHistoryRow } from '@/features/video/intent-history';
 import type { VideoGenerationsSessionSummary } from '../../../../../sdks/javascript/src/generations-sessions';
 
-type Chat = {id:string;title?:string;prompt:string;createdAt:number};
-type Video = VideoJobHistory['data'][number] & {keyId?:string;workspaceId?:string;sessionId?:string|null};
+type Chat = {id:string;reference?:string;title?:string;prompt:string;createdAt:number};
+type Video = VideoJobHistory['data'][number] & {reference?:string;keyId?:string;workspaceId?:string;sessionId?:string|null};
 type VideoCursor = {scope:TenantScope;before:string};
 type SavedVideoSession = VideoGenerationsSessionSummary & {scope:TenantScope};
 function savedVideo(task:GenerationTask,workspaceId:string):Video {
-  return {id:task.id,object:'video.job',model:task.model,status:task.state,created_at_ms:String(Date.parse(task.created_at)),workspaceId,sessionId:task.session_id};
+  return {id:task.id,reference:task.reference,object:'video.job',model:task.model,status:task.state,created_at_ms:String(Date.parse(task.created_at)),workspaceId,sessionId:task.session_id};
 }
 export default function SessionHistory({context,chats, activeChat, onChat, chatActions, videos, videoKeyId, currentKeys, activeVideo, activeIntent, activeVideoSession, onIntentDeleted, pending=false, failed=false, disabled=false, listTarget, focusFallback}: {
   focusFallback?: RefObject<HTMLButtonElement|null>; listTarget?: HTMLElement | null; context:DashboardContext; chats?:Chat[]; activeChat?:string|null; onChat?:(id:string)=>void; chatActions?:(id:string)=>ReactNode;
-  currentKeys?:Array<{id:string;revoked:boolean;expired:boolean}>;videoKeyId?:string;videos?:Video[]; activeVideo?:string;activeIntent?:string;activeVideoSession?:string;onIntentDeleted?:(id:string)=>void; disabled?:boolean;pending?:boolean;failed?:boolean;
+  currentKeys?:Array<{id:string;slug?:string;revoked:boolean;expired:boolean}>;videoKeyId?:string;videos?:Video[]; activeVideo?:string;activeIntent?:string;activeVideoSession?:string;onIntentDeleted?:(id:string)=>void; disabled?:boolean;pending?:boolean;failed?:boolean;
 }) {
   const {token,workspace}=context;
   const {isMobile,setOpenMobile}=useSidebar();
@@ -128,17 +128,23 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       return workspacePathSegment(found,knownWorkspaces);
     };
     const merged=new Map(savedVideos.filter(item=>!item.sessionId||unavailableSessionWorkspaces.has(item.workspaceId??'')).map(item=>[item.id,item]));
-    for(const item of videos??[])if(!item.sessionId||unavailableSessionWorkspaces.has(workspace?.id??''))merged.set(item.id,{...item,workspaceId:workspace?.id});
+    for(const item of videos??[])if(!item.sessionId||unavailableSessionWorkspaces.has(workspace?.id??''))merged.set(item.id,{...item,reference:item.reference??merged.get(item.id)?.reference,workspaceId:workspace?.id});
     const legacyIntents=savedIntents.filter(item=>!item.sessionId||unavailableSessionWorkspaces.has(item.scope.projectId));
     const intentsByJob=new Map(legacyIntents.filter(item=>item.jobId).map(item=>[item.jobId,item]));
-    const intentHref=(item:VideoIntentHistoryRow)=>`/generations?workspace=${encodeURIComponent(workspaceSegment(item.scope.projectId))}&intent=${encodeURIComponent(item.id)}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}`;
+    // Saved intents carry their original key association on the server.
+    // Do not copy a redundant credential reference into cross-workspace links.
+    const intentHref=(item:VideoIntentHistoryRow)=>`/generations?workspace=${encodeURIComponent(workspaceSegment(item.scope.projectId))}&intent=${encodeURIComponent(item.reference??item.id)}`;
+    const keyQuery=(item:Video)=>{
+      const slug=item.workspaceId===workspace?.id ? currentKeys?.find(key=>key.id===item.keyId)?.slug : undefined;
+      return slug ? `&key=${encodeURIComponent(slug)}` : '';
+    };
     return [
-      ...savedSessions.map(session=>({id:session.id,type:'video-session' as const,session,workspaceId:session.workspace_id,title:session.title,created:Date.parse(session.updated_at),href:`/generations?workspace=${encodeURIComponent(workspaceSegment(session.workspace_id))}&video-session=${encodeURIComponent(session.id)}`})),
-      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}&session=${encodeURIComponent(item.id)}`})),
-      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}&job=${encodeURIComponent(item.id)}`};}),
+      ...savedSessions.map(session=>({id:session.id,type:'video-session' as const,session,workspaceId:session.workspace_id,title:session.title,created:Date.parse(session.updated_at),href:`/generations?workspace=${encodeURIComponent(workspaceSegment(session.workspace_id))}&video-session=${encodeURIComponent(session.reference??session.id)}`})),
+      ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}&session=${encodeURIComponent(item.reference??item.id)}`})),
+      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(workspaceSegment(item.workspaceId))}${keyQuery(item)}&job=${encodeURIComponent(item.reference??item.id)}`};}),
       ...legacyIntents.filter(item=>!item.jobId || !merged.has(item.jobId)).map(item=>({id:item.id,type:'video' as const,intent:item,workspaceId:item.scope.projectId,title:item.title,created:Number(item.expires_at_ms),href:intentHref(item)})),
     ].sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
-  },[chats,savedChats,savedVideos,savedIntents,savedSessions,unavailableSessionWorkspaces,videos,workspace,context.workspaces,pending]);
+  },[chats,savedChats,savedVideos,savedIntents,savedSessions,unavailableSessionWorkspaces,videos,workspace,context.workspaces,currentKeys,pending]);
   async function more(){
     if(loading||(!cursors.length&&!intentCursors.length&&!sessionCursors.length)||pagination.current)return;setLoading(true);setError('');
     const request=new AbortController();pagination.current=request;

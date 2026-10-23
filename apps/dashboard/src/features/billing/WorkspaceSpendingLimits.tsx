@@ -1,3 +1,5 @@
+import { amountFromNanos } from '@/lib/money';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +21,7 @@ function checked(result: {data: SpendingAccount[]}): SpendingAccount[] {
 export default function WorkspaceSpendingLimits({token, organization, project, canConfigure, refresh}: {
   token: string; organization: string; project: string; canConfigure: boolean; refresh: number;
 }) {
+  const {currency:platformCurrency} = usePlatformCurrency();
   const base = `/api/v1/organizations/${organization}/projects/${project}/spending-limit`;
   const [accounts, setAccounts] = useState<SpendingAccount[] | null>(null);
   const [reload, setReload] = useState(0);
@@ -58,7 +61,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
   }, [token, base, reload, refresh]);
   function edit(account: SpendingAccount) {
     if (reloadRequired || loading || error || saving) return;
-    setEditing(account); setAmount(account.limit_nanos === null ? '' : money(account.limit_nanos, account.currency).slice(account.currency.length + 1));
+    setEditing(account); setAmount(account.limit_nanos === null ? '' : amountFromNanos(account.limit_nanos));
     setSaveError(''); setSaved(false);
   }
   async function save(event: FormEvent) {
@@ -90,14 +93,15 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
   return <section aria-label="Workspace spending limits" className="mt-8 space-y-4">
     <div><h2>Spending limits</h2><p className="text-muted-foreground">Lifetime limits include charges and reserved requests.</p></div>
     {error && <Alert variant="destructive"><AlertTitle>Spending limits unavailable</AlertTitle><AlertDescription>Could not load this workspace’s spending limits.<Button variant="outline" onClick={() => setReload(value => value + 1)}>Retry spending limits</Button></AlertDescription></Alert>}
+    {!platformCurrency && <p className="text-sm text-muted-foreground">Spending limits will be available after the platform currency is configured in Admin.</p>}
     {loading && <p role="status" className="text-muted-foreground">Loading spending limits…</p>}
     {!error && accounts?.length === 0 && !loading && <p className="text-muted-foreground">No billing currency is available yet.</p>}
-    {!error && accounts?.map(account => <div key={account.currency} className="space-y-3 py-2">
+    {!error && accounts?.filter(account => account.currency === platformCurrency || account.limit_nanos !== null || BigInt(account.committed_nanos) > 0n).map(account => <div key={account.currency} className="space-y-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="font-medium">{account.currency}</h3><p className="text-sm text-muted-foreground">{account.limit_nanos === null ? 'No workspace limit set.' : `${money(account.committed_nanos, account.currency)} committed of ${money(account.limit_nanos, account.currency)}`}</p></div>
-        {canConfigure && editing?.currency !== account.currency && <Button ref={element => { if (element && cancelFocusCurrency.current === account.currency) { cancelFocusCurrency.current = null; element.focus(); } }} variant="outline" size="sm" disabled={saving || loading || reloadRequired} aria-label={`${account.limit_nanos === null ? 'Add' : 'Edit'} ${account.currency} spending limit`} onClick={() => edit(account)}>{account.limit_nanos === null ? 'Add limit' : 'Edit limit'}</Button>}
+        {canConfigure && account.currency === platformCurrency && editing?.currency !== account.currency && <Button ref={element => { if (element && cancelFocusCurrency.current === account.currency) { cancelFocusCurrency.current = null; element.focus(); } }} variant="outline" size="sm" disabled={saving || loading || reloadRequired} aria-label={`${account.limit_nanos === null ? 'Add' : 'Edit'} ${account.currency} spending limit`} onClick={() => edit(account)}>{account.limit_nanos === null ? 'Add limit' : 'Edit limit'}</Button>}
       </div>
-      {canConfigure && editing?.currency === account.currency && <form onSubmit={save} className="space-y-3 max-w-lg">
+      {canConfigure && account.currency === platformCurrency && editing?.currency === account.currency && <form onSubmit={save} className="space-y-3 max-w-lg">
         <div className="space-y-2"><Label htmlFor="workspace-spending-amount">Lifetime limit ({account.currency})</Label><Input autoFocus id="workspace-spending-amount" inputMode="decimal" value={amount} disabled={saving || reloadRequired} onChange={event => setAmount(event.target.value)} aria-describedby="workspace-spending-help" required/><p id="workspace-spending-help" className="text-sm text-muted-foreground">No periodic reset. A zero limit blocks new paid requests.</p></div>
         {saveError && <p role="alert" className="text-sm text-destructive">{saveError}</p>}
         <div className="flex flex-wrap gap-2">{reloadRequired ? <Button type="button" disabled={loading} onClick={() => {setEditing(null);setReload(value => value + 1);}}>Reload limits</Button> : <Button type="submit" disabled={saving || loading || !amount.trim()}>{saving ? 'Saving…' : 'Save limit'}</Button>}<Button type="button" variant="ghost" disabled={saving || reloadRequired} onClick={() => { cancelFocusCurrency.current = account.currency; setEditing(null); }}>Cancel</Button></div>

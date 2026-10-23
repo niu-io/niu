@@ -11,6 +11,7 @@ describe('organization switching', () => {
     let signedIn = false;
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
+      if (path.split('?')[0] === '/api/v1/payments/readiness') return json({data:{ready:true,reason:null}});
       requests.push({ path, body: init?.body });
       if (path === '/api/v1/auth/config') return json({ password_login: true });
       if (path === '/api/v1/auth/browser/login' && init?.method === 'POST') { signedIn = true; return json({ session: {} }); }
@@ -70,11 +71,11 @@ describe('organization switching', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));
     await screen.findByRole('heading', { name: 'Organization settings' });
     await user.click(screen.getByRole('button', { name: 'Create workspace' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Create a workspace' });
-    expect(within(dialog).getByText('In New organization')).toBeTruthy();
+    const dialog = await screen.findByRole('dialog', { name: 'Create workspace' });
+    expect(within(dialog).getByText(/In New organization/)).toBeTruthy();
     await user.type(within(dialog).getByLabelText('Workspace name'), 'First workspace');
     await user.click(within(dialog).getByRole('button', { name: 'Create workspace' }));
-    await waitFor(() => expect(requests.some(item => item.body === JSON.stringify({ name: 'First workspace', organization_id: 'org-3' }))).toBe(true));
+    await waitFor(() => expect(requests.some(item => item.body === JSON.stringify({ name: 'First workspace', slug: 'first-workspace', organization_id: 'org-3' }))).toBe(true));
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/first-workspace/organization'));
   });
 });

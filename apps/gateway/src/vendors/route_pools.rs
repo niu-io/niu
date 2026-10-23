@@ -1,7 +1,7 @@
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
 };
 use serde::Deserialize;
@@ -23,131 +23,6 @@ pub struct PoolInput {
     candidates: Vec<niu_storage::RoutePoolCandidate>,
 }
 
-/// ```openapi
-/// {
-///   "path": "/api/v1/pools",
-///   "method": "get",
-///   "operation": {
-///     "operationId": "getModelRoutePool",
-///     "security": [
-///       {
-///         "bearerAuth": []
-///       }
-///     ],
-///     "summary": "Read an installation-managed model candidate pool",
-///     "parameters": [
-///       {
-///         "in": "query",
-///         "name": "alias",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "minLength": 1,
-///           "maxLength": 200
-///         }
-///       }
-///     ],
-///     "responses": {
-///       "200": {
-///         "description": "Current pool configuration",
-///         "content": {
-///           "application/json": {
-///             "schema": {
-///               "type": "object",
-///               "required": [
-///                 "data"
-///               ],
-///               "properties": {
-///                 "data": {
-///                   "$ref": "#/components/schemas/ModelRoutePool"
-///                 }
-///               }
-///             }
-///           }
-///         }
-///       },
-///       "403": {
-///         "description": "Platform administration required"
-///       },
-///       "404": {
-///         "description": "Pool not found"
-///       },
-///       "401": {
-///         "description": "Authentication required"
-///       },
-///       "400": {
-///         "description": "Invalid query or revision cursor; framework query errors may use plain text."
-///       }
-///     },
-///     "x-niu-implementation": "implemented",
-///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access."
-///   },
-///   "schemas": {
-///     "ModelRoutePool": {
-///       "type": "object",
-///       "required": [
-///         "alias",
-///         "organization_id",
-///         "enabled",
-///         "revision",
-///         "candidates"
-///       ],
-///       "properties": {
-///         "alias": {
-///           "type": "string"
-///         },
-///         "organization_id": {
-///           "type": [
-///             "string",
-///             "null"
-///           ],
-///           "format": "uuid"
-///         },
-///         "enabled": {
-///           "type": "boolean"
-///         },
-///         "revision": {
-///           "type": "integer",
-///           "minimum": 1,
-///           "maximum": 9007199254740991
-///         },
-///         "candidates": {
-///           "type": "array",
-///           "minItems": 1,
-///           "maxItems": 64,
-///           "items": {
-///             "type": "object",
-///             "required": [
-///               "alias",
-///               "priority",
-///               "weight",
-///               "enabled"
-///             ],
-///             "properties": {
-///               "alias": {
-///                 "type": "string"
-///               },
-///               "priority": {
-///                 "type": "integer",
-///                 "minimum": -1000,
-///                 "maximum": 1000
-///               },
-///               "weight": {
-///                 "type": "integer",
-///                 "minimum": 1,
-///                 "maximum": 10000
-///               },
-///               "enabled": {
-///                 "type": "boolean"
-///               }
-///             }
-///           }
-///         }
-///       }
-///     }
-///   }
-/// }
-/// ```
 pub async fn get(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -550,4 +425,434 @@ pub async fn index(
     Ok(Json(
         json!({"data": data, "has_more": has_more, "next_after": next_after}),
     ))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CollectionQuery {
+    alias: Option<String>,
+    after: Option<String>,
+    limit: Option<i64>,
+    // The legacy member parser accepted this field (GET ignored it).
+    before_revision: Option<i64>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/pools",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listPools",
+///     "summary": "List platform-managed model route pools",
+///     "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels. Without alias this is the paginated collection. For compatibility, ?alias= returns the original single-pool envelope; alias cannot be combined with paging parameters. New member reads use /pools/{reference}. The /pools/index route retains its existing collection contract.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200,
+///           "pattern": "^[!-~]+$"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       },
+///       {
+///         "in": "query",
+///         "name": "alias",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Bounded current configurations and continuation cursor.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "oneOf": [
+///                 {
+///                   "type": "object",
+///                   "required": [
+///                     "data",
+///                     "has_more",
+///                     "next_after"
+///                   ],
+///                   "additionalProperties": false,
+///                   "properties": {
+///                     "data": {
+///                       "type": "array",
+///                       "maxItems": 100,
+///                       "items": {
+///                         "$ref": "#/components/schemas/ModelRoutePool"
+///                       }
+///                     },
+///                     "has_more": {
+///                       "type": "boolean"
+///                     },
+///                     "next_after": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ]
+///                     }
+///                   }
+///                 },
+///                 {
+///                   "type": "object",
+///                   "required": [
+///                     "data"
+///                   ],
+///                   "properties": {
+///                     "data": {
+///                       "$ref": "#/components/schemas/ModelRoutePool"
+///                     }
+///                   }
+///                 }
+///               ]
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query, alias cursor or page size; framework query errors may use plain text."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Platform administration required."
+///       }
+///     }
+///   },
+///   "schemas": {
+///     "ModelRoutePool": {
+///       "type": "object",
+///       "required": [
+///         "alias",
+///         "organization_id",
+///         "enabled",
+///         "revision",
+///         "candidates"
+///       ],
+///       "properties": {
+///         "alias": {
+///           "type": "string"
+///         },
+///         "organization_id": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "format": "uuid"
+///         },
+///         "enabled": {
+///           "type": "boolean"
+///         },
+///         "revision": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 9007199254740991
+///         },
+///         "candidates": {
+///           "type": "array",
+///           "minItems": 1,
+///           "maxItems": 64,
+///           "items": {
+///             "type": "object",
+///             "required": [
+///               "alias",
+///               "priority",
+///               "weight",
+///               "enabled"
+///             ],
+///             "properties": {
+///               "alias": {
+///                 "type": "string"
+///               },
+///               "priority": {
+///                 "type": "integer",
+///                 "minimum": -1000,
+///                 "maximum": 1000
+///               },
+///               "weight": {
+///                 "type": "integer",
+///                 "minimum": 1,
+///                 "maximum": 10000
+///               },
+///               "enabled": {
+///                 "type": "boolean"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn collection(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<CollectionQuery>,
+) -> Result<Json<Value>, ApiError> {
+    if let Some(alias) = query.alias {
+        if query.after.is_some() || query.limit.is_some() {
+            return Err(ApiError::invalid_request(
+                "alias cannot be combined with collection pagination",
+            ));
+        }
+        get(
+            State(state),
+            headers,
+            Query(PoolQuery {
+                alias,
+                before_revision: query.before_revision,
+            }),
+        )
+        .await
+    } else {
+        if query.before_revision.is_some() {
+            return Err(ApiError::invalid_request(
+                "before_revision is only accepted on a pool member lookup",
+            ));
+        }
+        index(
+            State(state),
+            headers,
+            Query(IndexQuery {
+                after: query.after,
+                limit: query.limit,
+            }),
+        )
+        .await
+    }
+}
+
+fn decode_reference(reference: &str) -> Result<String, ApiError> {
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    let invalid =
+        || ApiError::invalid_request("Use the canonical unpadded base64url pool alias reference");
+    if reference.len() > 267 {
+        return Err(invalid());
+    }
+    let bytes = URL_SAFE_NO_PAD.decode(reference).map_err(|_| invalid())?;
+    if bytes.is_empty()
+        || bytes.len() > 200
+        || !bytes.iter().all(u8::is_ascii_graphic)
+        || URL_SAFE_NO_PAD.encode(&bytes) != reference
+    {
+        return Err(invalid());
+    }
+    String::from_utf8(bytes).map_err(|_| invalid())
+}
+/// ```openapi
+/// {
+///   "path": "/api/v1/pools/{reference}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getPool",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "summary": "Read an installation-managed model candidate pool",
+///     "parameters": [
+///       {
+///         "in": "path",
+///         "name": "reference",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 2,
+///           "maxLength": 267,
+///           "pattern": "^[A-Za-z0-9_-]+$"
+///         },
+///         "description": "Unpadded base64url encoding of the exact ASCII pool alias. This avoids encoded slashes and double decoding by proxies. The decoded alias must be 1\u2013200 visible ASCII bytes."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current pool configuration",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/ModelRoutePool"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "404": {
+///         "description": "Pool not found"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "400": {
+///         "description": "Invalid query or revision cursor; framework query errors may use plain text."
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400."
+///   }
+/// }
+/// ```
+pub async fn member(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    get(
+        State(state),
+        headers,
+        Query(PoolQuery {
+            alias: decode_reference(&reference)?,
+            before_revision: None,
+        }),
+    )
+    .await
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryQuery {
+    before_revision: Option<i64>,
+}
+/// ```openapi
+/// {
+///   "path": "/api/v1/pools/{reference}/history",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listPoolHistory",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "in": "path",
+///         "name": "reference",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 2,
+///           "maxLength": 267,
+///           "pattern": "^[A-Za-z0-9_-]+$"
+///         },
+///         "description": "Unpadded base64url encoding of the exact ASCII pool alias. This avoids encoded slashes and double decoding by proxies. The decoded alias must be 1\u2013200 visible ASCII bytes."
+///       },
+///       {
+///         "in": "query",
+///         "name": "before_revision",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "At most 100 immutable revisions in descending order",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "allOf": [
+///                       {
+///                         "$ref": "#/components/schemas/ModelRoutePool"
+///                       },
+///                       {
+///                         "type": "object",
+///                         "required": [
+///                           "recorded_at"
+///                         ],
+///                         "properties": {
+///                           "recorded_at": {
+///                             "type": "string",
+///                             "format": "date-time"
+///                           }
+///                         }
+///                       }
+///                     ]
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "404": {
+///         "description": "Pool not found"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "400": {
+///         "description": "Invalid query or revision cursor; framework query errors may use plain text."
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "summary": "Read immutable model candidate pool revisions",
+///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400."
+///   }
+/// }
+/// ```
+pub async fn member_history(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<Value>, ApiError> {
+    history(
+        State(state),
+        headers,
+        Query(PoolQuery {
+            alias: decode_reference(&reference)?,
+            before_revision: query.before_revision,
+        }),
+    )
+    .await
 }

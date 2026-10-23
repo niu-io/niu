@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [features]
 test-fixtures = []
+mock-payments = ["test-fixtures"]
 
 [dependencies]
 hmac = "0.12"

@@ -3,7 +3,7 @@ title: Payment configuration
 description: Configure platform payment gateways separately from customer billing.
 ---
 
-**Admin → Payment gateways** configures platform payment integrations. Customer balance, top-ups and transactions are in **Settings → Billing** and **Settings → Payments**; customers should not need merchant credentials to pay.
+**Admin → Payment gateways** configures platform payment integrations. Customer balance, top-ups and transactions are in **Settings → Credits**; customers should not need merchant credentials to pay.
 
 ## Configure EPay
 
@@ -17,17 +17,43 @@ Configuration saves use a revision. Reload after a stale-revision conflict rathe
 
 The supported gateway inventory can include integrations configured outside this dialog. A listed integration is not a promise that the dashboard can edit it; the current form edits EPay. See the generated [EPay configuration operation](/docs/api/rest/saveplatformepayconfiguration/) for exact fields and authorization.
 
+## Development gateway
+
+Local development includes a **Mock payments** card. Open **Configure**, enable mock payments and save. A fresh development installation leaves it disabled. The saved choice persists across restarts; the application displays a warning whenever it is enabled. Ordinary and production builds cannot activate it.
+
+Only payments are simulated. LLM calls still incur real upstream Provider charges. Keep Niu API keys and Provider API keys private and do not offer public access to a mock-funded environment. Disabling the mock stops new test checkouts; notifications for existing test orders can finish.
+
+Cards distinguish **Not configured**, **Disabled**, **Needs attention** and **Verified** using the same readiness evidence as workspace admission. Stripe also shows its account check; notification verification is shown separately. **Configured** is a fallback when verification is unavailable, not proof of readiness. Use **Refresh verification** to reload the evidence and follow the indicated setup or Credits link for missing requirements.
+
 ## Verify payment behavior separately
 
 Configured and enabled status do not establish merchant activation or a successful top-up. Verify the actual deployment's signed checkout, notification handling and funding records before advertising a method as available. A return-page visit is not settlement evidence. Do not grant customer balance from an unverified callback or duplicate an already recorded payment.
 
 External refunds and complete commercial settlement qualification have their own implementation boundaries; do not infer them from a working configuration save.
 
+## Stripe readiness
+
+Stripe-backed workspace admission requires a recent successful account check and a verified paid notification for a checkout created with the same effective configuration. **Check Stripe account** is read-only and creates no payment; it does not establish notification delivery. The server refreshes account checks every five minutes, and successful evidence expires after ten minutes. A temporary check outage cannot extend that expiry; rejected credentials or disabled charges revoke readiness immediately.
+
+To verify the payment integration, an authorized account owner uses **Settings → Credits** to create a top-up through the configured Stripe checkout. Account funding remains accessible while workspace features are blocked. Only a signed, matching notification that settles the saved order establishes notification evidence. Visiting the return page, polling an order, or a payment from an older configuration does not qualify the current integration. Real checkout may charge money; use the deployment's Stripe test configuration when validating a test installation. Changing credentials, notification secrets, checkout settings or currency requires evidence for the changed configuration.
+
+A company with explicit funding, an uncorrected noncash grant or an approved credit allowance can use the self-hosted path without merchant setup. This does not certify Stripe or waive request balance checks. The account-check rule above applies to Stripe; EPay and ZhifuX use the integration evidence described below.
+
+## EPay and ZhifuX integration evidence
+
+Disabling EPay stops new checkouts while keeping signed notifications for existing orders available. While orders remain unsettled, a pure enable/disable change is allowed; changing credentials or checkout fields is blocked to preserve their original verification settings.
+
+EPay requires a verified signed payment notification and durable settlement for a checkout created with the current configuration. The first checkout captures that configuration atomically with its saved link. A legacy order whose original configuration is unknown can still settle, but cannot qualify a new configuration.
+
+Native ZhifuX requires both a verified signed notification and independent server-confirmed settlement for the same configuration-bound order. Either may arrive first. The existing query permission and rate limits still apply; no additional periodic merchant-health query is introduced. Notification receipt alone never funds an account, and reconciliation alone does not establish callback delivery.
+
+These adapters expose integration evidence rather than Stripe-style live account eligibility. Changing merchant credentials, endpoints, notification/return addresses or payment methods invalidates previous configuration evidence. Evidence from a successful integration check is not a guarantee that every later payment succeeds. Pending payments retain their individual recovery workflow.
+
 ## Credit and administrator gifts
 
 Approved credit permits a customer balance to become negative up to its configured limit, after outstanding reservations. Zero credit implements prepaid access. Changing credit creates no receipt and adds no balance. The existing credit-policy endpoint requires installation write authority and a matching revision.
 
-A platform administrator can issue a noncash gift using [grantCustomerBalance](/docs/api/rest/grantcustomerbalance/) or `NiuAdminClient.grantCustomerBalance`. Supply an exact positive nanounit amount, a reason and a UUID idempotency key. Preserve that key when retrying an uncertain result. Identical retries return the original gift; changing its amount, currency or reason conflicts. Customer owner/admin roles cannot issue their own gifts. Use **Admin → Customer accounts → Grant noncash balance** to prepare and explicitly issue the saved gift.
+A platform administrator can issue a noncash gift using [grantCustomerBalance](/docs/api/rest/grantcustomerbalance/) or `NiuAdminClient.grantCustomerBalance`. Supply an exact positive nanounit amount, a reason and a UUID idempotency key. Preserve that key when retrying an uncertain result. Identical retries return the original gift; changing its amount, currency or reason conflicts. Customer owner/admin roles cannot issue their own gifts. Use **Admin → Account balances → Grant noncash balance** to prepare and explicitly issue the saved gift.
 
 For a mistaken wholly unused gift, open **Noncash grants → Issued gifts → Correct unused gift**, review its original amount and reason, and enter a correction reason. Confirm **Remove unused gift**. The platform-only [correction API](/docs/api/rest/correctunusedcustomerbalancegrant/) and SDK method `correctUnusedCustomerBalanceGrant` append a separate audited adjustment. The full original amount must match; partial correction is not supported. Accounts with paid request history, consumption, refunds, open request reservations or unknown financial sources are refused. Approved credit and all historical grants remain unchanged. A correction is neither a merchant refund nor a consumption/revenue adjustment.
 

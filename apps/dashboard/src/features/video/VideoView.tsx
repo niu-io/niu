@@ -3,7 +3,7 @@ import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
 import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
 import { useBranding } from '@/app/branding';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router';
+import { Link, useSearchParams, useNavigate, useLocation } from 'react-router';
 import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw } from '@tabler/icons-react';
 import type { VideoEstimate, VideoJobBilling, VideoJobState, VideoModelList, VideoTransportTimings } from '../../../../../sdks/javascript/src/index';
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule, type GenerationTask, type VideoComposerDraftPayload } from '../../../../../sdks/javascript/src/admin';
@@ -38,6 +38,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 const statusLabel: Record<string,string> = {submission_unknown:'Submission uncertain',queued:'Queued',running:'Running',succeeded:'Succeeded',failed:'Failed',unknown:'Status unavailable',reconciliation_required:'Needs reconciliation'};
 function message(error: unknown) { return error instanceof Error ? error.message : 'The request could not be completed.'; }
 class VideoHTTPError extends Error { constructor(readonly status:number, text:string) { super(text); } }
+type SavedVideoTask = Pick<GenerationTask, 'id' | 'model' | 'state' | 'reference'> & {session_id?: string};
+class VideoTaskResponseError extends Error {
+  constructor() { super('The server returned an invalid saved video. Reload status to try again.'); this.name='VideoTaskResponseError'; }
+}
+function savedVideoTask(response: unknown, selected: string): SavedVideoTask {
+  const task = response && typeof response === 'object' && 'data' in response ? response.data : null;
+  if (!task || typeof task !== 'object' || !('id' in task) || typeof task.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.id) || (task.id !== selected && (!/^run-[1-9][0-9]{0,18}$/.test(selected) || !('reference' in task) || task.reference !== selected))
+    || !('kind' in task) || task.kind !== 'video'
+    || !('model' in task) || typeof task.model !== 'string' || !task.model.trim()
+    || !('state' in task) || typeof task.state !== 'string' || !Object.hasOwn(statusLabel,task.state)) {
+    throw new VideoTaskResponseError();
+  }
+  return {...('session_id' in task && typeof task.session_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.session_id) ? {session_id:task.session_id}:{}), id: task.id, model: task.model, state: task.state as GenerationTask['state'], ...('reference' in task && typeof task.reference==='string' && /^run-[1-9][0-9]{0,18}$/.test(task.reference) ? {reference:task.reference}:{})};
+}
 async function request<T>(token:string,keyId:string,path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
   const response=await fetch(path,{method:body === undefined ? 'GET':'POST',headers:{authorization:`Bearer ${token}`,'x-niu-key-id':keyId,...(body === undefined ? {}:{'content-type':'application/json'})},body:body === undefined ? undefined:JSON.stringify(body),signal});
   const payload=await response.json().catch(()=>{throw new VideoHTTPError(response.status,'The server returned an unreadable response.');});
@@ -52,9 +66,11 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
   const [search,setSearch]=useSearchParams();
+  const location=useLocation();
   const {isMobile,setOpenMobile}=useSidebar();
   const [keys,setKeys]=useState<ProjectKey[]>([]);
   const [allKeys,setAllKeys]=useState<ProjectKey[]>([]);
+  const keyReference=(id:string)=>allKeys.find(key=>key.id===id)?.slug || id;
   const [keysScope,setKeysScope]=useState('');
   const [keysError,setKeysError]=useState('');
   const [keysRevision,setKeysRevision]=useState(0);
@@ -70,8 +86,9 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const restoredComposer=useRef<{identity:string;keyId:string|null;model:string|null}|null>(null);
   const [readingImages,setReadingImages]=useState(false);
   const [job,setJob]=useState<VideoJobState|null>(null);
-  const [savedTask,setSavedTask]=useState<GenerationTask|null>(null);
+  const [savedTask,setSavedTask]=useState<SavedVideoTask|null>(null);
   const [billing,setBilling]=useState<VideoJobBilling|null>(null);
+  const [diagnosticsLoading,setDiagnosticsLoading]=useState(false);
   const [timings,setTimings]=useState<VideoTransportTimings|null>(null);
   const [quote,setQuote]=useState<VideoEstimate|null>(null);
   const [quotedBody,setQuotedBody]=useState('');
@@ -94,8 +111,10 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const loadedBase=useRef('');
   const estimateController=useRef<AbortController|null>(null);
   const navigate=useNavigate();
-  const selected=search.get('job') ?? '';
-  const intentId=search.get('intent') ?? '';
+  const selectedReference=search.get('job') ?? '';
+  const selected=savedTask?.reference===selectedReference ? savedTask.id : selectedReference;
+  const intentReference=search.get('intent') ?? '';
+  const intentId=intentDocument?.reference===intentReference ? intentDocument.id : intentReference;
   const routeIntent=useRef(intentId);
   routeIntent.current=intentId;
   const intentClient=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/api/v1',window.location.origin).href}):null,[token]);
@@ -116,13 +135,13 @@ export default function VideoView({context}:{context:DashboardContext}) {
     }).catch(error=>{if(!controller.signal.aborted)setNativeTools({identity:toolsIdentity,state:'error',error:message(error)});});
     return()=>controller.abort();
   },[intentClient,workspace?.organization_id,workspace?.id,keyId,modelId,keys,toolsIdentity,toolsRevision]);
-  const retainedIntent=useMemo(()=>intentClient && workspace && intentId ? new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},intentId):null,[intentClient,workspace?.organization_id,workspace?.id,intentId]);
+  const retainedIntent=useMemo(()=>intentClient && workspace && intentReference ? new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},intentReference):null,[intentClient,workspace?.organization_id,workspace?.id,intentReference]);
   useEffect(()=>{
-    if(!intentClient || !workspace || !selected || intentId || busy==='create')return;
+    if(!intentClient || !workspace || !selected || selected.startsWith('run-') || intentId || busy==='create')return;
     const request=new AbortController();setIntentError('');
     void findVideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},selected,{signal:request.signal}).then(row=>{
       if(request.signal.aborted || !row)return;
-      setSearch(previous=>{if(previous.get('intent') || previous.get('job')!==selected)return previous;const next=new URLSearchParams(previous);next.set('intent',row.id);if(row.keyId)next.set('key',row.keyId);return next;},{replace:true});
+      setSearch(previous=>{if(previous.get('intent') || previous.get('job')!==selectedReference)return previous;const next=new URLSearchParams(previous);next.set('intent',row.id);if(row.keyId)next.set('key',keyReference(row.keyId));return next;},{replace:true});
     }).catch(error=>{if(!request.signal.aborted)setIntentError(message(error));});
     return()=>request.abort();
   },[intentClient,workspace?.organization_id,workspace?.id,selected,intentId,busy==='create',revision]);
@@ -191,7 +210,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);setAllKeys(payload.data);setKeysScope(keyScopeIdentity);
       setKeyId(current=>{
         const requested=search.get('key');
-        if(requested)return active.find(key=>key.slug===requested||key.id===requested)?.id ?? requested;
+        if(requested)return payload.data.find(key=>key.slug===requested||key.id===requested)?.id ?? requested;
         const restored=restoredComposer.current;
         if(restored?.identity===composerIdentity&&restored.keyId)return restored.keyId;
         if(search.get('job')||search.get('intent'))return current;
@@ -204,7 +223,15 @@ export default function VideoView({context}:{context:DashboardContext}) {
   },[token,scopePath,keysRevision,composerReady,composerIdentity,selected,intentId,busy==='create']);
 
   const requestedKey=search.get('key');
-  useEffect(()=>{if(requestedKey && (selected||intentId||(composerReady&&keys.some(key=>key.id===requestedKey||key.slug===requestedKey))))setKeyId(keys.find(key=>key.slug===requestedKey)?.id ?? requestedKey);},[requestedKey,keys,selected,intentId,composerReady]);
+  useEffect(()=>{
+    if(!requestedKey || keysScope!==keyScopeIdentity)return;
+    const resolved=allKeys.find(key=>key.slug===requestedKey||key.id===requestedKey);
+    if(selected||intentId||composerReady)setKeyId(resolved?.id ?? requestedKey);
+    if(resolved?.slug && requestedKey!==resolved.slug)setSearch(previous=>{
+      if(previous.get('key')!==requestedKey)return previous;
+      const next=new URLSearchParams(previous);next.set('key',resolved.slug!);return next;
+    },{replace:true});
+  },[requestedKey,allKeys,keysScope,keyScopeIdentity,selected,intentId,composerReady,setSearch]);
   useEffect(()=>{
     const controller=new AbortController(); const changedScope=loadedBase.current !== base;
     if(changedScope)setModels([]);
@@ -245,11 +272,13 @@ export default function VideoView({context}:{context:DashboardContext}) {
     if(!retainedIntent){restoredDraftIdentity.current='';return;}
     if(busy === 'create')return;
     setRestoringIntent(true);setUncertain(true);
-    const restoring=new VideoIntent(intentClient!,{organizationId:workspace!.organization_id,projectId:workspace!.id},intentId);
+    const restoring=new VideoIntent(intentClient!,{organizationId:workspace!.organization_id,projectId:workspace!.id},intentReference);
     void restoring.restore({signal:controller.signal}).then(document=>{
       if(controller.signal.aborted)return;
       loadedIntent.current=restoring;
       setIntentDocument(document);
+      const restoredQuery=new URLSearchParams(search);
+      if(document.reference)restoredQuery.set('intent',document.reference);
       const draftIdentity=JSON.stringify([token,scopePath,document.id]);
       setSubmittedPrompt(document.request ? document.request.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n'):'');
       if(restoredDraftIdentity.current!==draftIdentity || !document.job){
@@ -259,7 +288,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
           setPrompt(document.job ? '' : document.request.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n'));
           setDraftReferences(document.request.content.filter((item):item is VideoComposerDraftPayload['references'][number]=>item.type==='workspace_asset'||item.type==='provider_asset'));
           setDraftSessionId(document.session_binding?.session_id??search.get('session'));
-          if(document.session_binding)setSearch(previous=>{const next=new URLSearchParams(previous);next.set('session',document.session_binding!.session_id);next.set('turn',document.session_binding!.turn_id);return next;},{replace:true});
+          if(document.session_binding){restoredQuery.delete('session');restoredQuery.delete('turn');}
           const restored:ControlValues={};
           for(const [name,value] of Object.entries(document.request))if(name!=='model' && name!=='content' && (typeof value==='boolean' || typeof value==='string' || typeof value==='number'))restored[name]=typeof value==='boolean' ? value:String(value);
           setControls(restored);
@@ -267,7 +296,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
       }
       if(document.key_id && document.key_id!==keyId)setKeyId(document.key_id);
       setUncertain(document.content_state!=='retained' || (document.submission_state!=='saved' && !document.job));
-      if(document.job&&document.submission_state!=='not_dispatched'){setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',document.job!.id);next.set('key',document.key_id);return next;},{replace:true});}
+      if(document.job&&document.submission_state!=='not_dispatched'){restoredQuery.set('job',document.job.id);restoredQuery.set('key',keyReference(document.key_id));}
+      if(restoredQuery.toString()!==search.toString())navigate({pathname:location.pathname,search:`?${restoredQuery}`,hash:location.hash},{replace:true});
     }).catch(error=>{if(!controller.signal.aborted)setIntentError(message(error));}).finally(()=>{if(!controller.signal.aborted)setRestoringIntent(false);});
     return()=>controller.abort();
   },[retainedIntent,revision,busy === 'create']);
@@ -276,26 +306,38 @@ export default function VideoView({context}:{context:DashboardContext}) {
   useEffect(()=>{
     const restoredJob=intentDocument?.job;
     if(intentDocument?.id===intentId&&intentDocument.submission_state==='not_dispatched'){
-      if(selected&&selected===restoredJob?.id)setSearch(previous=>{const next=new URLSearchParams(previous);next.delete('job');return next;},{replace:true});
+      if(selected&&selected===restoredJob?.id){const next=new URLSearchParams(search);next.delete('job');navigate({pathname:location.pathname,search:`?${next}`,hash:location.hash},{replace:true});}
       return;
     }
-    if(!intentId || intentDocument?.id!==intentId || !restoredJob || selected===restoredJob.id)return;
-    setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',restoredJob.id);next.set('key',intentDocument.key_id);return next;},{replace:true});
+    if(!intentId || intentDocument?.id!==intentId || !restoredJob || selectedReference.startsWith('run-') || selected===restoredJob.id)return;
+    const next=new URLSearchParams(search);
+    next.set('job',restoredJob.id);next.set('key',keyReference(intentDocument.key_id));
+    if(intentDocument.reference)next.set('intent',intentDocument.reference);
+    if(intentDocument.session_binding){next.delete('session');next.delete('turn');}
+    navigate({pathname:location.pathname,search:`?${next}`,hash:location.hash},{replace:true});
   },[intentId,intentDocument,selected,setSearch]);
   useEffect(()=>{
-    const controller=new AbortController();setJob(null);setSavedTask(null);setBilling(null);setTimings(null);setDetailError('');
-    if(!intentClient||!workspace||!selected)return;
+    const controller=new AbortController();setJob(null);setSavedTask(null);setBilling(null);setTimings(null);setDetailError('');setDiagnosticsLoading(false);
+    if(!intentClient||!workspace||!selectedReference)return;
     const history=intentClient.generations({organizationId:workspace.organization_id,projectId:workspace.id});
-    void Promise.allSettled([
-      history.tasks.retrieve(selected,{signal:controller.signal}),
-      history.tasks.diagnostics(selected,{signal:controller.signal}),
-    ]).then(([status,diagnostics])=>{
+    setDiagnosticsLoading(true);
+    void history.tasks.retrieve(selectedReference,{signal:controller.signal}).then(response=>savedVideoTask(response,selectedReference)).then(async task=>{
       if(controller.signal.aborted)return;
-      if(status.status === 'fulfilled'){const task=status.value.data;setSavedTask(task);setJob({id:task.id,object:'video.job',model:task.model,status:task.state});}else setDetailError(message(status.reason));
-      if(diagnostics.status === 'fulfilled'){setBilling(diagnostics.value.billing);setTimings(diagnostics.value.timings);}else setDetailError(message(diagnostics.reason));
-    });
+      if(task.session_id)setDraftSessionId(task.session_id);
+      setSavedTask(task);setJob({id:task.id,object:'video.job',model:task.model,status:task.state});
+      try {
+        const diagnostics=await history.tasks.diagnostics(task.id,{signal:controller.signal});
+        if(!controller.signal.aborted){setBilling(diagnostics.billing);setTimings(diagnostics.timings);}
+      } catch(error) {if(!controller.signal.aborted)setDetailError(message(error));}
+    }).catch(error=>{if(!controller.signal.aborted)setDetailError(message(error));}).finally(()=>{if(!controller.signal.aborted)setDiagnosticsLoading(false);});
     return()=>controller.abort();
-  },[intentClient,token,workspace?.organization_id,workspace?.id,selected,revision]);
+  },[intentClient,token,workspace?.organization_id,workspace?.id,selectedReference,revision]);
+  useEffect(()=>{
+    if(!savedTask?.reference || selectedReference!==savedTask.id)return;
+    const next=new URLSearchParams(location.search);next.set('job',savedTask.reference);
+    if(savedTask.session_id){next.delete('session');next.delete('turn');}
+    navigate({pathname:location.pathname,search:`?${next}`,hash:location.hash},{replace:true});
+  },[savedTask,selectedReference,location.pathname,location.search,location.hash,navigate]);
 
   // Only reconcile an existing job. Polling never creates or retries a submission.
   useEffect(()=>{
@@ -304,8 +346,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
     const timer=window.setInterval(async()=>{
       if(pending || lock.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden'))return;pending=true;
       try {
-        if(canWrite)await request(token,base,`/v1/video/jobs/${encodeURIComponent(selected)}/refresh`,{},controller.signal);
-        const status=await request<VideoJobState>(token,base,`/v1/video/jobs/${encodeURIComponent(selected)}`,undefined,controller.signal);
+        if(canWrite)await request(token,base,`/v1/video/jobs/${encodeURIComponent(job?.id ?? selected)}/refresh`,{},controller.signal);
+        const status=await request<VideoJobState>(token,base,`/v1/video/jobs/${encodeURIComponent(job.id)}`,undefined,controller.signal);
         if(!controller.signal.aborted){
           setJob(status);setDetailError('');
           if(!['queued','running'].includes(status.status))setRevision(value=>value+1);
@@ -316,9 +358,9 @@ export default function VideoView({context}:{context:DashboardContext}) {
     return()=>{window.clearInterval(timer);controller.abort();};
   },[token,base,selected,job?.status,canWrite]);
 
-  function openJob(id:string) {const next=new URLSearchParams(search);next.set('job',id);next.set('key',keyId);setSearch(next);if(isMobile)setOpenMobile(false);}
+  function openJob(id:string) {const next=new URLSearchParams(search);next.set('job',id);next.set('key',keyReference(keyId));setSearch(next);if(isMobile)setOpenMobile(false);}
 
-  function chooseKey(id:string) {restoredComposer.current=null;setComposerEdited(true);setKeyId(id);const next=new URLSearchParams(search);next.set('key',id);next.delete('job');next.delete('intent');next.set('new','video');setSearch(next);setQuote(null);setUncertain(false);}
+  function chooseKey(id:string) {restoredComposer.current=null;setComposerEdited(true);setKeyId(id);const next=new URLSearchParams(search);next.set('key',keyReference(id));next.delete('job');next.delete('intent');next.set('new','video');setSearch(next);setQuote(null);setUncertain(false);}
   async function estimate() {
     if(!form.body || !base || lock.current || uncertain || readingImages || draftBlocked)return;
     const controller=new AbortController();estimateController.current?.abort();estimateController.current=controller;
@@ -346,7 +388,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
         const originalBinding=intentDocument?.id===intent.id?intentDocument.session_binding:null;
         const sessionId=originalBinding?.session_id??search.get('session')??draftSessionId??crypto.randomUUID();
         const turnId=originalBinding?.turn_id??search.get('turn')??crypto.randomUUID();
-        const next=new URLSearchParams(search);next.set('intent',intent.id);next.set('session',sessionId);next.set('turn',turnId);next.delete('new');if(!next.get('workspace'))next.set('workspace',workspacePathSegment(workspace,context.workspaces??[workspace]));next.set('key',keyId);setSearch(next,{replace:true});
+        const next=new URLSearchParams(search);next.set('intent',intent.id);next.set('session',sessionId);next.set('turn',turnId);next.delete('new');if(!next.get('workspace'))next.set('workspace',workspacePathSegment(workspace,context.workspaces??[workspace]));next.set('key',keyReference(keyId));setSearch(next,{replace:true});
         await prepareVideoSessionIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},{sessionId,turnId,intentId:intent.id,keyId,title:'Video request',request:form.body as VideoIntentRequest});
         if(!currentOperation())return;
         await intent.restore();
@@ -380,7 +422,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     if(!base || !selected || lock.current || !canWrite)return;
     const generation=currentGeneration();
     lock.current=true;setBusy('refresh');setDetailError('');
-    try {await request(token,base,`/v1/video/jobs/${encodeURIComponent(selected)}/refresh`,{});if(generation === currentGeneration())setRevision(value=>value+1);}
+    try {await request(token,base,`/v1/video/jobs/${encodeURIComponent(job?.id ?? selected)}/refresh`,{});if(generation === currentGeneration())setRevision(value=>value+1);}
     catch(error){if(generation === currentGeneration())setDetailError(message(error));}
     finally{if(generation === currentGeneration()){lock.current=false;setBusy('');}}
   }
@@ -390,7 +432,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const epoch=timings?.data[0]?.started_unix_ms ?? 0;
   const total=Math.max(1,...(timings?.data.map(span=>span.started_unix_ms-epoch+span.elapsed_ms) ?? []));
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={historyTriggerRef} title={intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'} actions={<DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-key-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || readingImages || draftBlocked || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ' · Revoked':originalKey.expired ? ' · Expired':''}` : (loading ? 'Loading keys…':'No active API key')}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace,context.workspaces??[chosen.workspace]))}&key=${encodeURIComponent(id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>} history={{context: (context), currentKeys: (keys), videoKeyId: (keyId), activeVideo: (selected), activeIntent: (intentId), activeVideoSession: (search.get('session')??''), onIntentDeleted: (id=>{if(id===intentId)setRevision(value=>value+1);}), disabled: (Boolean(busy))}} />
+    <GenerationSessionBindings trigger={historyTriggerRef} title={intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'} actions={<DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-key-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || readingImages || draftBlocked || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ' · Revoked':originalKey.expired ? ' · Expired':''}` : (loading ? 'Loading keys…':'No active API key')}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace,context.workspaces??[chosen.workspace]))}&key=${encodeURIComponent(chosen.slug || id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>} history={{context: (context), currentKeys: (allKeys), videoKeyId: (keyId), activeVideo: (selected), activeIntent: (intentId), activeVideoSession: (search.get('session')??''), onIntentDeleted: (id=>{if(id===intentId)setRevision(value=>value+1);}), disabled: (Boolean(busy))}} />
     <section className="video-main" aria-label="Video generation">
 
       <div className="video-content">
@@ -406,14 +448,14 @@ export default function VideoView({context}:{context:DashboardContext}) {
             {historicalReadOnly&&<p role="status" className="video-muted">Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Provider checks are disabled.</p>}
             {!selected ? <p className="video-muted">{submissionStopped ? 'This request was not dispatched. Resolve the admission error before starting a new generation.' : intentDocument?.submission_state==='saved' ? 'This saved request has not been submitted.':'Submit a video or select a saved job.'}</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
               {(job.status === 'submission_unknown' || job.status === 'reconciliation_required') && <p>The outcome is unresolved. Do not resubmit this generation.</p>}
-                  {job.status === 'succeeded' && intentClient && workspace && <VideoResult key={`${workspace.id}/${selected}`} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} task={selected} keyId={base ? keyId:undefined} canWrite={canWrite}/>}
+                  {job.status === 'succeeded' && intentClient && workspace && <VideoResult key={`${workspace.id}/${selected}`} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} task={job.id} keyId={base ? keyId:undefined} canWrite={canWrite} libraryHref={`${workspacePath}/library`}/>}
 
               {job.status !== 'succeeded' && <div className="video-artifact-placeholder">{(job.status==='queued'||job.status==='running')&&<Loader className="animate-spin"/>}<h3 role="status">{job.status==='queued'?'Waiting to generate':job.status==='running'?'Generating your video…':job.status==='failed'?'Video generation failed':'Waiting for a confirmed status'}</h3><p>{job.status==='queued'?'Your request is queued. This conversation updates automatically.':job.status==='running'?'Your video will appear here when it is ready.':job.status==='failed'?'Open video details to inspect the recorded failure.':'The original task is being checked. Do not submit it again.'}</p></div>}
               <Sheet><SheetTrigger asChild><Button variant="ghost" size="icon" className="video-details-trigger" aria-label="Video details"><InfoCircle size={18}/></Button></SheetTrigger><SheetContent className="overflow-y-auto"><SheetHeader><SheetTitle>Video details</SheetTitle><SheetDescription>Generation status, timing and customer charges.</SheetDescription></SheetHeader><div className="video-details p-4">
                   <div className="video-actions"><Button variant="outline" onClick={reloadSaved} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || !base || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Provider'}</Button></div>
                   {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle}/>}
                   {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission, status queries and result transfers; Provider queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission' : span.phase === 'query' ? 'Status query' : span.phase === 'result' ? 'Result transfer' : 'Other transport'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
-                  <h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
+                  <h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p role={diagnosticsLoading?'status':undefined}>{diagnosticsLoading?'Loading billing…':'Billing is unavailable.'}</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(savedTask?.reference??job.id)}`}>View in Logs</Link></Button>
               </div></SheetContent></Sheet>
 
             </>}
@@ -447,7 +489,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
               {models.length>0&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label="Video model" disabled={Boolean(busy) || readingImages || draftBlocked || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{model?.id||modelId||'Choose video model'}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{restoredComposer.current=null;setComposerEdited(true);setModelId(id);const query=new URLSearchParams(search);query.set('model',id);setSearch(query);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
 
               {model&&<>
-                <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Additional settings"><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" className="video-settings-popover"><h2>Video settings</h2><div className="video-controls">
+                <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Additional settings"><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" aria-label="Video settings" className="video-settings-popover"><h2>Video settings</h2><div className="video-controls">
                 {Object.entries(model.controls).map(([name,rule])=><div key={name} className="video-field"><Label htmlFor={`video-${name}`}>{controlLabels[name] ?? name}</Label>
                   {rule.kind === 'choice' ? <DropdownMenu><DropdownMenuTrigger asChild><Button id={`video-${name}`} variant="outline" className="video-choice" disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}>{String(controls[name] ?? 'Choose…')}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value=>{setComposerEdited(true);setControls(current=>{const next={...current,[name]:value};if(name === 'resolution' && model.output && !model.output.specifications.some(spec=>spec.resolution === value && spec.ratio === current.ratio)){const spec=model.output.specifications.find(spec=>spec.resolution === value);if(spec)next.ratio=spec.ratio;}return next;});}}>{rule.values.filter(value=>name !== 'ratio' || !model.output || model.output.specifications.some(spec=>spec.resolution === controls.resolution && spec.ratio === value)).map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
                   : rule.kind === 'integer' ? <><Input id={`video-${name}`} type="number" min={rule.minimum} max={rule.maximum} step={1} value={String(controls[name] ?? '')} onChange={event=>{setComposerEdited(true);setControls(current=>({...current,[name]:event.target.value}));}} disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}/><small className="video-muted">{rule.minimum}–{rule.maximum}</small></>

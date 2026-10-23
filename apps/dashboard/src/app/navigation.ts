@@ -1,4 +1,4 @@
-import { IconVideo, IconSettings, IconShieldLock } from "@tabler/icons-react";
+import { IconPhoto, IconVideo, IconSettings, IconShieldLock } from "@tabler/icons-react";
 import { IconBuildings as Building2 } from "@tabler/icons-react";
 import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconChartLine as ChartNoAxesCombined } from "@tabler/icons-react";
@@ -23,7 +23,8 @@ export const navigation: Array<{ to: string; label: string; icon: TablerIcon; de
   { destination: 'Workspace', to: 'keys', label: 'API keys', icon: KeyRound },
   { destination: 'Workspace', to: 'executions', label: 'Logs', icon: Logs },
   { destination: 'Models', to: '/models', label: 'Models', icon: Boxes },
-  { destination: 'Workspace', to: 'video', label: 'Video', icon: IconVideo },
+  { destination: 'Workspace', to: 'library', label: 'Library', icon: IconPhoto },
+  { destination: 'Workspace', to: 'video', label: 'Video setup', icon: IconVideo },
   { destination: 'Workspace', to: 'guardrails', label: 'Guardrails', icon: ShieldCheck },
   { destination: 'Workspace', to: 'usage', label: 'Activity', icon: ChartNoAxesCombined },
   { destination: 'Workspace', to: 'billing', label: 'Billing', icon: CreditCard },

@@ -44,6 +44,16 @@ Consider Tabler alongside Lucide when choosing icons. Generations uses Tabler `s
 
 Use **workspace** consistently for Niu's customer-facing scope. Do not call the same Niu entity a **project** in product UI, guidance, or generated setup commands. Keep legacy `project` / `project_id` names only where required by existing API, database, or compatibility contracts; translate them to workspace terminology at the product boundary.
 
+## UX review delivery gate
+
+For substantial new or changed user-facing workflows and actionable UX feedback, use the `ux-review` skill when available and complete its review before delivery. If the skill is unavailable, apply the requirements below directly; do not block on installation. Respect explicit review-only requests.
+
+Review the complete user task and affected sibling surfaces: discoverability, configuration scope, terminology, input choices, loading, missing configuration, failures, permissions, save feedback, revisit and recovery. Place settings according to their scope; use recognizable choices instead of requiring users to recall internal codes. Keep persisted values separate from presentation and preserve historical data semantics. Fix shared causes and update dependent guidance and links together.
+
+Implement and verify authorized corrections rather than ending with an acknowledgment, plan or list of recommendations. Inspect actual mature-product references and the final rendered desktop and narrow layouts, including changed menus/dialogs and keyboard interactions. Passing tests or a closed-state screenshot alone is insufficient. Do not report completion with a known major usability defect in the affected journey; continue fixing or identify the concrete blocker and unverified behavior. Do not expand this gate into unrelated redesign work or add unnecessary approval steps.
+
+UX judgments must cite applicable rules from the skill's source-backed standards, with concrete pass/fail evidence. Functional correctness does not establish visual quality: separately inspect hierarchy, grouping, spacing, action emphasis and content density. Check intermediate desktop and split-pane widths with navigation both open and closed; measure actual content width and accumulated wrapper gutters rather than only checking phone overflow. Distinguish published requirements, design-system recommendations and Niu-specific constraints. Keep Admin Settings as the final sidebar item.
+
 ## UI change verification
 
 For every UI change, run the product and inspect the rendered result in a browser at the affected route. Review both the visual hierarchy and the relevant interaction states; check a narrow viewport when the layout is responsive. Fix clipping, overflow, spacing, alignment, contrast, and inconsistent components before considering the change complete. A passing build or test suite alone does not verify UI work.

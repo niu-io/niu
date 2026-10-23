@@ -122,7 +122,7 @@ impl Store {
     }
 
     /// Caller must already hold the scoped workspace SHARE lock. None means
-    /// legacy selection; an exact complete dimensional identity is required.
+    /// legacy selection or no published default; exact dimensions are required.
     pub(crate) async fn enrolled_retail_media_price_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: TenantScope,
@@ -131,8 +131,13 @@ impl Store {
     ) -> Result<Option<Uuid>, StoreError> {
         validate_identity(dimensions, meter)?;
         let dimensions = serde_json::to_value(dimensions).map_err(|_| StoreError::InvalidPrice)?;
-        Ok(sqlx::query_scalar("SELECT price_id FROM retail_media_enrollments WHERE organization_id=$1 AND project_id=$2 AND dimensions=$3 AND meter=$4 AND price_id IS NOT NULL")
-            .bind(scope.organization_id).bind(scope.project_id).bind(dimensions).bind(meter).fetch_optional(&mut **tx).await?)
+        let explicit: Option<Option<Uuid>> = sqlx::query_scalar("SELECT price_id FROM retail_media_enrollments WHERE organization_id=$1 AND project_id=$2 AND dimensions=$3 AND meter=$4")
+            .bind(scope.organization_id).bind(scope.project_id).bind(&dimensions).bind(meter).fetch_optional(&mut **tx).await?;
+        if let Some(price) = explicit {
+            return Ok(price);
+        }
+        Ok(sqlx::query_scalar("SELECT h.id FROM platform_retail_price_heads h JOIN platform_currency c ON c.singleton AND c.currency=h.currency WHERE h.rate_kind='media' AND h.dimensions=$1 AND h.meter=$2 AND h.current_revision IS NOT NULL")
+            .bind(dimensions).bind(meter).fetch_optional(&mut **tx).await?)
     }
 
     /// Advisory own-customer selection only; admission must reselect and pin.
@@ -179,11 +184,14 @@ impl Store {
             .ok_or(StoreError::Conflict)?;
         let mut configuration:Value=sqlx::query_scalar("SELECT jsonb_build_object('dimensions',$3::jsonb,'meter',$4::text,'price_id',e.price_id,'version',COALESCE(e.version,0)::text,'pricing_source',CASE WHEN e.price_id IS NULL THEN 'workspace' ELSE 'platform' END) FROM projects p LEFT JOIN retail_media_enrollments e ON e.organization_id=p.organization_id AND e.project_id=p.id AND e.dimensions=$3 AND e.meter=$4 WHERE p.organization_id=$1 AND p.id=$2")
             .bind(scope.organization_id).bind(scope.project_id).bind(encoded).bind(meter).fetch_one(&mut *tx).await?;
-        let head = configuration
-            .get("price_id")
-            .and_then(Value::as_str)
-            .map(|id| Uuid::parse_str(id).map_err(|_| StoreError::InvalidPrice))
-            .transpose()?;
+        let head =
+            Self::enrolled_retail_media_price_in_tx(&mut tx, scope, dimensions, meter).await?;
+        configuration["price_id"] = json!(head);
+        configuration["pricing_source"] = json!(if head.is_some() {
+            "platform"
+        } else {
+            "workspace"
+        });
         let selected = if let Some(head) = head {
             Some(Self::select_retail_price_in_tx(&mut tx, head, scope.organization_id).await?)
         } else {

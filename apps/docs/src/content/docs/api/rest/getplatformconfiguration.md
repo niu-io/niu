@@ -45,7 +45,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Sanitized configuration presence
+Sanitized configuration presence and current configuration-bound verification; no merchant identities or credentials.
 
 Content type: `application/json`.
 
@@ -59,7 +59,8 @@ Content type: `application/json`.
     "data": {
       "type": "object",
       "required": [
-        "payment_gateways"
+        "payment_gateways",
+        "verification"
       ],
       "properties": {
         "payment_gateways": {
@@ -82,6 +83,61 @@ Content type: `application/json`.
               "configured": {
                 "type": "boolean",
                 "description": "Configuration presence only; not enabled checkout, merchant eligibility, or payment qualification."
+              }
+            }
+          }
+        },
+        "verification": {
+          "type": "object",
+          "required": [
+            "currency_configured",
+            "gateways"
+          ],
+          "properties": {
+            "currency_configured": {
+              "type": "boolean"
+            },
+            "gateways": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "checkout_enabled",
+                  "currency_supported",
+                  "callback_verified",
+                  "ready",
+                  "gateway",
+                  "account_verified"
+                ],
+                "properties": {
+                  "checkout_enabled": {
+                    "type": "boolean"
+                  },
+                  "currency_supported": {
+                    "type": "boolean"
+                  },
+                  "callback_verified": {
+                    "type": "boolean"
+                  },
+                  "ready": {
+                    "type": "boolean"
+                  },
+                  "gateway": {
+                    "type": "string",
+                    "enum": [
+                      "epay",
+                      "stripe",
+                      "zhifux"
+                    ]
+                  },
+                  "account_verified": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "Current account eligibility for adapters with an account check; null when unsupported or simulated."
+                  }
+                }
               }
             }
           }

@@ -367,6 +367,8 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = test_state(None, pool.clone());
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    state.store.configure_platform_currency("USD").await.unwrap();
     state.vendor_cipher = Some(Arc::new(
         crate::vendors::crypto::CredentialCipher::new(
             "billing-test-master-secret-at-least-32-characters",
@@ -375,7 +377,7 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     ));
     let store = state.store.clone();
     let scope = store.default_workspace().await.unwrap();
-    let app = router(state);
+    let app = router(state.clone());
     let (status,vendor)=call(&app,Method::POST,"/admin/v1/vendors",ADMIN,Some(json!({"name":"Billing fixture","adapter":"openai","api_base":format!("http://{address}/v1"),"api_key":"fixture-key"}))).await;
     assert_eq!(status, StatusCode::CREATED);
     let vendor = vendor["data"]["id"].as_str().unwrap();
@@ -385,7 +387,7 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
             Method::POST,
             &format!("/admin/v1/vendors/{vendor}/models"),
             ADMIN,
-            Some(json!({"alias":"billable","upstream_model":"fixture","enabled":true}))
+            Some(json!({"alias":"billable","upstream_model":"fixture","enabled":true,"pricing":{"currency":"USD","api_prompt_rate":1000000000,"api_completion_rate":2000000000,"cash_prompt_rate":1000000000,"cash_completion_rate":2000000000,"max_input_tokens":64,"max_output_tokens":10}}))
         )
         .await
         .0,
@@ -395,6 +397,17 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
         .create_provider_business("Billable supplier")
         .await
         .unwrap();
+    let vendor_id: Uuid = vendor.parse().unwrap();
+    let vendor_revision: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1")
+        .bind(vendor_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    store
+        .associate_vendor_supplier(vendor_id, supplier, vendor_revision)
+        .await
+        .unwrap();
+    store.create_budget(scope, "USD", 84_000).await.unwrap();
     let mut rates = niu_storage::ProviderOfferInput {
         model_alias: "billable".into(),
         currency: "USD".into(),
@@ -498,7 +511,42 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "error code: {:?}",
+        response.headers().get("x-niu-error-code")
+    );
+    let attempt = response.headers()["x-niu-attempt-id"]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    state.gateway_writes.shutdown().await;
+    let (status, generation) = call(
+        &app,
+        Method::GET,
+        &format!("/v1/generations/{attempt}"),
+        &key.token,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{generation}");
+    super::api_migrations::validate_response("/v1/generations/{id}", "get", "200", &generation);
+    assert_eq!(
+        generation["data"]["customer_charge"]["amount_nanos"],
+        "12000"
+    );
+    assert_eq!(generation["data"]["customer_charge"]["currency"], "USD");
+    assert_eq!(generation["data"]["customer_charge"]["status"], "charged");
+    for field in [
+        "supplier_cost",
+        "provider_earnings",
+        "upstream_cost",
+        "margin",
+    ] {
+        assert!(generation["data"].get(field).is_none());
+    }
+
     assert_eq!(
         store.customer_billing(scope).await.unwrap()["balances"][0]["charged_nanos"],
         "12000"
@@ -803,7 +851,9 @@ async fn supplier_rate_http_updates_require_current_revision(pool: PgPool) {
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tariff(pool: PgPool) {
-    let state = test_state(None, pool.clone());
+    let mut state = test_state(None, pool.clone());
+    state.store.configure_platform_currency("USD").await.unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
     let store = state.store.clone();
     let scope = store.default_workspace().await.unwrap();
     let key = store
@@ -827,7 +877,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
     assert_eq!(priced["data"].as_array().unwrap().len(), 1);
     assert_eq!(
         priced["data"][0]["customer_pricing"],
-        json!({"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null})
+        json!({"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null,"cache_write_prompt_rate":null,"reasoning_completion_rate":null,"request_fee_nanos":"0","minimum_charge_nanos":"0","context_tiers":[],"pricing_source":"workspace"})
     );
     let dashboard_path = format!(
         "/admin/v1/models?organization_id={}&project_id={}",
@@ -841,9 +891,10 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         .iter()
         .find(|model| model["id"] == "fast")
         .unwrap();
+    assert_eq!(fast["billing_source"], "niu_credits");
     assert_eq!(
         fast["customer_pricing"],
-        json!({"revision":revision,"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null})
+        json!({"revision":revision,"discount_baseline_revision":null,"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null,"cache_write_prompt_rate":null,"reasoning_completion_rate":null,"request_fee_nanos":"0","minimum_charge_nanos":"0","context_tiers":[],"pricing_source":"workspace"})
     );
     let (_, unscoped) = call(&app, Method::GET, "/admin/v1/models", ADMIN, None).await;
     assert!(
@@ -1023,7 +1074,12 @@ async fn personal_credentials_are_excluded_from_shared_model_access(pool: PgPool
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "error code: {:?}",
+        response.headers().get("x-niu-error-code")
+    );
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let catalog: Value = serde_json::from_slice(&bytes).unwrap();
     assert!(!catalog.to_string().contains("personal-fixture"));

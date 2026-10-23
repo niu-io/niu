@@ -408,6 +408,34 @@ pub async fn login(
     Ok(Json(json!({"token":issued.token,"session":issued.session})))
 }
 
+/// Read only non-secret metadata under the same boundary as password reset.
+/// A configured credential does not establish that browser sign-in is enabled
+/// or that a newly submitted password was saved after an uncertain response.
+pub async fn password_configuration(
+    State(state): State<AppState>,
+    Path(operator): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    authorize_operator_management(&state, &headers, operator).await?;
+    let member = state
+        .store
+        .operator(operator)
+        .await
+        .map_err(ApiError::from_store)?;
+    if member.is_none_or(|member| member.revoked) {
+        return Err(ApiError::not_found());
+    }
+    let saved = state
+        .store
+        .member_password_configuration(operator)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(match saved {
+        Some((email, revision)) => json!({"configured":true,"email":email,"revision":revision}),
+        None => json!({"configured":false,"email":null,"revision":null}),
+    }))
+}
+
 pub async fn set_password(
     State(state): State<AppState>,
     Path(operator): Path<Uuid>,

@@ -1,3 +1,4 @@
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { PricingHealthNotice } from '@/features/retail-pricing/pricing-health';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
@@ -119,7 +120,8 @@ function Prices({ token, target }: { token: string; target: PricingTarget }) {
 function PriceEditor({token,target,previous,modelNames,onClose,onSaved}: {token:string;target:PricingTarget;previous:CurrentTariff|null;modelNames:string[];onClose:()=>void;onSaved:()=>void}) {
   const [current,setCurrent]=useState(previous);
   const [model,setModel]=useState(previous?.model_alias ?? '');
-  const [currency,setCurrency]=useState(previous?.currency ?? 'USD');
+  const {currency:platformCurrency}=usePlatformCurrency();
+  const currency=previous?.currency ?? platformCurrency;
   const [input,setInput]=useState(previous ? priceFromNanos(previous.prompt_rate) : '');
   const [output,setOutput]=useState(previous ? priceFromNanos(previous.completion_rate) : '');
   const [cache,setCache]=useState(previous?.cached_prompt_rate != null ? priceFromNanos(previous.cached_prompt_rate) : '');
@@ -138,7 +140,7 @@ function PriceEditor({token,target,previous,modelNames,onClose,onSaved}: {token:
       if(request.signal.aborted)return;
       const row=result.data.find(item=>item.is_current);
       if(!row)throw new Error('The current price is unavailable. Close and refresh before continuing.');
-      setCurrent(row);setCurrency(row.currency);setInput(priceFromNanos(row.prompt_rate));setOutput(priceFromNanos(row.completion_rate));setCache(row.cached_prompt_rate == null ? '' : priceFromNanos(row.cached_prompt_rate));setReasoning(row.reasoning_completion_rate == null ? '' : priceFromNanos(row.reasoning_completion_rate));setFee(priceFromNanos(row.request_fee_nanos ?? '0'));setMinimum(priceFromNanos(row.minimum_charge_nanos ?? '0'));setConflict(false);
+      setCurrent(row);setInput(priceFromNanos(row.prompt_rate));setOutput(priceFromNanos(row.completion_rate));setCache(row.cached_prompt_rate == null ? '' : priceFromNanos(row.cached_prompt_rate));setReasoning(row.reasoning_completion_rate == null ? '' : priceFromNanos(row.reasoning_completion_rate));setFee(priceFromNanos(row.request_fee_nanos ?? '0'));setMinimum(priceFromNanos(row.minimum_charge_nanos ?? '0'));setConflict(false);
     }catch(reason){if(!request.signal.aborted)setError(reason instanceof Error?reason.message:'Current price unavailable.');}
     finally{if(!request.signal.aborted)setBusy(false);}
   }
@@ -155,7 +157,7 @@ function PriceEditor({token,target,previous,modelNames,onClose,onSaved}: {token:
   return <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{previous?'Edit customer price':'Publish customer price'}</DialogTitle><DialogDescription>{target.organization_name} · {workspaceDisplayName(target.workspace_name)}. Changes apply to future admitted requests.</DialogDescription></DialogHeader>
     <form className="grid gap-4" onSubmit={save}>
       <div className="grid gap-2"><Label>Model</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={!!previous||busy||conflict} className="justify-between">{model||'Choose model'}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={model} onValueChange={setModel}>{modelNames.map(name=><DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
-      <div className="grid gap-2"><Label htmlFor="price-currency">Currency</Label><Input id="price-currency" required maxLength={3} pattern="[A-Z]{3}" value={currency} disabled={busy} onChange={event=>setCurrency(event.target.value.toUpperCase())}/></div>
+      <p className="text-sm text-muted-foreground">Currency: {currency || "configure in Admin"}</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2"><Label htmlFor="price-input">Input per million tokens</Label><Input id="price-input" required inputMode="decimal" value={input} disabled={busy} onChange={event=>setInput(event.target.value)}/></div>
         <div className="grid gap-2"><Label htmlFor="price-output">Output per million tokens</Label><Input id="price-output" required inputMode="decimal" value={output} disabled={busy} onChange={event=>setOutput(event.target.value)}/></div>

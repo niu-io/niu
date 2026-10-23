@@ -1304,6 +1304,8 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         axum::serve(listener, upstream).await.unwrap();
     });
     let mut state = test_state(None, pool.clone());
+    state.store.configure_platform_currency("USD").await.unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
     state.vendor_cipher = Some(Arc::new(
         crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
     ));
@@ -1427,6 +1429,12 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         .0,
         StatusCode::NOT_FOUND
     );
+    let (status, scoped_models) = call(&app, Method::GET,
+        &format!("/admin/v1/models?organization_id={}&project_id={}", scope.organization_id, scope.project_id),
+        &operator.token, Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    let personal = scoped_models["data"].as_array().unwrap().iter().find(|model| model["id"] == "fast").unwrap();
+    assert_eq!(personal["billing_source"], "own_api_key");
     // A preexisting retail tariff must not label personally funded models.
     store
         .publish_customer_tariff(
@@ -7885,4 +7893,176 @@ async fn inspected_source_real_cipher_survives_reopen_and_verifies_approved_byte
             .is_none()
     );
     task.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPool) {
+    let make_state = || async {
+        let mut state = test_state(None, pool.clone());
+        state.vendor_cipher = Some(Arc::new(
+            crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+        ));
+        crate::payments::readiness::configure_test_gateway(&mut state).await;
+        state
+    };
+    let state = make_state().await;
+    state.store.configure_platform_currency("USD").await.unwrap();
+    let app = router(state.clone());
+    let (status, created) = call(&app, Method::POST, "/api/v1/vendors", ADMIN,
+        json!({"name":"Model setup key","adapter":"openai","api_base":"https://example.test/v1","api_key":"fixture-original-secret","enabled":true,"create_supplier":true})).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let id = created["data"]["id"].as_str().unwrap();
+    let provider = state.store.vendor_supplier(id.parse().unwrap()).await.unwrap().unwrap();
+    let provider_id = provider["id"].as_str().unwrap();
+    let collection = format!("/api/v1/vendors?supplier={provider_id}");
+    let models_path = format!("/api/v1/vendors/{id}/models");
+    let mapping = json!({"alias":"review/model","upstream_model":"upstream/original","enabled":true,"public_catalog":false,"capabilities":{},"expected_revision":null});
+    let (status, result) = call(&app, Method::POST, &models_path, ADMIN, mapping).await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    // A new router must read persisted models even when there is no purchase offer.
+    let reloaded = router(make_state().await);
+    let (status, inventory) = call(&reloaded, Method::GET, &collection, ADMIN, Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{inventory}");
+    assert_eq!(inventory["data"][0]["id"], id);
+    let (_, models) = call(&reloaded, Method::GET, &models_path, ADMIN, Value::Null).await;
+    assert_eq!(models["data"][0]["alias"], "review/model");
+    // Legacy route eligibility is not proof of an approved commercial offer.
+    assert!(models["data"][0]["available"].is_boolean());
+    let (_, supply) = call(&reloaded, Method::GET, &format!("/api/v1/providers/{provider_id}/administration?days=90"), ADMIN, Value::Null).await;
+    assert_eq!(supply["data"]["offers"], json!([]));
+    let update = json!({"alias":"review/model","upstream_model":"upstream/updated","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":models["data"][0]["revision"]});
+    assert_eq!(call(&reloaded, Method::POST, &models_path, ADMIN, update.clone()).await.0, StatusCode::OK);
+    assert_eq!(call(&reloaded, Method::POST, &models_path, ADMIN, update).await.0, StatusCode::CONFLICT);
+    let credential = json!({"name":"Updated model key","api_base":"https://example.test/v1","enabled":true,"api_key":"fixture-rotated-secret","expected_revision":inventory["data"][0]["revision"]});
+    let credential_path = format!("/api/v1/vendors/{id}");
+    assert_eq!(call(&reloaded, Method::PUT, &credential_path, ADMIN, credential.clone()).await.0, StatusCode::OK);
+    assert_eq!(call(&reloaded, Method::PUT, &credential_path, ADMIN, credential).await.0, StatusCode::CONFLICT);
+    let final_app = router(make_state().await);
+    let (_, persisted) = call(&final_app, Method::GET, &models_path, ADMIN, Value::Null).await;
+    assert_eq!(persisted["data"][0]["upstream_model"], "upstream/updated");
+    assert_eq!(persisted["data"][0]["enabled"], false);
+    let (_, credentials) = call(&final_app, Method::GET, &collection, ADMIN, Value::Null).await;
+    assert_eq!(credentials["data"][0]["name"], "Updated model key");
+    assert_eq!(credentials["data"][0]["has_credential"], true);
+    assert!(!credentials.to_string().contains("fixture-rotated-secret"));
+    let scope = state.store.default_workspace().await.unwrap();
+    let customer = state.store.create_operator(OperatorScope {organization_id:scope.organization_id,project_id:None}, "Workspace owner", OperatorRole::Owner, 3600, OperatorAuditActor::Installation).await.unwrap();
+    for path in [&collection, &models_path] {
+        assert_eq!(call(&final_app, Method::GET, path, &customer.token, Value::Null).await.0, StatusCode::FORBIDDEN);
+    }
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn retained_library_source_privacy_and_expired_reference_lifecycle(pool: PgPool) {
+    tokio::task::spawn_blocking(move || tokio::runtime::Runtime::new().unwrap().block_on(async move {
+    use niu_storage::{AssetLibraryCreate, AssetLibraryKind, AssetLibraryLimits};
+    let mut state = test_state(None, pool.clone());
+    let cipher = Arc::new(crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap());
+    state.vendor_cipher = Some(cipher.clone());
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let store = state.store.clone();
+    store.configure_platform_currency("USD").await.unwrap();
+    let scope = store.default_workspace().await.unwrap();
+    let owner = store.create_operator(OperatorScope { organization_id: scope.organization_id, project_id: None }, "Library owner", OperatorRole::Owner, 3600, OperatorAuditActor::Installation).await.unwrap();
+    let viewer = store.create_operator(OperatorScope { organization_id: scope.organization_id, project_id: None }, "Library viewer", OperatorRole::Viewer, 3600, OperatorAuditActor::Installation).await.unwrap();
+    let actor = format!("operator:{}", owner.operator_id);
+    let vendor = store.create_vendor(niu_storage::VendorInput { id:Uuid::new_v4(),name:"Library fixture".into(),adapter:"openai".into(),api_base:"https://example.test/v1".into(),enabled:true,credential_ciphertext:vec![17;48] }).await.unwrap();
+    let schema = json!({"version":1,"revision":"library-schema","model_alias":"library-video","upstream_model":"fixture-model","channel":"fixture","maximum_body_bytes":1024,"maximum_content_items":1,"inputs":{"text":{"maximum_items":1,"maximum_bytes":256,"https":false,"data_mime_types":[],"roles":[],"role_required":false}},"controls":{},"required_controls":[],"exclusive_controls":[],"callbacks_qualified":false});
+    store.upsert_vendor_model(vendor.id, niu_storage::VendorModelInput {alias:"library-video".into(),upstream_model:"fixture-model".into(),public_catalog:false,enabled:true,capabilities:json!({"video_schema":schema}),pricing:None,expected_revision:None}).await.unwrap();
+    let operation = store.create_operation(scope,"library-video").await.unwrap();
+    let task = store.prepare_attempt(scope,operation,"library-video","fixture-offer").await.unwrap();
+    store.pin_media_recovery_route(scope,task).await.unwrap();
+    sqlx::query("UPDATE attempts SET execution='may_have_executed',dispatched_at=now() WHERE id=$1").bind(task).execute(&pool).await.unwrap();
+    let session = Uuid::new_v4(); let turn = Uuid::new_v4();
+    sqlx::query("INSERT INTO generations_sessions(organization_id,project_id,owner,id,title) VALUES($1,$2,$3,$4,'Private source')").bind(scope.organization_id).bind(scope.project_id).bind(&actor).bind(session).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO generations_turns(organization_id,project_id,owner,session_id,id,sequence,instruction_digest) VALUES($1,$2,$3,$4,$5,1,$6)").bind(scope.organization_id).bind(scope.project_id).bind(&actor).bind(session).bind(turn).bind(vec![0u8;32]).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO generations_turn_tasks(organization_id,project_id,owner,session_id,turn_id,task_id) VALUES($1,$2,$3,$4,$5,$6)").bind(scope.organization_id).bind(scope.project_id).bind(&actor).bind(session).bind(turn).bind(task).execute(&pool).await.unwrap();
+    let bytes = include_bytes!("../../../testdata/retained-video.mp4");
+    let asset = store.create_workspace_asset(scope,AssetLibraryCreate { id:Uuid::new_v4(), name:"Saved blue video",kind:AssetLibraryKind::Video,content_type:"video/mp4",bytes,actor:&actor },AssetLibraryLimits::default(),|aad,content| cipher.seal_bytes_with_aad(aad,content).map_err(|_| niu_storage::StoreError::InvalidObservation)).await.unwrap();
+    let image_bytes = include_bytes!("../../../testdata/retained-image.png");
+    let image = store.create_workspace_asset(scope,AssetLibraryCreate { id:Uuid::new_v4(), name:"Saved blue image",kind:AssetLibraryKind::Image,content_type:"image/png",bytes:image_bytes,actor:&actor },AssetLibraryLimits::default(),|aad,content| cipher.seal_bytes_with_aad(aad,content).map_err(|_| niu_storage::StoreError::InvalidObservation)).await.unwrap();
+    for (copy,kind) in [(asset.id,"video"),(image.id,"last_frame")] {
+        sqlx::query("INSERT INTO generations_artifact_captures(id,organization_id,project_id,task_id,kind,owner,name,mode,state,asset_id) VALUES($1,$2,$3,$4,$5,$6,'Saved blue output','cached','stored',$1)").bind(copy).bind(scope.organization_id).bind(scope.project_id).bind(task).bind(kind).bind(&actor).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO media_result_references(organization_id,project_id,attempt_id,kind,ciphertext,created_at,expires_at) VALUES($1,$2,$3,$4,$5,now()-interval '25 hours',now()-interval '1 hour')").bind(scope.organization_id).bind(scope.project_id).bind(task).bind(kind).bind(vec![17u8;48]).execute(&pool).await.unwrap();
+    }
+    let app = router(state.clone());
+    let collection = format!("/api/v1/workspaces/{}/assets",scope.project_id);
+    let path = format!("{collection}/{}",asset.id);
+    let (status, listed) = call(&app,Method::GET,&collection,&owner.token,Value::Null).await;
+    assert_eq!(status,StatusCode::OK,"{listed}");
+    let video = listed["data"].as_array().unwrap().iter().find(|row| row["id"] == asset.id.to_string()).unwrap();
+    let reference = video["source"]["reference"].as_str().expect("authorized source reference");
+    assert!(listed["data"].as_array().unwrap().iter().all(|row|row["source"]["reference"]==reference));
+    assert!(reference.starts_with("run-"));
+    assert!(!reference.contains(&task.to_string()));
+    let task_path = format!("/api/v1/workspaces/{}/tasks/{reference}",scope.project_id);
+    let (status, original) = call(&app,Method::GET,&task_path,&owner.token,Value::Null).await;
+    assert_eq!(status,StatusCode::OK,"{original}");
+    assert_eq!(original["data"]["id"],task.to_string());
+    assert!(original["data"]["artifacts"].as_array().unwrap().iter().all(|row|row["availability"]=="expired" && row["capture"]["availability"]=="retained"));
+    let (status, shared) = call(&app,Method::GET,&collection,&viewer.token,Value::Null).await;
+    assert_eq!(status,StatusCode::OK,"{shared}");
+    assert!(shared["data"].as_array().unwrap().iter().all(|row| row["source"].is_null()));
+    assert_eq!(call(&app,Method::GET,&task_path,&viewer.token,Value::Null).await.0,StatusCode::NOT_FOUND);
+    assert!(sqlx::query("UPDATE attempts SET public_reference='run-9999999' WHERE id=$1").bind(task).execute(&pool).await.is_err());
+    // A fresh router retrieves encrypted retained bytes independently of upstream expiry.
+    let reloaded = router(state);
+    for (saved, expected, mime) in [(asset.id,bytes.as_slice(),"video/mp4"),(image.id,image_bytes.as_slice(),"image/png")] {
+        let content_path = format!("{collection}/{saved}/content"); let token = viewer.token.clone(); let content_app = reloaded.clone();
+        let response = tokio::task::spawn_blocking(move || tokio::runtime::Runtime::new().unwrap().block_on(async move {
+            content_app.oneshot(Request::get(content_path).header("authorization",format!("Bearer {token}")).body(axum::body::Body::empty()).unwrap()).await.unwrap()
+        })).await.unwrap();
+        assert_eq!(response.status(),StatusCode::OK);
+        assert_eq!(response.headers()["content-type"],mime);
+        assert_eq!(response.into_body().collect().await.unwrap().to_bytes().as_ref(),expected);
+    }
+    let rename = json!({"name":"Blue scene","expected_revision":"1"});
+    assert_eq!(call(&reloaded,Method::PATCH,&path,&viewer.token,rename.clone()).await.0,StatusCode::FORBIDDEN);
+    let (status, renamed) = call(&reloaded,Method::PATCH,&path,&owner.token,rename.clone()).await;
+    assert_eq!(status,StatusCode::OK,"{renamed}");
+    assert_eq!(renamed["data"]["source"]["reference"],reference);
+    assert_eq!(call(&reloaded,Method::PATCH,&path,&owner.token,rename).await.0,StatusCode::CONFLICT);
+    assert_eq!(call(&reloaded,Method::DELETE,&format!("{path}?expected_revision=2"),&owner.token,Value::Null).await.0,StatusCode::NO_CONTENT);
+    assert_eq!(call(&reloaded,Method::GET,&path,&owner.token,Value::Null).await.0,StatusCode::NOT_FOUND);
+    let (_, after) = call(&reloaded,Method::GET,&task_path,&owner.token,Value::Null).await;
+    let artifacts=after["data"]["artifacts"].as_array().unwrap();
+    assert_eq!(artifacts.iter().find(|row|row["kind"]=="video").unwrap()["capture"]["availability"],"deleted");
+    assert_eq!(artifacts.iter().find(|row|row["kind"]=="last_frame").unwrap()["capture"]["availability"],"retained");
+    })).await.unwrap();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool: PgPool) {
+    let mut state=test_state(None,pool.clone());
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let store=state.store.clone();store.configure_platform_currency("USD").await.unwrap();let scope=store.default_workspace().await.unwrap();
+    let owner=store.create_operator(OperatorScope {organization_id:scope.organization_id,project_id:None},"Capability reader",OperatorRole::Owner,3600,OperatorAuditActor::Installation).await.unwrap();
+    let vendor=store.create_vendor(niu_storage::VendorInput {id:Uuid::new_v4(),name:"Capability fixture".into(),adapter:"openai".into(),api_base:"https://example.test/v1".into(),enabled:true,credential_ciphertext:vec![17;48]}).await.unwrap();
+    store.assign_personal_vendor_owner(vendor.id,scope.organization_id,vendor.revision).await.unwrap();
+    let schema=json!({"version":1,"revision":"capability-fixture","model_alias":"stale-video","upstream_model":"fixture-video","channel":"ark-direct-v1","maximum_body_bytes":1024,"maximum_content_items":1,"inputs":{"text":{"maximum_items":1,"maximum_bytes":256,"https":false,"data_mime_types":[],"roles":[],"role_required":false}},"controls":{},"required_controls":[],"exclusive_controls":[],"callbacks_qualified":false});
+    for (alias,upstream,caps) in [
+        ("stale-video","fixture-video",json!({"video_schema":schema,"catalog":{"output_modalities":["text"]}})),
+        ("declared-text","fixture-text",json!({"catalog":{"output_modalities":["text"]}})),
+        ("legacy-unknown","fixture-unknown",json!({})),
+        ("declared-dual","fixture-dual",json!({"catalog":{"output_modalities":["text","video"]}})),
+    ] {store.upsert_vendor_model(vendor.id,niu_storage::VendorModelInput {alias:alias.into(),upstream_model:upstream.into(),public_catalog:false,enabled:true,capabilities:caps,pricing:None,expected_revision:None}).await.unwrap();}
+    let app=router(state);
+    let path=format!("/api/v1/models?organization_id={}&project_id={}",scope.organization_id,scope.project_id);
+    let (status,body)=call(&app,Method::GET,&path,&owner.token,Value::Null).await;
+    assert_eq!(status,StatusCode::OK,"{body}");
+    for (alias,chat,video) in [("stale-video",json!(false),true),("declared-text",json!(true),false),("legacy-unknown",Value::Null,false),("declared-dual",json!(true),false)] {
+        let row=body["data"].as_array().unwrap().iter().find(|row|row["id"]==alias).unwrap();
+        assert_eq!(row["generation_capabilities"],json!({"chat":chat,"video":video}),"{row}");
+        assert!(row.get("upstream_model").is_none());
+    }
+    // A valid stored schema for an unsupported preview channel must not fall
+    // back to Chat merely because its old catalog metadata still says text.
+    let mut unsupported=schema;unsupported["channel"]=json!("fixture");
+    store.upsert_vendor_model(vendor.id,niu_storage::VendorModelInput {alias:"stale-video".into(),upstream_model:"fixture-video".into(),public_catalog:false,enabled:true,capabilities:json!({"video_schema":unsupported,"catalog":{"output_modalities":["text"]}}),pricing:None,expected_revision:Some(1)}).await.unwrap();
+    let (_,updated)=call(&app,Method::GET,&path,&owner.token,Value::Null).await;
+    let row=updated["data"].as_array().unwrap().iter().find(|row|row["id"]=="stale-video").unwrap();
+    assert_eq!(row["generation_capabilities"],json!({"chat":false,"video":false}));
 }

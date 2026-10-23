@@ -11,6 +11,7 @@ mod provider_verification;
 mod routes;
 mod static_site;
 mod workspace_assets;
+pub(crate) mod workspace_path;
 
 #[cfg(test)]
 mod tests;

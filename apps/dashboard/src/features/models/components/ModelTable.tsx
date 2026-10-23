@@ -1,3 +1,4 @@
+import { generationCapability } from '../generation-capabilities';
 import '../models.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconCpu as Boxes } from "@tabler/icons-react";
@@ -35,8 +36,14 @@ function apiBaseUrl() {
   return `${window.location.origin}${base}/v1`;
 }
 
+function hasChatOutput(model: Model) {
+  return generationCapability(model,'chat') === true;
+}
+function hasGenerationOutput(model: Model) {
+  return hasChatOutput(model) || isVideoModel(model);
+}
 function isVideoModel(model: Model) {
-  return model.catalog?.output_modalities?.includes('video') === true;
+  return generationCapability(model,'video') === true;
 }
 
 function requestExample(baseUrl: string, model: Model) {
@@ -46,6 +53,10 @@ function requestExample(baseUrl: string, model: Model) {
       '  -H "Authorization: Bearer $NIU_API_KEY"',
     ].join(` ${String.fromCharCode(92)}\n`);
   }
+  if (!hasChatOutput(model)) return [
+    `curl "${baseUrl}/models"`,
+    '  -H "Authorization: Bearer $NIU_API_KEY"',
+  ].join(` ${String.fromCharCode(92)}\n`);
   const body = JSON.stringify({ model: model.id, messages: [{ role: 'user', content: 'Hello' }] });
   return [
     `curl "${baseUrl}/chat/completions"`,
@@ -83,8 +94,8 @@ export default function ModelTable({ models, header }: { models: Model[]; header
     ? requestedId.replace(/\/+$/, '') || requestedId : requestedId;
   const catalogPath = '/models';
   const catalogSearch = workspace ? `?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : '';
-  function generationHref(model: Model) {
-    const query = new URLSearchParams({new: isVideoModel(model) ? 'video' : '1', model: model.id});
+  function generationHref(model: Model, kind: 'chat' | 'video') {
+    const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
     if (workspace) query.set('workspace', workspacePathSegment(workspace, workspaces));
     return `/generations?${query}`;
   }
@@ -214,7 +225,8 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{model.catalog?.name || model.id}</Link></div>
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
             {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label="Model capabilities">{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
-            <div className="models-card-meta">{modelDeveloper(model) && <span>by {modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span>}{modelProviderName(model) && <span>via {modelProviderName(model)}</span>}<Link to={generationHref(model)}>{isVideoModel(model) ? 'Try in Video' : 'Try in Chat'}</Link></div>
+            {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">Own API key · billed by your Provider</p>}
+            <div className="models-card-meta">{modelDeveloper(model) && <span>by {modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span>}{modelProviderName(model) && <span>via {modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>Try in Chat</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>Try in Video</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? 'Preview not supported' : 'Capabilities not published'}</span>}</div>
           </article>)}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>Show more models</Button><span>{visible.length} of {filtered.length}</span></div>}
@@ -226,24 +238,32 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? 'Show less' : 'Show more'}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}
       </Collapsible>}
+      <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
+        ? 'Uses your own Provider API key. Your Provider bills this usage directly; it does not spend Niu credits. Access still depends on your key and Provider account.'
+        : selected.billing_source === 'niu_credits'
+          ? isVideoModel(selected) && !hasChatOutput(selected)
+            ? 'Uses Niu credits. Video cost depends on the request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.'
+            : 'Uses Niu credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.'
+          : 'Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.'}</p>
       <dl className="model-route-facts">
-        <div><dt>Input price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div>
+        {selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>Input price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div>
         {selected.customer_pricing?.cached_prompt_rate != null && <div><dt>Cache read price</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)} /M tokens</dd></div>}
-        <div><dt>Output price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div>
+        <div><dt>Output price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div></>}
         {selected.catalog?.context_length != null && <div><dt>Context length</dt><dd>{selected.catalog.context_length.toLocaleString()} tokens</dd></div>}
         {selected.catalog?.max_completion_tokens != null && <div><dt>Maximum output</dt><dd>{selected.catalog.max_completion_tokens.toLocaleString()} tokens</dd></div>}
         {!!selected.catalog?.input_modalities?.length && <div><dt>Input modalities</dt><dd>{selected.catalog.input_modalities.join(', ')}</dd></div>}
-        {!!selected.catalog?.output_modalities?.length && <div><dt>Output modalities</dt><dd>{selected.catalog.output_modalities.join(', ')}</dd></div>}
+        {!!capabilityValues(selected,'output').length && <div><dt>Output modalities</dt><dd>{capabilityValues(selected,'output').join(', ')}</dd></div>}
 
         {modelDeveloper(selected) && <div><dt>Model developer</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
         {modelProviderName(selected) && <div><dt>Provider</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>Upstream model</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
       <div className="model-route-cta">
-        <Button asChild><Link to={generationHref(selected)}>{isVideoModel(selected) ? 'Try in Video' : 'Try in Chat'}</Link></Button>
+        {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>Try in Chat</Link></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>Try in Video</Link></Button>}
         <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>Create an API key<KeyRound size={15} /></Link></Button>
       </div>
-      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? 'Discover supported video parameters' : 'Make your first request'}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />Copied</> : 'Copy'}</Button></div>
+      {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? 'This model is not configured for a supported generation preview.' : 'This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.'}</p>}
+      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? 'Discover supported video parameters' : hasChatOutput(selected) ? 'Make your first request' : 'Inspect available models'}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />Copied</> : 'Copy'}</Button></div>
       {copyError && <p role="alert" className="error-text">{copyError}</p>}
       <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
       <p className="model-route-example-note">Create a workspace API key and set <code>NIU_API_KEY</code> before running this command.{isVideoModel(selected) && <> Find <code>{selected.id}</code> in the authorized response and use its configured parameter schema. Video input varies by model; this read does not generate a video or estimate a charge.</>}</p>

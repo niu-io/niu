@@ -21,17 +21,22 @@ describe('global settings routes',()=>{
   current={...context(),organization:null,organizations:[],workspaceLoading:true};mockRequests();
   const rendered=render(view('/settings/billing'));
   expect(screen.getByRole('status').textContent).toContain('Loading billing account');
-  expect(screen.queryByText(/billing is available to organization owners/)).toBeNull();
+  expect(screen.queryByText(/Only company owners and administrators can manage shared credits/)).toBeNull();
   const reload=vi.fn();current={...current,workspaceLoading:false,reloadWorkspaces:reload};
   rendered.rerender(view('/settings/billing'));
   expect(screen.getByRole('alert').textContent).toContain('Could not load your billing account');
-  expect(screen.queryByText(/billing is available to organization owners/)).toBeNull();
+  expect(screen.queryByText(/Only company owners and administrators can manage shared credits/)).toBeNull();
  });
  it('returns focus to the visible navigation trigger when Settings closes',async()=>{
   current=context();mockRequests();
   function Fixture(){const [open,setOpen]=useState(true);return <MemoryRouter><Button aria-label="Account menu" ref={node=>{if(node)node.getClientRects=()=>[] as unknown as DOMRectList;}}>Account</Button><Button className="sidebar-toggle" aria-label="Expand workspace navigation" ref={node=>{if(node)node.getClientRects=()=>[{}] as unknown as DOMRectList;}}>Navigation</Button>{open&&<SettingsDialog context={current} section="appearance" onClose={()=>setOpen(false)}/>}</MemoryRouter>;}
   render(<Fixture/>);await userEvent.setup().keyboard('{Escape}');
   await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('button',{name:'Expand workspace navigation'})));
+ });
+ it('returns to the task control that opened Settings before using the account-menu fallback',async()=>{
+  current=context();mockRequests();
+  function Fixture(){const [open,setOpen]=useState(false);return <MemoryRouter><Button aria-label="Account menu" ref={node=>{if(node)node.getClientRects=()=>[{}] as unknown as DOMRectList;}}>Account</Button><Button onClick={()=>setOpen(true)} ref={node=>{if(node)node.getClientRects=()=>[{}] as unknown as DOMRectList;}}>Manage credits</Button>{open&&<SettingsDialog context={current} section="appearance" onClose={()=>setOpen(false)}/>}</MemoryRouter>;}
+  render(<Fixture/>);const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'Manage credits'}));await user.keyboard('{Escape}');await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('button',{name:'Manage credits'})));
  });
  it('accepts only local product destinations for closing Settings',()=>{
   expect(settingsReturnDestination('/chat?workspace=demo#reply','/workspaces/default')).toBe('/chat?workspace=demo#reply');
@@ -71,7 +76,7 @@ describe('global settings routes',()=>{
  });
  it('does not request organization funds for workspace-scoped owners',async()=>{
   current=context('scoped-workspace');const fetcher=mockRequests();render(view('/settings/billing'));
-  expect(screen.getByText(/billing is available to organization owners/)).toBeTruthy();
+  expect(screen.getByText(/Only company owners and administrators can manage shared credits/)).toBeTruthy();
   await waitFor(()=>expect(fetcher.mock.calls.length).toBeGreaterThan(0));
   expect(fetcher.mock.calls.some(call=>String(call[0]).includes('/billing/'))).toBe(false);
  });

@@ -54,7 +54,7 @@ it('reports failed reads as unavailable and retries without assuming unlimited',
   await user.click(screen.getByRole('button',{name:'Retry requests per minute'}));await screen.findByRole('button',{name:'Edit requests per minute'});
 });
 it('shows unknown usage and unresolved work while keeping viewers read-only', async () => {
-  setup({canWrite:false});await screen.findByText('Committed usage unknown at last refresh. 1 requests have unbounded usage.');
+  setup({canWrite:false});await screen.findByText('Committed usage unknown at last refresh. 1 request has no usage estimate.');
   expect(screen.getByText('2 unresolved requests at last refresh.')).toBeTruthy();
   expect(screen.queryByRole('button',{name:/Edit/})).toBeNull();
 });

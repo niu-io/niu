@@ -371,13 +371,45 @@ async fn missing_usage_and_provider_failures_remain_unsettled(pool: sqlx::PgPool
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
-        let state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+        let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
         let org = state
             .store
             .create_organization("failure-test")
             .await
             .unwrap();
         let scope = state.store.create_project(org, "app").await.unwrap();
+        Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap()
+            .pricing = Some(crate::config::RoutePricing {
+            currency: "USD".into(),
+            api_prompt_rate: 2_000_000,
+            api_completion_rate: 4_000_000,
+            cash_prompt_rate: 1_000_000,
+            cash_completion_rate: 2_000_000,
+            max_input_tokens: PRICED_INPUT_BOUND,
+            max_output_tokens: 10,
+        });
+        state
+            .store
+            .create_budget(scope, "USD", PRICED_RESERVATION * 4)
+            .await
+            .unwrap();
+        state
+            .store
+            .publish_customer_tariff(
+                scope,
+                &niu_storage::ProviderOfferInput {
+                    model_alias: "fast".into(),
+                    currency: "USD".into(),
+                    prompt_rate: "3000000".into(),
+                    completion_rate: "5000000".into(),
+                    expected_revision: None,
+                },
+            )
+            .await
+            .unwrap();
         let key = state
             .store
             .issue_key(scope, "client", &["fast".into()], 3600)
@@ -387,7 +419,12 @@ async fn missing_usage_and_provider_failures_remain_unsettled(pool: sqlx::PgPool
                 .header("authorization", format!("Bearer {}", key.token))
                 .header("content-type", "application/json")
                 .body(axum::body::Body::from(json!({"model": "fast", "messages": [{"role": "user", "content": "hello"}]}).to_string())).unwrap()).await.unwrap();
-        assert_eq!(response.status(), expected_status);
+        assert_eq!(
+            response.status(),
+            expected_status,
+            "error code: {:?}",
+            response.headers().get("x-niu-error-code")
+        );
         let id = response.headers()["x-niu-attempt-id"]
             .to_str()
             .unwrap()
@@ -438,9 +475,41 @@ async fn streaming_persists_terminal_evidence_and_keeps_interruptions_unknown(po
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
-        let state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+        let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
         let org = state.store.create_organization("streaming").await.unwrap();
         let scope = state.store.create_project(org, "project").await.unwrap();
+        Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap()
+            .pricing = Some(crate::config::RoutePricing {
+            currency: "USD".into(),
+            api_prompt_rate: 2_000_000,
+            api_completion_rate: 4_000_000,
+            cash_prompt_rate: 1_000_000,
+            cash_completion_rate: 2_000_000,
+            max_input_tokens: PRICED_INPUT_BOUND,
+            max_output_tokens: 10,
+        });
+        state
+            .store
+            .create_budget(scope, "USD", PRICED_RESERVATION * 4)
+            .await
+            .unwrap();
+        state
+            .store
+            .publish_customer_tariff(
+                scope,
+                &niu_storage::ProviderOfferInput {
+                    model_alias: "fast".into(),
+                    currency: "USD".into(),
+                    prompt_rate: "3000000".into(),
+                    completion_rate: "5000000".into(),
+                    expected_revision: None,
+                },
+            )
+            .await
+            .unwrap();
         let key = state
             .store
             .issue_key(scope, "key", &["fast".into()], 3600)

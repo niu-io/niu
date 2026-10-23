@@ -15,20 +15,20 @@ it('merges saved chat and video sessions across accessible workspaces and preser
   calls.push(path);
   if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
   if(path.endsWith('/chats'))return Response.json({data:[{id:'chat-b',title:'Other workspace conversation',prompt:'B',createdAt:200}]});
-  if(path.includes(`${b.id}/generations/tasks`))return Response.json({data:[],has_more:false,next_cursor:null});
-  if(path.includes('cursor=cursor'))return Response.json({data:[{id:'older-video',kind:'video',model:'Older model',state:'succeeded',created_at:new Date(50).toISOString(),updated_at:new Date(50).toISOString()}],has_more:false,next_cursor:null});
-  return Response.json({data:[{id:'video-a',kind:'video',model:'Video model',state:'succeeded',created_at:new Date(300).toISOString(),updated_at:new Date(300).toISOString()}],has_more:true,next_cursor:'cursor'});
+  if(path.includes(`${b.id}/tasks`))return Response.json({data:[],has_more:false,next_cursor:null});
+  if(path.includes('cursor=cursor'))return Response.json({data:[{id:'older-video',reference:'run-1002',kind:'video',model:'Older model',state:'succeeded',created_at:new Date(50).toISOString(),updated_at:new Date(50).toISOString()}],has_more:false,next_cursor:null});
+  return Response.json({data:[{id:'video-a',reference:'run-1001',kind:'video',model:'Video model',state:'succeeded',created_at:new Date(300).toISOString(),updated_at:new Date(300).toISOString()}],has_more:true,next_cursor:'cursor'});
  }));
  const open=vi.fn();
  render(<MemoryRouter><SidebarProvider><SessionHistory context={context} chats={[{id:'chat-a',title:'Current conversation',prompt:'A',createdAt:100}]} onChat={open}/></SidebarProvider></MemoryRouter>);
  const video=await screen.findByRole('link',{name:'Video · Video model'});
- expect(video.getAttribute('href')).toContain('job=video-a');
+ expect(video.getAttribute('href')).toContain('job=run-1001');
  expect(video.getAttribute('href')).toContain(`workspace=${a.id}`);
  expect(screen.getByRole('link',{name:'Other workspace conversation'}).getAttribute('href')).toContain(`workspace=${b.id}`);
  await userEvent.click(screen.getByRole('link',{name:'Current conversation'}));expect(open).toHaveBeenCalledWith('chat-a');
  await userEvent.click(screen.getByRole('button',{name:'Load more sessions'}));
- await screen.findByRole('link',{name:'Video · Older model'});
- expect(calls.some(path=>path.includes('/generations/tasks?kind=video&cursor=cursor&limit=25'))).toBe(true);
+ expect((await screen.findByRole('link',{name:'Video · Older model'})).getAttribute('href')).toContain('job=run-1002');
+ expect(calls.some(path=>path.includes('/tasks?kind=video&cursor=cursor&limit=25'))).toBe(true);
  expect(screen.queryByRole('button',{name:'Load more sessions'})).toBeNull();
  expect(screen.queryByRole('alert')).toBeNull();
 } );
@@ -37,7 +37,7 @@ it('discards history that resolves after the account and workspace change',async
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
   if(path.includes(a.id)&&path.endsWith('/chats'))return new Promise<Response>(resolve=>{finish=resolve;});
   if(path.endsWith('/video/intents') || path.includes('/video/intents?'))return Response.json({data:[],has_more:false,next_before:null});
-  if(path.includes('/generations/tasks'))return Response.json({data:[],has_more:false,next_cursor:null});
+  if(path.includes('/tasks'))return Response.json({data:[],has_more:false,next_cursor:null});
   if(path.endsWith('/chats'))return Response.json({data:[{id:'current',title:'Current account session',prompt:'',createdAt:100}]});
   throw new Error('Unexpected request');
  }));
@@ -100,6 +100,7 @@ it('discovers a saved input, confirms deletion and preserves its original job',a
  const user=userEvent.setup();
  const row=await screen.findByRole('link',{name:'Video · Sunset landscape'});
  expect(row.getAttribute('href')).toContain(`intent=${intent}`);
+ expect(new URL(row.getAttribute('href')!, 'https://example.test').searchParams.has('key')).toBe(false);
  expect(screen.queryByRole('link',{name:'Video · Actual video model'})).toBeNull();
  const actions=screen.getByRole('button',{name:'Actions for Video · Sunset landscape'});
  await user.click(actions);await user.click(screen.getByRole('menuitem',{name:'Delete saved input'}));
@@ -135,4 +136,14 @@ it('keeps an erasable row after revoked-key denial and keeps failed deletion in 
  await user.click(screen.getByRole('button',{name:'Cancel',exact:true}));
  expect(await screen.findByRole('link',{name:/Saved video request/})).toBeTruthy();
  expect(document.body.textContent).not.toContain(intent);
+});
+
+it('uses a known key slug for a legacy job without publishing an unknown key reference',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[],has_more:false,next_cursor:null,next_before:null})));
+ const videos=[{id:'saved-one',object:'video.job' as const,model:'Known key result',status:'succeeded' as const,created_at_ms:'300',keyId:'internal-known'}, {id:'saved-two',object:'video.job' as const,model:'Unknown key result',status:'succeeded' as const,created_at_ms:'200',keyId:'internal-unknown'}];
+ render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspaces:[a]}} currentKeys={[{id:'internal-known',slug:'retired-review-key',revoked:true,expired:false}]} videos={videos}/></SidebarProvider></MemoryRouter>);
+ const known=await screen.findByRole('link',{name:'Video · Known key result'});
+ const unknown=screen.getByRole('link',{name:'Video · Unknown key result'});
+ expect(new URL(known.getAttribute('href')!,'https://example.test').searchParams.get('key')).toBe('retired-review-key');
+ expect(new URL(unknown.getAttribute('href')!,'https://example.test').searchParams.has('key')).toBe(false);
 });

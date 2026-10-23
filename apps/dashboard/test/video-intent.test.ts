@@ -72,3 +72,21 @@ describe('durable video intent lifecycle', () => {
     expect(client.submitVideoIntent).not.toHaveBeenCalled();
   });
 });
+
+it('resolves a public bookmark but keeps submit and erase on its original internal identity',async()=>{
+  const {client}=setup({...document,reference:'input-1001'});
+  const intent=new VideoIntent(client,scope,'input-1001');
+  await intent.restore();
+  expect(intent.id).toBe(document.id);
+  await intent.submit();
+  expect(client.submitVideoIntent).toHaveBeenCalledWith(scope,document.id,1,undefined);
+  await intent.erase();
+  expect(client.deleteVideoIntent).toHaveBeenCalledWith(scope,document.id,1,undefined);
+});
+it('does not permit submission after a mismatched bookmark response',async()=>{
+  const {client}=setup({...document,reference:'input-1002'});
+  const intent=new VideoIntent(client,scope,'input-1001');
+  await expect(intent.restore()).rejects.toThrow('identity');
+  await expect(intent.submit()).rejects.toThrow('Restore');
+  expect(client.submitVideoIntent).not.toHaveBeenCalled();
+});

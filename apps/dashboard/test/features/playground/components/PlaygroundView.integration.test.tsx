@@ -12,6 +12,7 @@ function PlaygroundView(props: ComponentProps<typeof SessionView>) { return <Gen
 
 vi.mock('../../../../src/app/dashboard-context', () => ({ useDashboardContext: () => ({
   chatKeys: [],
+  models: [{id:'fast',billing_source:'own_api_key'}, {id:'strong',billing_source:'niu_credits'}],
   workspace: { id: 'workspace-a', name: 'Workspace A', organization_id: 'org-a', organization_name: 'Org A' },
   workspaces: [
     { id: 'workspace-a', name: 'Workspace A', organization_id: 'org-a', organization_name: 'Org A' },
@@ -25,11 +26,11 @@ function jsonResponse(body: unknown, headers: HeadersInit = {}) {
   return new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json', ...Object.fromEntries(new Headers(headers)) } });
 }
 
-function streamResponse(model: string, completion: number, attemptId: string) {
+function streamResponse(model: string, completion: number, attemptId: string, finishReason: string | null = 'stop') {
   const encoder = new TextEncoder();
   const chunks = [
     { choices: [{ delta: { content: `**${model}** ` } }] },
-    { choices: [{ delta: { content: 'response' } }] },
+    { choices: [{ delta: { content: 'response' }, finish_reason: finishReason }] },
     { choices: [], usage: { prompt_tokens: 40, completion_tokens: completion, total_tokens: 40 + completion } },
   ];
   const body = new ReadableStream<Uint8Array>({
@@ -73,6 +74,10 @@ function stubFetch(fallback: ReturnType<typeof vi.fn>) {
     if (url.includes('/chats')) {
       if (init?.method === 'DELETE') { serverChats.delete(url); return Promise.resolve(new Response(null, { status: 204 })); }
       if (init?.method === 'PUT') { serverChats.set(url, JSON.parse(String(init.body))); return Promise.resolve(jsonResponse({ saved: true })); }
+      if (!url.endsWith('/chats')) {
+        const saved = serverChats.get(url);
+        return Promise.resolve(saved ? jsonResponse({data:saved}) : new Response(null,{status:404}));
+      }
       return Promise.resolve(jsonResponse({ data: [...serverChats.entries()].filter(([key]) => key.startsWith(url + '/')).map(([, value]) => value) }));
     }
     return fallback(input, init);
@@ -202,7 +207,7 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     renderPlayground();
     const user=userEvent.setup();
-    await screen.findByText('No sessions yet');
+    await screen.findByRole('button',{name:'Chat settings',exact:true});
     let finish!: (content:string)=>void;
     const file=new File(['private content'],'pending.md',{type:'text/plain'});
     const read=vi.fn(()=>new Promise<string>(resolve=>{finish=resolve;}));
@@ -264,7 +269,7 @@ describe('Global Chat', () => {
 
   it('exports the saved backend conversation instead of browser history', async () => {
     const item = { id: 'saved', prompt: 'Saved diagnosis', createdAt: 1, results: [] };
-    const exported = { format: 'niu-chat', version: 1, turns: [{ prompt: 'Authoritative saved content', results: [] }] };
+    const exported = { format: 'niu-chat', version: 1, turns: [{ prompt: 'Authoritative saved content', results: [{model:'fast',content:'195. Continue the sequence.\n196. Keep numbering.\n     - Nested detail\n\n> Preserve quotations.\n\n```js\nconst step = 195;\n```'}] }] };
     const fetch = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/export')
       ? jsonResponse(exported) : jsonResponse({ data: [item] }));
     stubChatFetch( fetch);
@@ -308,7 +313,7 @@ describe('Global Chat', () => {
     });
     stubFetch(vi.fn(async () => jsonResponse({ data: [] })));
     renderPlayground();
-    expect(await screen.findAllByText('USD 0.0000043')).toHaveLength(2);
+    expect(await screen.findAllByText('$0.0000043')).toHaveLength(2);
     expect(screen.getAllByText('Unresolved')).toHaveLength(2);
     expect(screen.getAllByText('No rate')).toHaveLength(2);
     expect(screen.getAllByText('Not charged')).toHaveLength(2);
@@ -369,7 +374,7 @@ describe('Global Chat', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Actions for Saved diagnosis' })).toBeNull());
     view.unmount();
     renderPlayground();
-    await screen.findByText('No sessions yet');
+    await screen.findByRole('button',{name:'Chat settings',exact:true});
   });
 
   it('keeps saved history on rejected deletion and cancels without a request', async () => {
@@ -405,6 +410,7 @@ describe('Global Chat', () => {
     expect(serverChats.size).toBe(1);
   });
   it.each(['one-key','one-model'])('starts a fresh single-model draft from key setup (%s) without replacing saved history', async (keyReference) => {
+    function KeyLocation() { const location=useLocation(); return <output data-testid="key-location">{location.search}</output>; }
     serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/older', {
       id: 'older', prompt: 'Earlier task', createdAt: 1,
       results: [{ model: 'other', content: 'Earlier response', phase: 'complete', elapsedMs: 10,
@@ -414,10 +420,11 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async () => jsonResponse({ data: [{ id: 'other-key', name: 'Other key', allowed_models: ['other'], revoked: false, expired: false }, { id: 'one-key', slug: 'one-model', name: 'One model', allowed_models: ['fast'], revoked: false, expired: false }] })));
     const user = userEvent.setup();
     render(<SidebarProvider><MemoryRouter initialEntries={[`/chat?key=${keyReference}&new=1`]}>
-      <PlaygroundView token="admin-session" models={['fast', 'other']} initialScope={scope} />
+      <KeyLocation/><PlaygroundView token="admin-session" models={['fast', 'other']} initialScope={scope} />
     </MemoryRouter></SidebarProvider>);
     await screen.findByRole('link', { name: 'Earlier task', exact: true });
     await screen.findByRole('button', { name: 'API key: One model' });
+    await waitFor(()=>expect(new URLSearchParams(screen.getByTestId('key-location').textContent ?? '').get('key')).toBe('one-model'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit comparison models (1 selected)' })).toBeTruthy());
     expect(screen.queryByText('Earlier response')).toBeNull();
     await user.type(screen.getByLabelText('Prompt for all selected models'), 'New task');
@@ -436,7 +443,7 @@ describe('Global Chat', () => {
       return jsonResponse({data:[]});
     }));
     const user=userEvent.setup();const view=renderPlayground(['fast']);
-    await screen.findByText('No sessions yet');
+    await screen.findByRole('button',{name:'Chat settings',exact:true});
     await screen.findByRole('button',{name:'API key: Default'});
     await user.click(screen.getByRole('button',{name:/Car wash/i}));
     await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
@@ -459,7 +466,7 @@ describe('Global Chat', () => {
       return jsonResponse({data:[]});
     }));
     const user=userEvent.setup();const view=renderPlayground(['fast','strong']);
-    await screen.findByText('No sessions yet');
+    await screen.findByRole('button',{name:'Chat settings',exact:true});
     await screen.findByRole('button',{name:'API key: Default'});
     await user.click(screen.getByRole('button',{name:/Car wash/i}));
     await user.click(screen.getByRole('button',{name:'Send to 2 models'}));
@@ -479,7 +486,7 @@ describe('Global Chat', () => {
     }));
     const user = userEvent.setup();
     renderPlayground(['fast', 'strong']);
-    await screen.findByText('No sessions yet');
+    await screen.findByRole('button',{name:'Chat settings',exact:true});
     await screen.findByRole('button', { name: 'API key: Default' });
     await user.click(screen.getByRole('button', { name: /Car wash/i }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
@@ -518,6 +525,7 @@ describe('Global Chat', () => {
     const user = userEvent.setup();
     renderPlayground(['fast']);
     await screen.findByRole('button',{name:'API key: Default'});
+    expect(screen.getByText(/Usage is billed by your Provider, not deducted from Niu credits/)).toBeTruthy();
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
     await user.type(screen.getByRole('textbox',{name:'Prompt for all selected models'}),'Hello');
     await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
@@ -528,6 +536,8 @@ describe('Global Chat', () => {
   it.each([
     ['data: {"error":{"message":"Upstream stream failed"}}\n\ndata: [DONE]\n\n', 'Upstream stream failed'],
     ['event: error\ndata: {}\n\n', 'Niu reported an error during generation.'],
+    ['data: null\n\ndata: [DONE]\n\n', 'Niu returned invalid streaming data. Inspect the request before trying again.'],
+    ['data: {broken\n\ndata: [DONE]\n\n', 'Niu returned malformed streaming data.'],
     ['data: {"choices":[{"delta":{"content":"Partial"},"finish_reason":"stop"}]}\n\n', 'The response stream ended before completion. Inspect the request before trying again.'],
   ])('does not mark an unsuccessful HTTP 200 stream complete', async (events, expectedError) => {
     stubFetch(vi.fn(async (url: string) => {
@@ -543,6 +553,8 @@ describe('Global Chat', () => {
     await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
     expect(await screen.findByText(expectedError)).toBeTruthy();
     expect(screen.queryByText('Complete')).toBeNull();
+    expect(screen.queryByText('Waiting for response…')).toBeNull();
+    if (events.includes('Partial')) expect(screen.getByText('Partial')).toBeTruthy();
     await waitFor(()=>expect([...serverChats.values()].some(value => JSON.stringify(value).includes(expectedError))).toBe(true));
   });
 
@@ -578,7 +590,7 @@ describe('Global Chat', () => {
     ['not json', 'Niu returned an invalid chat response. Inspect the request before trying again.'],
     ['null', 'Niu returned an invalid chat response. Inspect the request before trying again.'],
     ['{"choices":[]}', 'Niu returned an invalid chat response. Inspect the request before trying again.'],
-    ['{"choices":[{"message":{"content":"JSON_OK"}}],"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}', null],
+    ['{"choices":[{"message":{"content":"JSON_OK"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}', null],
   ])('classifies HTTP 200 non-streaming responses and saves their actual outcome', async (body, message) => {
     stubFetch(vi.fn(async (url: string) => {
       if (url.endsWith('/keys')) return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
@@ -760,10 +772,10 @@ describe('Global Chat', () => {
     const metrics = screen.getByRole('table');
     expect(within(metrics).getByRole('columnheader', { name: /Baseline.*fast/ })).toBeTruthy();
     expect(within(metrics).getByRole('columnheader', { name: 'strong' })).toBeTruthy();
-    expect(within(metrics).getByText('USD 0.001')).toBeTruthy();
+    expect(within(metrics).getByText('$0.001')).toBeTruthy();
     expect(requests.filter(request => request.url.includes('/requests/')).map(request => request.url.split('/').at(-1)).sort()).toEqual(['attempt-balanced', 'attempt-fast', 'attempt-strong']);
     expect(requests.some(request => request.url.includes('/requests?'))).toBe(false);
-    expect(within(metrics).getAllByText('USD 0.002')).toHaveLength(1);
+    expect(within(metrics).getAllByText('$0.002')).toHaveLength(1);
     expect(screen.queryByText('API-equivalent cost')).toBeNull();
     expect(screen.queryByText(/EUR /)).toBeNull();
     expect(screen.getByText('Compare measured usage')).toBeTruthy();
@@ -859,7 +871,7 @@ describe('Global Chat', () => {
     await user.click(screen.getByLabelText('Prompt for all selected models'));
     await user.paste('Test independent routes.');
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
-    await waitFor(() => expect(container.querySelectorAll('.playground-result-card .playground-response')[2]?.textContent).toContain('strong response'));
+    await waitFor(() => expect(container.querySelectorAll('.playground-result-card .playground-response')[3]?.textContent).toContain('strong response'));
     expect(screen.getByText('This model is temporarily unavailable.')).toBeTruthy();
     expect(screen.getAllByText('Complete')).toHaveLength(3);
     expect(screen.getAllByText('Failed')).toHaveLength(1);
@@ -939,7 +951,7 @@ it('keeps archived content when restore fails and distinguishes archive read err
     return jsonResponse({data:[]});
   }));
   const user=userEvent.setup();renderPlayground();
-  await screen.findByText('No sessions yet');
+  await screen.findByRole('button',{name:'Chat settings',exact:true});
   await user.click(screen.getByRole('button',{name:'Archived sessions',exact:true}));
   let dialog=screen.getByRole('dialog',{name:'Archived sessions'});
   await within(dialog).findByText('Could not load archived chats.');
@@ -989,7 +1001,7 @@ it('does not create an empty history entry when changing settings in an unsent d
  const reads=vi.fn(async ()=>jsonResponse({data:[]}));
  stubFetch(reads);
  renderPlayground();const user=userEvent.setup();
- await screen.findByText('No sessions yet');
+ await screen.findByRole('button',{name:'Chat settings',exact:true});
  await user.click(screen.getByRole('button',{name:'Chat settings'}));
  await user.clear(screen.getByLabelText('Max output tokens'));
  await user.type(screen.getByLabelText('Max output tokens'),'2048');
@@ -1024,7 +1036,7 @@ it('does not mistake a loading catalog for an empty installation', async () => {
 it('keeps a cleared temperature invalid until the user enters a value', async () => {
  serverChats.clear();stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
  renderPlayground();const user=userEvent.setup();
- await screen.findByText('No sessions yet');
+ await screen.findByRole('button',{name:'Chat settings',exact:true});
  await user.click(screen.getByRole('button',{name:'Chat settings',exact:true}));
  const field=screen.getByLabelText('Temperature') as HTMLInputElement;
  await user.clear(field);
@@ -1048,3 +1060,143 @@ it('keeps a cleared temperature invalid until the user enters a value', async ()
   expect(screen.getByRole('tab',{name:'Video'})).toBeTruthy();
   expect(screen.queryByRole('link', {name: 'Connect provider'})).toBeNull();
  });
+
+it.each([
+  ['length','Output limit reached'],
+  ['content_filter','Output filtered'],
+  ['tool_calls','Tool action required'],
+  [null,'Response ended'],
+  ['future_unknown_reason','Response ended'],
+])('preserves model termination reason %s through saved chat reload', async (reason,label) => {
+  stubFetch(vi.fn(async (url: string) => {
+    if(url.endsWith('/keys'))return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
+    if(url.endsWith('/chat/completions'))return streamResponse('fast',4,'attempt-outcome',reason);
+    return jsonResponse({data:[]});
+  }));
+  const user=userEvent.setup();
+  const view=renderPlayground(['fast']);
+  await screen.findByRole('button',{name:'API key: Default'});
+  const prompt=screen.getByRole('textbox',{name:'Prompt for all selected models'});
+  await waitFor(()=>expect((prompt as HTMLTextAreaElement).disabled).toBe(false));
+  await user.type(prompt,'Completion outcome');
+  await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
+  await screen.findByText(label);
+  expect(screen.queryByText('Complete')).toBeNull();
+  await waitFor(()=>expect([...serverChats.values()].some(value=>JSON.stringify(value).includes('"finishReason":'+JSON.stringify(reason)))).toBe(true));
+  view.unmount();
+  localStorage.clear();
+  renderPlayground(['fast']);
+  await screen.findByText(label);
+});
+
+it('keeps legacy unknown routes available without automatically recommending them as Chat models', async () => {
+  stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
+  const user=userEvent.setup();
+  render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1']}>
+    <PlaygroundView token="admin-session" models={['unknown','fast']} unverifiedModels={['unknown']} initialScope={scope}/>
+  </MemoryRouter></SidebarProvider>);
+  const picker=await screen.findByRole('button',{name:'Edit comparison models (1 selected)'});
+  await waitFor(()=>expect((picker as HTMLButtonElement).disabled).toBe(false));
+  await user.click(screen.getByRole('button',{name:'Choose models',exact:true}));
+  const legacy=await screen.findByRole('button',{name:/unknown.*Chat support unverified/});
+  expect(legacy.getAttribute('aria-pressed')).toBe('false');
+  await user.click(legacy);
+  expect(legacy.getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByText(/Chat support is unverified for unknown/)).toBeTruthy();
+  expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
+});
+
+it('copies original Markdown including continued and nested list syntax',async()=>{
+  const content='195. Continue.\n196. Verify.\n     - Nested detail\n\n> Keep this quote.\n\n```js\nconst step = 195;\n```';
+  const item={id:'copy-list',prompt:'List fidelity',createdAt:1,results:[{model:'fast',content,phase:'complete',finishReason:'stop',elapsedMs:1,promptTokens:1,completionTokens:1,totalTokens:2,error:null}]};
+  stubChatFetch(vi.fn(async()=>jsonResponse({data:[item]})));
+  const user=userEvent.setup();
+  const write=vi.spyOn(navigator.clipboard,'writeText').mockResolvedValue();
+  renderPlayground();
+  await user.click(await screen.findByRole('link',{name:'List fidelity'}));
+  await user.click(await screen.findByRole('button',{name:'Copy fast response'}));
+  await waitFor(()=>expect(write).toHaveBeenCalledWith(content));
+  expect(screen.getByText('Copied')).toBeTruthy();
+});
+
+it('explains an empty output-limit response without showing a waiting state',async()=>{
+  stubFetch(vi.fn(async(url:string)=>{
+    if(url.endsWith('/keys'))return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
+    if(url.endsWith('/chat/completions'))return new Response('data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
+    return jsonResponse({data:[]});
+  }));
+  const user=userEvent.setup();renderPlayground(['fast']);
+  await screen.findByRole('button',{name:'API key: Default'});
+  const prompt=screen.getByRole('textbox',{name:'Prompt for all selected models'});
+  await waitFor(()=>expect(prompt).toHaveProperty('disabled',false));
+  await user.type(prompt,'Empty outcome');await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
+  await screen.findByText('Output limit reached');
+  expect(screen.getByText('No text output was returned.')).toBeTruthy();
+  expect(screen.queryByText('Waiting for a response…')).toBeNull();
+});
+
+it('does not carry saved-workspace billing claims over to a manually supplied key', async () => {
+  stubFetch(vi.fn(async (url: string) => url.endsWith('/keys')
+    ? jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]})
+    : jsonResponse({data:[]})));
+  const user = userEvent.setup();
+  renderPlayground(['fast', 'strong']);
+  await screen.findByRole('button', {name:'API key: Default'});
+  expect(screen.getByLabelText('Usage billing').textContent).toContain('both Niu credits and your own Provider API keys');
+  await user.click(screen.getByRole('button', {name:'API key: Default'}));
+  await user.click(screen.getByRole('button', {name:'API key', exact:true}));
+  await user.click(screen.getByRole('menuitemradio', {name:'Use another key'}));
+  await user.type(screen.getByLabelText('Key secret'), 'manual-test-key');
+  await user.click(screen.getByRole('button', {name:'Done'}));
+  expect(screen.getByLabelText('Usage billing').textContent).toContain('according to the workspace of your API key');
+  expect(screen.getByLabelText('Usage billing').textContent).not.toContain('both Niu credits');
+  expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).endsWith('/chat/completions'))).toBe(false);
+});
+
+
+it('does not substitute an available key for an inaccessible bookmarked key', async () => {
+  stubFetch(vi.fn(async (url: string) => url.endsWith('/keys')
+    ? jsonResponse({data:[{id:'key-a',slug:'default',name:'Default',allowed_models:['*'],revoked:false,expired:false}]})
+    : jsonResponse({data:[]})));
+  render(<SidebarProvider><MemoryRouter initialEntries={['/generations?key=unavailable-reference&new=1']}><PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/></MemoryRouter></SidebarProvider>);
+  await screen.findByText('The requested API key is unavailable or you no longer have access. Choose another key before sending.');
+  expect(screen.queryByRole('button',{name:'API key: Default'})).toBeNull();
+  expect((screen.getByRole('button',{name:'Send to 1 model'}) as HTMLButtonElement).disabled).toBe(true);
+  expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).endsWith('/chat/completions'))).toBe(false);
+});
+
+it.each(['legacy-id', 'chat-1001'])('directly opens a Chat bookmark outside recent history: %s', async reference => {
+  const saved={id:'legacy-id',reference:'chat-1001',prompt:'Older retained conversation',createdAt:1,results:[{model:'fast',content:'Retained answer without usage counters',phase:'complete',finishReason:'stop',elapsedMs:10,error:null}]};
+  const direct=vi.fn(async (input:RequestInfo|URL) => {
+    const url=String(input);
+    if(url.endsWith(`/chats/${reference}`))return jsonResponse({data:saved,revision:'1',archived:false});
+    return jsonResponse({data:[]});
+  });
+  stubChatFetch(direct);
+  function LocationProbe(){const location=useLocation();return <output data-testid="reference-location">{location.search+location.hash}</output>;}
+  render(<SidebarProvider><MemoryRouter initialEntries={[`/generations?workspace=workspace-a&session=${reference}&keep=1#result`]}><LocationProbe/><PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/></MemoryRouter></SidebarProvider>);
+  await screen.findByRole('heading',{name:'Older retained conversation',level:1});
+  await waitFor(()=>expect(screen.getByTestId('reference-location').textContent).toBe('?workspace=workspace-a&session=chat-1001&keep=1#result'));
+  expect(direct.mock.calls.some(([url])=>String(url).endsWith(`/chats/${reference}`))).toBe(true);
+});
+
+it('uses the server reference in a newly saved Chat history link without reloading', async () => {
+  stubChatFetch(vi.fn(async (input:RequestInfo|URL, init?:RequestInit) => {
+    const url=String(input);
+    if(url.endsWith('/keys')) return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
+    if(url.includes('/chats/') && init?.method==='PUT') return jsonResponse({saved:true,reference:'chat-2048'});
+    if(url.endsWith('/chat/completions')) return streamResponse('fast',1,'attempt-reference');
+    return jsonResponse({data:[]});
+  }));
+  renderPlayground(['fast']);
+  await screen.findByRole('button',{name:'API key: Default'});
+  const prompt=screen.getByLabelText('Prompt for all selected models');
+  await waitFor(()=>expect((prompt as HTMLTextAreaElement).disabled).toBe(false));
+  await userEvent.type(prompt,'New readable conversation');
+  await userEvent.click(screen.getByRole('button',{name:'Send to 1 model'}));
+  await screen.findByText('Complete');
+  const historyButton=screen.getByRole('button',{name:'Toggle generation history'});
+  if(historyButton.getAttribute('aria-expanded')!=='true')await userEvent.click(historyButton);
+  const link=await screen.findByRole('link',{name:'New readable conversation'});
+  expect(link.getAttribute('href')).toContain('session=chat-2048');
+});

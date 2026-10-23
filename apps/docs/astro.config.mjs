@@ -40,6 +40,7 @@ export default defineConfig({
           { label: 'Generations', slug: 'reference/generations' },
           { label: 'Video generation', slug: 'reference/video' },
           { label: 'Request logs', slug: 'concepts/execution-observation' },
+          { label: 'Request capacity', slug: 'guides/request-capacity' },
           'configuration/guardrails',
           { label: 'Material library', slug: 'reference/workspace-materials' },
           { label: 'Usage & billing', slug: 'concepts/performance-and-cost' },
@@ -48,6 +49,7 @@ export default defineConfig({
         { label: 'Administration', items: [
           { label: 'Overview', slug: 'admin' },
           { label: 'Access & roles', slug: 'admin/access' },
+          { label: 'Customer setup', slug: 'admin/customers' },
           { label: 'Providers', slug: 'admin/suppliers' },
           { label: 'Customer pricing', slug: 'admin/pricing' },
           { label: 'Payments', slug: 'admin/payments' },

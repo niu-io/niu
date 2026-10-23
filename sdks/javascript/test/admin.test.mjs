@@ -83,7 +83,7 @@ test('Chat export reads one durable scoped conversation without mutation', async
   const exported = {format:'niu-chat',version:1,title:'Conversation',turns:[{prompt:'Hello',results:[{model:'fast',content:'Hi',phase:'complete'}]}]};
   const client = new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json(exported);}});
   assert.deepEqual(await client.exportChatSession(scope,id,{signal:abort.signal}),exported);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chats/${id}/export`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/chats/${id}/export`));
   assert.equal(calls[0].init.method,'GET'); assert.equal(calls[0].init.body,undefined);
   assert.equal(calls[0].init.signal,abort.signal);
   assert.throws(()=>client.exportChatSession(scope,'../foreign'),/UUID/);
@@ -280,7 +280,7 @@ test('Chat lifecycle uses scoped backend history and bodyless deletion', async (
   }});
   assert.equal((await client.listChatSessions(scope)).data[0].title, 'Saved conversation');
   assert.equal(await client.deleteChatSession(scope, id, { signal: abort.signal }), undefined);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chats`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/chats`));
   assert.ok(calls[1].url.endsWith(`/chats/${id}`));
   assert.equal(calls[1].init.method, 'DELETE');
   assert.equal(calls[1].init.body, undefined);
@@ -300,7 +300,7 @@ test('Chat save sends ordered branch results to the scoped backend', async () =>
   ] };
   assert.deepEqual(await client.saveChatSession(scope, id, session), { saved: true });
   assert.equal(call.init.method, 'PUT');
-  assert.ok(call.url.endsWith(`/organizations/${id}/projects/${id}/chats/${id}`));
+  assert.ok(call.url.endsWith(`/workspaces/${id}/chats/${id}`));
   assert.deepEqual(JSON.parse(call.init.body), session);
 });
 
@@ -852,7 +852,7 @@ test('Chat archive and restore use explicit scoped state and cancellation withou
     return init.method === 'PUT' ? new Response(null,{status:204}) : Response.json({data:[]});
   }});
   assert.deepEqual(await client.listArchivedChatSessions(scope,{signal:abort.signal}),{data:[]});
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/chats?archived=true`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/chats?archived=true`));
   assert.equal(calls[0].init.body,undefined);
   for(const archived of [true,false]) {
     assert.equal(await client.setChatSessionArchived(scope,id,archived,{signal:abort.signal}),undefined);
@@ -1526,7 +1526,7 @@ test('validates and URL-encodes admin path parameters against path traversal', a
 });
 
 
-test('generation sessions use the generations collection alongside tasks and artifacts', async () => {
+test('session calls qualify category and separate workspace tasks and artifacts', async () => {
   const calls = [];
   const client = new NiuAdminClient({adminToken: 'test', fetch: async (url, init) => {
     calls.push({url, init});
@@ -1545,12 +1545,43 @@ test('generation sessions use the generations collection alongside tasks and art
   await generations.sessions.deleteInstruction(id, id, '5');
   await generations.tasks.list();
   await generations.artifacts.list();
-  const root = `/organizations/${id}/projects/${id}/generations`;
+  const root = `/workspaces/${id}/sessions`;
   assert.deepEqual(calls.map(({url}) => new URL(url).pathname.replace(/^\/(?:api|admin)\/v1/, '') + new URL(url).search), [
-    root, `${root}?category=chat`, `${root}/${id}`, `${root}/${id}?category=chat`,
-    `${root}/${id}`, `${root}/${id}`, `${root}/${id}/turns/${id}`,
-    `${root}/${id}/turns/${id}/task`, `${root}/${id}/turns/${id}/intent`,
-    `${root}/${id}/turns/${id}`, `${root}/tasks`, `${root}/artifacts`,
+    `${root}?category=video`, `${root}?category=chat`, `${root}/${id}?category=video`, `${root}/${id}?category=chat`,
+    `${root}/${id}?category=video`, `${root}/${id}?category=video`, `${root}/${id}/turns/${id}?category=video`,
+    `${root}/${id}/turns/${id}/task?category=video`, `${root}/${id}/turns/${id}/intent?category=video`,
+    `${root}/${id}/turns/${id}?category=video`, `/workspaces/${id}/tasks`, `/workspaces/${id}/artifacts`,
   ]);
   assert.deepEqual(calls.map(({init}) => init.method), ['GET', 'GET', 'GET', 'GET', 'PUT', 'PATCH', 'PUT', 'PUT', 'PUT', 'DELETE', 'GET', 'GET']);
+});
+
+test('key mutation recovery reuses request identity and never fabricates a recovered secret', async () => {
+  const calls = [];
+  const recovered = {id, secret_available: false, key: {id, name: 'Recovery'}};
+  const client = new NiuAdminClient({adminToken:'test', fetch:async(url,init)=>{
+    calls.push({url,init});
+    return Response.json(init.method==='GET' ? {data:{action:'create',key:recovered.key}} : recovered);
+  }});
+  const input = {name:'Recovery',ttl_seconds:3600};
+  assert.deepEqual(await client.createWorkspaceKeyRequest(scope,id,input),recovered);
+  assert.deepEqual(await client.rotateWorkspaceKeyRequest(scope,id,id),recovered);
+  const status = await client.getWorkspaceKeyRequest(scope,id);
+  assert.equal(status.data.key.name,'Recovery');
+  assert.equal('token' in recovered,false);
+  assert.deepEqual(calls.slice(0,2).map(c=>new Headers(c.init.headers).get('idempotency-key')),[id,id]);
+  assert.ok(calls[2].url.endsWith(`/workspaces/${id}/keys/requests/${id}`));
+  assert.equal(calls[2].init.method,'GET');
+  assert.equal(calls[2].init.body,undefined);
+});
+
+test('saved task reads accept public run references without widening action identifiers', async () => {
+  const calls=[];
+  const client=new NiuAdminClient({adminToken:'test',fetch:async(url)=>{calls.push(url);return Response.json({data:{id,reference:'run-1000'}});}});
+  const tasks=client.generations(scope).tasks;
+  assert.equal((await tasks.retrieve('run-1000')).data.id,id);
+  await tasks.retrieve(id);
+  assert.ok(calls[0].endsWith('/tasks/run-1000'));
+  assert.ok(calls[1].endsWith(`/tasks/${id}`));
+  for(const reference of ['run-0','run-01','run-1/refresh','../run-1','run-10000000000000000000'])assert.throws(()=>tasks.retrieve(reference),TypeError);
+  assert.throws(()=>tasks.diagnostics('run-1000'),TypeError);
 });

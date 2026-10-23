@@ -25,7 +25,7 @@ it('renders routed Settings in a dialog and switches sections', async () => {
   expect(screen.getByRole('dialog', {name:'Settings'}).querySelector('[data-collapsible="icon"]')).toBeTruthy();
   await userEvent.click(screen.getByRole('button', {name:'Toggle Settings navigation'}));
   expect(screen.getByRole('navigation', { name: 'Settings navigation' })).toBeTruthy();
-  await userEvent.click(screen.getByRole('link',{name:'Billing'}));
+  await userEvent.click(screen.getByRole('link',{name:'Credits'}));
   expect(router.state.location.pathname).toBe('/settings/billing');
   await userEvent.click(screen.getByRole('link',{name:'Appearance'}));
   expect(router.state.location.pathname).toBe('/settings/appearance');
@@ -42,5 +42,12 @@ it('renders routed Settings in a dialog and switches sections', async () => {
   const context = {session:{kind:'operator',operator:{project_id:null,role:'owner'}}} as unknown as DashboardContext;
   render(<MemoryRouter initialEntries={['/workspaces/default?settings=account']}><SidebarProvider><SettingsNavigation context={context} section="account" href={section=>`/workspaces/default?settings=${section}`}/></SidebarProvider></MemoryRouter>);
   expect(screen.getByRole('link', {name:'Account'}).getAttribute('aria-current')).toBe('page');
-  for (const name of ['Appearance','Billing','Payments','About']) expect(screen.getByRole('link',{name}).hasAttribute('aria-current')).toBe(false);
+  for (const name of ['Appearance','Credits','About']) expect(screen.getByRole('link',{name}).hasAttribute('aria-current')).toBe(false);
+ });
+
+ it('keeps legacy Payments bookmarks in the single Billing navigation home', () => {
+  const context = {session:{kind:'installation'}} as unknown as DashboardContext;
+  render(<MemoryRouter initialEntries={['/settings/payments']}><SidebarProvider><SettingsNavigation context={context}/></SidebarProvider></MemoryRouter>);
+  expect(screen.getByRole('link',{name:'Credits'}).getAttribute('aria-current')).toBe('page');
+  expect(screen.queryByRole('link',{name:'Payments'})).toBeNull();
  });

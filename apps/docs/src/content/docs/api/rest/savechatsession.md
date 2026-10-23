@@ -200,6 +200,14 @@ Location: **path**. **Required.**
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "finishReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."
+          },
           "phase": {
             "type": "string",
             "enum": [
@@ -308,6 +316,13 @@ Content type: `application/json`.
   "properties": {
     "saved": {
       "const": true
+    },
+    "reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Permanent server-assigned Chat reference for product links."
     },
     "revision": {
       "type": "string",

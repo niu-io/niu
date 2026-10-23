@@ -932,11 +932,24 @@ async fn video_create_pins_personal_dispatch_and_never_retries_uncertainty(pool:
             }
         );
         assert!(!measured.to_string().contains("private-"));
-        assert!(
-            spans
-                .iter()
-                .all(|span| span.as_object().unwrap().len() == 4)
-        );
+        let allowed_fields = [
+            "phase",
+            "started_unix_ms",
+            "elapsed_ms",
+            "outcome",
+            "upstream_http_status",
+            "upstream_error_code",
+            "upstream_request_id",
+        ];
+        for span in spans {
+            let fields = span.as_object().unwrap();
+            assert_eq!(fields.len(), allowed_fields.len());
+            assert!(
+                fields
+                    .keys()
+                    .all(|key| allowed_fields.contains(&key.as_str()))
+            );
+        }
         assert_eq!(
             state
                 .store
@@ -1499,6 +1512,13 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = test_state(None, pool.clone());
+    state
+        .store
+        .configure_platform_currency("CNY")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway_currency(&mut state, "cny").await;
+
     let organization = state
         .store
         .create_prepaid_organization("Video customer fixture", "CNY")
@@ -2568,6 +2588,10 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     let dashboard = state.store.provider_dashboard(supplier, 30).await.unwrap();
     assert!(dashboard["consumption"].as_array().unwrap().is_empty());
     assert_eq!(dashboard["media_consumption"][0]["quantity"], "100000");
+    assert_eq!(
+        dashboard["media_consumption"][0]["quantity_denominator"],
+        "1"
+    );
     assert_eq!(dashboard["media_consumption"][0]["amount_nanos"], "4");
 
     let bill = billing(&app, &key.token, id).await;

@@ -10,6 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type ChatSession = ChatTurn & {
+    reference?: string;
     id?: string;
     title?: string;
     createdAt: number;

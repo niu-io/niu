@@ -2,7 +2,7 @@ use super::*;
 use serde::Serialize;
 use std::sync::Arc;
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Settings {
     enabled: bool,
@@ -100,6 +100,19 @@ async fn settings(state: &AppState) -> Result<(i64, Settings), ApiError> {
 }
 pub(super) async fn runtime(state: &AppState) -> Result<Option<Arc<EPayRuntime>>, ApiError> {
     runtime_snapshot(state).await.map(|(_, runtime)| runtime)
+}
+
+/// Disabling new checkout must not prevent already-started orders from settling.
+/// Retained signing credentials remain usable; malformed checkout fields do not
+/// prevent signature verification, but cannot establish configuration evidence.
+pub(super) async fn notification_runtime(state: &AppState) -> Result<Option<Arc<EPayRuntime>>, ApiError> {
+    let (revision,mut settings)=settings(state).await?;
+    if revision==0 { return Ok(state.epay_payments.clone()); }
+    if settings.merchant_id.is_empty() || settings.key.is_empty() { return Ok(None); }
+    settings.enabled=true;
+    let verifier=niu_payments::epay::Merchant::new(settings.merchant_id.clone(),settings.key.clone()).map_err(|_|ApiError::upstream_message("Stored payment credentials are invalid"))?;
+    let checkout=settings.runtime().ok().flatten().and_then(|runtime|runtime.checkout);
+    Ok(Some(Arc::new(EPayRuntime{merchant:settings.merchant_id,verifier,checkout})))
 }
 
 /// The revision accompanies checkout admission so another Gateway cannot
@@ -275,7 +288,7 @@ pub(crate) struct Write {
 ///   "operation": {
 ///     "operationId": "savePlatformEPayConfiguration",
 ///     "summary": "Save encrypted EPay configuration with platform administrator write access",
-///     "description": "Validates enabled checkout configuration before persistence. An empty key retains the stored credential. Exact expected_revision prevents overwriting concurrent edits. Pending EPay orders prevent configuration changes so their original verification settings remain available. Saves an append-only audit event and takes effect without restarting the gateway. This configures the classic EPay protocol; it does not establish merchant eligibility or live payment qualification. Supported method names and uniqueness are validated even when disabled; a disabled draft may use an empty methods list.",
+///     "description": "Validates enabled checkout configuration before persistence. An empty key retains the stored credential. Exact expected_revision prevents overwriting concurrent edits. Pending EPay orders prevent credential and checkout-field changes; enabling or disabling unchanged settings remains available and existing orders can still settle. Saves an append-only audit event and takes effect without restarting the gateway. This configures the classic EPay protocol; it does not establish merchant eligibility or live payment qualification. Supported method names and uniqueness are validated even when disabled; a disabled draft may use an empty methods list.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -396,6 +409,9 @@ pub(crate) async fn save(
         _ => None,
     };
     let _guard = state.payment_configuration_guard.write().await;
+    if input.enabled && super::mock_runtime::enabled().await {
+        return Err(ApiError::invalid_request("Disable mock payments before enabling EPay"));
+    }
     let (current_revision, previous) = settings(&state).await?;
     let expected = input
         .expected_revision
@@ -414,7 +430,7 @@ pub(crate) async fn save(
         methods: input.methods,
     };
     if configuration.key.is_empty() {
-        configuration.key = previous.key;
+        configuration.key = previous.key.clone();
     }
     // Validate the saved method vocabulary even when checkout is disabled.
     // Disabled drafts may omit methods, but must not persist unsupported ones.
@@ -444,9 +460,14 @@ pub(crate) async fn save(
     let ciphertext = cipher
         .seal_payment_configuration(&plaintext)
         .map_err(ApiError::invalid_request)?;
+    // A pure enable/disable change preserves every existing checkout field.
+    // Credential and endpoint edits remain blocked while orders are unsettled.
+    let mut retained = previous.clone();
+    retained.enabled = configuration.enabled;
+    let preserves_pending_orders = retained == configuration;
     let revision = state
         .store
-        .save_payment_gateway_configuration(expected, &ciphertext, actor)
+        .save_payment_gateway_configuration(expected, &ciphertext, actor, preserves_pending_orders)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":configuration.public(revision)})))

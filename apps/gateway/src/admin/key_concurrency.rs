@@ -56,7 +56,7 @@ pub struct History {
 ///         "description": "Authentication required"
 ///       },
 ///       "403": {
-///         "description": "Workspace access denied"
+///         "description": "Insufficient management permission"
 ///       },
 ///       "404": {
 ///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
@@ -459,7 +459,7 @@ pub async fn write(
 ///         "description": "Authentication required"
 ///       },
 ///       "403": {
-///         "description": "Workspace access denied"
+///         "description": "Insufficient management permission"
 ///       },
 ///       "404": {
 ///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
@@ -525,4 +525,210 @@ pub async fn history(
         ensure_key_exists().await?;
     }
     Ok(Json(json!({"data":data})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapacityPage { kind: Option<String>, after: Option<Uuid>, limit: Option<i64> }
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listKeyCapacityRequests",
+///     "summary": "Inspect requests contributing unresolved key capacity",
+///     "description": "Workspace read authority required. Includes the full secret-rotation lineage. Concurrency uses unresolved dispatched requests. Tokens uses reservations and unbounded usage from unresolved dispatches plus completed unknown-usage requests in the rolling 60-second window, matching the token-budget calculation; known recent usage is not returned here. Each page has a fresh statement snapshot. UUID keyset cursor is internal; rows may resolve between pages. Refresh to restart investigation. This read does not contact Providers, reconcile usage, release reservations or retry requests. No credentials, prompt content or procurement data. Cache-Control no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "kind",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "concurrency",
+///             "tokens"
+///           ],
+///           "default": "concurrency"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Matching current contributors and snapshot count",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data",
+///                 "total",
+///                 "snapshot_at",
+///                 "next_after"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "attempt_id",
+///                       "model_alias",
+///                       "key_name",
+///                       "created_at",
+///                       "dispatched_at",
+///                       "completed_at",
+///                       "execution",
+///                       "reserved_tokens"
+///                     ],
+///                     "properties": {
+///                       "attempt_id": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "model_alias": {
+///                         "type": "string"
+///                       },
+///                       "key_name": {
+///                         "type": "string"
+///                       },
+///                       "created_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "dispatched_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "completed_at": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "format": "date-time"
+///                       },
+///                       "execution": {
+///                         "type": "string",
+///                         "enum": [
+///                           "may_have_executed",
+///                           "confirmed_completed"
+///                         ]
+///                       },
+///                       "reserved_tokens": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "pattern": "^[0-9]+$"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "total": {
+///                   "type": "integer",
+///                   "minimum": 0
+///                 },
+///                 "snapshot_at": {
+///                   "type": "string",
+///                   "format": "date-time"
+///                 },
+///                 "next_after": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Insufficient management permission"
+///       },
+///       "404": {
+///         "description": "Key or workspace outside the authorized scope"
+///       },
+///       "409": {
+///         "description": "Cursor unavailable; restart pagination"
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn capacity(
+    State(state): State<AppState>,
+    Path((organization, workspace, key)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+    Query(query): Query<CapacityPage>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    authorize_project(&state,&headers,AdminPermission::Read,organization,workspace).await?;
+    let kind=query.kind.as_deref().unwrap_or("concurrency");
+    let limit=query.limit.unwrap_or(50);
+    if !matches!(kind,"concurrency"|"tokens") || !(1..=100).contains(&limit) {
+        return Err(ApiError::invalid_request("Use concurrency or tokens and a page size from 1 to 100."));
+    }
+    let scope=TenantScope {organization_id:organization,project_id:workspace};
+    let result=state.store.key_capacity_requests(scope,key,kind,query.after,limit).await
+        .map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?;
+    Ok(([("cache-control","no-store")],Json(result)))
 }

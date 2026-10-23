@@ -3,6 +3,7 @@ mod admission;
 mod background_recovery;
 mod billing;
 mod branding;
+mod currency;
 mod catalog_metadata;
 mod codex;
 mod config;
@@ -74,7 +75,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .compact()
         .init();
 
+    payments::validate_mock_environment()?;
     let payment_polling_enabled = payments::background_polling_enabled()?;
+    if env::var_os("NIU_MOCK_PAYMENT_URL").is_some() {
+        let mock_bind = bind_address(env::var("NIU_BIND").ok().as_deref(), env::var("PORT").ok().as_deref())?;
+        if !mock_bind.ip().is_loopback() {
+            return Err("Mock payments require a loopback gateway bind".into());
+        }
+    }
     let state = AppState::load_from_env().await?;
     let address = bind_address(
         env::var("NIU_BIND").ok().as_deref(),
@@ -121,6 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
         });
     let video_recovery = video_recovery::spawn(&state, bg_shutdown_rx.clone())?;
+    let payment_account_checks = payments::readiness::spawn_account_checks(&state, bg_shutdown_rx.clone());
     // OAuth callbacks contain authorization codes: trace paths, never queries.
     let app = web::router(state).layer(TraceLayer::new_for_http().make_span_with(
         |request: &axum::http::Request<axum::body::Body>| {
@@ -164,6 +173,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(payment_recovery) = payment_recovery {
         bg_tasks.push(payment_recovery);
+    }
+    if let Some(payment_account_checks) = payment_account_checks {
+        bg_tasks.push(payment_account_checks);
     }
     let abort_handles: Vec<_> = bg_tasks.iter().map(|t| t.abort_handle()).collect();
     if tokio::time::timeout(

@@ -1,3 +1,4 @@
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconChevronDown } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,8 @@ export function GrantEditor({ token, editor, onClose, onIssued }: { token: strin
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [statusVerified, setStatusVerified] = useState(!editor.prepared);
-  const currency = editor.prepared?.currency ?? editor.account?.currency ?? 'USD';
+  const {currency:platformCurrency}=usePlatformCurrency();
+  const currency = editor.prepared?.currency ?? editor.account?.currency ?? platformCurrency;
   const endpoint = base(editor.company.organization_id, currency);
   const locked = pending || !!attempt || !!saved;
   useEffect(() => {
@@ -124,7 +126,8 @@ export function GrantHistory({ token, editor, onClose, onOpen, onCorrect }: { to
   const [rows, setRows] = useState<Intent[]>([]), [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState('');
   const [failedCursor, setFailedCursor] = useState<string>();
-  const active = useRef<AbortController | null>(null), currency = editor.account?.currency ?? 'USD';
+  const {currency:platformCurrency}=usePlatformCurrency();
+  const active = useRef<AbortController | null>(null), currency = editor.account?.currency ?? platformCurrency;
   async function load(before?: string) {
     active.current?.abort(); const controller = new AbortController(); active.current = controller;
     setLoading(true); setError(''); setFailedCursor(undefined);

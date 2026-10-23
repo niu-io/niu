@@ -13,6 +13,20 @@ pub struct Client {
     live_mode: bool,
     api_base: String,
 }
+/// Minimal merchant-account evidence. Does not establish webhook delivery or settlement.
+#[derive(Debug, PartialEq, Eq)]
+pub struct AccountStatus {
+    pub account_id: String,
+    pub charges_enabled: bool,
+}
+#[derive(Debug, thiserror::Error)]
+pub enum AccountCheckError {
+    #[error("Stripe account credentials were rejected")]
+    Rejected,
+    #[error("Stripe account verification is unavailable")]
+    Unavailable,
+}
+
 pub struct CreatedCheckout {
     pub session_id: String,
     pub checkout_url: String,
@@ -24,6 +38,57 @@ pub enum RetrievedCheckout {
     Expired,
 }
 impl Client {
+    /// Internal evidence binding, never a customer-facing identifier.
+    /// HMAC prevents the stored digest from becoming an unkeyed credential hash.
+    pub fn configuration_digest(&self, context: &[u8]) -> [u8; 32] {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+        let mut mac = Hmac::<Sha256>::new_from_slice(self.api_key.as_bytes())
+            .expect("HMAC accepts arbitrary key lengths");
+        mac.update(b"niu:stripe:verification:v1");
+        for field in [self.api_base.as_bytes(), &[u8::from(self.live_mode)], context] {
+            mac.update(&(field.len() as u64).to_be_bytes());
+            mac.update(field);
+        }
+        mac.finalize().into_bytes().into()
+    }
+
+    /// Read the account belonging to this credential; never creates a payment.
+    /// Stripe's own-account endpoint is documented in stripe-node AccountResource.
+    pub async fn account_status(&self) -> Result<AccountStatus, AccountCheckError> {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let mut response = self.http.get(format!("{}/v1/account", self.api_base))
+                .basic_auth(&self.api_key, Some("")).send().await.map_err(|_| AccountCheckError::Unavailable)?;
+            if matches!(response.status().as_u16(), 401 | 403) {
+                return Err(AccountCheckError::Rejected);
+            }
+            if !response.status().is_success() || response.content_length().is_some_and(|n| n > 65536) {
+                return Err(AccountCheckError::Unavailable);
+            }
+            let mut bytes = Vec::new();
+            while let Some(chunk) = response.chunk().await.map_err(|_| AccountCheckError::Unavailable)? {
+                if bytes.len().saturating_add(chunk.len()) > 65536 { return Err(AccountCheckError::Unavailable); }
+                bytes.extend_from_slice(&chunk);
+            }
+            #[derive(Deserialize)]
+            struct Account { id: String, object: String, charges_enabled: bool }
+            let account: Account = serde_json::from_slice(&bytes).map_err(|_| AccountCheckError::Unavailable)?;
+            if account.object != "account" || !account.id.starts_with("acct_")
+                || account.id.len() <= 5 || account.id.len() > 255
+                || !account.id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+                return Err(AccountCheckError::Unavailable);
+            }
+            Ok(AccountStatus { account_id: account.id, charges_enabled: account.charges_enabled })
+        }).await.map_err(|_| AccountCheckError::Unavailable)?
+    }
+
+    /// Resolve only mock-owned checkout capabilities at the presentation boundary.
+    /// Stored URLs retain the real adapter's invariant; normal builds never rewrite them.
+    pub fn mock_checkout_url(&self, stored: &str) -> Option<String> {
+        let token = stored.strip_prefix("https://checkout.stripe.com/c/pay/cs_test_mock_")?;
+        let candidate = url::Url::parse(&format!("{}/checkout/{token}", self.api_base)).ok()?;
+        crate::mock::checkout_url(&candidate).then(|| candidate.into())
+    }
     /// Explicit fixture-only transport. Never enable this feature for distribution.
     #[cfg(feature = "test-fixtures")]
     pub fn fixture(api_key: String, live_mode: bool, base: &str) -> Result<Self, Error> {
@@ -304,6 +369,62 @@ mod tests {
         Arc,
         atomic::{AtomicUsize, Ordering},
     };
+    #[test]
+    fn verification_digest_changes_with_credentials_transport_mode_and_configuration() {
+        let original = Client::new("sk_test_fixture_one".into(), false).unwrap();
+        let first = original.configuration_digest(b"merchant-a|usd|callback-a");
+        assert_eq!(first, original.configuration_digest(b"merchant-a|usd|callback-a"));
+        assert_ne!(first, original.configuration_digest(b"merchant-a|usd|callback-b"));
+        assert_ne!(first, Client::new("sk_test_fixture_two".into(), false).unwrap().configuration_digest(b"merchant-a|usd|callback-a"));
+        let mut changed = Client::new("sk_test_fixture_one".into(), false).unwrap();
+        changed.api_base = "http://127.0.0.1:1".into();
+        assert_ne!(first, changed.configuration_digest(b"merchant-a|usd|callback-a"));
+        changed.api_base = original.api_base.clone();
+        changed.live_mode = true;
+        assert_ne!(first, changed.configuration_digest(b"merchant-a|usd|callback-a"));
+    }
+
+    #[tokio::test]
+    async fn account_status_is_read_only_bounded_and_never_infers_unknown_as_ready() {
+        use axum::{body::Body, http::{Request, Response, StatusCode}};
+        let app = Router::new().route("/{case}/v1/account", axum::routing::get(
+            |axum::extract::Path(case): axum::extract::Path<String>, request: Request<Body>| async move {
+                assert_eq!(request.method(), "GET");
+                assert!(request.headers().get("authorization").is_some());
+                if case == "unauthorized" { return Response::builder().status(StatusCode::UNAUTHORIZED).body(Body::from("private merchant response")).unwrap(); }
+                if case == "redirect" { return Response::builder().status(StatusCode::FOUND).header("location", "/enabled/v1/account").body(Body::empty()).unwrap(); }
+                if case == "oversized" { return Response::new(Body::from("x".repeat(65537))); }
+                if case == "chunked-oversized" {
+                    return Response::new(Body::from_stream(futures_util::stream::iter([
+                        Ok::<_, std::io::Error>(vec![b'x'; 32768]), Ok(vec![b'x'; 32769]),
+                    ])));
+                }
+                let mut value = json!({"id":"acct_fixture", "object":"account", "charges_enabled":true});
+                match case.as_str() {
+                    "disabled" => value["charges_enabled"] = json!(false),
+                    "missing" => { value.as_object_mut().unwrap().remove("charges_enabled"); },
+                    "invalid" => value["charges_enabled"] = json!("true"),
+                    "foreign-object" => value["object"] = json!("customer"),
+                    "invalid-id" => value["id"] = json!("acct_"),
+                    _ => {}
+                }
+                Response::new(Body::from(value.to_string()))
+            }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let mut client = Client::new("sk_test_fixture_only".into(), false).unwrap();
+        for case in ["enabled", "disabled", "missing", "invalid", "foreign-object", "invalid-id", "unauthorized", "redirect", "oversized", "chunked-oversized"] {
+            client.api_base = format!("http://{address}/{case}");
+            match case {
+                "enabled" | "disabled" => assert_eq!(client.account_status().await.unwrap(), AccountStatus { account_id:"acct_fixture".into(), charges_enabled:case == "enabled" }),
+                "unauthorized" => assert!(matches!(client.account_status().await, Err(AccountCheckError::Rejected))),
+                _ => assert_eq!(client.account_status().await.unwrap_err().to_string(), "Stripe account verification is unavailable"),
+            }
+        }
+        server.abort();
+    }
+
     #[tokio::test]
     async fn retrieved_lifecycle_requires_matching_saved_intent() {
         let app = Router::new().route("/{state}", axum::routing::get(|axum::extract::Path(state): axum::extract::Path<String>, headers: HeaderMap| async move {

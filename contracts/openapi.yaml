@@ -33,6 +33,66 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/platform/currency:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1currency'
+  /v1/currency:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1currency'
+  /api/v1/pools/{reference}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}'
+  /api/v1/pools/{reference}/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1history'
+  /api/v1/workspaces/{workspace}/assets:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1assets'
+  /api/v1/workspaces/{workspace}/assets/{asset}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1assets~1{asset}'
+  /api/v1/workspaces/{workspace}/assets/{asset}/content:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1assets~1{asset}~1content'
+  /api/v1/workspaces/{workspace}/video/intents:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1video~1intents'
+  /api/v1/workspaces/{workspace}/video/intents/{intent}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1video~1intents~1{intent}'
+  /api/v1/workspaces/{workspace}/video/intents/{intent}/submit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1video~1intents~1{intent}~1submit'
+  /api/v1/workspaces/{workspace}/video/draft:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1video~1draft'
+  /api/v1/workspaces/{workspace}/chats/draft:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1chats~1draft'
+  /api/v1/workspaces/{workspace}/chats:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1chats'
+  /api/v1/workspaces/{workspace}/chats/{id}/archive:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1chats~1{id}~1archive'
+  /api/v1/workspaces/{workspace}/chats/{id}/export:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1chats~1{id}~1export'
+  /api/v1/workspaces/{workspace}/chats/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1chats~1{id}'
+  /api/v1/workspaces/{workspace}/tasks/{task}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1tasks~1{task}~1refresh'
+  /api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1tasks~1{task}~1results~1{kind}~1refresh'
+  /api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/capture:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1artifacts~1{task}~1{kind}~1capture'
+  /api/v1/workspaces/{workspace}/tasks:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1tasks'
+  /api/v1/workspaces/{workspace}/tasks/{task}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1tasks~1{task}'
+  /api/v1/workspaces/{workspace}/tasks/{task}/diagnostics:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1tasks~1{task}~1diagnostics'
+  /api/v1/workspaces/{workspace}/artifacts:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1artifacts'
+  /api/v1/workspaces/{workspace}/artifacts/{task}/{kind}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1artifacts~1{task}~1{kind}'
+  /api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/content:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1artifacts~1{task}~1{kind}~1content'
+  /api/v1/workspaces/{workspace}/sessions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1sessions'
+  /api/v1/workspaces/{workspace}/sessions/{session}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1sessions~1{session}'
+  /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1sessions~1{session}~1turns~1{turn}'
+  /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/task:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1sessions~1{session}~1turns~1{turn}~1task'
+  /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/intent:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1sessions~1{session}~1turns~1{turn}~1intent'
   /api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1media-retail-price-enrollment'
   /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds:
@@ -263,6 +323,8 @@ paths:
     $ref: './key-request-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history:
     $ref: './key-request-rate.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1capacity'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit:
     $ref: './key-concurrency.openapi.yaml#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit'
   /api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history:
@@ -651,63 +713,8 @@ paths:
   /api/v1/organizations/{organization}/projects/{project}/chats/draft:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chats~1draft'
   /api/v1/organizations/{organization}/projects/{project}/chats/{id}/export:
-    parameters:
-      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-    get:
-      operationId: exportChatSession
-      summary: Export one owned saved conversation
-      description: Requires workspace read access and the authenticated conversation owner. Reads durable content directly, including sessions outside the latest-100 list. Excludes internal identifiers, settings, diagnostic errors and accounting. Conversation and attachment content is deliberately included and may contain user-supplied sensitive text. Legacy single-turn sessions become one turn. Does not export request Logs or billing evidence.
-      security: [{ adminBearerAuth: [] }]
-      responses:
-        '200':
-          description: Portable conversation JSON
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [format, version, turns]
-                properties:
-                  format: { const: niu-chat }
-                  version: { const: 1 }
-                  title: { type: string }
-                  createdAt: { type: integer, minimum: 0, maximum: 9007199254740991 }
-                  turns:
-                    type: array
-                    maxItems: 100
-                    items:
-                      type: object
-                      additionalProperties: false
-                      required: [prompt, results]
-                      properties:
-                        prompt: { type: string }
-                        results:
-                          type: array
-                          maxItems: 4
-                          items:
-                            type: object
-                            additionalProperties: false
-                            required: [model, content, phase]
-                            properties:
-                              model: { type: string }
-                              content: { type: string }
-                              phase: { type: string, enum: [connecting, streaming, complete, failed, cancelled] }
-                        attachments:
-                          type: array
-                          items:
-                            type: object
-                            additionalProperties: false
-                            required: [name, type, content]
-                            properties:
-                              name: { type: string }
-                              type: { type: string }
-                              content: { type: string }
-        '401': { description: Authentication required }
-        '403': { description: Workspace read access required }
-        '404': { description: No saved conversation for this workspace and owner }
-        '503': { description: Durable storage unavailable }
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chats~1{id}~1export'
+
   /api/v1/organizations/{organization}/projects/{project}/guardrails/denials:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials'
   /api/v1/organizations/{organization}/projects/{project}/chats/{id}:
@@ -720,42 +727,13 @@ paths:
     put:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chats~1{id}/put'
     delete:
-      operationId: deleteChatSession
-      summary: Delete an owned Chat session in a workspace
-      description: Requires write access to the workspace. Deletion is scoped to the authenticated owner and workspace. Missing or already deleted sessions return the same result without disclosing another owner's history. Does not delete request accounting or billing records.
-      security: [{ adminBearerAuth: [] }]
-      responses:
-        '204': { description: Session deleted or absent. }
-        '401': { description: Authentication required. }
-        '403': { description: Workspace write access required. }
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chats~1{id}/delete'
+
   /api/v1/organizations/{organization}/projects/{project}/chats:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chats'
   /api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive:
-    parameters:
-      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-    put:
-      operationId: setChatSessionArchived
-      summary: Archive or restore the authenticated owner's Chat session
-      description: Updates backend-owned archive state without changing content or conversation ordering. Autosaves preserve archive state. Repeating the same value is idempotent.
-      security: [{ adminBearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [archived]
-              properties:
-                archived: { type: boolean }
-      responses:
-        '204': { description: Archive state saved. }
-        '400': { description: Invalid input. }
-        '401': { description: Authentication required. }
-        '403': { description: Workspace write access required. }
-        '404': { description: No session in the caller's owner and workspace scope. }
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1chats~1{id}~1archive'
+
   /api/v1/vendors/{id}/supplier:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1vendors~1{id}~1supplier'
   /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
@@ -882,7 +860,7 @@ paths:
       description: Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
       responses:
         '200':
-          description: Public model aliases and declared capabilities.
+          description: Public model aliases and declared capabilities. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
   /v1/chat/completions:
     $ref: './generated/handler-operations.json#/paths/~1v1~1chat~1completions'
   /v1/embeddings:
@@ -1868,12 +1846,41 @@ paths:
     get:
       operationId: adminListOperators
       summary: List operator identities without session credentials
-      description: Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/workspace unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+      description: Requires an owner or installation administrator. Results are scoped before pagination. Installation callers may filter by organization_id; members cannot change their authorized company/workspace scope. Returns identities and roles, never session credentials. Pass next_cursor as after until null. A missing or foreign cursor returns 409. Pages are live observations ordered by creation time and identity.
+      parameters:
+        - { in: query, name: organization_id, schema: { type: string, format: uuid } }
+        - { in: query, name: after, schema: { type: string, format: uuid } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 1000, default: 1000 } }
       security:
         - adminBearerAuth: []
       responses:
         '200':
           description: Persistent operator identities and assigned roles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, next_cursor]
+                properties:
+                  next_cursor: { type: [string, 'null'], format: uuid }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, role, organization_id, project_id, revoked]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        role: { type: string, enum: [owner, admin, viewer] }
+                        organization_id: { type: [string, 'null'], format: uuid }
+                        project_id: { type: [string, 'null'], format: uuid }
+                        revoked: { type: boolean }
+        '400':
+          description: Invalid page limit, cursor syntax or unknown query field.
+        '404':
+          description: Requested company is outside the member scope.
+        '409':
+          description: Cursor is missing or outside the selected scope; refresh the directory.
         '401':
           description: Missing, invalid, expired or revoked credentials.
         '403':
@@ -1881,7 +1888,21 @@ paths:
     post:
       operationId: adminCreateOperator
       summary: Create an operator and issue its first session token
-      description: Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one workspace. The bearer token is returned once and is never retrievable from list APIs.
+      description: >-
+        Requires a permitted owner or installation administrator. Every user belongs
+        to a company and may be workspace-scoped. By default a temporary session is
+        issued once and expires_in_seconds is required. For recoverable onboarding,
+        pass issue_session false with Idempotency-Key and omit expires_in_seconds.
+        The identity and receipt commit together; matching retries return current
+        metadata for the original identity with null session/token. Changed input,
+        revoked or deleted identities return 409; replay never restores access or
+        issues a credential. The receipt namespace is company-scoped, distinct from
+        company/workspace creation. Authorization is checked before receipt lookup.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          description: Required only for identity-only creation; 1–128 visible ASCII characters. Retain the same key and input after an uncertain outcome.
+          schema: { type: string, minLength: 1, maxLength: 128 }
       security:
         - adminBearerAuth: []
       requestBody:
@@ -1892,7 +1913,7 @@ paths:
               $ref: '#/components/schemas/OperatorInput'
       responses:
         '201':
-          description: Operator and session created; response includes Cache-Control no-store.
+          description: User created or identity-only replay confirmed; session/token are null for identity-only creation. Cache-Control no-store.
         '400':
           description: Invalid role, name or session lifetime.
         '401':
@@ -2399,12 +2420,26 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}'
   /api/v1/workspaces/{workspace}/keys/{key}/rotate:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1rotate'
+  /api/v1/workspaces/{workspace}/keys/requests/{request}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1requests~1{request}'
+  /api/v1/payments/readiness:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1payments~1readiness'
+
 components:
   schemas:
     ModelMetadataBase:
       type: object
       required: [id, public_catalog, catalog, customer_pricing]
       properties:
+        generation_capabilities:
+          type: object
+          additionalProperties: false
+          required: [chat, video]
+          description: Current configured preview support, from the same visible registry snapshot. A Video-only route overrides stale catalog text metadata. Null Chat support means unknown legacy metadata, not support. Key grants, current policy, funding and upstream availability are checked separately at execution.
+          properties:
+            chat: { type: [boolean, 'null'] }
+            video: { type: boolean }
+
         id: { type: string, description: Public model alias. }
         public_catalog: { type: boolean }
         catalog:
@@ -2767,10 +2802,17 @@ components:
     OperatorInput:
       type: object
       additionalProperties: false
-      required: [organization_id, name, role, expires_in_seconds]
+      required: [organization_id, name, role]
+      allOf:
+        - if:
+            required: [issue_session]
+            properties: { issue_session: { const: false } }
+          then: { not: { required: [expires_in_seconds] } }
+          else: { required: [expires_in_seconds] }
       properties:
+        issue_session: { type: boolean, default: true, description: False requires Idempotency-Key and forbids expires_in_seconds. }
         organization_id: { type: string, format: uuid }
-        project_id: { type: string, format: uuid, description: Optional workspace-level restriction within the organization. }
+        project_id: { type: [string, 'null'], format: uuid, description: Optional workspace-level restriction within the organization. }
         name: { type: string, minLength: 1, maxLength: 200 }
         role: { type: string, enum: [owner, admin, viewer] }
         expires_in_seconds: { type: integer, minimum: 60, maximum: 31536000 }

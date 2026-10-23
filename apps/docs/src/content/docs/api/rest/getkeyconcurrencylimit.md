@@ -128,7 +128,7 @@ Authentication required
 
 ### HTTP 403
 
-Workspace access denied
+Insufficient management permission
 
 ### HTTP 404
 

@@ -13,7 +13,7 @@ A completed stream does not establish settled billing. The panel reads saved req
 
 Use [the interactive API reference](/help/api/) for other request shapes. Select a workspace key there to attach your session to same-origin inference requests; clear the connection to use manually supplied credentials. Copied application examples use `$NIU_API_KEY`, not the browser session.
 
-Use a **workspace API key** from your workspace's **Keys** page. An administrator must first configure an enabled model route. Provider credentials and installation administrator tokens are not application keys.
+Use a **workspace API key** from your workspace's **API keys** page. The installation administrator is responsible for ready models, pricing and payment setup; customer developers do not need Provider credentials. Provider credentials and installation administrator tokens are not application keys.
 
 ## Set your endpoint and key
 
@@ -33,7 +33,7 @@ curl --fail-with-body "$NIU_ORIGIN/v1/models" \
   -H "Authorization: Bearer $NIU_API_KEY"
 ```
 
-Use an `id` from the response's `data` array as the `model` value in your request. An empty list means this key has no available model; check its allowed models and the configured routes. Model discovery does not itself prove every optional protocol or parameter is supported.
+Use an `id` from the response's `data` array as the `model` value in your request. An empty list means this key has no available model; check its allowed models, then ask your workspace owner or installation administrator to make a model available. Model discovery does not itself prove every optional protocol or parameter is supported.
 
 ## Send a Chat request
 

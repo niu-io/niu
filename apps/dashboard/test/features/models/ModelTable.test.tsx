@@ -8,7 +8,7 @@ vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/app/dashboard-context', () => ({ useDashboardContext: () => ({ token: '', workspace: null }) }));
 vi.mock('@/app/useModelPopularity', () => ({ useModelPopularity: (models: unknown[]) => ({ models }) }));
 afterEach(cleanup);
-const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', public_catalog: true }));
+const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', public_catalog: true, catalog: {output_modalities:['text']} }));
 it('searches and opens a model without losing the catalog filter on return', async () => {
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><Link to="/models">Models breadcrumb</Link><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
@@ -39,8 +39,8 @@ it('renders provider metadata and preserves the developer/model detail path', ()
   expect(screen.getByRole('link', { name: 'Example model' }).getAttribute('href')).toBe('/models/openai/model-0');
   expect(screen.getByText('Provider description')).toBeTruthy();
   expect(screen.getByText('128K context')).toBeTruthy();
-  expect(screen.getByText('USD 0.00/M input tokens')).toBeTruthy();
-  expect(screen.getByText('USD 2.00/M output tokens')).toBeTruthy();
+  expect(screen.getByText('$0.00/M input tokens')).toBeTruthy();
+  expect(screen.getByText('$2.00/M output tokens')).toBeTruthy();
 });
 
 it('provides a working catalog recovery action for an unavailable model', async () => {
@@ -69,8 +69,8 @@ it('clears both a developer filter and an unmatched search to recover the catalo
 it('formats published token rates without floating point artifacts or rounding tiny rates to zero', () => {
   const enriched = [{ ...models[0], customer_pricing: {currency:'USD',unit:'nanounits_per_million_tokens' as const,prompt_rate:'1100000000',completion_rate:'1000'} }];
   render(<MemoryRouter><SidebarProvider><ModelTable models={enriched}/></SidebarProvider></MemoryRouter>);
-  expect(screen.getByText('USD 1.1/M input tokens')).toBeTruthy();
-  expect(screen.getByText('USD 0.000001/M output tokens')).toBeTruthy();
+  expect(screen.getByText('$1.1/M input tokens')).toBeTruthy();
+  expect(screen.getByText('$0.000001/M output tokens')).toBeTruthy();
 });
 
 it('preserves developer filters when their group is collapsed with the keyboard', async () => {
@@ -155,7 +155,7 @@ it('lets users expand a clipped model description and starts another model colla
 });
 
 
-it.each([['123456789', 'USD 0.123456789 /M tokens'], ['0', 'USD 0.00 /M tokens'], [null, null]])('displays only the published customer cache-read tariff (%s)', (cachedRate, price) => {
+it.each([['123456789', '$0.123456789 /M tokens'], ['0', '$0.00 /M tokens'], [null, null]])('displays only the published customer cache-read tariff (%s)', (cachedRate, price) => {
   const enriched = [{ ...models[0], customer_pricing: {currency:'USD',unit:'nanounits_per_million_tokens' as const,prompt_rate:'1000000000',completion_rate:'2000000000',cached_prompt_rate:cachedRate} }];
   render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={enriched}/></SidebarProvider>} /></Routes></MemoryRouter>);
   if (price) {
@@ -212,4 +212,54 @@ it('filters explicit modalities and capabilities together, shows tags, and clear
   await user.click(screen.getByRole('button',{name:'Clear filters'}));
   expect(screen.getAllByRole('article')).toHaveLength(3);
   expect(screen.queryByRole('button',{name:'Remove Image input filter'})).toBeNull();
+});
+
+// Refs #104: absent metadata is not a Chat capability assertion.
+it.each([
+  [undefined, false, false, '/models'],
+  [[], false, false, '/models'],
+  [['text'], true, false, '/chat/completions'],
+  [['video'], false, true, '/video/models'],
+  [['text', 'video'], true, true, '/video/models'],
+  [['audio'], false, false, '/models'],
+])('offers only documented generation handoffs for outputs %s', (outputs, chat, video, endpoint) => {
+  const model={id:'example/model', public_catalog:true, catalog:{output_modalities:outputs}};
+  render(<MemoryRouter initialEntries={['/models/example/model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]} /></SidebarProvider>} /></Routes></MemoryRouter>);
+  expect(!!screen.queryByRole('link',{name:'Try in Chat'})).toBe(chat);
+  expect(!!screen.queryByRole('link',{name:'Try in Video'})).toBe(video);
+  expect(document.querySelector('pre')?.textContent).toContain(endpoint);
+  if(!chat && !video) expect(document.querySelector('pre')?.textContent).not.toContain('/chat/completions');
+});
+
+
+it('distinguishes direct Provider billing from missing platform prices without claiming availability', () => {
+  const model = {...models[0], billing_source: 'own_api_key' as const};
+  render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  expect(screen.getByText(/Your Provider bills this usage directly/)).toBeTruthy();
+  expect(screen.queryByText('Not published')).toBeNull();
+  expect(screen.getByText(/Access still depends on your key/)).toBeTruthy();
+});
+it('keeps platform funding separate from an absent price', () => {
+  const model = {...models[0], billing_source: 'niu_credits' as const};
+  render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  expect(screen.getByText(/Uses Niu credits/)).toBeTruthy();
+  expect(screen.getAllByText('Not published')).toHaveLength(2);
+  expect(screen.queryByText(/Your Provider bills/)).toBeNull();
+});
+it('offers the current Video workflow when catalog text metadata is stale',()=>{
+ const model={id:'example/stale',public_catalog:true,catalog:{output_modalities:['text']},generation_capabilities:{chat:false,video:true}};
+ render(<MemoryRouter initialEntries={['/models/example/stale']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
+ expect(screen.queryByRole('link',{name:'Try in Chat'})).toBeNull();
+ expect(screen.getByRole('link',{name:'Try in Video'}).getAttribute('href')).toContain('new=video');
+ expect(document.querySelector('pre')?.textContent).toContain('/video/models');
+ expect(screen.queryByText('Text output')).toBeNull();
+});
+
+it('explains Video estimation without presenting token prices for a Video-only model',()=>{
+ const model={id:'example/video',billing_source:'niu_credits' as const,public_catalog:true,generation_capabilities:{chat:false,video:true}};
+ render(<MemoryRouter initialEntries={['/models/example/video']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
+ expect(screen.queryByText('Input price')).toBeNull();
+ expect(screen.queryByText('Output price')).toBeNull();
+ expect(screen.getByText(/Video cost depends on the request settings/)).toBeTruthy();
+ expect(screen.getByRole('link',{name:'Try in Video'})).toBeTruthy();
 });

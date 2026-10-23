@@ -1,3 +1,5 @@
+import { amountFromNanos } from '@/lib/money';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useEffect, useRef, useState } from 'react';
 import { IconRefresh } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
@@ -44,6 +46,7 @@ function checkedTransactions(result:{data:BalanceTransaction[];next_cursor?:stri
 }
 
 export default function AccountBilling({token, organization, canConfigure = false, section = 'all'}: {token: string; organization: string; canConfigure?: boolean; section?: 'all' | 'billing' | 'payments'}) {
+ const {currency:platformCurrency}=usePlatformCurrency();
  const accessGeneration = useRef({token,organization,value:0});
  if (accessGeneration.current.token !== token || accessGeneration.current.organization !== organization) {
   accessGeneration.current = {token,organization,value:accessGeneration.current.value+1};
@@ -70,11 +73,11 @@ export default function AccountBilling({token, organization, canConfigure = fals
  const [conflict,setConflict] = useState(false);
  const saveController = useRef<AbortController | null>(null);
  const warningChanged = editing !== null && (warningEnabled !== (editing.warning_threshold_nanos !== null)
-  || (warningEnabled && threshold.trim() !== (editing.warning_threshold_nanos === null ? '' : money(editing.warning_threshold_nanos, editing.currency).slice(editing.currency.length + 1))));
+  || (warningEnabled && threshold.trim() !== (editing.warning_threshold_nanos === null ? '' : amountFromNanos(editing.warning_threshold_nanos))));
  useEffect(() => () => {saveController.current?.abort();}, [token,organization]);
  const editWarning = (account: Balance) => {
   setEditing(account); setWarningEnabled(account.warning_threshold_nanos !== null);
-  setThreshold(account.warning_threshold_nanos === null ? '' : money(account.warning_threshold_nanos,account.currency).slice(account.currency.length+1));
+  setThreshold(account.warning_threshold_nanos === null ? '' : amountFromNanos(account.warning_threshold_nanos));
   setSaveError(''); setConflict(false);
  };
  const saveWarning = async () => {
@@ -145,29 +148,29 @@ export default function AccountBilling({token, organization, canConfigure = fals
  {!accounts && !accountError && <p role="status">{section === 'payments' ? 'Loading payment options…' : 'Loading account balance…'}</p>}
  {section === 'payments' && accountError && <Alert variant="destructive"><AlertTitle>Payment options unavailable</AlertTitle><AlertDescription>Could not load the account data needed for payment options.<Button variant="outline" disabled={refreshing} onClick={() => setRevision(value => value + 1)}>Retry payment options</Button></AlertDescription></Alert>}
         {companyAccess && section !== 'payments' && <section aria-label="Account balance" className="billing-account-section">
-          <div className="flex items-center justify-between gap-3"><h2>Account balance</h2><Button variant="ghost" size="icon" aria-label="Refresh account balance" title="Refresh account balance" disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
+          <div className="flex items-center justify-between gap-3"><h2>Available credits</h2><Button variant="ghost" size="icon" aria-label="Refresh account balance" title="Refresh account balance" disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
           {accountError && <Alert variant="destructive"><AlertTitle>Account balance unavailable</AlertTitle><AlertDescription>{accountError}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>Retry account balance</Button></AlertDescription></Alert>}
           {accounts?.map(account => <div className="billing-account" key={account.currency}>
-            <span className="text-muted-foreground">Available to spend</span>
+            <span className="text-muted-foreground">{account.currency === platformCurrency ? 'Available to spend' : 'Recorded balance (original currency)'}</span>
             <strong className="billing-available">{money(account.available_nanos, account.currency)}</strong>
-            <dl className="billing-account-details">
-              <div><dt>Balance</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>
+            {(account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">
+              {account.balance_nanos !== account.available_nanos && <div><dt>Balance</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
               {BigInt(account.credit_limit_nanos) > 0n && <div><dt>Approved credit</dt><dd>{money(account.credit_limit_nanos, account.currency)}</dd></div>}
               {BigInt(account.reserved_nanos) > 0n && <div><dt>Reserved for requests</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
-            </dl>
+            </dl>}
             <div className="flex items-center justify-between gap-3 py-3">
               <div><h3 className="font-medium">Low balance warning</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? 'Disabled' : `Below ${money(account.warning_threshold_nanos,account.currency)} · In app`}</p></div>
-              {canConfigure && <Button variant="ghost" size="sm" aria-label={`Configure ${account.currency} low balance warning`} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>Configure</Button>}
+              {canConfigure && account.currency === platformCurrency && <Button variant="ghost" size="sm" aria-label={`Configure ${account.currency} low balance warning`} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>Configure</Button>}
             </div>
-            {BigInt(account.available_nanos) <= 0n
+            {account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>Insufficient funds</AlertTitle><AlertDescription>{canConfigure ? 'Paid requests are paused until funds are added.' : 'Paid requests are paused. Contact your billing administrator to add funds.'}</AlertDescription></Alert>
-              : account.low_balance && <Alert><AlertTitle>Low balance</AlertTitle><AlertDescription>Your account balance is below the warning threshold. Approved credit is excluded from this warning.</AlertDescription></Alert>}
+              : account.low_balance && <Alert><AlertTitle>Low balance</AlertTitle><AlertDescription>Your account balance is below the warning threshold. Approved credit is excluded from this warning.</AlertDescription></Alert>)}
           </div>)}
           {!accountError && accounts?.length === 0 && <p className="text-muted-foreground">{canConfigure ? 'No prepaid account configured.' : 'No prepaid account configured. Contact your billing administrator.'}</p>}
         </section>}
         {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} onPaid={() => setRevision(value => value + 1)} />}
         {companyAccess && section !== 'payments' && ((accounts?.length ?? 0) > 0 || (transactions?.length ?? 0) > 0 || transactionError) && <section aria-label="Recent balance transactions">
-          <div className="flex items-center justify-between gap-3"><h2>Transactions</h2>{nextCursor && <Button variant="ghost" size="sm" disabled={loadingOlder || transactionsLoading || transactionFailure === 'latest'} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading…' : 'History'}</Button>}</div>
+          <div className="flex items-center justify-between gap-3"><h2>Balance activity</h2>{nextCursor && <Button variant="ghost" size="sm" disabled={loadingOlder || transactionsLoading || transactionFailure === 'latest'} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading…' : 'History'}</Button>}</div>
           {transactionError && <Alert variant="destructive"><AlertTitle>Transactions unavailable</AlertTitle><AlertDescription>{transactionError}<Button variant="outline" onClick={() => transactionFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>Retry transactions</Button></AlertDescription></Alert>}
           {transactions?.length ? <>
             <Table className="billing-transactions"><TableHeader><TableRow><TableHead>Date (UTC)</TableHead><TableHead>Type</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>

@@ -1,3 +1,4 @@
+vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -105,7 +106,7 @@ describe("customer billing", () => {
     const fetch = vi.fn(async (url) => new Response(JSON.stringify({ data: (/\/billing\/(balance|transactions)$|\/spending-limit$/).test(String(url)) ? [] : data })));
     vi.stubGlobal("fetch", fetch);
     setup();
-    await screen.findByText("USD 6.500011");
+    await screen.findByText("$6.500011");
     expect(screen.getByText(/requests without a customer rate/)).toBeTruthy();
     expect(screen.queryByText(/priced requests await/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Issue invoice" })).toBeNull();
@@ -148,7 +149,7 @@ describe("customer billing", () => {
     expect(screen.queryByText("invoice-")).toBeNull();
     expect(await screen.findByText("qwen/text")).toBeTruthy();
     expect(screen.queryByText("11111111-1111-4111-8111-111111111111")).toBeNull();
-    expect(screen.getByText("USD 0.0000046")).toBeTruthy();
+    expect(screen.getByText("$0.0000046")).toBeTruthy();
   });
   it('retries failed statement details without losing the selected billing period', async () => {
     let failed = true;
@@ -176,7 +177,7 @@ describe("customer billing", () => {
   it("keeps platform financial controls out of workspace billing even for administrators", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url) => new Response(JSON.stringify({ data: (/\/billing\/(balance|transactions)$/).test(String(url)) ? [] : data }))));
     setup("installation");
-    await screen.findByText("USD 6.500011");
+    await screen.findByText("$6.500011");
     for (const name of ["Set selling rates", "Issue invoice", "Record payment"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
@@ -217,7 +218,7 @@ describe('prepaid balance', () => {
     expect(screen.queryByText('No prepaid account configured.')).toBeNull();
     failed=false;
     await userEvent.click(screen.getByRole('button',{name:'Retry account balance'}));
-    await screen.findAllByText('USD 1.00');
+    await screen.findAllByText('$1.00');
     await screen.findByText('No transactions yet.');
     expect(screen.queryByRole('button',{name:'Retry transactions'})).toBeNull();
   });
@@ -226,9 +227,9 @@ describe('prepaid balance', () => {
     let reads = 0;
     vi.stubGlobal('fetch', vi.fn(async (url) => new Response(JSON.stringify({data: String(url).endsWith('/billing/balance') ? [{currency:'USD', balance_nanos:'1000000000', available_nanos:++reads === 1 ? '1000000000' : '2000000000', reserved_nanos:'0', credit_limit_nanos:'0', warning_threshold_nanos:null, policy_revision:'0', low_balance:false}] : []}))));
     render(<AccountBilling token="test" organization="org" />);
-    await screen.findAllByText('USD 1.00');
+    await screen.findAllByText('$1.00');
     await userEvent.click(screen.getByRole('button', {name:'Refresh account balance'}));
-    expect(await screen.findByText('USD 2.00')).toBeTruthy();
+    expect(await screen.findByText('$2.00')).toBeTruthy();
     expect(reads).toBe(2);
   });
   function companySetup(balance: Record<string, unknown>, transactions: Record<string, unknown>[] = []) {
@@ -242,8 +243,8 @@ describe('prepaid balance', () => {
   }
   it('shows available funds with credit and holds, then warns on low balance', async () => {
     companySetup({currency:'CNY',balance_nanos:'-1000000000',credit_limit_nanos:'3000000000',reserved_nanos:'500000000',available_nanos:'1500000000',low_balance:true});
-    expect(await screen.findByText('CNY 1.5')).toBeTruthy();
-    expect(screen.getByText('CNY -1.00')).toBeTruthy();
+    expect(await screen.findByText('¥1.5')).toBeTruthy();
+    expect(screen.getByText('-¥1.00')).toBeTruthy();
     expect(screen.getByText('Approved credit')).toBeTruthy();
     expect(screen.getByText('Reserved for requests')).toBeTruthy();
     expect(screen.getByText('Low balance')).toBeTruthy();
@@ -258,7 +259,7 @@ describe('prepaid balance', () => {
     ]);
     expect(await screen.findByText('Top-up')).toBeTruthy();
     expect(screen.getByText('Payment reversal')).toBeTruthy();
-    expect(screen.getByText('CNY -0.1')).toBeTruthy();
+    expect(screen.getByText('-¥0.1')).toBeTruthy();
     expect(screen.queryByText(id)).toBeNull();
   });
   it('shows exhausted funds without claiming to collect a payment', async () => {
@@ -409,8 +410,8 @@ describe('company warning preferences', () => {
 
 describe('customer cached-input billing evidence', () => {
   it.each([
-    ['123456789', 'USD 0.123456789'],
-    ['0', 'USD 0.00'],
+    ['123456789', '$0.123456789'],
+    ['0', '$0.00'],
     [null, 'Not configured'],
   ])('uses only the published cached customer rate (%s)', async (cachedRate, expected) => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: { ...data, tariffs: [{model_alias:'qwen/text',revision:'private-revision',currency:'USD',prompt_rate:'1000000000',completion_rate:'2000000000',cached_prompt_rate:cachedRate,supplier_cost:'999999999'}] } })));
@@ -425,7 +426,7 @@ describe('customer cached-input billing evidence', () => {
     setup('operator', '/billing?tab=statements');
     await userEvent.setup().click(await screen.findByRole('button',{name:'View details'}));
     expect(await screen.findByText(expected)).toBeTruthy();
-    expect(screen.getByText('Cache read: USD 0.1 per 1M')).toBeTruthy();
+    expect(screen.getByText('Cache read: $0.1 per 1M')).toBeTruthy();
     expect(screen.queryByText('private-revision')).toBeNull();
   });
 });
@@ -440,7 +441,7 @@ describe('customer media statement pagination', () => {
     setup('operator', '/billing?tab=statements');
     await userEvent.setup().click(await screen.findByRole('button',{name:'View details'}));
     const media = await screen.findByRole('region',{name:'Media charges'});
-    expect(within(media).getByText('USD 0.123456789')).toBeTruthy();
+    expect(within(media).getByText('$0.123456789')).toBeTruthy();
     expect(within(media).getByText('1/2 seconds')).toBeTruthy();
     expect(within(media).getByText('1 second')).toBeTruthy();
     expect(screen.queryByText('No line items available.')).toBeNull();
@@ -505,8 +506,8 @@ describe('customer media statement pagination', () => {
   ]}})));
   setup('operator','/billing?tab=rates');
   const row = await screen.findByRole('row',{name:/exact\/model/});
-  expect(within(row).getByText('USD 9007199.254740993')).toBeTruthy();
-  expect(within(row).getByText('USD 0.00')).toBeTruthy();
+  expect(within(row).getByText('$9007199.254740993')).toBeTruthy();
+  expect(within(row).getByText('$0.00')).toBeTruthy();
   expect(within(screen.getByRole('row',{name:/legacy\/model/})).getAllByText('Unknown')).toHaveLength(5);
  });
 
@@ -526,7 +527,7 @@ it('pages complete statement history, preserves rows on failure and refreshes la
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Older statements' }));
   await screen.findByText('Could not load older statements.');
-  expect(screen.getByText('USD 6.5')).toBeTruthy();
+  expect(screen.getByText('$6.5')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Retry older statements' }));
   await screen.findByRole('cell', { name: 'Settled', exact: true });
   expect(screen.getAllByRole('button', { name: 'View details' })).toHaveLength(2);
@@ -565,6 +566,6 @@ it('ignores a late older page after switching workspace', async () => {
   view.rerender(<MemoryRouter initialEntries={['/billing?tab=statements']}><BillingRoute/></MemoryRouter>);
   await screen.findByText('No statements yet');
   await act(async () => finish(Response.json({ data: [{ ...data.invoices[0], amount_nanos: '99000000000' }], next_cursor: null })));
-  expect(screen.queryByText('USD 99.00')).toBeNull();
+  expect(screen.queryByText('$99.00')).toBeNull();
   expect(screen.queryByRole('button', { name: 'View details' })).toBeNull();
 });

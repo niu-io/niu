@@ -105,6 +105,13 @@ pub fn cny_decimal(nanos: i64) -> Result<String, Error> {
 }
 
 impl Merchant {
+    pub fn configuration_digest(&self, context: &[u8]) -> [u8;32] {
+        use hmac::{Hmac, Mac};
+        let mut mac=Hmac::<sha2::Sha256>::new_from_slice(self.secret.as_bytes()).expect("HMAC key");
+        mac.update(b"niu:zhifux:verification:v1");
+        for field in [self.number.as_bytes(),context] { mac.update(&(field.len() as u64).to_be_bytes());mac.update(field); }
+        mac.finalize().into_bytes().into()
+    }
     pub fn new(number: String, secret: String) -> Result<Self, Error> {
         if !identifier(&number, 64)
             || secret.is_empty()
@@ -250,6 +257,15 @@ mod tests {
             pay_type: "wxpaynative",
         }
     }
+    #[test]
+    fn verification_binding_changes_with_credentials_and_checkout_context() {
+        let first=Merchant::new("merchant01".into(),"fixture-secret-0123456789".into()).unwrap();
+        let changed=Merchant::new("merchant01".into(),"changed-secret-0123456789".into()).unwrap();
+        assert_eq!(first.configuration_digest(b"checkout-a"),first.configuration_digest(b"checkout-a"));
+        assert_ne!(first.configuration_digest(b"checkout-a"),first.configuration_digest(b"checkout-b"));
+        assert_ne!(first.configuration_digest(b"checkout-a"),changed.configuration_digest(b"checkout-a"));
+    }
+
     #[test]
     fn exact_amounts_never_round_or_accept_invalid_units() {
         assert_eq!(cny_nanos("9007199.25"), Ok(9_007_199_250_000_000));

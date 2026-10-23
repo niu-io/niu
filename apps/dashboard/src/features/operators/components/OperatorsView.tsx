@@ -7,7 +7,7 @@ import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/PageHeader';
 import type { AdminSession } from '@/app/dashboard-context';
-import { AdminRequestError, request, type IssuedSession, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
+import { AdminRequestError, listOperators, request, type IssuedSession, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
 import OperatorCreateForm, { type NewOperator } from './OperatorCreateForm';
 import OperatorDirectory from './OperatorDirectory';
 import OperatorDetails from './OperatorDetails';
@@ -76,7 +76,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setOpenedRoleContext('');
     setRoleOpenError('');
     setRoleRefreshError('');
-    void request<{data: Operator[]}>(token, '/api/v1/operators', 'GET', undefined, controller.signal)
+    void listOperators(token, organization, controller.signal)
       .then(result => {
         if (controller.signal.aborted) return;
         const saved = result.data.find(item => item.id === selectedOperatorId);
@@ -102,7 +102,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     try {
       const result = nextRole
         ? await request<{ data: Operator }>(token, '/api/v1/operators/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
-        : await request<{ data: Operator[] }>(token, '/api/v1/operators', 'GET', undefined, controller.signal);
+        : await listOperators(token, organization, controller.signal);
       if (!current()) throw new DOMException('Role context changed.', 'AbortError');
       const saved = Array.isArray(result.data) ? result.data.find(item => item.id === context.operatorId) : result.data;
       if (!saved || saved.revoked || saved.organization_id !== context.organization
@@ -121,7 +121,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   }
 
   const loadOperators = useCallback(async (signal?: AbortSignal) => {
-    const result = await request<{ data: Operator[] }>(token, '/api/v1/operators', 'GET', undefined, signal);
+    const result = await listOperators(token, undefined, signal);
     setOperators(result.data);
   }, [token]);
 
@@ -211,7 +211,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setError('');
     Promise.all([
       request<{ data: NamedResource[] }>(token, '/api/v1/organizations', 'GET', undefined, controller.signal),
-      request<{ data: Operator[] }>(token, '/api/v1/operators', 'GET', undefined, controller.signal),
+      listOperators(token, undefined, controller.signal),
     ]).then(([organizationResult, operatorResult]) => {
       if (controller.signal.aborted) return;
       setOrganizations(organizationResult.data);

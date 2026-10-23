@@ -27,6 +27,7 @@ pub struct CostEntry {
 #[derive(Debug, sqlx::FromRow, serde::Serialize)]
 pub struct GatewayActivityEntry {
     pub attempt_id: Uuid,
+    pub reference: String,
     pub operation_id: Uuid,
     pub retry: Option<serde_json::Value>,
     pub api_key_id: Option<Uuid>,
@@ -411,6 +412,12 @@ impl Store {
             .await
     }
 
+    pub async fn request_id_by_reference(&self, scope: TenantScope, reference: &str) -> Result<Option<Uuid>, StoreError> {
+        Ok(sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND public_reference=$3")
+            .bind(scope.organization_id).bind(scope.project_id).bind(reference)
+            .fetch_optional(&self.pool).await?)
+    }
+
     pub async fn gateway_request(
         &self,
         scope: TenantScope,
@@ -481,7 +488,7 @@ impl Store {
             return Err(StoreError::InvalidPrice);
         }
         let mut query = QueryBuilder::new(
-            "SELECT a.id AS attempt_id, a.operation_id, (SELECT jsonb_build_object('ordinal',r.ordinal,'predecessor_attempt_id',r.predecessor_id,'maximum_attempts',p.maximum_attempts,'policy_revision',p.policy_revision) FROM gateway_retry_attempts r JOIN gateway_retry_policies p ON p.operation_id=r.operation_id WHERE r.attempt_id=a.id) AS retry, a.api_key_id, k.name AS key_name, o.task_id, task.evidence AS task_evidence, CASE WHEN EXISTS(SELECT 1 FROM media_recovery_routes media WHERE media.organization_id=a.organization_id AND media.project_id=a.project_id AND media.attempt_id=a.id) THEN 'video' ELSE 'inference' END AS request_kind, o.model_alias AS model, a.provider_model, \
+            "SELECT a.id AS attempt_id, a.public_reference AS reference, a.operation_id, (SELECT jsonb_build_object('ordinal',r.ordinal,'predecessor_attempt_id',r.predecessor_id,'maximum_attempts',p.maximum_attempts,'policy_revision',p.policy_revision) FROM gateway_retry_attempts r JOIN gateway_retry_policies p ON p.operation_id=r.operation_id WHERE r.attempt_id=a.id) AS retry, a.api_key_id, k.name AS key_name, o.task_id, task.evidence AS task_evidence, CASE WHEN EXISTS(SELECT 1 FROM media_recovery_routes media WHERE media.organization_id=a.organization_id AND media.project_id=a.project_id AND media.attempt_id=a.id) THEN 'video' ELSE 'inference' END AS request_kind, o.model_alias AS model, a.provider_model, \
              to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              CASE WHEN a.dispatched_at IS NULL THEN NULL ELSE to_char(a.dispatched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS dispatched_at, \
              CASE WHEN a.completed_at IS NULL THEN NULL ELSE to_char(a.completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS completed_at, \

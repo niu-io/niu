@@ -20,7 +20,10 @@ handler-generated platform administration operations (installation credentials o
 an explicitly authorized platform administrator; ordinary company/workspace
 ownership does not grant access):
 
-- `GET /admin/v1/pools?alias=...` reads a pool.
+- `GET /api/v1/pools` lists pools with `after`/`limit` pagination.
+- `GET /api/v1/pools/{reference}` reads a pool; reference is the exact ASCII alias encoded as unpadded base64url.
+- `GET /api/v1/pools/{reference}/history?before_revision=...` reads immutable revisions.
+- `GET /admin/v1/pools?alias=...` remains a supported compatibility lookup.
 - `PUT /admin/v1/pools` creates or updates a pool with `alias`,
   `organization_id`, `enabled`, `expected_revision` and `candidates`.
 - `GET /admin/v1/pools/history?alias=...&before_revision=...` returns
@@ -403,7 +406,7 @@ it does not qualify every export or a platform routing-diagnostics API.
 
 ## Discover and paginate managed pools
 
-`GET /admin/v1/pools/index` lists current shared and personal pool
+`GET /api/v1/pools` lists current shared and personal pool
 configurations for installation credentials or explicitly granted platform
 administrators. Ordinary company ownership and inference keys do not grant access.
 Enabled and disabled pools are included. Results contain the same pool objects as
@@ -418,8 +421,11 @@ page sizes/cursors return 400. This live traversal is not a snapshot: start agai
 to discover aliases inserted before the current cursor.
 
 The JavaScript SDK exposes `admin.listModelRoutePools({after, limit})`. The existing
-`getModelRoutePool(alias)` and history responses are unchanged. The new route is
-implemented and its OpenAPI derives directly from the handler annotation.
+`getModelRoutePool(alias)` and history response shapes are unchanged; the SDK
+encodes member references automatically. The `/api/v1/pools/index` and
+`/admin/v1/pools/index` aliases remain supported. See the
+[route migration matrix](api-route-migrations.md) for encoding and compatibility.
+OpenAPI derives directly from the handler annotations.
 
 ### Current-input index verification
 

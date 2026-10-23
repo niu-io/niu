@@ -162,7 +162,18 @@ impl Store {
         if value["cursor_valid"] != true {
             return Err(StoreError::Conflict);
         }
-        Ok(json!({"data":value["data"], "next_after":value["next_after"]}))
+        let data: Vec<Value> = value["data"].as_array().ok_or(StoreError::InvalidPrice)?
+            .iter().map(|row| {
+                let media = serde_json::from_value::<niu_media::VideoSchema>(row["media_schema"].clone()).ok()
+                    .filter(|schema| schema.validate().is_ok() && row["model_alias"] == schema.model_alias && row["upstream_model"] == schema.upstream_model)
+                    .and_then(|schema| schema.output.as_ref().map(|output| {
+                        let resolutions: std::collections::BTreeSet<_> = output.specifications.iter().map(|spec| spec.resolution.clone()).collect();
+                        json!({"channel":schema.channel,"resolutions":resolutions,"reference_video":schema.inputs.contains_key("video_url"),"meter":output.estimator.meter()})
+                    }));
+                // Return decision-relevant choices, never raw schemas or upstream identities.
+                json!({"model_alias":row["model_alias"],"media":media})
+            }).collect();
+        Ok(json!({"data":data, "next_after":value["next_after"]}))
     }
     /// Caller must independently authenticate platform administration. New
     /// standards take effect at commit; finite promotion terms remain intact.

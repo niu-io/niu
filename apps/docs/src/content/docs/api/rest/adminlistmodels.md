@@ -93,6 +93,26 @@ Content type: `application/json`.
                   "customer_pricing"
                 ],
                 "properties": {
+                  "generation_capabilities": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "chat",
+                      "video"
+                    ],
+                    "description": "Current configured preview support, from the same visible registry snapshot. A Video-only route overrides stale catalog text metadata. Null Chat support means unknown legacy metadata, not support. Key grants, current policy, funding and upstream availability are checked separately at execution.",
+                    "properties": {
+                      "chat": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "video": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
                   "id": {
                     "type": "string",
                     "description": "Public model alias."
@@ -394,6 +414,26 @@ Content type: `application/json`.
                   "customer_pricing"
                 ],
                 "properties": {
+                  "generation_capabilities": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "chat",
+                      "video"
+                    ],
+                    "description": "Current configured preview support, from the same visible registry snapshot. A Video-only route overrides stale catalog text metadata. Null Chat support means unknown legacy metadata, not support. Key grants, current policy, funding and upstream availability are checked separately at execution.",
+                    "properties": {
+                      "chat": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "video": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
                   "id": {
                     "type": "string",
                     "description": "Public model alias."

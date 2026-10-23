@@ -170,3 +170,78 @@ The isolated API-only snapshot also passed `scripts/check-openapi-entrypoints.py
 It excludes concurrent currency, payment and dashboard changes. SDK and docs
 suites were rerun against that isolated snapshot: 203 and 3 tests passed,
 respectively. Existing dependencies were reused; no Rust build was run.
+
+## Local backend migration verification
+
+The backend follow-up uses Rust 1.98.0 and an isolated PostgreSQL 17 cluster.
+SQLx applies the repository migrations to separate test databases. The cluster
+accepts local Unix-socket connections only; the application's development
+and production databases are not modified. Upstream HTTP servers and the pool
+forwarding proxy run locally with synthetic credentials. These checks exercise
+real handlers, storage and serialization, but do not qualify a deployed Provider,
+production billing, performance or cross-origin deployment behavior.
+
+Reproduction (set `DATABASE_URL` to an isolated PostgreSQL administrator
+connection that permits SQLx to create test databases):
+
+```sh
+export CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+cargo +1.98.0 test --locked --workspace --no-run
+cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway -- --ignored --test-threads=2 \
+  api_migrations:: \
+  functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries \
+  inference_accrues_customer_and_provider_ledgers_at_independent_rates \
+  streaming_tool_deltas_preserve_wire_bytes_and_terminal_usage \
+  video_create_pins_personal_dispatch_and_never_retries_uncertainty \
+  missing_usage_and_provider_failures_remain_unsettled \
+  streaming_persists_terminal_evidence_and_keeps_interruptions_unknown \
+  project_operator_cannot_read_sibling_workspace_keys_or_activity \
+  chat_session_archive_rejects_readers_inference_keys_and_other_owners
+cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings
+```
+
+**Result: 12 selected PostgreSQL integration tests passed.** All workspace test
+targets also compiled successfully. The selected cases cover:
+
+- Canonical/legacy session identity, deliberate Chat/Video UUID collisions,
+  required category, owner and workspace isolation, read/write authority,
+  revision conflicts and idempotent replay.
+- Pool collection pagination, encoded member/history routes and legacy response
+  equivalence, including slash and punctuation aliases through a real HTTP proxy.
+- Actual workspace-key create/list/read/error schemas, exact decimal spending
+  limits and one-time token disclosure.
+- Workspace creation replay across `/api/v1` and `/admin/v1` aliases.
+- Correlation UUIDs, generation response schemas, absent charges, exact retail
+  charges distinct from Provider earnings, and workspace access denial.
+- Streaming tool bytes and usage, missing/partial evidence, interrupted streams,
+  Video dispatch identity and uncertain submissions without automatic retries.
+
+The first run identified stale fixture prerequisites. Shared text routes require
+both procurement bounds and a customer selling price; unpriced protocol fixtures
+now use owner-funded credentials. The key spending-limit fixture creates its
+currency balance account. The Video timing assertion accepts the current explicit
+safe diagnostic fields and retains the private-data check. Production admission
+and authorization checks are unchanged.
+
+The generated contract now contains **297 paths and 397 operations**. The handler
+extractor verifies **296 operations**, root-contract coverage verifies **241
+registered paths and 296 generated methods**, and SDK documentation contains
+**379 public exports**. These counts include existing currency endpoints whose
+root-contract references were missing; adding those references changes no
+currency behavior. **205 SDK tests**, **4 API documentation tests**, and the
+dashboard TypeScript check passed.
+
+The full default workspace run (`cargo +1.98.0 test --locked --workspace`)
+passed **357 tests**, with **299 ignored** environment-dependent cases. The 12
+selected PostgreSQL tests above were explicitly run separately; this is not a
+claim that all ignored backend suites passed. Selective-import integrity and
+`git diff --check` also passed. The isolated PostgreSQL cluster was stopped and
+removed after verification.
+
+Formatting passes for the migration code. The workspace-wide formatting check
+still reports pre-existing concurrent currency/payment changes, including their
+storage and workspace tests; those unrelated edits were preserved. Consequently
+this working checkout is not claimed to pass every CI gate.
+
+Final workspace Clippy passed with `--locked --workspace --all-targets -- -D warnings`.

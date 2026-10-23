@@ -12,6 +12,7 @@ it('detects a later proxy outage and restores the same page without losing its d
   vi.stubGlobal('fetch', vi.fn(async input => {
     if (!online) return new Response('Bad Gateway', { status: 502 });
     const path = String(input);
+    if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}});
     return new Response(JSON.stringify(path === '/healthz' ? { status: 'ok' }
       : path === '/api/v1/auth/config' ? { password_login: true }
       : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }

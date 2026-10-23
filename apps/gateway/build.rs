@@ -3,14 +3,26 @@ use std::{env, process::Command};
 fn main() {
     println!("cargo:rerun-if-env-changed=NIU_CORE_GIT_COMMIT");
     println!("cargo:rerun-if-env-changed=NIU_CORE_API_VERSION");
-    // HEAD usually contains a branch name and does not change when that branch
-    // advances. Watch refs too, including loose refs created after packing and
-    // the shared refs directory used by linked worktrees.
-    for name in ["HEAD", "refs", "packed-refs"] {
+    // Watch version provenance, not unrelated refs (for example tool snapshots).
+    for name in ["HEAD", "packed-refs"] {
         if let Some(path) = git(&["rev-parse", "--git-path", name])
             && std::path::Path::new(&path).exists()
         {
             println!("cargo:rerun-if-changed={path}");
+        }
+    }
+    if let Some(reference) = git(&["symbolic-ref", "--quiet", "HEAD"])
+        && let Some(path) = git(&["rev-parse", "--git-path", &reference])
+    {
+        // A packed branch may acquire a new loose ref on its next commit.
+        // Watch its nearest existing parent until that exact ref exists.
+        let mut watch = std::path::Path::new(&path);
+        while !watch.exists() {
+            let Some(parent) = watch.parent() else { break };
+            watch = parent;
+        }
+        if watch.exists() {
+            println!("cargo:rerun-if-changed={}", watch.display());
         }
     }
 

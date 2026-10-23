@@ -10,6 +10,9 @@ rust-version.workspace = true
 name = "niu-gateway"
 path = "src/main.rs"
 
+[features]
+mock-payments = ["niu-payments/mock-payments"]
+
 [dependencies]
 http-body-util = "0.1"
 ipnet = "=2.12.2"

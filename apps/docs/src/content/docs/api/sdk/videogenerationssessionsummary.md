@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type VideoGenerationsSessionSummary = {
     id: string;
+    reference?: string;
     workspace_id: string;
     owner: string;
     category: 'video';

@@ -1,3 +1,5 @@
+const currencyState=vi.hoisted(()=>({currency:'USD',ready:true,error:'',reload:()=>{}}));
+vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>currencyState}));
 import { expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -166,12 +168,7 @@ it('renders a structured financial statement with period comparisons, active mod
   await user.click(screen.getByRole('button', { name: 'All configured (2)' }));
   expect(within(unitTable).getByText('anthropic/claude-fable-5')).toBeTruthy();
 
-  // Currency selector only offers $ USD and ¥ CNY
-  await user.click(screen.getByRole('button', { name: 'Statement currency' }));
-  expect(screen.getByRole('menuitemradio', { name: '$ USD' })).toBeTruthy();
-  expect(screen.getByRole('menuitemradio', { name: '¥ CNY' })).toBeTruthy();
-  expect(screen.queryByRole('menuitemradio', { name: /EUR/i })).toBeNull();
-  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('button', { name: 'Statement currency' })).toBeNull();
 
   // Formal branded PDF print header and footer are rendered in the statement DOM
   expect(screen.getByText(/PLATFORM FINANCIAL REPORTING/)).toBeTruthy();
@@ -189,4 +186,11 @@ it('renders a structured financial statement with period comparisons, active mod
   expect(await screen.findByRole('button', { name: 'Select calendar month' })).toBeTruthy();
 
   printSpy.mockRestore();
+});
+
+it('guides initial setup without requesting a report in an empty currency',()=>{
+ currencyState.currency='';const fetcher=vi.fn();vi.stubGlobal('fetch',fetcher);
+ try {render(<MemoryRouter><CommercialPositionPage/></MemoryRouter>);
+ expect(screen.getByRole('link',{name:'Open platform settings'}).getAttribute('href')).toBe('/admin/settings');
+ expect(fetcher).not.toHaveBeenCalled();} finally {currencyState.currency='USD';}
 });

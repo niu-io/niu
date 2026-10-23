@@ -1,16 +1,16 @@
 ---
 title: "Read an installation-managed model candidate pool"
-description: "GET /api/v1/pools"
+description: "GET /api/v1/pools/{reference}"
 tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/pools`
+`GET /api/v1/pools/{reference}`
 
-Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400.
 
-Operation: `getModelRoutePool`.
+Operation: `getPool`.
 
 ## Authentication
 
@@ -29,22 +29,22 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pools" \
-  -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
-  --url-query 'alias=<ALIAS>'
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pools/{reference}" \
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 ## Parameters
 
-### alias
+### reference
 
-Location: **query**. **Required.**
+Location: **path**. **Required.** Unpadded base64url encoding of the exact ASCII pool alias. This avoids encoded slashes and double decoding by proxies. The decoded alias must be 1–200 visible ASCII bytes.
 
 ```json
 {
   "type": "string",
-  "minLength": 1,
-  "maxLength": 200
+  "minLength": 2,
+  "maxLength": 267,
+  "pattern": "^[A-Za-z0-9_-]+$"
 }
 ```
 
@@ -151,6 +151,6 @@ Pool not found
 
 ## Behavior and supported scope
 
-Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400.
 
 **Supported scope:** implemented

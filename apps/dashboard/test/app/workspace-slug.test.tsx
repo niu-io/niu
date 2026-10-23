@@ -5,6 +5,9 @@ import { WorkspaceCreateDialog } from '../../src/app/WorkspaceSwitcher';
 import type { DashboardContext } from '../../src/app/dashboard-context';
 import { workspaceSlugFromName, workspacePathSegment, resolveWorkspacePathSegment } from '../../src/app/workspace-route';
 
+const { currencyState } = vi.hoisted(() => ({currencyState:{currency:'USD',error:'',reload:()=>{}}}));
+vi.mock('../../src/app/platform-currency', () => ({usePlatformCurrency:()=>currencyState}));
+
 describe('workspace slugs', () => {
   it.each([
     ['  Product\t experiments\n ', 'product-experiments'],
@@ -38,4 +41,42 @@ describe('workspace slugs', () => {
     await user.click(within(dialog).getByRole('button', {name:'Create workspace'}));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+  it('creates an optional exact lifetime cap, including zero', async () => {
+    const user = userEvent.setup();
+    const createWorkspace = vi.fn().mockResolvedValue({});
+    render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+    await user.type(screen.getByLabelText('Workspace name'), 'Budget test');
+    expect((screen.getByLabelText('Reset') as HTMLInputElement).value).toBe('Never (lifetime)');
+    await user.type(screen.getByLabelText('Spending limit ($)'), '0');
+    await user.click(screen.getByRole('button', {name:'Create workspace'}));
+    expect(createWorkspace).toHaveBeenCalledWith('Budget test',undefined,'budget-test',{currency:'USD',limit_nanos:'0'});
+  });
+  it('rejects excess precision before creating anything', async () => {
+    const user = userEvent.setup();
+    const createWorkspace = vi.fn();
+    render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+    await user.type(screen.getByLabelText('Workspace name'), 'Budget test');
+    await user.type(screen.getByLabelText('Spending limit ($)'), '1.0000000001');
+    await user.click(screen.getByRole('button', {name:'Create workspace'}));
+    expect((await screen.findByRole('alert')).textContent).toContain('9 decimal places');
+    expect(createWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('inherits the configured platform currency without a selector', async () => {
+    currencyState.currency='CNY';
+    const user = userEvent.setup();
+    const createWorkspace = vi.fn().mockResolvedValue({});
+    render(<WorkspaceCreateDialog context={{session:{kind:'installation'},token:'test',organization:{id:'org',name:'Company'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+    expect(screen.queryByLabelText('Currency')).toBeNull();
+    await user.type(screen.getByLabelText('Workspace name'),'Currency test');
+    await user.type(screen.getByLabelText('Spending limit (¥)'),'12.000000001');
+    await user.click(screen.getByRole('button',{name:'Create workspace'}));
+    expect(createWorkspace).toHaveBeenCalledWith('Currency test','org','currency-test',{currency:'CNY',limit_nanos:'12000000001'});
+    currencyState.currency='USD';
+  });
+  it('keeps spending controls owner-only', () => {
+    render(<WorkspaceCreateDialog context={{session:{kind:'operator',operator:{role:'admin'}},createWorkspace:vi.fn()} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+    expect(screen.queryByRole('heading',{name:'Budget (optional)'})).toBeNull();
+  });
+
 });

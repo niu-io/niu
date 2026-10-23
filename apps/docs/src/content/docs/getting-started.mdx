@@ -9,14 +9,14 @@ This guide is for developers using an existing Niu installation. You need an acc
 
 1. **Sign in and choose your workspace.** Ask its owner for access if you have not been added. A read-only membership cannot create keys or run requests.
 2. **Check model access.** Open **Models** to find an available text model. If none is available, ask your workspace owner or installation administrator to enable access. You do not need to configure a Provider yourself.
-3. **Check available credits and limits.** The account owner can add credits in **Settings → Credits**. Workspace and API-key spending limits also apply. If Niu says payment setup is required, the installation administrator must finish setup before requests can run.
+3. **Check how usage is billed.** Model details and Chat identify whether a saved workspace key uses **Niu credits** or an **own API key** route. For Niu credits, the account owner can add funds in **Settings → Credits**; workspace and API-key spending limits also apply. Own API key routes are billed directly by your Provider and do not deduct Niu credits. Missing price information does not mean free usage. If Niu says service setup is required, ask the installation administrator to configure payments or fund your company’s account. Funded or granted self-hosted companies do not need a merchant account.
 4. **Create an API key.** Open **API keys → New API key** in the selected workspace. Name it, choose the allowed models and expiration, then select **Create key**. Copy its secret when shown; it cannot be retrieved later. Keep it on your application server, out of source control and browser-delivered code.
 
 A model appearing in the catalog is not a guarantee that every protocol or optional parameter works. Use an available text model for this first Chat request.
 
 ## Make a request
 
-Copy the base URL from the key dialog for your installation, and use an available text model from **Models**. Replace both placeholders below; `NIU_BASE_URL` includes `/v1`.
+Copy the base URL from the key dialog for your installation, and use an available text model from **Models**. Replace the three placeholders below; `NIU_BASE_URL` includes `/v1`.
 
 ```sh
 export NIU_BASE_URL='https://your-niu-installation.example/v1'
@@ -31,7 +31,7 @@ curl --fail-with-body "$NIU_BASE_URL/chat/completions" \
 Container installations normally use `http://localhost:2555/v1`; repository development uses `http://127.0.0.1:2566/v1`. Hosted Niu uses `https://niu.io/v1`.
 
 Open workspace **Logs** to inspect status, timing, reported tokens, and retained
-request and response payloads. **Usage** shows consumption and customer charges.
+request and response payloads. **Activity** shows consumption and customer charges.
 See [request logs](/docs/concepts/execution-observation/) for capture and retention settings.
 
 Applications authenticate with workspace keys. Keep Provider credentials and
@@ -44,9 +44,9 @@ address to `https://niu.io/v1`.
 These tasks belong to the installation administrator, not an ordinary API consumer:
 
 1. Deploy Niu using [the container guide](/docs/deployment/single-container/) or [local development](/docs/guides/local-development/).
-2. Configure the platform currency and an available payment gateway. Mock payments are for testing only: model requests still incur real upstream charges.
+2. Configure the platform currency in **Admin → Settings**. Then configure an available payment gateway, or fund the intended company through **Admin → Account balances**. An issued noncash grant or approved credit allowance supports self-hosted use without merchant setup; an empty account does not. This permission applies only to that company. Request balance checks and spending limits still apply. Mock payments are for testing only: model requests still incur real upstream charges.
 3. Connect and qualify Provider supply using [the model route guide](/docs/configuration/models/), then publish customer selling prices in **Admin → Pricing**. A saved API credential alone does not make a model ready to sell.
-4. Provision customer access and confirm the workspace owner can sign in, manage credits and choose available models before handing over the installation.
+4. Use **Admin → Customers** to [set up a separate customer](/docs/admin/customers/). Confirm the owner can sign in, manage credits and choose available models before handing over access.
 
 Keep Provider credentials and installation administrator tokens on the server. They are not customer application keys.
 

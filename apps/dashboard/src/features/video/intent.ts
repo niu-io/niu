@@ -8,7 +8,9 @@ export class VideoIntent {
   private saved: VideoSubmissionIntent | null = null;
   private pending = false;
 
-  constructor(private client: IntentClient, private scope: TenantScope, readonly id: string) {}
+  constructor(private client: IntentClient, private scope: TenantScope, private readonly reference: string) {}
+
+  get id() { return this.saved?.id ?? this.reference; }
 
   get document() { return this.saved; }
 
@@ -29,7 +31,8 @@ export class VideoIntent {
   async restore(options?: RequestOptions) {
     return this.exclusive(async () => {
       this.saved = null;
-      const result = await this.client.getVideoIntent(this.scope, this.id, options);
+      const result = await this.client.getVideoIntent(this.scope, this.reference, options);
+      if (result.data.id !== this.reference && result.data.reference !== this.reference) throw new Error('The saved video request identity does not match this link.');
       this.saved = result.data;
       return this.saved;
     });
@@ -44,7 +47,7 @@ export class VideoIntent {
       if (document.job) return document.job;
       if (document.submission_state !== 'saved') throw new Error('Restore the original submission status before continuing.');
       try {
-        const job = await this.client.submitVideoIntent(this.scope, this.id, document.revision, options);
+        const job = await this.client.submitVideoIntent(this.scope, document.id, document.revision, options);
         this.saved = { ...document, submission_state: 'dispatched', job };
         return job;
       } catch (error) {
@@ -60,7 +63,7 @@ export class VideoIntent {
       if (!this.saved) throw new Error('Restore the saved video request before deleting.');
       const document = this.saved;
       this.saved = null;
-      const result = await this.client.deleteVideoIntent(this.scope, this.id, document.revision, options);
+      const result = await this.client.deleteVideoIntent(this.scope, document.id, document.revision, options);
       this.saved = { ...document, revision: result.data.revision, content_state: 'deleted', request: null };
       return result;
     });

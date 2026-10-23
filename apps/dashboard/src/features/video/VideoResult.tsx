@@ -1,3 +1,4 @@
+import {Link} from 'react-router';
 import {useEffect,useRef,useState} from 'react';
 import {FolderDown,RefreshCw,Check,MoreHorizontal,Download,Film,LoaderCircle,Trash2} from 'lucide-react';
 import type {GenerationArtifactCapture} from '../../../../../sdks/javascript/src/generation-artifact-capture';
@@ -7,7 +8,7 @@ import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem,Dr
 import {readVideoResultResponse,videoResultError} from './result';
 import {NiuAdminClient,type TenantScope,type GenerationTask} from '../../../../../sdks/javascript/src/admin';
 
-export default function VideoResult({client,scope,task,keyId,canWrite}:{client:NiuAdminClient;scope:TenantScope;task:string;keyId?:string;canWrite:boolean}) {
+export default function VideoResult({client,scope,task,keyId,canWrite,libraryHref}:{client:NiuAdminClient;scope:TenantScope;task:string;keyId?:string;canWrite:boolean;libraryHref?:string}) {
   const authority=Boolean(canWrite&&keyId);
   type OutputKind='video'|'last_frame';
   const [saving,setSaving]=useState<{kind:OutputKind;checking:boolean}|null>(null);
@@ -111,7 +112,7 @@ export default function VideoResult({client,scope,task,keyId,canWrite}:{client:N
     const capture=artifact.capture;
     const label=kind==='video'?'Save to workspace':'Save last frame';
     if(capture?.availability==='deleted')return <DropdownMenuItem key={kind} disabled>Workspace copy deleted</DropdownMenuItem>;
-    if(capture?.status==='stored')return <DropdownMenuItem key={kind} disabled><Check/>Saved to workspace</DropdownMenuItem>;
+    if(capture?.status==='stored')return libraryHref?<DropdownMenuItem key={kind} asChild><Link to={libraryHref}><Check/>View in workspace library</Link></DropdownMenuItem>:<DropdownMenuItem key={kind} disabled><Check/>Saved to workspace</DropdownMenuItem>;
     const checkOnly=Boolean(uncertain[kind]||capture?.status==='preparing'||(capture&&saveRequests.current[kind]?.id!==capture.id));
     return <DropdownMenuItem key={kind} disabled={(!canWrite&&!checkOnly)||busy||Boolean(saving)} onSelect={()=>void save(kind,checkOnly)} aria-label={`${checkOnly?'Check save status':label}${kind==='last_frame'?' for last frame':''}`}>
       {checkOnly?<RefreshCw/>:<FolderDown/>}{saving?.kind===kind?(saving.checking?'Checking…':'Saving…'):checkOnly?'Check save status':capture?.status==='failed'?'Retry save':label}

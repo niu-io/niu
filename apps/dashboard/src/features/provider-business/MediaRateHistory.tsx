@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { currencySymbol } from '@/lib/money';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -12,16 +13,23 @@ import MediaRatePublisher from './MediaRatePublisher';
 type RateRecord = ProviderMediaRateRecord | CustomerMediaRateRecord;
 type RatePage = { data: RateRecord[]; has_more: boolean; next_after: string | null };
 
-function exactAmount(units: string, places: number) {
+export function exactAmount(units: string, places: number) {
   const amount = BigInt(units);
   const scale = 10n ** BigInt(places);
   const fraction = (amount % scale).toString().padStart(places, '0').replace(/0+$/, '');
   return `${amount / scale}${fraction ? `.${fraction}` : ''}`;
 }
 
-function quantity(value: { numerator: string; denominator: string }) {
+export function quantity(value: { numerator: string; denominator: string }) {
   const numerator = BigInt(value.numerator).toLocaleString();
   return value.denominator === '1' ? numerator : `${numerator}/${BigInt(value.denominator).toLocaleString()}`;
+}
+
+export function mediaMeterLabel(meter: string, amount: {numerator:string;denominator:string}) {
+  const singular=amount.numerator === amount.denominator;
+  if(meter === 'seconds')return singular ? 'second' : 'seconds';
+  if(meter === 'video_tokens')return singular ? 'video token' : 'video tokens';
+  return singular ? 'billing unit' : 'billing units';
 }
 
 function date(seconds: string | null) {
@@ -51,13 +59,14 @@ function localDateNow(starts = '0') {
 }
 
 /** Niu media schedules; purchase and selling endpoints remain strictly separate. */
-export default function MediaRateHistory({ token, supplier, organization, canConfigure = true }: { token: string; canConfigure?: boolean } & ({ supplier: string; organization?: never } | { organization: string; supplier?: never })) {
+export default function MediaRateHistory({ token, supplier, organization, canConfigure = true, providerView = false, allowPublish = true }: { token: string; canConfigure?: boolean; providerView?: boolean; allowPublish?: boolean } & ({ supplier: string; organization?: never } | { organization: string; supplier?: never })) {
   const customer = organization !== undefined;
   const [records, setRecords] = useState<RateRecord[]>([]);
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  const detailOpener=useRef<HTMLButtonElement|null>(null);
   const [selected, setSelected] = useState<RateRecord | null>(null);
   const [retiring, setRetiring] = useState(false);
   const [end, setEnd] = useState(localDateNow);
@@ -124,34 +133,34 @@ export default function MediaRateHistory({ token, supplier, organization, canCon
   }
 
   return <>
-    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 pb-4"><p className="max-w-xl text-sm text-muted-foreground">{customer ? 'Customer prices by model and specification.' : 'Provider purchase rates by model and specification. These are separate from customer selling prices.'}</p><Button variant="outline" disabled={!canConfigure} onClick={() => { setReplacement(undefined); setPublishing(true); }}>{customer ? 'Publish selling rate' : 'Publish media rate'}</Button></div>
+    <div className={`flex min-w-0 flex-wrap items-start justify-between gap-3 pb-4 ${providerView ? 'px-4 sm:px-6' : ''}`}><p className="max-w-xl text-sm text-muted-foreground">{customer ? 'Customer prices by model and specification.' : providerView ? 'Your agreed payouts by model and specification. Existing requests retain their original rate.' : 'Provider purchase rates by model and specification. These are separate from customer selling prices.'}</p>{canConfigure && allowPublish && <Button variant="outline" onClick={() => { setReplacement(undefined); setPublishing(true); }}>{customer ? 'Publish selling rate' : 'Publish media rate'}</Button>}</div>
     {notice && <p role="status" className="px-6 pb-4 text-sm">{notice}</p>}
     {error && <div role="alert" className="px-6 pb-4 text-sm">{error} <Button variant="ghost" size="sm" disabled={loading} onClick={() => records.length && next ? void more() : setRevision(value => value + 1)}>Retry</Button></div>}
     {loading && !records.length ? <p role="status" className="px-6 pb-4">Loading media rates…</p> : !error && !records.length ?
-      <div className="provider-empty-state"><strong>{customer ? 'No media selling rates' : 'No media purchase rates'}</strong><span>{customer ? 'Publish a customer price and reviewed liability bound for a qualified video model.' : 'Publish an agreed rate for a qualified media model before customer-funded generation.'}</span></div> : records.length > 0 && <>
+      <div className="provider-empty-state"><strong>{customer ? 'No media selling rates' : providerView ? 'No agreed media rates' : 'No media purchase rates'}</strong><span>{customer ? allowPublish ? 'Publish a customer price and reviewed liability bound for a qualified video model.' : 'No existing customer-specific media rates. Use Publish media price in Pricing for platform prices.' : providerView ? 'Contact the platform administrator to agree and publish a media payout rate.' : 'Publish an agreed rate for a qualified media model before customer-funded generation.'}</span></div> : records.length > 0 && <>
       <div className="table-wrap"><Table className="provider-ledger">
-        <TableHeader><TableRow><TableHead>Model / specification</TableHead><TableHead>{customer ? 'Selling rate' : 'Purchase rate'}</TableHead><TableHead>Effective period</TableHead>{!customer && <TableHead>Period status</TableHead>}<TableHead className="supplier-offer-actions"><span className="sr-only">Details</span></TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead>Model / specification</TableHead><TableHead>{customer ? 'Selling rate' : providerView ? 'Your payout rate' : 'Purchase rate'}</TableHead><TableHead>Effective period</TableHead>{!customer && <TableHead>Period status</TableHead>}<TableHead className="supplier-offer-actions"><span className="sr-only">Details</span></TableHead></TableRow></TableHeader>
         <TableBody>{records.map(record => {
           const tariff = record.card.tariff;
           const dimensions = tariff.dimensions;
           return <TableRow key={record.card.revision}>
             <TableCell><strong>{dimensions.model}</strong><div className="text-sm text-muted-foreground">{dimensions.resolution} · {dimensions.reference_video ? 'Video reference' : 'No video reference'}</div></TableCell>
-            <TableCell>{tariff.currency} {exactAmount(tariff.amount_units, tariff.decimal_places)}<div className="text-sm text-muted-foreground">per {quantity(tariff.per_quantity)} {tariff.meter.replaceAll('_', ' ')}</div></TableCell>
+            <TableCell>{currencySymbol(tariff.currency)}{exactAmount(tariff.amount_units, tariff.decimal_places)}<div className="text-sm text-muted-foreground">per {quantity(tariff.per_quantity)} {mediaMeterLabel(tariff.meter,tariff.per_quantity)}</div></TableCell>
             <TableCell>{date(tariff.effective_from)}<div className="text-sm text-muted-foreground">{date(cutoff(record))}</div>{customer && <Badge variant="secondary">{period(record, now)}</Badge>}</TableCell>
             {!customer && <TableCell><Badge variant="secondary">{period(record, now)}</Badge></TableCell>}
-            <TableCell className="supplier-offer-actions"><Button variant="ghost" size="sm" onClick={() => { setSelected(record); setRetiring(false); setDialogError(''); }}>View rate<span className="sr-only"> for {dimensions.model}</span></Button></TableCell>
+            <TableCell className="supplier-offer-actions"><Button variant="ghost" size="sm" onClick={event => { detailOpener.current=event.currentTarget; setSelected(record); setRetiring(false); setDialogError(''); }}>View rate<span className="sr-only"> for {dimensions.model}</span></Button></TableCell>
           </TableRow>;
         })}</TableBody>
       </Table></div>
       {next && <div className="px-6 py-4"><Button variant="outline" disabled={loading} onClick={() => void more()}>{loading ? 'Loading…' : 'Load more rates'}</Button></div>}
     </>}
     <Dialog open={selected !== null} onOpenChange={open => { if (!open && !busy) setSelected(null); }}>
-      <DialogContent className="niu-modal vendor-dialog">
-        <DialogHeader><DialogTitle>{retiring ? 'End media rate' : customer ? 'Media selling rate' : 'Media purchase rate'}</DialogTitle><DialogDescription>{selected?.card.tariff.dimensions.model}</DialogDescription></DialogHeader>
+      <DialogContent className="niu-modal vendor-dialog" onCloseAutoFocus={event=>{if(detailOpener.current?.isConnected){event.preventDefault();detailOpener.current.focus();}}}>
+        <DialogHeader><DialogTitle>{retiring ? 'End media rate' : customer ? 'Media selling rate' : providerView ? 'Agreed media payout rate' : 'Media purchase rate'}</DialogTitle><DialogDescription>{selected?.card.tariff.dimensions.model}</DialogDescription></DialogHeader>
         {selected && <>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <dt className="text-muted-foreground">Specification</dt><dd>{selected.card.tariff.dimensions.resolution} · {selected.card.tariff.dimensions.reference_video ? 'Video reference' : 'No video reference'}</dd>
-            <dt className="text-muted-foreground">{customer ? 'Selling rate' : 'Purchase rate'}</dt><dd>{selected.card.tariff.currency} {exactAmount(selected.card.tariff.amount_units, selected.card.tariff.decimal_places)} per {quantity(selected.card.tariff.per_quantity)} {selected.card.tariff.meter.replaceAll('_', ' ')}</dd>
+            <dt className="text-muted-foreground">{customer ? 'Selling rate' : providerView ? 'Your payout rate' : 'Purchase rate'}</dt><dd>{currencySymbol(selected.card.tariff.currency)}{exactAmount(selected.card.tariff.amount_units, selected.card.tariff.decimal_places)} per {quantity(selected.card.tariff.per_quantity)} {mediaMeterLabel(selected.card.tariff.meter,selected.card.tariff.per_quantity)}</dd>
             <dt className="text-muted-foreground">Minimum quantity</dt><dd>{quantity(selected.card.tariff.minimum_quantity)}</dd>
             <dt className="text-muted-foreground">Rounding</dt><dd>{selected.card.tariff.rounding === 'HalfEven' ? 'Half to even' : selected.card.tariff.rounding}</dd>
             <dt className="text-muted-foreground">Starts</dt><dd>{date(selected.card.tariff.effective_from)}</dd>

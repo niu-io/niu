@@ -20,3 +20,8 @@ export function providerLogoSource(url: string) {
   return providerLogoPresets.find(preset => preset.url === url)?.src ?? url;
 }
 export const supplierLogoSource = providerLogoSource;
+
+/** Only known monochrome presets invert; custom and colored artwork retain their colors. */
+export function providerLogoIsMonochrome(url: string) {
+  return providerLogoPresets.some(preset => preset.url === url && ['openrouter', 'aws'].includes(preset.file));
+}

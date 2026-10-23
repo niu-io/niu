@@ -1,8 +1,8 @@
 //! Partial composition only. Saving never estimates, inspects or dispatches.
 use super::{
-    AdminPermission, ApiError, AppState, HeaderMap, Json, Path, State, TenantScope, Uuid, Value,
-    json,
+    AdminPermission, ApiError, AppState, HeaderMap, Json, State, TenantScope, Uuid, Value, json,
 };
+use crate::web::workspace_path::WorkspacePath as Path;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 

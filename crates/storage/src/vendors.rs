@@ -494,7 +494,9 @@ impl Store {
             sqlx::query("INSERT INTO provider_businesses(id,name,slug) VALUES($1,$2,$3)")
                 .bind(id)
                 .bind(input.name.trim())
-                .bind(crate::workspace_creation::workspace_slug_from_name(&input.name))
+                .bind(crate::workspace_creation::workspace_slug_from_name(
+                    &input.name,
+                ))
                 .execute(&mut *transaction)
                 .await?;
             sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'provider_created',$1)")

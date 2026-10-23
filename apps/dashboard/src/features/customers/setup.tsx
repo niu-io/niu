@@ -1,0 +1,84 @@
+import {useEffect,useRef,useState,type FormEvent} from 'react';
+import {Link} from 'react-router';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Alert,AlertDescription} from '@/components/ui/alert';
+import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
+import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuRadioGroup,DropdownMenuRadioItem} from '@/components/ui/dropdown-menu';
+import {workspaceSlugFromName,workspacePathSegment} from '@/app/workspace-route';
+import {request} from '@/features/providers/api';
+import {listOperators,type Operator} from '@/features/operators/api';
+import type {NiuAdminClient,CompanyMetadata,Workspace,MemberPasswordConfiguration} from '../../../../../sdks/javascript/src/admin';
+
+import {readPending,savePending,clearPending,type PendingCreation} from './pending';
+
+type Props={onRestoreFocus?:()=>void;company:CompanyMetadata;token:string;client:NiuAdminClient;onClose:()=>void;onWorkspaceCreated:()=>void};
+export default function CustomerSetup({company,token,client,onClose,onWorkspaceCreated,onRestoreFocus}:Props){
+ const [workspaces,setWorkspaces]=useState<Workspace[]>([]);const [owners,setOwners]=useState<Operator[]>([]);const [owner,setOwner]=useState('');
+ const [writing,setWriting]=useState(false);
+ const [setupRemedy,setSetupRemedy]=useState<'currency'|'payment'|null>(null);
+ const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [revision,setRevision]=useState(0);const [auth,setAuth]=useState<boolean|null>(null);
+ useEffect(()=>{const controller=new AbortController();setLoading(true);setError('');setSetupRemedy(null);
+  Promise.all([client.listWorkspaces({signal:controller.signal}),listOperators(token,company.id,controller.signal),request<{password_login:boolean}>(token,'/api/v1/auth/config','GET',undefined,controller.signal)])
+   .then(([workspaceResult,userResult,capability])=>{if(controller.signal.aborted)return;const saved=userResult.data.filter(user=>!user.revoked&&user.role==='owner'&&user.project_id===null);setWorkspaces(workspaceResult.data.filter(workspace=>workspace.organization_id===company.id));setOwners(saved);setOwner(current=>saved.some(user=>user.id===current)?current:saved.length===1?saved[0].id:'');setAuth(capability.password_login===true);})
+   .catch(reason=>{if(!controller.signal.aborted){setError(reason instanceof Error?reason.message:'Could not read customer setup.');const detail=reason?.responseBody?.error;if(detail?.type==='payment_setup_required')setSetupRemedy(detail.code==='currency_required'?'currency':'payment');}})
+   .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+  return()=>controller.abort();
+ },[client,token,company.id,revision]);
+ const refresh=()=>setRevision(value=>value+1);
+ return <Dialog open onOpenChange={open=>{if(!open&&!writing)onClose();}}><DialogContent onCloseAutoFocus={event=>{if(onRestoreFocus){event.preventDefault();onRestoreFocus();}}} className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle className="min-w-0 pr-5 [overflow-wrap:anywhere]">Set up {company.name}</DialogTitle><DialogDescription>Saved steps remain available when you return. Creating access does not add funds or make models available.</DialogDescription></DialogHeader>
+  {loading&&<p role="status">Reading saved setup…</p>}
+  {error&&<Alert variant="destructive"><AlertDescription>{error}{setupRemedy&&<Button asChild variant="outline"><Link to={setupRemedy==='currency'?'/admin/settings':'/admin/payments'} onClick={onClose}>{setupRemedy==='currency'?'Configure platform currency':'Configure payment gateways'}</Link></Button>}<Button variant="outline" onClick={refresh}>Reload setup</Button></AlertDescription></Alert>}
+  {!loading&&!error&&<div className="space-y-6">
+   <section className="space-y-3" aria-labelledby="customer-workspace-title"><h3 id="customer-workspace-title" className="font-semibold">1. Workspace</h3>
+    {workspaces.length?<ul className="space-y-2">{workspaces.map(workspace=><li className="[overflow-wrap:anywhere]" key={workspace.id}><Link className="underline underline-offset-4" to={`/workspaces/${workspacePathSegment(workspace,workspaces)}`} onClick={onClose}>{workspace.name}</Link></li>)}</ul>:<WorkspaceForm onBusy={setWriting} client={client} company={company} onCreated={saved=>{setWorkspaces([saved]);onWorkspaceCreated();}}/>}
+   </section>
+   <section className="space-y-3 border-t pt-5" aria-labelledby="customer-owner-title"><h3 id="customer-owner-title" className="font-semibold">2. Company owner</h3><p className="text-sm text-muted-foreground">The owner can manage users and every workspace in this company, including shared funds.</p>
+    {!owners.length?<OwnerForm onBusy={setWriting} client={client} company={company} onCreated={saved=>{setOwners([saved]);setOwner(saved.id);}} onRefresh={refresh}/>:<>
+     {owners.length===1?<p className="[overflow-wrap:anywhere]">{owners[0].name}</p>:<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">{owners.find(user=>user.id===owner)?.name??'Choose an owner'}</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={owner} onValueChange={setOwner}>{owners.map(user=><DropdownMenuRadioItem key={user.id} value={user.id}>{user.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+     {auth===false?<Alert><AlertDescription>Password sign-in is disabled for this installation. Configure browser authentication before handing off access. <a className="underline" href="/help/deployment/single-container/#enable-member-sign-in">Authentication setup</a></AlertDescription></Alert>:owner&&<PasswordSetup onBusy={setWriting} key={owner} client={client} owner={owner}/>}
+    </>}
+   </section>
+   <section className="space-y-3 border-t pt-5" aria-labelledby="customer-handoff-title"><h3 id="customer-handoff-title" className="font-semibold">3. Verify the customer handoff</h3><p className="text-sm text-muted-foreground">Give the owner this sign-in address and their configured credentials through your normal secure handoff. No invitation email is sent.</p><p className="break-all font-mono text-sm">{new URL('/login',location.origin).href}</p><p className="text-sm">Have the owner sign in and confirm their company and workspace. Before their first API request, check:</p><ul className="list-disc space-y-2 pl-5 text-sm"><li><Link className="underline" to="/admin/payments" onClick={onClose}>A working payment gateway</Link> and customer funds in <Link className="underline" to="/admin/balances" onClick={onClose}>Account balances</Link>.</li><li><Link className="underline" to="/admin/providers" onClick={onClose}>Available Provider models</Link> and <Link className="underline" to="/admin/pricing" onClick={onClose}>customer selling prices</Link>.</li><li>The workspace API key grants the intended models. Use the <a className="underline" href="/help/guides/api-quickstart/">first-request guide</a> after sign-in.</li></ul><p className="text-sm text-muted-foreground">These prerequisites are not automatically verified by this dialog. A successful request can incur upstream charges.</p></section>
+  </div>}
+  <div className="flex justify-end"><Button variant="outline" disabled={writing} onClick={onClose}>Close</Button></div>
+ </DialogContent></Dialog>;
+}
+function WorkspaceForm({client,company,onCreated,onBusy}:{client:NiuAdminClient;company:CompanyMetadata;onCreated:(workspace:Workspace)=>void;onBusy:(busy:boolean)=>void}){
+ const scope='workspace:'+company.id;const cached=readPending(scope);const pending=useRef<PendingCreation|null>(cached?.slug?cached:null);
+ const slugInput=useRef<HTMLInputElement>(null);const [slugTaken,setSlugTaken]=useState(false);
+ useEffect(()=>{if(slugTaken)slugInput.current?.focus();},[slugTaken]);
+ const [name,setName]=useState(pending.current?.name??'');const [slug,setSlug]=useState(pending.current?.slug??'');const [edited,setEdited]=useState(!!pending.current);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+ async function submit(event:FormEvent){event.preventDefault();if(busy||!name.trim()||!slug)return;pending.current??={name:name.trim(),slug,key:crypto.randomUUID()};setSlugTaken(false);setBusy(true);onBusy(true);setError('');
+  try{savePending(scope,pending.current);const saved=await client.createWorkspace({organization_id:company.id,name:pending.current.name,slug:pending.current.slug},{idempotencyKey:pending.current.key});if(!saved?.id||saved.organization_id!==company.id||!saved.slug)throw new Error('Saved workspace could not be confirmed.');clearPending(scope);pending.current=null;onCreated(saved);}
+  catch(reason){const failure=reason as {status?:number;responseBody?:{error?:{type?:string}}};const status=failure?.status;if(status===400||status===422||(status===409&&failure.responseBody?.error?.type==='workspace_slug_taken')){clearPending(scope);pending.current=null;setSlugTaken(status===409&&failure.responseBody?.error?.type==='workspace_slug_taken');setError(reason instanceof Error?reason.message:'Check the workspace name and slug.');}else setError('Creation is unconfirmed. Retry uses the same request. Reopen customer setup to inspect saved workspaces.');}finally{setBusy(false);onBusy(false);}
+ }
+ return <form onSubmit={submit} className="space-y-3"><div className="space-y-2"><Label htmlFor="customer-workspace-name">Workspace name</Label><Input id="customer-workspace-name" required maxLength={200} disabled={busy||!!pending.current} value={name} onChange={event=>{setName(event.target.value);if(!edited)setSlug(workspaceSlugFromName(event.target.value));}}/></div><div className="space-y-2"><Label htmlFor="customer-workspace-slug">Slug</Label><Input ref={slugInput} id="customer-workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" spellCheck={false} disabled={busy||!!pending.current} value={slug} onChange={event=>{setEdited(true);setSlug(event.target.value);if(slugTaken){setSlugTaken(false);setError('');}}}/><p className="break-words text-sm text-muted-foreground">Used in /workspaces/{slug||'<slug>'}. Chinese names use pinyin.</p></div>{error&&<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}<Button disabled={busy||!name.trim()||!slug||slug==='default'}>{busy?'Creating…':pending.current?'Retry creation':'Create workspace'}</Button></form>;
+}
+function OwnerForm({client,company,onCreated,onRefresh,onBusy}:{client:NiuAdminClient;company:CompanyMetadata;onCreated:(owner:Operator)=>void;onRefresh:()=>void;onBusy:(busy:boolean)=>void}){
+ const scope='owner:'+company.id;const pending=useRef<PendingCreation|null>(readPending(scope));
+ const [name,setName]=useState(pending.current?.name??'');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+ async function submit(event:FormEvent){event.preventDefault();if(busy||!name.trim())return;setBusy(true);onBusy(true);setError('');
+  try{pending.current??={name:name.trim(),key:crypto.randomUUID()};savePending(scope,pending.current);
+   const result=await client.createOperatorIdentity({organization_id:company.id,project_id:null,name:pending.current.name,role:'owner'},{idempotencyKey:pending.current.key});
+   if(!result.operator?.id||result.operator.organization_id!==company.id||result.operator.project_id!==null||result.operator.role!=='owner'||result.operator.revoked)throw new Error('The saved owner is no longer available.');
+   clearPending(scope);pending.current=null;onCreated(result.operator);
+  }catch(reason){const status=(reason as {status?:number})?.status;if(status===400||status===422){clearPending(scope);pending.current=null;setError(reason instanceof Error?reason.message:'Check the owner name.');}else setError('Owner creation could not be confirmed. Retry uses the same saved request and never creates another user or session. Refresh users if this owner was changed or revoked.');}finally{setBusy(false);onBusy(false);}
+ }
+ return <form onSubmit={submit} className="space-y-3"><div className="space-y-2"><Label htmlFor="customer-owner-name">Owner name</Label><Input id="customer-owner-name" required maxLength={200} disabled={busy||!!pending.current} value={name} onChange={event=>setName(event.target.value)}/></div>{pending.current&&<p className="text-sm text-muted-foreground">A saved creation request is awaiting confirmation. Retry will recover the same user.</p>}{error&&<Alert variant="destructive"><AlertDescription>{error}<Button type="button" variant="outline" disabled={busy} onClick={onRefresh}>Refresh saved users</Button></AlertDescription></Alert>}<Button disabled={busy||!name.trim()}>{busy?'Creating…':pending.current?'Retry owner creation':'Create owner'}</Button></form>;
+}
+function PasswordSetup({client,owner,onBusy}:{client:NiuAdminClient;owner:string;onBusy:(busy:boolean)=>void}){
+ const [editing,setEditing]=useState(false);
+ const [saved,setSaved]=useState<MemberPasswordConfiguration|null>(null);const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [revision,setRevision]=useState(0);
+ const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);const [locked,setLocked]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
+ useEffect(()=>{const controller=new AbortController();setLoading(true);setError('');setSaved(null);setPassword('');
+  client.getMemberPasswordConfiguration(owner,{signal:controller.signal}).then(result=>{if(controller.signal.aborted)return;if(typeof result.configured!=='boolean'||(result.configured&&(!result.email||!Number.isSafeInteger(result.revision)||result.revision<1)))throw new Error('Invalid sign-in configuration.');setSaved(result);setEmail(result.email??'');setEditing(!result.configured);setLocked(false);}).catch(reason=>{if(!controller.signal.aborted)setError(reason instanceof Error?reason.message:'Could not read sign-in configuration.');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();
+ },[client,owner,revision]);
+ async function submit(event:FormEvent){event.preventDefault();if(busy||loading||locked||!saved)return;setBusy(true);onBusy(true);setError('');setNotice('');
+  try{const result=await client.setMemberPassword(owner,{email,password,expected_revision:saved.revision});if(result.revision!==(saved.revision??0)+1)throw new Error('Password save could not be confirmed.');setSaved({configured:true,email:email.trim().toLowerCase(),revision:result.revision});setPassword('');setEditing(false);setNotice('Sign-in configured. Previous sessions have been revoked. Verify owner sign-in before handoff.');}
+  catch{setLocked(true);setPassword('');setError('The password save could not be confirmed. Reload the saved configuration before an explicit new reset. A newer revision does not prove which password was saved.');}finally{setBusy(false);onBusy(false);}
+ }
+ if(saved?.configured&&!editing)return <div className="space-y-3"><p className="text-sm">Password sign-in configured for {saved.email}.</p>{notice&&<p role="status" className="text-sm">{notice}</p>}<Button variant="outline" onClick={()=>setEditing(true)}>Reset password</Button></div>;
+ return <form onSubmit={submit} className="space-y-3">{loading?<p role="status">Reading sign-in configuration…</p>:saved&&<p className="text-sm">{saved.configured?`Password sign-in configured for ${saved.email}.`:'Password sign-in is not configured yet.'}</p>}<div className="space-y-2"><Label htmlFor="customer-owner-email">Owner email</Label><Input id="customer-owner-email" type="email" required maxLength={254} autoComplete="off" disabled={busy||loading||locked||!saved} value={email} onChange={event=>setEmail(event.target.value)}/></div><div className="space-y-2"><Label htmlFor="customer-owner-password">{saved?.configured?'New password':'Password'}</Label><Input id="customer-owner-password" type="password" required minLength={15} maxLength={256} autoComplete="new-password" disabled={busy||loading||locked||!saved} value={password} onChange={event=>setPassword(event.target.value)}/><p className="text-sm text-muted-foreground">At least 15 characters. A reset signs the owner out of existing sessions.</p></div>{error&&<Alert variant="destructive"><AlertDescription>{error}<Button type="button" variant="outline" disabled={busy||loading} onClick={()=>setRevision(value=>value+1)}>Reload configuration</Button></AlertDescription></Alert>}{notice&&<p role="status" className="text-sm">{notice}</p>}<Button disabled={busy||loading||locked||!saved||!email||Array.from(password).length<15}>{busy?'Saving…':saved?.configured?'Reset password':'Configure sign-in'}</Button></form>;
+}

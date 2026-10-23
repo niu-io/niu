@@ -27,6 +27,8 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   initialScope: Scope | null;
 }) {
   const { keyId = '' } = useParams();
+  const [capacityRequest,setCapacityRequest]=useState<{attemptId:string;nonce:number;opener:HTMLElement|null}|null>(null);
+  useEffect(()=>setCapacityRequest(null),[keyId,token]);
   const location = useLocation();
   const navigate = useNavigate();
   const root = workspacePath(location.pathname);
@@ -238,7 +240,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         canWrite={canWrite}
         active={!key.revoked && !key.expired}
       />}
-      {initialScope && <KeyLimits key={`${token}:${key.id}:${revision}:limits`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}`} canWrite={canWrite} active={!key.revoked && !key.expired} onUpdated={() => setRevision(value => value + 1)} />}
+      {initialScope && <KeyLimits onInspectRequest={(attemptId,opener)=>setCapacityRequest({attemptId,opener,nonce:Date.now()})} key={`${token}:${key.id}:${revision}:limits`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}`} canWrite={canWrite} active={!key.revoked && !key.expired} onUpdated={() => setRevision(value => value + 1)} />}
       {initialScope && <KeySourceAccess key={`${token}:${key.id}:${revision}:source`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/ip-policy`} canWrite={canWrite} active={!key.revoked && !key.expired} onUpdated={() => setRevision(value => value + 1)} />}
       {initialScope && <KeySpendingLimits key={`${token}:${key.id}:${revision}:spending`} token={token} endpoint={`${adminCollectionPath}/${encodeURIComponent(key.id)}/spending-limit`} canWrite={canConfigureSpending} active={!key.revoked && !key.expired} />}
       {initialScope && <GatewayActivity
@@ -248,6 +250,9 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
         models={models}
         initialScope={initialScope}
         preferredKeyId={key.id}
+        preferredKeySlug={key.slug}
+        externalRequest={capacityRequest}
+        onExternalRequestClose={()=>setCapacityRequest(null)}
       />}
     </>}
   </>;

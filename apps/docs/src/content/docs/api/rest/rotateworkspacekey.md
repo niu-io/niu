@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`
 
-Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.
+Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management. With Idempotency-Key, retries cannot create a second credential. HTTP 201 returns a new secret once; HTTP 200 means the mutation already committed and the secret is unavailable. Inspect or revoke the resulting key before explicitly replacing lost access. Without this header, legacy non-idempotent behavior remains.
 
 Operation: `rotateWorkspaceKey`.
 
@@ -57,11 +57,56 @@ Location: **path**. **Required.**
 }
 ```
 
+### Idempotency-Key
+
+Location: **header**. Optional. Keep this nonzero UUID and identical input for every retry. A committed replay returns metadata only and never repeats the secret.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 ## Request body
 
 No request body is declared.
 
 ## Responses
+
+### HTTP 200
+
+Previously committed mutation; secret cannot be retrieved
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "key",
+    "secret_available"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "secret_available": {
+      "type": "boolean",
+      "const": false
+    },
+    "key": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    }
+  }
+}
+```
 
 ### HTTP 201
 
@@ -688,6 +733,6 @@ Content type: `application/json`.
 
 ## Behavior and supported scope
 
-Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.
+Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management. With Idempotency-Key, retries cannot create a second credential. HTTP 201 returns a new secret once; HTTP 200 means the mutation already committed and the secret is unavailable. Inspect or revoke the resulting key before explicitly replacing lost access. Without this header, legacy non-idempotent behavior remains.
 
 **Supported scope:** implemented

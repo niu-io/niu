@@ -1,3 +1,4 @@
+import LegacyMediaContracts from './legacy-media';
 import { PricingHealthNotice, type PricingHealth } from './pricing-health';
 import { useEffect, useRef, useState } from 'react';
 import { IconSearch } from '@tabler/icons-react';
@@ -9,9 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request } from '@/features/providers/api';
-import WorkspacePricing from '@/features/customer-pricing/page';
 import { TextStandardEditor } from './text-editor';
 import { MediaStandardEditor } from './media-editor';
 import { PromotionEditor } from './promotion-editor';
@@ -24,7 +23,7 @@ const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(va
 const seconds = (value: string) => /^\d+$/.test(value) ? date(new Date(Number(value) * 1000).toISOString()) : 'Date unavailable';
 export default function RetailPricingRoute() {
   const { token } = useDashboardContext();
-  return <Tabs defaultValue="standards" className="w-full"><TabsList variant="line"><TabsTrigger value="standards">Standard prices</TabsTrigger><TabsTrigger value="workspaces">Workspace prices</TabsTrigger></TabsList><TabsContent value="standards"><Standards key={token} token={token} /></TabsContent><TabsContent value="workspaces"><WorkspacePricing /></TabsContent></Tabs>;
+  return <Standards key={token} token={token} />;
 }
 function Standards({ token }: { token: string }) {
   const [rows, setRows] = useState<(RetailPriceRecord & { pricing_health?: PricingHealth })[]>([]), [cursor, setCursor] = useState<string | null>(null);
@@ -32,6 +31,8 @@ function Standards({ token }: { token: string }) {
   const [failed, setFailed] = useState<string>(), [selected, setSelected] = useState<RetailPriceRecord | null>(null);
   const [editor, setEditor] = useState<{ kind: 'text' | 'media'; previous: RetailPriceRecord | null } | null>(null);
   const [notice, setNotice] = useState('');
+  const legacyOpener = useRef<HTMLButtonElement>(null);
+  const [legacyOpen, setLegacyOpen] = useState(false);
   const [promotion, setPromotion] = useState<RetailPriceRecord | null>(null);
   const [managed, setManaged] = useState<RetailPriceRecord | null>(null);
   const active = useRef<AbortController | null>(null);
@@ -48,8 +49,10 @@ function Standards({ token }: { token: string }) {
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
-  return <div className="space-y-6 pt-4"><PageHeader title="Standard prices" /><p className="text-sm text-muted-foreground">Manage the standard prices charged to customers. Use Workspace prices for workspace-specific pricing and Promotions for temporary discounts. Provider purchase rates are managed separately. Publishing a price does not make a model available for sale.</p>
+  return <div className="space-y-6"><PageHeader title="Pricing" /><p className="text-sm text-muted-foreground">Set the model prices charged across workspaces. Use promotions for temporary discounts. Models also need available supply and permission to be used.</p>
     <div className="flex flex-wrap items-center gap-3"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input type="search" aria-label="Filter standard models" placeholder="Filter by model name…" value={filter} onChange={event => setFilter(event.target.value)} /></div><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button><Button disabled={loading || !!error} onClick={() => setEditor({ kind: 'text', previous: null })}>Publish text price</Button><Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: 'media', previous: null })}>Publish media price</Button></div>
+    <Button ref={legacyOpener} variant="link" className="h-auto p-0" onClick={() => setLegacyOpen(true)}>Existing media contracts</Button>
+    {legacyOpen && <LegacyMediaContracts token={token} returnFocus={legacyOpener} onClose={() => setLegacyOpen(false)}/>}
     {notice && <p role="status">{notice}</p>}
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" disabled={loading} onClick={() => void load(failed)}>Retry prices</Button></AlertDescription></Alert>}
     {loading && !rows.length && <p role="status">Loading standard prices…</p>}

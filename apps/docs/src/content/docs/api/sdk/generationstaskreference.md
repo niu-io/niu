@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type GenerationsTaskReference = {
     id: string;
+    reference?: string;
     kind: 'video';
     model: string;
     artifacts: Array<{

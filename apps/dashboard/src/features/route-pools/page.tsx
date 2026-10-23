@@ -114,7 +114,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
   }, [pools, filter, scopeFilter, organizations]);
 
   return (
-    <div className="space-y-6 pt-4">
+    <div className="space-y-6">
       <PageHeader
         title="Model pools"
         action={
@@ -137,10 +137,16 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
         }
       />
       <p className="text-sm text-muted-foreground">
-        Group multiple Provider model mappings under a single Niu alias with priority tiers and weighted selection. Highest eligible priority wins, with weighted selection inside that tier. Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; uncertain or streamed outcomes never trigger automatic failover.
+        Give multiple Provider model routes one model name, then choose their priority and traffic share.
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
+        <Popover><PopoverTrigger asChild><Button variant="ghost" size="sm">How routing works</Button></PopoverTrigger><PopoverContent align="start" className="space-y-3 text-sm">
+          <h2 className="font-semibold">Selection and failover</h2>
+          <p>The highest eligible priority wins. Within that tier, weights determine traffic share.</p>
+          <p>Chat pools try at most one successor after a qualified OpenRouter authentication rejection. Uncertain or streamed outcomes never trigger automatic failover.</p>
+          <p>Configure Provider model mappings before adding them to a pool.</p>
+        </PopoverContent></Popover>
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -325,7 +331,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             <p className="mt-1 text-sm text-muted-foreground">
               {pools.length > 0
                 ? 'Try clearing the search query or switching the scope filter.'
-                : 'Create a model pool to combine multiple Provider model routes under one alias with priority and weight tiers.'}
+                : 'Start by choosing the Provider model routes this pool should use.'}
             </p>
             <div className="mt-4 flex justify-center gap-2">
               {pools.length > 0 ? (

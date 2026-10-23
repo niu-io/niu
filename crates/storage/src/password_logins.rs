@@ -50,6 +50,22 @@ fn email_address(email: &str) -> Option<String> {
 }
 
 impl Store {
+    /// Non-secret configuration for an authorized member manager. Callers must
+    /// check the member scope first; this does not grant identity discovery.
+    pub async fn member_password_configuration(
+        &self,
+        operator_id: Uuid,
+    ) -> Result<Option<(String, i64)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT c.email,c.revision FROM member_password_credentials c \
+             JOIN admin_operators o ON o.id=c.operator_id \
+             WHERE c.operator_id=$1 AND o.revoked_at IS NULL",
+        )
+        .bind(operator_id)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     /// Called only by the explicitly enabled, loopback development launcher.
     /// Never reset a saved password, profile, role, or revocation on restart.
     pub async fn provision_development_member(

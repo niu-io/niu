@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +59,8 @@ export default function MediaRatePublisher({ token, supplier, organization, prev
   const [model, setModel] = useState(base?.dimensions.model ?? '');
   const [resolution, setResolution] = useState(base?.dimensions.resolution ?? '');
   const [reference, setReference] = useState(base?.dimensions.reference_video ?? false);
-  const [currency, setCurrency] = useState(base?.currency ?? 'CNY');
+  const {currency:platformCurrency}=usePlatformCurrency();
+  const currency=base?.currency ?? platformCurrency;
   const [meter, setMeter] = useState(base?.meter ?? '');
   const [places, setPlaces] = useState(base?.decimal_places ?? 9);
   const [price, setPrice] = useState(base ? amount(base.amount_units, base.decimal_places) : '');
@@ -160,12 +163,12 @@ export default function MediaRatePublisher({ token, supplier, organization, prev
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent className="niu-modal vendor-dialog" showCloseButton={!busy}>
     <DialogHeader><DialogTitle>{previous ? customer ? 'Replace selling rate' : 'Replace media rate' : customer ? 'Publish selling rate' : 'Publish media rate'}</DialogTitle><DialogDescription>{previous ? 'New terms start when the previous rate ends. Existing jobs keep their original price.' : customer ? 'Customer prices and the reviewed maximum liability for this specification.' : 'Agreed Provider purchase terms, separate from customer selling prices.'}</DialogDescription></DialogHeader>
     {readError && <div role="alert" className="text-sm">{readError} <Button variant="ghost" size="sm" onClick={() => cursor ? void more() : setReadRevision(value => value + 1)}>Retry</Button></div>}
-    {loading && !models.length ? <p role="status">Loading model choices…</p> : !readError && !models.length && !cursor ? <p>No eligible media models. Configure a media schema and qualify an active offer first.</p> : <form onSubmit={event => void submit(event)} className="min-w-0 space-y-4">
+    {loading && !models.length ? <p role="status">Loading model choices…</p> : !readError && !models.length && !cursor ? <div className="space-y-3"><p>No eligible media models. <Link className="underline" to="/admin/providers" target="_blank" rel="noopener noreferrer">Configure and qualify a Provider model (opens in a new tab)</Link>, then refresh the choices here.</p><Button variant="outline" onClick={() => setReadRevision(value => value + 1)}>Refresh model choices</Button></div> : <form onSubmit={event => void submit(event)} className="min-w-0 space-y-4">
       <div className="min-w-0 space-y-2"><Label htmlFor="media-rate-model">Model</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="media-rate-model" type="button" variant="outline" className="h-auto min-h-9 min-w-0 w-full justify-between whitespace-normal py-2 text-left" disabled={Boolean(previous) || Boolean(frozen) || busy}>{selected ? `${selected.model_alias} · ${selected.api_key_name}` : base?.dimensions.model ?? 'Choose model'}<ChevronDown aria-hidden="true" className="size-4 shrink-0" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-72 max-w-[calc(100vw-2rem)] overflow-y-auto"><DropdownMenuRadioGroup value={model} onValueChange={value => { setModel(value); setResolution(''); setReference(false); }}>{models.map(item => <DropdownMenuRadioItem key={item.model_alias} value={item.model_alias}>{item.model_alias} · {item.api_key_name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
       {cursor && <Button type="button" variant="ghost" size="sm" disabled={loading || Boolean(frozen)} onClick={() => void more()}>{loading ? 'Loading…' : 'Load more models'}</Button>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="min-w-0 space-y-2"><Label htmlFor="media-rate-resolution">Resolution</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="media-rate-resolution" type="button" variant="outline" className="w-full justify-between" disabled={!selected || Boolean(previous) || Boolean(frozen) || busy}>{resolution || 'Choose resolution'}<ChevronDown aria-hidden="true" className="size-4 shrink-0" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={resolution} onValueChange={setResolution}>{selected?.resolutions.map(value => <DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
-        <div className="min-w-0 space-y-2"><Label htmlFor="media-rate-currency">Currency</Label><Input id="media-rate-currency" required maxLength={3} value={currency} onChange={event => setCurrency(event.target.value.toUpperCase())} disabled={Boolean(frozen) || busy} /></div>
+        <p className="text-sm text-muted-foreground">Prices in {currency || 'the platform currency (configure in Admin)'}.</p>
       </div>
       <div className="flex items-center gap-2"><Checkbox id="media-rate-reference" checked={reference} onCheckedChange={checked => setReference(checked === true)} disabled={!selected?.reference_video || Boolean(previous) || Boolean(frozen) || busy} /><Label htmlFor="media-rate-reference">With video reference</Label></div>
       {selected && !selected.resolutions.length && <p className="text-sm text-muted-foreground">This model has no configured resolution choices. Update its capability schema first.</p>}

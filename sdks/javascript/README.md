@@ -100,7 +100,7 @@ establish that upstream execution stopped or that no charge was incurred.
 
 Use `iterateWorkspaces`, `iterateWorkspaceKeys`, `iterateChatSessions` and
 `iterateModelRoutePools` for item-by-item traversal. Saved inventory also offers
-`admin.generations(scope).sessions.iterate()` for Video and `.iterateChat()` for
+`admin.sessions(workspaceId).iterate()` for Video and `.iterateChat()` for
 Chat. Their existing page methods and wire cursor names remain available.
 
 ```ts
@@ -932,3 +932,27 @@ inference, commercial supply or customer-funded settlement readiness.
 ## Video API integration guide
 
 The [video guide](../../apps/docs/src/content/docs/reference/video.mdx) maps every generation, saved-job, result, asset-group, asset and verification-session endpoint to its public SDK method. The docs site exposes it at `/docs/reference/video/`, including generation/wait/download examples, model-specific controls, idempotency and unknown-state handling, and current verification boundaries.
+
+
+## Workspace route migration
+
+Saved content now uses `/api/v1/workspaces/{workspace}`: `sessions`, `chats`,
+`tasks`, `artifacts`, `assets`, and Video drafts/intents. Pass `{ workspaceId }`
+to the corresponding admin methods; existing `{ organizationId, projectId }`
+arguments remain supported. Deploy the updated server before this SDK version.
+Even when configured with an `/admin/v1` base URL, these calls select `/api/v1`.
+
+Use `admin.sessions(workspaceId)` for saved timelines. `.list()` and `.retrieve()`
+select Video, while `.listChat()` and `.retrieveChat()` select the Chat projection.
+Every request includes its category: a UUID alone cannot distinguish stores.
+Chat writes retain the guarded Chat methods. The older
+`admin.generations(scope).sessions` facade delegates to the same methods.
+
+Pool listing uses `GET /api/v1/pools`. Member reads and history encode the exact
+alias as unpadded base64url; callers still pass the ordinary alias to
+`getModelRoutePool` and `listModelRoutePoolHistory`. This safely handles `/`, `%`,
+`?`, `#` and other visible ASCII punctuation. The server retains the original
+query-based member and `/index` compatibility routes.
+
+See [the migration matrix](../../docs/reference/api-route-migrations.md) for
+HTTP contracts, authority, identity, revision and replay behavior.

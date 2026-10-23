@@ -1,3 +1,7 @@
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { confirmedKeyValidationFailure, forgetPendingKeyMutation, readPendingKeyMutation, reconcileKeyMutation, recoveryCacheKey, savePendingKeyMutation, submitKeyMutation, type PendingKeyMutation } from '../mutation-recovery';
+import { currencySymbol } from '@/lib/money';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { IconPencil as Pencil } from '@tabler/icons-react';
 import { IconSearch as Search } from '@tabler/icons-react';
@@ -25,9 +29,9 @@ import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/PageHeader';
 import { useDashboardContext, type Model } from '@/app/dashboard-context';
 import { amountToNanos, money } from '@/lib/money';
-import { keyRequest, keyStatus, keyLastUsed, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
+import { KeyRequestError, keyRequest, keyStatus, keyLastUsed, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
 
-type KeyDialog = { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
+type KeyDialog = { kind: 'recover' } | { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
 const expiryOptions = [{ label: '7 days', seconds: 7 * 86400 }, { label: '30 days', seconds: 30 * 86400 }, { label: '90 days', seconds: 90 * 86400 }, { label: '1 year', seconds: 365 * 86400 }, { label: 'Never', seconds: null }];
 
 function baseUrl() {
@@ -86,7 +90,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const [ttl, setTtl] = useState<number|null>(expiryOptions[1].seconds);
   const [allowedModels, setAllowedModels] = useState<string[]>(['*']);
   const [showAdvancedPolicies, setShowAdvancedPolicies] = useState(false);
-  const [spendingCurrency, setSpendingCurrency] = useState('USD');
+  const {currency:spendingCurrency} = usePlatformCurrency();
   const [spendingAmount, setSpendingAmount] = useState('');
   const [requestsPerMinute, setRequestsPerMinute] = useState('');
   const [maxConcurrentRequests, setMaxConcurrentRequests] = useState('');
@@ -99,6 +103,12 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const root = workspacePath(location.pathname);
   const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
   const canIssue = canWrite && Boolean(workspace);
+  const cacheKey = recoveryCacheKey(session?.operator?.id ?? 'installation', `${initialScope?.organizationId ?? ''}:${initialScope?.projectId ?? ''}`);
+  const [recovery, setRecovery] = useState<PendingKeyMutation | null>(null);
+  const [recoveredKey, setRecoveredKey] = useState<ProjectKey | null>(null);
+  const [recoveryDenied, setRecoveryDenied] = useState(false);
+  const [cacheError, setCacheError] = useState('');
+
   const showActions = canWrite && keys.some(key => !key.revoked && !key.expired);
   const modelIds = models.map(model => typeof model === 'string' ? model : model.id);
   const exampleModel = secretModel || modelIds[0] || '';
@@ -112,7 +122,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const loadController = useRef<AbortController | null>(null);
   const mutationController = useRef<AbortController | null>(null);
-  useEffect(() => () => mutationController.current?.abort(), [collectionPath, token]);
+  useEffect(() => () => mutationController.current?.abort(), [collectionPath, token, canWrite]);
 
   async function reload() {
     loadController.current?.abort();
@@ -133,12 +143,105 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
 
   useEffect(() => { setKeys([]); void reload(); return () => loadController.current?.abort(); }, [collectionPath, token]);
 
+  useEffect(() => {
+    setDialog(null); setIssued(null); setBusy(false); setRecoveredKey(null); setRecoveryDenied(false); setCacheError('');
+    try { setRecovery(initialScope ? readPendingKeyMutation(localStorage, cacheKey) : null); }
+    catch (cause) { setRecovery(null); setCacheError(cause instanceof Error ? cause.message : 'Key recovery is unavailable.'); }
+  }, [cacheKey, token, canWrite]);
+
+  function clearRecovery(pending: PendingKeyMutation) {
+    forgetPendingKeyMutation(localStorage, cacheKey, pending.requestId);
+    setRecovery(null); setRecoveredKey(null); setRecoveryDenied(false);
+  }
+
+  async function checkRecovery(pending = recovery) {
+    if (!pending || !canIssue || busy || recoveryDenied) return;
+    const controller = new AbortController(); mutationController.current = controller;
+    setBusy(true); setDialogError('');
+    try {
+      const result = await reconcileKeyMutation(token, collectionPath, pending, controller.signal);
+      if (controller.signal.aborted) return;
+      if (result.kind === 'recovered') {
+        setRecoveredKey(result.key);
+        if (pending.action === 'rotate' && pending.keyId) forgetChatKey(pending.keyId);
+        await reload();
+      } else setDialogError('No completed result was found yet. The request may still be processing. You can retry the same request safely.');
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setRecoveryDenied(cause instanceof KeyRequestError && [401,403].includes(cause.status));
+        setDialogError(cause instanceof Error ? cause.message : 'Could not check the saved result.');
+      }
+    } finally { if (!controller.signal.aborted) setBusy(false); }
+  }
+
+  async function sendKeyRequest(pending: PendingKeyMutation) {
+    if (!canIssue || busy || recoveryDenied || cacheError) return;
+    try {
+      const saved = readPendingKeyMutation(localStorage, cacheKey);
+      if (saved && saved.requestId !== pending.requestId) {
+        setRecovery(saved); setRecoveredKey(null); setDialog({kind:'recover'}); return;
+      }
+      savePendingKeyMutation(localStorage, cacheKey, pending);
+    }
+    catch (cause) { setDialogError(cause instanceof Error ? cause.message : 'The request has not been sent.'); return; }
+    setRecovery(pending);
+    const controller = new AbortController(); mutationController.current = controller;
+    setBusy(true); setDialogError('');
+    try {
+      const result = await submitKeyMutation(token, collectionPath, pending, controller.signal);
+      if (controller.signal.aborted) return;
+      if (result.kind === 'issued') {
+        clearRecovery(pending); setIssued(result.issued);
+        const effectiveModels = result.issued.allowed_models ?? result.issued.key?.allowed_models
+          ?? (pending.action === 'create' ? (pending.body?.allowed_models as string[] | undefined) ?? ['*'] : keys.find(key => key.id === pending.keyId)?.allowed_models ?? ['*']);
+        setSecretModel(effectiveModels.includes('*') ? modelIds[0] ?? '' : effectiveModels[0] ?? '');
+        if (initialScope) rememberChatKey({...result.issued,name:pending.label,allowedModels:effectiveModels,...initialScope});
+        if (pending.action === 'rotate' && pending.keyId) forgetChatKey(pending.keyId);
+        setDialog({kind:'secret'});
+      } else {
+        setRecoveredKey(result.kind === 'recovered' ? result.key : null);
+        if (result.kind === 'recovered' && pending.action === 'rotate' && pending.keyId) forgetChatKey(pending.keyId);
+        setDialog({kind:'recover'});
+      }
+      await reload();
+    } catch (cause) {
+      if (controller.signal.aborted) return;
+      if (confirmedKeyValidationFailure(cause)) {
+        clearRecovery(pending);
+        // The unchanged form remains correctable after a confirmed rejection.
+        if (dialog?.kind === 'recover') { setDialog(null); setCopyError(cause instanceof Error ? cause.message : 'The key request was rejected. Review the input before creating a new request.'); }
+      } else {
+        setRecoveryDenied(cause instanceof KeyRequestError && [401,403].includes(cause.status));
+        setDialog({kind:'recover'});
+      }
+      setDialogError(cause instanceof Error ? cause.message : 'The result could not be confirmed.');
+    } finally { if (!controller.signal.aborted) setBusy(false); }
+  }
+
+  async function finishRecovery() {
+    if (!recovery || !recoveredKey || !canIssue || busy || recoveryDenied) return;
+    const pending = recovery, key = recoveredKey;
+    const controller = new AbortController(); mutationController.current = controller;
+    setBusy(true); setDialogError('');
+    try {
+      if (!key.revoked && !key.expired) await keyRequest<void>(token, `${collectionPath}/${encodeURIComponent(key.id)}`, 'DELETE', undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      forgetChatKey(key.id); clearRecovery(pending); setDialog(null); await reload();
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setRecoveryDenied(cause instanceof KeyRequestError && [401,403].includes(cause.status));
+        setDialogError(cause instanceof Error ? cause.message : 'Revocation could not be confirmed. Check the saved result before continuing.');
+      }
+    } finally { if (!controller.signal.aborted) setBusy(false); }
+  }
+
   function openCreate() {
+    if (recovery || cacheError) { setDialog({kind:'recover'}); return; }
+
     setName('');
     setTtl(expiryOptions[1].seconds);
     setAllowedModels(['*']);
     setShowAdvancedPolicies(false);
-    setSpendingCurrency('USD');
     setSpendingAmount('');
     setRequestsPerMinute('');
     setMaxConcurrentRequests('');
@@ -204,39 +307,12 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
       setDialogError(validationError instanceof Error ? validationError.message : 'Enter valid key limits.');
       return;
     }
-    const pending = new AbortController();
-    mutationController.current = pending;
-    setBusy(true); setDialogError('');
-    try {
-      const result = await keyRequest<IssuedProjectKey>(token, collectionPath, 'POST', body, pending.signal);
-      if (pending.signal.aborted) return;
-      setIssued(result);
-      const effectiveModels = result.allowed_models ?? allowedModels;
-      setSecretModel(effectiveModels.includes('*') ? modelIds[0] ?? '' : effectiveModels[0] ?? modelIds[0] ?? '');
-      if (initialScope) rememberChatKey({ ...result, name: name.trim(), allowedModels: effectiveModels, ...initialScope });
-      setDialog({ kind: 'secret' });
-      await reload();
-    } catch (cause) {
-      if (!pending.signal.aborted) setDialogError(cause instanceof Error ? cause.message : 'Could not create this key.');
-    } finally { if (!pending.signal.aborted) setBusy(false); }
+    await sendKeyRequest({version:1,requestId:crypto.randomUUID(),action:'create',label:name.trim(),body});
   }
 
   async function rotate(key: ProjectKey) {
-    if (!collectionPath || busy) return;
-    const pending = new AbortController();
-    mutationController.current = pending;
-    setBusy(true); setDialogError('');
-    try {
-      const result = await keyRequest<IssuedProjectKey>(token, `${collectionPath}/${encodeURIComponent(key.id)}/rotate`, 'POST', undefined, pending.signal);
-      if (pending.signal.aborted) return;
-      setIssued(result);
-      setSecretModel(key.allowed_models.includes('*') ? modelIds[0] ?? '' : key.allowed_models[0] ?? modelIds[0] ?? '');
-      if (initialScope) rememberChatKey({ ...result, name: key.name, allowedModels: key.allowed_models, ...initialScope });
-      setDialog({ kind: 'secret', key });
-      await reload();
-    } catch (cause) {
-      if (!pending.signal.aborted) setDialogError(cause instanceof Error ? cause.message : 'Could not rotate this key.');
-    } finally { if (!pending.signal.aborted) setBusy(false); }
+    if (recovery || cacheError) { setDialog({kind:'recover'}); return; }
+    await sendKeyRequest({version:1,requestId:crypto.randomUUID(),action:'rotate',label:key.name,keyId:key.id});
   }
 
   async function revoke(key: ProjectKey) {
@@ -256,11 +332,11 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   }
 
   const dialogOpen = dialog !== null;
-  const dialogTitle = dialog?.kind === 'secret' ? 'Save your API key'
+  const dialogTitle = dialog?.kind === 'recover' ? 'Review key request' : dialog?.kind === 'secret' ? 'Save your API key'
     : dialog?.kind === 'rotate' ? 'Rotate API key'
       : dialog?.kind === 'revoke' ? 'Revoke API key'
         : 'Create an API key';
-  const dialogDescription = dialog?.kind === 'secret'
+  const dialogDescription = dialog?.kind === 'recover' ? 'Confirm what happened before creating or rotating another key.' : dialog?.kind === 'secret'
     ? 'This secret is shown once. Copy it now, then use it from your application.'
     : dialog?.kind === 'rotate' ? `Rotating ${dialog.key.name} immediately revokes its current secret.`
       : dialog?.kind === 'revoke' ? `Requests using ${dialog.key.name} will stop working immediately.`
@@ -270,6 +346,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
     <PageHeader title="API keys" action={canIssue
       ? <Button className="header-icon-action" aria-label="New API key" title="New API key" onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>New API key</span></Button>
       : undefined} />
+    {(recovery || cacheError) && <Alert><AlertTitle>Key request needs review</AlertTitle><AlertDescription><p>{cacheError || (canIssue ? 'A previous key request has an unresolved outcome.' : 'Write access is required to recover this key request. Contact your workspace owner.')}</p>{canIssue && <Button variant="outline" onClick={event => {dialogReturnFocus.current=event.currentTarget;setDialogError('');setDialog({kind:'recover'});}}>Review request</Button>}</AlertDescription></Alert>}
     {!workspaceLoading && !workspace && <p className="key-scope-empty">Choose a workspace from the sidebar to manage its keys.</p>}
     {workspace && <div className="keys-scope-line"><Popover><PopoverTrigger asChild><Button ref={searchTriggerRef} type="button" variant="ghost" size="icon" aria-label="Search API keys" title="Search API keys" className={keyQuery ? "text-primary bg-accent" : undefined}><Search size={17}/></Button></PopoverTrigger><PopoverContent align="start" collisionPadding={16} className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus ref={searchInputRef} aria-label="Search API keys" placeholder="Search keys…" value={keyQuery} onChange={event => setKeyQuery(event.target.value)} />{keyQuery && <Button variant="ghost" size="sm" onClick={()=>setKeyQuery('')}>Reset search</Button>}</PopoverContent></Popover><span role="status">{loading ? (keys.length ? 'Refreshing keys…' : 'Loading keys…') : error && !keys.length ? 'Keys unavailable' : keyQuery.trim() ? `${visibleKeys.length} of ${keys.length} ${keys.length === 1 ? 'key' : 'keys'}` : `${keys.length} ${keys.length === 1 ? 'key' : 'keys'}`}</span><Button type="button" variant="ghost" size="icon" aria-label="Refresh API keys" title="Refresh" disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
     {!canWrite && workspace && <p className="key-read-only">You have read-only access.</p>}
@@ -297,6 +374,15 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
           <div><DialogTitle>{dialogTitle}</DialogTitle>{dialogDescription && <DialogDescription>{dialogDescription}</DialogDescription>}</div>
           <DialogClose className="niu-modal-close" aria-label="Close dialog" disabled={busy}><X size={18} /></DialogClose>
         </DialogHeader>
+      {dialog?.kind === 'recover' && <div className="niu-modal-form">
+        {cacheError ? <><p role="alert" className="error-text">{cacheError}</p><p>Review the key list and revoke any key whose secret you did not save before clearing this reminder. Clearing it does not revoke a key.</p><Button variant="outline" onClick={() => { try { localStorage.removeItem(cacheKey); setCacheError(''); setDialog(null); } catch { setCacheError('Browser storage is unavailable. Restore access to browser storage before clearing this reminder.'); } }}>I reviewed my keys</Button></> : <>
+          <p className="break-words">{recovery?.label}</p>
+          {recoveredKey ? <><p>{recovery?.action === 'rotate' ? 'Rotation completed. The old secret no longer works.' : 'The key was created.'} Its secret cannot be retrieved.</p><p>{recoveredKey.revoked || recoveredKey.expired ? 'This key is no longer active. You can finish recovery and create a new key.' : 'Revoke this key before creating a new one. Revocation prevents new requests using this key.'}</p></> : <p>{recovery?.action === 'rotate' ? 'Rotation may have completed, so the old secret may no longer work.' : 'Creation may have completed even though its response was not received.'} Check the saved result or retry the same request. A retry will not create a second key.</p>}
+          {(!canIssue || recoveryDenied) && <p role="alert">Access is unavailable. Sign in again with workspace write access or ask the workspace owner to review this request.</p>}
+          {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
+          <footer className="niu-modal-actions flex-wrap"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>Close</Button>{!recoveredKey && recovery && <Button variant="outline" disabled={busy || !canIssue || recoveryDenied} onClick={() => void sendKeyRequest(recovery)}>Retry same request</Button>}<Button variant={recoveredKey ? 'outline' : 'default'} disabled={busy || !canIssue || recoveryDenied} onClick={() => void checkRecovery()}>{busy ? 'Working…' : 'Check saved result'}</Button>{recoveredKey && <Button variant={recoveredKey.revoked || recoveredKey.expired ? 'default' : 'destructive'} disabled={busy || !canIssue || recoveryDenied} onClick={() => void finishRecovery()}>{recoveredKey.revoked || recoveredKey.expired ? 'Finish recovery' : 'Revoke key'}</Button>}</footer>
+        </>}
+      </div>}
       {dialog?.kind === 'create' && <form className="niu-modal-form" onSubmit={event => void issue(event)}>
         <Label htmlFor="api-key-name">Name<Input id="api-key-name" disabled={busy} autoFocus maxLength={200} autoComplete="off" placeholder="e.g. production app" value={name} onChange={event => setName(event.target.value)} required /></Label>
         <div className="key-expiration-field">
@@ -346,26 +432,11 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
             <ChevronDown size={15} className={showAdvancedPolicies ? 'rotate-180 transition-transform' : 'transition-transform'} />
           </Button>
           {showAdvancedPolicies && <div className="grid gap-3 rounded-md bg-muted/40 p-3">
-            <div className="grid gap-2 sm:grid-cols-[7rem_1fr] sm:items-end">
+            <div className="grid gap-2">
               <div className="grid gap-1.5">
-                <Label htmlFor="api-key-spending-currency">Currency</Label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button id="api-key-spending-currency" disabled={busy} type="button" variant="outline" className="h-10 w-full justify-between font-normal">
-                      {spendingCurrency}
-                      <ChevronDown aria-hidden="true" size={15} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuRadioGroup value={spendingCurrency} onValueChange={setSpendingCurrency}>
-                      {['USD', 'CNY'].map(curr => <DropdownMenuRadioItem key={curr} value={curr}>{curr === 'CNY' ? '¥ CNY' : '$ USD'}</DropdownMenuRadioItem>)}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="api-key-spending-limit">Spending limit ({spendingCurrency})</Label>
-                <Input id="api-key-spending-limit" inputMode="decimal" disabled={busy} placeholder="Unlimited" value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
+                <Label htmlFor="api-key-spending-limit">Spending limit{spendingCurrency ? ` (${currencySymbol(spendingCurrency)})` : ''}</Label>
+                <Input id="api-key-spending-limit" aria-describedby="api-key-spending-help" inputMode="decimal" disabled={busy || !spendingCurrency} placeholder="Unlimited" value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
+                <p id="api-key-spending-help" className="text-xs text-muted-foreground">Lifetime spending allowance for this key. It does not reset monthly. Leave blank for unlimited spending.</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -379,9 +450,10 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="api-key-tpm">Tokens / min</Label>
-                <Input id="api-key-tpm" inputMode="numeric" disabled={busy} placeholder="Unlimited" value={tokensPerMinute} onChange={event => setTokensPerMinute(event.target.value)} />
+                <Input id="api-key-tpm" aria-describedby="api-key-token-help" inputMode="numeric" disabled={busy} placeholder="Unlimited" value={tokensPerMinute} onChange={event => setTokensPerMinute(event.target.value)} />
               </div>
             </div>
+            <p id="api-key-token-help" className="text-xs text-muted-foreground">A finite token limit counts known usage and unresolved estimates. It requires supported text requests with an explicit output-token maximum and blocks video requests. Leave blank for no token-rate limit.</p>
             <div className="grid gap-1.5">
               <Label htmlFor="api-key-cidrs">Allowed IP addresses or CIDRs</Label>
               <Textarea id="api-key-cidrs" rows={2} disabled={busy} className="font-mono text-xs" placeholder="Leave blank to allow all sources (one IP or CIDR per line)" value={allowedCidrsText} onChange={event => setAllowedCidrsText(event.target.value)} />

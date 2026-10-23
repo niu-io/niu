@@ -159,7 +159,12 @@ def build(env):
     print('Building native gateway…', flush=True)
     with open(STATE / 'build.log', 'a') as log:
         for repo, package in ((CORE, 'niu-gateway'),):
-            run(['cargo', 'build', '--locked', '-p', package], repo, env, stdout=log, stderr=subprocess.STDOUT)
+            run(['cargo', 'build', '--locked', '-p', package] + (['--features', 'mock-payments'] if env.get('NIU_MOCK_PAYMENT_URL') else []), repo, env, stdout=log, stderr=subprocess.STDOUT)
+    # Other tasks may build the shared target without the development features.
+    # Pin the successful build before any runtime start or restart.
+    pending = STATE / 'niu-gateway.next'
+    shutil.copy2(ROOT / 'target/debug/niu-gateway', pending)
+    pending.replace(STATE / 'niu-gateway')
 
 
 def main():
@@ -169,7 +174,10 @@ def main():
     parser.add_argument('--no-watch', action='store_true', help='Disable Rust rebuilds; packaged dashboard rebuilds remain enabled')
     parser.add_argument('--hmr', action='store_true', help='Compatibility flag; frontend hot reload is the default')
     parser.add_argument('--packaged', action='store_true', help='Serve the built package directly on port 2566 for package verification')
+    parser.add_argument('--mock-payments', action='store_true', help='Enable the isolated local test merchant; no real funds')
     args = parser.parse_args()
+    if args.mock_payments and args.packaged:
+        parser.error('--mock-payments currently requires the live-source dashboard, not --packaged')
     if args.stop:
         pidfile = STATE / 'launcher.pid'
         if not pidfile.exists():
@@ -222,7 +230,10 @@ def main():
     for tool in ('pnpm', 'initdb', 'pg_ctl', 'psql'):
         if not shutil.which(tool):
             raise RuntimeError(f'{tool} is required on PATH')
-    active_ports = {'gateway': 2566} if args.packaged else PORTS
+    mock_available = not args.packaged
+    active_ports = {'gateway': 2566} if args.packaged else dict(PORTS)
+    if mock_available:
+        active_ports['mock-payments'] = 2570
     for name, port in active_ports.items():
         with socket.socket() as check:
             try:
@@ -269,19 +280,35 @@ def main():
         if key.endswith('DATABASE_URL') and value != env.get(key):
             raise RuntimeError(f'{key} in .env must match the managed development database')
         env[key] = value
+    if mock_available:
+        print('Mock payment gateway available in Admin → Payment gateways (disabled for new installations). LLM requests still incur real upstream charges; keep API keys private.', flush=True)
+        credentials = STATE / 'mock-payment-credentials.json'
+        if not credentials.exists():
+            credentials.write_text(json.dumps({'key': 'sk_test_' + secrets.token_hex(24), 'secret': 'whsec_' + secrets.token_hex(24)}))
+            credentials.chmod(0o600)
+        mock_credentials = json.loads(credentials.read_text())
+        env.update(NIU_ENVIRONMENT='test', NIU_MOCK_PAYMENT_URL='http://127.0.0.1:2570/',
+            NIU_MOCK_PAYMENT_KEY=mock_credentials['key'], NIU_MOCK_PAYMENT_SECRET=mock_credentials['secret'])
     for repo in (CORE,):
         run(['pnpm', 'install', '--frozen-lockfile'], repo, env, stdout=subprocess.DEVNULL)
     build(env)
     # Static fallbacks for gateway routes; edit via the HMR URLs below.
     for task in ('build:dashboard', 'build:docs', 'build:catalog'):
         run(['pnpm', task], CORE, env, stdout=subprocess.DEVNULL)
-    supervisor = spawn('runtime', [ROOT / 'target/debug/niu-gateway'], ROOT, env)
+    if mock_available:
+        run(['pnpm', 'exec', 'vite', 'build', '--config', 'mock-payments/vite.config.ts'], CORE / 'apps/dashboard', env)
+        spawn('mock-payments', [sys.executable, ROOT / 'tools/mock-payments/service.py', '--port', '2570',
+            '--state', STATE / 'mock-payments', '--callback', 'http://127.0.0.1:2567/payments/stripe/notify',
+            '--return-url', 'http://127.0.0.1:2566/settings/payments'] + ([] if args.mock_payments else ['--disabled']), ROOT, env)
+    supervisor = spawn('runtime', [STATE / 'niu-gateway'], ROOT, env)
     if not args.packaged:
         frontend_env = dict(env)
         frontend_env['NIU_DEV_GATEWAY_URL'] = 'http://127.0.0.1:2567'
         frontend_env['NIU_DEV_GATEWAY_LOGIN'] = '1'
         frontend_env['VITE_NIU_GATEWAY_LOGIN'] = '1'
         frontend_env['NIU_DEV_BASE'] = '/'
+        if mock_available:
+            frontend_env['VITE_NIU_MOCK_PAYMENTS'] = '1'
         spawn('dashboard', ['pnpm', 'exec', 'vite', '--strictPort', '--host', '127.0.0.1', '--port', '2566'], CORE / 'apps/dashboard', frontend_env)
     deadline = time.time() + 90
     while time.time() < deadline and not stopping:
@@ -290,8 +317,11 @@ def main():
             raise RuntimeError(f"Service exited: {', '.join(failed)}; inspect its log")
         try:
             for name, port in active_ports.items():
-                suffix = '/readyz' if name == 'gateway' else '/'
-                urllib.request.urlopen(f'http://127.0.0.1:{port}{suffix}', timeout=2).close()
+                suffix = '/readyz' if name == 'gateway' else '/healthz' if name == 'mock-payments' else '/'
+                try:
+                    urllib.request.urlopen(f'http://127.0.0.1:{port}{suffix}', timeout=2).close()
+                except urllib.error.HTTPError as error:
+                    if name != 'mock-payments' or error.code != 503: raise
             urllib.request.urlopen('http://127.0.0.1:2566/workspaces/default/', timeout=2).close()
             break
         except Exception:
@@ -323,7 +353,7 @@ def main():
                 continue
             terminate(supervisor)
             children[:] = [(name, proc) for name, proc in children if proc is not supervisor]
-            supervisor = spawn('runtime', [ROOT / 'target/debug/niu-gateway'], ROOT, env)
+            supervisor = spawn('runtime', [STATE / 'niu-gateway'], ROOT, env)
             print('Native runtime restarted.', flush=True)
         updated_dashboard = dashboard_source_stamp()
         if args.packaged and updated_dashboard != dashboard_stamp:

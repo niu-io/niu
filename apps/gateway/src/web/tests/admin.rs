@@ -834,7 +834,14 @@ async fn bootstrap_api_issues_scoped_keys_and_revokes_them(pool: sqlx::PgPool) {
 async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
     use axum::http::Method;
     use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
-    let state = test_state(None, pool.clone());
+    let mut state = test_state(None, pool.clone());
+    // Refs #101/#107: exercise policy authorization after global setup is ready.
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
     let scope = state.store.default_workspace().await.unwrap();
     let other = state
         .store
@@ -1095,12 +1102,35 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
             active_before
         );
     }
+    // UX-26: record the original decision before a later policy activation.
+    let denied_snapshot = state.store.guardrail_snapshot(scope, assignment_key.id)
+        .await.unwrap().unwrap();
+    state.store.record_guardrail_preparation_denial(
+        scope, assignment_key.id, &denied_snapshot, "model_denied",
+    ).await.unwrap();
     let relaxed = json!({"schema_version":1,"name":"Relaxed","models":{"mode":"allow_all"},"providers":{"mode":"inherit"}});
     state
         .store
         .activate_workspace_guardrail(scope, 1, &relaxed)
         .await
         .unwrap();
+    for (target, expected) in [(scope, StatusCode::OK), (other, StatusCode::FORBIDDEN)] {
+        let response = app.clone().oneshot(Request::get(format!(
+            "/api/v1/organizations/{}/projects/{}/guardrails/denials", target.organization_id, target.project_id,
+        )).header("authorization", format!("Bearer {}", viewer.token))
+          .body(axum::body::Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(response.status(), expected);
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        if expected == StatusCode::OK {
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(body["coverage"], "latest_100_preparation_denials");
+            assert_eq!(body["data"][0]["workspace_revision"], 1);
+            assert_eq!(body["data"][0]["workspace_policy_name"], "Restricted");
+            assert_eq!(body["data"][0]["reason"], "model_denied");
+            assert_eq!(body["data"][0]["key_name"], "Malformed policy fixture");
+            assert!(!String::from_utf8_lossy(&bytes).contains(&assignment_key.token));
+        }
+    }
     for (token, target, expected) in [
         (&viewer.token, scope, StatusCode::FORBIDDEN),
         (&writer.token, other, StatusCode::FORBIDDEN),
@@ -3188,4 +3218,739 @@ async fn image_detector_preview_requires_current_consent_and_workspace_write_acc
         "saving and revoking consent must not process content"
     );
     task.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn workspace_key_recovery_handles_lost_responses_and_rechecks_access(pool: PgPool) {
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+    let mut state = test_state(None, pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let scope = state.store.default_workspace().await.unwrap();
+    let member_scope = OperatorScope {
+        organization_id: scope.organization_id,
+        project_id: Some(scope.project_id),
+    };
+    let writer = state
+        .store
+        .create_operator(
+            member_scope,
+            "Recovery writer",
+            OperatorRole::Admin,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let viewer = state
+        .store
+        .create_operator(
+            member_scope,
+            "Recovery viewer",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state.clone());
+    // Optional isolated-browser acceptance harness. Normal test runs do not
+    // expose a server or write fixture credentials. The disposable DB runner
+    // owns this private directory and the server lifetime.
+    if let Ok(directory) = std::env::var("NIU_KEY_RECOVERY_FIXTURE_DIR") {
+        let directory = std::path::PathBuf::from(directory);
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        state
+            .store
+            .issue_key(scope, "Browser rotation fixture", &["*".into()], 3600)
+            .await
+            .unwrap();
+        let browser_app = app.clone();
+        let server = tokio::spawn(async move { axum::serve(listener, browser_app).await.unwrap() });
+        tokio::fs::write(directory.join("gateway.json"), serde_json::to_vec(&json!({
+            "origin":format!("http://{address}"),"token":writer.token,
+            "operator":writer.operator_id,"organization":scope.organization_id,"workspace":scope.project_id
+        })).unwrap()).await.unwrap();
+        let finished = tokio::time::timeout(std::time::Duration::from_secs(900), async {
+            while !directory.join("finished").exists() {
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            }
+        })
+        .await;
+        server.abort();
+        finished.expect("Browser acceptance did not finish within its bounded fixture lifetime");
+        let counts: (i64,i64) = sqlx::query_as("SELECT count(*),count(*) FILTER(WHERE revoked_at IS NOT NULL) FROM api_keys WHERE name='Browser recovery fixture'")
+            .fetch_one(&pool).await.unwrap();
+        assert_eq!(
+            counts,
+            (1, 1),
+            "Response loss must create exactly one key, then explicit recovery revokes it"
+        );
+        let rotated: (i64,i64) = sqlx::query_as("SELECT count(*),count(*) FILTER(WHERE revoked_at IS NOT NULL) FROM api_keys WHERE name='Browser rotation fixture'")
+            .fetch_one(&pool).await.unwrap();
+        assert_eq!(
+            rotated,
+            (2, 2),
+            "Exactly one rotation must revoke the old key, then recovery revokes its replacement"
+        );
+    }
+
+    let request = Uuid::new_v4();
+    let path = format!("/api/v1/workspaces/{}/keys", scope.project_id);
+    let status_path = format!("{path}/requests/{request}");
+    let body = json!({"name":"HTTP recovery fixture","ttl_seconds":3600});
+    async fn call(
+        app: &Router,
+        token: &str,
+        path: &str,
+        method: &str,
+        request: Option<Uuid>,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
+        let mut builder = Request::builder()
+            .uri(path)
+            .method(method)
+            .header("authorization", format!("Bearer {token}"));
+        if let Some(request) = request {
+            builder = builder.header("idempotency-key", request.to_string());
+        }
+        if body.is_some() {
+            builder = builder.header("content-type", "application/json");
+        }
+        let response = app
+            .clone()
+            .oneshot(
+                builder
+                    .body(axum::body::Body::from(
+                        body.map(|v| v.to_string()).unwrap_or_default(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+    assert_eq!(
+        call(&app, &writer.token, &status_path, "GET", None, None)
+            .await
+            .1["data"],
+        Value::Null
+    );
+    let (code, first) = call(
+        &app,
+        &writer.token,
+        &path,
+        "POST",
+        Some(request),
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED);
+    assert!(first["token"].as_str().is_some());
+    let (code, replay) = call(
+        &app,
+        &writer.token,
+        &path,
+        "POST",
+        Some(request),
+        Some(body),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(replay["id"], first["id"]);
+    assert_eq!(replay["secret_available"], false);
+    assert!(replay.get("token").is_none());
+    let (code, status) = call(&app, &writer.token, &status_path, "GET", None, None).await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(status["data"]["key"]["id"], first["id"]);
+    assert!(
+        !status
+            .to_string()
+            .contains(first["token"].as_str().unwrap())
+    );
+    assert_eq!(
+        call(&app, &viewer.token, &status_path, "GET", None, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let rotate_id = Uuid::new_v4();
+    let rotate_path = format!("{path}/{}/rotate", first["id"].as_str().unwrap());
+    let (code, rotated) = call(
+        &app,
+        &writer.token,
+        &rotate_path,
+        "POST",
+        Some(rotate_id),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED);
+    let (code, replay) = call(
+        &app,
+        &writer.token,
+        &rotate_path,
+        "POST",
+        Some(rotate_id),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(replay["id"], rotated["id"]);
+    assert!(replay.get("token").is_none());
+    assert!(
+        state
+            .store
+            .authenticate(first["token"].as_str().unwrap())
+            .await
+            .is_err()
+    );
+    assert!(
+        state
+            .store
+            .authenticate(rotated["token"].as_str().unwrap())
+            .await
+            .is_ok()
+    );
+    state
+        .store
+        .revoke_operator(writer.operator_id, OperatorAuditActor::Installation)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(&app, &writer.token, &status_path, "GET", None, None)
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+// Refs #102: configured choices -> publication -> retry -> saved exact schedule.
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn retail_media_price_choices_publish_and_read_back_exactly(pool: PgPool) {
+    let mut state = test_state(None, pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let vendor = Uuid::new_v4();
+    sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'Media pricing fixture','openai','https://example.invalid/v1',$2)")
+        .bind(vendor).bind(vec![1u8;48]).execute(&pool).await.unwrap();
+    let mut schema = json!({
+        "version": 1,
+        "revision": "ark-output-v1",
+        "model_alias": "seedance-2.0",
+        "upstream_model": "doubao-seedance-2-0",
+        "channel": "ark-direct-v1",
+        "maximum_body_bytes": 16384,
+        "maximum_content_items": 8,
+        "inputs": {
+            "text": {
+                "maximum_items": 2,
+                "maximum_bytes": 1024,
+                "https": false,
+                "data_mime_types": [],
+                "roles": [],
+                "role_required": false
+            },
+            "image_url": {
+                "maximum_items": 4,
+                "maximum_bytes": 512,
+                "https": true,
+                "data_mime_types": ["image/png"],
+                "roles": ["first_frame", "reference_image"],
+                "role_required": false
+            },
+            "video_url": {
+                "maximum_items": 2,
+                "maximum_bytes": 512,
+                "https": true,
+                "data_mime_types": [],
+                "roles": ["reference_video"],
+                "role_required": false
+            },
+            "audio_url": {
+                "maximum_items": 2,
+                "maximum_bytes": 512,
+                "https": true,
+                "data_mime_types": [],
+                "roles": ["reference_audio"],
+                "role_required": false
+            }
+        },
+        "controls": {
+            "resolution": {"kind": "choice", "values": ["720p"], "default": "720p"},
+            "ratio": {"kind": "choice", "values": ["16:9"], "default": "16:9"},
+            "duration": {"kind": "integer", "minimum": 1, "maximum": 10, "default": 5},
+            "frames_per_second": {"kind": "integer", "minimum": 24, "maximum": 60, "default": 24}
+        },
+        "required_controls": [],
+        "exclusive_controls": [],
+        "callbacks_qualified": false,
+        "output": {
+            "specifications": [{"resolution": "720p", "ratio": "16:9", "width": 1280, "height": 720}],
+            "estimator": "SeedancePixelsV1",
+            "estimator_revision": "pixels-v1"
+        }
+    });
+    schema["model_alias"] = json!("review-video");
+    schema["upstream_model"] = json!("fixture");
+    sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('review-video',$1,'fixture',$2)")
+        .bind(vendor).bind(json!({"video_schema":schema})).execute(&pool).await.unwrap();
+    let app = router(state);
+    async fn call(app: &Router, method: &str, path: &str, body: Value) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+    let root = "/api/v1/pricing/standard-prices";
+    let (status, choices) = call(&app, "GET", &format!("{root}/models"), Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{choices}");
+    let choice = choices["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["model_alias"] == "review-video")
+        .unwrap();
+    let schedule = json!({"kind":"media","dimensions":{"model":"review-video","channel":choice["media"]["channel"],"resolution":choice["media"]["resolutions"][0],"reference_video":false},"meter":choice["media"]["meter"],"decimal_places":9,"amount_units":"70","per_quantity":{"numerator":"1000000","denominator":"1"},"minimum_quantity":{"numerator":"0","denominator":"1"},"rounding":"HalfEven"});
+    let input = json!({"model_alias":"review-video","currency":"USD","schedule":schedule,"expected_version":"0","idempotency_key":Uuid::new_v4(),"reason":"Media preparation regression"});
+    let (status, saved) = call(&app, "POST", root, input.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(call(&app, "POST", root, input).await.1, saved);
+    let (status, prices) = call(&app, "GET", root, Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{prices}");
+    let row = prices["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["model_alias"] == "review-video")
+        .unwrap();
+    assert_eq!(row["schedule"], schedule);
+    assert_eq!(row["version"], "1");
+    assert!(!prices.to_string().contains("credential_ciphertext"));
+}
+
+// Refs #107: diagnostic reads retain workspace authority and scoped key identity.
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn key_capacity_diagnostics_enforce_scope_and_read_permissions(pool: PgPool) {
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+    let mut state = test_state(None, pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let scope = state.store.default_workspace().await.unwrap();
+    let other = state
+        .store
+        .create_project(scope.organization_id, "Other capacity")
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "Capacity key", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let reader = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Capacity reader",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    async fn read(app: &Router, path: &str, token: &str) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        if status == StatusCode::OK {
+            assert_eq!(response.headers().get("cache-control").unwrap(), "no-store");
+        }
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+    let path = format!(
+        "/api/v1/organizations/{}/projects/{}/keys/{}/capacity",
+        scope.organization_id, scope.project_id, key.id
+    );
+    let (status, value) = read(&app, &path, &reader.token).await;
+    assert_eq!(status, StatusCode::OK, "{value}");
+    assert_eq!(value["total"], 0);
+    assert_eq!(
+        read(&app, &path, "invalid").await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        read(&app, &path, &key.token).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    let foreign = format!(
+        "/api/v1/organizations/{}/projects/{}/keys/{}/capacity",
+        scope.organization_id, other.project_id, key.id
+    );
+    assert_eq!(
+        read(&app, &foreign, &reader.token).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        read(&app, &foreign, "niu-test-admin-token-that-is-long-1234")
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        read(&app, &format!("{path}?kind=wrong"), &reader.token)
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        read(
+            &app,
+            &format!("{path}?after={}", Uuid::new_v4()),
+            &reader.token
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn operator_directory_api_scopes_filters_and_continuation(pool: PgPool) {
+    use axum::body::Body;
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+    let state = test_state(None, pool);
+    let workspace = state.store.default_workspace().await.unwrap();
+    let company = workspace.organization_id;
+    let owner = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: company,
+                project_id: None,
+            },
+            "Company owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let member = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: company,
+                project_id: Some(workspace.project_id),
+            },
+            "Workspace owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let viewer = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: company,
+                project_id: Some(workspace.project_id),
+            },
+            "Viewer",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    async fn get(app: &Router, path: &str, token: &str) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = axum::body::to_bytes(response.into_body(), 65536)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&body)
+                .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&body).into_owned())),
+        )
+    }
+    let path = format!("/api/v1/operators?organization_id={company}&limit=1");
+    let (status, first) = get(&app, &path, &owner.token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(first["data"].as_array().unwrap().len(), 1);
+    assert_eq!(first["data"][0]["id"], owner.operator_id.to_string());
+    let next = first["next_cursor"].as_str().unwrap();
+    let (_, second) = get(&app, &format!("{path}&after={next}"), &owner.token).await;
+    assert_eq!(second["data"][0]["id"], member.operator_id.to_string());
+    assert!(second["data"][0].get("token").is_none());
+    let (_, restricted) = get(&app, "/api/v1/operators", &member.token).await;
+    assert_eq!(restricted["data"].as_array().unwrap().len(), 2);
+    assert!(restricted["next_cursor"].is_null());
+    assert_eq!(
+        get(
+            &app,
+            &format!("{path}&after={}", owner.operator_id),
+            &member.token
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        get(
+            &app,
+            &format!("/api/v1/operators?organization_id={}", Uuid::new_v4()),
+            &owner.token
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&app, "/api/v1/operators?limit=0", &owner.token).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        get(&app, "/api/v1/operators?unknown=true", &owner.token)
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        get(&app, "/api/v1/operators", &viewer.token).await.0,
+        StatusCode::FORBIDDEN
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn identity_only_owner_creation_replays_without_credentials(pool: PgPool) {
+    use axum::body::Body;
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+    let state = test_state(None, pool.clone());
+    let workspace = state.store.default_workspace().await.unwrap();
+    let owner = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: workspace.organization_id,
+                project_id: None,
+            },
+            "Existing owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let scoped = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: workspace.organization_id,
+                project_id: Some(workspace.project_id),
+            },
+            "Workspace owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    async fn create(
+        app: &Router,
+        token: &str,
+        key: Option<&str>,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let mut builder = Request::builder()
+            .method("POST")
+            .uri("/api/v1/operators")
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json");
+        if let Some(key) = key {
+            builder = builder.header("idempotency-key", key);
+        }
+        let response = app
+            .clone()
+            .oneshot(builder.body(Body::from(body.to_string())).unwrap())
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), 65536)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+    let body = json!({"organization_id":workspace.organization_id,"project_id":null,"name":"New customer owner","role":"owner","issue_session":false});
+    assert_eq!(
+        create(&app, &owner.token, None, body.clone()).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        create(&app, &scoped.token, Some("new-owner"), body.clone())
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    let (status, first) = create(&app, &owner.token, Some("new-owner"), body.clone()).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert!(first["token"].is_null());
+    assert!(first["session"].is_null());
+    let (status, second) = create(&app, &owner.token, Some("new-owner"), body.clone()).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(first, second);
+    let mut changed = body.clone();
+    changed["name"] = json!("Another person");
+    assert_eq!(
+        create(&app, &owner.token, Some("new-owner"), changed)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    let mut unexpected = body.clone();
+    unexpected["expires_in_seconds"] = json!(3600);
+    assert_eq!(
+        create(&app, &owner.token, Some("new-owner"), unexpected.clone())
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    unexpected["issue_session"] = json!(true);
+    assert_eq!(
+        create(&app, &owner.token, Some("new-owner"), unexpected)
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    let id = Uuid::parse_str(first["operator"]["id"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM admin_sessions WHERE operator_id=$1")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn saved_detector_policy_restore_and_assignment_revalidate_current_eligibility(pool: PgPool) {
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+    use crate::guardrails::detector::{Config, CostMode, Runtime};
+    let mut state = test_state(None, pool);
+    state.store.configure_platform_currency("USD").await.unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let scope = state.store.default_workspace().await.unwrap();
+    let operator_scope = OperatorScope { organization_id: scope.organization_id, project_id: Some(scope.project_id) };
+    let writer = state.store.create_operator(operator_scope, "Policy manager", OperatorRole::Admin, 3600, OperatorAuditActor::Installation).await.unwrap();
+    let reader = state.store.create_operator(operator_scope, "Policy reader", OperatorRole::Viewer, 3600, OperatorAuditActor::Installation).await.unwrap();
+    let key = state.store.issue_key(scope, "Policy review key", &["*".into()], 3600).await.unwrap();
+    let config = Config {
+        authorized_workspaces: vec![scope.project_id], cost_mode: CostMode::DeclaredUnmetered,
+        endpoint: "http://127.0.0.1:1/detect".into(), api_key_env: "PATH".into(), revision: "saved-v1".into(),
+        recipient: "Original screening service".into(), region: "Local".into(), retention: "None".into(),
+        timeout_ms: 500, concurrency: 1, max_text_bytes: 1024,
+    };
+    let saved = json!({"schema_version":1,"name":"Saved screening","models":{"mode":"inherit"},"providers":{"mode":"inherit"},"input_detectors":[{"detector":"review","configuration_fingerprint":config.fingerprint(),"consent_to_external_processing":true}]});
+    state.store.activate_workspace_guardrail(scope, 0, &saved).await.unwrap();
+    let current = json!({"schema_version":1,"name":"Current policy","models":{"mode":"inherit"},"providers":{"mode":"inherit"}});
+    state.store.activate_workspace_guardrail(scope, 1, &current).await.unwrap();
+    let base = format!("/api/v1/organizations/{}/projects/{}/guardrails", scope.organization_id, scope.project_id);
+    let assignment = format!("/api/v1/organizations/{}/projects/{}/keys/{}/guardrail", scope.organization_id, scope.project_id, key.id);
+    for mode in ["changed", "removed", "workspace-disabled", "matching"] {
+        let mut candidate = config.clone();
+        if mode == "changed" { candidate.recipient = "Replacement service".into(); }
+        if mode == "workspace-disabled" { candidate.authorized_workspaces.clear(); }
+        let mut runtime_state = state.clone();
+        runtime_state.detectors = Arc::new(if mode == "removed" { HashMap::new() } else { HashMap::from([("review".into(), Runtime::new(candidate))]) });
+        let app = router(runtime_state);
+        for credential in [&reader.token, &writer.token] {
+            for (method, path, body) in [
+                ("POST", format!("{base}/rollback"), json!({"expected_revision":2,"target_revision":1})),
+                ("PUT", assignment.clone(), json!({"expected_assignment_revision":0,"policy_revision":1})),
+            ] {
+                let response = app.clone().oneshot(Request::builder().method(method).uri(path)
+                    .header("authorization", format!("Bearer {credential}"))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(body.to_string())).unwrap()).await.unwrap();
+                let expected = if credential == &reader.token { StatusCode::FORBIDDEN } else if mode == "matching" { StatusCode::OK } else { StatusCode::BAD_REQUEST };
+                assert_eq!(response.status(), expected, "{mode}: {method}");
+            }
+        }
+        let head = state.store.workspace_guardrail(scope).await.unwrap().unwrap();
+        assert_eq!(head["revision"], if mode == "matching" { 3 } else { 2 });
+        assert_eq!(state.store.workspace_guardrail_revision(scope, 1).await.unwrap(), Some(saved.clone()));
+    }
 }

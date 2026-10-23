@@ -266,7 +266,7 @@ impl Store {
         organization: Uuid,
         input: &TopupInput<'_>,
     ) -> Result<TopupOrder, StoreError> {
-        self.create_customer_topup_inner(organization, input, None, None, None)
+        self.create_customer_topup_inner(organization, input, None, None, None, None)
             .await
     }
 
@@ -281,7 +281,7 @@ impl Store {
         if input.aggregator != "epay" || revision < 0 {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, Some(revision), None, None)
+        self.create_customer_topup_inner(organization, input, Some(revision), None, None, None)
             .await
     }
 
@@ -298,7 +298,7 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, configuration_revision, member, None)
+        self.create_customer_topup_inner(organization, input, configuration_revision, member, None, None)
             .await
     }
 
@@ -316,8 +316,18 @@ impl Store {
         if input.aggregator != "epay" || input.currency != "CNY" || revision < 0 {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, Some(revision), member, Some(build))
+        self.create_customer_topup_inner(organization, input, Some(revision), member, Some(build), None)
             .await
+    }
+
+    /// Capture effective configuration in the same transaction as the first local checkout.
+    pub async fn create_authorized_epay_checkout_with_evidence(
+        &self, organization: Uuid, input: &TopupInput<'_>, revision: i64,
+        member: Option<crate::OperatorPrincipal>, digest: &[u8;32],
+        build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
+    ) -> Result<TopupOrder, StoreError> {
+        if input.aggregator != "epay" || input.currency != "CNY" || revision < 0 { return Err(StoreError::Conflict); }
+        self.create_customer_topup_inner(organization,input,Some(revision),member,Some(build),Some(digest)).await
     }
 
     async fn create_customer_topup_inner(
@@ -327,6 +337,7 @@ impl Store {
         configuration_revision: Option<i64>,
         member: Option<crate::OperatorPrincipal>,
         checkout: Option<&(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync)>,
+        evidence: Option<&[u8;32]>,
     ) -> Result<TopupOrder, StoreError> {
         if input.amount_nanos <= 0
             || input.currency.len() != 3
@@ -379,7 +390,7 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
             if let Some(build) = checkout {
-                Self::complete_local_epay_checkout(&mut tx, &prior, build).await?;
+                Self::complete_local_epay_checkout(&mut tx, &prior, build, evidence).await?;
                 tx.commit().await?;
             }
             return Ok(prior);
@@ -397,7 +408,7 @@ impl Store {
         };
         sqlx::query("INSERT INTO customer_topup_orders(id,organization_id,account_id,currency,amount_nanos,aggregator,merchant,payment_method,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)").bind(order.id).bind(organization).bind(account).bind(&order.currency).bind(order.amount_nanos).bind(&order.aggregator).bind(&order.merchant).bind(&order.payment_method).bind(order.idempotency_key).execute(&mut *tx).await?;
         if let Some(build) = checkout {
-            Self::complete_local_epay_checkout(&mut tx, &order, build).await?;
+            Self::complete_local_epay_checkout(&mut tx, &order, build, evidence).await?;
         }
         tx.commit().await?;
         Ok(order)
@@ -464,12 +475,17 @@ impl Store {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         order: &TopupOrder,
         build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
+        evidence: Option<&[u8;32]>,
     ) -> Result<(), StoreError> {
         let complete: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_topup_checkout WHERE order_id=$1) OR EXISTS(SELECT 1 FROM customer_topup_settlements WHERE order_id=$1) OR EXISTS(SELECT 1 FROM customer_topup_closures WHERE order_id=$1)")
             .bind(order.id).fetch_one(&mut **tx).await?;
         if !complete {
             let url = build(order.id)?;
             Self::save_epay_checkout_in_tx(tx, order.organization_id, order.id, &url).await?;
+            if let Some(digest) = evidence {
+                sqlx::query("INSERT INTO payment_checkout_verification(order_id,gateway,configuration_digest) VALUES($1,'epay',$2)")
+                    .bind(order.id).bind(digest.as_slice()).execute(&mut **tx).await?;
+            }
         }
         Ok(())
     }

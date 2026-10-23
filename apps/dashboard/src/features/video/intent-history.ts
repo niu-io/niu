@@ -57,6 +57,7 @@ export async function videoIntentHistory(client: HistoryClient, scope: TenantSco
         const { data } = await client.getVideoIntent(scope, entry.id, options);
         options.signal?.throwIfAborted();
         row.title = data.request || data.model ? videoSessionTitle(data) : row.title;
+        row.reference = data.reference ?? entry.reference;
         row.revision = data.revision;
         row.content_state = data.content_state;
         row.expires_at_ms = data.expires_at_ms;

@@ -40,7 +40,7 @@ describe('Provider media purchase history', () => {
     }));
     const user = userEvent.setup();
     render(<MediaRateHistory token="installation-test" supplier="supplier-a" />);
-    expect(await screen.findByText('CNY 9007199.254740993')).not.toBeNull();
+    expect(await screen.findByText('¥9007199.254740993')).not.toBeNull();
     expect(screen.queryByText(revision)).toBeNull();
     expect(screen.queryByText('private-price-revision')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Load more rates' }));

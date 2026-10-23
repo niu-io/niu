@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { Link, MemoryRouter, Route, Routes } from "react-router";
 import GuardrailsRoute from "../../../src/features/guardrails/page";
 import type { DashboardContext } from "../../../src/app/dashboard-context";
 
@@ -54,6 +54,7 @@ function setup({
   );
   render(
     <MemoryRouter initialEntries={[`/guardrails/${section}`]}>
+      <nav><Link to="/guardrails/access">Access section</Link><Link to="/guardrails/input">Input section</Link><Link to="/guardrails/detectors">External section</Link></nav>
       <Routes>
         <Route path="/guardrails/:section" element={<GuardrailsRoute />} />
       </Routes>
@@ -88,7 +89,7 @@ describe("workspace Guardrails editor", () => {
     const { writes, user } = setup({ initialPolicy: initial });
     await user.clear(await screen.findByRole("textbox", { name: "Policy name" }));
     await user.type(screen.getByRole("textbox", { name: "Policy name" }), "Updated policy");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save all changes" }));
     await screen.findByRole("status");
     expect(writes).toEqual([{ expected_revision: 7, policy: { ...initial, name: "Updated policy" } }]);
   });
@@ -101,12 +102,12 @@ describe("workspace Guardrails editor", () => {
       screen.getByRole("textbox", { name: "Policy name" }),
       "Updated policy",
     );
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save all changes" }));
     await screen.findByRole("status");
     expect(writes).toEqual([
       { expected_revision: 7, policy: { ...policy, name: "Updated policy" } },
     ]);
-    expect(screen.getByRole("button", { name: "Save" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty(
       "disabled",
       true,
     );
@@ -115,7 +116,7 @@ describe("workspace Guardrails editor", () => {
     setup({ failed: true });
     await screen.findByRole("alert");
     expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save all changes" })).toBeNull();
   });
   it("retains the draft on conflict and never automatically retries a write", async () => {
     const { writes, user } = setup({ conflict: true });
@@ -123,7 +124,7 @@ describe("workspace Guardrails editor", () => {
       await screen.findByRole("textbox", { name: "Policy name" }),
       " changed",
     );
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save all changes" }));
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain(
         "changed elsewhere",
@@ -134,6 +135,10 @@ describe("workspace Guardrails editor", () => {
       "value",
       "Workspace policy changed",
     );
+    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty("disabled", true);
+    await user.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Policy name" })).toHaveProperty("value", policy.name));
+    expect(writes).toHaveLength(1);
   });
   it("keeps policy controls read-only for readers", async () => {
     setup({ writer: false });
@@ -146,7 +151,7 @@ describe("workspace Guardrails editor", () => {
     expect(
       screen.getByRole("button", { name: "Provider restriction mode" }),
     ).toHaveProperty("disabled", true);
-    expect(screen.getByRole("button", { name: "Save" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "Save all changes" })).toHaveProperty(
       "disabled",
       true,
     );
@@ -161,7 +166,7 @@ it("saves input changes without weakening model or output restrictions", async (
   await user.click(
     screen.getByRole("menuitemradio", { name: "Block", exact: true }),
   );
-  await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+  await user.click(screen.getByRole("button", { name: "Save all changes", exact: true }));
   await screen.findByText("Policy saved.");
   expect(writes).toEqual([
     {
@@ -179,7 +184,7 @@ it("removes empty output configuration instead of saving an invalid empty output
   await user.click(
     await screen.findByRole("checkbox", { name: "API key prefixes" }),
   );
-  await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+  await user.click(screen.getByRole("button", { name: "Save all changes", exact: true }));
   await screen.findByText("Policy saved.");
   const { output: _output, ...withoutOutput } = policy;
   expect(writes).toEqual([{ expected_revision: 7, policy: withoutOutput }]);
@@ -191,7 +196,7 @@ it("preserves observation mode when editing output patterns", async () => {
   await user.click(screen.getByRole("button",{name:"Output inspection mode"}));
   await user.click(screen.getByRole("menuitemradio",{name:"Observe only"}));
   await user.click(screen.getByRole("checkbox",{name:"Email addresses"}));
-  await user.click(screen.getByRole("button",{name:"Save"}));
+  await user.click(screen.getByRole("button",{name:"Save all changes"}));
   await screen.findByRole("status");
   expect(writes).toMatchObject([{policy:{output:{mode:"observe_only",rules:expect.arrayContaining([{preset:"email_v1",action:"redact"}])}}}]);
 });
@@ -201,7 +206,46 @@ it("preserves the mode of a saved observation policy without reselecting it", as
   const chooser=await screen.findByRole("button",{name:"Output inspection mode"});
   expect(chooser.textContent).toContain("Observe only");
   await user.click(screen.getByRole("checkbox",{name:"Email addresses"}));
-  await user.click(screen.getByRole("button",{name:"Save"}));
+  await user.click(screen.getByRole("button",{name:"Save all changes"}));
   await screen.findByRole("status");
   expect(writes).toMatchObject([{policy:{output:{mode:"observe_only"}}}]);
 });
+
+ it('makes hidden draft scope inspectable and allows discarding the whole policy', async()=>{
+  const {user,writes}=setup();
+  await user.clear(await screen.findByRole('textbox',{name:'Policy name'}));
+  await user.type(screen.getByRole('textbox',{name:'Policy name'}),'Draft name');
+  expect(screen.getByText('Unsaved workspace policy changes. Saving applies all changed sections:')).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Review Name and access'})).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Discard all changes'}));
+  expect(screen.getByRole('textbox',{name:'Policy name'})).toHaveProperty('value',policy.name);
+  expect(screen.getByRole('button',{name:'Save all changes'})).toHaveProperty('disabled',true);
+  expect(writes).toEqual([]);
+ });
+
+ it('explains invalid hidden access input at the external-check save point and restores it on discard', async()=>{
+  const {user,writes}=setup();
+  await user.clear(await screen.findByRole('textbox',{name:'Policy name'}));
+  await user.click(screen.getByRole('link',{name:'External section'}));
+  expect(screen.getByRole('region',{name:'Unsaved policy changes'}).textContent).toContain('Enter a policy name.');
+  expect(screen.getByRole('button',{name:'Save all changes'})).toHaveProperty('disabled',true);
+  await user.click(screen.getByRole('link',{name:'Review Name and access'}));
+  expect(screen.getByRole('textbox',{name:'Policy name'})).toHaveProperty('value','');
+  await user.click(screen.getByRole('button',{name:'Discard all changes'}));
+  expect(screen.getByRole('textbox',{name:'Policy name'})).toHaveProperty('value',policy.name);
+  expect(writes).toEqual([]);
+ });
+ it('saves explicitly named changes from both access and input sections once',async()=>{
+  const {user,writes}=setup();
+  await user.clear(await screen.findByRole('textbox',{name:'Policy name'}));
+  await user.type(screen.getByRole('textbox',{name:'Policy name'}),'Reviewed policy');
+  await user.click(screen.getByRole('link',{name:'Input section'}));
+  await user.click(screen.getByRole('button',{name:'Email addresses action'}));
+  await user.click(screen.getByRole('menuitemradio',{name:'Block',exact:true}));
+  await user.click(screen.getByRole('link',{name:'External section'}));
+  expect(screen.getByRole('link',{name:'Review Name and access'})).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Review Input rules'})).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Save all changes'}));
+  await screen.findByRole('status');
+  expect(writes).toEqual([{expected_revision:7,policy:{...policy,name:'Reviewed policy',input_rules:[{preset:'email_v1',action:'block'}]}}]);
+ });

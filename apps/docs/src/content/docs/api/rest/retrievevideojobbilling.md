@@ -72,39 +72,45 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
+  "type": [
+    "object",
+    "null"
+  ],
   "additionalProperties": false,
+  "description": "Saved estimated quantity priced using the original customer tariff. Neither confirmed usage, maximum liability nor a final charge. Owner-funded or unpriceable amounts remain null.",
   "required": [
-    "mode",
-    "state",
+    "meter",
+    "quantity",
+    "provenance",
     "currency",
-    "reserved_nanos",
-    "charge_nanos",
-    "usage",
-    "price",
-    "bound_exceeded",
-    "effective_output",
-    "estimate"
+    "amount_nanos"
   ],
   "properties": {
-    "mode": {
-      "type": "string",
-      "enum": [
-        "owner_funded",
-        "customer",
-        "unavailable"
-      ]
+    "meter": {
+      "type": "string"
     },
-    "state": {
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "numerator": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "denominator": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    },
+    "provenance": {
       "type": "string",
       "enum": [
-        "owner_funded",
-        "unavailable",
-        "reserved",
-        "awaiting_usage",
-        "awaiting_settlement",
-        "settled",
-        "reconciliation_required"
+        "Estimate"
       ]
     },
     "currency": {
@@ -113,395 +119,12 @@ Content type: `application/json`.
         "null"
       ]
     },
-    "reserved_nanos": {
+    "amount_nanos": {
       "type": [
         "string",
         "null"
       ],
       "pattern": "^[0-9]+$"
-    },
-    "charge_nanos": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "pattern": "^[0-9]+$"
-    },
-    "settled_usage": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "description": "Immutable quantity behind a posted customer charge, distinct from later usage observations or conflicts.",
-      "required": [
-        "meter",
-        "quantity",
-        "billable_quantity",
-        "provenance"
-      ],
-      "properties": {
-        "meter": {
-          "type": "string"
-        },
-        "quantity": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "numerator",
-            "denominator"
-          ],
-          "properties": {
-            "numerator": {
-              "type": "string",
-              "pattern": "^[0-9]+$"
-            },
-            "denominator": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          }
-        },
-        "billable_quantity": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "numerator",
-            "denominator"
-          ],
-          "properties": {
-            "numerator": {
-              "type": "string",
-              "pattern": "^[0-9]+$"
-            },
-            "denominator": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          }
-        },
-        "provenance": {
-          "type": "string",
-          "enum": [
-            "Reported"
-          ]
-        }
-      }
-    },
-    "bound_exceeded": {
-      "type": [
-        "boolean",
-        "null"
-      ]
-    },
-    "effective_output": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "description": "Immutable effective output from submission; absent for legacy jobs. Revisions identify calculation evidence, not current availability.",
-      "required": [
-        "specification",
-        "duration_seconds",
-        "frames_per_second",
-        "schema_revision",
-        "estimator",
-        "estimator_revision"
-      ],
-      "properties": {
-        "specification": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "resolution",
-            "ratio",
-            "width",
-            "height"
-          ],
-          "properties": {
-            "resolution": {
-              "type": "string"
-            },
-            "ratio": {
-              "type": "string"
-            },
-            "width": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 4294967295
-            },
-            "height": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 4294967295
-            }
-          }
-        },
-        "duration_seconds": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "frames_per_second": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1,
-          "maximum": 4294967295,
-          "description": "Null when the seconds estimator has no configured frame rate; required for pixel-based estimation."
-        },
-        "schema_revision": {
-          "type": "string"
-        },
-        "estimator": {
-          "type": "string",
-          "enum": [
-            "SeedancePixelsV1",
-            "OutputSecondsV1"
-          ]
-        },
-        "estimator_revision": {
-          "type": "string"
-        }
-      }
-    },
-    "estimate": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "description": "Saved estimated quantity priced using the original customer tariff. Neither confirmed usage, maximum liability nor a final charge. Owner-funded or unpriceable amounts remain null.",
-      "required": [
-        "meter",
-        "quantity",
-        "provenance",
-        "currency",
-        "amount_nanos"
-      ],
-      "properties": {
-        "meter": {
-          "type": "string"
-        },
-        "quantity": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "numerator",
-            "denominator"
-          ],
-          "properties": {
-            "numerator": {
-              "type": "string",
-              "pattern": "^[0-9]+$"
-            },
-            "denominator": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          }
-        },
-        "provenance": {
-          "type": "string",
-          "enum": [
-            "Estimate"
-          ]
-        },
-        "currency": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "amount_nanos": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "pattern": "^[0-9]+$"
-        }
-      }
-    },
-    "usage": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "required": [
-        "meter",
-        "quantity"
-      ],
-      "properties": {
-        "meter": {
-          "type": "string"
-        },
-        "quantity": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "numerator",
-            "denominator"
-          ],
-          "properties": {
-            "numerator": {
-              "type": "string",
-              "pattern": "^[0-9]+$"
-            },
-            "denominator": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          }
-        }
-      }
-    },
-    "price": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "required": [
-        "meter",
-        "amount_units",
-        "decimal_places",
-        "per_quantity",
-        "minimum_quantity",
-        "rounding",
-        "resolution",
-        "reference_video",
-        "effective_from",
-        "effective_until",
-        "discounts"
-      ],
-      "properties": {
-        "meter": {
-          "type": "string"
-        },
-        "amount_units": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "decimal_places": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9
-        },
-        "per_quantity": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "numerator",
-            "denominator"
-          ],
-          "properties": {
-            "numerator": {
-              "type": "string",
-              "pattern": "^[0-9]+$"
-            },
-            "denominator": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          }
-        },
-        "minimum_quantity": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "numerator",
-            "denominator"
-          ],
-          "properties": {
-            "numerator": {
-              "type": "string",
-              "pattern": "^[0-9]+$"
-            },
-            "denominator": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          }
-        },
-        "rounding": {
-          "type": "string",
-          "enum": [
-            "Down",
-            "Up",
-            "HalfEven"
-          ]
-        },
-        "resolution": {
-          "type": "string"
-        },
-        "reference_video": {
-          "type": "boolean"
-        },
-        "effective_from": {
-          "type": "string",
-          "pattern": "^-?[0-9]+$"
-        },
-        "effective_until": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "pattern": "^-?[0-9]+$"
-        },
-        "discounts": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "multiplier",
-              "stacking",
-              "effective_from",
-              "effective_until"
-            ],
-            "properties": {
-              "multiplier": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "numerator",
-                  "denominator"
-                ],
-                "properties": {
-                  "numerator": {
-                    "type": "string",
-                    "pattern": "^[0-9]+$"
-                  },
-                  "denominator": {
-                    "type": "string",
-                    "pattern": "^[1-9][0-9]*$"
-                  }
-                }
-              },
-              "stacking": {
-                "type": "string",
-                "enum": [
-                  "Exclusive",
-                  "Multiply"
-                ]
-              },
-              "effective_from": {
-                "type": "string",
-                "pattern": "^-?[0-9]+$"
-              },
-              "effective_until": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "pattern": "^-?[0-9]+$"
-              }
-            }
-          }
-        }
-      }
     }
   }
 }

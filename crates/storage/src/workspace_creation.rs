@@ -49,7 +49,8 @@ impl Store {
         key: Option<WorkspaceCreationKey>,
         member: Option<OperatorPrincipal>,
     ) -> Result<TenantScope, StoreError> {
-        self.create_workspace_with_limit(organization_id, name, slug, None, key, member).await
+        self.create_workspace_with_limit(organization_id, name, slug, None, key, member)
+            .await
     }
 
     pub async fn create_workspace_with_limit(
@@ -73,12 +74,18 @@ impl Store {
             request
         };
         let request = if let Some(limit) = &limit {
-            let mut value: serde_json::Value = serde_json::from_slice(&request).map_err(|_| StoreError::Conflict)?;
-            value["spending_limit"] = serde_json::to_value(limit).map_err(|_| StoreError::Conflict)?;
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&request).map_err(|_| StoreError::Conflict)?;
+            value["spending_limit"] =
+                serde_json::to_value(limit).map_err(|_| StoreError::Conflict)?;
             serde_json::to_vec(&value).map_err(|_| StoreError::Conflict)?
-        } else { request };
+        } else {
+            request
+        };
         let request_sha256 = Sha256::digest(request).to_vec();
-        let limit_actor = member.map(|m| OperatorAuditActor::Operator(m.id)).unwrap_or(OperatorAuditActor::Installation);
+        let limit_actor = member
+            .map(|m| OperatorAuditActor::Operator(m.id))
+            .unwrap_or(OperatorAuditActor::Installation);
         let identity = key.map(|key| {
             let (kind, actor) = match key.actor {
                 OperatorAuditActor::Installation => ("installation", Uuid::nil()),
@@ -121,7 +128,13 @@ impl Store {
         let organization_id = match organization_id {
             Some(id) => id,
             None => {
-                Self::create_prepaid_organization_in_tx(&mut tx, "Personal workspace", "USD")
+                let currency = sqlx::query_scalar::<_, String>(
+                    "SELECT currency FROM platform_currency WHERE singleton",
+                )
+                .fetch_optional(&mut *tx)
+                .await?
+                .unwrap_or_else(|| "USD".into());
+                Self::create_prepaid_organization_in_tx(&mut tx, "Personal workspace", &currency)
                     .await?
             }
         };
@@ -152,7 +165,18 @@ impl Store {
                 _ => StoreError::Database(error),
             })?;
         if let Some(limit) = limit {
-            Self::set_workspace_limit_in_tx(&mut tx, TenantScope { organization_id, project_id }, &limit.currency, limit.limit_nanos, 0, Some(limit_actor)).await?;
+            Self::set_workspace_limit_in_tx(
+                &mut tx,
+                TenantScope {
+                    organization_id,
+                    project_id,
+                },
+                &limit.currency,
+                limit.limit_nanos,
+                0,
+                Some(limit_actor),
+            )
+            .await?;
         }
         if let Some((kind, actor, hash)) = identity {
             sqlx::query("INSERT INTO workspace_creation_receipts(actor_kind,actor_id,key_sha256,request_sha256,organization_id,project_id) VALUES($1,$2,$3,$4,$5,$6)")

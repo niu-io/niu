@@ -1,3 +1,4 @@
+vi.mock('../../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -36,7 +37,7 @@ it('does not fabricate currencies and distinguishes failure from an actual empty
   const{user}=setup({empty:true,fail:true});await screen.findByText('Storage unavailable');expect(screen.queryByText('No billing currency is available for this key yet.')).toBeNull();await user.click(screen.getByRole('button',{name:'Retry spending limits'}));await screen.findByText('No billing currency is available for this key yet.');expect(screen.queryByText('USD')).toBeNull();
 });
 it('permits read-only history while hiding editing for viewers',async()=>{
-  setup({canWrite:false});await screen.findByText('USD 0.000000001');expect(screen.queryByRole('button',{name:'Edit USD key spending limit'})).toBeNull();expect(screen.getByRole('button',{name:'USD spending limit history'})).toBeTruthy();
+  setup({canWrite:false});await screen.findByText('$0.000000001');expect(screen.queryByRole('button',{name:'Edit USD key spending limit'})).toBeNull();expect(screen.getByRole('button',{name:'USD spending limit history'})).toBeTruthy();
 });
 it('retains a failed write draft and restores the saved amount after cancel',async()=>{
   const{user,fetcher}=setup();await user.click(await screen.findByRole('button',{name:'Edit USD key spending limit'}));await user.type(screen.getByLabelText('Lifetime limit (USD)'),'2.123456789');fetcher.mockImplementationOnce(async()=>Response.json({error:{message:'Storage write unavailable'}},{status:503}));await user.click(screen.getByRole('button',{name:'Save limit'}));await screen.findByText('Storage write unavailable');expect((screen.getByLabelText('Lifetime limit (USD)')as HTMLInputElement).value).toBe('2.123456789');await user.click(screen.getByRole('button',{name:'Cancel'}));await user.click(screen.getByRole('button',{name:'Edit USD key spending limit'}));expect((screen.getByLabelText('Lifetime limit (USD)')as HTMLInputElement).value).toBe('');

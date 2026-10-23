@@ -1,4 +1,5 @@
 //! Durable private video timelines: saved-state operations never submit inference.
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
@@ -6,7 +7,7 @@ use crate::{
 use axum::{
     Json,
     extract::{
-        Path, Query, State,
+        Query, State,
         rejection::{JsonRejection, QueryRejection},
     },
     http::HeaderMap,
@@ -911,7 +912,7 @@ pub(in crate::web) async fn create(
 ///   "operation": {
 ///     "operationId": "generationsSessionGet",
 ///     "summary": "Read a private saved generations timeline",
-///     "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. Read categories are video (default) and chat; legacy Chat write APIs remain unchanged. Revisions and sequences are decimal strings. Video instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); Video content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing.  Set category=chat for a read-only bridge over the existing actor-private Chat record. The same route defaults to video; IDs are scoped independently by category. Chat metadata uses database clocks and current guarded-write revision. Missing Chat title is null, never replaced by an internal ID. Chat turns preserve comparison branches, not one running conversation task. Per-turn creation/expiry clocks are unknown and null; missing retained prompt yields missing state and null instruction. Turn references are read-only scoped identity/sequence/instruction digests and cannot be used with Video writes. Branch phase/output are exact saved conversation content; actual execution references require a current workspace attempt and matching model. Customer charges are hydrated from the existing ledger projection; no saved procurement fields are returned. Chat retention and writes stay under the legacy Chat contract; Video 30-day instruction retention does not apply to this bridge.",
+///     "description": "Reads accept a category-specific permanent public reference or legacy UUID. Both preserve the same private workspace/owner authorization. Mutation routes continue to require internal UUIDs. Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. Read categories are video (default) and chat; legacy Chat write APIs remain unchanged. Revisions and sequences are decimal strings. Video instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); Video content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing.  Set category=chat for a read-only bridge over the existing actor-private Chat record. The same route defaults to video; IDs are scoped independently by category. Chat metadata uses database clocks and current guarded-write revision. Missing Chat title is null, never replaced by an internal ID. Chat turns preserve comparison branches, not one running conversation task. Per-turn creation/expiry clocks are unknown and null; missing retained prompt yields missing state and null instruction. Turn references are read-only scoped identity/sequence/instruction digests and cannot be used with Video writes. Branch phase/output are exact saved conversation content; actual execution references require a current workspace attempt and matching model. Customer charges are hydrated from the existing ledger projection; no saved procurement fields are returned. Chat retention and writes stay under the legacy Chat contract; Video 30-day instruction retention does not apply to this bridge.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -1011,13 +1012,20 @@ pub(in crate::web) async fn create(
 pub(in crate::web) async fn get(
     State(s): State<AppState>,
     headers: HeaderMap,
-    Path((o, p, id)): Path<(Uuid, Uuid, Uuid)>,
+    Path((o, p, id)): Path<(Uuid, Uuid, String)>,
     query: Result<Query<View>, QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let Query(view) =
         query.map_err(|_| ApiError::invalid_request("Invalid Generations session query"))?;
     let sc = scope(o, p);
     let own = owner(&s, &headers, sc, AdminPermission::Read).await?;
+    let id = match Uuid::parse_str(&id) {
+        Ok(id) => id,
+        Err(_) => match view.category {
+            Category::Video => s.store.generations_session_id_by_reference(sc, &own, &id).await,
+            Category::Chat => s.store.chat_session_id_by_reference(sc, &own, &id).await,
+        }.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+    };
     match view.category {
         Category::Video => loaded(&s, sc, &own, id).await,
         Category::Chat => Ok(Json(

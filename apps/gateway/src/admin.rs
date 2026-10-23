@@ -45,12 +45,7 @@ pub struct Name {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationInput {
     name: String,
-    #[serde(default = "default_billing_currency")]
-    currency: String,
-}
-
-fn default_billing_currency() -> String {
-    "USD".to_owned()
+    currency: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -103,7 +98,13 @@ pub struct OperatorInput {
     project_id: Option<Uuid>,
     name: String,
     role: niu_storage::OperatorRole,
-    expires_in_seconds: i64,
+    expires_in_seconds: Option<i64>,
+    #[serde(default = "issue_initial_session")]
+    issue_session: bool,
+}
+
+fn issue_initial_session() -> bool {
+    true
 }
 
 #[derive(Deserialize)]
@@ -892,7 +893,7 @@ pub async fn delete_workspace(
 ///   "operation": {
 ///     "operationId": "createWorkspace",
 ///     "summary": "Create a workspace with retry-safe identity",
-///     "description": "Requires installation write access or a company-scoped member allowed to create workspaces. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.",
+///     "description": "Requires installation write access or a company-scoped member allowed to create workspaces, platform currency setup, and either payment readiness or a funded/granted/approved-credit arrangement for the selected company. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1007,9 +1008,10 @@ pub async fn create_workspace(
     Json(input): Json<WorkspaceInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
+    crate::payments::readiness::require_creation_ready(&state, authorization, input.organization_id).await?;
     validate_name(&input.name)?;
-    if let Some(slug) = &input.slug {
-        if slug.is_empty()
+    if let Some(slug) = &input.slug
+        && (slug.is_empty()
             || slug.chars().count() > 48
             || slug == "default"
             || !slug
@@ -1017,21 +1019,33 @@ pub async fn create_workspace(
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
             || slug.starts_with('-')
             || slug.ends_with('-')
-            || slug.contains("--")
-        {
-            return Err(ApiError::invalid_request(
-                "Slug must be 1–48 lowercase letters, numbers, or single hyphens; default is reserved.",
-            ));
-        }
+            || slug.contains("--"))
+    {
+        return Err(ApiError::invalid_request(
+            "Slug must be 1–48 lowercase letters, numbers, or single hyphens; default is reserved.",
+        ));
     }
-    let spending_limit = input.spending_limit.map(|limit| {
-        if limit.currency.len() != 3 || !limit.currency.bytes().all(|c| c.is_ascii_uppercase())
-            || limit.limit_nanos.is_empty() || !limit.limit_nanos.bytes().all(|c| c.is_ascii_digit()) {
-            return Err(ApiError::invalid_request("Enter a currency and a nonnegative exact spending limit."));
-        }
-        let limit_nanos = limit.limit_nanos.parse::<i64>().map_err(|_| ApiError::invalid_request("Spending limit exceeds the supported range."))?;
-        Ok(niu_storage::WorkspaceCreationLimit { currency: limit.currency, limit_nanos })
-    }).transpose()?;
+    let spending_limit = input
+        .spending_limit
+        .map(|limit| {
+            if limit.currency.len() != 3
+                || !limit.currency.bytes().all(|c| c.is_ascii_uppercase())
+                || limit.limit_nanos.is_empty()
+                || !limit.limit_nanos.bytes().all(|c| c.is_ascii_digit())
+            {
+                return Err(ApiError::invalid_request(
+                    "Enter a currency and a nonnegative exact spending limit.",
+                ));
+            }
+            let limit_nanos = limit.limit_nanos.parse::<i64>().map_err(|_| {
+                ApiError::invalid_request("Spending limit exceeds the supported range.")
+            })?;
+            Ok(niu_storage::WorkspaceCreationLimit {
+                currency: limit.currency,
+                limit_nanos,
+            })
+        })
+        .transpose()?;
     let creation_key =
         creation_idempotency_key(&headers)?.map(|key_sha256| niu_storage::WorkspaceCreationKey {
             actor: audit_actor(authorization),
@@ -1084,7 +1098,7 @@ pub async fn create_workspace(
 ///   "operation": {
 ///     "operationId": "createOrganization",
 ///     "summary": "Create a company and its initial zero-funded account",
-///     "description": "Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.",
+///     "description": "Installation administrator only. Atomically creates the company and an initial account in the configured platform currency (USD for legacy installations before currency setup), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1198,7 +1212,15 @@ pub async fn organization(
         return Err(ApiError::forbidden());
     }
     validate_name(&input.name)?;
-    if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
+    let currency = input
+        .currency
+        .or(state
+            .store
+            .platform_currency()
+            .await
+            .map_err(ApiError::from_store)?)
+        .unwrap_or_else(|| "USD".into());
+    if currency.len() != 3 || !currency.bytes().all(|b| b.is_ascii_uppercase()) {
         return Err(ApiError::invalid_request(
             "Currency must be a three-letter uppercase code",
         ));
@@ -1206,7 +1228,7 @@ pub async fn organization(
     let creation_key = creation_idempotency_key(&headers)?;
     let id = state
         .store
-        .create_prepaid_organization_with_key(&input.name, &input.currency, creation_key.as_deref())
+        .create_prepaid_organization_with_key(&input.name, &currency, creation_key.as_deref())
         .await
         .map_err(ApiError::from_store)?;
     let name = state
@@ -1217,7 +1239,7 @@ pub async fn organization(
         .ok_or_else(ApiError::not_found)?;
     Ok((
         StatusCode::CREATED,
-        Json(json!({"id": id, "name": name, "currency": input.currency})),
+        Json(json!({"id": id, "name": name, "currency": currency})),
     ))
 }
 
@@ -1341,6 +1363,7 @@ pub async fn project(
         State(state),
         headers,
         Json(WorkspaceInput {
+            spending_limit: None,
             name: input.name,
             slug: None,
             organization_id: Some(organization_id),
@@ -2050,19 +2073,55 @@ pub async fn organizations(
     ))
 }
 
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct OperatorPage {
+    organization_id: Option<Uuid>,
+    after: Option<Uuid>,
+    limit: Option<u32>,
+}
+
 pub async fn operators(
     State(state): State<AppState>,
+    Query(page): Query<OperatorPage>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::ManageOperators).await?;
-    let operators = match authorization {
-        crate::state::AdminAuthorization::Installation => state.store.operators().await,
-        crate::state::AdminAuthorization::Operator(operator) => {
-            state.store.operators_for_scope(operator.scope).await
+    let scope = match authorization {
+        crate::state::AdminAuthorization::Installation => {
+            page.organization_id.map(|organization_id| OperatorScope {
+                organization_id,
+                project_id: None,
+            })
         }
+        crate::state::AdminAuthorization::Operator(operator) => {
+            if page
+                .organization_id
+                .is_some_and(|id| id != operator.scope.organization_id)
+            {
+                return Err(ApiError::not_found());
+            }
+            Some(operator.scope)
+        }
+    };
+    let limit = page.limit.unwrap_or(1000);
+    if !(1..=1000).contains(&limit) {
+        return Err(ApiError::invalid_request(
+            "User page limit must be between 1 and 1000",
+        ));
     }
-    .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": operators})))
+    let mut operators = state
+        .store
+        .operator_page(scope, page.after, i64::from(limit) + 1)
+        .await
+        .map_err(ApiError::from_store)?;
+    let next_cursor = if operators.len() > limit as usize {
+        operators.truncate(limit as usize);
+        operators.last().map(|operator| operator.id)
+    } else {
+        None
+    };
+    Ok(Json(json!({"data": operators, "next_cursor": next_cursor})))
 }
 
 pub async fn create_operator(
@@ -2078,13 +2137,48 @@ pub async fn create_operator(
     if !authorization.permits_operator_scope(scope) {
         return Err(ApiError::not_found());
     }
+    let key = creation_idempotency_key(&headers)?;
+    if !input.issue_session {
+        if input.expires_in_seconds.is_some() {
+            return Err(ApiError::invalid_request(
+                "Identity-only creation does not accept a session lifetime",
+            ));
+        }
+        let key = key.ok_or_else(|| {
+            ApiError::invalid_request("Identity-only creation requires Idempotency-Key")
+        })?;
+        let operator = state
+            .store
+            .create_operator_identity(
+                scope,
+                &input.name,
+                input.role,
+                &key,
+                audit_actor(authorization),
+            )
+            .await
+            .map_err(ApiError::from_store)?;
+        return Ok((
+            StatusCode::CREATED,
+            [("cache-control".into(), "no-store".into())],
+            Json(json!({"operator":operator,"session":null,"token":null})),
+        ));
+    }
+    if key.is_some() {
+        return Err(ApiError::invalid_request(
+            "Idempotency-Key requires identity-only creation with issue_session false",
+        ));
+    }
+    let expires_in_seconds = input
+        .expires_in_seconds
+        .ok_or_else(|| ApiError::invalid_request("Session lifetime is required"))?;
     let issued = state
         .store
         .create_operator(
             scope,
             &input.name,
             input.role,
-            input.expires_in_seconds,
+            expires_in_seconds,
             audit_actor(authorization),
         )
         .await
@@ -2900,7 +2994,7 @@ pub(super) fn gateway_activity_filter(
 ///   "operation": {
 ///     "operationId": "getGatewayRequest",
 ///     "summary": "Read a recorded gateway request",
-///     "description": "Scoped workspace read access required. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.",
+///     "description": "Scoped workspace read access required. Accepts a durable run reference or a legacy attempt UUID. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -2932,7 +3026,7 @@ pub(super) fn gateway_activity_filter(
 ///         "required": true,
 ///         "schema": {
 ///           "type": "string",
-///           "format": "uuid"
+///           "description": "Durable run reference or legacy attempt UUID"
 ///         }
 ///       }
 ///     ],
@@ -2979,6 +3073,7 @@ pub(super) fn gateway_activity_filter(
 ///       "type": "object",
 ///       "required": [
 ///         "attempt_id",
+///         "reference",
 ///         "operation_id",
 ///         "api_key_id",
 ///         "key_name",
@@ -3007,6 +3102,10 @@ pub(super) fn gateway_activity_filter(
 ///         "finish_reasons"
 ///       ],
 ///       "properties": {
+///         "reference": {
+///           "type": "string",
+///           "description": "Stable public run reference for customer-facing links"
+///         },
 ///         "attempt_id": {
 ///           "type": "string",
 ///           "format": "uuid"
@@ -3327,7 +3426,7 @@ pub(super) fn gateway_activity_filter(
 /// ```
 pub async fn gateway_request(
     State(state): State<AppState>,
-    Path((organization_id, project_id, attempt)): Path<(Uuid, Uuid, Uuid)>,
+    Path((organization_id, project_id, attempt)): Path<(Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     authorize_project(
@@ -3338,6 +3437,11 @@ pub async fn gateway_request(
         project_id,
     )
     .await?;
+    let attempt = match Uuid::parse_str(&attempt) {
+        Ok(id) => id,
+        Err(_) => state.store.request_id_by_reference(TenantScope {organization_id, project_id}, &attempt)
+            .await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+    };
     let data = state
         .store
         .gateway_request(

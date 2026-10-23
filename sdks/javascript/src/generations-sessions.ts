@@ -2,9 +2,9 @@
 import type { RequestOptions } from './index.js';
 import { iterateCursorItems } from './pagination.js';
 export type GenerationsInstruction = { kind: 'video'; prompt: string };
-export type GenerationsTaskReference = { id: string; kind: 'video'; model: string; artifacts: Array<{task_id:string;kind:'video'|'last_frame';availability:'available'|'expired'|'deleted'|'unavailable'}>; status: 'submission_unknown' | 'queued' | 'running' | 'succeeded' | 'failed' | 'unknown' | 'reconciliation_required' };
+export type GenerationsTaskReference = { id: string; reference?: string; kind: 'video'; model: string; artifacts: Array<{task_id:string;kind:'video'|'last_frame';availability:'available'|'expired'|'deleted'|'unavailable'}>; status: 'submission_unknown' | 'queued' | 'running' | 'succeeded' | 'failed' | 'unknown' | 'reconciliation_required' };
 /** Canonical Video draft identity (restore with getVideoIntent); the separate turn instruction may be a review note. Reading or binding never submits generation. */
-export type GenerationsVideoIntentReference = {id:string;revision:string;model:string;content_state:'retained'|'deleted'|'expired';submission_state:'saved'|'not_dispatched'|'dispatched';task_id:string|null};
+export type GenerationsVideoIntentReference = {id:string;reference?:string;revision:string;model:string;content_state:'retained'|'deleted'|'expired';submission_state:'saved'|'not_dispatched'|'dispatched';task_id:string|null};
 export type GenerationsTurn = {
   id: string; sequence: string; created_at: string;
   content_state: 'retained' | 'deleted' | 'expired';
@@ -13,7 +13,7 @@ export type GenerationsTurn = {
   task_id: string | null; task: GenerationsTaskReference | null;
 };
 export type VideoGenerationsSessionSummary = {
-  id: string; workspace_id: string; owner: string; category: 'video'; title: string;
+  id: string; reference?: string; workspace_id: string; owner: string; category: 'video'; title: string;
   revision: string; archived: boolean; created_at: string; updated_at: string;
 };
 export type VideoGenerationsSession = VideoGenerationsSessionSummary & { turns: GenerationsTurn[] };
@@ -49,12 +49,16 @@ function revision(value: string): string {
   return value;
 }
 /** Existing Chat writes remain available through the guarded NiuAdminClient Chat methods. */
-export function createGenerationsSessionsClient(request: Request, organization: string, workspace: string) {
-  const root=`/organizations/${id(organization)}/projects/${id(workspace)}/generations`;
+export function createGenerationsSessionsClient(request: Request, workspace: string) {
+  const root=`/workspaces/${id(workspace)}/sessions`;
   const path=(session: string)=>`${root}/${id(session)}`;
+  const readPath=(session:string, prefix:'chat'|'video') => {
+    if (new RegExp(`^${prefix}-[1-9][0-9]{0,18}$`).test(session)) return `${root}/${session}`;
+    return path(session);
+  };
   const client = {
     list(query: GenerationsSessionPageOptions = {}, options?: Options): Promise<VideoGenerationsSessionPage> {
-      const qs=new URLSearchParams();
+      const qs=new URLSearchParams({category:'video'});
       if (query.before!==undefined) qs.set('before',id(query.before));
       if (query.limit!==undefined) {if (!Number.isInteger(query.limit) || query.limit<1 || query.limit>100) throw new TypeError('limit must be 1..100'); qs.set('limit',String(query.limit));}
       if (query.archived!==undefined) qs.set('archived',String(query.archived));
@@ -81,18 +85,18 @@ export function createGenerationsSessionsClient(request: Request, organization: 
         return { data: page.data, nextCursor: page.next_before, hasMore: page.has_more };
       }, query.before, options.signal);
     },
-    retrieveChat(session: string, options?: Options): Promise<{data:ChatGenerationsSession}> {return request(`${path(session)}?category=chat`,undefined,options,'GET');},
-    retrieve(session: string, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(path(session),undefined,options,'GET');},
-    create(session: string, input: {title: string}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(path(session),{expected_revision:'0',title:input.title},options,'PUT');},
-    update(session: string, input: {expected_revision:string;title:string;archived:boolean}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(path(session),{...input,expected_revision:revision(input.expected_revision)},options,'PATCH');},
-    appendTurn(session: string, turn: string, input: {expected_revision:string;instruction:GenerationsInstruction}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}/turns/${id(turn)}`,{...input,expected_revision:revision(input.expected_revision)},options,'PUT');},
-    attachTask(session: string, turn: string, input: {expected_revision:string;task_id:string}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}/turns/${id(turn)}/task`,{expected_revision:revision(input.expected_revision),task_id:id(input.task_id)},options,'PUT');},
+    retrieveChat(session: string, options?: Options): Promise<{data:ChatGenerationsSession}> {return request(`${readPath(session,'chat')}?category=chat`,undefined,options,'GET');},
+    retrieve(session: string, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${readPath(session,'video')}?category=video`,undefined,options,'GET');},
+    create(session: string, input: {title: string}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}?category=video`,{expected_revision:'0',title:input.title},options,'PUT');},
+    update(session: string, input: {expected_revision:string;title:string;archived:boolean}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}?category=video`,{...input,expected_revision:revision(input.expected_revision)},options,'PATCH');},
+    appendTurn(session: string, turn: string, input: {expected_revision:string;instruction:GenerationsInstruction}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}/turns/${id(turn)}?category=video`,{...input,expected_revision:revision(input.expected_revision)},options,'PUT');},
+    attachTask(session: string, turn: string, input: {expected_revision:string;task_id:string}, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}/turns/${id(turn)}/task?category=video`,{expected_revision:revision(input.expected_revision),task_id:id(input.task_id)},options,'PUT');},
     /** Bind a saved actor-owned Video intent before explicit submit; no inference. */
     bindIntent(session:string,turn:string,input:{expected_revision:string;intent_id:string},options?:Options):Promise<{data:VideoGenerationsSession}>{
       if(input.intent_id==='00000000-0000-0000-0000-000000000000')throw new TypeError('A nonnil Video intent reference is required');
-      return request(`${path(session)}/turns/${id(turn)}/intent`,{expected_revision:revision(input.expected_revision),intent_id:id(input.intent_id)},options,'PUT');
+      return request(`${path(session)}/turns/${id(turn)}/intent?category=video`,{expected_revision:revision(input.expected_revision),intent_id:id(input.intent_id)},options,'PUT');
     },
-    deleteInstruction(session: string, turn: string, expectedRevision: string, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}/turns/${id(turn)}`,{expected_revision:revision(expectedRevision)},options,'DELETE');},
+    deleteInstruction(session: string, turn: string, expectedRevision: string, options?: Options): Promise<{data: VideoGenerationsSession}> {return request(`${path(session)}/turns/${id(turn)}?category=video`,{expected_revision:revision(expectedRevision)},options,'DELETE');},
   };
   return client;
 }

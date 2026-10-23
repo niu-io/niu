@@ -3,11 +3,11 @@ import { amountToNanos, money } from '../../src/lib/money.ts';
 
 describe('money formatting', () => {
   it('retains nanounits beyond Number precision', () => {
-    expect(money('9007199254740993', 'USD')).toBe('USD 9007199.254740993');
-    expect(money('9223372036854775807', 'USD')).toBe('USD 9223372036.854775807');
-    expect(money('1', 'EUR')).toBe('EUR 0.000000001');
-    expect(money('0', 'USD')).toBe('USD 0.00');
-    expect(money('-1', 'USD')).toBe('USD -0.000000001');
+    expect(money('9007199254740993', 'USD')).toBe('$9007199.254740993');
+    expect(money('9223372036854775807', 'USD')).toBe('$9223372036.854775807');
+    expect(money('1', 'EUR')).toBe('€0.000000001');
+    expect(money('0', 'USD')).toBe('$0.00');
+    expect(money('-1', 'USD')).toBe('-$0.000000001');
   });
 });
 

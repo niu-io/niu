@@ -6,9 +6,12 @@ async fn slugs_are_short_unique_durable_and_scoped(pool: PgPool) {
     MIGRATOR.run(&pool).await.unwrap();
     let store = Store::from_pool(pool.clone());
     let default = store.default_workspace().await.unwrap();
-    let default_entry = store.workspaces(Some(default.organization_id),Some(default.project_id)).await.unwrap();
-    assert_eq!(default_entry[0].name,"Default workspace");
-    assert_eq!(default_entry[0].slug,"default-workspace");
+    let default_entry = store
+        .workspaces(Some(default.organization_id), Some(default.project_id))
+        .await
+        .unwrap();
+    assert_eq!(default_entry[0].name, "Default workspace");
+    assert_eq!(default_entry[0].slug, "default-workspace");
     let first = store
         .create_workspace_with_slug(Some(default.organization_id), "产品 实验", None, None, None)
         .await
@@ -143,8 +146,14 @@ async fn provider_and_key_slugs_survive_renames_and_keep_duplicate_names_distinc
         "niu-yuan-provider"
     );
     let scope = store.default_workspace().await.unwrap();
-    let key = store.issue_key(scope, "生产 Key", &["*".into()], 3600).await.unwrap();
-    let duplicate = store.issue_key(scope, "生产 Key", &["*".into()], 3600).await.unwrap();
+    let key = store
+        .issue_key(scope, "生产 Key", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let duplicate = store
+        .issue_key(scope, "生产 Key", &["*".into()], 3600)
+        .await
+        .unwrap();
     let slugs: Vec<(uuid::Uuid, String)> =
         sqlx::query_as("SELECT id,slug FROM api_keys WHERE id IN ($1,$2)")
             .bind(key.id)
@@ -177,7 +186,13 @@ async fn provider_and_key_slugs_survive_renames_and_keep_duplicate_names_distinc
         "sheng-chan-key"
     );
     let details = store.list_key_details(scope).await.unwrap();
-    assert_eq!(details.iter().find(|row| row["id"] == key.id.to_string()).unwrap()["slug"],"sheng-chan-key");
+    assert_eq!(
+        details
+            .iter()
+            .find(|row| row["id"] == key.id.to_string())
+            .unwrap()["slug"],
+        "sheng-chan-key"
+    );
     let rotated = store.rotate_key(scope, key.id).await.unwrap();
     assert_ne!(rotated.id, key.id);
     assert!(
@@ -188,4 +203,148 @@ async fn provider_and_key_slugs_survive_renames_and_keep_duplicate_names_distinc
             .iter()
             .any(|k| k.id == rotated.id && !k.slug.is_empty())
     );
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn initial_limit_is_atomic_and_part_of_replay(pool: PgPool) {
+    use niu_storage::{OperatorAuditActor, WorkspaceCreationKey, WorkspaceCreationLimit};
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let organization = store
+        .create_prepaid_organization("Budget company", "USD")
+        .await
+        .unwrap();
+    let key = || {
+        Some(WorkspaceCreationKey {
+            actor: OperatorAuditActor::Installation,
+            key_sha256: vec![9; 32],
+        })
+    };
+    let limit = |currency: &str, amount| {
+        Some(WorkspaceCreationLimit {
+            currency: currency.into(),
+            limit_nanos: amount,
+        })
+    };
+    let first = store
+        .create_workspace_with_limit(
+            Some(organization),
+            "Initial cap",
+            Some("initial-cap"),
+            limit("USD", 0),
+            key(),
+            None,
+        )
+        .await
+        .unwrap();
+    let saved = store
+        .customer_workspace_spending_limit(first, "USD")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved["limit_nanos"], "0");
+    assert_eq!(saved["revision"], "1");
+    let history = store
+        .customer_workspace_spending_limit_history(first, "USD", None, 10)
+        .await
+        .unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0]["actor_kind"], "installation");
+    assert_eq!(
+        store
+            .create_workspace_with_limit(
+                Some(organization),
+                "Initial cap",
+                Some("initial-cap"),
+                limit("USD", 0),
+                key(),
+                None
+            )
+            .await
+            .unwrap()
+            .project_id,
+        first.project_id
+    );
+    assert!(matches!(
+        store
+            .create_workspace_with_limit(
+                Some(organization),
+                "Initial cap",
+                Some("initial-cap"),
+                limit("USD", 1),
+                key(),
+                None
+            )
+            .await,
+        Err(StoreError::Conflict)
+    ));
+    use niu_storage::{OperatorRole, OperatorScope};
+    let issued = store
+        .create_operator(
+            OperatorScope {
+                organization_id: organization,
+                project_id: None,
+            },
+            "Company admin",
+            OperatorRole::Admin,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let admin = store.authenticate_operator(&issued.token).await.unwrap();
+    assert!(matches!(
+        store
+            .create_workspace_with_limit(
+                Some(organization),
+                "Unauthorized cap",
+                Some("unauthorized-cap"),
+                limit("USD", 1),
+                None,
+                Some(admin)
+            )
+            .await,
+        Err(StoreError::Unauthorized)
+    ));
+    assert!(
+        !store
+            .workspaces(Some(organization), None)
+            .await
+            .unwrap()
+            .iter()
+            .any(|workspace| workspace.slug == "unauthorized-cap")
+    );
+    store
+        .create_workspace_with_limit(
+            Some(organization),
+            "Admin without cap",
+            Some("admin-no-cap"),
+            None,
+            None,
+            Some(admin),
+        )
+        .await
+        .unwrap();
+    for (slug, currency, amount) in [("wrong-currency", "EUR", 1), ("negative-limit", "USD", -1)] {
+        assert!(
+            store
+                .create_workspace_with_limit(
+                    Some(organization),
+                    "Must roll back",
+                    Some(slug),
+                    limit(currency, amount),
+                    None,
+                    None
+                )
+                .await
+                .is_err()
+        );
+        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM projects WHERE route_slug=$1")
+            .bind(slug)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0);
+    }
 }

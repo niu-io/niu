@@ -1,9 +1,12 @@
 # Company creation and retry identity
 
-`POST /admin/v1/organizations` creates a company and its initial zero-funded
+`POST /api/v1/organizations` creates a company and its initial zero-funded
 balance account atomically. Installation administrator authorization is required;
-company/workspace members cannot create companies. Currency defaults to USD and
-must be three uppercase letters. Creation grants no funds or approved credit.
+company/workspace members cannot create companies. New operator workflows should omit
+`currency` and use the platform currency configured in Admin → Settings. The
+compatibility API still accepts an explicit three-letter currency, and falls back
+to USD only when no platform currency exists; this is not a second product currency
+setting. Creation grants no funds or approved credit.
 
 Pass one `Idempotency-Key` header containing 1–128 visible ASCII characters to
 recover an uncertain response. The key has an installation-wide namespace,
@@ -11,7 +14,8 @@ separate from workspace creation. Niu stores hashes of the key and canonical
 creation input in an immutable receipt; raw client keys are not stored.
 
 - Same key, name and resolved currency: return the original identity and current
-  name with HTTP 201. Omitted currency and explicit USD are equivalent.
+  name with HTTP 201. Omitting currency matches an explicit value only when it
+  resolves to that same platform currency.
 - Same key with a different name or currency: HTTP 409.
 - The original company was deleted: HTTP 404; never recreate it on replay.
 - No key: each successful call creates a distinct company.
@@ -24,7 +28,7 @@ and must contain non-whitespace text within 200 UTF-8 bytes.
 
 ```ts
 const company = await admin.createCompany(
-  { name: 'Example company', currency: 'USD' },
+  { name: 'Example company' },
   { idempotencyKey: savedCreationKey },
 );
 ```
@@ -41,6 +45,72 @@ Company-directory traversal uses `GET /admin/v1/organizations?limit=1000&after=�
 A missing, deleted or out-of-scope cursor returns 409; malformed parameters return
 400. Member company scope is applied before pagination. Creation order is stable
 through renaming, but pages are live observations rather than a frozen snapshot.
+
+## Dashboard provisioning
+
+An installation administrator can open **Admin → Customers**, choose **New
+customer**, and create the independently funded company. Use **Set up** on its
+row to create a workspace, add the company owner, and configure supported sign-in.
+The workspace slug is suggested from the name and remains editable before saving.
+Existing customers and saved steps are available when reopening the directory.
+Company owners cannot use this console to create another independently funded
+company; their existing company and workspace management remains separate.
+
+The console retains pending creation request identities in a disposable tab cache;
+saved companies, workspaces, users and retry receipts live on the backend. After an
+uncertain write, retry the same action or refresh saved setup. Never interpret a
+failed read as an empty company. Password reset is an explicit action: it revokes
+existing sessions and requires a fresh configuration read after an uncertain save.
+No email invitation is sent. Hand off access securely and verify the owner can
+sign in before checking funds, model access and the first request.
+
+## Owner access and uncertain sign-in setup
+
+A company identity alone does not provide customer access. Provision the first
+workspace under that company's `organization_id`, then create an owner through
+`POST /api/v1/operators` with the same company and `project_id: null`. This grants
+company-wide workspace administration, not installation authority. A workspace-
+scoped owner cannot manage other workspaces or shared company funds.
+
+Company and workspace creation accept durable idempotency keys. For owner
+onboarding, create a user with `issue_session: false`, an `Idempotency-Key`, and
+no `expires_in_seconds`. The identity and receipt commit atomically. Matching
+retries return the original identity with null session/token, never another user
+or credential. Changed input or a revoked/deleted identity returns 409; retries
+do not restore access. The SDK exposes `createOperatorIdentity`. The older
+session-issuing creation mode remains non-idempotent and rejects this header.
+After an uncertain response, retain the original input and key or inspect saved
+users before any new creation action. Use
+`GET /api/v1/operators?organization_id={company}&limit=1000` and follow
+`next_cursor` as `after` until null; a failed later page is not an empty directory.
+The SDK exposes `listOperatorsPage`. Company filtering does not broaden a member's
+existing scope. A matching display name does not prove two user
+identities are equivalent. Keep the returned user identity in the provisioning
+record; it is an API reference, not customer-facing copy.
+
+Check `GET /api/v1/auth/config` before choosing the owner handoff. A returned user
+access token does not imply browser token sign-in is enabled. For password sign-in,
+an authorized manager can inspect `GET /api/v1/operators/{operator}/password` and
+configure the owner using `PUT` on the same path:
+
+- An unconfigured user returns `configured: false`, with null `email` and
+  `revision`. First provision omits `expected_revision`.
+- A configured user returns only the saved email and revision, never a password
+  or hash. A reset requires that revision and revokes previous sessions.
+- After a timeout or conflict, read the revision again. A newer revision does not
+  prove which submitted password was saved. Perform a deliberate reset against
+  the refreshed revision if a usable handoff cannot otherwise be confirmed; never
+  blindly replay a reset or create a replacement owner.
+- The read remains available while password sign-in is disabled: saved
+  configuration and deployment capability must be checked separately. Missing,
+  revoked or out-of-scope identities return 404.
+
+Hand off the installation's ordinary sign-in URL and supported access method.
+Verify that the owner can sign in and sees only the intended company and
+workspaces. Separately verify payment availability, available customer funds,
+model access and a current customer selling price before declaring the customer
+ready to make a paid request. Creating a company or an owner does not fund usage
+or establish model availability.
 
 ## Current-input verification — 2026-10-11
 

@@ -1,7 +1,7 @@
 import { useProviderParams } from '@/app/provider-route';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { providerLogoPresets, providerLogoSource } from '@/features/providers/provider-logos';
+import { providerLogoPresets, providerLogoSource, providerLogoIsMonochrome } from '@/features/providers/provider-logos';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { IconPlugConnected } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
@@ -71,13 +71,13 @@ export default function ProviderSettings() {
       <form onSubmit={event => void save(event)} className="space-y-7">
         <div className="space-y-2"><h3 className="font-medium">Business profile</h3><p className="text-sm text-muted-foreground">These details identify the provider. API endpoints and credentials are managed in API keys.</p></div>
         <fieldset disabled={busy} className="space-y-6">
-          <div className="flex items-start gap-4"><div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label="Provider logo preview">{draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt="Provider logo" className="size-full object-contain" referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}</div><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="supplier-logo">Logo URL</Label><Input id="supplier-logo" type="url" maxLength={2048} value={draft.logo_url} onChange={event => change('logo_url', event.target.value)} placeholder="https://example.com/logo.png" aria-describedby="supplier-logo-help" /><p id="supplier-logo-help" className="text-sm text-muted-foreground">Choose a preset or use a publicly accessible image URL. Leave it empty to use the default logo.{brokenLogo ? ' The image could not be loaded.' : ''}</p></div></div>
+          <div className="flex items-start gap-4"><div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label="Provider logo preview">{draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt="Provider logo" className={`size-full object-contain${providerLogoIsMonochrome(draft.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}</div><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="supplier-logo">Logo URL</Label><Input id="supplier-logo" type="url" maxLength={2048} value={draft.logo_url} onChange={event => change('logo_url', event.target.value)} placeholder="https://example.com/logo.png" aria-describedby="supplier-logo-help" /><p id="supplier-logo-help" className="text-sm text-muted-foreground">Choose a preset or use a publicly accessible image URL. Leave it empty to use the default logo.{brokenLogo ? ' The image could not be loaded.' : ''}</p></div></div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button type="button" variant="outline">{providerLogoPresets.find(preset => preset.url === draft.logo_url)?.name ?? (draft.logo_url ? 'Custom logo' : 'Default logo')}<ChevronDown aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup value={draft.logo_url} onValueChange={value => change('logo_url', value)}>
                 <DropdownMenuRadioItem value=""><IconPlugConnected aria-hidden="true" />Default logo</DropdownMenuRadioItem>
-                {providerLogoPresets.map(preset => <DropdownMenuRadioItem key={preset.name} value={preset.url}><img src={preset.src} alt="" className="size-4 object-contain" />{preset.name}</DropdownMenuRadioItem>)}
+                {providerLogoPresets.map(preset => <DropdownMenuRadioItem key={preset.name} value={preset.url}><img src={preset.src} alt="" className={`size-4 object-contain${providerLogoIsMonochrome(preset.url) ? ' dark:invert' : ''}`} />{preset.name}</DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -21,6 +21,26 @@ pub struct RetailTextEnrollmentPublication {
 }
 
 impl Store {
+    /// An explicit compatibility enrollment wins, including an explicit null
+    /// selecting legacy prices. New workspaces inherit the published platform
+    /// price in the installation's configured currency without enrollment.
+    pub(crate) async fn retail_text_price_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: TenantScope,
+        model: &str,
+    ) -> Result<Option<Uuid>, StoreError> {
+        let explicit: Option<Option<Uuid>> = sqlx::query_scalar(
+            "SELECT price_id FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3",
+        ).bind(scope.organization_id).bind(scope.project_id).bind(model)
+            .fetch_optional(&mut **tx).await?;
+        if let Some(price) = explicit {
+            return Ok(price);
+        }
+        Ok(sqlx::query_scalar(
+            "SELECT h.id FROM platform_retail_price_heads h JOIN platform_currency c ON c.singleton AND c.currency=h.currency WHERE h.model_alias=$1 AND h.rate_kind='text' AND h.current_revision IS NOT NULL",
+        ).bind(model).fetch_optional(&mut **tx).await?)
+    }
+
     /// Own workspace configuration only; no other-customer promotion history.
     pub async fn retail_text_enrollment(
         &self,
@@ -43,8 +63,14 @@ impl Store {
             .ok_or(StoreError::Conflict)?;
         let mut configuration:Value=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',$3::text,'price_id',e.price_id,'version',COALESCE(e.version,0)::text,'pricing_source',CASE WHEN e.price_id IS NULL THEN 'workspace' ELSE 'platform' END) FROM projects p LEFT JOIN retail_text_enrollments e ON e.organization_id=p.organization_id AND e.project_id=p.id AND e.model_alias=$3 WHERE p.organization_id=$1 AND p.id=$2")
             .bind(scope.organization_id).bind(scope.project_id).bind(model).fetch_one(&mut *tx).await?;
-        let selected = if let Some(head) = configuration["price_id"].as_str() {
-            let head = Uuid::parse_str(head).map_err(|_| StoreError::Conflict)?;
+        let head = Self::retail_text_price_in_tx(&mut tx, scope, model).await?;
+        configuration["price_id"] = json!(head);
+        configuration["pricing_source"] = json!(if head.is_some() {
+            "platform"
+        } else {
+            "workspace"
+        });
+        let selected = if let Some(head) = head {
             Some(Self::select_retail_price_in_tx(&mut tx, head, scope.organization_id).await?)
         } else {
             None
@@ -166,9 +192,7 @@ impl Store {
             bind_revision(tx, attempt, revision).await?;
             return Ok(true);
         }
-        let head:Option<Uuid>=sqlx::query_scalar("SELECT price_id FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3 AND price_id IS NOT NULL")
-            .bind(scope.organization_id).bind(scope.project_id).bind(alias)
-            .fetch_optional(&mut **tx).await?;
+        let head = Self::retail_text_price_in_tx(tx, scope, alias).await?;
         let Some(head) = head else {
             return Ok(false);
         };

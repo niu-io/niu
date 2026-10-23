@@ -1,0 +1,24 @@
+---
+title: Investigate request capacity
+description: Find requests holding API key capacity and choose a safe next step.
+---
+
+Open the workspace's **API keys**, select the affected key, and go to **Limits**. Use **Inspect unresolved requests** for concurrency or **Inspect token reservations** for token limits. These lists include earlier secrets of the same rotated key. Rotating or revoking a secret does not erase work already dispatched.
+
+Select a request's model name to open its exact saved details. Compare its dispatch time, key name, recorded outcome and delivery information. The link works even when the record belongs to a previous secret or is outside the recent request list. Video request details also link to the saved video result.
+
+## Understand what is holding capacity
+
+- **Completion unconfirmed:** Niu has no confirmation that the dispatched request finished. It might still be running, or its response may have been lost. Closing a browser connection is not evidence that the Provider stopped.
+- **Completed · usage unavailable:** execution completed, but complete token usage was not recorded. Token accounting keeps the estimate, or remains unknown when no estimate exists, until the completed request leaves the rolling 60-second window.
+- **Reserved tokens: Unknown:** no usable estimate exists. A finite token limit cannot treat this as zero consumption.
+
+Concurrency counts unconfirmed dispatched requests. Token limits also include known recent usage, which is summarized separately. A request without a recorded completion does not expire merely because its dispatch was more than 60 seconds ago. Requests can finish while you inspect the list; refresh to obtain a new snapshot.
+
+## Recover using evidence
+
+If a video result is still running, inspect its saved status before submitting another job. For an uncertain request, give the platform administrator its workspace, model, key name and dispatch time so they can investigate the matching record and Provider evidence. Do not send another inference request to test whether the first one finished, and do not increase a limit as a substitute for resolving the unknown outcome.
+
+For installation administrators, Niu supports [reading captured usage reconciliation evidence](/docs/api/rest/getrequestusagereconciliation/) and [supplementing eligible OpenRouter request usage](/docs/api/rest/reconcilerequestusage/). This procedure uses the saved response reference and original eligible credential. It does not accept invented usage, infer completion from elapsed time, or resubmit inference. Only confirmed terminal evidence can update the execution record. Unsupported, cancelled or nonterminal results remain unresolved; the generated reference describes the exact eligibility conditions.
+
+Usage reconciliation and financial settlement are separate. A saved usage receipt does not by itself prove that a customer charge was posted. Retain the original request and check its recorded state after recovery.

@@ -1,3 +1,5 @@
+import { Link, useLocation } from 'react-router';
+import { settingsHref } from '@/features/account/settings-page';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '../../../../../sdks/javascript/src/admin';
 import { useSearchParams } from 'react-router';
@@ -43,8 +45,10 @@ const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { year: '
 
 export default function BillingRoute() {
   const { token, workspace, session } = useDashboardContext();
+  const location = useLocation();
+  const canFund = session?.kind === 'installation' || (session?.operator?.project_id === null && ['owner','admin'].includes(session.operator.role));
   if (!token || !workspace) return <><PageHeader title="Usage statements" /><p>Select a workspace to review billing.</p></>;
-  return <BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} canConfigure={session?.kind === 'installation' || session?.operator?.role === 'owner'} />;
+  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">Spending and limits apply to this workspace. Funds are shared across the account.</p>{canFund ? <Button asChild variant="outline"><Link to={settingsHref(location.pathname,location.search,location.hash,'billing')}>Manage credits</Link></Button> : <p className="text-sm text-muted-foreground">Contact your company owner to add credits.</p>}</div><BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} canConfigure={session?.kind === 'installation' || session?.operator?.role === 'owner'} /></>;
 }
 
 function BillingView({ token, organization, project, canConfigure }: { token: string; organization: string; project: string; canConfigure: boolean }) {

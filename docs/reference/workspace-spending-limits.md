@@ -24,3 +24,19 @@ Committed spending includes posted customer charges minus their linked refunds, 
 History returns exact amount/revision strings and `recorded_at`. An upgraded `migration_baseline` has an unknown timestamp and records only the known revision. New `configuration` revisions have their actual time. `next_before_revision` is an exclusive cursor; a final full page may lead to an empty next page. New authenticated management changes include `actor_kind` and a saved `actor_name`. Member display names are preserved at the time of change; installation administration is labelled separately. Older or unattributed changes remain `unknown` with no invented name. Internal member IDs are excluded from responses.
 
 The JavaScript client's `listWorkspaceSpendingLimits`, `getWorkspaceSpendingLimit`, `setWorkspaceSpendingLimit` and `listWorkspaceSpendingLimitHistory` preserve exact integer strings and support cancellation. The workspace Billing → Spending tab provides owner/installation configuration, exact amounts including zero, committed spending, conflict reload and read-only member access. It does not expose company balances. Rendered revision history and complete packaged qualification remain pending.
+
+## Initial limit during workspace creation
+
+The create workspace dialog follows OpenRouter's name, slug, and optional budget
+pattern. Niu currently supports a lifetime cap only: Reset is shown as
+**Never (lifetime)**. Blank means unlimited; zero blocks new spending. Daily,
+weekly, and monthly resets are not supported. Only owners and installation
+administrators see this option. The amount uses the installation currency configured once in Admin → Account balances; workspace creation has no currency selector.
+
+`POST /api/v1/workspaces` accepts an optional
+`spending_limit: {"currency":"USD","limit_nanos":"1000000000"}`. The cap,
+workspace, audit history, and optional idempotency receipt commit in one
+transaction. An invalid currency, unauthorized actor, or invalid amount leaves no
+new workspace behind. The cap is included in the idempotency payload; changing it
+on a replay returns a conflict. Existing callers that omit the field retain their
+previous replay behavior.

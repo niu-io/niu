@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}`
 
-Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.
+Accepts an internal UUID alias or permanent input reference. Both preserve existing workspace and actor authorization; mutation endpoints still require internal UUIDs. Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.
 
 Operation: `getVideoSubmissionIntent`.
 
@@ -64,7 +64,7 @@ Location: **path**. **Required.**
 ```json
 {
   "type": "string",
-  "format": "uuid"
+  "description": "Internal UUID alias or permanent input reference"
 }
 ```
 
@@ -382,7 +382,7 @@ Required storage or route configuration is unavailable.
 
 ## Behavior and supported scope
 
-Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.
+Accepts an internal UUID alias or permanent input reference. Both preserve existing workspace and actor authorization; mutation endpoints still require internal UUIDs. Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.
 
 **Supported scope:** implemented
 

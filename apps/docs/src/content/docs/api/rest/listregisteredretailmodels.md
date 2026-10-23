@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/pricing/standard-prices/models`
 
-Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.
+Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Validated video output configuration adds media choices (channel, resolutions, reference-video support and meter); absent, invalid or stale configuration returns media null. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.
 
 Operation: `listRegisteredRetailModels`.
 
@@ -92,6 +92,36 @@ Content type: `application/json`.
         "properties": {
           "model_alias": {
             "type": "string"
+          },
+          "media": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "resolutions",
+              "reference_video",
+              "meter"
+            ],
+            "properties": {
+              "channel": {
+                "type": "string"
+              },
+              "resolutions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reference_video": {
+                "type": "boolean"
+              },
+              "meter": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -124,6 +154,6 @@ Cursor no longer registered; restart pagination
 
 ## Behavior and supported scope
 
-Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.
+Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Validated video output configuration adds media choices (channel, resolutions, reference-video support and meter); absent, invalid or stale configuration returns media null. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.
 
 **Supported scope:** implemented

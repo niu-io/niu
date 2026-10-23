@@ -30,6 +30,13 @@ impl Store {
         tx.commit().await?;
         Ok(())
     }
+    pub async fn generations_session_id_by_reference(
+        &self, scope: TenantScope, owner: &str, reference: &str,
+    ) -> Result<Option<Uuid>, StoreError> {
+        Ok(sqlx::query_scalar("SELECT id FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND public_reference=$4")
+            .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(reference)
+            .fetch_optional(&self.pool).await?)
+    }
     pub async fn generations_session(
         &self,
         scope: TenantScope,
@@ -37,7 +44,7 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<Value>, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
-        let session:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'workspace_id',project_id,'owner',owner,'category','video','title',title,'revision',revision::text,'archived',archived,'created_at',created_at,'updated_at',updated_at) FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+        let session:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'reference',public_reference,'workspace_id',project_id,'owner',owner,'category','video','title',title,'revision',revision::text,'archived',archived,'created_at',created_at,'updated_at',updated_at) FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id).fetch_optional(&mut *tx).await?;
         let Some(mut session) = session else {
             return Ok(None);
@@ -71,7 +78,7 @@ impl Store {
                 return Err(StoreError::InvalidGenerationsInput);
             }
         }
-        let data = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'workspace_id',project_id,'owner',owner,'category','video','title',title,'revision',revision::text,'archived',archived,'created_at',created_at,'updated_at',updated_at) FROM generations_sessions s WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND ($5::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$5)) ORDER BY created_at DESC,id DESC LIMIT $6").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived).bind(before).bind(limit+1).fetch_all(&mut *tx).await?;
+        let data = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'reference',public_reference,'workspace_id',project_id,'owner',owner,'category','video','title',title,'revision',revision::text,'archived',archived,'created_at',created_at,'updated_at',updated_at) FROM generations_sessions s WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND ($5::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM generations_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$5)) ORDER BY created_at DESC,id DESC LIMIT $6").bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived).bind(before).bind(limit+1).fetch_all(&mut *tx).await?;
         tx.commit().await?;
         Ok(data)
     }

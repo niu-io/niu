@@ -1,3 +1,4 @@
+vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -15,7 +16,7 @@ const offerId = "f31c9646-b8df-4090-aa8b-a9794dfe62bd";
 const rateRevision = "7c923678-90fa-4a66-8343-a3e34975859b";
 const sha256 = "a".repeat(64);
 
-function setup(promptRate = "1000000000", failInitialRead = false, media = false, section = "models", cachedRate: string | null = null) {
+function setup(promptRate = "1000000000", failInitialRead = false, media = false, section = "models", cachedRate: string | null = null, mediaConsumption?: unknown[], offersHasMore = false) {
   fixture.context = {
     token: "installation-token",
     session: { kind: "installation", operator: { name: "Administrator" } },
@@ -29,6 +30,7 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     const method = init?.method ?? "GET";
     const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
     requests.push({ path, method, body });
+    if (path.startsWith("/api/v1/vendors")) return Response.json({data:[]});
     if (path === "/api/v1/operators") return Response.json({ data: [
       { id: "account-demo", name: "Demo", revoked: false },
       { id: "account-revoked", name: "Revoked account", revoked: true },
@@ -50,7 +52,7 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
       }
       return Response.json({
         data: {
-          balances: [], consumption: [], settlements: [], earnings: [],
+          balances: [], consumption: [], media_consumption: mediaConsumption, settlements: [], earnings: [], offers_has_more: offersHasMore,
           offers: [{
             id: offerId,
             model_alias: "example/model",
@@ -68,6 +70,7 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
       });
     }
     if (path.includes('/media-offer-models')) return Response.json({data:[{model_alias:'example/model',api_key_name:'Video credential',vendor_id:supplierId,vendor_revision:'2',model_revision:'1',schema_revision:'private-schema',channel:'ark-direct-v1',offer_revision:rateRevision}],has_more:false,next_after:null});
+    if (offersHasMore && path.includes('/offers?limit=100&after=')) return Response.json({data:[{id:'later-offer',model_alias:'later/model',revision:'later-revision',rate_kind:'text',currency:'USD',prompt_rate:'3000000000',completion_rate:'4000000000',active:false,qualified:false,route_ready:false}],next_after:null});
     if (path.includes('/media-rates')) return Response.json({data:[],has_more:false,next_after:null});
     if (path === `/api/v1/providers/${supplierId}/qualification` && method === "PUT") {
       supplierQualified = true;
@@ -85,7 +88,7 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
   });
   vi.stubGlobal("fetch", fetchMock);
 
-  const router = createMemoryRouter([{ path: "/admin/providers/:providerId/:section", element: <ProviderAdministration /> }], { initialEntries: [`/admin/providers/${supplierId}/${section}`] });
+  const router = createMemoryRouter([{ path: "/admin/providers/:providerId/:section", element: <ProviderAdministration /> }], { initialEntries: [`/admin/providers/${supplierId}/${section}?view=text`] });
   render(<RouterProvider router={router} />);
   return { requests, router };
 }
@@ -151,7 +154,7 @@ describe("installation Provider qualification workflow", () => {
     expect(screen.queryByText("Configuration saved")).toBeNull();
     await userEvent.setup().click(link);
     expect(await screen.findByRole("tab",{name:"Media rates"})).toBeTruthy();
-    expect(screen.getByRole("tab",{name:"Text rates"}).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab",{name:"Models",exact:true}).getAttribute("aria-selected")).toBe("true");
   });
 
   it("separates media offers from text rates and preselects a named configuration for update", async () => {
@@ -160,7 +163,7 @@ describe("installation Provider qualification workflow", () => {
     await screen.findByText("No agreed model rates");
     await user.click(screen.getByRole("tab",{name:"Media rates"}));
     expect(await screen.findByText("example/model")).toBeTruthy();
-    expect(screen.queryByText("USD 1.00")).toBeNull();
+    expect(screen.queryByText("$1.00")).toBeNull();
     await user.click(screen.getByRole("button",{name:"Actions for example/model"}));
     expect(screen.getByRole("menuitem",{name:"Review offer"}).getAttribute("aria-disabled")).toBe("true");
     await user.click(screen.getByRole("menuitem",{name:"Update configuration"}));
@@ -364,7 +367,7 @@ it('retains selected earnings across an older-page failure and retry, using the 
   await screen.findByText('model-older');
   expect(screen.getAllByRole('checkbox')).toHaveLength(2);
   await user.click(screen.getAllByRole('checkbox')[1]);
-  expect(screen.getByText('USD 3.00')).toBeTruthy();
+  expect(screen.getByText('$3.00')).toBeTruthy();
   expect(olderReads).toBe(2);
   expect(screen.queryByText('older-cursor')).toBeNull();
 });
@@ -471,4 +474,45 @@ it.each(['duplicate', 'overflow', 'invalid-currency', 'empty-cursor'])('refuses 
   await screen.findByText('Earning history could not be read. Please retry.');
   expect(screen.queryByRole('checkbox')).toBeNull();
   expect(screen.getByRole('button', {name:'Record confirmed payment'}).hasAttribute('disabled')).toBe(true);
+});
+
+it('shows media-only administrator consumption with exact fractional usage and recorded payouts', async () => {
+  setup('1000000000', false, true, 'usage', null, [{model_alias:'video/model',meter:'seconds',currency:'USD',rate_revision:'hidden-revision',resolution:'720p',reference_video:false,amount_units:'125',decimal_places:3,per_quantity:{numerator:'1',denominator:'1'},requests:'2',quantity:'3',quantity_denominator:'2',amount_nanos:'750000000',unpaid_nanos:'500000000'}]);
+  await screen.findByRole('table',{name:'Media consumption'});
+  expect(screen.getByText('3/2 seconds')).toBeTruthy();
+  expect(screen.getByText('$0.125')).toBeTruthy();
+  expect(screen.getByText('$0.75')).toBeTruthy();
+  expect(screen.getByText('$0.5')).toBeTruthy();
+  expect(screen.queryByText('No consumption in the last 90 days')).toBeNull();
+  expect(screen.queryByText('hidden-revision')).toBeNull();
+});
+
+it('continues the admin offer collection and reloads current terms beyond its summary cap', async () => {
+  const {requests}=setup('1000000000',false,false,'models',null,[],true);
+  const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'Load more offers'}));
+  await screen.findByText('later/model');
+  expect(screen.queryByRole('button',{name:'Load more offers'})).toBeNull();
+  await user.click(screen.getByRole('button',{name:'Actions for later/model'}));
+  await user.click(screen.getByRole('menuitem',{name:'Edit rates'}));
+  await waitFor(()=>expect(screen.getByLabelText('Input payout per million tokens')).toHaveProperty('value','3'));
+  expect(requests.filter(row=>row.path.includes('/offers?limit=100&after='))).toHaveLength(2);
+});
+
+it('keeps loaded admin offers when continuation fails and retries the same cursor',async()=>{
+  const {requests}=setup('1000000000',false,false,'models',null,[],true);
+  const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Load more offers'});
+  const originalFetch=globalThis.fetch;
+  let failed=false;
+  vi.stubGlobal('fetch',vi.fn((input:RequestInfo|URL,init?:RequestInit)=>{
+    if(String(input).includes('/offers?limit=100&after=') && !failed){failed=true;return Promise.resolve(Response.json({error:{message:'Temporarily unavailable'}},{status:503}));}
+    return originalFetch(input,init);
+  }));
+  await user.click(screen.getByRole('button',{name:'Load more offers'}));
+  await screen.findByRole('button',{name:'Retry loading offers'});
+  expect(screen.getByText('example/model')).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'Retry loading offers'}));
+  await screen.findByText('later/model');
+  expect(requests.find(row=>row.path.includes('/offers?limit=100&after='))?.path).toContain('after=example%2Fmodel');
 });

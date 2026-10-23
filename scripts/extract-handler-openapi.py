@@ -2,6 +2,7 @@
 """Extract JSON OpenAPI annotations from Rust doc comments; no third-party parser."""
 
 import argparse
+import copy
 import json
 import re
 from pathlib import Path
@@ -206,6 +207,49 @@ def main():
             names.add(name)
             paths.setdefault(path, {})[method] = operation
             descriptions.extend(operation_documentation(path, method, operation))
+    # Aliases delegate to the same handlers. Derive their contracts instead of
+    # copying schemas that could silently diverge during future maintenance.
+    aliases_file = ROOT / 'contracts/route-aliases.json'
+    if aliases_file.exists():
+        for alias in json.loads(aliases_file.read_text()):
+            source, target = alias['source'], alias['target']
+            for method, original in list(paths[source].items()):
+                if method not in routes.get(target, set()):
+                    raise SystemExit(f'Alias is not registered: {method.upper()} {target}')
+                operation = copy.deepcopy(original)
+                operation['operationId'] += 'ByWorkspace'
+                operation['x-niu-compatibility-route'] = source
+                original['x-niu-canonical-route'] = target
+                parameters = operation.get('parameters', [])
+                parameters = [p for p in parameters if p.get('name') != 'organization']
+                for parameter in parameters:
+                    if parameter.get('in') == 'path' and parameter.get('name') == 'project':
+                        parameter['name'] = 'workspace'
+                if '/sessions' in target:
+                    category = next((p for p in parameters if p.get('name') == 'category'), None)
+                    if category is None:
+                        category = {'name': 'category', 'in': 'query', 'schema': {'type': 'string'}}
+                        parameters.append(category)
+                    category['required'] = True
+                    category['schema'] = {'type': 'string', 'enum': ['video', 'chat'] if method == 'get' else ['video']}
+                    operation['description'] += (
+                        ' This canonical route requires category explicitly: session identity is '
+                        '(workspace, authenticated owner, category, UUID). Chat projection reads '
+                        'remain read-only; guarded Chat mutations use the workspace chats routes. '
+                        'A Chat identifier never authorizes a Video mutation.')
+                operation['parameters'] = parameters
+                operation['description'] += (
+                    ' The server resolves the organization from the authorized workspace. '
+                    'Foreign or missing workspaces return 404. The compatibility route remains '
+                    'supported with identical payload, owner, revision and replay semantics.')
+                operation.setdefault('responses', {}).setdefault(
+                    '404', {'description': 'Resource missing or outside authorized workspace/owner scope.'})
+                name = operation['operationId']
+                if name in names or method in paths.get(target, {}):
+                    raise SystemExit(f'Duplicate alias: {name}')
+                names.add(name)
+                paths.setdefault(target, {})[method] = operation
+                descriptions.extend(operation_documentation(target, method, operation))
     if not paths:
         raise SystemExit('No handler annotations found')
     if schemas:

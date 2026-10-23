@@ -12,11 +12,13 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import type { DashboardContext } from '@/app/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/app/theme';
 import { useEffect } from 'react';
-import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconWallet, IconInfoCircle } from '@tabler/icons-react';
+import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconUserCircle, IconPalette, IconCreditCard, IconInfoCircle } from '@tabler/icons-react';
 import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconChevronRight } from '@tabler/icons-react';
 import logo from '../../../../../branding/assets/niu-mark.png';
 
 function SettingsContent({context, section}: {context: DashboardContext; section: string | undefined}) {
+  // Legacy Payments bookmarks resolve to the same account funding home.
+  if (section === 'payments') section = 'billing';
   const navigate = useNavigate();
   const location = useLocation();
   const identity = JSON.stringify([context.token, context.session?.operator?.id]);
@@ -66,15 +68,18 @@ function SettingsContent({context, section}: {context: DashboardContext; section
       {context.appearance?.saving && <p role="status">Saving color mode…</p>}
       {context.appearance?.error && <div role="alert"><p>{context.appearance.error}</p><Button variant="secondary" onClick={context.appearance.reload}>Reload color mode</Button></div>}
     </section>}
-    {section === 'payments' && <h2 className="text-sm font-semibold">Payments</h2>}
+    {['billing', 'payments'].includes(section) && <header className="space-y-2">
+      <h2 className="text-base font-semibold">Credits</h2>
+      <p className="text-sm text-muted-foreground">Manage shared funds, add money, and review payment orders and balance activity.</p>
+    </header>}
     {['billing', 'payments'].includes(section) && context.organization && <p className="text-muted-foreground">{context.organization.name} · Shared across workspaces</p>}
     {['billing', 'payments'].includes(section) && (canViewBilling
       ? context.organization
-        ? <AccountBilling section={section as 'billing' | 'payments'} key={context.token + context.organization.id} token={context.token} organization={context.organization.id} canConfigure={Boolean(context.session?.permissions?.write)}/>
+        ? <AccountBilling section="all" key={context.token + context.organization.id} token={context.token} organization={context.organization.id} canConfigure={Boolean(context.session?.permissions?.write)}/>
         : context.workspaceLoading
           ? <p role="status" className="text-muted-foreground">Loading billing account…</p>
           : <div role="alert" className="space-y-3"><p>Could not load your billing account.</p><Button variant="secondary" onClick={context.reloadWorkspaces}>Retry</Button></div>
-      : <p className="text-muted-foreground">Account billing is available to organization owners and administrators.</p>)}
+      : <p className="text-muted-foreground">Only company owners and administrators can manage shared credits. Contact your company owner to add credits.</p>)}
   </div>;
 }
 
@@ -86,14 +91,15 @@ export function SettingsNavigation({ context, section, href }: { context: Dashbo
   const entries = [
     ...(personal ? [{path:'account',label:'Account',icon:IconUserCircle}] : []),
     {path:'appearance',label:'Appearance',icon:IconPalette},
-    ...(canViewBilling ? [{path:'billing',label:'Billing',icon:IconCreditCard}, {path:'payments',label:'Payments',icon:IconWallet}] : []),
+    ...(canViewBilling ? [{path:'billing',label:'Credits',icon:IconCreditCard}] : []),
     {path:'about',label:'About',icon:IconInfoCircle},
   ];
   return <>
     <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row group-data-[collapsible=icon]:sr-only">Settings</h2></SidebarHeader>
     <SidebarContent className="px-3 pb-3"><nav aria-label="Settings navigation"><SidebarMenu>
       {entries.map(item => {
-        const selected = section ? section === item.path : location.pathname === '/settings/'+item.path;
+        const selectedSection = section ?? location.pathname.split('/')[2];
+        const selected = (selectedSection === 'payments' ? 'billing' : selectedSection) === item.path;
         return <SidebarMenuItem key={item.path}><SidebarMenuButton asChild tooltip={item.label} isActive={selected}><Link aria-current={selected ? 'page' : undefined} state={location.state} to={href ? href(item.path) : '/settings/'+item.path}><item.icon aria-hidden="true"/><span>{item.label}</span></Link></SidebarMenuButton></SidebarMenuItem>;
       })}
     </SidebarMenu></nav></SidebarContent>
@@ -115,15 +121,16 @@ export function settingsHref(pathname: string, search: string, hash: string, sec
 
 export function SettingsDialog({context, section, onClose, href}: {context:DashboardContext; section:string|undefined; onClose:()=>void; href?:(section:string)=>string}) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const openerRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const contentRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, [section]);
   const isMobile = useIsMobile();
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent onOpenAutoFocus={event => { event.preventDefault(); headingRef.current?.focus(); }} onCloseAutoFocus={event => {
-      // The menu item that opened Settings unmounts. Return to its persistent
-      // trigger, or the navigation toggle when the mobile rail is hidden.
-      const destination = Array.from(document.querySelectorAll<HTMLElement>('[aria-label="Account menu"], [aria-label="Open navigation menu"], .sidebar-toggle'))
-        .find(element => element.isConnected && element.getClientRects().length > 0 && !element.closest('[role="dialog"]'));
+      // Prefer the actual task entry point; menu items may unmount, so retain
+      // the persistent account/navigation triggers as fallbacks.
+      const destination = [openerRef.current, ...Array.from(document.querySelectorAll<HTMLElement>('[aria-label="Account menu"], [aria-label="Open navigation menu"], .sidebar-toggle'))]
+        .find((element): element is HTMLElement => !!element && element !== document.body && element.isConnected && element.getClientRects().length > 0 && !element.closest('[role="dialog"]'));
       if (destination) { event.preventDefault(); destination.focus(); }
     }} aria-describedby="settings-description" className="settings-dialog !max-w-5xl !w-[calc(100%-2rem)] !p-0 !gap-0 overflow-hidden h-[min(760px,85dvh)]">
       <DialogTitle ref={headingRef} tabIndex={-1} className="sr-only">Settings</DialogTitle>

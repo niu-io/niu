@@ -268,6 +268,52 @@ impl Store {
         rows.into_iter().map(OperatorView::try_from).collect()
     }
 
+    /// Scope before cursor validation so a foreign cursor cannot reveal users.
+    pub async fn operator_page(
+        &self,
+        scope: Option<OperatorScope>,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<Vec<OperatorView>, StoreError> {
+        if !(1..=1001).contains(&limit) {
+            return Err(StoreError::InvalidOperator);
+        }
+        let organization = scope.map(|scope| scope.organization_id);
+        let project = scope.and_then(|scope| scope.project_id);
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        if let Some(after) = after {
+            let visible: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM admin_operators WHERE id=$1 \
+                 AND ($2::uuid IS NULL OR organization_id=$2) \
+                 AND ($3::uuid IS NULL OR project_id=$3))",
+            )
+            .bind(after)
+            .bind(organization)
+            .bind(project)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !visible {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let rows: Vec<OperatorRow> = sqlx::query_as(
+            "SELECT id,name,role,organization_id,project_id,revoked_at IS NOT NULL AS revoked \
+             FROM admin_operators WHERE ($1::uuid IS NULL OR organization_id=$1) \
+             AND ($2::uuid IS NULL OR project_id=$2) \
+             AND ($3::uuid IS NULL OR (created_at,id) > \
+                 (SELECT created_at,id FROM admin_operators WHERE id=$3)) \
+             ORDER BY created_at,id LIMIT $4",
+        )
+        .bind(organization)
+        .bind(project)
+        .bind(after)
+        .bind(limit)
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        rows.into_iter().map(OperatorView::try_from).collect()
+    }
+
     pub async fn operator_sessions(
         &self,
         operator_id: Uuid,
@@ -335,6 +381,84 @@ impl Store {
         .await?;
         tx.commit().await?;
         Ok(issued)
+    }
+
+    /// Create a durable identity without a temporary token. A receipt and the
+    /// identity commit together; replay never creates sessions or restores access.
+    pub async fn create_operator_identity(
+        &self,
+        scope: OperatorScope,
+        name: &str,
+        role: OperatorRole,
+        key_sha256: &[u8],
+        actor: OperatorAuditActor,
+    ) -> Result<OperatorView, StoreError> {
+        validate_operator(name, MIN_SESSION_SECONDS)?;
+        if key_sha256.len() != 32 {
+            return Err(StoreError::Conflict);
+        }
+        let request =
+            serde_json::to_vec(&serde_json::json!({"scope":scope,"name":name.trim(),"role":role}))
+                .map_err(|_| StoreError::Conflict)?;
+        let digest = Sha256::digest(request).to_vec();
+        let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-user-create:'||$1::text||':'||encode($2::bytea,'hex'),0))")
+            .bind(scope.organization_id.to_string()).bind(key_sha256).execute(&mut *tx).await?;
+        let receipt: Option<(Vec<u8>,Uuid)> = sqlx::query_as(
+            "SELECT request_sha256,operator_id FROM operator_creation_receipts WHERE organization_id=$1 AND key_sha256=$2",
+        ).bind(scope.organization_id).bind(key_sha256).fetch_optional(&mut *tx).await?;
+        if let Some((saved, id)) = receipt {
+            if saved != digest {
+                return Err(StoreError::Conflict);
+            }
+            let row: Option<OperatorRow> = sqlx::query_as(
+                "SELECT id,name,role,organization_id,project_id,revoked_at IS NOT NULL AS revoked FROM admin_operators WHERE id=$1 FOR SHARE",
+            ).bind(id).fetch_optional(&mut *tx).await?;
+            let row = row.ok_or(StoreError::Conflict)?;
+            if row.revoked
+                || row.organization_id != Some(scope.organization_id)
+                || row.project_id != scope.project_id
+            {
+                return Err(StoreError::Conflict);
+            }
+            tx.commit().await?;
+            return row.try_into();
+        }
+        let company: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
+                .bind(scope.organization_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if company.is_none() {
+            return Err(StoreError::Conflict);
+        }
+        if let Some(project) = scope.project_id {
+            let workspace: Option<Uuid> = sqlx::query_scalar(
+                "SELECT id FROM projects WHERE id=$1 AND organization_id=$2 FOR SHARE",
+            )
+            .bind(project)
+            .bind(scope.organization_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if workspace.is_none() {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let id = Uuid::new_v4();
+        sqlx::query("INSERT INTO admin_operators(id,name,role,organization_id,project_id) VALUES($1,$2,$3,$4,$5)")
+            .bind(id).bind(name.trim()).bind(role.as_str()).bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO operator_creation_receipts(organization_id,key_sha256,request_sha256,operator_id) VALUES($1,$2,$3,$4)")
+            .bind(scope.organization_id).bind(key_sha256).bind(digest).bind(id).execute(&mut *tx).await?;
+        insert_operator_audit_event(&mut tx, actor, "operator_created", id, None, scope).await?;
+        tx.commit().await?;
+        Ok(OperatorView {
+            id,
+            name: name.trim().into(),
+            role,
+            organization_id: Some(scope.organization_id),
+            project_id: scope.project_id,
+            revoked: false,
+        })
     }
 
     pub async fn create_operator_session(

@@ -1,0 +1,216 @@
+---
+title: "Read the persistent personal Chat draft"
+description: "GET /api/v1/workspaces/{workspace}/chats/draft"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+`GET /api/v1/workspaces/{workspace}/chats/draft`
+
+The draft is isolated by authenticated personal owner and workspace. Operators have distinct drafts; installation credentials share the installation owner. Read authorization and workspace scope are required. An absent draft returns null payload and revision zero. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Operation: `getChatDraftByWorkspace`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
+
+```sh
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/chats/draft" \
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN"
+```
+
+## Parameters
+
+### workspace
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+## Request body
+
+No request body is declared.
+
+## Responses
+
+### HTTP 200
+
+Saved personal draft state.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "payload",
+        "revision"
+      ],
+      "properties": {
+        "payload": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "prompt",
+                "models",
+                "attachments",
+                "settings"
+              ],
+              "properties": {
+                "sessionId": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Optional saved conversation belonging to this owner and workspace."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "prompt": {
+                  "type": "string",
+                  "maxLength": 12000
+                },
+                "models": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Nonblank and at most 512 UTF-8 bytes; saving a draft does not invoke or grant access to this model."
+                  }
+                },
+                "attachments": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "type",
+                      "content"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "At most 1024 UTF-8 bytes."
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "image",
+                          "text"
+                        ]
+                      },
+                      "content": {
+                        "type": "string",
+                        "description": "At most 6291456 UTF-8 bytes; stored text, not a server-fetched URL."
+                      }
+                    }
+                  }
+                },
+                "settings": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "systemPrompt",
+                    "maxTokens",
+                    "temperature",
+                    "logPayloads"
+                  ],
+                  "properties": {
+                    "systemPrompt": {
+                      "type": "string",
+                      "maxLength": 12000
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2
+                    },
+                    "logPayloads": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0,
+          "description": "Zero before the first saved draft; integer revision, not a string."
+        }
+      }
+    }
+  }
+}
+```
+
+### HTTP 401
+
+Missing or invalid administration/member authentication.
+
+### HTTP 403
+
+Insufficient permission or workspace scope.
+
+### HTTP 404
+
+Resource missing or outside authorized workspace/owner scope.
+
+### HTTP 500
+
+Internal storage failure.
+
+### HTTP 503
+
+Storage unavailable.
+
+## Behavior and supported scope
+
+The draft is isolated by authenticated personal owner and workspace. Operators have distinct drafts; installation credentials share the installation owner. Read authorization and workspace scope are required. An absent draft returns null payload and revision zero. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+**Supported scope:** implemented

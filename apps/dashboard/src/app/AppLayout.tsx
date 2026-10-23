@@ -1,3 +1,7 @@
+import { usePaymentReadiness } from './payment-readiness';
+import { useMockPayments } from './mock-payments';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { TriangleAlert } from 'lucide-react';
 import { IconPalette, IconHistory, IconRoute, IconWallet } from '@tabler/icons-react';
 import { IconKey as KeyRound, IconUsers as Users } from '@tabler/icons-react';
 import RouterPending from './RouterPending';
@@ -51,12 +55,14 @@ function WorkspaceNav({
   models,
   activePath,
   onCreateWorkspace,
+  creationAvailable,
 }: {
   context: DashboardContext;
   activeWorkspacePath: string;
   models: Model[];
   activePath: string;
   onCreateWorkspace: () => void;
+  creationAvailable: boolean;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const videoAvailable = useWorkspaceVideo(context);
@@ -65,7 +71,7 @@ function WorkspaceNav({
     && (item.to !== 'costs' || context.session?.kind === 'installation'));
 
   return <>
-    <SidebarHeader className="sidebar-heading"><WorkspaceSwitcher context={context} onCreateWorkspace={onCreateWorkspace} /></SidebarHeader>
+    <SidebarHeader className="sidebar-heading"><WorkspaceSwitcher context={context} creationAvailable={creationAvailable} onCreateWorkspace={onCreateWorkspace} /></SidebarHeader>
     <SidebarContent className="workspace-sidebar-content">
       <nav aria-label="Main navigation">
         <SidebarMenu className="workspace-nav-menu">
@@ -134,12 +140,14 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
   ] : [
     { to: '/admin/providers', label: 'Providers', end: false },
     { to: '/admin/pools', label: 'Model pools', end: false },
+    { to: '/admin/customers', label: 'Customers', end: false },
     { to: '/admin/reports', label: 'Financial reports', end: false },
     { to: '/admin/balances', label: 'Account balances', end: false },
     { to: '/admin/pricing', label: 'Pricing', end: false },
     { to: '/admin/payments', label: 'Payment gateways', end: false },
     { to: '/admin/branding', label: 'Branding', end: false },
     { to: '/admin/audit', label: 'Audit logs', end: false },
+    { to: '/admin/settings', label: 'Settings', end: false },
   ];
   return <>
     <SidebarHeader className="sidebar-heading">
@@ -166,7 +174,7 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
     </SidebarHeader>
     <SidebarContent className="workspace-sidebar-content">
       <nav aria-label={provider ? "Provider navigation" : "Admin navigation"}><SidebarMenu className="workspace-nav-menu">
-        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys' ? KeyRound : item.label === 'Members' ? Users : item.label === 'Providers' ? RailSuppliers : item.label === 'Model pools' ? IconRoute : item.label === 'Account balances' ? IconWallet : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
+        {entries.map(item => { const Icon = item.label === 'Settings' ? Settings2 : item.label === 'API keys' ? KeyRound : (item.label === 'Members' || item.label === 'Customers') ? Users : item.label === 'Providers' ? RailSuppliers : item.label === 'Model pools' ? IconRoute : item.label === 'Account balances' ? IconWallet : item.label === 'Payment gateways' ? CreditCard : item.label === 'Branding' ? IconPalette : item.label === 'Audit logs' ? IconHistory : item.label === 'Overview' ? LayoutDashboard : item.label === 'Models' ? Boxes : item.label === 'Settlements' ? CreditCard : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
           <SidebarMenuButton asChild isActive={location.pathname === item.to || (!provider && location.pathname.startsWith(item.to + "/"))} className="nav-item provider-zone-item">
             <NavLink to={item.to} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{item.label}</span></NavLink>
           </SidebarMenuButton>
@@ -191,6 +199,7 @@ function ProductRailLink({ to, onActivate, children, onClick, ...props }: NavLin
 }
 
 export default function AppLayout() {
+  const mockPaymentsEnabled = useMockPayments();
   const {settings:branding,logo} = useBranding();
   const [workspaceCreateOpen, setWorkspaceCreateOpen] = useState(false);
   const [token, setToken] = useState('');
@@ -288,6 +297,7 @@ export default function AppLayout() {
   useLayoutEffect(() => { workspaceNavigation.current = {routeWorkspace, workspace, workspaces, location}; }, [routeWorkspace, workspace, workspaces, location]);
   const modelOrganizationId = routeWorkspace?.organization_id ?? (requestedWorkspaceId && !isDefaultWorkspaceAlias ? requestedWorkspace?.organization_id : selectedOrganizationId ?? workspace?.organization_id);
   const modelWorkspace = routeWorkspace ?? selectedWorkspace;
+  const paymentReadiness = usePaymentReadiness(token, modelOrganizationId);
   const modelsHref = token ? workspaceModelsHref(modelWorkspace ?? workspace, workspaces) : '/models/';
   const modelWorkspaceId = modelWorkspace && modelWorkspace.organization_id === modelOrganizationId ? modelWorkspace.id : undefined;
 
@@ -758,12 +768,12 @@ export default function AppLayout() {
   const helpArea = location.pathname === '/help' || location.pathname.startsWith('/help/');
   const guardrailTitles: Record<string, string> = {policy:'Policy',input:'Input rules',output:'Output rules',access:'Model access',detectors:'External checks',history:'History',denials:'Blocked requests'};
   const isGuardrailEditor = ['guardrails/input','guardrails/output','guardrails/access','guardrails/detectors'].includes(activePath);
-  const title = workspaceDirectoryArea ? 'Workspaces' : settingsArea ? ({account:'Account',appearance:'Appearance',billing:'Billing',payments:'Payments',about:'About'}[location.pathname.split('/')[2] ?? 'account'] ?? 'Settings') : loginArea
+  const title = workspaceDirectoryArea ? 'Workspaces' : settingsArea ? ({account:'Account',appearance:'Appearance',billing:'Credits',payments:'Credits',about:'About'}[location.pathname.split('/')[2] ?? 'account'] ?? 'Settings') : loginArea
     ? location.pathname === '/installation' ? 'Installation administration' : 'Sign in'
     : helpArea
       ? 'Documentation'
     : supplierArea
-      ? ({ 'reports': 'Financial reports', 'balances': 'Account balances', oauth: 'OAuth providers', 'payments': 'Payment gateways', pricing: 'Pricing', branding: 'Branding', 'audit': 'Audit logs', 'pools': 'Model pools', overview: 'Overview', 'keys': 'API keys', models: 'Models', usage: 'Usage', settlements: 'Settlements', members: 'Members', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? ((location.pathname === '/admin/providers' || location.pathname === '/admin/suppliers') ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
+      ? ({ customers: 'Customers', 'reports': 'Financial reports', 'balances': 'Account balances', oauth: 'OAuth providers', 'payments': 'Payment gateways', pricing: 'Pricing', branding: 'Branding', 'audit': 'Audit logs', 'pools': 'Model pools', overview: 'Overview', 'keys': 'API keys', models: 'Models', usage: 'Usage', settlements: 'Settlements', members: 'Members', settings: 'Settings' }[location.pathname.split('/').pop() ?? ''] ?? ((location.pathname === '/admin/providers' || location.pathname === '/admin/suppliers') ? 'Providers' : supplierManagement ? 'Overview' : 'Providers'))
       : activePath === 'keys/new'
         ? 'New API key'
         : activePath.startsWith('keys/')
@@ -785,6 +795,7 @@ export default function AppLayout() {
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
   const hasSidebar = !helpArea && (!adminArea || ((session?.kind === 'installation' || session?.permissions.platform_admin) && session.permissions.manage_operators)) && (!settingsArea && (activityArea || supplierManagement || destination === 'Workspace'));
   const isInstallation = session?.kind === 'installation' || Boolean(session?.permissions.platform_admin);
+  const setupBlocked = Boolean(token && !supplierArea && !settingsArea && !helpArea && paymentReadiness.status !== 'ready');
   const showWorkspaceAreas = !supplierArea || isInstallation || Boolean(session?.operator);
   const activeWorkspacePath = !isGlobalChat && routeWorkspaceId
     ? `/workspaces/${routeWorkspaceId}`
@@ -835,7 +846,7 @@ export default function AppLayout() {
   >
     <a className="dashboard-skip" href="#dashboard-content">Skip to content</a>
     {!settingsArea && ['account','appearance','billing','payments','about'].includes(new URLSearchParams(location.search).get('settings') ?? '') && <SettingsDialog context={context} section={new URLSearchParams(location.search).get('settings') ?? undefined} href={section => settingsHref(location.pathname,location.search,location.hash,section)} onClose={() => { const query = new URLSearchParams(location.search); query.delete('settings'); navigate(location.pathname + (query.size ? '?' + query.toString() : '') + location.hash,{replace:true}); }}/>} 
-    <WorkspaceCreateDialog context={context} open={workspaceCreateOpen} onOpenChange={setWorkspaceCreateOpen} />
+    <WorkspaceCreateDialog context={context} open={workspaceCreateOpen && paymentReadiness.status === 'ready'} onOpenChange={setWorkspaceCreateOpen} />
     <nav className="app-rail" aria-label="Product navigation">
       <a className="rail-logo" href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a>
       {showWorkspaceAreas && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${destination === 'Workspace' && location.pathname.startsWith('/workspaces/') && !supplierArea ? ' selected' : ''}`} aria-label="Workspace"><RailWorkspace size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Workspace</TooltipContent></Tooltip>}
@@ -856,10 +867,11 @@ export default function AppLayout() {
       mobileClassName="niu-workspace-sidebar-mobile" mobileContentProps={{ onCloseAutoFocus: event => { if (toggleRef.current?.isConnected) { event.preventDefault(); toggleRef.current.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"]')) event.preventDefault(); } }}
       mobileStyle={{ left: 'var(--rail)', top: 0, right: 0, bottom: 0, width: 'min(var(--context), calc(100vw - var(--rail)))', height: 'auto' }}
     >
-      {activityArea ? <><SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">Activity</h2></SidebarHeader><SidebarContent className="workspace-sidebar-content"><nav aria-label="Activity navigation"><SidebarMenu className="workspace-nav-menu">{[{to:'/activity',label:'Overview',icon:LayoutDashboard},{to:'/activity/logs',label:'Logs',icon:IconListDetails}].map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild isActive={location.pathname === item.to} className="nav-item"><ProductRailLink to={item.to + location.search} end><item.icon className="nav-icon" aria-hidden="true"/><span>{item.label}</span></ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></nav></SidebarContent></> : settingsArea ? <SettingsNavigation context={context} /> : adminArea ? <ProviderNav context={context} /> : supplierArea ? <ProviderNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} onCreateWorkspace={() => setWorkspaceCreateOpen(true)} />}
+      {activityArea ? <><SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">Activity</h2></SidebarHeader><SidebarContent className="workspace-sidebar-content"><nav aria-label="Activity navigation"><SidebarMenu className="workspace-nav-menu">{[{to:'/activity',label:'Overview',icon:LayoutDashboard},{to:'/activity/logs',label:'Logs',icon:IconListDetails}].map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild isActive={location.pathname === item.to} className="nav-item"><ProductRailLink to={item.to + location.search} end><item.icon className="nav-icon" aria-hidden="true"/><span>{item.label}</span></ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></nav></SidebarContent></> : settingsArea ? <SettingsNavigation context={context} /> : adminArea ? <ProviderNav context={context} /> : supplierArea ? <ProviderNav context={context} /> : <WorkspaceNav creationAvailable={paymentReadiness.status === 'ready'} context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} onCreateWorkspace={() => setWorkspaceCreateOpen(true)} />}
       {phoneNavigation && <SidebarFooter><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile /></SidebarFooter>}
     </Sidebar>}
     <SidebarInset className="main-panel">
+      {mockPaymentsEnabled && <Alert className="mock-payment-warning shrink-0 rounded-none" role="status"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Mock payments enabled · Real model costs</AlertTitle><AlertDescription>Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.</AlertDescription></Alert>}
       {phoneNavigation && !hasSidebar && !isGlobalChat && (destination !== 'Models' || activePath.startsWith('models/')) && <nav className="mobile-product-navigation" aria-label="Product navigation"><a href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile /></nav>}
       {!settingsArea && !isGlobalChat && !helpArea && <header className="dashboard-page-header">
         {(hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <WorkspaceSidebarToggle buttonRef={toggleRef} supplierArea={supplierArea} modelsArea={destination === 'Models'} settingsArea={settingsArea} activityArea={activityArea} adminArea={adminArea} />}
@@ -877,7 +889,7 @@ export default function AppLayout() {
           {activePath.startsWith('guardrails/') && <><BreadcrumbItem className="sm:hidden"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6" aria-label="Show parent pages">…</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails`}>Guardrails</NavLink></DropdownMenuItem>{isGuardrailEditor && <DropdownMenuItem asChild><NavLink to={`${activeWorkspacePath}/guardrails/policy`}>Policy</NavLink></DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></BreadcrumbItem><BreadcrumbSeparator className="sm:hidden">/</BreadcrumbSeparator></>}
           <BreadcrumbItem className="min-w-0"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 max-w-full gap-1 px-1 py-1" aria-label="Switch workspace page"><h1 className="dashboard-route-title">{title}</h1><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeNavigation?.to ?? ''} onValueChange={value => navigate(value === '.' ? activeWorkspacePath : `${activeWorkspacePath}/${value}`)}>{scopedNavigation.filter(item => item.destination === 'Workspace').map(item => <DropdownMenuRadioItem key={item.to} value={item.to}>{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></BreadcrumbItem>
         </BreadcrumbList></Breadcrumb> : adminSupplierId ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList><BreadcrumbItem className="hidden sm:inline-flex"><BreadcrumbLink asChild><NavLink to="/admin/providers">Providers</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator className="hidden sm:block" /><BreadcrumbItem><BreadcrumbLink asChild><NavLink className="max-w-28 truncate sm:max-w-none" to={`/admin/providers/${encodeURIComponent(adminSupplierId)}`}>{adminSupplierName || 'Loading Provider…'}</NavLink></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><h1 className="dashboard-route-title" aria-current="page">{title}</h1></BreadcrumbItem></BreadcrumbList></Breadcrumb> : <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs">{!(adminArea || workspaceDirectoryArea || destination === 'Global' || destination === 'Models' || (supplierArea && !supplierManagement)) && <><span>{settingsArea ? 'Settings' : supplierArea ? 'Providers' : platform ? 'Platform' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span></>}<h1 className="dashboard-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={modelsHref} reloadDocument={!token}>Models</NavLink> : title}</h1></Breadcrumb>}
-        <div id="dashboard-page-actions" className="dashboard-page-actions" />
+        <div id="dashboard-page-actions" className="dashboard-page-actions" hidden={setupBlocked} style={setupBlocked ? {display:'none'} : undefined} />
       </header>}
       <div className={`page-content${helpArea ? ' help-content' : ''}`} id="dashboard-content" tabIndex={-1}>
         {!helpArea && gatewayStatus === 'checking' && <p role="status">Connecting to your workspace…</p>}
@@ -888,7 +900,12 @@ export default function AppLayout() {
               {[['overview', 'Overview'], ['keys', 'API keys'], ['models', 'Models'], ['usage', 'Usage'], ['settlements', 'Settlements'], ['members', 'Members'], ['settings', 'Settings']].map(([value, label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}
             </TabsList></div>
           </Tabs>}
-          {helpArea ? <Outlet context={context} /> : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !supplierArea && !settingsArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}
+          {setupBlocked && <section className="space-y-4 py-6" aria-label="Service setup">
+            <h2 className="text-lg font-semibold">{paymentReadiness.status === 'loading' ? 'Checking service setup…' : paymentReadiness.status === 'error' ? 'Could not verify service setup' : 'Service setup required'}</h2>
+            <p role="status" className="text-muted-foreground">{paymentReadiness.status === 'loading' ? 'Checking payment setup or funding for this account.' : paymentReadiness.status === 'error' ? 'We couldn’t check service setup. Your work is preserved. Check your connection and try again.' : isInstallation ? 'Configure the platform currency, then connect a payment gateway or fund this company’s account. Funded self-hosted workspaces do not require a merchant.' : 'Your service administrator needs to configure payments or fund your company’s account before workspace features become available.'}</p>
+            <div className="flex flex-wrap gap-3">{isInstallation && paymentReadiness.status === 'blocked' && <Button asChild><NavLink to={paymentReadiness.reason === 'currency_required' ? '/admin/settings' : '/admin/payments'}>{paymentReadiness.reason === 'currency_required' ? 'Configure platform currency' : 'Configure payment gateways'}</NavLink></Button>}{isInstallation && paymentReadiness.status === 'blocked' && paymentReadiness.reason !== 'currency_required' && <Button variant="outline" asChild><NavLink to="/admin/balances">Manage account funding</NavLink></Button>}<Button variant="outline" disabled={paymentReadiness.status === 'loading'} onClick={()=>{paymentReadiness.retry();setWorkspaceLoadRevision(value=>value+1);}}>Check again</Button></div>
+          </section>}
+          {(!setupBlocked || paymentReadiness.retainContent) && <div hidden={setupBlocked}>{helpArea ? <Outlet context={context} /> : token && !supplierArea && !settingsArea && effectiveWorkspaceError ? <WorkspaceRecovery problem={effectiveWorkspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !supplierArea && !settingsArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}</div>}
         </div>}
       </div>
     </SidebarInset>

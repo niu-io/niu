@@ -1,0 +1,106 @@
+[
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/assets",
+    "target": "/api/v1/workspaces/{workspace}/assets"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
+    "target": "/api/v1/workspaces/{workspace}/assets/{asset}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content",
+    "target": "/api/v1/workspaces/{workspace}/assets/{asset}/content"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/video/intents",
+    "target": "/api/v1/workspaces/{workspace}/video/intents"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}",
+    "target": "/api/v1/workspaces/{workspace}/video/intents/{intent}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit",
+    "target": "/api/v1/workspaces/{workspace}/video/intents/{intent}/submit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/video/draft",
+    "target": "/api/v1/workspaces/{workspace}/video/draft"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/chats/draft",
+    "target": "/api/v1/workspaces/{workspace}/chats/draft"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/chats",
+    "target": "/api/v1/workspaces/{workspace}/chats"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive",
+    "target": "/api/v1/workspaces/{workspace}/chats/{id}/archive"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/export",
+    "target": "/api/v1/workspaces/{workspace}/chats/{id}/export"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
+    "target": "/api/v1/workspaces/{workspace}/chats/{id}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh",
+    "target": "/api/v1/workspaces/{workspace}/tasks/{task}/refresh"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh",
+    "target": "/api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
+    "target": "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/capture"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
+    "target": "/api/v1/workspaces/{workspace}/tasks"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}",
+    "target": "/api/v1/workspaces/{workspace}/tasks/{task}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics",
+    "target": "/api/v1/workspaces/{workspace}/tasks/{task}/diagnostics"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts",
+    "target": "/api/v1/workspaces/{workspace}/artifacts"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}",
+    "target": "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content",
+    "target": "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/content"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations",
+    "target": "/api/v1/workspaces/{workspace}/sessions"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}",
+    "target": "/api/v1/workspaces/{workspace}/sessions/{session}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}",
+    "target": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/task",
+    "target": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/task"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/intent",
+    "target": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/intent"
+  }
+]

@@ -47,6 +47,7 @@ type GatewayRequest = {
   admission_denial?: import('../../../../../../sdks/javascript/src/admin').GatewayAdmissionDenial | null;
   request_kind?: 'video' | 'inference';
   attempt_id: string;
+  reference?: string;
   operation_id: string;
   api_key_id: string | null;
   key_name: string | null;
@@ -152,7 +153,7 @@ const requestColumns = [
   ['input', 'Input tokens'], ['output', 'Output tokens'], ['charge', 'Customer charge'], ['key', 'API key'],
 ] as const;
 type RequestColumn = typeof requestColumns[number][0];
-type KeyOption = { id: string; name: string; allowed_models: string[]; revoked: boolean; expired: boolean };
+type KeyOption = { id: string; slug?: string; name: string; allowed_models: string[]; revoked: boolean; expired: boolean };
 
 async function get<T>(path: string, token: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal, headers: { authorization: `Bearer ${token}` } });
@@ -243,13 +244,13 @@ function filterQuery(filters: ActivityFilters) {
   return query.toString();
 }
 
-function requestEvidenceHref(workspaceRoot: string, filters: ActivityFilters, apiKeyId?: string) {
+function buildRequestEvidenceHref(workspaceRoot: string, filters: ActivityFilters, apiKeyId?: string, slug?: string) {
   const query = new URLSearchParams();
   if (filters.from) query.set('from', filters.from);
   if (filters.to) query.set('to', filters.to);
   if (filters.model) query.set('modelAlias', filters.model);
   const keyId = apiKeyId ?? filters.keyId;
-  if (keyId) query.set('keyId', keyId);
+  if (keyId) query.set(slug ? 'key' : 'keyId', slug || keyId);
   if (filters.status) query.set('status', filters.status);
   if (filters.httpStatus) query.set('httpStatus', filters.httpStatus);
   if (filters.operationId) query.set('operationId', filters.operationId);
@@ -277,7 +278,7 @@ export function taskOutcome(evidence: TaskEvidence | null) {
   return 'Unverified';
 }
 
-export default function GatewayActivity({ token, models, initialScope, compact = false, statisticsOnly = false, preferredModelAlias, preferredKeyId, workspaceRoute }: { workspaceRoute?: string; token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; statisticsOnly?: boolean; preferredModelAlias?: string; preferredKeyId?: string }) {
+export default function GatewayActivity({ token, models, initialScope, compact = false, statisticsOnly = false, preferredModelAlias, preferredKeyId, preferredKeySlug, workspaceRoute, externalRequest, onExternalRequestClose }: { workspaceRoute?: string; token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; statisticsOnly?: boolean; preferredModelAlias?: string; preferredKeyId?: string; preferredKeySlug?: string; externalRequest?: {attemptId:string;nonce:number;opener:HTMLElement|null}|null; onExternalRequestClose?:()=>void }) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const latencyMetric = latencyMetrics.find(([value]) => value === searchParams.get('latency'))?.[0] ?? 'average';
@@ -305,7 +306,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const project = initialScope?.projectId ?? '';
   const [requests, setRequests] = useState<GatewayRequest[]>([]);
   const [selectedAttempt, setSelectedAttempt] = useState<string | null>(null);
-  const linkedIdentity = JSON.stringify([token, organization, project, location.hash]);
+  const linkedIdentity = JSON.stringify([token, organization, project, location.hash, externalRequest?.attemptId, externalRequest?.nonce]);
   const [linkedRequest, setLinkedRequest] = useState<{identity:string;data:GatewayRequest} | null>(null);
   const [linkedError, setLinkedError] = useState('');
   const [linkedLoading, setLinkedLoading] = useState(false);
@@ -328,7 +329,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   function openRequest(attemptId: string, opener?: HTMLElement) {
     if (opener) requestOpener.current = opener;
     setSelectedAttempt(attemptId);
-    navigate({pathname:location.pathname,search:location.search,hash:`#gateway-attempt-${attemptId}`},{replace:true});
+    navigate({pathname:location.pathname,search:location.search,hash:`#gateway-attempt-${requests.find(item=>item.attempt_id===attemptId)?.reference??attemptId}`},{replace:true});
   }
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
   const detailSheet = useRef<HTMLDivElement>(null);
@@ -378,20 +379,38 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const groupedCharges = chargeGroups((chargeByKey ? summary?.charges_by_key : summary?.charges_by_model) ?? [], chargeByKey);
   const [keys, setKeys] = useState<KeyOption[]>([]);
   const [keyFilterError, setKeyFilterError] = useState('');
+  const [keysScope, setKeysScope] = useState('');
+  const keyScope = JSON.stringify([token, organization, project]);
+  const requestedKey = preferredKeyId ? '' : searchParams.get('key') ?? searchParams.get('keyId') ?? '';
+  const resolvedKey = keysScope === keyScope ? keys.find(key => key.slug === requestedKey || key.id === requestedKey) : undefined;
+  const unresolvedKey = Boolean(requestedKey && !resolvedKey);
+  const keyPublicSlug = (id: string) => id === preferredKeyId ? preferredKeySlug : keysScope === keyScope ? keys.find(key => key.id === id)?.slug : undefined;
+  function requestEvidenceHref(root: string, values: ActivityFilters, id?: string) {
+    const keyId = id ?? values.keyId;
+    const slug = keyPublicSlug(keyId);
+    return buildRequestEvidenceHref(root, values, id, slug);
+  }
+  useEffect(() => {
+    if (!resolvedKey?.slug || (searchParams.get('key') === resolvedKey.slug && !searchParams.has('keyId'))) return;
+    const query = new URLSearchParams(searchParams);
+    query.delete('keyId'); query.set('key', resolvedKey.slug);
+    navigate({pathname:location.pathname,search:query.toString(),hash:location.hash}, { replace: true });
+  }, [resolvedKey?.slug, searchParams, navigate, location.pathname, location.hash]);
   const filters = useMemo<ActivityFilters>(() => ({
     from: searchParams.get('from') ?? '',
     to: searchParams.get('to') ?? '',
     model: searchParams.get('modelAlias') ?? '',
-    keyId: preferredKeyId ?? searchParams.get('keyId') ?? '',
+    keyId: preferredKeyId ?? resolvedKey?.id ?? requestedKey,
     status: searchParams.get('status') ?? '',
     httpStatus: searchParams.get('httpStatus') ?? '',
     operationId: searchParams.get('operationId') ?? '',
-  }), [searchParams, preferredKeyId]);
+  }), [searchParams, preferredKeyId, resolvedKey?.id, requestedKey]);
   function setFilters(update: ActivityFilters | ((current: ActivityFilters) => ActivityFilters)) {
     const next = typeof update === 'function' ? update(filters) : update;
     const query = new URLSearchParams(searchParams);
-    for (const [field, name] of [['from', 'from'], ['to', 'to'], ['model', 'modelAlias'], ['keyId', 'keyId'], ['status', 'status'], ['httpStatus', 'httpStatus'], ['operationId', 'operationId']] as const) {
-      if (next[field]) query.set(name, next[field]);
+    for (const [field, name] of [['from', 'from'], ['to', 'to'], ['model', 'modelAlias'], ['keyId', 'key'], ['status', 'status'], ['httpStatus', 'httpStatus'], ['operationId', 'operationId']] as const) {
+      if (field === 'keyId') query.delete('keyId');
+      if (next[field]) query.set(name, field === 'keyId' ? keys.find(key => key.id === next[field])?.slug || next[field] : next[field]);
       else query.delete(name);
     }
     if (query.toString() !== searchParams.toString()) setSearchParams(query, { replace: true });
@@ -441,7 +460,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   }, [token, organization, project, activityFilterQuery]);
 
   async function exportRequests() {
-    if (!organization || !project || invalidDateRange || exportController.current) return;
+    if (!organization || !project || invalidDateRange || unresolvedKey || exportController.current) return;
     const controller = new AbortController();
     exportController.current = controller;
     setExporting(true);
@@ -486,14 +505,14 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   }
 
   useEffect(() => {
-    if (!organization || !project || compact || statisticsOnly) return;
+    if (!organization || !project || (compact && !requestedKey)) return;
     const controller = new AbortController();
-    setKeyFilterError('');
+    setKeyFilterError(''); setKeys([]); setKeysScope('');
     void get<{ data: KeyOption[] }>(`/api/v1/workspaces/${encodeURIComponent(project)}/keys`, token, controller.signal)
-      .then(value => { if (!controller.signal.aborted) setKeys(value.data); })
+      .then(value => { if (!controller.signal.aborted) {setKeys(value.data); setKeysScope(keyScope);} })
       .catch(reason => { if (!controller.signal.aborted) setKeyFilterError((reason as Error).message); });
     return () => controller.abort();
-  }, [token, organization, project, compact, statisticsOnly]);
+  }, [token, organization, project, compact, statisticsOnly, Boolean(requestedKey), revision]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -505,6 +524,11 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     setLoadingOlder(false);
     setError('');
     if (!organization || !project) { setLoading(false); return () => controller.abort(); }
+    if (unresolvedKey) {
+      setLoading(keysScope !== keyScope && !keyFilterError);
+      if (keysScope === keyScope) setError('The requested API key is unavailable or you no longer have access. Choose another key or clear the filter.');
+      return () => controller.abort();
+    }
     if (invalidDateRange) {
       setLoading(false);
       setError('Choose a valid date range.');
@@ -521,7 +545,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
       controller.abort();
       olderController.current?.abort();
     };
-  }, [token, organization, project, revision, activityFilterQuery, invalidDateRange, compact]);
+  }, [token, organization, project, revision, activityFilterQuery, invalidDateRange, compact, unresolvedKey, Boolean(requestedKey && keysScope === keyScope), requestedKey && keyFilterError]);
 
   async function loadOlder() {
     if (!organization || !project || !nextCursor || loadingOlder) return;
@@ -610,10 +634,14 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const latencySamples = latencyMetric === 'average' ? summary?.timing_count : percentileTiming?.sample_count;
 
   useEffect(() => {
+    if (externalRequest) {requestOpener.current=externalRequest.opener;if(requests.some(row=>row.attempt_id===externalRequest.attemptId))setSelectedAttempt(externalRequest.attemptId);return;}
     const prefix = '#gateway-attempt-';
     if (!location.hash.startsWith(prefix)) { setSelectedAttempt(null); return; }
     if (loading) return;
-    const attemptId = location.hash.slice(prefix.length);
+    const requested = location.hash.slice(prefix.length);
+    const matched = requests.find(item=>item.attempt_id===requested||item.reference===requested);
+    const attemptId = matched?.attempt_id??requested;
+    if(matched?.reference&&requested!==matched.reference)navigate({pathname:location.pathname,search:location.search,hash:`${prefix}${matched.reference}`},{replace:true});
     const target = document.getElementById(`gateway-attempt-${attemptId}`);
     if (!target) return;
     setSelectedAttempt(attemptId);
@@ -622,20 +650,21 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     target.focus({ preventScroll: true });
     return () => target.classList.remove('is-focused');
-  }, [loading, requests, location.hash]);
+  }, [loading, requests, location.hash, externalRequest]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLinkedError('');setLinkedLoading(false);
     const prefix = '#gateway-attempt-';
-    const attempt = location.hash.startsWith(prefix) ? location.hash.slice(prefix.length) : '';
-    if (!attempt || loading || error || !organization || !project || requests.some(item=>item.attempt_id===attempt)) return () => controller.abort();
+    const attempt = externalRequest?.attemptId ?? (location.hash.startsWith(prefix) ? location.hash.slice(prefix.length) : '');
+    if (!attempt || (!externalRequest && (loading || error)) || !organization || !project || requests.some(item=>item.attempt_id===attempt||item.reference===attempt)) return () => controller.abort();
     setLinkedLoading(true);
     void get<{data:GatewayRequest}>(`/api/v1/organizations/${organization}/projects/${project}/requests/${encodeURIComponent(attempt)}`,token,controller.signal)
       .then(value=>{
         if (controller.signal.aborted) return;
-        if (!value.data || value.data.attempt_id !== attempt) throw new Error('Invalid request details');
-        setLinkedRequest({identity:linkedIdentity,data:value.data});setSelectedAttempt(attempt);
+        if (!value.data || (value.data.attempt_id !== attempt && value.data.reference !== attempt)) throw new Error('Invalid request details');
+        setLinkedRequest({identity:linkedIdentity,data:value.data});setSelectedAttempt(value.data.attempt_id);
+        if(!externalRequest&&value.data.reference&&attempt!==value.data.reference)navigate({pathname:location.pathname,search:location.search,hash:`${prefix}${value.data.reference}`},{replace:true});
       })
       .catch(()=>{if (!controller.signal.aborted) setLinkedError('Could not open the linked request. It may be unavailable or outside this workspace.');})
       .finally(()=>{if (!controller.signal.aborted) setLinkedLoading(false);});
@@ -710,7 +739,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="Group customer charges">{chargeByKey ? 'API key' : 'Model'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={16}><DropdownMenuRadioGroup value={chargeByKey ? 'key' : 'model'} onValueChange={setChargeGroup}><DropdownMenuRadioItem value="model">Model</DropdownMenuRadioItem><DropdownMenuRadioItem value="key">API key</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
         </div>
         {loading ? <p role="status" className="execution-loading">Loading customer charges…</p> : (chargeByKey ? summary?.charges_by_key : summary?.charges_by_model) === undefined ? <p className="activity-model-empty">Charge breakdown unavailable for this gateway response.</p> : <div className="activity-model-table-wrap"><ShadcnTable><TableHeader><TableRow><TableHead>{chargeByKey ? 'API key' : 'Model'}</TableHead><TableHead>Customer charge</TableHead><TableHead>Requests</TableHead></TableRow></TableHeader><TableBody>{(allChargeGroups ? groupedCharges : groupedCharges.slice(0, 10)).map(group => <TableRow key={group.identity}>
-          <TableHead scope="row">{(!chargeByKey && group.model) || (chargeByKey && group.keyId) ? <Link aria-label={`View charge requests for ${group.name}`} to={requestEvidenceHref(workspaceRoot, {...filters, ...(!chargeByKey ? {model: group.model} : {})}, chargeByKey ? group.keyId! : undefined)}>{group.name}</Link> : group.name}</TableHead>
+          <TableHead scope="row">{(!chargeByKey && group.model) || (chargeByKey && group.keyId && keyPublicSlug(group.keyId)) ? <Link aria-label={`View charge requests for ${group.name}`} to={requestEvidenceHref(workspaceRoot, {...filters, ...(!chargeByKey ? {model: group.model} : {})}, chargeByKey ? group.keyId! : undefined)}>{group.name}</Link> : group.name}</TableHead>
           <TableCell>{group.amounts.size ? [...group.amounts].sort(([a], [b]) => a.localeCompare(b)).map(([currency, amount]) => <div key={currency}>{money(amount.toString(), currency)}</div>) : group.unresolved ? 'Unresolved' : group.unpriced ? 'No rate' : group.ownerFunded ? 'Own API key' : 'Not charged'}<small>{[group.ownerFunded ? `${group.ownerFunded.toLocaleString()} with own API keys` : '', group.charged ? `${group.charged.toLocaleString()} charged` : '', group.unresolved ? `${group.unresolved.toLocaleString()} unresolved` : '', group.unpriced ? `${group.unpriced.toLocaleString()} without rate` : '', group.notCharged ? `${group.notCharged.toLocaleString()} not charged` : ''].filter(Boolean).join(' · ')}</small></TableCell>
           <TableCell>{group.requests.toLocaleString()}</TableCell>
         </TableRow>)}</TableBody></ShadcnTable>{groupedCharges.length > 10 && <div className="flex items-center justify-between gap-3 p-4 text-sm"><span className="text-muted-foreground">{allChargeGroups ? groupedCharges.length : 10} of {groupedCharges.length} {chargeByKey ? 'API keys' : 'models'}</span><Button variant="ghost" size="sm" aria-expanded={allChargeGroups} onClick={() => setAllChargeGroups(value => !value)}>{allChargeGroups ? 'Show fewer' : 'Show all'}</Button></div>}{!(chargeByKey ? summary?.charges_by_key : summary?.charges_by_model)?.length && <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{hasActivityFilters ? 'No matching requests' : 'No requests yet'}</EmptyTitle></EmptyHeader></Empty>}</div>}
@@ -724,7 +753,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
             const keyName = item.key_name ?? (item.api_key_id ? 'Key name unavailable' : 'No API key recorded');
             return <div className="activity-key-usage-row" key={item.api_key_id ?? `unattributed-${index}`}>
               <div className="activity-key-usage-info"><strong>{keyName}</strong><small>{item.request_count.toLocaleString()} {item.request_count === 1 ? 'request' : 'requests'} · {item.usage_count.toLocaleString()} with reported usage{item.unknown_usage_count ? ` · ${item.unknown_usage_count.toLocaleString()} unknown` : ''}</small></div>
-              <div className="activity-key-usage-metrics"><strong>{item.usage_count ? `${reportedTokens.toLocaleString()} tokens` : 'Unknown'}</strong>{item.api_key_id && <Link to={requestEvidenceHref(workspaceRoot, filters, item.api_key_id)}>View requests</Link>}</div>
+              <div className="activity-key-usage-metrics"><strong>{item.usage_count ? `${reportedTokens.toLocaleString()} tokens` : 'Unknown'}</strong>{item.api_key_id && (keyPublicSlug(item.api_key_id) ? <Link to={requestEvidenceHref(workspaceRoot, filters, item.api_key_id)}>View requests</Link> : <span className="text-sm text-muted-foreground">Key link unavailable</span>)}</div>
             </div>;
           })}
         </div> : <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{hasActivityFilters ? 'No matching API key activity' : 'No API key activity yet'}</EmptyTitle><EmptyDescription>{hasActivityFilters ? 'No workspace key activity matches these filters.' : 'Requests attributed to a workspace key appear here.'}</EmptyDescription></EmptyHeader></Empty>}
@@ -756,7 +785,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
 
       </section>}
     </>}
-    <Sheet open={Boolean(selectedRequest)} onOpenChange={open => { if (!open) { setSelectedAttempt(null); if (location.hash.startsWith('#gateway-attempt-')) navigate({pathname:location.pathname,search:location.search,hash:''},{replace:true}); } }}>
+    <Sheet open={Boolean(selectedRequest)} onOpenChange={open => { if (!open) { setSelectedAttempt(null); onExternalRequestClose?.(); if (location.hash.startsWith('#gateway-attempt-')) navigate({pathname:location.pathname,search:location.search,hash:''},{replace:true}); } }}>
       <SheetContent className="w-full gap-0 overflow-hidden sm:max-w-xl" onOpenAutoFocus={event => {
         event.preventDefault();
         detailHeading.current?.focus({preventScroll:true});

@@ -21,10 +21,9 @@ function reference(value: string): string {
 export function createGenerationTaskActionsClient(
   send: GenerationTaskActionSender,
   binary: GenerationTaskActionBinarySender,
-  organization: string,
   workspace: string,
 ) {
-  const root = `/organizations/${reference(organization)}/projects/${reference(workspace)}/generations/tasks`;
+  const root = `/workspaces/${reference(workspace)}/tasks`;
   const taskPath = (task: string) => `${root}/${reference(task)}`;
   return {
     /** One explicit status query using the original binding; no submission retry. */

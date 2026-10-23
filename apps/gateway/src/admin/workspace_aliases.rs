@@ -813,7 +813,7 @@ pub async fn list_keys(
 ///   "operation": {
 ///     "operationId": "createWorkspaceKey",
 ///     "summary": "Create a workspace API key with optional initial limits and policies",
-///     "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
+///     "description": "Issues a new workspace API key and optionally configures initial spending limits, RPM/TPM/concurrency limits, and IP allowlist CIDRs in a single call. Explicit allowed_cidrs: [] denies every source; null or omission leaves sources unrestricted. Matches the independent IP policy endpoint. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management. With Idempotency-Key, retries cannot create a second credential. HTTP 201 returns a new secret once; HTTP 200 means the mutation already committed and the secret is unavailable. Inspect or revoke the resulting key before explicitly replacing lost access. Without this header, legacy non-idempotent behavior remains.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -829,6 +829,16 @@ pub async fn list_keys(
 ///           "type": "string",
 ///           "format": "uuid"
 ///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Keep this nonzero UUID and identical input for every retry. A committed replay returns metadata only and never repeats the secret."
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -1016,6 +1026,38 @@ pub async fn list_keys(
 ///             }
 ///           }
 ///         }
+///       },
+///       "200": {
+///         "description": "Previously committed mutation; secret cannot be retrieved",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "id",
+///                 "key",
+///                 "secret_available"
+///               ],
+///               "properties": {
+///                 "id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "secret_available": {
+///                   "type": "boolean",
+///                   "const": false
+///                 },
+///                 "key": {
+///                   "type": [
+///                     "object",
+///                     "null"
+///                   ],
+///                   "additionalProperties": true
+///                 }
+///               }
+///             }
+///           }
+///         }
 ///       }
 ///     }
 ///   }
@@ -1070,32 +1112,58 @@ pub async fn create_key(
         concurrency_limit: input.max_concurrent_requests.map(|conc| (Some(conc), 0)),
         ip_policy: input.allowed_cidrs.map(|cidrs| (Some(cidrs), 0)),
     };
-    let issued = state
-        .store
-        .issue_key_with_policies(
-            scope,
-            &input.name,
-            &input.allowed_models,
-            input.ttl_seconds,
-            policies,
-            actor,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
+    let request = key_mutation_request(&headers)?;
+    let issued = if let Some(request) = request {
+        state
+            .store
+            .issue_key_request(
+                scope,
+                request,
+                &input.name,
+                &input.allowed_models,
+                input.ttl_seconds,
+                policies,
+                actor,
+            )
+            .await
+            .map_err(ApiError::from_store)?
+    } else {
+        let issued = state
+            .store
+            .issue_key_with_policies(
+                scope,
+                &input.name,
+                &input.allowed_models,
+                input.ttl_seconds,
+                policies,
+                actor,
+            )
+            .await
+            .map_err(ApiError::from_store)?;
+        niu_storage::KeyMutationResult {
+            id: issued.id,
+            token: Some(issued.token),
+        }
+    };
     let detail = state
         .store
         .key_detail(scope, issued.id)
         .await
         .map_err(ApiError::from_store)?
         .unwrap_or(Value::Null);
+    let fresh = issued.token.is_some();
+    let mut result = serde_json::json!({"id":issued.id,"key":detail,"secret_available":fresh});
+    if let Some(secret) = issued.token {
+        result["token"] = serde_json::json!(secret);
+    }
     Ok((
-        StatusCode::CREATED,
+        if fresh {
+            StatusCode::CREATED
+        } else {
+            StatusCode::OK
+        },
         [("cache-control".into(), "no-store".into())],
-        Json(serde_json::json!({
-            "id": issued.id,
-            "token": issued.token,
-            "key": detail,
-        })),
+        Json(result),
     ))
 }
 
@@ -1673,7 +1741,7 @@ pub async fn revoke_key(
 ///   "operation": {
 ///     "operationId": "rotateWorkspaceKey",
 ///     "summary": "Rotate a workspace API key while preserving its policies and expiry",
-///     "description": "Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management.",
+///     "description": "Atomically revokes the existing key and issues a replacement key sharing the same model grants, expiration, and policy lineage. Requires an installation credential or member session with workspace write access. Workspace inference API keys do not authorize key management. With Idempotency-Key, retries cannot create a second credential. HTTP 201 returns a new secret once; HTTP 200 means the mutation already committed and the secret is unavailable. Inspect or revoke the resulting key before explicitly replacing lost access. Without this header, legacy non-idempotent behavior remains.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -1698,6 +1766,16 @@ pub async fn revoke_key(
 ///           "type": "string",
 ///           "format": "uuid"
 ///         }
+///       },
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Keep this nonzero UUID and identical input for every retry. A committed replay returns metadata only and never repeats the secret."
 ///       }
 ///     ],
 ///     "responses": {
@@ -1775,6 +1853,38 @@ pub async fn revoke_key(
 ///             }
 ///           }
 ///         }
+///       },
+///       "200": {
+///         "description": "Previously committed mutation; secret cannot be retrieved",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "id",
+///                 "key",
+///                 "secret_available"
+///               ],
+///               "properties": {
+///                 "id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "secret_available": {
+///                   "type": "boolean",
+///                   "const": false
+///                 },
+///                 "key": {
+///                   "type": [
+///                     "object",
+///                     "null"
+///                   ],
+///                   "additionalProperties": true
+///                 }
+///               }
+///             }
+///           }
+///         }
 ///       }
 ///     }
 ///   }
@@ -1787,24 +1897,110 @@ pub async fn rotate_key(
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
     let (_, scope) =
         authorize_workspace(&state, &headers, workspace, AdminPermission::Write).await?;
-    let issued = state
-        .store
-        .rotate_key(scope, key)
-        .await
-        .map_err(ApiError::from_store)?;
+    let issued = if let Some(request) = key_mutation_request(&headers)? {
+        state
+            .store
+            .rotate_key_request(scope, request, key)
+            .await
+            .map_err(ApiError::from_store)?
+    } else {
+        let issued = state
+            .store
+            .rotate_key(scope, key)
+            .await
+            .map_err(ApiError::from_store)?;
+        niu_storage::KeyMutationResult {
+            id: issued.id,
+            token: Some(issued.token),
+        }
+    };
     let detail = state
         .store
         .key_detail(scope, issued.id)
         .await
         .map_err(ApiError::from_store)?
         .unwrap_or(Value::Null);
+    let fresh = issued.token.is_some();
+    let mut result = serde_json::json!({"id":issued.id,"key":detail,"secret_available":fresh});
+    if let Some(secret) = issued.token {
+        result["token"] = serde_json::json!(secret);
+    }
     Ok((
-        StatusCode::CREATED,
+        if fresh {
+            StatusCode::CREATED
+        } else {
+            StatusCode::OK
+        },
         [("cache-control".into(), "no-store".into())],
-        Json(serde_json::json!({
-            "id": issued.id,
-            "token": issued.token,
-            "key": detail,
-        })),
+        Json(result),
+    ))
+}
+
+fn key_mutation_request(headers: &HeaderMap) -> Result<Option<Uuid>, ApiError> {
+    let mut values = headers.get_all("idempotency-key").iter();
+    let Some(value) = values.next() else {
+        return Ok(None);
+    };
+    if values.next().is_some() {
+        return Err(ApiError::invalid_request("Use one Idempotency-Key header"));
+    }
+    let value = value
+        .to_str()
+        .ok()
+        .and_then(|value| Uuid::parse_str(value).ok())
+        .filter(|value| !value.is_nil())
+        .ok_or_else(|| ApiError::invalid_request("Idempotency-Key must be a nonzero UUID"))?;
+    Ok(Some(value))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/workspaces/{workspace}/keys/requests/{request}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getWorkspaceKeyRequest",
+///     "x-niu-implementation": "implemented",
+///     "security": [{"bearerAuth":[]}],
+///     "summary": "Reconcile an API key creation or rotation request",
+///     "description": "Requires current workspace write access. Returns only a committed outcome and key metadata, never a key secret. Null data means no committed outcome was observed; an in-flight request may still commit, so retry only the same Idempotency-Key and unchanged input. This response is not cacheable.",
+///     "parameters": [
+///       {"name":"workspace","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+///       {"name":"request","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+///     ],
+///     "responses": {
+///       "200":{"description":"Observed durable outcome, without secrets","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"oneOf":[{"type":"null"},{"type":"object","required":["action","key"],"properties":{"action":{"type":"string","enum":["create","rotate"]},"key":{"type":"object","additionalProperties":true}}}]}}}}}},
+///       "401":{"description":"Authentication required"},
+///       "403":{"description":"Workspace write access required"},
+///       "404":{"description":"Workspace is unavailable to this caller"}
+///     }
+///   }
+/// }
+/// ```
+pub async fn key_request_status(
+    State(state): State<AppState>,
+    Path((workspace, request)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<([(String, String); 1], Json<Value>), ApiError> {
+    let (_, scope) =
+        authorize_workspace(&state, &headers, workspace, AdminPermission::Write).await?;
+    let status = state
+        .store
+        .key_request_status(scope, request)
+        .await
+        .map_err(ApiError::from_store)?;
+    let data = if let Some(status) = status {
+        let key = state
+            .store
+            .key_detail(scope, status.key_id)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?;
+        serde_json::json!({"action":status.action,"key":key})
+    } else {
+        Value::Null
+    };
+    Ok((
+        [("cache-control".into(), "no-store".into())],
+        Json(serde_json::json!({"data":data})),
     ))
 }

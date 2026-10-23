@@ -21,7 +21,7 @@ export const emptyCapabilities = (): CapabilitySelection => ({ input: [], output
 
 export function capabilityValues(model: Model, group: CapabilityGroup): string[] {
   if (group === 'input') return model.catalog?.input_modalities ?? [];
-  if (group === 'output') return model.catalog?.output_modalities ?? [];
+  if (group === 'output') return model.generation_capabilities?.video === true && model.generation_capabilities.chat === false ? ['video'] : model.catalog?.output_modalities ?? [];
   const parameters = model.catalog?.supported_parameters ?? [];
   return parameters.some(value => ['reasoning', 'include_reasoning', 'reasoning_effort'].includes(value))
     ? [...parameters, 'reasoning'] : parameters;

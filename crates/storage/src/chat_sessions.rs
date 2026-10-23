@@ -92,8 +92,25 @@ impl Store {
         owner: &str,
         id: Uuid,
     ) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT payload FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+        Ok(sqlx::query_scalar("SELECT payload || jsonb_build_object('reference',public_reference) FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
+            .fetch_optional(&self.pool).await?)
+    }
+
+    pub async fn chat_session_reference(
+        &self, scope: TenantScope, owner: &str, id: Uuid,
+    ) -> Result<Option<String>, StoreError> {
+        Ok(sqlx::query_scalar("SELECT public_reference FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+            .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
+            .fetch_optional(&self.pool).await?)
+    }
+
+    /// Resolve only within the caller's already authorized workspace and owner.
+    pub async fn chat_session_id_by_reference(
+        &self, scope: TenantScope, owner: &str, reference: &str,
+    ) -> Result<Option<Uuid>, StoreError> {
+        Ok(sqlx::query_scalar("SELECT id FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND public_reference=$4")
+            .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(reference)
             .fetch_optional(&self.pool).await?)
     }
 
@@ -108,7 +125,7 @@ impl Store {
     ) -> Result<Option<Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row: Option<(bool, i64, i64, bool, Option<Value>)> = sqlx::query_as(
-            "SELECT archived,COALESCE(payload_bytes,octet_length(payload::text)::bigint) AS bytes,write_revision,guarded_writes,CASE WHEN COALESCE(payload_bytes,octet_length(payload::text)::bigint)<=$5 THEN payload END FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4",
+            "SELECT archived,COALESCE(payload_bytes,octet_length(payload::text)::bigint) AS bytes,write_revision,guarded_writes,CASE WHEN COALESCE(payload_bytes,octet_length(payload::text)::bigint)<=$5 THEN payload || jsonb_build_object('reference',public_reference) END FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
@@ -295,7 +312,7 @@ impl Store {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        Ok(sqlx::query_scalar("SELECT payload FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND id=ANY($5) ORDER BY updated_at DESC,id DESC")
+        Ok(sqlx::query_scalar("SELECT payload || jsonb_build_object('reference',public_reference) FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND id=ANY($5) ORDER BY updated_at DESC,id DESC")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived).bind(ids)
             .fetch_all(connection).await?)
     }
@@ -327,6 +344,7 @@ impl Store {
                 if let Some(object) = result.as_object_mut() {
                     // Saved browser accounting is not authoritative, including legacy Supplier costs.
                     for field in [
+                        "attemptReference",
                         "cashNanos",
                         "apiEquivalentNanos",
                         "currency",
@@ -350,7 +368,7 @@ impl Store {
             return Ok((sessions, std::collections::HashMap::new()));
         }
         let rows: Vec<(Uuid, String, String, Value)> = sqlx::query_as(
-            "SELECT a.id,o.model_alias,a.execution,jsonb_build_object('customerChargeNanos',c.amount_nanos::text,'customerChargeCurrency',c.currency,'customerChargeStatus',CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' WHEN EXISTS(SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' WHEN EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id) THEN 'pending' ELSE 'unpriced' END) FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id LEFT JOIN customer_charges c ON c.attempt_id=a.id AND c.organization_id=a.organization_id AND c.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)"
+            "SELECT a.id,o.model_alias,a.execution,jsonb_build_object('attemptReference',a.public_reference,'customerChargeNanos',c.amount_nanos::text,'customerChargeCurrency',c.currency,'customerChargeStatus',CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' WHEN EXISTS(SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' WHEN EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id) THEN 'pending' ELSE 'unpriced' END) FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id LEFT JOIN customer_charges c ON c.attempt_id=a.id AND c.organization_id=a.organization_id AND c.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)"
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)

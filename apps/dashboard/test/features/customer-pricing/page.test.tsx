@@ -1,3 +1,4 @@
+vi.mock('../../../src/app/platform-currency', () => ({usePlatformCurrency:()=>({currency:'USD',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

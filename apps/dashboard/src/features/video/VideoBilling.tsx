@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
 import type {VideoJobBilling} from '../../../../../sdks/javascript/src/index';
-import {money} from '@/lib/money';
+import {money,currencySymbol} from '@/lib/money';
 import {Button} from '@/components/ui/button';
 import {Collapsible,CollapsibleTrigger,CollapsibleContent} from '@/components/ui/collapsible';
 const quantity=(value:{numerator:string;denominator:string})=>value.denominator === '1' ? value.numerator:`${value.numerator}/${value.denominator}`;
@@ -9,7 +9,9 @@ const meter=(value:string)=>value === 'video_tokens' ? 'video tokens':value === 
 function rate(units:string,places:number,currency:string) {
  const value=BigInt(units);const scale=10n**BigInt(places);
  const fraction=(value%scale).toString().padStart(places,'0').replace(/0+$/,'');
- return `${currency} ${value/scale}${fraction ? '.'+fraction:'.00'}`;
+ const symbol=currencySymbol(currency);
+ const prefix=/^[A-Z]{3}$/.test(symbol) ? symbol+' ' : symbol;
+ return `${prefix}${value/scale}${fraction ? '.'+fraction:'.00'}`;
 }
 export default function VideoBilling({billing}:{billing:VideoJobBilling}) {
  const [open,setOpen]=useState(false);

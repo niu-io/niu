@@ -399,6 +399,11 @@ Content type: `application/json`.
               "current_catalog",
               "unknown"
             ]
+          },
+          "reference": {
+            "type": "string",
+            "pattern": "^run-[1-9][0-9]{0,18}$",
+            "description": "Permanent public run reference, independent of the internal identifier."
           }
         },
         "required": [

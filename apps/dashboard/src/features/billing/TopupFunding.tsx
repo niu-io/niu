@@ -1,10 +1,14 @@
+import { useMockPayments } from '@/app/mock-payments';
+import { TriangleAlert } from 'lucide-react';
+import { currencySymbol } from '@/lib/money';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { IconRefresh, IconReceipt } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,7 +19,13 @@ type PaymentGateway = 'epay' | 'stripe' | 'zhifux';
 type Availability = { currency: string; payment_gateway: PaymentGateway | null; available: boolean; payment_methods: string[]; unavailable_reason: string | null };
 type Topup = { id: string; currency: string; amount_nanos: string; payment_method: string; status: 'pending' | 'paid' | 'closed' | 'reconciliation_required'; checkout_url: string | null; created_at?: string };
 const names = { pending: 'Awaiting payment', paid: 'Paid', closed: 'Closed', reconciliation_required: 'Checking payment' };
-const methodName = (method: string) => ({ wxpaynative: 'WeChat Pay', alipay: 'Alipay' }[method] ?? method);
+const statusHelp = {
+  pending: 'Payment has not been confirmed. Continue the saved checkout if available, or check its status before starting another top-up.',
+  paid: 'Payment is confirmed. The credits are recorded in your shared account balance.',
+  closed: 'This checkout is closed. If you completed a payment before it closed, check its status before starting another top-up.',
+  reconciliation_required: 'The payment is being verified. Credits may not yet be available. Check its status before starting another top-up.',
+};
+const methodName = (method: string) => ({ card: 'Card', wxpaynative: 'WeChat Pay', alipay: 'Alipay' }[method] ?? method);
 function checkedTopup(value: Topup): Topup {
   if (!value || typeof value.id !== 'string' || !value.id || typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency)
     || typeof value.amount_nanos !== 'string' || !/^[0-9]{1,19}$/.test(value.amount_nanos)
@@ -37,16 +47,15 @@ function checkoutLink(order: Topup) {
   if (order.status !== 'pending' || !order.checkout_url) return null;
   try {
     const url = new URL(order.checkout_url);
-    return url.protocol === 'https:' && !url.username && !url.password && !url.hash ? url.href : null;
+    const mock = import.meta.env.DEV && url.protocol === 'http:' && url.hostname === '127.0.0.1' && !!url.port && /^\/checkout\/[a-f0-9]{48}$/.test(url.pathname) && !url.search;
+    return (url.protocol === 'https:' || mock) && !url.username && !url.password && !url.hash ? url.href : null;
   } catch { return null; }
 }
 
 /** Company payment workflow; the backend owns intent, history and settlement. */
-export default function TopupFunding({ token, organization, canCreate, currencies, onPaid }: { token: string; organization: string; canCreate: boolean; currencies?: string[]; onPaid: () => void }) {
-  const currencyChoices = [...new Set(currencies?.filter(currency => ['CNY', 'USD'].includes(currency)) ?? [])].sort();
-  const currencyStamp = currencyChoices.join('|');
-  const [currency, setCurrency] = useState(currencyChoices[0] ?? '');
-  useEffect(() => { setCurrency(current => currencyChoices.includes(current) ? current : currencyChoices[0] ?? ''); }, [currencyStamp]);
+export default function TopupFunding({ token, organization, canCreate, onPaid }: { token: string; organization: string; canCreate: boolean; currencies?: string[]; onPaid: () => void }) {
+  const {currency} = usePlatformCurrency();
+  const mockEnabled = useMockPayments();
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [orders, setOrders] = useState<Topup[]>([]);
   const [next, setNext] = useState<string | null>(null);
@@ -55,6 +64,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
   const [loadFailure, setLoadFailure] = useState<'latest' | 'older' | null>(null);
   const [revision, setRevision] = useState(0);
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement | null>(null);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('');
   const [busy, setBusy] = useState(false);
@@ -78,7 +88,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
         if (methodsResult.status === 'rejected') throw methodsResult.reason;
         const methods = methodsResult.value;
         if (!Array.isArray(methods.data?.payment_methods) || typeof methods.data.available !== 'boolean') throw new Error('Invalid payment response');
-        if (!['CNY', 'USD'].includes(methods.data.currency) || (methods.data.available && !['epay', 'stripe', 'zhifux'].includes(methods.data.payment_gateway ?? ''))) throw new Error('Invalid payment integration');
+        if (typeof methods.data.currency !== 'string' || !/^[A-Z]{3}$/.test(methods.data.currency) || (methods.data.available && !['epay', 'stripe', 'zhifux'].includes(methods.data.payment_gateway ?? ''))) throw new Error('Invalid payment integration');
         if (currency && methods.data.currency !== currency) throw new Error('Mismatched payment currency');
         setAvailability(methods.data);
         setMethod(current => methods.data.payment_methods.includes(current) ? current : methods.data.payment_methods[0] ?? '');
@@ -142,18 +152,20 @@ export default function TopupFunding({ token, organization, canCreate, currencie
   const link = result && checkoutLink(result);
   return <section aria-label="Account top-ups" className="grid gap-3" aria-busy={loading}>
     <div className="flex flex-wrap items-center gap-3">
-      {canCreate && currencyChoices.length > 1 && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="Funding currency" disabled={busy || open}>{currency}</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={currency} onValueChange={value => { if (busy || open) return; setAvailability(null); setAmount(''); setMethod(''); setResult(null); intent.current = null; setCurrency(value); }}>{currencyChoices.map(value => <DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
-      {canCreate && availability?.available && <Button disabled={busy} onClick={begin}>Add funds</Button>}
+
+      {canCreate && availability?.available && <Button disabled={busy} onClick={event => { opener.current = event.currentTarget; begin(); }}>Add credits</Button>}
       {canCreate && availability && !availability.available && <p className="text-sm text-muted-foreground">{availability.unavailable_reason === 'currency_account_missing' ? `Online top-ups require a ${availability.currency} account.` : 'Online top-ups are currently unavailable.'}</p>}
       <Button variant="ghost" size="icon-sm" aria-label="Refresh top-ups" title="Refresh top-ups" disabled={busy || loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16}/></Button>
     </div>
+    {import.meta.env.DEV && (mockEnabled || orders.some(order => order.checkout_url?.startsWith('http://127.0.0.1:'))) && <Alert className="mock-payment-warning"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Mock payments · Real model costs</AlertTitle><AlertDescription>Top-ups are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s API keys publicly.</AlertDescription></Alert>}
     {loadError && <Alert variant="destructive"><AlertDescription>{loadError}<Button variant="outline" disabled={busy} onClick={() => loadFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>Retry top-ups</Button></AlertDescription></Alert>}
     {loading && !availability && <p role="status" className="text-sm text-muted-foreground">Loading payments…</p>}
-    {!loading && !loadError && orders.length === 0 && <section aria-labelledby="topup-history-title" className="flex min-h-60 flex-1 flex-col gap-3"><h3 id="topup-history-title" className="font-medium">Top-up history</h3><Empty><EmptyHeader><EmptyMedia variant="icon"><IconReceipt aria-hidden="true"/></EmptyMedia><EmptyTitle>No top-ups yet</EmptyTitle><EmptyDescription>Pending and completed top-ups appear here.</EmptyDescription></EmptyHeader></Empty></section>}
-    {orders.length > 0 && <><h3 className="font-medium">Top-up history</h3><Table><TableHeader><TableRow><TableHead>Date (UTC)</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{orders.map(order => <TableRow key={order.id}><TableCell>{order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}</TableCell><TableCell>{money(order.amount_nanos, order.currency)}</TableCell><TableCell>{names[order.status]}</TableCell><TableCell className="text-right"><Button variant="ghost" size="sm" disabled={busy} onClick={() => resume(order)}>{checkoutLink(order) ? 'Continue payment' : 'View details'}</Button></TableCell></TableRow>)}</TableBody></Table>{next && <Button variant="ghost" disabled={busy} onClick={() => void loadOlder()}>Older top-ups</Button>}</>}
-    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent><DialogHeader><DialogTitle>{result ? 'Top-up' : 'Add funds'}</DialogTitle><DialogDescription>{result ? money(result.amount_nanos, result.currency) : `Add funds to your ${availability?.currency ?? ''} account balance, shared across workspaces.`}</DialogDescription></DialogHeader>
-      {result ? <><p>{names[result.status]}</p>{link && <Button asChild><a href={link} target="_blank" rel="noopener noreferrer">Continue to payment</a></Button>}{error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}<Button variant="outline" disabled={busy} onClick={() => void checkResult()}>{busy ? 'Checking…' : 'Check payment status'}</Button></> : <form onSubmit={event => { event.preventDefault(); void create(); }} className="grid gap-4">
-        <div className="grid gap-2"><Label htmlFor="topup-amount">Amount ({availability?.currency})</Label><Input id="topup-amount" inputMode="decimal" autoComplete="off" value={amount} disabled={busy || !!intent.current} onChange={event => setAmount(event.target.value)} /></div>
+    {!loading && !loadError && orders.length === 0 && <section aria-labelledby="topup-history-title" className="flex min-h-60 flex-1 flex-col gap-3"><h3 id="topup-history-title" className="font-medium">Payment orders</h3><Empty><EmptyHeader><EmptyMedia variant="icon"><IconReceipt aria-hidden="true"/></EmptyMedia><EmptyTitle>No top-ups yet</EmptyTitle><EmptyDescription>Track pending, completed and unsuccessful top-ups here.</EmptyDescription></EmptyHeader></Empty></section>}
+    {orders.length > 0 && <><h3 className="font-medium">Payment orders</h3><Table className="table-fixed" aria-label="Payment orders"><TableHeader><TableRow><TableHead className="hidden sm:table-cell">Date (UTC)</TableHead><TableHead>Amount</TableHead><TableHead className="w-40 sm:w-64">Status</TableHead></TableRow></TableHeader><TableBody>{orders.map(order => <TableRow key={order.id}><TableCell className="hidden sm:table-cell">{order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}</TableCell><TableCell className="whitespace-normal [overflow-wrap:anywhere]"><div>{money(order.amount_nanos, order.currency)}</div><div className="mt-1 text-xs text-muted-foreground sm:hidden">{order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'} (UTC)</div></TableCell><TableCell className="whitespace-normal"><div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><span>{names[order.status]}</span><Button variant="ghost" size="sm" className="h-auto max-w-full whitespace-normal py-2 text-left" disabled={busy} onClick={event => { opener.current = event.currentTarget; resume(order); }}>{checkoutLink(order) ? 'Continue payment' : 'View details'}</Button></div></TableCell></TableRow>)}</TableBody></Table>{next && <Button variant="ghost" disabled={busy} onClick={() => void loadOlder()}>Older top-ups</Button>}</>}
+    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent onCloseAutoFocus={event => { if (opener.current?.isConnected) { event.preventDefault(); opener.current.focus(); } }}><DialogHeader><DialogTitle>{result ? 'Top-up' : 'Add credits'}</DialogTitle><DialogDescription>{result ? money(result.amount_nanos, result.currency) : `Add credits to your ${availability?.currency ?? ''} account balance, shared across workspaces.`}</DialogDescription></DialogHeader>
+      {import.meta.env.DEV && (mockEnabled || !!result?.checkout_url?.startsWith('http://127.0.0.1:')) && <Alert className="mock-payment-warning"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Simulated funds do not cover real model costs</AlertTitle><AlertDescription>LLM requests still incur upstream Provider charges. Keep Niu API keys and upstream Provider keys private; do not offer public access to this test environment.</AlertDescription></Alert>}
+      {result ? <><p>{names[result.status]}</p><p className="text-sm text-muted-foreground">{statusHelp[result.status]}</p>{link && <Button asChild><a href={link} target="_blank" rel="noopener noreferrer">Continue to payment</a></Button>}{error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}<Button variant="outline" disabled={busy} onClick={() => void checkResult()}>{busy ? 'Checking…' : 'Check payment status'}</Button></> : <form onSubmit={event => { event.preventDefault(); void create(); }} className="grid gap-4">
+        <div className="grid gap-2"><Label htmlFor="topup-amount">Amount ({currencySymbol(availability?.currency ?? '')})</Label><Input id="topup-amount" inputMode="decimal" autoComplete="off" value={amount} disabled={busy || !!intent.current} onChange={event => setAmount(event.target.value)} /></div>
         <div className="grid gap-2"><Label>Payment method</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy || !!intent.current} aria-label="Payment method">{method ? methodName(method) : 'Choose a payment method'}</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={method} onValueChange={setMethod}>{availability?.payment_methods.map(value => <DropdownMenuRadioItem key={value} value={value}>{methodName(value)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
         <DialogFooter><Button type="button" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>Close</Button>{intent.current ? <Button type="button" variant="outline" disabled={busy} onClick={() => { setOpen(false); setRevision(value => value + 1); }}>{busy ? 'Preparing checkout…' : 'Check saved top-ups'}</Button> : <Button type="submit" disabled={busy || !canCreate || !availability?.available}>Continue</Button>}</DialogFooter>

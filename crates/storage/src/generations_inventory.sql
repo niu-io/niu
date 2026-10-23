@@ -1,5 +1,5 @@
 WITH inventory AS NOT MATERIALIZED (
- SELECT a.id,a.created_at,
+ SELECT a.id,a.public_reference,a.created_at,
  greatest(a.created_at,coalesce(o.max_created_at,a.created_at)) AS updated_at,
  a.resource_id AS model,nullif(m.capabilities->'catalog'->>'name','') AS model_display_name,
  CASE WHEN nullif(m.capabilities->'catalog'->>'name','') IS NULL THEN 'unknown' ELSE 'current_catalog' END AS model_display_name_source,

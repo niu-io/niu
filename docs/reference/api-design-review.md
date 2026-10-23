@@ -5,7 +5,8 @@
 Second review and additive implementation: 2026-10-20. Scope: route semantics,
 authentication, response contracts, JavaScript SDK behavior, generated examples
 and compatibility. The review findings below preserve the pre-fix evidence;
-the implementation status table records what has subsequently changed.
+the implementation status table records what has subsequently changed. Local
+backend migration evidence appears in the follow-up section and evidence appendix.
 
 ## Implementation status
 
@@ -13,22 +14,26 @@ the implementation status table records what has subsequently changed.
 | --- | --- | --- |
 | R01 | Shared metadata notification now covers inference, admin, auth and asset-binary transports, including errors and 204 responses. | Regression tests cover every transport helper, callback ordering, null references, cancellation on callback failure and no retry. |
 | R07 | Additive item iterators cover workspaces, keys, Chat history, pools and Chat/Video session inventory. Complete workspace collection reuses the guarded iterator. | Tests cover empty/short pages, filters, cursors, exhaustion, missing/repeated continuations, stale 409s, cancellation and early return. Existing wire shapes remain unchanged. |
-| R08 | Text inference annotations declare attempt and operation UUID headers on success and error responses, with early-rejection optionality. | Contract generation and regression checks pass. Live header/charge lookup and cross-origin deployment behavior remain unverified. |
+| R08 | Text inference annotations declare attempt and operation UUID headers on success and error responses, with early-rejection optionality. | Local PostgreSQL handler tests verify JSON/SSE correlation UUIDs, generation lookup and exact customer charges. Cross-origin deployment behavior remains unverified. |
 | R09 | Examples render required encoded queries and separate security alternatives; cookie-only operations use cookies. | All generated operation examples checked for required queries; authentication combinations tested; a local curl round trip preserves encoded aliases and POST bodies. |
 | R10 | `NiuStreamError` preserves API events, actual HTTP status, available correlation references and transport causes. Abort reasons remain unchanged. | Chat/Messages/Responses failure probes, framing, truncation, transport and cancellation tests pass. No live Provider fault injection was run. |
-| R11 | Reusable workspace key schemas cover list/create/read/update/rotate responses, policies, exact amounts, optional snapshots and errors. SDK types reflect nullable snapshots. | Source and schema regression checks pass; dashboard typecheck passes. Real backend response validation remains outstanding. |
-| R12 | Workspace creation guidance now recommends `/api/v1/workspaces`, distinguishes its supported alias, and retains historical evidence dates. | Current route registrations point both prefixes to the same handler. No new live replay test was run. |
+| R11 | Reusable workspace key schemas cover list/create/read/update/rotate responses, policies, exact amounts, optional snapshots and errors. SDK types reflect nullable snapshots. | Actual create/list/read/error handler responses pass schema validation against PostgreSQL, including exact spending limits and one-time token disclosure. Dashboard typecheck passes; update/rotate responses retain contract regression coverage. |
+| R12 | Workspace creation guidance now recommends `/api/v1/workspaces`, distinguishes its supported alias, and retains historical evidence dates. | PostgreSQL tests verify identical replay across both prefixes and 409 on a changed request under the same idempotency key. |
 | R04 | Security schemes now explain credential boundaries; key operations explicitly describe read/write management authority. | Audience-specific contract/SDK views and a complete per-operation authority annotation remain pending. |
-| R03, R05, R06 | No session/workspace/pool route behavior changed in this implementation. | Backend build/integration verification has not run. Rust 1.98.0 was subsequently found already installed; Cargo was missing from PATH and is now enabled. Canonical identity, route aliases and migration tests remain required before moving consumers. |
+| R03, R05, R06 | Additive workspace routes now cover saved sessions, Chat, Video drafts/intents, assets, tasks and artifacts. Session category is required; pool collection/member semantics and safe references are implemented. | See the [migration matrix](api-route-migrations.md). Backend qualification results are recorded in the evidence appendix; broader customer-management aliases and audience views remain separate work. |
 
-Validation: **203 SDK tests passed**, **3 API documentation tests passed**,
-dashboard TypeScript check passed, and generated API freshness passed.
+Latest validation: **205 SDK tests passed**, **4 API documentation tests passed**,
+dashboard TypeScript check passed, generated API freshness passed, and workspace
+Clippy passed with warnings denied. The backend follow-up also passed 357 default
+workspace tests and 12 selected PostgreSQL integration tests. Workspace-wide
+formatting remains blocked by unrelated concurrent currency/payment edits; see
+the evidence appendix for the exact verification scope.
 The documentation below remains a review record, not a declaration that every
 migration or live-service gate is closed.
 
-The remaining problem is contract consistency: short paths still leave callers
-guessing about identity, credentials, errors and continuation. Fix the confirmed
-contract and SDK defects before another route migration. This review does not
+Remaining contract work includes complete audience/authority views and broader
+customer-management aliases. Saved-content identities and pool references now
+have explicit compatibility contracts. This review does not
 establish complete OpenRouter compatibility or overall product parity.
 
 At review time, OpenAPI contained **267 paths and 354 operations**. Of those,
@@ -42,8 +47,8 @@ See the [reproducible evidence](api-design-review-evidence.md).
 
 | Priority | Concrete issue | Evidence | Change and acceptance condition |
 | --- | --- | --- | --- |
-| P1 implemented | The successful completion body can contain an upstream ID, while `getGeneration` requires a Niu attempt UUID. The initial callback fix omitted admin/auth transports. | `NiuClient.send` in `sdks/javascript/src/index.ts`; transport helpers in `admin.ts` and `auth.ts`. | Shared callback now implemented and regression-tested; live generation lookup remains a separate gate. |
-| P1 fixed | The generation SDK test described a response the handler does not return. It used flat token/billing fields and a string `usage`, although the server returns nested `usage` and `customer_charge`. | The generation introspection test in `sdks/javascript/test/client.test.mjs`; `get_generation` in `apps/gateway/src/web/routes.rs`. | Replace the obsolete fixture and assert nested token counts and exact customer charges. Production schema validation remains a separate integration check. |
+| P1 implemented | The successful completion body can contain an upstream ID, while `getGeneration` requires a Niu attempt UUID. The initial callback fix omitted admin/auth transports. | `NiuClient.send` in `sdks/javascript/src/index.ts`; transport helpers in `admin.ts` and `auth.ts`. | Shared callback now implemented and regression-tested; local PostgreSQL generation lookup now passes; deployed Provider qualification remains separate. |
+| P1 fixed | The generation SDK test described a response the handler does not return. It used flat token/billing fields and a string `usage`, although the server returns nested `usage` and `customer_charge`. | The generation introspection test in `sdks/javascript/test/client.test.mjs`; `get_generation` in `apps/gateway/src/web/routes.rs`. | Replace the obsolete fixture and assert nested token counts and exact customer charges. Local handler-schema validation now passes; production qualification remains separate. |
 | P1 proposed | `generations` means an inference attempt under `/v1`, but a saved multi-turn session under the workspace management prefix. Shortening the session path did not resolve this semantic collision. | `generations_sessions.rs`, `generations_inventory.rs` and `routes.rs`. | Reserve generation terminology for execution records. Move saved timelines into one clearly defined session resource, with Chat and Video as categories. A session may reference many generations; a generation must not change meaning according to the API prefix. Plan a compatibility migration before changing the current routes again. |
 | P1 proposed | The aggregate contract is useful, but generic security schemes and navigation tags do not reliably describe each caller's authority or usable SDK surface. This is a usability issue, not evidence of an authorization bypass. | OpenAPI security schemes; `apps/docs/scripts/openapi-navigation.mjs` and `generate-api-docs.mjs`. | Annotate principal types, required role/capability and scope. Generate model, customer management, console and platform/Provider views while retaining the aggregate; distinguish platform from Provider authority. Keep backend authorization and avoid duplicating handlers or hosts. |
 | P2 proposed | Workspace/key APIs already have short workspace-scoped routes, while saved content and many management operations still require organization plus legacy project context. `TenantScope` exposes both identifiers. | `TenantScope`, `listWorkspacesPage`, key methods and saved-content methods in `sdks/javascript/src/admin.ts`. | Extend the existing `/workspaces/{workspace}` pattern to customer management resources. Resolve organization membership on the server and test cross-workspace denial. Keep existing compatibility routes during migration. |
@@ -150,7 +155,7 @@ See its [streaming reference](https://openrouter.ai/docs/api/reference/streaming
 
 [`generate-api-docs.mjs`](../../apps/docs/scripts/generate-api-docs.mjs) renders
 required headers but no query parameters. For example, the
-[pool read example](../../apps/docs/src/content/docs/api/rest/getmodelroutepool.md)
+[pool collection and compatibility lookup](../../apps/docs/src/content/docs/api/rest/listpools.md)
 requests `/api/v1/pools` without its required `alias`. There are 44 affected
 operations, including media reads and billing queries.
 
@@ -243,10 +248,11 @@ historical verification as a backend test of the new path.
 | `/v1/video/jobs/{id}` | Durable asynchronous video job | Preserve uncertain submission and recovery references. |
 | Workspace-scoped `/chats/draft` | Saved unsent console input | Owner/workspace persistence, not a model API prerequisite. |
 
-A proposed saved-content resource is
-`/api/v1/workspaces/{workspace}/sessions`, with explicit category and identity
-rules. This is not a supported endpoint. A flat `{id}` lookup must not assume
-that category-specific stores share one global namespace.
+The canonical saved-content resource is now
+`/api/v1/workspaces/{workspace}/sessions`. Category is required on every
+canonical request, because category-specific stores do not share one global
+namespace. Identity is workspace, authenticated owner, category and UUID.
+See the [route migration](api-route-migrations.md); old routes remain supported.
 
 Preserve owner scope, branches, model comparisons and existing write capabilities.
 The current Chat inventory bridge does not establish write parity with Video.
@@ -319,9 +325,9 @@ idempotency references after uncertainty, and separate reading saved state
 from explicitly refreshing upstream state. Preserve revision conflicts and
 customer billing boundaries during migration.
 
-R02 still requires actual handler-response validation, including unavailable
-charges and authorized scope. Hand-authored fixtures do not establish handler
-conformance.
+R02 now has local PostgreSQL handler-response validation for generation lookup,
+absent charges, exact retail charges, confidential-field exclusion and workspace
+access denial. This does not establish production Provider or billing qualification.
 
 ## Second-round verification
 
@@ -336,7 +342,22 @@ were run in this round. The first round reported 179 passing SDK tests; that
 historical result is not new backend qualification. Open findings remain open
 until their specified acceptance evidence exists.
 
-## Continuation checklist
+## Backend migration follow-up
+
+The user resumed local backend verification after Cargo was enabled. This round
+implements the saved-content portion of R05 and the R03/R06 migration; it does
+not retire compatibility routes or claim all review findings are closed.
+[The migration matrix](api-route-migrations.md) records requests, responses,
+authority, identity, revisions and replay behavior.
+
+All 12 selected PostgreSQL integration tests passed, covering migration aliases,
+actual response schemas, exact customer charges, scope/owner denials, replay and
+uncertain execution. Every workspace test target compiled; the default workspace run passed 357 tests
+with 299 environment-dependent cases ignored. The
+[evidence appendix](api-design-review-evidence.md#local-backend-migration-verification)
+records commands, fixture prerequisites and the limits of this verification.
+
+## Earlier continuation checklist
 
 The earlier statement that Cargo was not installed was incorrect: the existing
 Rust 1.98.0 toolchain was outside the shell PATH. PATH setup was corrected without

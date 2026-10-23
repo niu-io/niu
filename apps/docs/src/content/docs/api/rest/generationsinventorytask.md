@@ -59,12 +59,20 @@ Location: **path**. **Required.**
 
 ### task
 
-Location: **path**. **Required.**
+Location: **path**. **Required.** Internal task UUID or permanent public run reference. Both require the same current workspace and actor authorization.
 
 ```json
 {
-  "type": "string",
-  "format": "uuid"
+  "oneOf": [
+    {
+      "type": "string",
+      "format": "uuid"
+    },
+    {
+      "type": "string",
+      "pattern": "^run-[1-9][0-9]{0,18}$"
+    }
+  ]
 }
 ```
 
@@ -344,6 +352,11 @@ Content type: `application/json`.
             "current_catalog",
             "unknown"
           ]
+        },
+        "reference": {
+          "type": "string",
+          "pattern": "^run-[1-9][0-9]{0,18}$",
+          "description": "Permanent public run reference, independent of the internal identifier."
         }
       },
       "required": [

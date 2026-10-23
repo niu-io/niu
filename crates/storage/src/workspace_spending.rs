@@ -64,7 +64,15 @@ impl Store {
         actor: Option<OperatorAuditActor>,
     ) -> Result<i64, StoreError> {
         let mut tx = self.pool.begin().await?;
-        Self::set_workspace_limit_in_tx(&mut tx, scope, currency, limit_nanos, expected_revision, actor).await?;
+        Self::set_workspace_limit_in_tx(
+            &mut tx,
+            scope,
+            currency,
+            limit_nanos,
+            expected_revision,
+            actor,
+        )
+        .await?;
         tx.commit().await?;
         Ok(expected_revision + 1)
     }

@@ -1,11 +1,12 @@
 //! Session-authenticated saved inventory; never dispatches or refreshes a task.
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
 };
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::HeaderMap,
     response::Response,
 };
@@ -360,6 +361,11 @@ async fn list(
 ///                           "current_catalog",
 ///                           "unknown"
 ///                         ]
+///                       },
+///                       "reference": {
+///                         "type": "string",
+///                         "pattern": "^run-[1-9][0-9]{0,18}$",
+///                         "description": "Permanent public run reference, independent of the internal identifier."
 ///                       }
 ///                     },
 ///                     "required": [
@@ -783,9 +789,18 @@ pub(in crate::web) async fn artifacts(
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
+///           "oneOf": [
+///             {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             {
+///               "type": "string",
+///               "pattern": "^run-[1-9][0-9]{0,18}$"
+///             }
+///           ]
+///         },
+///         "description": "Internal task UUID or permanent public run reference. Both require the same current workspace and actor authorization."
 ///       }
 ///     ],
 ///     "responses": {
@@ -988,6 +1003,11 @@ pub(in crate::web) async fn artifacts(
 ///                         "current_catalog",
 ///                         "unknown"
 ///                       ]
+///                     },
+///                     "reference": {
+///                       "type": "string",
+///                       "pattern": "^run-[1-9][0-9]{0,18}$",
+///                       "description": "Permanent public run reference, independent of the internal identifier."
 ///                     }
 ///                   },
 ///                   "required": [
@@ -1039,7 +1059,7 @@ pub(in crate::web) async fn artifacts(
 /// ```
 pub(in crate::web) async fn task(
     State(state): State<AppState>,
-    Path((org, workspace, id)): Path<(Uuid, Uuid, Uuid)>,
+    Path((org, workspace, id)): Path<(Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<([(String, String); 1], Json<Value>), ApiError> {
     let scope = TenantScope {
@@ -1047,10 +1067,11 @@ pub(in crate::web) async fn task(
         project_id: workspace,
     };
     let actor = owner(&state, &headers, scope).await?;
-    let data = state
-        .store
-        .generation_task(scope, &actor, id)
-        .await
+    let data = if let Ok(uuid) = Uuid::parse_str(&id) {
+        state.store.generation_task(scope, &actor, uuid).await
+    } else {
+        state.store.generation_task_by_reference(scope, &actor, &id).await
+    }
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
     Ok((

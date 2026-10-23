@@ -25,7 +25,7 @@ export type GenerationExecutionContext = {
   references_state: 'not_in_execution_snapshot';
 };
 export type GenerationTask = {
-  id: string; kind: 'video'; model: string; model_display_name: string | null;
+  id: string; reference?: string; kind: 'video'; model: string; model_display_name: string | null;
   /** Existing display metadata may reflect today's catalog, never historical dispatch. */
   model_display_name_source: 'current_catalog' | 'unknown';
   execution_context: GenerationExecutionContext;
@@ -54,6 +54,7 @@ function ref(value: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)) throw new TypeError('A canonical Niu reference is required');
   return value;
 }
+function taskReference(value:string):string { return /^run-[1-9][0-9]{0,18}$/.test(value) ? value : ref(value); }
 function query(input: GenerationInventoryQuery = {}): string {
   const params = new URLSearchParams();
   if (input.kind !== undefined) params.set('kind', input.kind);
@@ -70,20 +71,20 @@ function query(input: GenerationInventoryQuery = {}): string {
  * No method dispatches, refreshes, retries or recreates a task.
  */
 export function createGenerationsInventoryClient(send: GenerationInventorySender, binary: GenerationInventoryBinarySender) {
-  const base = (organization: string, workspace: string) => `/organizations/${ref(organization)}/projects/${ref(workspace)}/generations`;
-  const output = (organization: string, workspace: string, task: string, kind: GenerationArtifactKind) => {
+  const base = (workspace: string) => `/workspaces/${ref(workspace)}`;
+  const output = (workspace: string, task: string, kind: GenerationArtifactKind) => {
     if (kind !== 'video' && kind !== 'last_frame') throw new TypeError('Invalid artifact kind');
-    return `${base(organization, workspace)}/artifacts/${ref(task)}/${kind}`;
+    return `${base(workspace)}/artifacts/${ref(task)}/${kind}`;
   };
   return {
     tasks: {
-      list: (organization: string, workspace: string, input?: GenerationInventoryQuery, options?: RequestOptions) => send<GenerationInventoryPage<GenerationTask>>(`${base(organization, workspace)}/tasks${query(input)}`, 'GET', undefined, options),
-      retrieve: (organization: string, workspace: string, task: string, options?: RequestOptions) => send<{ data: GenerationTask }>(`${base(organization, workspace)}/tasks/${ref(task)}`, 'GET', undefined, options),
+      list: (workspace: string, input?: GenerationInventoryQuery, options?: RequestOptions) => send<GenerationInventoryPage<GenerationTask>>(`${base(workspace)}/tasks${query(input)}`, 'GET', undefined, options),
+      retrieve: (workspace: string, task: string, options?: RequestOptions) => send<{ data: GenerationTask }>(`${base(workspace)}/tasks/${taskReference(task)}`, 'GET', undefined, options),
     },
     artifacts: {
-      list: (organization: string, workspace: string, input?: GenerationInventoryQuery, options?: RequestOptions) => send<GenerationInventoryPage<GenerationArtifact>>(`${base(organization, workspace)}/artifacts${query(input)}`, 'GET', undefined, options),
-      retrieve: (organization: string, workspace: string, task: string, kind: GenerationArtifactKind, options?: RequestOptions) => send<{ data: GenerationArtifact }>(output(organization, workspace, task, kind), 'GET', undefined, options),
-      content: (organization: string, workspace: string, task: string, kind: GenerationArtifactKind, options?: RequestOptions) => binary(`${output(organization, workspace, task, kind)}/content`, options),
+      list: (workspace: string, input?: GenerationInventoryQuery, options?: RequestOptions) => send<GenerationInventoryPage<GenerationArtifact>>(`${base(workspace)}/artifacts${query(input)}`, 'GET', undefined, options),
+      retrieve: (workspace: string, task: string, kind: GenerationArtifactKind, options?: RequestOptions) => send<{ data: GenerationArtifact }>(output(workspace, task, kind), 'GET', undefined, options),
+      content: (workspace: string, task: string, kind: GenerationArtifactKind, options?: RequestOptions) => binary(`${output(workspace, task, kind)}/content`, options),
     },
   };
 }

@@ -28,3 +28,16 @@ export function mediaQuantity(value: string, allowZero: boolean): { numerator: s
   return { numerator: reducedNumerator.toString(), denominator: reducedDenominator.toString() };
 }
 export const mediaQuantityInput = (value: { numerator: string; denominator: string }) => value.denominator === '1' ? value.numerator : value.numerator + '/' + value.denominator;
+
+/** Example only; matches metered-cost's minimum floor and final integer rounding. */
+export function mediaPriceExample(price: string, places: number, perInput: string, minimumInput: string, measured: string, rounding: 'Down' | 'Up' | 'HalfEven'): string {
+  const amount = BigInt(mediaAmountUnits(price, places));
+  const per = mediaQuantity(perInput, false), minimum = mediaQuantity(minimumInput, true), usage = mediaQuantity(measured, true);
+  const quantity = BigInt(usage.numerator) * BigInt(minimum.denominator) >= BigInt(minimum.numerator) * BigInt(usage.denominator) ? usage : minimum;
+  const numerator = BigInt(quantity.numerator) * BigInt(per.denominator) * amount;
+  const denominator = BigInt(quantity.denominator) * BigInt(per.numerator);
+  let result = numerator / denominator;
+  const remainder = numerator % denominator;
+  if (rounding === 'Up' ? remainder !== 0n : rounding === 'HalfEven' && (remainder > denominator - remainder || (remainder === denominator - remainder && result % 2n === 1n))) result++;
+  return mediaAmount(result.toString(), places);
+}

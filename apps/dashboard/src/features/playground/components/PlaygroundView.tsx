@@ -1,3 +1,5 @@
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { generationOutcome } from '../generation-outcome';
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
 import { GenerationSessionBindings } from '@/features/generations/GenerationsLayout';
 import VideoArchivedSessions from '@/features/generations/VideoArchivedSessions';
@@ -53,9 +55,10 @@ import { branchMessages, userMessage, type ConversationMessage } from '../conver
 
 type Scope = { organizationId: string; workspaceId: string; workspaceName?: string };
 type Usage = { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
-type ChatResponse = { choices?: Array<{ message?: { content?: unknown }; delta?: { content?: unknown } }>; usage?: Usage };
+type ChatResponse = { choices?: Array<{ message?: { content?: unknown }; delta?: { content?: unknown }; finish_reason?: unknown }>; usage?: Usage };
 type RequestLedgerEntry = {
   attempt_id: string;
+  reference?: string;
   customer_charge_nanos: string | null;
   customer_charge_status: string;
   customer_charge_currency: string | null;
@@ -68,14 +71,16 @@ type ComparisonResult = {
   completionTokens: number | null;
   totalTokens: number | null;
   attemptId: string | null;
+  attemptReference?: string;
   error: string | null;
+  finishReason?: string | null;
   phase: 'connecting' | 'streaming' | 'complete' | 'failed' | 'cancelled';
   customerChargeNanos: string | null;
   customerChargeStatus: string;
   customerChargeCurrency: string | null;
 };
 type SavedTurn = { prompt: string; results: ComparisonResult[]; attachments?: Array<{name: string; type: string; content: string}> };
-type SavedComparison = SavedTurn & { title?: string; id: string; createdAt: number; turns?: SavedTurn[]; settings?: { systemPrompt: string; maxTokens: number; temperature: number; logPayloads?: boolean } };
+type SavedComparison = SavedTurn & { title?: string; id: string; reference?: string; createdAt: number; turns?: SavedTurn[]; settings?: { systemPrompt: string; maxTokens: number; temperature: number; logPayloads?: boolean } };
 type ComparisonMetric = 'requests' | 'elapsed' | 'prompt' | 'completion' | 'total' | 'cash';
 const maxComparisonModels = 4;
 const minComparisonModels = 1;
@@ -121,9 +126,9 @@ function customerCharge(result: ComparisonResult) {
 function metricValue(result: ComparisonResult, metric: ComparisonMetric) {
   if (metric === 'requests') return '1';
   if (metric === 'elapsed') return `${result.elapsedMs.toLocaleString()} ms${result.phase === 'failed' ? ' · failed' : result.phase === 'cancelled' ? ' · cancelled' : result.phase === 'streaming' || result.phase === 'connecting' ? ' · running' : ''}`;
-  if (metric === 'prompt') return result.promptTokens === null ? 'Unknown' : result.promptTokens.toLocaleString();
-  if (metric === 'completion') return result.completionTokens === null ? 'Unknown' : result.completionTokens.toLocaleString();
-  if (metric === 'total') return result.totalTokens === null ? 'Unknown' : result.totalTokens.toLocaleString();
+  if (metric === 'prompt') return result.promptTokens == null ? 'Unknown' : result.promptTokens.toLocaleString();
+  if (metric === 'completion') return result.completionTokens == null ? 'Unknown' : result.completionTokens.toLocaleString();
+  if (metric === 'total') return result.totalTokens == null ? 'Unknown' : result.totalTokens.toLocaleString();
   return customerCharge(result);
 }
 
@@ -135,7 +140,7 @@ function numericDelta(baseline: number, candidate: number, unit: 'ms' | 'tokens'
 
 function metricDifference(baseline: ComparisonResult, candidate: ComparisonResult, metric: ComparisonMetric) {
   if (metric === 'requests') return 'Same';
-  if (baseline.phase !== 'complete' || candidate.phase !== 'complete') return 'Not comparable';
+  if (baseline.phase !== 'complete' || candidate.phase !== 'complete' || baseline.finishReason !== 'stop' || candidate.finishReason !== 'stop') return 'Not comparable';
   if (metric === 'elapsed') return numericDelta(baseline.elapsedMs, candidate.elapsedMs, 'ms');
   if (metric === 'prompt' || metric === 'completion' || metric === 'total') {
     const baselineValue = metric === 'prompt' ? baseline.promptTokens : metric === 'completion' ? baseline.completionTokens : baseline.totalTokens;
@@ -196,6 +201,7 @@ async function runModel(
   const startedAt = performance.now();
   let attemptId: string | null = null;
   let content = '';
+  let finishReason: string | null = null;
   let promptTokens: number | null = null;
   let completionTokens: number | null = null;
   let totalTokens: number | null = null;
@@ -209,6 +215,7 @@ async function runModel(
     attemptId,
     error,
     phase,
+    finishReason,
     customerChargeNanos: null,
     customerChargeStatus: 'unknown',
     customerChargeCurrency: null,
@@ -258,6 +265,7 @@ async function runModel(
       if (!message || typeof message !== 'object') {
         throw new Error('Niu returned an invalid chat response. Inspect the request before trying again.');
       }
+      finishReason = typeof payload?.choices?.[0]?.finish_reason === 'string' ? payload.choices[0].finish_reason.slice(0,128) : null;
       content = responseText(message.content);
       applyUsage(payload?.usage);
       const complete = result('complete');
@@ -279,10 +287,14 @@ async function runModel(
       let payload: ChatResponse;
       try { payload = JSON.parse(data) as ChatResponse; }
       catch { throw new Error('Niu returned malformed streaming data.'); }
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload) || (payload.choices !== undefined && !Array.isArray(payload.choices))) {
+        throw new Error('Niu returned invalid streaming data. Inspect the request before trying again.');
+      }
       if (errorEvent || (payload && typeof payload === 'object' && 'error' in payload)) {
         throw new Error(errorMessage(payload, 'Niu reported an error during generation.'));
       }
       const choice = payload.choices?.[0];
+      if (typeof choice?.finish_reason === 'string') finishReason = choice.finish_reason.slice(0,128);
       content += responseText(choice?.delta?.content);
       applyUsage(payload.usage);
       onUpdate(result('streaming'));
@@ -319,9 +331,10 @@ async function runModel(
   }
 }
 
-export default function PlaygroundView({ token, models, modelsLoading = false, modelsError = '', onRetryModels, initialScope }: {
+export default function PlaygroundView({ token, models, unverifiedModels = [], modelsLoading = false, modelsError = '', onRetryModels, initialScope }: {
   token: string;
   models: string[];
+  unverifiedModels?: string[];
   modelsLoading?: boolean;
   modelsError?: string;
   onRetryModels?: () => Promise<void>;
@@ -357,10 +370,13 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const workspaceId = initialScope?.workspaceId ?? '';
   const modelSignature = models.join('\u0000');
   const modelAliases = useMemo(() => [...new Set(models)], [modelSignature]);
-  const [selectedModels, setSelectedModels] = useState<string[]>(() => modelAliases.slice(0, 2));
+  const [selectedModels, setSelectedModels] = useState<string[]>(() => modelAliases.filter(model => !unverifiedModels.includes(model)).slice(0, 2));
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelDetailsOpen, setModelDetailsOpen] = useState(false);
-  const openModelPicker = () => {
+  const modelPickerOpener = useRef<HTMLButtonElement | null>(null);
+  const modelPickerFallback = useRef<HTMLButtonElement | null>(null);
+  const openModelPicker = (event: { currentTarget: HTMLButtonElement }) => {
+    modelPickerOpener.current = event.currentTarget;
     setModelDetailsOpen(false);
     setModelQuery('');
     setModelPickerOpen(true);
@@ -371,7 +387,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaveError, setSettingsSaveError] = useState('');
   const [modelQuery, setModelQuery] = useState('');
-  const [modelCategory, setModelCategory] = useState('popular');
+  const [modelCategory, setModelCategory] = useState('all');
   const [promptCategory, setPromptCategory] = useState<(typeof promptCategories)[number]['id']>('all');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -400,6 +416,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const [temperature, setTemperature] = useState(0.7);
   const [logPayloads, setLogPayloads] = useState(true);
   const [selectedKeyId, setSelectedKeyId] = useState('');
+  const manualKeySelection = useRef(false);
   const [manualKey, setManualKey] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
@@ -511,7 +528,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     enabled:Boolean(token&&organization&&workspaceId&&!historyLoading&&!historyError),
     value:{sessionId:activeComparisonId,prompt,models:selectedModels,attachments,settings:{systemPrompt,maxTokens,temperature,logPayloads}},
     restore:saved=>{
-      if(requestedSession){const item=history.find(item=>item.id===requestedSession);if(item)openComparison(item);else {startNewComparison();setError('This session is unavailable or you no longer have access.');}return;}
+      if(requestedSession){const item=history.find(item=>(item.id===requestedSession||item.reference===requestedSession));if(item)openComparison(item);else {startNewComparison();setError('This session is unavailable or you no longer have access.');}return;}
       if(startWithNewChat) {startNewComparison();return;}
       if (saved.sessionId) {
         const conversation=history.find(item=>item.id===saved.sessionId);
@@ -535,6 +552,16 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       .then(response => responseData<SavedComparison[]>(response))
       .then(async items => {
         if (controller.signal.aborted) return;
+        if (requestedSession && !items.some(item => item.id === requestedSession || item.reference === requestedSession)) {
+          const response = await fetch(`${historyEndpoint}/${encodeURIComponent(requestedSession)}`, {
+            headers: { authorization: `Bearer ${token}` }, signal: controller.signal,
+          });
+          if (response.ok) {
+            const saved = await responseData<SavedComparison>(response);
+            if (saved && (saved.id === requestedSession || saved.reference === requestedSession)) items.push(saved);
+            else throw new Error('Invalid saved conversation response');
+          } else if (response.status !== 404) throw new Error('Could not load saved conversation');
+        }
         // One-time migration of history created by the former browser-only implementation.
         // Remove that copy only after PostgreSQL has acknowledged every imported record.
         const actor = session?.operator?.id ?? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -558,8 +585,15 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
           turns: item.turns?.map(turn => ({ ...turn, results: restoreResults(turn.results) })),
         }));
         setHistory(restored);
-        const initial=requestedSession ? restored.find(item=>item.id===requestedSession) : restored[0];
-        if(initial&&!startWithNewChat)openComparison(initial);
+        const initial=requestedSession ? restored.find(item=>(item.id===requestedSession||item.reference===requestedSession)) : restored[0];
+        if(initial&&!startWithNewChat) {
+          openComparison(initial);
+          if (requestedSession && initial.reference && requestedSession !== initial.reference) {
+            const query = new URLSearchParams(location.search);
+            query.set('session', initial.reference);
+            navigate(`${location.pathname}?${query}${location.hash}`, {replace:true});
+          }
+        }
         else if(requestedSession&&!startWithNewChat)setError('This session is unavailable or you no longer have access.');
       })
       .catch(() => { if (!controller.signal.aborted) setHistoryError('Could not load chat history.'); })
@@ -567,20 +601,6 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     return () => controller.abort();
   }, [token, historyEndpoint, session?.operator?.id, historyRevision]);
 
-  // A new-generation URL is an action, not a permanent draft-restoration mode.
-  // Confirm the fresh composer before consuming it so reload restores that draft.
-  useEffect(() => {
-    if (!startWithNewChat || !draft.ready || draft.error) return;
-    let cancelled = false;
-    void draft.flush().then(saved => {
-      if (!saved || cancelled) return;
-      const params = new URLSearchParams(location.search);
-      params.delete('new');
-      const query = params.toString();
-      navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, {replace:true});
-    });
-    return () => {cancelled = true;};
-  }, [startWithNewChat, draft.ready, draft.error, location.search, navigate]);
 
   async function closeChatSettings() {
     if (settingsSaving) return;
@@ -607,6 +627,8 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       body: JSON.stringify(item),
     });
     if (!response.ok) throw new Error('Could not save this chat. Check your connection and try again.');
+    const receipt = await response.json();
+    if (typeof receipt.reference === 'string' && /^chat-[1-9][0-9]{0,18}$/.test(receipt.reference)) item.reference = receipt.reference;
   }
 
   const workspaceRoot = workspace
@@ -634,6 +656,16 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const keyChoices = [...sessionKeys, ...workspaceKeys.filter(key => !sessionKeys.some(saved => saved.id === key.id))];
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
   const managedKey = workspaceKeys.find(key => key.id === selectedKeyId);
+  const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
+  const billingSummary = !managedKey
+    ? 'Usage is billed according to the workspace of your API key. Choose a saved workspace key to see how usage is billed.'
+    : billingSources.length === 0 || billingSources.some(source => !source)
+      ? 'Billing information is unavailable for one or more selected models. Refresh the model catalog or ask your administrator before sending.'
+      : billingSources.every(source => source === 'own_api_key')
+        ? 'Uses your own Provider API key. Usage is billed by your Provider, not deducted from Niu credits.'
+        : billingSources.every(source => source === 'niu_credits')
+          ? 'Usage is charged to your Niu credits at the applicable model prices.'
+          : 'This comparison uses both Niu credits and your own Provider API keys. Each model is billed through its configured source.';
   const allowedModels = managedKey?.allowed_models ?? selectedKey?.allowedModels;
   const usableModels = useMemo(() => allowedModels && !allowedModels.includes('*')
     ? modelAliases.filter(model => allowedModels.includes(model))
@@ -645,10 +677,37 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   const preferredModel = new URLSearchParams(location.search).get('model');
 
   useEffect(() => {
-    const preferred = workspaceKeys.find(key => key.slug === preferredKey)?.id ?? preferredKey;
-    if (preferred && keyChoices.some(key => key.id === preferred)) setSelectedKeyId(preferred);
+    const resolved = workspaceKeys.find(key => key.slug === preferredKey || key.id === preferredKey);
+    const preferred = resolved?.id ?? preferredKey;
+    if (preferred && keyChoices.some(key => key.id === preferred)) {
+      setSelectedKeyId(preferred);
+      if (resolved?.slug && preferredKey !== resolved.slug) {
+        const next = new URLSearchParams(location.search);
+        next.set('key', resolved.slug);
+        navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true });
+      }
+    } else if (preferredKey) setSelectedKeyId('manual');
+    else if (manualKeySelection.current) setSelectedKeyId('manual');
     else if (!selectedKeyId || !keyChoices.some(key => key.id === selectedKeyId)) setSelectedKeyId(keyChoices[0]?.id ?? 'manual');
   }, [preferredKey, keyIds]);
+
+  // A new-generation URL is an action, not a permanent draft-restoration mode.
+  // Confirm the fresh composer before consuming it so reload restores that draft.
+  useEffect(() => {
+    if (!startWithNewChat || !draft.ready || draft.error) return;
+    let cancelled = false;
+    void draft.flush().then(saved => {
+      if (!saved || cancelled) return;
+      const params = new URLSearchParams(location.search);
+      params.delete('new');
+      const key = workspaceKeys.find(item => item.id === params.get('key') || item.slug === params.get('key'));
+      if (key?.slug) params.set('key', key.slug);
+      const query = params.toString();
+      navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, {replace:true});
+    });
+    return () => {cancelled = true;};
+  }, [startWithNewChat, draft.ready, draft.error, location.search, navigate, workspaceKeys]);
+
 
   useEffect(() => {
     const preferred = preferredModel;
@@ -663,11 +722,11 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   useEffect(() => {
     if (modelsLoading || modelsError) return;
     setSelectedModels(current => {
-      if (!customizedModels.current) return usableModels.slice(0, 2);
+      if (!customizedModels.current) return usableModels.filter(model => !unverifiedModels.includes(model)).slice(0, 2);
       const available = current.filter(model => usableModels.includes(model));
       return available;
     });
-  }, [usableModels, selectedKeyId, modelsLoading, modelsError]);
+  }, [usableModels, selectedKeyId, modelsLoading, modelsError, unverifiedModels.join('\u0000')]);
 
   const comparisonGeneration = useRef(0);
   useEffect(() => () => {
@@ -725,10 +784,9 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     const coding = usableModels.filter(model => /(?:^|[\/_ .-])(?:code|coder|codex|codestral|devstral|starcoder)(?:$|[\/_ .:-])/i.test(model));
     const reasoning = usableModels.filter(model => /reason|thinking|deepseek-r1|qwq|(?:^|[\/_ .-])o[134](?:$|[\/_ .:-])/i.test(model));
     return [
-      { id: 'popular', label: 'Popular', models: usableModels.slice(0, 8) },
       ...(coding.length >= 2 ? [{ id: 'coding', label: 'Coding', models: coding }] : []),
       ...(reasoning.length >= 2 ? [{ id: 'reasoning', label: 'Reasoning', models: reasoning }] : []),
-      { id: 'all', label: 'All routes', models: usableModels },
+      { id: 'all', label: 'All models', models: usableModels },
     ];
   }, [usableModels]);
   const activeModelCategory = modelCategories.find(category => category.id === modelCategory) ?? modelCategories[0];
@@ -838,6 +896,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
           const entry = result.attemptId ? charges.get(result.attemptId) : undefined;
           return {
             ...result,
+            attemptReference: entry?.reference,
             customerChargeNanos: entry?.customer_charge_status === 'charged' ? entry.customer_charge_nanos : null,
             customerChargeStatus: entry?.customer_charge_status ?? 'unknown',
             customerChargeCurrency: entry?.customer_charge_currency ?? null,
@@ -908,7 +967,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
             <Button type="button" variant="outline" className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={'API key: ' + selectedKeyLabel}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
-          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>Retry chat history</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);navigate(`/generations?workspace=${encodeURIComponent(currentWorkspaceSegment)}&session=${encodeURIComponent(id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
+          </div>} onNewSession={startNewComparison} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{historyError}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>Retry chat history</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: (historyLoading || !draft.ready), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);navigate(`/generations?workspace=${encodeURIComponent(currentWorkspaceSegment)}&session=${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
               <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving || !draft.ready} aria-label={`Actions for ${sessionTitle(item)}`}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />Rename</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? 'Exporting…' : 'Export'}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />Archive</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />Delete</DropdownMenuItem></DropdownMenuContent>
               </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); }} />
@@ -918,6 +977,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
 
         <div ref={transcriptRef} className="playground-transcript" aria-live="polite">
           {error && !results && <p role="alert" className="playground-chat-error">{error}</p>}
+          {selectedModels.some(model => unverifiedModels.includes(model)) && <Alert role="status"><AlertDescription>Chat support is unverified for {selectedModels.filter(model => unverifiedModels.includes(model)).join(', ')}. Confirm support with your platform administrator before sending.</AlertDescription></Alert>}
           {modelsError && <div role="alert" className="playground-chat-error">{modelsError}{onRetryModels && <Button type="button" variant="ghost" disabled={modelsLoading} onClick={()=>void onRetryModels()}>Retry model catalog</Button>}</div>}
           {!initialScope
             ? <div className="playground-chat-empty"><FlaskConical size={26} /><h2>Add an API key</h2><p>Use an API key to authorize generations and track usage.</p><Button asChild variant="outline"><Link to="/workspaces">Manage API keys</Link></Button></div>
@@ -943,17 +1003,19 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
                   <section className="playground-results" aria-labelledby={`playground-results-title-${turnIndex}`}>
                     <div className="playground-results-heading"><h2 id={`playground-results-title-${turnIndex}`}>Responses</h2><span>{turn.results.length} {turn.results.length === 1 ? 'model' : 'models'}</span></div>
                     <div className="playground-result-grid" data-model-count={turn.results.length}>{turn.results.map((result, index) => <article className="panel playground-result-card" key={result.model + '-' + index}>
-                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{result.model}</h3></div><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? 'Failed' : result.phase === 'cancelled' ? 'Cancelled' : result.phase === 'connecting' ? 'Connecting' : result.phase === 'streaming' ? 'Generating' : 'Complete'}</Badge></div>
-                      {result.phase === 'failed' ? <p className="playground-response-error">{result.error}</p> : result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">Cancelled before any output arrived.</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? 'Waiting for more output…' : 'Waiting for a response…'}</div>}
+                      <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity({ id: result.model })} size="small" /><h3>{result.model}</h3></div><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? 'Failed' : result.phase === 'cancelled' ? 'Cancelled' : result.phase === 'connecting' ? 'Connecting' : result.phase === 'streaming' ? 'Generating' : generationOutcome(result.finishReason).label}</Badge></div>
+                      {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{generationOutcome(result.finishReason).detail}</p>}
+                      {result.phase === 'failed' && <p className="playground-response-error">{result.error}</p>}
+                      {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">Cancelled before any output arrived.</p> : result.phase === 'complete' || result.phase === 'failed' ? <p className="playground-response text-muted-foreground">No text output was returned.</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? 'Waiting for more output…' : 'Waiting for a response…'}</div>}
                       <div className="playground-result-footer">
                         <div className="playground-card-metrics">
                           <div><Clock3 size={15} /><span>Time</span><strong>{result.elapsedMs.toLocaleString()} ms</strong></div>
-                          <div><Hash size={15} /><span>Tokens</span><strong>{result.totalTokens === null ? 'Unknown' : result.totalTokens.toLocaleString()}</strong></div>
+                          <div><Hash size={15} /><span>Tokens</span><strong>{result.totalTokens == null ? 'Unknown' : result.totalTokens.toLocaleString()}</strong></div>
                           <div><CircleDollarSign size={15} /><span>Customer charge</span><strong>{customerCharge(result)}</strong></div>
                         </div>
                         <div className="playground-result-actions">
                           {result.content && <Button type="button" variant="ghost" size="sm" aria-label={'Copy ' + result.model + ' response'} onClick={() => void copyResponse(`${turnIndex}:${result.model}`, result.content)}><ClipboardCopy size={14} />{copiedResponse === `${turnIndex}:${result.model}` ? 'Copied' : 'Copy'}</Button>}
-                          {result.attemptId && <Link className="playground-attempt-link" to={workspaceRoot + '/executions?modelAlias=' + encodeURIComponent(result.model) + '#gateway-attempt-' + encodeURIComponent(result.attemptId)}>Inspect request</Link>}
+                          {result.attemptId && <Link className="playground-attempt-link" to={workspaceRoot + '/executions?modelAlias=' + encodeURIComponent(result.model) + '#gateway-attempt-' + encodeURIComponent(result.attemptReference??result.attemptId)}>Inspect request</Link>}
                         </div>
                       </div>
                     </article>)}</div>
@@ -1013,7 +1075,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
                     <Button type="button" variant="outline" size="sm" disabled={running || settingsSaving || !draft.ready} onClick={openModelPicker}><Plus size={14} />Add models</Button>
                   </HoverCardContent>
                 </HoverCard>
-                <Button type="button" variant="ghost" size="icon" aria-label="Choose models" title="Choose models" onClick={openModelPicker} disabled={running || modelAliases.length === 0}><Plus size={18} /></Button>
+                <Button ref={modelPickerFallback} type="button" variant="ghost" size="icon" aria-label="Choose models" title="Choose models" onClick={openModelPicker} disabled={running || modelAliases.length === 0}><Plus size={18} /></Button>
               </div>
 
                 <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" disabled={running || settingsSaving || !draft.ready} aria-label="Chat settings" title="Chat settings"><Settings2 size={18} /></Button></PopoverTrigger>
@@ -1021,6 +1083,8 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
                 ? <Button type="button" size="icon" className="rounded-full" aria-label="Stop generating" onClick={cancelComparison}><Square size={14} /></Button>
                 : <Button type="submit" size="icon" className="rounded-full" aria-label={`Send to ${selectedModels.length} ${selectedModels.length === 1 ? 'model' : 'models'}`}  disabled={!canSubmit}><ArrowUp size={19} /></Button>}
             </div>
+          {workspaceKeysReady && preferredKey && !keyChoices.some(key => key.id === preferredKey || ('slug' in key && key.slug === preferredKey)) && <p role="status" className="px-3 pb-2 text-xs text-muted-foreground">The requested API key is unavailable or you no longer have access. Choose another key before sending.</p>}
+          <p aria-label="Usage billing" className="px-3 pb-2 text-xs text-muted-foreground">{billingSummary}</p>
           </div></PopoverAnchor>
         </form>
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
@@ -1086,7 +1150,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
     </Dialog>
 
     <Dialog open={modelPickerOpen} onOpenChange={setModelPickerOpen}>
-      <DialogContent className="niu-modal playground-model-dialog" showCloseButton={false}>
+      <DialogContent className="niu-modal playground-model-dialog" showCloseButton={false} onCloseAutoFocus={event => { event.preventDefault(); (modelPickerOpener.current?.isConnected ? modelPickerOpener.current : modelPickerFallback.current)?.focus(); }}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
           <div><DialogTitle>Choose models</DialogTitle><DialogDescription>Select one to four enabled routes. Each receives the same prompt.</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
@@ -1101,7 +1165,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
         <div className="playground-model-picker-list">{filteredModelAliases.map(model => {
           const selected = selectedModels.includes(model);
           return <Button key={model} type="button" className="playground-model-picker-option" aria-pressed={selected} disabled={!selected && selectedModels.length >= maxComparisonModels} onClick={() => toggleModel(model)}>
-            <ProviderLogo provider={modelIdentity({ id: model })} size="small" /><span>{model}</span>{selected && <Check size={16} />}
+            <ProviderLogo provider={modelIdentity({ id: model })} size="small" /><span>{model}{managedKey && <span className="block text-xs text-muted-foreground">{dashboard.models?.find(item => item.id === model)?.billing_source === 'own_api_key' ? 'Billed by your Provider' : dashboard.models?.find(item => item.id === model)?.billing_source === 'niu_credits' ? 'Niu credits' : 'Billing information unavailable'}</span>}{unverifiedModels.includes(model) && <span className="block text-xs text-muted-foreground">Chat support unverified</span>}</span>{selected && <Check size={16} />}
           </Button>;
         })}{filteredModelAliases.length === 0 && <p className="model-no-results">{modelsLoading ? 'Loading models…' : modelsError ? 'Model catalog unavailable.' : 'No model routes found.'}</p>}</div>
         {((modelQuery.trim() ? usableModels.filter(model => model.toLowerCase().includes(modelQuery.trim().toLowerCase())).length : activeModelCategory?.models.length ?? usableModels.length) > filteredModelAliases.length) && <p className="playground-model-picker-hint">Showing {filteredModelAliases.length} routes. Refine your search to find another.</p>}
@@ -1116,7 +1180,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
           {availableKeys.error && <p role="alert" className="text-sm text-destructive">{availableKeys.error}</p>}
           {keyLoadError && <p role="alert" className="text-sm text-destructive">{keyLoadError}</p>}
           <div className="space-y-2"><Label htmlFor="playground-api-key">Key</Label>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label="API key" disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? 'Use another key'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId || 'manual'} onValueChange={value => {const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(value)}`);return;} setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label="API key" disabled={running || settingsSaving || !draft.ready} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? 'Use another key'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId || 'manual'} onValueChange={value => {manualKeySelection.current=value==='manual';const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); if (value === 'manual') next.delete('key'); else next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
               {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}<DropdownMenuRadioItem value="manual">Use another key</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           </div>

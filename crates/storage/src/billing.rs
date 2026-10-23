@@ -587,7 +587,7 @@ SELECT jsonb_build_object(
         let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'discount_baseline_revision',r.discount_baseline_revision,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text,'pricing_source','workspace') FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND NOT EXISTS(SELECT 1 FROM retail_text_enrollments enrollment WHERE enrollment.organization_id=t.organization_id AND enrollment.project_id=t.project_id AND enrollment.model_alias=t.model_alias AND enrollment.price_id IS NOT NULL) ORDER BY t.model_alias")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut **tx).await?;
         let mut prices: std::collections::BTreeMap<String, Value> = rows.into_iter().collect();
-        let enrollments:Vec<(String,Uuid)>=sqlx::query_as("SELECT model_alias,price_id FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND price_id IS NOT NULL ORDER BY price_id")
+        let enrollments:Vec<(String,Uuid)>=sqlx::query_as("SELECT model_alias,price_id FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND price_id IS NOT NULL UNION ALL SELECT h.model_alias,h.id AS price_id FROM platform_retail_price_heads h JOIN platform_currency c ON c.singleton AND c.currency=h.currency WHERE h.rate_kind='text' AND h.current_revision IS NOT NULL AND NOT EXISTS(SELECT 1 FROM retail_text_enrollments e WHERE e.organization_id=$1 AND e.project_id=$2 AND e.model_alias=h.model_alias) ORDER BY price_id")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut **tx).await?;
         if !enrollments.is_empty() {
             let head_ids: Vec<Uuid> = enrollments.iter().map(|(_, head)| *head).collect();
@@ -795,9 +795,10 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let platform_managed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM retail_text_enrollments WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3 AND price_id IS NOT NULL)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(&input.model_alias).fetch_one(&mut *tx).await?;
-        if platform_managed {
+        if Self::retail_text_price_in_tx(&mut tx, scope, &input.model_alias)
+            .await?
+            .is_some()
+        {
             return Err(StoreError::Conflict);
         }
         #[derive(sqlx::FromRow)]

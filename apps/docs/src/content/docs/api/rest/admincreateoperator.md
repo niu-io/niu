@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/operators`
 
-Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one workspace. The bearer token is returned once and is never retrievable from list APIs.
+Requires a permitted owner or installation administrator. Every user belongs to a company and may be workspace-scoped. By default a temporary session is issued once and expires_in_seconds is required. For recoverable onboarding, pass issue_session false with Idempotency-Key and omit expires_in_seconds. The identity and receipt commit together; matching retries return current metadata for the original identity with null session/token. Changed input, revoked or deleted identities return 409; replay never restores access or issues a credential. The receipt namespace is company-scoped, distinct from company/workspace creation. Authorization is checked before receipt lookup.
 
 Operation: `adminCreateOperator`.
 
@@ -37,7 +37,17 @@ curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/operators" \
 
 ## Parameters
 
-No path, query, or header parameters are declared.
+### Idempotency-Key
+
+Location: **header**. Optional. Required only for identity-only creation; 1–128 visible ASCII characters. Retain the same key and input after an uncertain outcome.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128
+}
+```
 
 ## Request body
 
@@ -54,16 +64,49 @@ No path, query, or header parameters are declared.
   "required": [
     "organization_id",
     "name",
-    "role",
-    "expires_in_seconds"
+    "role"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "issue_session"
+        ],
+        "properties": {
+          "issue_session": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "expires_in_seconds"
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "expires_in_seconds"
+        ]
+      }
+    }
   ],
   "properties": {
+    "issue_session": {
+      "type": "boolean",
+      "default": true,
+      "description": "False requires Idempotency-Key and forbids expires_in_seconds."
+    },
     "organization_id": {
       "type": "string",
       "format": "uuid"
     },
     "project_id": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "uuid",
       "description": "Optional workspace-level restriction within the organization."
     },
@@ -93,7 +136,7 @@ No path, query, or header parameters are declared.
 
 ### HTTP 201
 
-Operator and session created; response includes Cache-Control no-store.
+User created or identity-only replay confirmed; session/token are null for identity-only creation. Cache-Control no-store.
 
 ### HTTP 400
 
@@ -109,4 +152,4 @@ The authenticated operator is not an owner.
 
 ## Behavior and supported scope
 
-Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one workspace. The bearer token is returned once and is never retrievable from list APIs.
+Requires a permitted owner or installation administrator. Every user belongs to a company and may be workspace-scoped. By default a temporary session is issued once and expires_in_seconds is required. For recoverable onboarding, pass issue_session false with Idempotency-Key and omit expires_in_seconds. The identity and receipt commit together; matching retries return current metadata for the original identity with null session/token. Changed input, revoked or deleted identities return 409; replay never restores access or issues a credential. The receipt namespace is company-scoped, distinct from company/workspace creation. Authorization is checked before receipt lookup.

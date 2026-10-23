@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}`
 
-Scoped workspace read access required. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.
+Scoped workspace read access required. Accepts a durable run reference or a legacy attempt UUID. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.
 
 Operation: `getGatewayRequest`.
 
@@ -64,7 +64,7 @@ Location: **path**. **Required.**
 ```json
 {
   "type": "string",
-  "format": "uuid"
+  "description": "Durable run reference or legacy attempt UUID"
 }
 ```
 
@@ -104,6 +104,7 @@ Content type: `application/json`.
       "type": "object",
       "required": [
         "attempt_id",
+        "reference",
         "operation_id",
         "api_key_id",
         "key_name",
@@ -132,6 +133,10 @@ Content type: `application/json`.
         "finish_reasons"
       ],
       "properties": {
+        "reference": {
+          "type": "string",
+          "description": "Stable public run reference for customer-facing links"
+        },
         "attempt_id": {
           "type": "string",
           "format": "uuid"
@@ -465,6 +470,6 @@ Workspace or request unavailable in this scope
 
 ## Behavior and supported scope
 
-Scoped workspace read access required. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.
+Scoped workspace read access required. Accepts a durable run reference or a legacy attempt UUID. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.
 
 **Supported scope:** implemented

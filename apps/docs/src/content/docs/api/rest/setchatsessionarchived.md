@@ -19,7 +19,7 @@ Use the credential and permission scope described above. Each object below is an
 ```json
 [
   {
-    "adminBearerAuth": []
+    "bearerAuth": []
   }
 ]
 ```
@@ -30,7 +30,7 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 
 ```sh
 curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```
@@ -118,3 +118,5 @@ No session in the caller's owner and workspace scope.
 ## Behavior and supported scope
 
 Updates backend-owned archive state without changing content or conversation ordering. Autosaves preserve archive state. Repeating the same value is idempotent.
+
+**Supported scope:** implemented

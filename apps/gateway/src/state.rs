@@ -268,7 +268,8 @@ impl AppState {
         state.vendor_cipher = vendor_cipher;
         state.payments = crate::payments::Runtime::from_env().await?.map(Arc::new);
         state.epay_payments = crate::payments::EPayRuntime::from_env()?.map(Arc::new);
-        state.stripe_payments = crate::payments::StripeRuntime::from_env()?.map(Arc::new);
+        state.stripe_payments = crate::payments::StripeRuntime::from_env(state.store.platform_currency().await?.as_deref())?.map(Arc::new);
+        crate::payments::validate_mock_integrations(&state).await?;
         state.password_auth = crate::admin::passwords::Runtime::from_env()
             .await?
             .map(Arc::new);

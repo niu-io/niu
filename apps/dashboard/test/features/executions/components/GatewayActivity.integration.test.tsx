@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import GatewayActivity, { taskOutcome } from '../../../../src/features/executions/components/GatewayActivity';
 
+const knownKeys = [{id:'key-1',name:'Build app',allowed_models:['*'],revoked:false,expired:false}];
+
 const base = '/api/v1/organizations/org-1/projects/project-1';
 
 function makeRequest(attemptId: string, taskId: string | null, model: string, taskEvidence = null, customerCharge: { customer_charge_currency: string | null; customer_charge_nanos: string | null; customer_charge_status: string } = { customer_charge_currency: null, customer_charge_nanos: null, customer_charge_status: 'unpriced' }) {
@@ -71,7 +73,7 @@ it('uses the same local calendar boundaries for query and histogram on a single-
 it('explains durable failure classifications when request payloads are unavailable', async () => {
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => {
     const path=String(input);
-    if(path.endsWith('/keys')) return Response.json({data:[]});
+    if(path.endsWith('/keys')) return Response.json({data:knownKeys});
     if(path.includes('/payload')) return Response.json({data:null});
     if(path.endsWith('/guardrails')) return Response.json({data:null});
     return Response.json({data:[{...makeRequest('rejected',null,'fast'),execution:'may_have_executed',failure:{kind:'upstream_region_unavailable',upstream_http_status:403},timing:{http_status:502,total_ms:1200,complete:true}}],next_cursor:null,summary});
@@ -141,11 +143,11 @@ it('names clickable request rows with human-readable details and supports keyboa
 
 it('preserves the API key scope when opening full logs from a compact preview', async () => {
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async () => Response.json({data:[],next_cursor:null,summary})));
-  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/key-1']}><GatewayActivity compact token="test" models={[]} preferredKeyId="key-1" initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/workspaces/demo/keys/key-1']}><GatewayActivity compact token="test" models={[]} preferredKeyId="key-1" preferredKeySlug="build-app" initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
   await screen.findByRole('link',{name:/View all requests/});
   expect(screen.getByRole('region', {name:'Filtered request totals'})).toBeTruthy();
   expect(screen.queryByRole('region', {name:'Workspace request totals'})).toBeNull();
-  expect(screen.getByRole('link',{name:/View all requests/}).getAttribute('href')).toBe('/workspaces/demo/executions?keyId=key-1');
+  expect(screen.getByRole('link',{name:/View all requests/}).getAttribute('href')).toBe('/workspaces/demo/executions?key=build-app');
 });
 
 it('does not offer to clear the fixed key scope of an empty key preview', async () => {
@@ -193,7 +195,7 @@ it.each([null, undefined])('keeps unreported category tokens unknown (%s)', asyn
 it('keeps row selection and adjacent request details in the URL while retaining filters', async () => {
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => {
     const path=String(input);
-    if (path.endsWith('/keys')) return Response.json({data:[]});
+    if (path.endsWith('/keys')) return Response.json({data:knownKeys});
     if (path.includes('/payload')) return new Response('{}',{status:404});
     if (path.endsWith('/guardrails')) return Response.json({data:[]});
     return Response.json({data:[makeRequest('first',null,'fast'),makeRequest('second',null,'slow')],next_cursor:null,summary});
@@ -215,7 +217,8 @@ it('keeps row selection and adjacent request details in the URL while retaining 
 it('closes request details when navigation removes the request URL fragment', async () => {
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => {
     const path=String(input);
-    if (path.endsWith('/keys') || path.endsWith('/guardrails')) return Response.json({data:[]});
+    if (path.endsWith('/keys')) return Response.json({data:knownKeys});
+    if (path.endsWith('/guardrails')) return Response.json({data:[]});
     if (path.includes('/payload')) return new Response('{}',{status:404});
     return Response.json({data:[makeRequest('linked',null,'fast')],next_cursor:null,summary});
   }));
@@ -231,7 +234,7 @@ it('closes request details when navigation removes the request URL fragment', as
 it('keeps a dismissed deep-linked sheet closed after refresh and retains key filters', async () => {
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => {
     const path=String(input);
-    if (path.endsWith('/keys')) return Response.json({data:[]});
+    if (path.endsWith('/keys')) return Response.json({data:knownKeys});
     if (path.includes('/payload')) return new Response('{}',{status:404});
     if (path.endsWith('/guardrails')) return Response.json({data:[]});
     return Response.json({data:[makeRequest('linked',null,'fast')],next_cursor:null,summary});
@@ -307,14 +310,14 @@ it('investigates full-range charges by model and key without mixing currencies o
   const covered = {request_count:1,charged_requests:1,unresolved_requests:0,unpriced_requests:0,not_charged_requests:0};
   const unknown = {...covered,charged_requests:0,unresolved_requests:1,currency:null,amount_nanos:null};
   const keyId='12345678-1234-1234-1234-123456789abc';
-  vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => Response.json(String(input).endsWith('/keys') ? {data:[]} : {data:[],next_cursor:null,summary:{...summary,
+  vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => Response.json(String(input).endsWith('/keys') ? {data:[{...knownKeys[0],id:keyId,slug:'production'}]} : {data:[],next_cursor:null,summary:{...summary,
     charges_by_model:[{...covered,model_alias:'fast',currency:'USD',amount_nanos:'9007199254740993'},{...covered,model_alias:'fast',currency:'EUR',amount_nanos:'1000000000'},{...unknown,model_alias:'fast'}],
     charges_by_key:[{...covered,api_key_id:keyId,key_name:'Production',currency:'USD',amount_nanos:'9007199254740993'},{...unknown,api_key_id:keyId,key_name:'Production'}],
   }})));
   render(<MemoryRouter initialEntries={['/workspaces/demo/usage?from=2026-09-01&modelAlias=fast&httpStatus=502']}><RouteQuery /><GatewayActivity token="test" models={['fast']} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
   const region=await screen.findByRole('region',{name:'Customer charge breakdown'});
-  await within(region).findByText('USD 9007199.254740993');
-  expect(within(region).getByText('EUR 1.00')).toBeTruthy();
+  await within(region).findByText('$9007199.254740993');
+  expect(within(region).getByText('€1.00')).toBeTruthy();
   expect(within(region).getByText('2 charged · 1 unresolved')).toBeTruthy();
   expect(within(region).getAllByRole('row')).toHaveLength(2);
   const user=userEvent.setup();
@@ -323,13 +326,13 @@ it('investigates full-range charges by model and key without mixing currencies o
   expect(within(region).getByText('1 charged · 1 unresolved')).toBeTruthy();
   expect(region.textContent).not.toContain(keyId);
   const url=new URL(within(region).getByRole('link',{name:'View charge requests for Production'}).getAttribute('href')!,'http://localhost');
-  expect(Object.fromEntries(url.searchParams)).toEqual({from:'2026-09-01',modelAlias:'fast',keyId,httpStatus:'502'});
+  expect(Object.fromEntries(url.searchParams)).toEqual({from:'2026-09-01',modelAlias:'fast',key:'production',httpStatus:'502'});
   expect(screen.getByLabelText('Route query').textContent).toContain('chargeBy=key');
 });
 
 describe('gateway activity', () => {
   it('links full-range delivery counts to scoped Logs while preserving date, model and key filters', async () => {
-    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async()=>Response.json({data:[],next_cursor:null,summary:{...summary,request_count:151,delivery_statuses:[{http_status:200,request_count:20},{http_status:502,request_count:1},{http_status:null,request_count:130}]}})));
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input)=>Response.json(String(input).endsWith('/keys') ? {data:knownKeys} : {data:[],next_cursor:null,summary:{...summary,request_count:151,delivery_statuses:[{http_status:200,request_count:20},{http_status:502,request_count:1},{http_status:null,request_count:130}]}})));
     render(<MemoryRouter initialEntries={['/workspaces/demo/usage?from=2026-09-01&to=2026-09-05&modelAlias=fast&keyId=key-1']}><GatewayActivity token="test" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}} statisticsOnly /></MemoryRouter>);
     const failed=await screen.findByRole('link',{name:'HTTP 502'});
     const url=new URL(failed.getAttribute('href')!,'http://localhost');
@@ -439,6 +442,7 @@ describe('gateway activity', () => {
     const content = new Blob(['Time (UTC),Model\r\n2026-09-01,fast\r\n'], { type: 'text/csv' });
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       const path = String(input);
+      if (path.endsWith('/keys')) return Response.json({data:knownKeys});
       if (path.includes('/requests/export')) {
         const query = new URL(path, 'http://localhost').searchParams;
         expect(query.get('model_alias')).toBe('fast');
@@ -542,7 +546,7 @@ describe('gateway activity', () => {
     expect(await screen.findByText('HTTP 502')).toBeTruthy();
     expect(screen.getByText('Provider status')).toBeTruthy();
     expect(screen.getByText('Completed')).toBeTruthy();
-    expect(screen.getAllByText('USD 0.000000017').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('$0.000000017').length).toBeGreaterThan(0);
   });
   it.each([true, false])('opens retained payloads with consistent complete timing (%s)', async complete => {
     const request = { ...makeRequest('retained-attempt', null, 'fast'), duration_ms: 1437, timing: { total_ms: 1486, dispatch_ms: 40, headers_ms: 1486, first_output_ms: null, complete, http_status: 200 } };
@@ -598,13 +602,13 @@ describe('gateway activity', () => {
     await waitFor(() => expect(screen.getAllByText('Output withheld')).toHaveLength(2));
     expect(screen.getByText('Completed · Redacted')).toBeTruthy();
     expect(screen.getByText('Completed')).toBeTruthy();
-    expect(screen.getAllByText('USD 0.25')).toHaveLength(4);
+    expect(screen.getAllByText('$0.25')).toHaveLength(4);
     await user.click(screen.getByRole('button', { name: 'Filter requests' }));
     await user.click(screen.getByRole('menuitem', { name: 'Status', exact: true }));
     fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Output withheld', exact: true }));
     await waitFor(() => expect(calls.some(path => path.includes('status=output_withheld'))).toBe(true));
     await waitFor(() => expect(screen.queryByText('Completed · Redacted')).toBeNull());
-    expect(screen.getAllByText('USD 0.25')).toHaveLength(2);
+    expect(screen.getAllByText('$0.25')).toHaveLength(2);
     expect(screen.getAllByRole('row')).toHaveLength(3);
   });
 
@@ -673,7 +677,7 @@ describe('gateway activity', () => {
     await user.click(screen.getByRole('button', { name: 'Load older requests' }));
 
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'fast' })).toHaveLength(2));
-    expect(screen.getByText('USD 0.25')).toBeTruthy();
+    expect(screen.getByText('$0.25')).toBeTruthy();
     await user.click(screen.getAllByText('2 ms')[0]);
     expect(await screen.findByRole('dialog')).toBeTruthy();
     expect(screen.queryByText('attempt-new')).toBeNull();
@@ -783,6 +787,7 @@ describe('gateway activity', () => {
     window.history.replaceState({}, '', '/workspaces/default/usage?from=2026-09-01&to=2026-09-05&modelAlias=fast&status=confirmed_completed');
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.endsWith('/keys')) return Response.json({data:[{...knownKeys[0],slug:'build-app'}]});
       if (path.startsWith(`${base}/requests?`)) return { ok: true, status: 200, json: async () => ({ data: [], next_cursor: null, summary }) } as Response;
       throw new Error(`Unexpected request: ${path}`);
     }));
@@ -790,12 +795,13 @@ describe('gateway activity', () => {
     render(<MemoryRouter initialEntries={['/workspaces/default/usage?from=2026-09-01&to=2026-09-05&modelAlias=fast&status=confirmed_completed']}><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
     expect(await screen.findByRole('heading', { name: 'Top API keys' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'View requests' }).getAttribute('href')).toBe('/workspaces/default/executions?from=2026-09-01&to=2026-09-05&modelAlias=fast&keyId=key-1&status=confirmed_completed');
+    expect(screen.getByRole('link', { name: 'View requests' }).getAttribute('href')).toBe('/workspaces/default/executions?from=2026-09-01&to=2026-09-05&modelAlias=fast&key=build-app&status=confirmed_completed');
   });
 
   it('ranks key usage and links the named key to filtered request evidence without displaying its identifier', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.endsWith('/keys')) return Response.json({data:[{...knownKeys[0],slug:'build-app'}]});
       if (path === `${base}/requests?limit=100`) return { ok: true, status: 200, json: async () => ({
         data: [], next_cursor: null, summary: { ...summary, request_count: 2 },
       }) } as Response;
@@ -808,7 +814,7 @@ describe('gateway activity', () => {
     expect(screen.getByText('Build app')).toBeTruthy();
     expect(screen.getByText('36 tokens')).toBeTruthy();
     expect(screen.getByText(/2 requests · 2 with reported usage/)).toBeTruthy();
-    expect(screen.getAllByRole('link', { name: /View requests/i }).find(link => link.getAttribute('href') === '/workspaces/default/executions?keyId=key-1')).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: /View requests/i }).find(link => link.getAttribute('href') === '/workspaces/default/executions?key=build-app')).toBeTruthy();
     expect(container.textContent).not.toContain('key-1');
   });
 
@@ -816,6 +822,7 @@ describe('gateway activity', () => {
     window.history.replaceState({}, '', '/workspaces/default/usage?from=2026-09-01&to=2026-09-05&keyId=key-1&status=confirmed_completed');
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.endsWith('/keys')) return Response.json({data:[{...knownKeys[0],slug:'build-app'}]});
       if (path.startsWith(`${base}/requests?`)) return { ok: true, status: 200, json: async () => ({ data: [], next_cursor: null, summary }) } as Response;
       throw new Error(`Unexpected request: ${path}`);
     }));
@@ -823,7 +830,7 @@ describe('gateway activity', () => {
     render(<MemoryRouter initialEntries={['/workspaces/default/usage?from=2026-09-01&to=2026-09-05&keyId=key-1&status=confirmed_completed']}><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
     const modelEvidence = await screen.findByRole('link', { name: 'View requests for fast' });
-    expect(modelEvidence.getAttribute('href')).toBe('/workspaces/default/executions?from=2026-09-01&to=2026-09-05&modelAlias=fast&keyId=key-1&status=confirmed_completed');
+    expect(modelEvidence.getAttribute('href')).toBe('/workspaces/default/executions?from=2026-09-01&to=2026-09-05&modelAlias=fast&key=build-app&status=confirmed_completed');
   });
 
   it('keeps API-key token totals unknown when the gateway has no reported usage', async () => {
@@ -846,19 +853,20 @@ describe('gateway activity', () => {
     expect(screen.getByText(/1 request · 0 with reported usage · 1 unknown/)).toBeTruthy();
   });
 
-  it('opens a linked request that is outside the loaded page without changing list totals', async () => {
+  it.each(['older-request','run-1001'])('opens an older request by %s without changing list totals', async reference => {
     const fetcher=vi.fn(async(input:RequestInfo | URL)=>{
       const path=String(input);
-      if (path.endsWith('/requests/older-request')) return Response.json({data:makeRequest('older-request',null,'slow')});
+      if (path.endsWith('/requests/older-request')||path.endsWith('/requests/run-1001')) return Response.json({data:{...makeRequest('older-request',null,'slow'),reference:'run-1001'}});
       if (path.endsWith('/payloads')) return Response.json({data:null});
-      if (path.endsWith('/keys')) return Response.json({data:[]});
+      if (path.endsWith('/keys')) return Response.json({data:knownKeys});
       return Response.json({data:[makeRequest('recent-request',null,'fast')],next_cursor:'next-page',summary:{...summary,request_count:105}});
     });
     vi.stubGlobal('fetch',fetcher);
-    render(<MemoryRouter initialEntries={['/workspaces/project-1/executions#gateway-attempt-older-request']}><GatewayActivity token="admin-session" models={['fast','slow']} initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={[`/workspaces/project-1/executions#gateway-attempt-${reference}`]}><GatewayActivity token="admin-session" models={['fast','slow']} initialScope={{organizationId:'org-1',projectId:'project-1'}} /><RouteHash/></MemoryRouter>);
     const dialog=await screen.findByRole('dialog');
     expect(dialog.textContent).toContain('slow');
-    expect(fetcher.mock.calls.some(([url])=>String(url).endsWith('/requests/older-request'))).toBe(true);
+    expect(fetcher.mock.calls.some(([url])=>String(url).endsWith(`/requests/${reference}`))).toBe(true);
+    await waitFor(()=>expect(screen.getByLabelText('Selected request URL').textContent).toBe('#gateway-attempt-run-1001'));
     expect(document.getElementById('gateway-attempt-older-request')).toBeNull();
     expect(document.getElementById('gateway-attempt-recent-request')).toBeTruthy();
   });
@@ -920,7 +928,7 @@ it('retries a failed content read without closing the selected request', async (
   let failed=true;
   const fetcher=vi.fn<typeof fetch>(async input=>{
     const path=String(input);
-    if(path.endsWith('/keys')) return Response.json({data:[]});
+    if(path.endsWith('/keys')) return Response.json({data:knownKeys});
     if(path.endsWith('/guardrails')) return Response.json({data:null});
     if(path.endsWith('/payloads')) return failed ? Response.json({}, {status:503}) : Response.json({data:null});
     return Response.json({data:[makeRequest('content-retry',null,'retry-model')],next_cursor:null,summary});
@@ -942,7 +950,7 @@ it('retries a failed content read without closing the selected request', async (
 it.each([undefined, {}, {request:{},response:'Body',content_type:'application/json',complete:true,truncated:false,expires_at:'invalid'}])('treats malformed retained content as a read failure rather than absent data (%j)', async data => {
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input=>{
     const path=String(input);
-    if(path.endsWith('/keys')) return Response.json({data:[]});
+    if(path.endsWith('/keys')) return Response.json({data:knownKeys});
     if(path.endsWith('/guardrails')) return Response.json({data:null});
     if(path.endsWith('/payloads')) return Response.json({data});
     return Response.json({data:[makeRequest('invalid-content',null,'content-model')],next_cursor:null,summary});
@@ -1042,4 +1050,56 @@ it.each([
   expect(within(dialog).queryByText('Not charged')).toBeNull();
   expect(within(dialog).queryByText(/before sending response headers/)).toBeNull();
   expect(within(dialog).queryByText(/Upstream HTTP/)).toBeNull();
+});
+
+it('opens an exact capacity contributor independently of the current key list without changing its URL',async()=>{
+ const calls:string[]=[];vi.stubGlobal('fetch',vi.fn(async input=>{
+  const path=String(input);calls.push(path);
+  if(path===`${base}/requests/old-key-attempt`)return Response.json({data:{...makeRequest('old-key-attempt',null,'fast'),key_name:'Previous secret'}});
+  if(path.endsWith('/keys'))return Response.json({data:[]});
+  return Response.json({error:{message:'List unavailable'}},{status:503});
+ }));
+ const closed=vi.fn(),user=userEvent.setup();
+ render(<MemoryRouter initialEntries={['/workspaces/demo/keys/current-key']}><RouteHash/><GatewayActivity token="test" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}} compact preferredKeyId="current-key" externalRequest={{attemptId:'old-key-attempt',nonce:1,opener:null}} onExternalRequestClose={closed}/></MemoryRouter>);
+ const dialog=await screen.findByRole('dialog');
+ expect(within(dialog).getByText('Previous secret')).toBeTruthy();
+ expect(screen.getByLabelText('Selected request URL').textContent).toBe('');
+ expect(calls).toContain(`${base}/requests/old-key-attempt`);
+ await user.keyboard('{Escape}');
+ await waitFor(()=>expect(closed).toHaveBeenCalledOnce());
+});
+
+it.each(['keyId=key-1','key=build-app'])('resolves a key bookmark %s without broadening its scope',async(query)=>{
+ const calls:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(input)=>{const path=String(input);calls.push(path);
+ if(path.endsWith('/keys'))return Response.json({data:[{...knownKeys[0],slug:'build-app'}]});
+ if(path.includes('/payload'))return new Response('{}',{status:404});
+ if(path.endsWith('/guardrails'))return Response.json({data:[]});
+ return Response.json({data:[makeRequest('linked',null,'fast')],next_cursor:null,summary});}));
+ render(<MemoryRouter initialEntries={[`/workspaces/demo/executions?${query}&from=2026-09-01#gateway-attempt-linked`]}><GatewayActivity token="test" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}}/><RouteQuery/><RouteHash/></MemoryRouter>);
+ await screen.findByRole('dialog',{name:'Request details'});
+ await waitFor(()=>expect(new URLSearchParams(screen.getByLabelText('Route query').textContent??'').get('key')).toBe('build-app'));
+ expect(screen.getByLabelText('Route query').textContent).not.toContain('keyId');
+ expect(screen.getByLabelText('Route query').textContent).toContain('from=2026-09-01');
+ expect(screen.getByLabelText('Selected request URL').textContent).toBe('#gateway-attempt-linked');
+ const reads=calls.filter(path=>path.includes('/requests?'));expect(reads.length).toBeGreaterThan(0);
+ expect(reads.every(path=>new URL(path,'https://example.test').searchParams.get('key_id')==='key-1')).toBe(true);
+});
+it('does not load unfiltered requests for an unavailable key slug',async()=>{
+ const calls:string[]=[];vi.stubGlobal('fetch',vi.fn(async(input)=>{calls.push(String(input));return Response.json({data:knownKeys});}));
+ render(<MemoryRouter initialEntries={['/workspaces/demo/executions?key=missing']}><GatewayActivity token="test" models={[]} initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
+ await screen.findByText('The requested API key is unavailable or you no longer have access. Choose another key or clear the filter.');
+ expect(calls.some(path=>path.includes('/requests'))).toBe(false);
+ await userEvent.click(screen.getByRole('button',{name:'Try again'}));
+ await waitFor(()=>expect(calls.filter(path=>path.endsWith('/keys'))).toHaveLength(2));
+ expect(calls.some(path=>path.includes('/requests'))).toBe(false);
+});
+
+it('keeps aggregate key usage visible when its public link cannot be resolved',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async(input)=>String(input).endsWith('/keys') ? Response.json({error:{message:'Unavailable'}},{status:503}) : Response.json({data:[],next_cursor:null,summary})));
+ render(<MemoryRouter><GatewayActivity token="test" models={['fast']} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
+ await screen.findByText('36 tokens');
+ expect(screen.getByText('Build app')).toBeTruthy();
+ expect(screen.getByText('Key link unavailable')).toBeTruthy();
+ expect(screen.queryByRole('link',{name:'View requests',exact:true})).toBeNull();
 });

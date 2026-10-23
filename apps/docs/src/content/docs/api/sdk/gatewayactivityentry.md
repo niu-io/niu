@@ -10,6 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type GatewayActivityEntry = {
+    reference?: string;
     attempt_id: string;
     operation_id: string;
     /** Absent on older servers; null means no bounded retry policy was selected. */

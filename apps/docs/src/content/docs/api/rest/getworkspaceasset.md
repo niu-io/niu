@@ -156,6 +156,43 @@ Content type: `application/json`.
         "updated_at_ms": {
           "type": "integer",
           "format": "int64"
+        },
+        "source": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Authorized original generation context. Null when absent or not visible to this actor; sharing a retained copy does not grant source access.",
+          "additionalProperties": false,
+          "required": [
+            "reference",
+            "kind",
+            "output",
+            "model",
+            "created_at"
+          ],
+          "properties": {
+            "reference": {
+              "type": "string",
+              "pattern": "^run-[1-9][0-9]{0,18}$"
+            },
+            "kind": {
+              "const": "video"
+            },
+            "output": {
+              "enum": [
+                "video",
+                "last_frame"
+              ]
+            },
+            "model": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         }
       }
     }

@@ -155,12 +155,36 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       setSaving(false);
     }
   }
+  const original = head?.policy ?? emptyPolicy();
+  const invalidRules =
+    contentRulesError(draft.input_rules ?? []) ||
+    contentRulesError(draft.output?.rules ?? []) ||
+    (draft.output && !draft.output.rules.length ? "Add an output rule or remove output inspection." : "");
+  const invalidSections = [
+    { label: 'Name and access', route: 'access', error: !draft.name.trim() ? 'Enter a policy name.' : '' },
+    { label: 'Input rules', route: 'input', error: contentRulesError(draft.input_rules ?? []) },
+    { label: 'Output rules', route: 'output', error: contentRulesError(draft.output?.rules ?? []) || (draft.output && !draft.output.rules.length ? 'Add an output rule or remove output inspection.' : '') },
+  ].filter(item => item.error);
+
+  const pendingSections = [
+    {label:'Name and access',route:'access',changed:draft.name !== original.name || JSON.stringify(draft.models) !== JSON.stringify(original.models) || JSON.stringify(draft.providers) !== JSON.stringify(original.providers)},
+    {label:'Input rules',route:'input',changed:JSON.stringify(draft.input_rules ?? []) !== JSON.stringify(original.input_rules ?? [])},
+    {label:'External input checks',route:'detectors',changed:JSON.stringify(draft.input_detectors ?? []) !== JSON.stringify(original.input_detectors ?? [])},
+    {label:'Output rules',route:'output',changed:JSON.stringify(draft.output) !== JSON.stringify(original.output)},
+  ].filter(item=>item.changed);
+  const pendingNotice = loaded && changed && <Alert className="mb-4" role="region" aria-label="Unsaved policy changes"><AlertDescription>
+    <p>Unsaved workspace policy changes. Saving applies all changed sections:</p>
+    <ul className="my-2 list-disc pl-5">{pendingSections.map(item=><li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">Review {item.label}</Link></li>)}</ul>
+    {draft.name !== original.name && <p>Policy name: {draft.name || 'Name required'}</p>}
+    {invalidSections.length > 0 && <div className="my-2 text-destructive"><p>Resolve these changes before saving:</p><ul className="list-disc pl-5">{invalidSections.map(item => <li key={item.route}><Link className="underline underline-offset-4" to={section ? `../${item.route}` : item.route} relative="path">{item.label}</Link>: {item.error}</li>)}</ul></div>}
+    <Button variant="outline" size="sm" disabled={saving} onClick={()=>{setDraft(original);setError('');setSaved(false);}}>Discard all changes</Button>
+  </AlertDescription></Alert>;
   if (!workspace) return null;
   if (section === "denials")
-    return <GuardrailDenials key={`${token}:${endpoint}`} token={token} endpoint={endpoint} />;
+    return <>{pendingNotice}<GuardrailDenials key={`${token}:${endpoint}`} token={token} endpoint={endpoint} /></>;
   if (section === "history")
     return (
-      <GuardrailHistory token={token} endpoint={endpoint} canWrite={canWrite} />
+      <>{pendingNotice}{changed && <p className="mb-4 text-sm text-muted-foreground">Save or discard your draft before restoring another policy version.</p>}<GuardrailHistory token={token} endpoint={endpoint} canWrite={canWrite && !changed} onRestored={()=>{setSaved(false);setReload(value=>value+1);}} /></>
     );
   if (section && !["access", "policy", "input", "output", "detectors"].includes(section))
     return <p>This Guardrails section is unavailable.</p>;
@@ -183,10 +207,6 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         </Alert>
       </div>
     );
-  const invalidRules =
-    contentRulesError(draft.input_rules ?? []) ||
-    contentRulesError(draft.output?.rules ?? []) ||
-    (draft.output && !draft.output.rules.length ? "Add an output rule or remove output inspection." : "");
   const disabledSave =
     conflicted ||
     !canWrite ||
@@ -214,7 +234,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         <p className="guardrails-intro">
           This policy applies to every workspace API key.
         </p>
-        {changed && <p role="status">You have unsaved policy changes.</p>}
+        {pendingNotice}
         <div className="guardrails-policy-sections">
           <Link to="../access" relative="path">
             <Card>
@@ -282,9 +302,10 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       </div>
     );
   if (section === "detectors") return <div className="guardrails-page">
-    <PageHeader title="External input checks" action={<Button disabled={disabledSave} onClick={() => void save()}>{saving ? "Saving…" : "Save"}</Button>} />
+    <PageHeader title="External input checks" action={<Button disabled={disabledSave} onClick={() => void save()}>{saving ? "Saving…" : "Save all changes"}</Button>} />
     
     {error && <Alert variant="destructive"><AlertDescription>{error} <Button variant="outline" size="sm" disabled={saving} onClick={() => setReload(value => value + 1)}>Reload</Button></AlertDescription></Alert>}
+    {pendingNotice}
     {saved && <p role="status">Policy saved.</p>}
     
     <ExternalDetectors key={`${token}:${endpoint}`} token={token} endpoint={endpoint} bindings={draft.input_detectors ?? []} disabled={!canWrite || saving} onChange={bindings => { setSaved(false); setDraft(current => { const next = { ...current }; if (bindings.length) next.input_detectors = bindings; else delete next.input_detectors; return next; }); }} />
@@ -296,7 +317,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
           title={section === "input" ? "Input rules" : "Output rules"}
           action={
             <Button disabled={disabledSave} onClick={() => void save()}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving…" : "Save all changes"}
             </Button>
           }
         />
@@ -316,7 +337,8 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
             </AlertDescription>
           </Alert>
         )}
-        {saved && <p role="status">Policy saved.</p>}
+        {pendingNotice}
+    {saved && <p role="status">Policy saved.</p>}
         {section === "output" && <div className="mb-6 grid justify-items-start gap-2">
           <Label htmlFor="guardrail-output-mode">Output inspection mode</Label>
           <DropdownMenu>
@@ -387,7 +409,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
             <><Button asChild variant="outline" className="header-icon-action"><Link to="denials" aria-label="Blocked requests" title="Blocked requests"><IconShieldOff aria-hidden="true" /><span>Blocked requests</span></Link></Button><Button asChild variant="outline" className="header-icon-action"><Link to="history" aria-label="History" title="History"><IconHistory aria-hidden="true" /><span>History</span></Link></Button></>
           ) : (
             <Button disabled={disabledSave} onClick={() => void save()}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving…" : "Save all changes"}
             </Button>
           )
         }
@@ -406,7 +428,8 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
           </AlertDescription>
         </Alert>
       )}
-      {saved && <p role="status">Policy saved.</p>}
+      {pendingNotice}
+    {saved && <p role="status">Policy saved.</p>}
       {invalidRules && (
         <Alert variant="destructive">
           <AlertDescription>

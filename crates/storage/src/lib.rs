@@ -1,6 +1,8 @@
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
+mod platform_currency;
+mod payment_verification;
 mod workspace_asset_video_dispatch;
 pub use workspace_asset_video_dispatch::{
     WorkspaceAssetVideoDispatch, WorkspaceAssetVideoReference,
@@ -194,6 +196,7 @@ pub use retail_text_bindings::RetailTextEnrollmentPublication;
 mod customer_invoice_history;
 mod customer_tariff_history;
 mod key_concurrency;
+mod key_capacity;
 mod key_ip;
 mod key_request_rate;
 mod key_spending;

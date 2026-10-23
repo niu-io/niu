@@ -1,5 +1,4 @@
 import { IconSettings } from '@tabler/icons-react';
-import MediaRateHistory from '@/features/provider-business/MediaRateHistory';
 import { useState } from 'react';
 import { WorkspaceCreateDialog } from '@/app/WorkspaceSwitcher';
 import { Link } from 'react-router';
@@ -28,10 +27,6 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
         <div className="organization-section-heading"><div><h2 id="organization-workspaces-title">Workspaces</h2></div>{canCreate && <Button variant="outline" onClick={() => setCreateOpen(true)}><Plus size={16} />Create workspace</Button>}</div>
         {entries.length ? <ul className="organization-workspaces">{entries.map(item => <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={`/workspaces/${workspacePathSegment(item, workspaces)}`}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={`/workspaces/${workspacePathSegment(item, workspaces)}/settings`} aria-label={`Settings for ${workspaceDisplayName(item.name)}`} title={`Settings for ${workspaceDisplayName(item.name)}`}><IconSettings size={16}/></Link></Button>{session?.permissions.manage_operators && <Button asChild variant="ghost" size="icon"><Link to={`/workspaces/${workspacePathSegment(item, workspaces)}/users`} aria-label={`Users for ${workspaceDisplayName(item.name)}`} title={`Users for ${workspaceDisplayName(item.name)}`}><UsersRound size={16} /></Link></Button>}</li>)}</ul> : <p>No workspaces yet.</p>}
       </section>
-      {(session?.kind === 'installation' || session?.permissions.platform_admin) && <section className="organization-settings-card" aria-labelledby="organization-pricing-title">
-        <h2 id="organization-pricing-title">Media selling rates</h2>
-        <MediaRateHistory token={context.token} organization={organization.id} canConfigure={Boolean(session.permissions.write)}/>
-      </section>}
       <WorkspaceCreateDialog context={context} open={createOpen} onOpenChange={setCreateOpen}/>
     </>}
   </div>;

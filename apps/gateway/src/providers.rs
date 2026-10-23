@@ -2442,7 +2442,7 @@ pub async fn publish_media_offer(
 ///     ],
 ///     "responses": {
 ///       "200": {
-///         "description": "Sanitized configuration presence",
+///         "description": "Sanitized configuration presence and current configuration-bound verification; no merchant identities or credentials.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -2454,7 +2454,8 @@ pub async fn publish_media_offer(
 ///                 "data": {
 ///                   "type": "object",
 ///                   "required": [
-///                     "payment_gateways"
+///                     "payment_gateways",
+///                     "verification"
 ///                   ],
 ///                   "properties": {
 ///                     "payment_gateways": {
@@ -2477,6 +2478,61 @@ pub async fn publish_media_offer(
 ///                           "configured": {
 ///                             "type": "boolean",
 ///                             "description": "Configuration presence only; not enabled checkout, merchant eligibility, or payment qualification."
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "verification": {
+///                       "type": "object",
+///                       "required": [
+///                         "currency_configured",
+///                         "gateways"
+///                       ],
+///                       "properties": {
+///                         "currency_configured": {
+///                           "type": "boolean"
+///                         },
+///                         "gateways": {
+///                           "type": "array",
+///                           "items": {
+///                             "type": "object",
+///                             "required": [
+///                               "checkout_enabled",
+///                               "currency_supported",
+///                               "callback_verified",
+///                               "ready",
+///                               "gateway",
+///                               "account_verified"
+///                             ],
+///                             "properties": {
+///                               "checkout_enabled": {
+///                                 "type": "boolean"
+///                               },
+///                               "currency_supported": {
+///                                 "type": "boolean"
+///                               },
+///                               "callback_verified": {
+///                                 "type": "boolean"
+///                               },
+///                               "ready": {
+///                                 "type": "boolean"
+///                               },
+///                               "gateway": {
+///                                 "type": "string",
+///                                 "enum": [
+///                                   "epay",
+///                                   "stripe",
+///                                   "zhifux"
+///                                 ]
+///                               },
+///                               "account_verified": {
+///                                 "type": [
+///                                   "boolean",
+///                                   "null"
+///                                 ],
+///                                 "description": "Current account eligibility for adapters with an account check; null when unsupported or simulated."
+///                               }
+///                             }
 ///                           }
 ///                         }
 ///                       }
@@ -2507,6 +2563,7 @@ pub async fn platform_configuration(
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
     Ok(Json(json!({"data":{
+        "verification": crate::payments::readiness::verification(&state).await?,
         "payment_gateways": [{"name":"Zhifux","configured":state.payments.is_some()},{"name":"EPay","configured":state.store.payment_gateway_configuration().await.map_err(ApiError::from_store)?.is_some() || state.epay_payments.is_some()},{"name":"Stripe","configured":state.stripe_payments.is_some()}]
     }})))
 }

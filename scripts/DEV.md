@@ -71,3 +71,11 @@ python3 scripts/seed-openrouter-offers.py --vendor-name OpenRouter --refresh-rat
 ```
 
 These commands use `NIU_ADMIN_TOKEN` and optional `NIU_ADMIN_URL` (default `http://127.0.0.1:2566`). Replace the example name with the exact saved API-key configuration name. An explicit name is required when multiple OpenRouter configurations exist. `--check` makes read-only requests and rejects missing mappings, missing offers, changed prices or incorrect Supplier ownership. `--refresh-rates` publishes revision-checked test rates, preserving historical revisions and pausing changed offers. It does not qualify or activate offers, issue inference requests, set customer tariffs or establish a discount. Rates are obtained from the [public model catalog](https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties); compatibility and commercial qualification remain separate.
+
+## Mock payments
+
+Run `pnpm dev` normally, then use **Admin → Payment gateways → Mock payments → Configure** to enable the development gateway. It starts disabled for new installations; saved selections survive restarts. Ordinary production and release builds refuse activation.
+
+**Simulated payments do not make LLM requests free. Upstream Provider charges still apply. Keep this environment's Niu API keys and Provider keys private; do not provide public access.** The UI repeats this warning when configuring and using mock payments.
+
+See [Mock payment service](../docs/reference/mock-payments.md) for scenarios, isolated verification and availability controls.

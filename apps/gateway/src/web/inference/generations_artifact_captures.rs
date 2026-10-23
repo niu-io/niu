@@ -1,11 +1,12 @@
 //! Explicit copies into the existing workspace material library, never generation.
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
 };
 use axum::{
     Json,
-    extract::{Path, State, rejection::JsonRejection},
+    extract::{State, rejection::JsonRejection},
     http::HeaderMap,
 };
 use niu_storage::{

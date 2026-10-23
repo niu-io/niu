@@ -1,13 +1,10 @@
 //! Historical customer diagnostics; no inference key or Provider interaction.
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
 };
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::HeaderMap,
-};
+use axum::{Json, extract::State, http::HeaderMap};
 use niu_storage::{AdminPermission, TenantScope};
 use serde_json::Value;
 use uuid::Uuid;

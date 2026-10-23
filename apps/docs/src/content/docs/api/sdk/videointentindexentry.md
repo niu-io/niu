@@ -10,6 +10,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type VideoIntentIndexEntry = {
+    reference?: string;
     id: string;
     revision: number;
     expires_at_ms: string;

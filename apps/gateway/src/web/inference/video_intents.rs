@@ -1,12 +1,13 @@
 //! Actor-owned restoration; only the explicit submit handler can dispatch.
 use super::video;
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
 };
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::HeaderMap,
 };
 use niu_storage::{AdminPermission, Principal, TenantScope, VideoIntent, VideoIntentInput};
@@ -108,7 +109,7 @@ async fn restored(
         None => ("saved", None),
     };
     Ok(
-        json!({"data":{"id":intent.id,"revision":intent.revision,"original_key_id":intent.key_id,"key_id":key_id,"model":intent.model,"funding_mode":if intent.owner_funded {"owner_funded"} else {"customer"},"request":intent.request,"session_binding":intent.session_binding,"content_state":if intent.expired {"expired"} else if intent.deleted {"deleted"} else {"retained"},"expires_at_ms":intent.expires_at_ms,"submission_state":submission_state,"job":job}}),
+        json!({"data":{"id":intent.id,"reference":intent.reference,"revision":intent.revision,"original_key_id":intent.key_id,"key_id":key_id,"model":intent.model,"funding_mode":if intent.owner_funded {"owner_funded"} else {"customer"},"request":intent.request,"session_binding":intent.session_binding,"content_state":if intent.expired {"expired"} else if intent.deleted {"deleted"} else {"retained"},"expires_at_ms":intent.expires_at_ms,"submission_state":submission_state,"job":job}}),
     )
 }
 
@@ -576,7 +577,7 @@ pub(in crate::web) async fn save(
 ///   "operation": {
 ///     "operationId": "getVideoSubmissionIntent",
 ///     "summary": "Restore a saved video intent and its historical job",
-///     "description": "Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.",
+///     "description": "Accepts an internal UUID alias or permanent input reference. Both preserve existing workspace and actor authorization; mutation endpoints still require internal UUIDs. Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -607,7 +608,7 @@ pub(in crate::web) async fn save(
 ///         "required": true,
 ///         "schema": {
 ///           "type": "string",
-///           "format": "uuid"
+///           "description": "Internal UUID alias or permanent input reference"
 ///         }
 ///       }
 ///     ],
@@ -665,11 +666,16 @@ pub(in crate::web) async fn save(
 /// ```
 pub(in crate::web) async fn get(
     State(state): State<AppState>,
-    Path((org, ws, id)): Path<IntentPath>,
+    Path((org, ws, id)): Path<(Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     let scope = scope(org, ws);
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
+    let id = match Uuid::parse_str(&id) {
+        Ok(id) => id,
+        Err(_) => state.store.video_intent_id_by_reference(scope, &owner, &id)
+            .await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?,
+    };
     Ok(Json(
         restored(
             &state,

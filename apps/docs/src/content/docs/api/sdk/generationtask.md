@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type GenerationTask = {
     id: string;
+    reference?: string;
     kind: 'video';
     model: string;
     model_display_name: string | null;

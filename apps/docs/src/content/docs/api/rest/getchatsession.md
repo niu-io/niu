@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/organizations/{organization}/projects/{project}/chats/{id}`
 
-Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable.
+Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable. Accepts an internal UUID alias or permanent chat reference; both require the same workspace and personal-owner authorization. The returned data includes its server-assigned reference.
 
 Operation: `getChatSession`.
 
@@ -97,7 +97,7 @@ Location: **path**. **Required.**
 ```json
 {
   "type": "string",
-  "format": "uuid"
+  "description": "Internal UUID alias or permanent chat reference"
 }
 ```
 
@@ -178,6 +178,6 @@ Durable storage unavailable or read wait exceeded.
 
 ## Behavior and supported scope
 
-Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable.
+Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable. Accepts an internal UUID alias or permanent chat reference; both require the same workspace and personal-owner authorization. The returned data includes its server-assigned reference.
 
 **Supported scope:** implemented

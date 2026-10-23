@@ -18,8 +18,9 @@ const capabilityChoices: Array<{ key: Exclude<keyof ModelCapabilities, 'catalog'
   { key: 'supports_responses', label: 'Responses API', help: 'Text-only Responses subset' },
 ];
 
-export default function ModelMappingForm({ ownerFunded = false, model, catalog, catalogLoading, catalogError, disabled, onCancel, onSave, onRetryCatalog }: {
+export default function ModelMappingForm({ ownerFunded = false, initialAlias = "", model, catalog, catalogLoading, catalogError, disabled, onCancel, onSave, onRetryCatalog }: {
   ownerFunded?: boolean;
+  initialAlias?: string;
   model: VendorModel | null;
   catalog: ProviderCatalogModel[];
   catalogLoading: boolean;
@@ -30,7 +31,7 @@ export default function ModelMappingForm({ ownerFunded = false, model, catalog, 
   onSave: (input: ModelWrite) => Promise<void>;
 }) {
   const personal = ownerFunded || model?.owner_funded === true;
-  const [alias, setAlias] = useState(model?.alias ?? '');
+  const [alias, setAlias] = useState(model?.alias ?? initialAlias);
   const [upstreamModel, setUpstreamModel] = useState(model?.upstream_model ?? '');
   const [publicCatalog, setPublicCatalog] = useState(model?.public_catalog ?? false);
   const [enabled, setEnabled] = useState(model?.enabled ?? true);
@@ -46,7 +47,7 @@ export default function ModelMappingForm({ ownerFunded = false, model, catalog, 
     .slice(0, 12);
 
   useEffect(() => {
-    setAlias(model?.alias ?? '');
+    setAlias(model?.alias ?? initialAlias);
     setUpstreamModel(model?.upstream_model ?? '');
     setPublicCatalog(model?.public_catalog ?? false);
     setEnabled(model?.enabled ?? true);

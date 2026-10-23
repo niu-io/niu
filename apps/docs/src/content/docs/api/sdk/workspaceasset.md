@@ -19,5 +19,13 @@ export type WorkspaceAsset = {
     revision: string;
     created_at_ms: number;
     updated_at_ms: number;
+    /** Only present when the current member may read the source generation. */
+    source?: {
+        reference: string;
+        kind: 'video';
+        output: 'video' | 'last_frame';
+        model: string;
+        created_at: string;
+    } | null;
 };
 ```

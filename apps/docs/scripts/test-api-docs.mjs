@@ -131,3 +131,27 @@ test('curl query examples encode alias values without changing a POST body or me
     rmSync(directory,{recursive:true,force:true});
   }
 });
+
+test('workspace aliases preserve payload contracts and require qualified session identities', () => {
+ const spec = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/generated/handler-operations.json', import.meta.url)), 'utf8'));
+ const aliases = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/route-aliases.json', import.meta.url)), 'utf8'));
+ for (const {source, target} of aliases) {
+   for (const [method, original] of Object.entries(spec.paths[source])) {
+     const operation = spec.paths[target][method];
+     assert.ok(operation);
+     assert.notEqual(operation.operationId, original.operationId);
+     assert.equal(operation['x-niu-compatibility-route'], source);
+     assert.deepEqual(operation.requestBody, original.requestBody);
+     for (const [status, response] of Object.entries(original.responses)) {
+       assert.deepEqual(operation.responses[status], response);
+     }
+     assert.ok(operation.parameters.some(p => p.in === 'path' && p.name === 'workspace'));
+     assert.ok(!operation.parameters.some(p => p.name === 'organization' || p.name === 'project'));
+     if (target.includes('/sessions')) {
+       const category = operation.parameters.find(p => p.name === 'category');
+       assert.equal(category.required, true);
+       assert.deepEqual(category.schema.enum, method === 'get' ? ['video','chat'] : ['video']);
+     }
+   }
+ }
+});

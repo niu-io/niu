@@ -1,6 +1,8 @@
 import importlib.util
 import tempfile
 import unittest
+import subprocess
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -12,6 +14,23 @@ SPEC.loader.exec_module(LAUNCHER)
 
 
 class DevLauncherConfigTest(unittest.TestCase):
+    def test_runtime_binary_survives_other_builds_and_failed_rebuilds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / 'state'
+            state.mkdir()
+            artifact = root / 'target/debug/niu-gateway'
+            artifact.parent.mkdir(parents=True)
+            artifact.write_bytes(b'mock-enabled-build')
+            with patch.object(LAUNCHER, 'ROOT', root), patch.object(LAUNCHER, 'CORE', root), patch.object(LAUNCHER, 'STATE', state), patch.object(LAUNCHER, 'run') as build:
+                LAUNCHER.build({'NIU_MOCK_PAYMENT_URL': 'http://127.0.0.1:2570/'})
+                artifact.write_bytes(b'ordinary-build')
+                self.assertEqual((state / 'niu-gateway').read_bytes(), b'mock-enabled-build')
+                build.side_effect = subprocess.CalledProcessError(1, 'cargo')
+                with self.assertRaises(subprocess.CalledProcessError):
+                    LAUNCHER.build({})
+                self.assertEqual((state / 'niu-gateway').read_bytes(), b'mock-enabled-build')
+
     def test_new_state_is_durable_without_silently_abandoning_legacy_data(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory) / 'home'

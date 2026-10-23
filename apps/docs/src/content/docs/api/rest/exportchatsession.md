@@ -19,7 +19,7 @@ Use the credential and permission scope described above. Each object below is an
 ```json
 [
   {
-    "adminBearerAuth": []
+    "bearerAuth": []
   }
 ]
 ```
@@ -30,7 +30,7 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 
 ```sh
 curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chats/{id}/export" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 ## Parameters
@@ -136,6 +136,14 @@ Content type: `application/json`.
                 "content": {
                   "type": "string"
                 },
+                "finishReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 128,
+                  "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."
+                },
                 "phase": {
                   "type": "string",
                   "enum": [
@@ -198,3 +206,5 @@ Durable storage unavailable
 ## Behavior and supported scope
 
 Requires workspace read access and the authenticated conversation owner. Reads durable content directly, including sessions outside the latest-100 list. Excludes internal identifiers, settings, diagnostic errors and accounting. Conversation and attachment content is deliberately included and may contain user-supplied sensitive text. Legacy single-turn sessions become one turn. Does not export request Logs or billing evidence.
+
+**Supported scope:** implemented

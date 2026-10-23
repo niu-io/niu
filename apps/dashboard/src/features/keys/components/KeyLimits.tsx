@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { keyRequest, KeyRequestError } from '../api';
 import KeyPolicyHistory from './KeyPolicyHistory';
 import KeyTokenUsage from './KeyTokenUsage';
+import KeyCapacity from './KeyCapacity';
 import type { KeyRequestRateLimit, KeyConcurrencyLimit, KeyTokenRateLimit } from '../../../../../../sdks/javascript/src/admin';
 
 type Policy = KeyRequestRateLimit | KeyConcurrencyLimit | KeyTokenRateLimit;
@@ -24,10 +25,10 @@ function parseLimit(draft: string, maximum: number): number | null | undefined {
   const value = Number(draft.trim());
   return Number.isSafeInteger(value) && value <= maximum ? value : undefined;
 }
-export default function KeyLimits({ token, endpoint, canWrite, active, onUpdated }: { token: string; endpoint: string; canWrite: boolean; active: boolean; onUpdated?: () => void }) {
-  return <Card><CardHeader><CardTitle>Limits</CardTitle><CardDescription>Throughput limits for this API key.</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} onUpdated={onUpdated} />)}<KeyTokenUsage token={token} endpoint={endpoint} /></CardContent></Card>;
+export default function KeyLimits({ token, endpoint, canWrite, active, onUpdated, onInspectRequest }: { token: string; endpoint: string; canWrite: boolean; active: boolean; onUpdated?: () => void; onInspectRequest?: (attempt:string,opener:HTMLElement|null)=>void }) {
+  return <Card><CardHeader><CardTitle>Limits</CardTitle><CardDescription>Throughput limits for this API key.</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} onUpdated={onUpdated} onInspectRequest={onInspectRequest} />)}<KeyTokenUsage token={token} endpoint={endpoint} /></CardContent></Card>;
 }
-function LimitPolicy({ token, endpoint, definition, canWrite, onUpdated }: { token: string; endpoint: string; definition: Definition; canWrite: boolean; onUpdated?: () => void }) {
+function LimitPolicy({ token, endpoint, definition, canWrite, onUpdated, onInspectRequest }: { token: string; endpoint: string; definition: Definition; canWrite: boolean; onUpdated?: () => void; onInspectRequest?: (attempt:string,opener:HTMLElement|null)=>void }) {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -79,7 +80,8 @@ function LimitPolicy({ token, endpoint, definition, canWrite, onUpdated }: { tok
     {error && <Button variant="outline" aria-label={`Retry ${definition.label.toLowerCase()}`} onClick={() => setReload(value => value + 1)}>Retry</Button>}</div></div>
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
     {!loading && !error && policy && 'active_requests' in policy && <p className="mt-2 text-xs text-muted-foreground">{policy.active_requests.toLocaleString()} unresolved requests at last refresh.</p>}
-    {!loading && !error && policy && 'committed_tokens' in policy && <p className="mt-2 text-xs text-muted-foreground">{policy.committed_tokens === null ? 'Committed usage unknown' : `${BigInt(policy.committed_tokens).toLocaleString()} tokens committed`} at last refresh.{policy.unbounded_requests > 0 ? ` ${policy.unbounded_requests} requests have unbounded usage.` : ''}</p>}
+    {!loading && !error && policy && 'committed_tokens' in policy && <p className="mt-2 text-xs text-muted-foreground">{policy.committed_tokens === null ? 'Committed usage unknown' : `${BigInt(policy.committed_tokens).toLocaleString()} tokens committed`} at last refresh.{policy.unbounded_requests > 0 ? ` ${policy.unbounded_requests} ${policy.unbounded_requests === 1 ? 'request has' : 'requests have'} no usage estimate.` : ''}</p>}
+    {!loading && !error && policy && (('active_requests' in policy && policy.active_requests > 0) || ('committed_tokens' in policy && (policy.unbounded_requests > 0 || (typeof policy.reserved_tokens === 'string' && /^\d+$/.test(policy.reserved_tokens) && BigInt(policy.reserved_tokens) > 0n)))) && <KeyCapacity onInspectRequest={onInspectRequest} token={token} endpoint={endpoint.slice(0,endpoint.lastIndexOf('/'))} kind={definition.field === 'max_concurrent_requests' ? 'concurrency' : 'tokens'} />}
     {notice && <p role="status" className="mt-2 text-sm text-muted-foreground">{notice}</p>}
     <Dialog open={open} onOpenChange={next => {if (!saving) setOpen(next);}}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{definition.label}</DialogTitle><DialogDescription>{definition.help}</DialogDescription></DialogHeader>
       <form onSubmit={event => {event.preventDefault();void save();}} className="grid gap-4">

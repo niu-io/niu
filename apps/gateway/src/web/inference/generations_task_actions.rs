@@ -1,4 +1,5 @@
 //! Explicit recovery actions use the original task binding, never composer input.
+use crate::web::workspace_path::WorkspacePath as Path;
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
@@ -6,7 +7,7 @@ use crate::{
 use axum::body::Bytes;
 use axum::{
     Json,
-    extract::{Path, Query, State, rejection::QueryRejection},
+    extract::{Query, State, rejection::QueryRejection},
     http::HeaderMap,
     response::Response,
 };

@@ -1,3 +1,5 @@
+import { currencySymbol } from '@/lib/money';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { providerPathSegment } from '@/app/provider-route';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -60,11 +62,8 @@ type ResolvedInterval = {
   priorUntil: string;
 };
 
-const SUPPORTED_CURRENCIES = ['USD', 'CNY'] as const;
 
-function currencySymbol(currency: string): string {
-  return currency.toUpperCase() === 'CNY' ? '¥' : '$';
-}
+
 
 /**
  * Formats financial statement figures (revenue, costs, payables, cash receipts, balances)
@@ -479,8 +478,7 @@ function CommercialStatement({ token }: { token: string }) {
   useEffect(() => {
     if (search.toString() !== normalizedSearch.toString()) setSearch(normalizedSearch, { replace: true });
   }, [search, normalizedSearch, setSearch]);
-  const rawCurrency = (search.get('currency') ?? 'USD').toUpperCase();
-  const currency = rawCurrency === 'CNY' ? 'CNY' : 'USD';
+  const {currency,ready:currencyReady,failed:currencyFailed,reload:reloadCurrency} = usePlatformCurrency();
   const interval = useMemo(() => resolveInterval(normalizedSearch, months, asOf), [normalizedSearch, months, asOf]);
 
   const [position, setPosition] = useState<CommercialPosition | null>(null);
@@ -499,6 +497,8 @@ function CommercialStatement({ token }: { token: string }) {
     setSummary(null);
     setPriorPosition(null);
     setPriorSummary(null);
+
+    if (!currency) { setLoading(false); return () => controller.abort(); }
 
     const currentPromise = fetchPeriodBundle(
       token,
@@ -671,6 +671,11 @@ function CommercialStatement({ token }: { token: string }) {
     range: 'Multi-month range',
     rolling: 'Rolling day window',
   };
+
+    if (!currency) return <section className="space-y-3" aria-label="Financial reports">
+    <p>{currencyReady === false ? 'Loading platform currency…' : currencyFailed ? 'Could not load the platform currency.' : 'Set the platform currency before viewing financial reports.'}</p>
+    {currencyFailed ? <Button variant="outline" onClick={reloadCurrency}>Retry</Button> : currencyReady !== false && <Button asChild><Link to="/admin/settings">Open platform settings</Link></Button>}
+  </section>;
 
   return (
     <section className="commercial-statement min-w-0 space-y-6" aria-label="Financial statements">
@@ -854,27 +859,7 @@ function CommercialStatement({ token }: { token: string }) {
             </DropdownMenu>
           )}
 
-          {/* Currency Selector */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" aria-label="Statement currency" className="gap-2 font-normal">
-                <span>Currency: {currencySymbol(currency)} {currency}</span>
-                <IconChevronDown size={15} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuRadioGroup
-                value={currency}
-                onValueChange={value => updateParams({ currency: value })}
-              >
-                {SUPPORTED_CURRENCIES.map(curr => (
-                  <DropdownMenuRadioItem key={curr} value={curr}>
-                    {currencySymbol(curr)} {curr}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <span className="text-sm text-muted-foreground">{currency}</span>
         </div>
 
         {/* Right Actions: Refresh & Export PDF */}

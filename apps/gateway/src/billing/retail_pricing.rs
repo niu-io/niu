@@ -40,7 +40,7 @@ pub struct PreviewQuery {
 ///   "operation": {
 ///     "operationId": "publishRetailStandard",
 ///     "summary": "Publish a platform standard selling-price revision",
-///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Independent model/currency/text-or-media identity; standard prices are independent of Provider purchase offers. expected_version is zero for a new identity and the last management version for replacement. All changes are versioned and attributed. Global UUID idempotency keys preserve canonical intent; exact retries return the original publication version, which may be older than current configuration. New standards take effect at commit and do not revoke still-eligible finite promotions. No request price, balance, supply qualification or route is changed. Rates are decimal integer strings; token rates are nanounits per million tokens, fixed charges are nanounits, media quantities are exact rationals. Publication alone is not customer enrollment or dispatch qualification.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Independent model/currency/text-or-media identity; standard prices are independent of Provider purchase offers. expected_version is zero for a new identity and the last management version for replacement. All changes are versioned and attributed. Global UUID idempotency keys preserve canonical intent; exact retries return the original publication version, which may be older than current configuration. New standards take effect at commit and do not revoke still-eligible finite promotions. Existing request prices remain pinned; balances, supply qualification and routes are unchanged. Rates are decimal integer strings; token rates are nanounits per million tokens, fixed charges are nanounits, media quantities are exact rationals. Published standards supply default customer prices; publication alone does not establish supply qualification or model access.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1640,7 +1640,7 @@ pub struct RegisteredModelPage {
 ///   "operation": {
 ///     "operationId": "listRegisteredRetailModels",
 ///     "summary": "List registered shared models for standard-price preparation",
-///     "description": "Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.",
+///     "description": "Explicit platform administration required. Includes registered nonpersonal vendor aliases and route-pool aliases even when disabled. Matches standard-price registration eligibility, not legacy workspace tariff availability. Personal vendor aliases are excluded. Validated video output configuration adds media choices (channel, resolutions, reference-video support and meter); absent, invalid or stale configuration returns media null. Registration is not qualified supply, customer selling eligibility or dispatch readiness. No credentials, upstream mappings or procurement prices. Sorted alias keyset; default 50, maximum 100. Pass next_after unchanged; unavailable cursor returns 409. Cursor and page share one database snapshot. Cache-Control no-store.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -1692,6 +1692,17 @@ pub struct RegisteredModelPage {
 ///                     "properties": {
 ///                       "model_alias": {
 ///                         "type": "string"
+///                       },
+///                       "media": {
+///                         "type": ["object", "null"],
+///                         "additionalProperties": false,
+///                         "required": ["channel", "resolutions", "reference_video", "meter"],
+///                         "properties": {
+///                           "channel": {"type": "string"},
+///                           "resolutions": {"type": "array", "items": {"type": "string"}},
+///                           "reference_video": {"type": "boolean"},
+///                           "meter": {"type": "string"}
+///                         }
 ///                       }
 ///                     }
 ///                   }

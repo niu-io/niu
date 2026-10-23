@@ -244,6 +244,60 @@ fn test_state(api_base: Option<String>, pool: sqlx::PgPool) -> AppState {
     )
 }
 
+// Unpriced protocol fixtures use owner-funded credentials, as production requires.
+async fn personal_test_route(state: &mut AppState, organization: Uuid) {
+    let model = state.config.models["fast"].clone();
+    let cipher = Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(
+            "personal-protocol-fixture-secret-at-least-32-characters",
+        )
+        .unwrap(),
+    );
+    let id = Uuid::new_v4();
+    let vendor = state
+        .store
+        .create_vendor(niu_storage::VendorInput {
+            id,
+            name: "Protocol fixture".into(),
+            adapter: model.provider.clone(),
+            api_base: model.api_base.clone().unwrap(),
+            enabled: true,
+            credential_ciphertext: cipher.seal(id, "provider-secret-token").unwrap(),
+        })
+        .await
+        .unwrap();
+    state
+        .store
+        .assign_personal_vendor_owner(id, organization, vendor.revision)
+        .await
+        .unwrap();
+    let capabilities = serde_json::to_value(&model)
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .iter()
+        .filter(|(name, _)| name.starts_with("supports_"))
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect::<serde_json::Map<_, _>>();
+    state
+        .store
+        .upsert_vendor_model(
+            id,
+            niu_storage::VendorModelInput {
+                alias: "fast".into(),
+                upstream_model: model.upstream_model,
+                public_catalog: false,
+                enabled: true,
+                capabilities: Value::Object(capabilities),
+                pricing: None,
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    state.vendor_cipher = Some(cipher);
+}
+
 async fn admin_call(app: &Router, path: &str, body: Value) -> Value {
     let response = app
         .clone()
@@ -265,6 +319,7 @@ async fn admin_call(app: &Router, path: &str, body: Value) -> Value {
 
 mod accounting;
 mod admin;
+mod api_migrations;
 mod codex_connections;
 mod executions;
 mod functional_suite;

@@ -16,12 +16,60 @@ Generated from the checked-in source. Do not edit this reference by hand.
 constructor(options: NiuAdminOptions);
 ```
 
-### updateOperatorRole
+### createOperatorIdentity
 
 ```typescript
 /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
  * Rejects self changes and protected actors. Never issues a replacement token.
  */
+/** Durable identity-only creation. Replay returns the same user, never a new session or token. */
+createOperatorIdentity(input: {
+    organization_id: string;
+    project_id?: string | null;
+    name: string;
+    role: OperatorAccessRole;
+}, options: RequestOptions & {
+    idempotencyKey: string;
+}): Promise<{
+    operator: OperatorAccessView;
+    session: null;
+    token: null;
+}>;
+```
+
+### listOperatorsPage
+
+```typescript
+/** Scope is enforced before pagination; follow next_cursor to avoid incomplete user recovery. */
+listOperatorsPage(query?: {
+    organizationId?: string;
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: OperatorAccessView[];
+    next_cursor: string | null;
+}>;
+```
+
+### getMemberPasswordConfiguration
+
+```typescript
+/** Read saved sign-in metadata; this does not establish browser sign-in availability. */
+getMemberPasswordConfiguration(operatorId: string, options?: RequestOptions): Promise<MemberPasswordConfiguration>;
+```
+
+### setMemberPassword
+
+```typescript
+/** Provision or explicitly reset a member password. Refresh the revision after an uncertain outcome; never blindly retry. */
+setMemberPassword(operatorId: string, input: MemberPasswordInput, options?: RequestOptions): Promise<{
+    revision: number;
+}>;
+```
+
+### updateOperatorRole
+
+```typescript
 updateOperatorRole(operatorId: string, input: OperatorRoleUpdate, options?: RequestOptions): Promise<{
     data: OperatorAccessView;
 }>;
@@ -260,10 +308,31 @@ listCompanies(options?: RequestOptions): Promise<{
 createCompany(input: CompanyCreationInput, options?: CompanyCreateOptions): Promise<CreatedCompany>;
 ```
 
+### getPlatformCurrency
+
+```typescript
+/** Read the installation-wide currency; null means setup is incomplete. */
+getPlatformCurrency(options?: RequestOptions): Promise<{
+    data: {
+        currency: string | null;
+    };
+}>;
+```
+
+### configurePlatformCurrency
+
+```typescript
+configurePlatformCurrency(currency: string, options?: RequestOptions): Promise<{
+    data: {
+        currency: string;
+    };
+}>;
+```
+
 ### createWorkspace
 
 ```typescript
-/** Use options.idempotencyKey for safe replay. Installation credentials without an organization create a zero-funded USD company. */
+/** Use options.idempotencyKey for safe replay and pass organizationId for an existing company. */
 createWorkspace(input: WorkspaceInput, options?: WorkspaceCreateOptions): Promise<Workspace>;
 ```
 
@@ -367,11 +436,62 @@ savePlatformEPayConfiguration(input: EPayConfigurationInput, options?: RequestOp
 listPlatformAuditEvents(query?: PlatformAuditQuery, options?: RequestOptions): Promise<PlatformAuditPage>;
 ```
 
+### sessions
+
+```typescript
+/** Saved Chat/Video timelines. Category is always explicit on the wire; never dispatches inference. */
+sessions(workspace: string): {
+    list(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): Promise<import("./generations-sessions.js").VideoGenerationsSessionPage>;
+    listChat(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): Promise<import("./generations-sessions.js").ChatGenerationsSessionPage>;
+    iterate(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): AsyncGenerator<import("./generations-sessions.js").VideoGenerationsSessionSummary>;
+    iterateChat(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): AsyncGenerator<import("./generations-sessions.js").ChatGenerationsSessionSummary>;
+    retrieveChat(session: string, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").ChatGenerationsSession;
+    }>;
+    retrieve(session: string, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").VideoGenerationsSession;
+    }>;
+    create(session: string, input: {
+        title: string;
+    }, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").VideoGenerationsSession;
+    }>;
+    update(session: string, input: {
+        expected_revision: string;
+        title: string;
+        archived: boolean;
+    }, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").VideoGenerationsSession;
+    }>;
+    appendTurn(session: string, turn: string, input: {
+        expected_revision: string;
+        instruction: import("./generations-sessions.js").GenerationsInstruction;
+    }, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").VideoGenerationsSession;
+    }>;
+    attachTask(session: string, turn: string, input: {
+        expected_revision: string;
+        task_id: string;
+    }, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").VideoGenerationsSession;
+    }>;
+    bindIntent(session: string, turn: string, input: {
+        expected_revision: string;
+        intent_id: string;
+    }, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").VideoGenerationsSession;
+    }>;
+    deleteInstruction(session: string, turn: string, expectedRevision: string, options?: RequestOptions): Promise<{
+        data: import("./generations-sessions.js").VideoGenerationsSession;
+    }>;
+};
+```
+
 ### generations
 
 ```typescript
-/** Actor-private saved timelines; explicit task actions query existing work only. */
-generations(scope: TenantScope): {
+/** Compatibility facade for saved timelines, tasks and artifacts. Prefer sessions(workspace) for timelines. */
+generations(scope: TenantScope | WorkspaceScope): {
     sessions: {
         list(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): Promise<import("./generations-sessions.js").VideoGenerationsSessionPage>;
         listChat(query?: import("./generations-sessions.js").GenerationsSessionPageOptions, options?: RequestOptions): Promise<import("./generations-sessions.js").ChatGenerationsSessionPage>;
@@ -459,14 +579,14 @@ saveBranding(expectedRevision: string, settings: BrandingSettings, options?: Req
 
 ```typescript
 /** Actor-owned metadata only; retained request content requires retrieve permission. */
-listVideoIntents(scope: TenantScope, query?: VideoJobHistoryQuery, options?: RequestOptions): Promise<VideoIntentIndex>;
+listVideoIntents(scope: TenantScope | WorkspaceScope, query?: VideoJobHistoryQuery, options?: RequestOptions): Promise<VideoIntentIndex>;
 ```
 
 ### saveVideoIntent
 
 ```typescript
 /** Persist an immutable request under a fresh client UUID. Does not generate or reserve funds. */
-saveVideoIntent(scope: TenantScope, intentId: string, keyId: string, request: VideoIntentRequest, options?: RequestOptions): Promise<{
+saveVideoIntent(scope: TenantScope | WorkspaceScope, intentId: string, keyId: string, request: VideoIntentRequest, options?: RequestOptions): Promise<{
     data: VideoSubmissionIntent;
 }>;
 ```
@@ -476,7 +596,7 @@ saveVideoIntent(scope: TenantScope, intentId: string, keyId: string, request: Vi
 ```typescript
 /** Actor-owned historical read independent of inference key expiry/revocation.
  * Returned key IDs are context only; submission still checks current authority. */
-getVideoIntent(scope: TenantScope, intentId: string, options?: RequestOptions): Promise<{
+getVideoIntent(scope: TenantScope | WorkspaceScope, intentId: string, options?: RequestOptions): Promise<{
     data: VideoSubmissionIntent;
 }>;
 ```
@@ -485,14 +605,14 @@ getVideoIntent(scope: TenantScope, intentId: string, options?: RequestOptions): 
 
 ```typescript
 /** Explicit submission or replay. Never replace an uncertain submission with a fresh intent. */
-submitVideoIntent(scope: TenantScope, intentId: string, expectedRevision: number, options?: RequestOptions): Promise<VideoJobState>;
+submitVideoIntent(scope: TenantScope | WorkspaceScope, intentId: string, expectedRevision: number, options?: RequestOptions): Promise<VideoJobState>;
 ```
 
 ### deleteVideoIntent
 
 ```typescript
 /** Erase retained input; does not cancel generation, delete the job, or refund charges. */
-deleteVideoIntent(scope: TenantScope, intentId: string, expectedRevision: number, options?: RequestOptions): Promise<VideoIntentDeletion>;
+deleteVideoIntent(scope: TenantScope | WorkspaceScope, intentId: string, expectedRevision: number, options?: RequestOptions): Promise<VideoIntentDeletion>;
 ```
 
 ### cancelPreparedMediaOperation
@@ -1011,6 +1131,27 @@ createWorkspaceKey(scope: TenantScope | string, input: WorkspaceKeyCreateInput, 
 }>;
 ```
 
+### createWorkspaceKeyRequest
+
+```typescript
+/** Durable creation. Reuse requestId and identical input after an uncertain result; a replay never repeats the secret. */
+createWorkspaceKeyRequest(scope: TenantScope | string, requestId: string, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<WorkspaceKeyMutationResult>;
+```
+
+### rotateWorkspaceKeyRequest
+
+```typescript
+/** Durable rotation. A recovered result identifies the replacement but cannot recover its secret. */
+rotateWorkspaceKeyRequest(scope: TenantScope | string, requestId: string, keyId: string, options?: RequestOptions): Promise<WorkspaceKeyMutationResult>;
+```
+
+### getWorkspaceKeyRequest
+
+```typescript
+/** A null observation is not proof of rollback; an in-flight request may still commit. */
+getWorkspaceKeyRequest(scope: TenantScope | string, requestId: string, options?: RequestOptions): Promise<WorkspaceKeyRequestStatus>;
+```
+
 ### updateWorkspaceKey
 
 ```typescript
@@ -1342,6 +1483,12 @@ listPlatformPricingModels(page?: {
 }, options?: RequestOptions): Promise<{
     data: {
         model_alias: string;
+        media: {
+            channel: string;
+            resolutions: string[];
+            reference_video: boolean;
+            meter: string;
+        } | null;
     }[];
     next_after: string | null;
 }>;
@@ -2197,6 +2344,17 @@ listKeyTokenRateLimitHistory(scope: TenantScope, keyId: string, query?: {
 }>;
 ```
 
+### listKeyCapacityRequests
+
+```typescript
+/** Read current unresolved capacity across a key's rotation lineage; never releases it. */
+listKeyCapacityRequests(scope: TenantScope, keyId: string, query?: {
+    kind?: 'concurrency' | 'tokens';
+    after?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<KeyCapacityPage>;
+```
+
 ### getKeyConcurrencyLimit
 
 ```typescript
@@ -2470,7 +2628,7 @@ previewGuardrailOutput(scope: TenantScope, input: GuardrailOutputTest, options?:
 
 ```typescript
 /** Read the actor's mutable Video composer; unavailable saved keys confer no action grant. */
-getVideoComposerDraft(scope: TenantScope, options?: RequestOptions): Promise<VideoComposerDraftState>;
+getVideoComposerDraft(scope: TenantScope | WorkspaceScope, options?: RequestOptions): Promise<VideoComposerDraftState>;
 ```
 
 ### saveVideoComposerDraft
@@ -2478,28 +2636,28 @@ getVideoComposerDraft(scope: TenantScope, options?: RequestOptions): Promise<Vid
 ```typescript
 /** Revision-checked partial save or null clear, with a 30-day inactivity TTL.
  * Never estimates, inspects, reserves funds or submits inference. */
-saveVideoComposerDraft(scope: TenantScope, payload: VideoComposerDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<VideoComposerDraftState>;
+saveVideoComposerDraft(scope: TenantScope | WorkspaceScope, payload: VideoComposerDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<VideoComposerDraftState>;
 ```
 
 ### getChatDraft
 
 ```typescript
 /** Load the saved workspace draft; browser storage is only a disposable cache. */
-getChatDraft(scope: TenantScope, options?: RequestOptions): Promise<ChatDraftState>;
+getChatDraft(scope: TenantScope | WorkspaceScope, options?: RequestOptions): Promise<ChatDraftState>;
 ```
 
 ### saveChatDraft
 
 ```typescript
 /** Save or clear at the last read revision; conflicts require explicit reload and reconciliation. */
-saveChatDraft(scope: TenantScope, payload: ChatDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<ChatDraftState>;
+saveChatDraft(scope: TenantScope | WorkspaceScope, payload: ChatDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<ChatDraftState>;
 ```
 
 ### listChatSessions
 
 ```typescript
 /** Compatibility view of the latest 100 sessions. Use iterateChatSessions for full history. */
-listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{
+listChatSessions(scope: TenantScope | WorkspaceScope, options?: RequestOptions): Promise<{
     data: ChatSession[];
 }>;
 ```
@@ -2508,21 +2666,21 @@ listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{
 
 ```typescript
 /** Continuation over the owner's recent sessions; a moved cursor requires restarting. */
-listChatSessionPage(scope: TenantScope, query?: ChatSessionPageQuery, options?: RequestOptions): Promise<ChatSessionPage>;
+listChatSessionPage(scope: TenantScope | WorkspaceScope, query?: ChatSessionPageQuery, options?: RequestOptions): Promise<ChatSessionPage>;
 ```
 
 ### iterateChatSessions
 
 ```typescript
 /** Live owner-scoped history. Short pages may continue; a stale cursor surfaces its 409. */
-iterateChatSessions(scope: TenantScope, query?: ChatSessionPageQuery, options?: RequestOptions): AsyncGenerator<ChatSession>;
+iterateChatSessions(scope: TenantScope | WorkspaceScope, query?: ChatSessionPageQuery, options?: RequestOptions): AsyncGenerator<ChatSession>;
 ```
 
 ### listArchivedChatSessions
 
 ```typescript
 /** Compatibility view of the latest 100 archived sessions. */
-listArchivedChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{
+listArchivedChatSessions(scope: TenantScope | WorkspaceScope, options?: RequestOptions): Promise<{
     data: ChatSession[];
 }>;
 ```
@@ -2530,14 +2688,14 @@ listArchivedChatSessions(scope: TenantScope, options?: RequestOptions): Promise<
 ### setChatSessionArchived
 
 ```typescript
-setChatSessionArchived(scope: TenantScope, sessionId: string, archived: boolean, options?: RequestOptions): Promise<void>;
+setChatSessionArchived(scope: TenantScope | WorkspaceScope, sessionId: string, archived: boolean, options?: RequestOptions): Promise<void>;
 ```
 
 ### getChatSession
 
 ```typescript
 /** Restore one complete owned conversation without walking recent history pages. */
-getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<{
+getChatSession(scope: TenantScope | WorkspaceScope, sessionId: string, options?: RequestOptions): Promise<{
     data: ChatSession;
     archived: boolean;
     revision: string;
@@ -2548,14 +2706,15 @@ getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions):
 ### exportChatSession
 
 ```typescript
-exportChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<ChatExport>;
+exportChatSession(scope: TenantScope | WorkspaceScope, sessionId: string, options?: RequestOptions): Promise<ChatExport>;
 ```
 
 ### saveChatSession
 
 ```typescript
-saveChatSession(scope: TenantScope, sessionId: string, session: ChatSession, options?: RequestOptions): Promise<{
+saveChatSession(scope: TenantScope | WorkspaceScope, sessionId: string, session: ChatSession, options?: RequestOptions): Promise<{
     saved: boolean;
+    reference?: string | null;
 }>;
 ```
 
@@ -2563,7 +2722,7 @@ saveChatSession(scope: TenantScope, sessionId: string, session: ChatSession, opt
 
 ```typescript
 /** Null creates only; a read revision atomically protects an update from stale clients. */
-saveChatSessionIfCurrent(scope: TenantScope, sessionId: string, session: ChatSession, expectedRevision: string | null, options?: RequestOptions): Promise<{
+saveChatSessionIfCurrent(scope: TenantScope | WorkspaceScope, sessionId: string, session: ChatSession, expectedRevision: string | null, options?: RequestOptions): Promise<{
     saved: boolean;
     revision: string;
     guardedWrites: true;
@@ -2573,7 +2732,7 @@ saveChatSessionIfCurrent(scope: TenantScope, sessionId: string, session: ChatSes
 ### deleteChatSession
 
 ```typescript
-deleteChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<void>;
+deleteChatSession(scope: TenantScope | WorkspaceScope, sessionId: string, options?: RequestOptions): Promise<void>;
 ```
 
 ### getProviderAssociation
@@ -3140,13 +3299,13 @@ createAccount(scope: TenantScope, account: SupplierAccountInput, options?: Reque
 
 ```typescript
 /** Lists durable local materials, not qualified Provider assets. */
-listWorkspaceAssets(scope: TenantScope, page?: WorkspaceAssetPageOptions, options?: RequestOptions): Promise<WorkspaceAssetPage>;
+listWorkspaceAssets(scope: TenantScope | WorkspaceScope, page?: WorkspaceAssetPageOptions, options?: RequestOptions): Promise<WorkspaceAssetPage>;
 ```
 
 ### getWorkspaceAsset
 
 ```typescript
-getWorkspaceAsset(scope: TenantScope, assetId: string, options?: RequestOptions): Promise<{
+getWorkspaceAsset(scope: TenantScope | WorkspaceScope, assetId: string, options?: RequestOptions): Promise<{
     data: WorkspaceAsset;
 }>;
 ```
@@ -3155,7 +3314,7 @@ getWorkspaceAsset(scope: TenantScope, assetId: string, options?: RequestOptions)
 
 ```typescript
 /** Upload does not authorize inspection, Provider ingestion or generation. */
-uploadWorkspaceAsset(scope: TenantScope, input: {
+uploadWorkspaceAsset(scope: TenantScope | WorkspaceScope, input: {
     name: string;
     contentType: string;
     bytes: Uint8Array;
@@ -3167,7 +3326,7 @@ uploadWorkspaceAsset(scope: TenantScope, input: {
 ### renameWorkspaceAsset
 
 ```typescript
-renameWorkspaceAsset(scope: TenantScope, assetId: string, input: {
+renameWorkspaceAsset(scope: TenantScope | WorkspaceScope, assetId: string, input: {
     name: string;
     expected_revision: string;
 }, options?: RequestOptions): Promise<{
@@ -3178,11 +3337,11 @@ renameWorkspaceAsset(scope: TenantScope, assetId: string, input: {
 ### deleteWorkspaceAsset
 
 ```typescript
-deleteWorkspaceAsset(scope: TenantScope, assetId: string, expectedRevision?: string, options?: RequestOptions): Promise<void>;
+deleteWorkspaceAsset(scope: TenantScope | WorkspaceScope, assetId: string, expectedRevision?: string, options?: RequestOptions): Promise<void>;
 ```
 
 ### downloadWorkspaceAsset
 
 ```typescript
-downloadWorkspaceAsset(scope: TenantScope, assetId: string, options?: RequestOptions): Promise<ArrayBuffer>;
+downloadWorkspaceAsset(scope: TenantScope | WorkspaceScope, assetId: string, options?: RequestOptions): Promise<ArrayBuffer>;
 ```

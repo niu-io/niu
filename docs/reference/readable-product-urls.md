@@ -27,13 +27,38 @@ creates a distinct key slug and preserves the previous key's history.
 | --- | --- |
 | Workspace pages and workspace query scopes | Durable workspace slug |
 | Provider administration, portal, navigation, and financial report links | Durable Provider slug |
-| API key detail, edit links, and newly issued-key Generations links | Durable key slug within the workspace |
+| API key detail, edit links, Generations key selection, and key-detail-to-Logs links | Durable key slug within the workspace |
 | Models | Existing model aliases |
 | Account settings, users, pricing, pools, and payment configuration | Section routes; selected records stay in page state |
-| Generations sessions, saved video inputs/jobs, request drill-downs, and diagnostic key filters | Existing record references; still contain internal identifiers and need a separate public-reference migration |
+| Logs key filters and Activity key drill-downs | Authorized key slug; legacy `keyId` bookmarks resolve and canonicalize while retaining filters and request fragments |
+| Saved video task reads and Library source links | Permanent public run reference (`run-1000`); legacy UUID reads remain authorized aliases and canonicalize after resolution |
+| Chat sessions / Video sessions / saved video inputs | Permanent `chat-`, `video-`, and `input-` references; authorized legacy UUID reads canonicalize after resolution |
+| Request drill-downs from Logs, Activity, Chat and Video | Permanent `run-` reference in the request fragment; legacy attempt UUIDs resolve within the authorized workspace |
 
-The last row is an explicit remaining boundary of this change. Do not treat this
-as evidence that all browser URLs are UUID-free. Session or request references
-must remain durable, authorized, and directly resolvable outside a limited
-history page. Prompt-derived slugs would expose content in URLs and should not
+Session and request references remain durable, authorized, and directly
+resolvable outside a limited history page. Prompt-derived slugs would expose content in URLs and should not
 be used as a shortcut.
+
+## Saved video run references
+
+Run references are allocated independently of internal UUIDs and private prompt
+content. They are permanent even when a displayed model or asset name changes.
+A reference is not a permission grant: resolution is scoped to the current
+workspace and applies the same actor-private session and intent checks as saved
+history. Missing and unauthorized source tasks return the same not-found result.
+
+Library metadata includes original-generation context only when the requesting
+actor can read that task. Workspace access to a retained copy does not grant
+access to its private source. API clients continue to use the resolved internal
+identifier for diagnostics and mutations; accepting public references on saved
+reads does not widen those action contracts. Canonical browser navigation retains
+other query parameters and the fragment.
+
+## Saved sessions and inputs
+
+Public references are server-generated and immutable. Saved input dispatch, erasure,
+and session mutations retain their internal UUID contracts. The client resolves a
+public bookmark first and uses the returned internal identity for subsequent actions.
+Session and turn UUID query hints are removed after the saved record supplies its
+authoritative binding. This preserves continuation without putting internal context
+identifiers in newly generated links. Chat reference resolution remains owner-scoped.

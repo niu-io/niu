@@ -1,3 +1,6 @@
+import ProviderModels from './ProviderModels';
+import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useProviderParams, providerPathSegment } from '@/app/provider-route';
 import { IconSearch } from '@tabler/icons-react';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -35,11 +38,13 @@ import { type ProviderSetup } from '@/features/providers/provider-setup';
 type Business = ProviderSetup & { id: string; slug?: string; name: string; members: number; qualification_status: "qualified" | "unqualified" };
 type ProviderMember = { operator_id: string; name: string; role: string; active: boolean; revoked: boolean };
 type AdminData = {
+  media_consumption?: MediaConsumptionRecord[];
   balances: { currency: string; earned_nanos: string; unpaid_nanos: string; paid_nanos: string }[];
   consumption: { model_alias: string; revision: string; currency: string; requests: string; prompt_tokens: string; completion_tokens: string; amount_nanos: string; unpaid_nanos: string }[];
   settlements: { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string }[];
 
   offers: ProviderOffer[];
+  offers_has_more?: boolean;
   earnings: {
     id: string;
     model_alias: string;
@@ -87,6 +92,7 @@ export default function ProviderAdministration() {
   return <Administration key={token} token={token} />;
 }
 function Administration({ token }: { token: string }) {
+  const { session } = useDashboardContext();
   const { section = "overview", providerId, supplierId } = useProviderParams();
   const routeProviderId = providerId ?? supplierId;
   const [loading, setLoading] = useState(true);
@@ -96,11 +102,15 @@ function Administration({ token }: { token: string }) {
   const setSelected = (id: string) => setSearch(current => { current.set('supplier', id); current.delete('create'); return current; });
 
   const [data, setData] = useState<AdminData | null>(null);
+  const [loadingMoreOffers, setLoadingMoreOffers] = useState(false);
+  const [moreOffersError, setMoreOffersError] = useState('');
+  const moreOffersRequest = useRef<AbortController | null>(null);
   const [members, setMembers] = useState<ProviderMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [offerQuery, setOfferQuery] = useState("");
   const offerSearch = useRef<HTMLInputElement>(null);
-  const [pricingTab, setPricingTab] = useState("text");
+  const pricingTab = ['text', 'media'].includes(search.get('view') ?? '') ? search.get('view')! : 'models';
+  const setPricingTab = (value: string) => setSearch(current => { if (value === 'models') current.delete('view'); else current.set('view', value); return current; });
   useEffect(() => { setOfferQuery(""); }, [selected, section]);
   const [mediaPublishing, setMediaPublishing] = useState(false);
   const [mediaOfferModel, setMediaOfferModel] = useState("");
@@ -162,7 +172,7 @@ function Administration({ token }: { token: string }) {
   const [role, setRole] = useState("viewer");
   const [active, setActive] = useState("true");
   const [alias, setAlias] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const {currency} = usePlatformCurrency();
   const [inputRate, setInputRate] = useState("");
   const [cachedInputRate, setCachedInputRate] = useState("");
   const [outputRate, setOutputRate] = useState("");
@@ -252,6 +262,8 @@ function Administration({ token }: { token: string }) {
   }, [token, revision]);
   useEffect(() => {
     if (!selected) return;
+    moreOffersRequest.current?.abort();
+    setLoadingMoreOffers(false); setMoreOffersError('');
     const controller = new AbortController();
     void request<{ data: AdminData }>(
       token,
@@ -268,7 +280,21 @@ function Administration({ token }: { token: string }) {
       });
     return () => controller.abort();
   }, [token, selected, revision]);
-  async function loadOfferDetails(targetId: string, targetAlias = "", replaceDraft = true) {
+  async function loadMoreOffers() {
+    const after = data?.offers.at(-1)?.model_alias;
+    if (!data?.offers_has_more || !after || loadingMoreOffers) return;
+    const controller = new AbortController(); moreOffersRequest.current = controller;
+    const scope = operationScope.current;
+    setLoadingMoreOffers(true); setMoreOffersError('');
+    try {
+      const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
+      if (controller.signal.aborted || scope !== operationScope.current) return;
+      if (page.next_after === after || (page.next_after && !page.data.some(item => !data.offers.some(old => old.id === item.id)))) throw new Error('The offer list changed. Refresh before continuing.');
+      setData(current => current ? {...current, offers: [...current.offers, ...page.data.filter(item => !current.offers.some(old => old.id === item.id))], offers_has_more: page.next_after !== null} : current);
+    } catch (reason) { if (!controller.signal.aborted && scope === operationScope.current) setMoreOffersError(reason instanceof Error ? reason.message : 'Could not load more offers. Try again.'); }
+    finally { if (!controller.signal.aborted && scope === operationScope.current) setLoadingMoreOffers(false); }
+  }
+  async function loadOfferDetails(targetId: string, targetAlias = "", replaceDraft = true, draftAlias = "") {
     offerRequest.current?.abort();
     const controller = new AbortController(); offerRequest.current = controller;
     const sequence = ++offerReadSequence.current, scope = operationScope.current;
@@ -277,15 +303,29 @@ function Administration({ token }: { token: string }) {
     try {
       const result = await request<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
       if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
-      const offer = result.data.offers.find(item => targetId ? item.id === targetId : item.model_alias === targetAlias);
+      // Refresh through the authorized collection before editing an offer beyond the summary cap.
+      const seen = new Set<string>();
+      while (result.data.offers_has_more && ((targetId || targetAlias) ? !result.data.offers.some(item => targetId ? item.id === targetId : item.model_alias === targetAlias) : true)) {
+        const after = result.data.offers.at(-1)?.model_alias;
+        if (!after || seen.has(after)) throw new Error('The offer list changed. Reload before saving.');
+        seen.add(after);
+        const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
+        if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
+        if (page.next_after === after || (page.next_after && !page.data.length)) throw new Error('The offer list changed. Reload before saving.');
+        result.data.offers.push(...page.data.filter(item => !result.data.offers.some(old => old.id === item.id)));
+        result.data.offers_has_more = page.next_after !== null;
+      }
+      const offer = result.data.offers.find(item => targetId ? item.id === targetId : item.model_alias === (targetAlias || draftAlias));
       if ((targetId || targetAlias) && (!offer || offer.rate_kind === "media")) throw new Error("The current text rates could not be found. Reload before saving.");
+      if (offer?.currency && currency && offer.currency !== currency) throw new Error(`These saved rates use ${offer.currency}. Publish new ${currency} terms without copying amounts across currencies.`);
       const decimal = (value: string) => {
         const amount = BigInt(value), fraction = (amount % 1_000_000_000n).toString().padStart(9, "0").replace(/0+$/, "");
         return (amount / 1_000_000_000n).toString() + (fraction ? "." + fraction : "");
       };
       setData(result.data);
       if (replaceDraft) {
-        setAlias(offer?.model_alias ?? ""); setCurrency(offer?.currency ?? "USD");
+        setAlias(offer?.model_alias ?? draftAlias);
+        if (draftAlias && offer) setOfferId(offer.id);
         setInputRate(offer?.prompt_rate != null ? decimal(offer.prompt_rate) : "");
         setCachedInputRate(offer?.cached_prompt_rate != null ? decimal(offer.cached_prompt_rate) : "");
         setOutputRate(offer?.completion_rate != null ? decimal(offer.completion_rate) : "");
@@ -297,7 +337,7 @@ function Administration({ token }: { token: string }) {
       setOfferLoad(previous => previous ? { ...previous, ready: false, loading: false } : previous);
     }
   }
-  function open(kind: string, selectedOfferId = "") {
+  function open(kind: string, selectedOfferId = "", draftAlias = "") {
     dialogOpener.current = offerActionButtons.current.get(selectedOfferId)
       ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setError("");
@@ -307,8 +347,8 @@ function Administration({ token }: { token: string }) {
     setOfferId(selectedOfferId);
     if (kind === "offer") {
       setOfferLoad(null);
-      if (!selectedOfferId) { setAlias(""); setCurrency("USD"); setInputRate(""); setCachedInputRate(""); setOutputRate(""); }
-      void loadOfferDetails(selectedOfferId);
+      if (!selectedOfferId) { setAlias(""); setInputRate(""); setCachedInputRate(""); setOutputRate(""); }
+      void loadOfferDetails(selectedOfferId, "", true, draftAlias);
     }
 
     setValidUntil(defaultReviewExpiry());
@@ -503,7 +543,7 @@ function Administration({ token }: { token: string }) {
   }
   const sectionDescription = {
     overview: 'Connect API access and model routes, then manage commercial rates and payments.',
-    models: 'Agreed purchase rates and qualification for the models this provider offers.',
+    models: 'Model connections, availability and commercial offers.',
     consumption: 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
     members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
@@ -544,8 +584,8 @@ function Administration({ token }: { token: string }) {
             <p className="px-6 pb-4 text-sm text-muted-foreground">Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.</p>
             <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>Setup step</TableHead><TableHead>Status</TableHead><TableHead>Action</TableHead></TableRow></TableHeader><TableBody>
               <TableRow><TableCell>1. Connect upstream API key</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? 'Not checked' : `${selectedBusiness.enabled_api_keys} enabled · ${selectedBusiness.api_keys ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? 'Connect API key' : 'Manage API keys'}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>Configure models</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Managed by workspace</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Pricing</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>2. Add model routes</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? 'Not checked' : `${selectedBusiness.enabled_model_routes} enabled · ${selectedBusiness.models ?? 0} saved`}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>Configure models</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>3. Set customer selling prices</TableCell><TableCell>Platform-wide prices</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">Pricing</Link></Button></TableCell></TableRow>
             </TableBody></ShadcnTable>
             <p className="px-6 pt-4 text-sm text-muted-foreground">Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.</p>
           </div>}
@@ -564,13 +604,13 @@ function Administration({ token }: { token: string }) {
           {section === "overview" && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>Model offers</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>Models</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
-              <div><span>Text offers</span><strong>{textOffers.length}</strong></div>
-              <div><span>Media offers</span><strong>{mediaOffers.length}</strong></div>
-              <div><span>Active offers</span><strong>{(data?.offers ?? []).filter(offer => offer.active && offer.route_ready).length}</strong></div>
+              <div><span>{data?.offers_has_more ? "Loaded text offers" : "Text offers"}</span><strong>{textOffers.length}</strong></div>
+              <div><span>{data?.offers_has_more ? "Loaded media offers" : "Media offers"}</span><strong>{mediaOffers.length}</strong></div>
+              <div><span>{data?.offers_has_more ? "Loaded active offers" : "Active offers"}</span><strong>{(data?.offers ?? []).filter(offer => offer.active && offer.route_ready).length}</strong></div>
             </div></div>
           </div>}
           {(section === "overview" || section === "models") && <>
-          <div className={section === "models" ? "supplier-qualification-strip" : "provider-admin-block"}>
+          {(section !== "models" || pricingTab !== "models") && <div className={section === "models" ? "supplier-qualification-strip" : "provider-admin-block"}>
             <div className="provider-admin-section-heading">
               <h2>Provider qualification</h2>
               <Badge variant={supplierQualified ? "default" : "secondary"}>
@@ -584,10 +624,11 @@ function Administration({ token }: { token: string }) {
                 {supplierQualified && <Button variant="outline" onClick={() => open("supplier-revocation")}>Revoke review</Button>}
               </div>
             </div>
-          </div>
+          </div>}
           {section === "models" && <div className="provider-admin-block">
             <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label="Provider pricing category"><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
+            {section === "models" && <TabsList variant="line" className="mx-6 mt-4 mb-4" aria-label="Provider model section"><TabsTrigger value="models">Models</TabsTrigger><TabsTrigger value="text">Text rates</TabsTrigger><TabsTrigger value="media">Media rates</TabsTrigger></TabsList>}
+            <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={!!session?.permissions?.manage_operators} offers={data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} qualified={supplierQualified} onQualification={() => open("supplier-qualification")} onReviewOffer={id => open("offer-qualification", id)} onOffer={(modelAlias, media) => { if (media) { setMediaOfferModel(modelAlias); setMediaPublishing(true); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
             <TabsContent value="text">
             {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 px-6 pb-4"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input ref={offerSearch} type="search" aria-label="Filter provider models" placeholder="Filter by model name…" value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
             {textOffers.length ? (
@@ -645,6 +686,7 @@ function Administration({ token }: { token: string }) {
               <div className="px-6"><MediaRateHistory key={selected} token={token} supplier={selected} /></div>
             </TabsContent>}
             </Tabs>
+            {data?.offers_has_more && <div className="px-6 py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length} offers loaded. Counts and filters cover loaded offers only.</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>Refresh offers</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? 'Loading offers…' : moreOffersError ? 'Retry loading offers' : 'Load more offers'}</Button></div>}
           </div>}
           </>}
           {(section === "overview" || section === "settlements") && <div className="provider-admin-block">
@@ -661,7 +703,8 @@ function Administration({ token }: { token: string }) {
             <div className="provider-admin-section-heading"><h2>Consumption by model</h2><span>Last 90 days</span></div>
             {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Accrued charges</TableHead><TableHead>Unpaid</TableHead></TableRow></TableHeader><TableBody>
               {data.consumption.map(row => <TableRow key={row.revision}><TableCell>{row.model_alias}</TableCell><TableCell>{Number(row.requests).toLocaleString()}</TableCell><TableCell>{(BigInt(row.prompt_tokens) + BigInt(row.completion_tokens)).toLocaleString()} ({BigInt(row.prompt_tokens).toLocaleString()} / {BigInt(row.completion_tokens).toLocaleString()})</TableCell><TableCell>{money(row.amount_nanos,row.currency)}</TableCell><TableCell>{money(row.unpaid_nanos,row.currency)}</TableCell></TableRow>)}
-            </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No consumption in the last 90 days</EmptyTitle></EmptyHeader></Empty>}
+            </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyTitle>No consumption in the last 90 days</EmptyTitle></EmptyHeader></Empty> : null}
+            <MediaConsumption records={data?.media_consumption} administrator />
           </>}
           {section === "settlements" && <>
             <div className="provider-admin-section-heading"><h2>Payment history</h2></div>
@@ -760,20 +803,7 @@ function Administration({ token }: { token: string }) {
                   onChange={(event) => setAlias(event.target.value)}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="supplier-offer-currency">Currency</Label>
-                <Input
-                  id="supplier-offer-currency"
-                  disabled={busy || offerLoad?.loading}
-                  required
-                  pattern="[A-Z]{3}"
-                  maxLength={3}
-                  value={currency}
-                  onChange={(event) =>
-                    setCurrency(event.target.value.toUpperCase())
-                  }
-                />
-              </div>
+              <p className="text-sm text-muted-foreground">Prices in {currency || "the platform currency (configure in Admin)"}.</p>
               <div className="grid gap-2">
                 <Label htmlFor="supplier-input-rate">Input payout per million tokens</Label>
                 <Input

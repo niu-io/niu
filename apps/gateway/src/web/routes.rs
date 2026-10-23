@@ -32,6 +32,32 @@ async fn password_response_headers(request: axum::http::Request<Body>, next: Nex
 pub(crate) fn router(state: AppState) -> Router {
     let enterprise_enabled = state.enterprise.is_some();
     let app = Router::new()
+        .route("/api/v1/workspaces/{workspace}/assets", get(super::workspace_assets::list).post(super::workspace_assets::upload).layer(DefaultBodyLimit::max(8 * 1024 * 1024)))
+        .route("/api/v1/workspaces/{workspace}/assets/{asset}", get(super::workspace_assets::get).patch(super::workspace_assets::rename).delete(super::workspace_assets::delete).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/workspaces/{workspace}/assets/{asset}/content", get(super::workspace_assets::content))
+        .route("/api/v1/workspaces/{workspace}/video/intents", get(super::inference::video_intents::list))
+        .route("/api/v1/workspaces/{workspace}/video/intents/{intent}", get(super::inference::video_intents::get).put(super::inference::video_intents::save).delete(super::inference::video_intents::delete).layer(DefaultBodyLimit::max(64 * 1024)))
+        .route("/api/v1/workspaces/{workspace}/video/intents/{intent}/submit", post(super::inference::video_intents::submit))
+        .route("/api/v1/workspaces/{workspace}/video/draft", get(crate::admin::video_composer_drafts::draft).put(crate::admin::video_composer_drafts::save_draft).layer(DefaultBodyLimit::max(64 * 1024)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/workspaces/{workspace}/chats/draft", get(crate::admin::chat_sessions::draft).put(crate::admin::chat_sessions::save_draft).layer(DefaultBodyLimit::max(24 * 1024 * 1024)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/workspaces/{workspace}/chats", get(crate::admin::chat_sessions::list))
+        .route("/api/v1/workspaces/{workspace}/chats/{id}/archive", axum::routing::put(crate::admin::chat_sessions::archive).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/workspaces/{workspace}/chats/{id}/export", get(crate::admin::chat_sessions::export))
+        .route("/api/v1/workspaces/{workspace}/chats/{id}", get(crate::admin::chat_sessions::get).put(crate::admin::chat_sessions::save).delete(crate::admin::chat_sessions::delete).layer(DefaultBodyLimit::max(24 * 1024 * 1024)))
+        .route("/api/v1/workspaces/{workspace}/tasks/{task}/refresh", axum::routing::post(super::inference::generations_task_actions::refresh).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh", axum::routing::post(super::inference::generations_task_actions::fresh_result).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/capture", get(super::inference::generations_artifact_captures::retrieve).post(super::inference::generations_artifact_captures::capture).layer(DefaultBodyLimit::max(1024)))
+        .route("/api/v1/workspaces/{workspace}/tasks", get(super::inference::generations_inventory::tasks))
+        .route("/api/v1/workspaces/{workspace}/tasks/{task}", get(super::inference::generations_inventory::task))
+        .route("/api/v1/workspaces/{workspace}/tasks/{task}/diagnostics", get(super::inference::generations_task_diagnostics::retrieve))
+        .route("/api/v1/workspaces/{workspace}/artifacts", get(super::inference::generations_inventory::artifacts))
+        .route("/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}", get(super::inference::generations_inventory::artifact))
+        .route("/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/content", get(super::inference::generations_inventory::content))
+        .route("/api/v1/workspaces/{workspace}/sessions", get(super::inference::generations_sessions::list).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/workspaces/{workspace}/sessions/{session}", get(super::inference::generations_sessions::get).put(super::inference::generations_sessions::create).patch(super::inference::generations_sessions::update).layer(DefaultBodyLimit::max(65536)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}", axum::routing::put(super::inference::generations_sessions::append).delete(super::inference::generations_sessions::delete_instruction).layer(DefaultBodyLimit::max(65536)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/task", axum::routing::put(super::inference::generations_sessions::attach).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/intent", axum::routing::put(super::inference::generations_sessions::bind_intent).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/assets", get(super::workspace_assets::list).post(super::workspace_assets::upload).layer(DefaultBodyLimit::max(8 * 1024 * 1024)))
         .route("/api/v1/organizations/{organization}/projects/{project}/assets", get(super::workspace_assets::list).post(super::workspace_assets::upload).layer(DefaultBodyLimit::max(8 * 1024 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}", get(super::workspace_assets::get).patch(super::workspace_assets::rename).delete(super::workspace_assets::delete).layer(DefaultBodyLimit::max(1024)))
@@ -253,10 +279,16 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment", axum::routing::post(crate::billing::payment))
         .route("/admin/v1/provider-memberships", get(crate::providers::memberships))
         .route("/api/v1/provider-memberships", get(crate::providers::memberships))
+        .route("/v1/currency", get(crate::currency::read))
+        .route("/api/v1/platform/currency", get(crate::currency::read).put(crate::currency::save))
         .route("/v1/branding", get(crate::branding::public))
         .route("/admin/v1/platform/branding", get(crate::branding::read).put(crate::branding::save).layer(DefaultBodyLimit::max(450000)))
         .route("/api/v1/platform/branding", get(crate::branding::read).put(crate::branding::save).layer(DefaultBodyLimit::max(450000)))
         .route("/admin/v1/platform/payments/integrations", get(crate::payments::integrations))
+        .route("/api/v1/payments/readiness", get(crate::payments::readiness::read))
+        .route("/api/v1/platform/payments/stripe/verification", get(crate::payments::readiness::stripe_verification).post(crate::payments::readiness::verify_stripe_account))
+        .route("/api/v1/payments/environment", get(crate::payments::mock_runtime::environment))
+        .route("/api/v1/platform/payments/mock", get(crate::payments::mock_runtime::read).put(crate::payments::mock_runtime::save).layer(DefaultBodyLimit::max(1024)))
         .route("/api/v1/platform/payments/integrations", get(crate::payments::integrations))
         .route("/admin/v1/platform/payments/epay", get(crate::payments::read_configuration_api).put(crate::payments::save_configuration_api).layer(DefaultBodyLimit::max(16384)))
         .route("/api/v1/platform/payments/epay", get(crate::payments::read_configuration_api).put(crate::payments::save_configuration_api).layer(DefaultBodyLimit::max(16384)))
@@ -325,8 +357,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/v1/auth/browser/logout", axum::routing::post(crate::admin::passwords::browser_logout).layer(middleware::from_fn(password_response_headers)))
         .route("/api/v1/auth/logout", axum::routing::post(crate::admin::passwords::logout).layer(middleware::from_fn(password_response_headers)))
         .route("/api/v1/auth/login", axum::routing::post(crate::admin::passwords::login).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
-        .route("/admin/v1/operators/{operator}/password", axum::routing::put(crate::admin::passwords::set_password).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
-        .route("/api/v1/operators/{operator}/password", axum::routing::put(crate::admin::passwords::set_password).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/admin/v1/operators/{operator}/password", get(crate::admin::passwords::password_configuration).put(crate::admin::passwords::set_password).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
+        .route("/api/v1/operators/{operator}/password", get(crate::admin::passwords::password_configuration).put(crate::admin::passwords::set_password).layer(DefaultBodyLimit::max(4096)).layer(middleware::from_fn(password_response_headers)))
         .route(
             "/admin/v1/setup/default-workspace",
             axum::routing::post(crate::admin::default_workspace),
@@ -378,6 +410,10 @@ pub(crate) fn router(state: AppState) -> Router {
                 .patch(crate::admin::workspace_aliases::update_key)
                 .delete(crate::admin::workspace_aliases::revoke_key)
                 .layer(DefaultBodyLimit::max(16 * 1024)),
+        )
+        .route(
+            "/api/v1/workspaces/{workspace}/keys/requests/{request}",
+            get(crate::admin::workspace_aliases::key_request_status),
         )
         .route(
             "/api/v1/workspaces/{workspace}/keys/{key}/rotate",
@@ -534,8 +570,10 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/vendors", get(crate::vendors::list).post(crate::vendors::create))
         .route("/api/v1/vendors", get(crate::vendors::list).post(crate::vendors::create))
         .route("/admin/v1/pools", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
-        .route("/api/v1/pools", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
+        .route("/api/v1/pools", axum::routing::get(crate::vendors::route_pools::collection).put(crate::vendors::route_pools::put))
         .route("/admin/v1/pools/index", axum::routing::get(crate::vendors::route_pools::index))
+        .route("/api/v1/pools/{reference}", axum::routing::get(crate::vendors::route_pools::member))
+        .route("/api/v1/pools/{reference}/history", axum::routing::get(crate::vendors::route_pools::member_history))
         .route("/api/v1/pools/index", axum::routing::get(crate::vendors::route_pools::index))
         .route("/admin/v1/pools/history", axum::routing::get(crate::vendors::route_pools::history))
         .route("/api/v1/pools/history", axum::routing::get(crate::vendors::route_pools::history))
@@ -695,6 +733,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit", get(crate::admin::key_concurrency::read).put(crate::admin::key_concurrency::write).layer(DefaultBodyLimit::max(8192)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history", get(crate::admin::key_concurrency::history))
         .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history", get(crate::admin::key_concurrency::history))
+        .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity", get(crate::admin::key_concurrency::capacity))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit", get(crate::admin::key_token_rate::read).put(crate::admin::key_token_rate::write).layer(DefaultBodyLimit::max(8192)))
         .route("/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit", get(crate::admin::key_token_rate::read).put(crate::admin::key_token_rate::write).layer(DefaultBodyLimit::max(8192)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history", get(crate::admin::key_token_rate::history))
@@ -721,7 +760,8 @@ pub(crate) fn router(state: AppState) -> Router {
     } else {
         app
     };
-    app.layer(DefaultBodyLimit::max(1_048_576))
+    app.layer(middleware::from_fn_with_state(state.clone(), crate::payments::readiness::gate))
+        .layer(DefaultBodyLimit::max(1_048_576))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             crate::request_timings::collect,
@@ -1485,18 +1525,22 @@ async fn get_generation(
 }
 
 async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    let models = crate::vendors::effective_models(&state).await?;
+    let (models, generation_routes) = crate::vendors::generation_catalog(&state, None).await?;
     let data: Vec<_> = models
         .iter()
         .filter(|(_, model)| model.public_catalog)
         .map(|(name, model)| {
+            let video_configuration = generation_routes.get(name)
+                .filter(|route| route.model.capabilities.get("video_schema").is_some())
+                .map(super::inference::video_models::configured_preview);
             json!({
                 "id": name,
                 "object": "model",
                 "owned_by": "niu",
                 "catalog": model.catalog.customer_metadata(),
+                "generation_capabilities": configured_generation_capabilities(model, video_configuration),
                 "capabilities": {
-                    "chat_completions": model.protocol().supports_chat_completions(),
+                    "chat_completions": video_configuration.is_none() && model.protocol().supports_chat_completions(),
                     "streaming": model.protocol().supports_streaming(),
                     "embeddings": model.supports_embeddings,
                     "messages": model.supports_messages,
@@ -1517,6 +1561,19 @@ struct AdminModelScope {
     project_id: Option<uuid::Uuid>,
 }
 
+/// Catalog descriptions cannot override the actual Video-only route boundary.
+/// Unknown legacy text metadata stays unknown rather than an affirmative launch.
+fn configured_generation_capabilities(model: &crate::config::ModelConfig, video: Option<bool>) -> Value {
+    let chat = if video.is_some() || !model.protocol().supports_chat_completions() {
+        Some(false)
+    } else if model.catalog.output_modalities.is_empty() {
+        None
+    } else {
+        Some(model.catalog.output_modalities.iter().any(|output| output == "text"))
+    };
+    json!({"chat":chat,"video":video.unwrap_or(false)})
+}
+
 async fn admin_models(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1531,15 +1588,12 @@ async fn admin_models(
             Some(operator.scope.organization_id)
         }
     });
-    let models = if let Some(organization_id) = organization_id {
-        if !authorization.permits_organization(organization_id) {
-            return Err(ApiError::not_found());
-        }
-        crate::vendors::scoped_models(&state, organization_id).await?
-    } else {
-        crate::vendors::effective_models(&state).await?
-    };
+    if organization_id.is_some_and(|id| !authorization.permits_organization(id)) {
+        return Err(ApiError::not_found());
+    }
+    let (models, generation_routes) = crate::vendors::generation_catalog(&state, organization_id).await?;
     let mut prices = std::collections::BTreeMap::new();
+    let mut personal_models = std::collections::BTreeSet::new();
     if let Some(project_id) = scope.project_id {
         let organization_id = organization_id.ok_or_else(ApiError::not_found)?;
         let workspace_scope = niu_storage::TenantScope {
@@ -1569,11 +1623,21 @@ async fn admin_models(
             .map_err(ApiError::from_store)?
         {
             prices.remove(&route.model.alias);
+            personal_models.insert(route.model.alias);
         }
     }
     let data: Vec<_> = models
         .iter()
         .map(|(name, model)| {
+            // Funding ownership is independent of whether a selling price exists.
+            // Only report it after the requested workspace has been authorized.
+            let billing_source = scope.project_id.map(|_| {
+                if personal_models.contains(name) { "own_api_key" } else { "niu_credits" }
+            });
+            let video_configuration = generation_routes.get(name)
+                .filter(|route| route.model.capabilities.get("video_schema").is_some())
+                .map(super::inference::video_models::configured_preview);
+            let generation_capabilities = configured_generation_capabilities(model, video_configuration);
             let capabilities = json!({
                 "supports_embeddings": model.supports_embeddings,
                 "supports_embedding_dimensions": model.supports_embedding_dimensions,
@@ -1596,6 +1660,8 @@ async fn admin_models(
                 "public_catalog": model.public_catalog,
                     "catalog": model.catalog.customer_metadata(),
                     "customer_pricing": prices.get(name),
+                    "billing_source": billing_source,
+                    "generation_capabilities": generation_capabilities,
                     "supports_embeddings": model.supports_embeddings,
                     "supports_embedding_dimensions": model.supports_embedding_dimensions,
                     "supports_embedding_base64": model.supports_embedding_base64,
@@ -1615,6 +1681,8 @@ async fn admin_models(
                     "public_catalog": model.public_catalog,
                     "catalog": model.catalog.customer_metadata(),
                     "customer_pricing": prices.get(name),
+                    "billing_source": billing_source,
+                    "generation_capabilities": generation_capabilities,
                     "capabilities": capabilities
                 })
             }

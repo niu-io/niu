@@ -40,7 +40,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Public model aliases and declared capabilities.
+Public model aliases and declared capabilities. generation_capabilities reports configured Chat/Video preview support, with null Chat for unresolved legacy metadata; it never grants inference authority.
 
 ## Behavior and supported scope
 

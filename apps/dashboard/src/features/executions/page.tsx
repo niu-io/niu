@@ -14,7 +14,6 @@ export default function ExecutionsRoute() {
       models={models.map(model => model.id)}
       initialScope={scope}
       preferredModelAlias={params.get('modelAlias') ?? undefined}
-      preferredKeyId={params.get('keyId') ?? undefined}
     />}
   </ConnectGate>;
 }

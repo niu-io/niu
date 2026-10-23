@@ -16,6 +16,7 @@ SELECT jsonb_build_object(
     -- Canonical draft identity is independent of the saved turn instruction.
     'intent', CASE WHEN intent.id IS NULL THEN NULL ELSE jsonb_build_object(
         'id', intent.id,
+        'reference', intent.public_reference,
         'revision', intent.revision::text,
         'model', intent.model,
         'content_state', CASE
@@ -34,6 +35,7 @@ SELECT jsonb_build_object(
     'task_id', COALESCE(association.task_id,submitted.attempt_id),
     'task', CASE WHEN attempt.id IS NULL THEN NULL ELSE jsonb_build_object(
         'id', attempt.id,
+        'reference', attempt.public_reference,
         'kind', 'video',
         'model', attempt.resource_id,
         'status', saved.state,

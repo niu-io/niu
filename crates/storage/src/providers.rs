@@ -604,6 +604,7 @@ impl Store {
         expected_revision: i64,
         ciphertext: &[u8],
         actor: Option<Uuid>,
+        preserves_pending_orders: bool,
     ) -> Result<i64, StoreError> {
         let mut tx = self.pool.begin().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(716553)")
@@ -618,7 +619,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let pending: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_topup_orders o WHERE aggregator='epay' AND NOT EXISTS(SELECT 1 FROM customer_topup_settlements s WHERE s.order_id=o.id) AND NOT EXISTS(SELECT 1 FROM customer_topup_closures c WHERE c.order_id=o.id))").fetch_one(&mut *tx).await?;
-        if pending {
+        if pending && !preserves_pending_orders {
             return Err(StoreError::Unresolved);
         }
         let revision = expected_revision
@@ -1211,7 +1212,7 @@ impl Store {
             .bind(days)
             .fetch_all(&mut *tx)
             .await?;
-        let media_consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'meter',e.billing_meter,'currency',e.currency,'rate_revision',p.rate_revision,'resolution',p.snapshot->'tariff'->'dimensions'->>'resolution','reference_video',p.snapshot->'tariff'->'dimensions'->'reference_video','amount_units',p.snapshot->'tariff'->>'amount_units','decimal_places',p.snapshot->'tariff'->'decimal_places','per_quantity',p.snapshot->'tariff'->'per_quantity','requests',COUNT(*)::text,'quantity',SUM((e.meter_quantity->>'numerator')::numeric)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN supplier_media_attempt_pricing p ON p.attempt_id=e.attempt_id JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter<>'text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,e.billing_meter,e.currency,p.rate_revision,p.snapshot ORDER BY o.model_alias,p.rate_revision").bind(provider).bind(days).fetch_all(&mut *tx).await?;
+        let media_consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'meter',e.billing_meter,'currency',e.currency,'rate_revision',p.rate_revision,'resolution',p.snapshot->'tariff'->'dimensions'->>'resolution','reference_video',p.snapshot->'tariff'->'dimensions'->'reference_video','amount_units',p.snapshot->'tariff'->>'amount_units','decimal_places',p.snapshot->'tariff'->'decimal_places','per_quantity',p.snapshot->'tariff'->'per_quantity','requests',COUNT(*)::text,'quantity',SUM((e.meter_quantity->>'numerator')::numeric)::text,'quantity_denominator',e.meter_quantity->>'denominator','amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN supplier_media_attempt_pricing p ON p.attempt_id=e.attempt_id JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter<>'text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,e.billing_meter,e.currency,p.rate_revision,p.snapshot,e.meter_quantity->>'denominator' ORDER BY o.model_alias,p.rate_revision,e.meter_quantity->>'denominator'").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         tx.commit().await?;
         let mut response = json!({"id":provider,"name":name,"days":days,"balances":balances,"traffic":traffic,"daily":daily,"offers":offers,"offers_has_more":offers_has_more,"consumption":consumption,"media_consumption":media_consumption,"settlements":settlements});
         if let Some(earnings) = earnings

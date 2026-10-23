@@ -60,7 +60,7 @@ function stubOperatorApi(options: {
     if (path === '/api/v1/organizations/org-1/projects' && method === 'GET') {
       return jsonResponse({ data: [project] });
     }
-    if (path === '/api/v1/operators' && method === 'GET') {
+    if (path.split('?')[0] === '/api/v1/operators' && method === 'GET') {
       return jsonResponse({ data: operators });
     }
     if (path.startsWith('/api/v1/operators/') && path.endsWith('/sessions') && method === 'GET') {

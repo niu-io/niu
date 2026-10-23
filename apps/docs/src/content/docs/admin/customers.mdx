@@ -1,0 +1,71 @@
+---
+title: Set up a customer
+description: Create an independently funded customer company and hand off workspace access.
+---
+
+This guide is for the **installation administrator**. A customer developer starts
+with [Getting started](/docs/getting-started/) and does not need Provider credentials,
+merchant configuration or installation access.
+
+## Prepare the service
+
+1. Configure the platform currency in **Admin → Settings** and a supported gateway
+   in **Admin → Payment gateways**. Workspace features remain unavailable until
+   this prerequisite is satisfied. See [payment configuration](/docs/admin/payments/).
+2. Connect and qualify the intended models in **Admin → Providers**. A saved
+   credential does not establish that a model is available for customers.
+3. Publish customer selling prices in **Admin → Pricing**. Keep upstream purchase
+   prices and platform margins in administration; they are not customer charges.
+4. Enable the supported [member sign-in method](/docs/deployment/single-container/#enable-member-sign-in)
+   for the deployment before handing over access.
+
+## Create the customer and workspace
+
+Open **Admin → Customers → New customer**. Enter the company name and create it.
+The company uses the configured platform currency and starts with no funds or
+approved credit. A separate company has its own funds; adding another workspace
+to an existing company shares that company's funds.
+
+The setup dialog opens after creation. Create the customer's workspace, review
+its suggested **slug**, and save. Chinese names produce a pinyin suggestion. You
+can edit the suggestion before saving; changing the name does not overwrite a
+slug you have edited.
+
+Use **Set up** on the customer row to resume saved steps later. If creation is
+unconfirmed, retry the same saved request or reload saved setup. Do not create
+another customer merely because a response was lost.
+
+## Give the owner access
+
+Create the company owner in the setup dialog. This owner manages users and all
+workspaces in that company, including shared funds. It does not grant installation
+administration or access to other customer companies.
+
+Configure the owner's supported password sign-in and arrange a secure handoff of
+the sign-in address and credentials. Niu does not send an invitation email. An
+existing configuration shows its saved email; **Reset password** is an explicit
+operation that signs the owner out of existing sessions. If saving is unconfirmed,
+reload the saved configuration before deliberately setting a new password.
+
+Ask the owner to sign in using the ordinary `/login` page and confirm the expected
+company and workspace. Do not give them the installation administrator credential.
+
+## Verify the first useful request
+
+The owner should use **Settings → Credits** to review available credits and the
+supported top-up methods. Verify a top-up through its saved funding record; merely
+returning from checkout does not prove payment. Installation administrators inspect
+customer funds in **Admin → Account balances**. Approved credit and noncash gifts
+are separate from verified payments.
+
+Have the owner or an authorized workspace member open **Models**, select an
+available text model, and create a workspace API key with the intended grants and
+limits. Follow the customer [Getting started](/docs/getting-started/) guide for the
+request. Afterward, inspect **Logs** for the result and **Activity** for customer
+charges. Missing usage or an unsettled charge is not zero cost. An uncertain
+request should be investigated before another submission.
+
+Creating a company, owner or key does not prove funding, model availability or a
+successful request. The setup dialog links to the relevant checks; it does not
+certify them automatically. Mock payments simulate only payment: model calls can
+still incur real upstream costs, so keep the environment and API keys private.

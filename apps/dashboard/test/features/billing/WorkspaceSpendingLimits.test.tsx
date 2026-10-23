@@ -1,3 +1,4 @@
+vi.mock('../../../src/app/platform-currency',()=>({usePlatformCurrency:()=>({currency:'CNY',error:'',reload:()=>{}})}));
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -7,18 +8,17 @@ const account = {currency:'CNY',committed_nanos:'0',limit_nanos:null,revision:nu
 const props = {token:'member',organization:'company',project:'workspace',canConfigure:true,refresh:0};
 describe('workspace spending controls', () => {
   it('cancels edits back to the matching currency action without changing saved limits', async () => {
-    const fetch = vi.fn(async () => Response.json({data:[account,{...account,currency:'USD',limit_nanos:'10000000000',revision:'2'}]}));
+    const fetch = vi.fn(async () => Response.json({data:[{...account,limit_nanos:'10000000000',revision:'2'},{...account,currency:'USD',limit_nanos:'10000000000',revision:'2'}]}));
     vi.stubGlobal('fetch',fetch);render(<WorkspaceSpendingLimits {...props}/>);
     const user=userEvent.setup();
-    await user.click(await screen.findByRole('button',{name:'Edit USD spending limit'}));
-    await user.clear(screen.getByLabelText('Lifetime limit (USD)'));
-    await user.type(screen.getByLabelText('Lifetime limit (USD)'),'25');
+    await user.click(await screen.findByRole('button',{name:'Edit CNY spending limit'}));
+    await user.clear(screen.getByLabelText('Lifetime limit (CNY)'));
+    await user.type(screen.getByLabelText('Lifetime limit (CNY)'),'25');
     await user.click(screen.getByRole('button',{name:'Cancel'}));
-    expect(document.activeElement).toBe(screen.getByRole('button',{name:'Edit USD spending limit'}));
-    expect(screen.getByText('USD 0.00 committed of USD 10.00')).toBeTruthy();
-    await user.click(screen.getByRole('button',{name:'Add CNY spending limit'}));
-    await user.click(screen.getByRole('button',{name:'Cancel'}));
-    expect(document.activeElement).toBe(screen.getByRole('button',{name:'Add CNY spending limit'}));
+    expect(document.activeElement).toBe(screen.getByRole('button',{name:'Edit CNY spending limit'}));
+    expect(screen.getByText('¥0.00 committed of ¥10.00')).toBeTruthy();
+    expect(screen.getByText('$0.00 committed of $10.00')).toBeTruthy();
+    expect(screen.queryByRole('button',{name:'Edit USD spending limit'})).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it('saves exact zero with the observed revision and reloads authoritative state', async () => {
@@ -31,7 +31,7 @@ describe('workspace spending controls', () => {
     const user=userEvent.setup();await user.click(await screen.findByRole('button',{name:'Add CNY spending limit'}));
     await user.type(screen.getByLabelText('Lifetime limit (CNY)'),'0');
     await user.click(screen.getByRole('button',{name:'Save limit'}));
-    await screen.findByText('CNY 0.00 committed of CNY 0.00');
+    await screen.findByText('¥0.00 committed of ¥0.00');
     expect(JSON.parse(fetch.mock.calls.find(([,init])=>init.method==='PUT')![1].body)).toEqual({limit_nanos:'0',expected_revision:'0'});
     expect(fetch.mock.calls.every(([url])=>String(url).includes('/organizations/company/projects/workspace/spending-limit'))).toBe(true);
   });
@@ -56,7 +56,7 @@ describe('workspace spending controls', () => {
   });
   it('keeps readers read-only and fails closed on malformed amounts', async () => {
     vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[{...account,limit_nanos:'20',revision:'1'}]})));
-    const view=render(<WorkspaceSpendingLimits {...props} canConfigure={false}/>);await screen.findByText('CNY 0.00 committed of CNY 0.00000002');
+    const view=render(<WorkspaceSpendingLimits {...props} canConfigure={false}/>);await screen.findByText('¥0.00 committed of ¥0.00000002');
     expect(screen.queryByRole('button',{name:'Edit CNY spending limit'})).toBeNull();view.unmount();
     vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[{...account,committed_nanos:'secret'}]})));
     render(<WorkspaceSpendingLimits {...props}/>);await screen.findByText('Spending limits unavailable');
