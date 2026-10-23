@@ -2,6 +2,6 @@
 import PublicHeader from '../../../docs/src/components/PublicHeader';
 ---
 <script is:inline>
-(()=>{let value='system';try{value=localStorage.getItem('niu-dashboard-theme')||'system';}catch{}const dark=value==='dark'||(value==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',dark);document.documentElement.style.colorScheme=dark?'dark':'light';})();
+(()=>{let value='system',loc='';try{value=localStorage.getItem('niu-dashboard-theme')||'system';loc=localStorage.getItem('niu-dashboard-locale')||'';}catch{}const dark=value==='dark'||(value==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',dark);document.documentElement.style.colorScheme=dark?'dark':'light';const zh=/^zh\b/i.test(loc||navigator.language||'');document.documentElement.lang=zh?'zh-CN':'en';document.documentElement.dataset.locale=zh?'zh-CN':'en';})();
 </script>
 <PublicHeader path={Astro.url.pathname} brandSrc="/catalog-assets/brand/niu-mark.png" client:load/>

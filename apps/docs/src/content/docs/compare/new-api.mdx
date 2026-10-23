@@ -6,11 +6,13 @@ prev:
   label: Compare overview
 ---
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
+
+<div data-lang="en">
+
 Both products let you operate a gateway between your applications and upstream model services. New API offers a broad upstream integration surface and instance-management console. Niu organizes configured supply, application access, and request evidence around Providers and workspaces.
 
 Product documentation reviewed October 13, 2026. This comparison describes documented scope; it does not establish performance, prices, or full feature parity.
-
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
 
 <Table className="comparison-table">
   <TableCaption>Niu and New API, row by row</TableCaption>
@@ -48,3 +50,50 @@ Niu’s first feature-complete release has not yet been qualified. Confirm the m
 - [Niu deployment](/docs/deployment/single-container/) and [API reference](/docs/reference/api/).
 - [All gateway comparisons](/docs/compare/).
 - [Make your first Niu request](/docs/getting-started/).
+
+</div>
+
+<div data-lang="zh" data-title-zh="Niu 对比 New API">
+
+两款产品都允许您在应用程序与上游模型服务之间部署和运维网关。New API 提供了广泛的上游集成覆盖面和实例管理控制台；Niu 则围绕模型供应商和工作空间来组织已配置的模型供应、应用访问权限以及请求证据。
+
+产品文档审阅于 2026 年 10 月 13 日。本对比描述了文档记录的能力范围，不代表性能、价格或完整功能对等。
+
+<Table className="comparison-table">
+  <TableCaption>Niu 与 New API 逐项对比</TableCaption>
+  <TableHeader><TableRow><TableHead>功能特性</TableHead><TableHead>Niu</TableHead><TableHead>New API</TableHead></TableRow></TableHeader>
+  <TableBody>
+    <TableRow><TableCell data-label="功能特性">您所运维的组件</TableCell><TableCell data-label="Niu">公开网关、控制台、模型目录和文档；外部 PostgreSQL</TableCell><TableCell data-label="New API">网关与 Web 控制台；New API 文档中记载的部署选项</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">上游配置</TableCell><TableCell data-label="Niu">具有显式适配器和模型映射的供应商凭据</TableCell><TableCell data-label="New API">连接上游模型服务的渠道（Channels）</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">客户端协议</TableCell><TableCell data-label="Niu">兼容 OpenAI 的 API 以及明确界定作用域的原生协议</TableCell><TableCell data-label="New API">兼容 OpenAI、Claude 和 Gemini 的格式</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">应用访问控制</TableCell><TableCell data-label="Niu">工作空间 API 密钥与限定作用域的管理契约</TableCell><TableCell data-label="New API">令牌管理与实例访问控制</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">请求证据</TableCell><TableCell data-label="Niu">已保存的请求日志、上报用量与客户扣费状态</TableCell><TableCell data-label="New API">用量分析与成本核算</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">当前范围</TableCell><TableCell data-label="Niu">积极开发中；首个功能完整版本尚未完成验收</TableCell><TableCell data-label="New API">请针对您所部署的版本与渠道验证支持情况</TableCell></TableRow>
+  </TableBody>
+</Table>
+
+## 01 / New API 的领先之处
+
+New API 文档记录了极其丰富的上游集成与协议转换能力。如果某项特定的服务、客户端或部署工作流对您至关重要，请优先参考其文档支持说明，并在您计划运行的具体版本上进行验证。Niu 不宣称在集成广度上与之对等。
+
+## 02 / Niu 的适用场景
+
+Niu 将模型供应商与客户工作空间划分为独立的作用域。其公开契约严格区分客户扣费与上游采购成本，保留未知用量与未结算扣费状态，并将请求排查与已保存的网关证据相关联。在依赖某个工作流之前，请先阅读受支持的契约说明。
+
+有关受支持的行为，请参阅[模型配置](/docs/configuration/models/)、[请求日志](/docs/concepts/execution-observation/)和 [API 契约](/docs/reference/api/)。
+
+## 03 / 如何选择
+
+当 New API 的上游集成和实例管理工作流满足您的需求时，请选择 New API。当 Niu 的工作空间访问控制、模型供应商配置和请求核算模型契合您的应用架构时，请评估 Niu。两者都要求您自行运维存储、配置经过授权的上游访问，并验证对外暴露的路由。
+
+Niu 的首个功能完整版本尚未完成发布验收。在选择部署方案之前，请确认您的工作负载所需的模型、协议、授权和计费行为。
+
+## 参考来源与后续步骤
+
+- [性能基准测试：Niu 对比 New API 对比 LiteLLM](/docs/guides/gateway-benchmarks/)。
+- [New API 项目与功能特性](https://github.com/QuantumNous/new-api)，[官方文档](https://docs.newapi.pro/en)。
+- [Niu 部署指南](/docs/deployment/single-container/)与 [API 参考](/docs/reference/api/)。
+- [所有网关对比](/docs/compare/)。
+- [发起您的第一个 Niu 请求](/docs/getting-started/)。
+
+</div>

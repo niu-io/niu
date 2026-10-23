@@ -3,6 +3,8 @@ title: Investigate request capacity
 description: Find requests holding API key capacity and choose a safe next step.
 ---
 
+<div data-lang="en">
+
 Open the workspace's **API keys**, select the affected key, and go to **Limits**. Use **Inspect unresolved requests** for concurrency or **Inspect token reservations** for token limits. These lists include earlier secrets of the same rotated key. Rotating or revoking a secret does not erase work already dispatched.
 
 Select a request's model name to open its exact saved details. Compare its dispatch time, key name, recorded outcome and delivery information. The link works even when the record belongs to a previous secret or is outside the recent request list. Video request details also link to the saved video result.
@@ -22,3 +24,29 @@ If a video result is still running, inspect its saved status before submitting a
 For installation administrators, Niu supports [reading captured usage reconciliation evidence](/docs/api/rest/getrequestusagereconciliation/) and [supplementing eligible OpenRouter request usage](/docs/api/rest/reconcilerequestusage/). This procedure uses the saved response reference and original eligible credential. It does not accept invented usage, infer completion from elapsed time, or resubmit inference. Only confirmed terminal evidence can update the execution record. Unsupported, cancelled or nonterminal results remain unresolved; the generated reference describes the exact eligibility conditions.
 
 Usage reconciliation and financial settlement are separate. A saved usage receipt does not by itself prove that a customer charge was posted. Retain the original request and check its recorded state after recovery.
+
+</div>
+
+<div data-lang="zh" data-title-zh="排查请求容量与限流">
+
+打开工作空间的 **API keys**（API 密钥），选择受影响的密钥，然后前往 **Limits**（限额）。针对并发限制使用 **Inspect unresolved requests**（查看未决请求），或针对 Token 限制使用 **Inspect token reservations**（查看 Token 预留占用）。这些列表包含同一轮换密钥的早期密钥版本。轮换或吊销密钥不会抹除已派发的执行记录。
+
+点击某条请求的模型名称即可打开其保存的完整详情，对比其派发时间、密钥名称、已记录结果与交付信息。即使该记录归属于轮换前的旧密钥或不在近期请求列表中，该链接依然有效。视频请求详情还会链接至已保存的视频结果。
+
+## 了解占用容量的原因
+
+- **Completion unconfirmed（完成状态未确认）：** Niu 牛元尚未收到该已派发请求完成的确认。该请求可能仍在运行，或其响应已在传输中丢失。关闭浏览器连接并不能证明模型供应商已停止执行。
+- **Completed · usage unavailable（已完成 · 用量不可用）：** 请求已执行完成，但未记录到完整的 Token 用量。在该已完成请求离开 60 秒滚动时间窗口之前，Token 核算会保留预估值（若无预估值则保持未知状态）。
+- **Reserved tokens: Unknown（预留 Token：未知）：** 没有可用的预估值。有限的 Token 限额不能将其视为零消耗。
+
+并发计数统计的是未确认完成的已派发请求。Token 限额还会计入已知的近期用量（单独汇总显示）。未记录完成状态的请求不会仅仅因为派发时间超过 60 秒就自动过期释放。在你查看列表期间请求可能会陆续完成；请刷新以获取最新快照。
+
+## 基于证据恢复
+
+如果视频结果仍在运行，请在提交新任务前先检查其已保存的状态。对于结果不确定的请求，请向平台管理员提供所属工作空间、模型、密钥名称和派发时间，以便管理员排查匹配的记录与模型供应商证据。切勿通过再次发送推理请求来测试前一次请求是否完成，也不要用调高限额来代替排查未知结果。
+
+对于实例管理员，Niu 牛元支持[读取已捕获的用量对账证据](/docs/api/rest/getrequestusagereconciliation/)以及[补全符合条件的 OpenRouter 请求用量](/docs/api/rest/reconcilerequestusage/)。该流程使用已保存的响应引用与原始符合条件的凭据。它不接受凭空捏造的用量，不会根据已耗时推断完成状态，也不会重新提交推理请求。只有经确认的终态证据才能更新执行记录。不支持、已取消或非终态的结果将保持未决状态；自动生成的 API 参考文档详细说明了具体的适用条件。
+
+用量对账与财务结算相互独立。已保存的用量回执本身并不证明客户费用已入账。请在恢复后保留原始请求并检查其已记录的状态。
+
+</div>

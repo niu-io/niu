@@ -20,6 +20,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../../../../dashboard/src/components/ui/dropdown-menu";
+import { useLocale } from "../../../../dashboard/src/app/locale";
 import WorkspaceKeyConnection, {
   type DocsKeySelection,
 } from "./WorkspaceKeyConnection";
@@ -41,8 +42,23 @@ const admissionReasons: Record<string, string> = {
   permission_denied: "The selected key or session is not permitted to make this request.",
 };
 
+const admissionReasonsZh: Record<string, string> = {
+  workspace_spending_limit_exceeded: "此请求超出了工作空间的消费限额。",
+  key_spending_limit_exceeded: "此 API 密钥的客户消费限额已用尽。",
+  key_request_rate_disabled: "此 API 密钥的请求速率配置为零。",
+  key_request_rate_exceeded: "此 API 密钥的滚动请求限额已用尽。",
+  key_token_rate_exceeded: "此 API 密钥的 Token 额度已用尽。请等待已知用量窗口重置或处理未确认用量。",
+  key_token_bound_required: "Token 准入控制要求提供受支持的文本输入、显式输出上限及有界的既往用量。",
+  key_concurrency_exceeded: "此 API 密钥已达到并发请求上限。请等待进行中的请求完成或处理状态未明的请求。",
+  key_ip_not_allowed: "此 API 密钥不允许来自当前源地址的请求。",
+  budget_exceeded: "所选路由在当前预算配置下无法准入此请求，请联系管理员。",
+  authentication_error: "会话或 API 密钥无效、已过期或已吊销，请重新登录或刷新权限。",
+  permission_denied: "所选密钥或当前会话无权发起此请求。",
+};
+
 /** A real SDK call on this origin, using the existing session/key authorization path. */
 export default function LiveApiConsole() {
+  const { isZh, t } = useLocale();
   const [selection, setSelection] = useState<DocsKeySelection | null>(null);
   const [models, setModels] = useState<Model[]>([]),
     [model, setModel] = useState("");
@@ -107,7 +123,10 @@ export default function LiveApiConsole() {
       .catch(() => {
         if (!controller.signal.aborted)
           setModelError(
-            "Could not discover models for this key. Refresh access or try again.",
+            t(
+              "Could not discover models for this key. Refresh access or try again.",
+              "无法加载此密钥可用的模型，请刷新权限或重试。",
+            ),
           );
       })
       .finally(() => {
@@ -128,7 +147,10 @@ export default function LiveApiConsole() {
     } catch {
       if (receipt.current === current)
         setDiagnosticError(
-          "Saved diagnostics are unavailable. Open workspace Logs or refresh diagnostics.",
+          t(
+            "Saved diagnostics are unavailable. Open workspace Logs or refresh diagnostics.",
+            "已保存的诊断信息暂不可用，请打开工作空间请求日志或刷新诊断信息。",
+          ),
         );
     } finally {
       if (receipt.current === current) setRefreshing(false);
@@ -143,7 +165,7 @@ export default function LiveApiConsole() {
     setOutput("");
     setError("");
     setRemedy(null);
-    setStatus("Running");
+    setStatus(t("Running", "运行中"));
     setGeneration(null);
     setElapsed(null);
     setDiagnosticError("");
@@ -191,39 +213,43 @@ export default function LiveApiConsole() {
           size += text.length;
           if (size > 65536)
             throw new Error(
-              "Response exceeded the documentation display limit.",
+              t(
+                "Response exceeded the documentation display limit.",
+                "响应内容超出了文档展示长度限制。",
+              ),
             );
           setOutput((previous) => previous + text);
         }
       }
-      if (runEpoch === epoch.current) setStatus("Completed");
+      if (runEpoch === epoch.current) setStatus(t("Completed", "已完成"));
     } catch (failure) {
       if (runEpoch !== epoch.current) return;
       setStatus(
         controller.signal.aborted
-          ? "Stopped · outcome may be incomplete"
-          : "Failed",
+          ? t("Stopped · outcome may be incomplete", "已停止 · 结果可能不完整")
+          : t("Failed", "失败"),
       );
       if (failure instanceof NiuAPIError) {
         attempt ??= failure.attemptId ?? null;
         const envelope = failure.responseBody as { error?: { type?: unknown } } | null;
         const type = typeof envelope?.error?.type === "string" ? envelope.error.type : "";
-        const reason = Object.hasOwn(admissionReasons, type) ? admissionReasons[type] : undefined;
-        setError(`${reason ?? "Request failed."} (HTTP ${failure.status}). ${attempt
-          ? "A saved attempt reference was returned. Check saved diagnostics or workspace Logs."
-          : reason ? "No saved attempt reference was returned." : "No saved attempt reference was returned; the outcome is unconfirmed. Do not automatically retry."}`);
+        const reasons = isZh ? admissionReasonsZh : admissionReasons;
+        const reason = Object.hasOwn(reasons, type) ? reasons[type] : undefined;
+        setError(`${reason ?? t("Request failed.", "请求失败。")} (HTTP ${failure.status}). ${attempt
+          ? t("A saved attempt reference was returned. Check saved diagnostics or workspace Logs.", "已返回请求尝试记录引用，请查看已保存的诊断信息或工作空间请求日志。")
+          : reason ? t("No saved attempt reference was returned.", "未返回请求尝试记录引用。") : t("No saved attempt reference was returned; the outcome is unconfirmed. Do not automatically retry.", "未返回请求尝试记录引用，结果尚未确认，请勿自动重试。")}`);
         const workspaceRoot = "/workspaces/" + encodeURIComponent(selection.workspace.slug);
         if (reason && type.startsWith("key_")) {
-          setRemedy({ href: workspaceRoot + "/keys/" + encodeURIComponent(selection.keyId), label: "Review API key limits" });
+          setRemedy({ href: workspaceRoot + "/keys/" + encodeURIComponent(selection.keyId), label: t("Review API key limits", "查看 API 密钥限额") });
         } else if (type === "workspace_spending_limit_exceeded" || type === "budget_exceeded") {
-          setRemedy({ href: workspaceRoot + "/billing", label: type === "workspace_spending_limit_exceeded" ? "Review workspace spending limit" : "Review workspace billing" });
+          setRemedy({ href: workspaceRoot + "/billing", label: type === "workspace_spending_limit_exceeded" ? t("Review workspace spending limit", "查看工作空间消费限额") : t("Review workspace billing", "查看工作空间计费") });
         }
       } else setError(
         controller.signal.aborted
-            ? "Stopped waiting. Upstream work and billing may still continue; do not automatically repeat the request."
+            ? t("Stopped waiting. Upstream work and billing may still continue; do not automatically repeat the request.", "已停止等待。上游推理与计费可能仍在继续，请勿自动重复发送请求。")
             : attempt
-              ? "The stream did not complete. Partial output is provisional; check the saved attempt before submitting again."
-              : "The request could not be confirmed. No saved attempt reference was returned; do not automatically retry.",
+              ? t("The stream did not complete. Partial output is provisional; check the saved attempt before submitting again.", "流式响应未完成。部分输出仅供参考，再次提交前请先检查已保存的请求尝试。")
+              : t("The request could not be confirmed. No saved attempt reference was returned; do not automatically retry.", "无法确认请求结果且未返回尝试引用，请勿自动重试。"),
       );
     } finally {
       clearTimeout(timeout);
@@ -240,9 +266,9 @@ export default function LiveApiConsole() {
   }
   const charge = generation?.customer_charge;
   function chargeLabel() {
-    if (!charge) return "Unknown";
+    if (!charge) return t("Unknown", "未知");
     if (charge.status === "owner_funded")
-      return "Personal key · billed by your upstream service";
+      return t("Personal key · billed by your upstream service", "自有密钥 · 由您的上游服务商计费");
     if (
       charge.status === "charged" &&
       charge.amount_nanos !== null &&
@@ -259,11 +285,11 @@ export default function LiveApiConsole() {
     return (
       (
         {
-          pending: "Pending settlement",
-          unpriced: "Price unavailable",
-          not_charged: "Not charged",
+          pending: t("Pending settlement", "待结算"),
+          unpriced: t("Price unavailable", "暂无定价"),
+          not_charged: t("Not charged", "未计费"),
         } as Record<string, string>
-      )[charge.status] || "Unknown"
+      )[charge.status] || t("Unknown", "未知")
     );
   }
   return (
@@ -272,11 +298,12 @@ export default function LiveApiConsole() {
       aria-label="Live API test"
     >
       <div>
-        <h3 className="text-lg font-semibold">Try a real request</h3>
+        <h3 className="text-lg font-semibold">{t("Try a real request", "发送真实请求")}</h3>
         <p className="text-sm text-muted-foreground">
-          Uses your selected key’s model permissions, limits and billing. A
-          request can incur real charges. No key secret is exposed or stored in
-          this page.
+          {t(
+            "Uses your selected key’s model permissions, limits and billing. A request can incur real charges. No key secret is exposed or stored in this page.",
+            "使用所选密钥的模型权限、限额与计费规则。请求可能会产生真实费用，页面不会暴露或存储任何密钥明文。",
+          )}
         </p>
       </div>
       <WorkspaceKeyConnection onChange={setSelection} disabled={busy} />
@@ -286,7 +313,7 @@ export default function LiveApiConsole() {
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Model
+                  {t("Model", "模型")}
                 </span>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -299,8 +326,8 @@ export default function LiveApiConsole() {
                     >
                       <span className="truncate font-medium">
                         {loading
-                          ? "Loading models…"
-                          : displayName(model, "Choose model")}
+                          ? t("Loading models…", "正在加载模型…")
+                          : displayName(model, t("Choose model", "选择模型"))}
                       </span>
                       <IconChevronDown
                         size={14}
@@ -320,7 +347,7 @@ export default function LiveApiConsole() {
                       {models.map((row) => (
                         <DropdownMenuRadioItem key={row.id} value={row.id}>
                           <span className="truncate">
-                            {displayName(row.id, "Model name unavailable")}
+                            {displayName(row.id, t("Model name unavailable", "模型名称不可用"))}
                           </span>
                         </DropdownMenuRadioItem>
                       ))}
@@ -335,16 +362,16 @@ export default function LiveApiConsole() {
                 disabled={busy || loading}
                 onClick={() => setModelRevision((value) => value + 1)}
               >
-                Refresh models
+                {t("Refresh models", "刷新模型")}
               </Button>
               {loading && (
                 <span role="status" className="text-xs text-muted-foreground">
-                  Loading models…
+                  {t("Loading models…", "正在加载模型…")}
                 </span>
               )}
               {!loading && !models.length && !modelError && (
                 <span className="text-xs text-muted-foreground">
-                  No models are currently available to this key.
+                  {t("No models are currently available to this key.", "当前密钥暂无可用模型。")}
                 </span>
               )}
             </div>
@@ -355,12 +382,13 @@ export default function LiveApiConsole() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Chat Completions · streaming · maximum 64 output tokens. Model
-            discovery does not guarantee Chat or streaming support; unsupported
-            requests return a real API error.
+            {t(
+              "Chat Completions · streaming · maximum 64 output tokens. Model discovery does not guarantee Chat or streaming support; unsupported requests return a real API error.",
+              "Chat Completions · 流式输出 · 最多 64 个输出 Token。出现在模型列表中并不代表一定支持对话或流式输出；不支持的请求将返回真实 API 错误。",
+            )}
           </p>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="docs-api-prompt">Prompt</Label>
+            <Label htmlFor="docs-api-prompt">{t("Prompt", "提示词 (Prompt)")}</Label>
             <Textarea
               id="docs-api-prompt"
               value={prompt}
@@ -381,11 +409,11 @@ export default function LiveApiConsole() {
               }
               onClick={() => void run()}
             >
-              Send real request
+              {t("Send real request", "发送真实请求")}
             </Button>
             {busy && (
               <Button variant="outline" onClick={() => active.current?.abort()}>
-                Stop waiting
+                {t("Stop waiting", "停止等待")}
               </Button>
             )}
             <Button asChild variant="ghost">
@@ -396,7 +424,7 @@ export default function LiveApiConsole() {
                   "/executions/"
                 }
               >
-                Open request logs
+                {t("Open request logs", "打开请求日志")}
               </a>
             </Button>
           </div>
@@ -409,7 +437,11 @@ export default function LiveApiConsole() {
         <div className="flex flex-col gap-3" aria-live="polite">
           <p role="status" className="text-sm font-medium">
             {status}
-            {elapsed !== null ? " · " + elapsed + " ms in browser" : ""}
+            {elapsed !== null
+              ? isZh
+                ? ` · 浏览器耗时 ${elapsed} ms`
+                : " · " + elapsed + " ms in browser"
+              : ""}
           </p>
           {output && (
             <pre className="whitespace-pre-wrap break-words rounded-md bg-background p-3 text-sm">
@@ -426,15 +458,15 @@ export default function LiveApiConsole() {
           )}
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
             <div>
-              <dt>Input tokens</dt>
-              <dd>{generation?.usage.prompt_tokens ?? "Unknown"}</dd>
+              <dt>{t("Input tokens", "输入 Token")}</dt>
+              <dd>{generation?.usage.prompt_tokens ?? t("Unknown", "未知")}</dd>
             </div>
             <div>
-              <dt>Output tokens</dt>
-              <dd>{generation?.usage.completion_tokens ?? "Unknown"}</dd>
+              <dt>{t("Output tokens", "输出 Token")}</dt>
+              <dd>{generation?.usage.completion_tokens ?? t("Unknown", "未知")}</dd>
             </div>
             <div>
-              <dt>Customer charge</dt>
+              <dt>{t("Customer charge", "客户费用")}</dt>
               <dd>{chargeLabel()}</dd>
             </div>
           </dl>
@@ -444,7 +476,7 @@ export default function LiveApiConsole() {
               disabled={busy || refreshing}
               onClick={() => void diagnostics()}
             >
-              Refresh saved diagnostics
+              {t("Refresh saved diagnostics", "刷新已保存的诊断信息")}
             </Button>
           )}
           {diagnosticError && <p role="status">{diagnosticError}</p>}

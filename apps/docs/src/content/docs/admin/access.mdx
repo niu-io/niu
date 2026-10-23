@@ -3,6 +3,8 @@ title: Administrator access
 description: Distinguish installation setup, platform administrators and scoped workspace roles.
 ---
 
+<div data-lang="en">
+
 ## Choose the right authority
 
 | Authority | Purpose |
@@ -26,3 +28,33 @@ Read the [security overview](/docs/security/overview/) for password sessions, ex
 ## Keep changes scoped
 
 Grant the smallest necessary authority. A workspace owner must not be able to grant company-wide or platform-wide access by changing a URL. Revoke unused sessions and credentials, and use [audit logs](/docs/reference/platform-audit/) to review recorded access changes. A missing audit event does not prove an operation was attempted or rejected.
+
+</div>
+
+<div data-lang="zh" data-title-zh="管理员访问权限">
+
+## 选择正确的权限角色
+
+| 权限角色 | 用途 |
+| --- | --- |
+| 安装实例管理员 | 使用已配置的引导凭证进行初始设置与全局安装实例管理 |
+| 授权平台管理员 | 通过具备必要权限的已认证成员会话进行平台配置 |
+| 公司或工作空间操作员 | 管理限定范围的客户资源；拥有工作空间所有权不会授予平台级模型供应商或全局配置的访问权限 |
+| 模型供应商成员 | 查看模型供应商自身获批的业务记录，而非进行平台管理 |
+
+控制台在渲染受保护的管理路由之前，会先恢复服务端会话并检查其权限。各 API 也会独立校验访问权限。请勿将客户的工作空间密钥当作平台管理员凭证使用。
+
+## 引导设置与成员登录
+
+1. 将已配置的 `NIU_ADMIN_TOKENS` 凭证保存在部署环境的机密存储中。
+2. 打开 `/installation` 进行初始管理员访问。请勿将引导凭证分发给应用开发人员，也不要将其放入浏览器存储或公开的设置文件中。
+3. 通过受支持的管理界面配置限定范围的成员访问权限。普通已配置密码的登录请使用 `/login`。
+4. 在运行管理自动化脚本之前，请先通过[会话端点](/docs/api/rest/getadminsessionidentity/)确认当前生效的作用域和权限。
+
+有关密码会话、过期、吊销、Cookie 及部署要求，请阅读[安全概览](/docs/security/overview/)。目前尚未实现自助注册及完整的 OIDC/SAML 登录流程；控制台中也没有可遵循的 OAuth 配置工作流。
+
+## 保持权限变更的最小作用域
+
+请遵循最小权限原则授予所需的最小权限。工作空间所有者绝不能仅通过修改 URL 就授予公司级或平台级的访问权限。请及时吊销不再使用的会话和凭证，并使用[审计日志](/docs/reference/platform-audit/)审查已记录的访问权限变更。不存在某条审计事件并不能证明某项操作曾被尝试或已被拒绝。
+
+</div>

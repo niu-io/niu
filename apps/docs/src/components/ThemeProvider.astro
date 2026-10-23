@@ -7,14 +7,19 @@
     try { embeddedHelp = window.parent !== window && window.parent.location.origin === location.origin && new URLSearchParams(location.search).get('embed') === 'help'; } catch {}
     document.documentElement.toggleAttribute('data-docs-embedded', embeddedHelp);
     let theme = 'system';
+    let loc = '';
     try {
       const saved = localStorage.getItem('niu-dashboard-theme');
       if (saved === 'light' || saved === 'dark') theme = saved;
+      loc = localStorage.getItem('niu-dashboard-locale') || '';
     } catch {}
     const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     document.documentElement.classList.toggle('dark', dark);
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+    const zh = /^zh\b/i.test(loc || navigator.language || '');
+    document.documentElement.lang = zh ? 'zh-CN' : 'en';
+    document.documentElement.dataset.locale = zh ? 'zh-CN' : 'en';
     window.StarlightThemeProvider = { updatePickers() {} };
   })();
 </script>

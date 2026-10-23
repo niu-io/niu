@@ -3,6 +3,8 @@ title: Guardrails
 description: Configure workspace request policies and test text patterns before saving.
 ---
 
+<div data-lang="en">
+
 Open **Guardrails** in a workspace to manage its default policy. The workspace
 policy applies to every workspace API key. Key permissions remain enforced;
 a workspace policy does not grant a key access to additional models.
@@ -59,3 +61,40 @@ External checks require a deployment administrator to configure a detector and
 authorize it for the workspace. If none is available, **Add external check**
 is disabled. Required checks run before inference; matching content,
 unavailable detector services, and unsupported content block the request.
+
+</div>
+
+<div data-lang="zh" data-title-zh="安全护栏">
+
+在工作空间中打开**安全护栏**（**Guardrails**）以管理其默认策略。工作空间策略适用于该工作空间下的所有 API 密钥。密钥自身的权限依然强制生效；工作空间策略不会向密钥授予额外模型的访问权限。
+
+## 配置策略
+
+打开**工作空间默认策略**（**Workspace default**），选择要编辑的策略部分：
+
+- **模型与供应商访问（Model & Provider Access）：**控制可用的模型与 API 服务。
+- **输入规则（Input rules）：**在推理前拦截或脱敏匹配的文本。
+- **外部输入检查（External input checks）：**需要使用已授权且可用的检测器。
+- **输出规则（Output rules）：**在向客户端交付前检查生成的文本。
+
+在您选择**保存**（**Save**）之前，所有更改均保留为草稿。如果存在无效规则，“保存”按钮将保持禁用状态。**历史记录**（**History**）会列出已保存的策略版本；**已拦截请求**（**Blocked requests**）会列出模型分发前记录的拦截事件。对于输出拦截，请在**日志**（**Logs**）中查看请求详情。已拦截请求列表并不包含所有的准入拒绝情况。
+
+## 测试文本匹配模式
+
+选择内置模式或使用**添加模式**（**Add pattern**）输入正则表达式。每个阶段最多支持 32 条规则。自定义模式支持 1–4096 个 UTF-8 字节；不支持环视（look-around）和反向引用（backreferences）。内置模式仅识别特定语法格式，并不能检测出所有密钥或个人隐私信息。
+
+选择**拦截**（**Block**）或**脱敏**（**Redact**），然后在**测试您的模式**（**Test your patterns**）下输入合成测试文本。选择请求协议并运行**测试模式**（**Test patterns**）。此操作仅预览当前编辑器中显示的规则效果，不会保存策略，也不会将测试文本发送给模型。
+
+## 输出检查
+
+**强制执行 · 缓冲输出**（**Enforce · buffered output**）会暂存响应，直到检查完成。**仅观察**（**Observe only**）会记录匹配项而不修改响应内容；但平台强制执行的安全限制依然适用。在仅观察模式下，单条模式的动作控件会显示为**观察**（**Observe**）且无法更改。
+
+本地输出检查支持单候选（single-choice）纯文本 Chat 与 Responses 流。强制缓冲输出会在释放已检查文本前先收集有界响应；输出拦截可能发生在模型推理完成之后，因此被拦截并不代表本次生成免费。仅观察规则会正常交付内容，并单独记录检查结果。完整输出收集上限为 1 MiB 文本、2 MiB 流字节，且每个进程分别为强制执行模式和仅观察模式维护各 4 个并发收集器的独立资源池。
+
+输出规则不支持工具调用（tools）、结构化输出（structured output）或向量嵌入（Embeddings）。启用输入规则后，也会拦截不受支持的工具、图像或不透明内容。在为应用程序启用规则前，请先确认所选协议的覆盖范围。
+
+## 外部检查
+
+外部检查需要部署管理员先配置检测器并为该工作空间授权。如果没有可用的检测器，**添加外部检查**（**Add external check**）将处于禁用状态。必选的外部检查会在推理前运行；一旦内容命中规则、检测器服务不可用或包含不受支持的内容，请求都会被拦截。
+
+</div>

@@ -3,6 +3,8 @@ title: Single-container deployment
 description: Niu's target deployment shape and current packaging status.
 ---
 
+<div data-lang="en">
+
 Niu serves documentation, the public model catalog, workspace dashboard, inference API and management API from one origin. The hosted distribution also serves the separately maintained marketing website under `niu.io`. One Rust gateway owns the HTTP listener and serves the built static sites; PostgreSQL stores tenants, scoped API keys, operations and attempt evidence. The application image exposes one public port. Compose starts it with PostgreSQL as the only supporting service.
 
 The Dockerfile builds the Rust gateway, TypeScript dashboard and Astro documentation, and packages the static model catalog into one image. The community root redirects to the workspace; a composed hosted build can supply a separate website artifact using `NIU_SITE_DIR`. The product URLs are `/`, `/docs/`, `/models/`, `/workspaces/default/`, `/v1/…` and `/api/v1/…`.
@@ -140,3 +142,112 @@ build environment.
 Omit both settings to disable this entry point. A partial configuration stops
 Gateway startup rather than enabling an incomplete demo login. This is separate
 from loopback-only development account provisioning.
+
+</div>
+
+<div data-lang="zh" data-title-zh="单容器部署">
+
+Niu 从单一源（origin）提供文档、公开模型目录、工作空间控制台、推理 API 和管理 API。托管发行版还在 `niu.io` 下提供独立维护的营销网站。单一 Rust 网关持有 HTTP 监听器并提供构建好的静态站点；PostgreSQL 存储租户、限定作用域的 API 密钥、操作记录和请求尝试证据。应用镜像仅暴露一个公共端口，Docker Compose 启动时仅需 PostgreSQL 作为唯一支撑服务。
+
+Dockerfile 会构建 Rust 网关、TypeScript 控制台和 Astro 文档，并将静态模型目录打包进同一镜像。社区版根路径会重定向至工作空间；组合式托管构建可通过 `NIU_SITE_DIR` 提供独立的网站构建产物。产品 URL 包括 `/`、`/docs/`、`/models/`、`/workspaces/default/`、`/v1/…` 和 `/api/v1/…`。
+
+:::caution[当前状态]
+当前镜像为评估构建版本。初始持久化与数据库迁移已实现。预算预留、财务结算、操作员角色、流式传输证据与恢复工作线程仍在开发中。容器完整验收尚未完成，请勿将此镜像用于生产负载。
+:::
+
+## 运行评估镜像
+
+创建本地环境变量文件，并将每个占位符替换为唯一的密钥。使用密码学安全的生成器生成 Niu 令牌；将管理员令牌与客户端 API 密钥分开保管。
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+产品在端口 `2555` 上可用。打开 `http://localhost:2555/` 进入工作空间，`/docs/` 查看文档，`/models/` 浏览公开模型目录，`/workspaces/default/` 进入控制台。示例路由需要在 `OPENROUTER_API_KEY` 中配置 OpenRouter API 密钥。启动容器前，可修改 `config/niu.example.toml` 以添加或编辑模型路由。只有设置了 `public_catalog = true` 的路由才会出现在公开模型目录中。
+
+## 包含的源码声明
+
+运行时镜像在 `/app/licenses` 下保留了项目许可证及选择性引用的源码声明，包括 LiteLLM MIT 许可证与源码清单以及 shadcn/ui MIT 许可证。控制台和目录的公开静态资源保留各自的版权声明。依赖许可证审计在 CI 中运行；这些文件并不代表所有传递依赖的分发义务均已完成验收。完整的构建产物与容器验收仍是正式发布前的工作。
+
+## 发布要求
+
+- 单一 Niu 镜像在同一个监听器上提供推理、管理、健康检查和控制台资源。
+- PostgreSQL 是持久化状态所需的唯一外部服务。
+- 供应商凭据与引导密钥在运行时注入，绝不固化到镜像中。
+- 镜像内容不包含私有企业代码、内部研究和开发资料。
+- 安装、升级、回滚、备份、迁移和重启行为均作为完整产品进行测试。
+
+## 单域名路由
+
+所有产品页面和 API 均使用同一源。`/workspaces/:workspace/…` 中的工作空间名称仅用于选择 UI 路由，并不授予访问权限。每个管理和推理请求都需要经过服务端验证的凭据。社区版初始化使用安装管理员令牌来配置组织/工作空间作用域的成员和 API 密钥。成员使用具有所有者（owner）、管理员（admin）或查看者（viewer）角色的定期过期会话；API 密钥仅用于授权推理调用。
+
+网关对外提供 HTTP 服务。请在托管平台的 TLS 边缘终止 HTTPS，并将请求转发至单一应用端口。统一主机名本身并不提供 TLS。请保持浏览器 API 请求为同源（same-origin），以便凭据和登出状态保留在 `niu.io` 上。
+
+迁移现有主机时，请在 TLS 边缘配置永久重定向：`docs.niu.io/<path>` 应映射到 `niu.io/docs/<path>`。将旧的控制台根路径重定向到 `/workspaces/default/`，并将之前的控制台分区（如 `/keys` 和 `/usage`）映射到 `/workspaces/default/keys` 和 `/workspaces/default/usage`。在统一后的产品中，`/models/` 是公开模型目录，`/suppliers` 用于管理模型供应商配置。模型供应是全局的；工作空间负责管理限定作用域的密钥、请求和客户计费。
+
+静态文档树独立于控制台挂载。缺失的文档路径返回 404，未知的 `/v1/`、`/catalog/v1/` 和 `/api/v1/` 端点返回 JSON 格式的 API 错误。嵌套的工作空间链接可直接打开或刷新。静态路由不会缓冲推理响应；流式传输始终由网关的推理处理器直接处理。
+
+## 启用成员登录
+
+如果仅作为安装管理员评估，可将 `NIU_AUTH_PUBLIC_ORIGIN` 留空。若要启用成员密码登录，请在 `.env` 中将其设置为您确切的外部 HTTPS 源地址（例如 `https://niu.example.com`），并重建应用服务：
+
+```sh
+docker compose up -d --build niu
+```
+
+该源地址不能包含路径、凭据、查询参数或锚点片段。留空会保持密码登录禁用状态；包含空白字符或无效的源地址会导致启动失败。Compose 会将此设置传递给网关。请在托管边缘终止 TLS，并将控制台和管理 API 保持在同一源地址下。HTTP 评估访问不符合生产环境浏览器登录的安全要求。
+
+初始设置请使用 `/installation` 和安装管理员凭据。创建组织和工作空间后，使用保存的组织/工作空间引用通过 `POST /api/v1/operators` 创建成员：
+`{"organization_id":"<organization_id>","project_id":"<workspace_id>","name":"Workspace owner","role":"owner","expires_in_seconds":3600}`。
+接着调用 `PUT /api/v1/operators/{operator_id}/password`，传入成员的 `email` 以及长度至少为 15 个字符且不超过 1024 个 UTF-8 字节的密码。首次配置时省略 `expected_revision`；后续修改请使用返回的版本号（revision）。配置密码会吊销初始签发的 Bearer 会话。随后成员可在 `/login` 登录；控制台会通过安全的 HttpOnly Cookie 恢复后端会话。请勿将密码和初始配置凭据留在共享的命令历史或日志中。[成员会话参考文档](/docs/reference/api/#operator-roles-and-sessions)详细说明了角色边界、限流和吊销机制。
+
+密码登录不会自动创建成员，也不提供自助注册。真实的 HTTPS 浏览器验收、账号开通体验以及打包后的认证流程仍属于发布验收工作。
+
+## 引导创建组织与客户端密钥
+
+`NIU_ADMIN_TOKENS` 授予安装实例全局管理权限。原生启动必须配置 `NIU_DATABASE_URL`；Compose 会自动提供内部数据库 URL。客户端密钥通过管理 API 创建，而非通过 `NIU_API_KEYS` 提供。
+
+网关运行后，使用您的管理员 Bearer 令牌执行以下操作：
+
+1. 调用 `POST /api/v1/organizations`，请求体为 `{"name":"My organization"}`。
+2. 调用 `POST /api/v1/organizations/{organization_id}/projects`，请求体为 `{"name":"My workspace"}`。
+3. 调用 `POST /api/v1/organizations/{organization_id}/projects/{project_id}/keys`，请求体为 `{"name":"Application","ttl_seconds":86400}`。该密钥可以调用工作空间内所有可用的模型路由。
+
+每个 POST 请求均返回 `201`。请在下一步的路径中使用上一步返回的 ID。密钥创建响应仅返回一次明文 `token`；请妥善保存，并将其作为调用 `/v1/models` 和 `/v1/chat/completions` 的 Bearer 令牌。发送 JSON 请求体时，每个请求都必须包含 `Content-Type: application/json`。在相同的密钥集合路径后追加 `/{key_id}` 并发送 DELETE 请求即可吊销该密钥（返回 `204`）。
+
+新建密钥可以访问其所属工作空间内所有可用的模型路由。带有明确模型限制的密钥将收到过滤后的模型列表。在调度准入时会重新检查密钥的吊销和过期状态。创建组织和设置默认工作空间需要安装引导令牌。限定作用域的操作员可以根据其角色管理被允许的工作空间资源；操作员与会话管理则需要所有者（owner）权限。
+
+非流式响应在调度后（包括供应商报错时）会包含 `x-niu-operation-id` 和 `x-niu-attempt-id` 响应头。流式响应在成功建立连接时包含这些 ID。每个 HTTP 请求还会接收或生成边缘关联请求头（`x-request-id`），并在响应中原样回传（包括分发前的 `401` 认证响应与 `503` 就绪检查响应）。兼容 OpenAI 的流式适配器会在结束事件处持久化完成状态和有效用量。当供应商支持时，请请求 `stream_options: {"include_usage": true}`；JavaScript SDK 会自动执行此操作。缺失或冲突的用量将保持未知状态，中断的流则保持不确定状态。超过 64 KiB 的 SSE 事件会被拒绝。`/readyz` 在有界超时内校验数据库连通性、内嵌迁移 Schema 版本一致性、活跃路由注册表解析以及加密密钥可用性；`/healthz` 报告进程存活状态。
+
+## 滚动部署、数据库迁移与可观测性
+
+若要在多网关实例之间执行零停机滚动升级：
+
+1. 将 `niu-gateway --migrate-only` 作为专用的预部署迁移任务运行。如果迁移失败，该任务会以非零状态码退出，现有的服务实例不受影响。
+2. 可选运行 `niu-gateway --check-schema`（或使用 `NIU_SKIP_STARTUP_MIGRATIONS=true` 启动网关实例），以便应用实例在启动时验证数据库 Schema 版本完全匹配，而无需争用迁移锁。
+3. 使用 `GET /readyz`（`200 OK`）作为负载均衡器的流量准入检查，同时保留 `GET /healthz` 用于进程存活检查。
+4. 通过 `NIU_REQUEST_PAYLOAD_CAPTURE` 配置请求载荷采集策略：`default`（默认采集脱敏后的请求/响应体，除非客户端发送 `x-niu-log-payloads: false`）、`opt-in`（仅在发送 `x-niu-log-payloads: true` 时采集）或 `disabled`（从不采集载荷）。保留的载荷将在 24 小时后过期。
+5. 使用安装实例管理员 Bearer 令牌抓取 `GET /api/v1/metrics`。响应包含 `instance_id`（可通过 `NIU_INSTANCE_ID` 配置）和 `started_at_ms`，以便多实例监控抓取器区分副本并检测跨重启的进程计数器重置。
+
+## 在控制台中管理密钥
+
+选择一个工作空间并打开 **API keys → New API key**。输入名称并选择过期时间，然后选择 **Create key**。该密钥可调用工作空间中所有可用的模型路由。密钥明文出现时请立即复制，后续将无法再次找回。
+
+可以在表格中轮换（rotate）或吊销（revoke）密钥。轮换会立即吊销旧密钥，同时保留其原有的权限和绝对过期时间。轮换操作是原子的：并发轮换只会产生一个新密钥。如果丢失了轮换响应，将无法再次查看替换后的密钥明文；管理员必须吊销无法访问的密钥并重新签发。密钥的签发、轮换和吊销都会追加不可变的审计事件，标识引导管理员执行者类别。精确到个人操作员的归属记录仍需使用操作员会话。
+
+对应的 API 在组织、工作空间和密钥集合路径上提供了 `GET` 方法，以及 `POST .../keys/{key_id}/rotate`。列表响应不包含密钥明文与哈希值，目前最多返回 1,000 条记录；分页功能尚待实现。
+
+## 可选的营销网站构建产物
+
+营销网站源码位于独立的 `niu-io/website` 仓库中。托管发布版本会锁定两个仓库的版本提交，并将网站构建产物安装到独立目录中。将 `NIU_SITE_DIR` 设置为该目录即可提供 `/`、`/site-assets/`、`/_astro/`、favicon、robots 和 sitemap。将 `NIU_CATALOG_DIR` 设置为公开模型目录构建产物路径（社区镜像默认为 `/app/catalog`）。文档和控制台保持各自现有的目录。无需单独的应用子域名或 UI 服务器。网站构建产物不能覆盖模型目录、工作空间或 API 路由。
+
+## 可选的演示账号登录
+
+如需提供共享演示账户，请在网关的私有运行时环境中同时设置 `NIU_DEMO_LOGIN_EMAIL` 和 `NIU_DEMO_LOGIN_PASSWORD`。该账户必须已经存在且已配置密码登录。这两项设置不会自动创建账户或授予额外权限；访客将获得该已配置账户现有的访问权限。
+
+启用后，登录页面会显示**体验演示**（**Try the demo**）。分享 `/login?demo=1` 可触发自动演示登录，或分享 `/login?demo=1&returnTo=%2Fgenerations` 在登录后直接进入生成对话（Generations）。已登录的访客会保持其原有会话。浏览器会向 `/api/v1/auth/browser/demo` 发送请求；密码保留在服务端，且正常的源校验、登录限流、吊销检查以及 HttpOnly 会话 Cookie 均同样适用。任何凭据都不应出现在 URL 或前端构建环境中。
+
+同时省略这两项设置即可禁用此入口。如果只配置了其中一项，网关将拒绝启动，而不会启用不完整的演示登录。此机制独立于仅限本地环回地址（loopback）的开发账户自动预置。
+
+</div>

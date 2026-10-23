@@ -3,6 +3,8 @@ title: Getting started
 description: Use an existing Niu workspace to make your first request.
 ---
 
+<div data-lang="en">
+
 This guide is for developers using an existing Niu installation. You need an account with access to a workspace. If you are installing Niu for others, start with [installation setup](#installation-setup) below.
 
 ## Prepare your workspace
@@ -56,3 +58,58 @@ Keep Provider credentials and installation administrator tokens on the server. T
 - Configuring a route does not qualify its upstream capabilities or supply rights. File-managed deployments can configure routes in `config/niu.example.toml` instead of the dashboard.
 - Request and response payloads are retained for 24 hours by default. Disable capture per request with `x-niu-log-payloads: false` or turn off **Save payloads in Logs** in Chat settings. Expired or uncaptured content is unavailable; request metadata remains. Missing token usage, timing, or customer prices remain unknown.
 - Budgeted workspaces require a supported bounded reservation before dispatch; unpriced requests cannot bypass that requirement. See [model pricing](/docs/configuration/models/#optional-text-route-pricing). Upstream billing bounds still need qualification.
+
+</div>
+
+<div data-lang="zh" data-title-zh="快速入门">
+
+本指南面向使用现有 Niu 实例的开发者。您需要拥有一个具备工作空间访问权限的账户。如果您正在为团队或客户部署安装 Niu，请先参阅下方的[实例初始化设置](#installation-setup-zh)。
+
+## 准备工作空间
+
+1. **登录并选择工作空间。** 如果您尚未被加入工作空间，请联系工作空间所有者开通权限。只读成员无法创建密钥或发起调用。
+2. **检查模型访问权限。** 打开**模型**（**Models**）查找可用的文本模型。如果没有可用模型，请联系工作空间所有者或安装实例管理员启用访问权限。您无需自行配置模型供应商。
+3. **确认计费方式。** 模型详情页与生成对话（Chat）会标明已保存的工作空间密钥使用的是 **Niu 额度**（**Niu credits**）还是**自有 API 密钥**（**own API key**）路由。若使用 Niu 额度，账户所有者可在**设置 → 额度与充值**（**Settings → Credits**）中充值；同时工作空间与 API 密钥的支出限额也会生效。自有 API 密钥路由由您的模型供应商直接计费，不扣减 Niu 额度。缺少价格信息并不代表免费使用。如果 Niu 提示需要完成服务配置（service setup required），请联系安装实例管理员配置支付网关或为您所在的公司账户充值。已充值或已获赠金/授信的私有化自托管公司无需配置商户收款账户。
+4. **创建 API 密钥。** 在所选工作空间中打开 **API 密钥 → 新建 API 密钥**（**API keys → New API key**）。输入名称，选择允许调用的模型与过期时间，然后点击**创建密钥**（**Create key**）。密钥明文显示时请立即复制，关闭后将无法再次查看。请将密钥保存在应用服务端，切勿放入源代码管理或前端浏览器代码中。
+
+模型出现在目录中并不保证所有协议或可选参数均受支持。首次对话请求请使用已就绪的可用文本模型。
+
+## 发起请求
+
+从密钥弹窗中复制当前实例的基础 URL（Base URL），并选用**模型**（**Models**）中的一个可用文本模型。替换下方三个占位符；注意 `NIU_BASE_URL` 已包含 `/v1`。
+
+```sh
+export NIU_BASE_URL='https://your-niu-installation.example/v1'
+export NIU_API_KEY='your-workspace-api-key'
+export NIU_MODEL='your-available-text-model'
+curl --fail-with-body "$NIU_BASE_URL/chat/completions" \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one sentence.\"}],\"max_tokens\":64}"
+```
+
+容器部署通常使用 `http://localhost:2555/v1`；代码仓库本地开发使用 `http://127.0.0.1:2566/v1`；托管版 Niu 使用 `https://niu.io/v1`。
+
+打开工作空间的**请求日志**（**Logs**）即可查看状态、耗时、上报的 Token 数量以及保留的请求与响应载荷。**活动**（**Activity**）展示资源消耗与客户费用。有关载荷采集与保留策略的设置，请参阅[请求日志](/docs/concepts/execution-observation/)。
+
+应用程序使用工作空间密钥进行身份验证。请将模型供应商凭证和实例管理员令牌妥善保存在服务端。编程智能体（Coding Agent）可以通过 [MCP 服务器](/docs/guides/mcp/)使用同一个密钥。托管版 Niu 将网关地址固定为 `https://niu.io/v1`。
+
+## 实例初始化设置
+
+以下任务属于安装实例管理员职责，而非普通 API 调用方的工作：
+
+1. 按照[单容器部署指南](/docs/deployment/single-container/)或[本地开发指南](/docs/guides/local-development/)部署 Niu。
+2. 在**管理后台 → 实例设置**（**Admin → Settings**）中配置平台结算币种。随后配置可用的支付网关，或通过**管理后台 → 账户余额**（**Admin → Account balances**）为目标公司账户充值。已发放的非现金赠金或已批准的授信额度支持在不配置商户网关的情况下自托管使用；但空账户不支持。该许可仅对对应公司生效，请求级余额校验与支出限额依然生效。模拟支付仅供测试使用：模型调用仍会产生真实的上游费用。
+3. 参考[模型路由指南](/docs/configuration/models/)连接并验证模型供应商供应，然后在**管理后台 → 定价配置**（**Admin → Pricing**）中发布客户销售价格。仅保存 API 凭证本身并不会使模型进入可售状态。
+4. 使用**管理后台 → 客户管理**（**Admin → Customers**）[开通独立客户](/docs/admin/customers/)。在交付访问权限前，请确认客户所有者能够登录、管理额度并选择可用模型。
+
+请将模型供应商凭证和安装实例管理员令牌妥善保存在服务端，切勿将其作为客户应用密钥使用。
+
+## 当前限制
+
+- 容器安装使用管理员凭证进行初始设置，并可签发限定作用域的成员会话。可选启用的[密码会话 API](/docs/reference/api/#operator-roles-and-sessions) 支持在已配置的 HTTPS 源站后使用预置成员登录及会话恢复。自助注册和真实 HTTPS 浏览器端完整验证尚未完成。
+- 配置路由并不会自动核验其上游能力或供应授权。基于文件管理的部署可以在 `config/niu.example.toml` 中配置路由，而无需通过控制台。
+- 请求和响应载荷默认保留 24 小时。您可以在单次请求中通过 `x-niu-log-payloads: false` 禁用采集，或在对话（Chat）设置中关闭 **Save payloads in Logs**（在日志中保存载荷）。已过期或未采集的内容将无法查看，但请求元数据仍会保留。缺失的 Token 用量、耗时或客户价格将保持未知状态。
+- 启用了预算限制的工作空间要求在分发请求前完成受支持的有界额度预留；未定价的请求无法绕过该要求。请参阅[模型定价](/docs/configuration/models/#optional-text-route-pricing)。上游计费边界仍有待进一步核验。
+
+</div>

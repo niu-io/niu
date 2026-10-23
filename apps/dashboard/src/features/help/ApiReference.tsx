@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { ApiReferenceReact, type AnyApiReferenceConfiguration } from '@scalar/api-reference-react';
 import { useDashboardContext, type DashboardContext } from '../../app/dashboard-context';
 import PublicHeader from '../../../../docs/src/components/PublicHeader';
+import { useLocale } from '../../app/locale';
 import '../../../../../branding/public-header.css';
 import '@scalar/api-reference-react/style.css';
 import './api-reference.css';
@@ -16,6 +17,7 @@ export default function ApiReference({
   embedded?: boolean;
   token?: string;
 } = {}) {
+  const { t } = useLocale();
   const navigate = useNavigate();
   const context = useDashboardContext() as DashboardContext | undefined;
   const sessionToken = propToken ?? context?.token;
@@ -39,7 +41,7 @@ export default function ApiReference({
     withDefaultFonts: false,
     showSidebar: true,
     showDeveloperTools: 'never',
-    modelsSectionLabel: 'Schemas',
+    modelsSectionLabel: t('Schemas', '数据结构 (Schemas)'),
     defaultOpenAllTags: false,
     hideClientButton: true,
     persistAuth: false,
@@ -60,7 +62,7 @@ export default function ApiReference({
     telemetry: false,
     agent: {disabled:true},
     defaultHttpClient: {targetKey:'shell', clientKey:'curl'},
-  }), [mode]);
+  }), [mode, t]);
   return <div className="niu-api-documentation" onClick={event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = (event.target as Element).closest<HTMLAnchorElement>('a[href]');
@@ -77,7 +79,10 @@ export default function ApiReference({
       <WorkspaceKeyConnection
         onChange={setSelection}
         token={sessionToken}
-        description="Same-origin inference APIs only · key secret stays on the server · requests can incur real charges"
+        description={t(
+          'Same-origin inference APIs only · key secret stays on the server · requests can incur real charges',
+          '仅限同源推理 API · 密钥明文保存在服务端 · 请求可能产生真实费用',
+        )}
       />
     </section>
     <div className="niu-api-reference" aria-label="Niu OpenAPI reference"><ApiReferenceReact configuration={configuration} /></div>

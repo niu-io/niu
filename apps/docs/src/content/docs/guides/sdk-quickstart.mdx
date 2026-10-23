@@ -3,6 +3,8 @@ title: Use the JavaScript / TypeScript SDK
 description: Install a local Niu SDK package, discover a model, send a request and handle a stream.
 ---
 
+<div data-lang="en">
+
 The fetch-based `@niu-io/sdk` client exposes Niu's inference and management interfaces. Use a **workspace API key** with `NiuClient`. Keep privileged management credentials server-side.
 
 ## Install from this checkout
@@ -97,3 +99,104 @@ See [NiuAPIError](/docs/api/sdk/niuapierror/) for its actual properties. Keep co
 - [Generated SDK interfaces](/docs/api/sdk/) contain constructors, methods, request and response types emitted from the source.
 - [Generated REST specification](/docs/api/rest/) describes HTTP authorization, fields and response schemas.
 - The packaged `examples/verify-inference.mjs` exercises model discovery and bounded buffered/streamed requests. It requires a configured key and enabled text route and can incur customer charges. Run it only for a workload you intend to execute.
+
+</div>
+
+<div data-lang="zh" data-title-zh="使用 JavaScript / TypeScript SDK">
+
+基于 `fetch` 的 `@niu-io/sdk` 客户端封装了 Niu 的推理与管理接口。请将**工作空间 API 密钥**与 `NiuClient` 配合使用，并将高权限管理凭证保留在服务端。
+
+## 从当前代码检出安装
+
+在获取已发布或正式发行的 SDK 包之前，你可以从当前检出的 Niu 代码仓库中构建并打包 SDK。在 Niu 仓库根目录下运行：
+
+```sh
+pnpm --dir sdks/javascript build
+pnpm --dir sdks/javascript pack --pack-destination /tmp/niu-sdk
+```
+
+在你的应用程序目录中安装生成的包：
+
+```sh
+npm install /tmp/niu-sdk/niu-io-sdk-0.1.0.tgz
+```
+
+如果包版本号已更改，请使用 `pack` 实际生成的文件名。对于已发布的包，可以直接指定固定的包版本号进行安装。
+
+## 配置客户端
+
+将 `NIU_API_KEY` 设置为你的工作空间密钥，并将 `NIU_BASE_URL` 设置为你的实例中以 `/v1` 结尾的端点地址。
+
+```sh
+export NIU_API_KEY='your-workspace-api-key'
+export NIU_BASE_URL='http://localhost:2555/v1'
+```
+
+```ts
+import { NiuClient } from '@niu-io/sdk';
+
+const niu = new NiuClient({
+  apiKey: process.env.NIU_API_KEY!,
+  baseURL: process.env.NIU_BASE_URL!,
+});
+
+const models = await niu.models.list();
+console.log(models.data.map(model => model.id));
+```
+
+从模型发现结果中选择一个可用的文本模型，并替换下方示例中的占位符。自动生成的 [NiuClientOptions](/docs/api/sdk/niuclientoptions/) 页面列出了完整的构造函数选项。
+
+## 发送请求
+
+```ts
+const completion = await niu.chat.completions({
+  model: 'your-model-alias',
+  messages: [{ role: 'user', content: 'Say hello in one sentence.' }],
+  max_tokens: 64,
+});
+
+console.log(completion.choices[0]?.message.content);
+console.log(completion.usage);
+```
+
+请参考自动生成的 [ChatCompletionRequest](/docs/api/sdk/chatcompletionrequest/) 与 [ChatCompletionResponse](/docs/api/sdk/chatcompletionresponse/) 了解精确的类型定义。可选能力是否可用仍取决于所选的模型路由。
+
+## 读取流式响应
+
+```ts
+for await (const event of niu.chat.stream({
+  model: 'your-model-alias',
+  messages: [{ role: 'user', content: 'Say hello.' }],
+  max_tokens: 64,
+})) {
+  console.log(event);
+}
+```
+
+当前流事件的类型为 `unknown`：在读取字段前请先校验事件结构。当遇到格式错误或未完整结束的流时，SDK 会抛出异常，且不会自动重连或重试。请完整消费流的终止状态；提前跳出循环会取消响应正文读取，但并不能证明上游生成请求已取消。
+
+## 处理 API 错误
+
+```ts
+import { NiuAPIError } from '@niu-io/sdk';
+
+try {
+  await niu.models.list();
+} catch (error) {
+  if (error instanceof NiuAPIError) {
+    console.error(error.status, error.responseBody);
+  } else {
+    throw error;
+  }
+}
+```
+
+有关错误对象的具体属性，请参阅 [NiuAPIError](/docs/api/sdk/niuapierror/)。请将关联标识符（correlation identifiers）保存在诊断日志中，不要作为面向用户的产品界面标签展示。SDK 不会自动重试请求。
+
+## 参考文档与验证脚本
+
+- [自动生成的 SDK 接口文档](/docs/api/sdk/)包含从源码导出的构造函数、方法、请求与响应类型。
+- [自动生成的 REST 规范](/docs/api/rest/)描述了 HTTP 鉴权方式、字段定义和响应结构。
+- 随包提供的 `examples/verify-inference.mjs` 脚本可用于验证模型发现以及有界的非流式/流式请求。运行该脚本需要已配置的密钥和已启用的文本路由，并且可能会产生客户账单费用。请仅在你确实打算执行该工作负载时运行。
+
+</div>

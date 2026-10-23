@@ -3,6 +3,8 @@ title: Workspace materials
 description: Durable local material APIs and their generation integration boundary.
 ---
 
+<div data-lang="en">
+
 Workspace materials are saved in encrypted backend storage. Member APIs provide
 upload, list, metadata, rename, delete and authenticated download for images,
 video and audio. Saving a material does not grant Provider ingestion, model
@@ -54,3 +56,29 @@ For an unconfirmed operation:
 
 For incidents created before diagnostic retention, a null category stays null;
 new software cannot recover the original cause from absent evidence.
+
+</div>
+
+<div data-lang="zh" data-title-zh="工作空间素材">
+
+工作空间素材保存在加密的后端存储中。成员 API 提供针对图像、视频和音频的上传、列表查询、元数据获取、重命名、删除以及经认证的下载功能。保存素材并不会授予模型供应商导入权限、模型内容审查批准或生成权限。
+
+请阅读[素材库契约](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-material-library.md)，了解 SDK 方法、配额限制、版本修订、删除机制以及明确标注待完成的集成项。[已实现的操作文档](/docs/reference/handler-operations/)包含请求/响应结构定义以及授权/错误契约。实际文件格式、限定作用域的 SDK 持久化、删除、字节/对象容量限制以及非空密钥轮换均具备独立的验收记录。已保存图像的请求解析以及对不支持渠道的安全拒绝均已验证；经过完整验收的实时审查生成（fresh-inspection generation）仍待验证。本页不宣称提供完整的 Seedance 工作流。
+
+## 未确认的原生模型供应商操作
+
+原生模型供应商素材独立于加密的本地工作空间素材库。其已保存的操作历史可供授权的工作空间管理员查看，也可通过 SDK 的 `mediaOperationHistory` 方法读取，即使原始推理密钥已被吊销依然可查。读取历史记录绝不会触发任何变更操作。
+使用 `mediaOperationModels(scope, keyId)` 可以发现已保存的公开模型别名，而无需依赖该密钥当前的模型授权或公开目录发现。跟随其分页继续游标（continuation cursor）可恢复所有已保存的上下文，随后使用 `mediaOperationHistory(scope, { keyId, model })` 打开确切的模型别名。同一别名下保存的多个账户绑定仅作为历史上下文保留，并不构成有效的实时路由授权。
+
+状态为 `unknown`（未知）的操作可能包含 `diagnostic.category` 和 `diagnostic.phase`。诊断类别可区分传输故障、超时、响应大小超限、无效响应和供应商拒绝。交换阶段（exchange phase）无法确认供应商是否已收到请求；响应阶段（response phase）表示已观测到 HTTP 状态码；而确认阶段（acknowledgement）表示无法验证领域确认信息。没有任何诊断类别可以证明操作未执行或授权重放请求。较早的记录和中断的完成操作保留为空（null）诊断信息，其原因不可考。
+
+针对未确认的操作，请按以下步骤处理：
+
+1. 通过工作空间管理界面读取原始保存的操作记录。私密保留其原始请求引用以及任何已知的 HTTP/关联元数据。
+2. 如果已知原始模型供应商对象引用，可执行显式的状态刷新。这会保存一条独立的观测记录，但不会核销该变更操作。仅凭对象处于 Active 状态或对象缺失，无法证明该变更操作实际执行了什么。
+3. 请联系模型供应商，使用经授权的私有运维工具排查原始请求。切勿公开凭据、源 URL 或原始响应内容。
+4. 保留该操作及其历史记录，直到有充分证据支持经过人工审核的对账核销。当前的原生 API 不会根据状态读取结果来终结未知状态的变更操作。请勿通过直接修改数据库状态、取消未知操作、删除其父分组、重新提交变更或替换幂等键来绕过该安全边界。只有未被认领的 `prepared`（已准备）操作才能被取消。
+
+对于在启用诊断信息保留之前发生的事件，空（null）类别将保持为空；新版本软件无法从缺失的证据中恢复原始原因。
+
+</div>

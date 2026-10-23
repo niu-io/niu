@@ -3,6 +3,8 @@ title: Video generation API and SDK
 description: Generate and recover video tasks, retrieve results, manage Provider assets, and hand off verification through Niu's JavaScript SDK.
 ---
 
+<div data-lang="en">
+
 Niu provides implemented video APIs and a typed JavaScript SDK. Start with
 `video.generate()`; use Niu model aliases, task references and asset references.
 The configured Provider adapter translates them to the upstream service. Clients
@@ -176,7 +178,7 @@ acknowledgement; recover its saved operation without resending it.
 | `POST /v1/media/assets/{id}/refresh` | `media.assets.refresh()` |
 | `GET /v1/media/operations` | `media.operations.list()` |
 | `GET /v1/media/operations/{id}` | `media.operations.retrieve()` |
-| `GET /v1/media/operations/by-idempotency/{id}` | `media.operations.retrieveByIdempotency()` |
+| `GET /v1/media/operations/idempotency/{id}` | `media.operations.retrieveByIdempotency()` |
 | `POST /v1/media/operations/prepare` | `media.operations.prepare()` |
 | `POST /v1/media/operations/{id}/dispatch` | `media.operations.dispatch()` |
 | `POST /v1/media/operations/{id}/cancel` | `media.operations.cancel()` |
@@ -280,3 +282,211 @@ See [all implemented handler schemas](/docs/reference/handler-operations/) and t
 and response schemas. The [finite video acceptance matrix](https://github.com/niu-io/niu/blob/main/docs/reference/video-integration-acceptance-matrix.md)
 and [SDK source](https://github.com/niu-io/niu/tree/main/sdks/javascript) record the
 implementation and qualification details.
+
+</div>
+
+<div data-lang="zh" data-title-zh="视频生成 API 与 SDK">
+
+Niu 提供了已实现的视频生成 API 和强类型的 JavaScript SDK。您可以从 `video.generate()` 开始使用；调用时请使用 Niu 的模型别名、任务引用和资产引用。已配置的模型供应商适配器会将它们转换为上游服务所需的格式。客户端无需发送火山引擎（Volcengine）Action、上游资产标识符或供应商凭据。
+
+## 当前可用能力
+
+| 能力项 | 实现与实际验证状态 |
+| --- | --- |
+| 文生视频（Text-to-video） | 已实现。使用个人 FastRouter 账户进行 Seedance 2.5 创建、任务恢复、结果获取以及完整视频解码均已有实际验证证据。 |
+| 异步任务 | 已实现创建/读取/列表/刷新/等待、持久化状态、重启恢复以及相同请求重放。请求被接受并不代表任务已完成。 |
+| 生成结果 | 已实现可用性查询、授权二进制下载与结果删除。已成功的任务也可能存在已过期或已删除的结果。 |
+| 供应商资产分组与资产 | 已实现管理操作与显式刷新。实际分组创建、视频资产创建以及恢复至 Active 状态均已验证。 |
+| 资产参考生成 | 已实现 Niu 资产 ID 解析与授权检查。一次实际上游请求返回了 403；安全的未知状态保持与不重发重放已验证。成功的参考生成输出仍待验证。 |
+| 核验会话（Verification sessions） | 已实现创建、元数据读取、刷新以及私有 H5 链接交接。实际会话创建、加密持久化与自然过期已验证；真人核验完成流程仍待验证。 |
+| 用量与计费 | 已实现观测记录、计费与耗时统计。一次真实结果报告了 257277 个视频 Token。正向的客户定价媒体结算仍待验证。 |
+
+可用的模型、输入类型和控制参数取决于安装实例中已保存的模型供应商映射、所选工作空间 API 密钥的授权以及当前生效的策略。请使用模型发现接口选择已授权的路由并检查其视频模式（schema）；切勿假设存在统一的 Seedance 版本、时长、分辨率或固定预设。使用个人自费供应商账户进行的验证并不代表客户定价或商业供应资质已完成验收。
+
+## 生成、等待与下载
+
+请使用具备所选模型授权的工作空间 API 密钥。以下示例导入了 `@niu-io/sdk`，其源码位于 `sdks/javascript`；在使用其编译后的入口前，请先运行 `pnpm --filter @niu-io/sdk build` 构建该工作空间包。`NIU_BASE_URL` 是以 `/v1` 结尾的 Niu API 基础地址，而非上游模型供应商的 URL。请将 API 密钥保存在应用程序的服务端环境中。
+
+```ts
+import { NiuClient } from '@niu-io/sdk';
+
+const niu = new NiuClient({
+  baseURL: process.env.NIU_BASE_URL,
+  apiKey: process.env.NIU_API_KEY!,
+});
+
+const models = await niu.video.models.list();
+// 请先检查所选模型的 input_types、controls、mode 和 output。
+
+// 请将此幂等键与该确切请求一同保存，以便在提交结果不确定时恢复状态。
+const idempotencyKey = crypto.randomUUID();
+const job = await niu.video.generate({
+  model: 'fastrouter/seedance-2.5',
+  prompt: 'A quiet ocean at sunrise, with slow camera movement.',
+  durationSeconds: 5,
+  resolution: '1080p',
+  aspectRatio: '16:9',
+  seed: 42,
+  watermark: false,
+}, { idempotencyKey });
+
+const completed = await niu.video.jobs.wait(job.id, {
+  intervalMs: 5_000,
+  timeoutMs: 600_000,
+});
+
+if (completed.status === 'succeeded') {
+  const availability = await niu.video.jobs.results.status(job.id);
+  if (availability.video === 'available') {
+    const response = await niu.video.jobs.results.retrieve(job.id, 'video');
+    const bytes = await response.arrayBuffer();
+    // 将字节保存在应用的持久化存储中，或直接流式转发响应。
+  }
+}
+```
+
+`video.generate()` 会将 `durationSeconds` 映射为 `duration`，将 `aspectRatio` 映射为 `ratio`，并将其他具名字段映射到 Niu 请求契约。额外的模型特定字段请使用 `controls` 传递（例如当模型显式声明支持时传入 `omni_reference_task_type`）。不能通过 `controls` 覆盖具名字段。系统不假设存在通用的 Seedance 参数范围或价格。`video.jobs.create()` 也接受更底层的 Niu `VideoCreateRequest` 请求文档。
+
+### 状态恢复与不确定状态
+
+Niu 在后端存储了任务、原始提交身份以及观测记录。在服务重启或浏览器缓存丢失后，可使用 `jobs.list()` 和 `jobs.retrieve()` 恢复已授权的保存任务。`jobs.refresh()` 会针对已绑定的上游任务发起一次显式查询。`jobs.wait()` 仅读取并刷新已保存的状态，绝不会提交新的生成请求。
+
+| 状态 | 客户端应对操作 |
+| --- | --- |
+| `queued`、`running` | 继续等待，或稍后重新获取已保存的状态。 |
+| `succeeded` | 下载前先检查结果可用性。 |
+| `failed` | 读取观测记录和耗时信息；切勿将失败当作成功结果处理。 |
+| `submission_unknown`、`reconciliation_required` | 保留原始身份标识并检查诊断信息；等待辅助方法会直接返回此状态，而不会自动重新提交。 |
+| `unknown` | 等待辅助方法允许对初始处于未知状态的已保存任务执行一次刷新，若仍未解决则返回未知状态。 |
+
+使用原始幂等键重放完全相同的创建请求文档，即可恢复已保存的尝试记录。使用相同幂等键但更改输入内容会导致冲突。返回 202 响应并不证明上游已完成生成；当请求处于不确定状态时，切勿为了重新运行而更换新的幂等键。中止等待操作仅会取消本地等待循环和 HTTP 请求，不会取消上游的视频任务。此处不提供取消上游任务的 API。
+
+## 生成与结果端点
+
+以下路径均相对于 Niu 源地址（origin）；SDK 路径已默认包含 `/v1` 基础路径。结果下载返回二进制 `Response`；其他方法返回强类型 JSON。
+
+| HTTP 端点 | JavaScript SDK |
+| --- | --- |
+| `GET /v1/video/models` | `video.models.list()` |
+| `POST /v1/video/estimate` | `video.estimate(request)` |
+| `POST /v1/video/jobs` | `video.generate(input, options)` 或 `video.jobs.create(request, options)` |
+| `GET /v1/video/jobs` | `video.jobs.list({ before, limit })` |
+| `GET /v1/video/jobs/{id}` | `video.jobs.retrieve(id)` |
+| `POST /v1/video/jobs/{id}/refresh` | `video.jobs.refresh(id)` |
+| 已保存状态读取/刷新辅助方法 | `video.jobs.wait(id, options)` |
+| `GET /v1/video/jobs/{id}/results` | `video.jobs.results.status(id)` |
+| `GET /v1/video/jobs/{id}/results/video` | `video.jobs.results.retrieve(id, 'video')` |
+| `GET /v1/video/jobs/{id}/results/last_frame` | `video.jobs.results.retrieve(id, 'last_frame')` |
+| `DELETE /v1/video/jobs/{id}/results` | `video.jobs.results.delete(id)` |
+| `GET /v1/video/jobs/{id}/billing` | `video.jobs.billing(id)` |
+| `GET /v1/video/jobs/{id}/timings` | `video.jobs.timings(id)` |
+| `GET /v1/video/jobs/{id}/observations` | `video.jobs.observations(id, query)` |
+
+删除结果仅会移除对保留结果的访问权限，不会删除任务的财务记录或诊断历史。尾帧（last_frame）的可用性取决于实际返回的结果。目前不支持回调（Callbacks）/Webhook 投递。
+
+## 模型供应商资产管理
+
+`niu.media` 通过 Niu 限定作用域的引用来管理由上游支持的资产。它独立于工作空间素材库上传功能。所选模型必须启用受支持的供应商资产渠道，且仍然受上游操作权限约束。读取和显式刷新操作需要传入模型别名。变更操作支持规范的 UUID 幂等键；更新和删除操作可使用当前的十进制字符串版本号（revision）。
+
+```ts
+const model = 'fastrouter/seedance-2.5';
+const groups = await niu.media.groups.list({ model, limit: 20 });
+const assets = await niu.media.assets.list({ model, limit: 20 });
+
+// 创建资产分组或资产是一次性的上游操作。
+const groupOperation = await niu.media.groups.create({
+  model, name: 'Reference videos',
+}, { idempotencyKey: crypto.randomUUID() });
+
+if (groupOperation.group?.status === 'ready') {
+  const assetOperation = await niu.media.assets.create({
+    model,
+    group_id: groupOperation.group.id,
+    kind: 'video',
+    name: 'Approved reference clip',
+    url: process.env.APPROVED_REFERENCE_VIDEO_URL!,
+  }, { idempotencyKey: crypto.randomUUID() });
+  if (assetOperation.asset) {
+    const saved = await niu.media.assets.refresh(assetOperation.asset.id, model);
+    // 请等待实际状态变为 "active" 后，再将其作为生成参考使用。
+  }
+}
+```
+
+源 URL 必须符合该渠道接受的 HTTPS 与媒体规则，并且能够被上游服务直接拉取。需认证的 Niu 素材库 URL 并不会隐式成为公开的供应商上传 URL。处于挂起（pending）或未知（unknown）状态的变更操作并不代表上游已确认；请直接恢复其已保存的操作记录，切勿重复发送请求。
+
+| HTTP 端点 | JavaScript SDK |
+| --- | --- |
+| `GET`, `POST /v1/media/groups` | `media.groups.list()`, `media.groups.create()` |
+| `GET`, `PATCH`, `DELETE /v1/media/groups/{id}` | `media.groups.retrieve()`, `.update()`, `.delete()` |
+| `POST /v1/media/groups/{id}/refresh` | `media.groups.refresh()` |
+| `GET`, `POST /v1/media/assets` | `media.assets.list()`, `media.assets.create()` |
+| `GET`, `PATCH`, `DELETE /v1/media/assets/{id}` | `media.assets.retrieve()`, `.update()`, `.delete()` |
+| `POST /v1/media/assets/{id}/refresh` | `media.assets.refresh()` |
+| `GET /v1/media/operations` | `media.operations.list()` |
+| `GET /v1/media/operations/{id}` | `media.operations.retrieve()` |
+| `GET /v1/media/operations/idempotency/{id}` | `media.operations.retrieveByIdempotency()` |
+| `POST /v1/media/operations/prepare` | `media.operations.prepare()` |
+| `POST /v1/media/operations/{id}/dispatch` | `media.operations.dispatch()` |
+| `POST /v1/media/operations/{id}/cancel` | `media.operations.cancel()` |
+
+### 将准备（Preparation）与调度（Dispatch）分离
+
+`media.operations.prepare(input, { idempotencyKey })` 会保存规范的操作记录，而不会向模型供应商发送请求。请保留确切的强类型输入和 UUID。执行调度（Dispatch）需要提供已确认的准备记录、其操作引用标识、完全相同的原始输入以及相同的幂等键。读取恢复出来的准备记录绝不会授权自动发起调度。操作历史中不会保留原始素材 URL，因此重新加载后的客户端无法凭空构造恢复负载。
+
+只有未被认领的准备记录才能被取消。未知或已确认的结果保持只读。`admin.cancelPreparedMediaOperation(scope, operationId, model)` 使用当前工作空间的写入（Write）权限，可以在原始推理密钥过期或被吊销后放弃已保存的准备记录。它不会恢复推理权限，也不会向供应商发送请求。在当前密钥有效时，依然可以通过 `media.operations.cancel()` 取消操作。
+
+使用 `admin.mediaOperationHistory(scope, { keyId, model })` 可以读取已保存的操作记录。即使原始密钥已过期或被吊销，只要具备当前工作空间的读取（Read）权限即可访问。该作用域涵盖了该确切密钥与模型下所有已保存的账户。传入 `contextGroupId` 可锁定某个已保存分组的不可变账户绑定。使用 `list`、`retrieve` 或 `retrieveByIdempotency` 不会刷新供应商状态，也不会恢复执行权限。
+
+操作准备、取消和历史读取均已具备当前输入 API、构建后 SDK 以及独立持久化验收。浏览器中的调度成功与响应丢失恢复仍需单独验收。
+
+### 将资产作为生成参考使用
+
+```ts
+// 仅当模型发现接口声明支持该参考类型、角色和控制参数时方可使用。
+const activeAsset = assets.data.find(asset => asset.status === 'active' && asset.kind === 'video');
+if (!activeAsset) throw new Error('An authorized active video asset is required');
+const referenceJob = await niu.video.generate({
+  model,
+  prompt: 'Continue the motion in the approved reference clip.',
+  references: [{ assetId: activeAsset.id, role: 'reference_video' }],
+  controls: { omni_reference_task_type: 'reference' },
+}, { idempotencyKey: crypto.randomUUID() });
+```
+
+此处的 `activeAsset` 是返回的且状态为 `active` 的 Niu 资产记录。在调度前，后端会再次检查作用域、确认状态、父分组、当前账户/模型、密钥授权以及策略。切勿传入上游资产 ID 或 `asset://` URI。普通 URL 参考使用 `{ kind, url, role }`；内联图像、可选的已审查/素材库参考及其限制条件各自保留独立的模型与授权契约。资产管理功能可用并不代表支持参考视频生成。在提交参考生成请求之前，请先检查所选模型允许的参考输入类型和控制参数。
+
+控制台的素材（Materials）页面会在显式选择的工作空间、API 密钥和模型上下文下恢复已保存的操作记录。**Check saved status**（检查已保存状态）仅读取保留的操作记录，不会重试变更操作，也不会确立素材就绪状态。处于已准备（prepared）和未知（unknown）状态的结果仍属未确认状态，会阻止新的素材/分组写入。若历史读取失败，界面会保留现有记录并显示明确错误。记录缺失绝不能证明请求未发送；在持久化记录生成之前若发生传输不确定性，离开页面后目前无法恢复。
+
+## 核验会话交接
+
+这是一个上游真人核验会话，而非本地人脸识别。普通的文本生成不需要此步骤。仅当您选择的上游工作流需要且调用方已获授权时，才创建核验会话。
+
+```ts
+const created = await niu.media.verification.create({
+  model,
+  subjectName: 'Your authorized subject name',
+}, { idempotencyKey: crypto.randomUUID() });
+const session = created.data;
+const handoff = await niu.media.verification.link(session.id, model);
+// 仅向获授权的用户展示 handoff.verification_url，并保持其私密性。
+// 用户完成核验后，发起一次显式观测刷新：
+const observed = await niu.media.verification.refresh(session.id, model);
+```
+
+元数据读取操作会省略私有的上游令牌和链接。链接获取端点采用 `no-store`/`no-referrer` 保护处理；已过期的会话在服务重启或加密密钥轮换后不会重新获得有效链接。本实现不会断言真人核验流程已成功完成，也不会断言账户已获得额外的权益。
+
+| HTTP 端点 | JavaScript SDK |
+| --- | --- |
+| `POST`, `GET /v1/media/verifications` | `media.verification.create()`, `.list()` |
+| `GET /v1/media/verifications/{id}` | `media.verification.retrieve()` |
+| `GET /v1/media/verifications/{id}/link` | `media.verification.link()` |
+| `POST /v1/media/verifications/{id}/refresh` | `media.verification.refresh()` |
+
+## 计费与诊断
+
+`jobs.observations()` 暴露了显式上报的用量数值和查询观测记录。`jobs.timings()` 暴露了可用的传输耗时观测记录。`jobs.billing()` 将预估费用、最大负债敞口、实际用量和客户扣费严格区分开来。缺失的价格、估算器或用量数值将保持未知状态，绝不等同于免费使用。当未配置有效的估算器时，即使允许所有者出资（owner-funded）的生成，`video.estimate()` 也会返回 501。系统不会根据文件时长或尺寸推断用量。使用个人 FastRouter 账户进行的测试尚未实际验证正向的客户定价视频结算。
+
+有关确切的请求与响应结构定义，请参阅[所有已实现的处理器模式（Schemas）](/docs/reference/handler-operations/)和[已发布的 OpenAPI JSON](/docs/openapi/handler-operations.json)。[有限视频验收矩阵](https://github.com/niu-io/niu/blob/main/docs/reference/video-integration-acceptance-matrix.md)和 [SDK 源码](https://github.com/niu-io/niu/tree/main/sdks/javascript)记录了完整的实现与验收细节。
+
+</div>

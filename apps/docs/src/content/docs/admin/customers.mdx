@@ -3,6 +3,8 @@ title: Set up a customer
 description: Create an independently funded customer company and hand off workspace access.
 ---
 
+<div data-lang="en">
+
 This guide is for the **installation administrator**. A customer developer starts
 with [Getting started](/docs/getting-started/) and does not need Provider credentials,
 merchant configuration or installation access.
@@ -69,3 +71,42 @@ Creating a company, owner or key does not prove funding, model availability or a
 successful request. The setup dialog links to the relevant checks; it does not
 certify them automatically. Mock payments simulate only payment: model calls can
 still incur real upstream costs, so keep the environment and API keys private.
+
+</div>
+
+<div data-lang="zh" data-title-zh="开通客户与工作空间">
+
+本指南面向**安装实例管理员**。客户开发者请直接从[快速入门](/docs/getting-started/)开始，无需模型供应商凭证、商户支付配置或安装实例管理权限。
+
+## 准备平台服务
+
+1. 在**管理后台 → 实例设置**（**Admin → Settings**）中配置平台结算币种，并在**管理后台 → 支付网关**（**Admin → Payment gateways**）中配置受支持的支付网关。在满足此先决条件前，工作空间功能将保持不可用。请参阅[支付配置](/docs/admin/payments/)。
+2. 在**管理后台 → 模型供应商**（**Admin → Providers**）中连接并验证拟提供的模型。仅保存 API 凭证并不代表该模型已可供客户调用。
+3. 在**管理后台 → 定价配置**（**Admin → Pricing**）中发布客户销售价格。请将上游采购价与平台毛利保留在管理后台中；它们不是面向客户的收费标准。
+4. 在交付访问权限前，请先为当前部署启用受支持的[成员登录方式](/docs/deployment/single-container/#enable-member-sign-in)。
+
+## 创建客户公司与工作空间
+
+打开**管理后台 → 客户管理 → 新建客户**（**Admin → Customers → New customer**），输入公司名称并创建。该公司将使用已配置的平台结算币种，初始状态下没有资金或已批准的授信额度。独立的公司拥有各自独立的资金账户；而在现有公司下新增工作空间则会共享该公司的资金池。
+
+创建完成后会自动打开配置向导对话框。创建客户的工作空间，核对系统建议的 **slug**（可读路径标识）并保存。中文名称会自动生成拼音建议。您可以在保存前编辑该 slug；后续修改显示名称不会覆盖您已编辑过的 slug。
+
+您可以随时点击客户行上的**配置**（**Set up**）继续完成已保存的步骤。如果创建结果尚未确认，请重试同一笔已保存的请求或重新加载已保存的配置，切勿仅仅因为丢失了响应就重复创建另一个客户。
+
+## 为公司所有者开通访问权限
+
+在配置对话框中创建公司所有者（owner）。该所有者可管理该公司下的成员及所有工作空间（包括共享资金），但不会获得安装实例管理权限或访问其他客户公司的权限。
+
+为该所有者配置受支持的密码登录凭证，并通过安全渠道交付登录地址与凭证。Niu 不会自动发送邀请邮件。已有配置会显示已保存的邮箱；**重置密码**（**Reset password**）是一项显式操作，会使该所有者现有的登录会话全部下线。如果保存结果未确认，请先重新加载已保存的配置，再决定是否设置新密码。
+
+请让所有者使用普通的 `/login` 页面登录，并确认能看到预期的公司与工作空间。切勿向客户交付安装实例管理员凭证。
+
+## 验证首次有效请求
+
+所有者应通过**设置 → 额度与充值**（**Settings → Credits**）查看可用额度与受支持的充值方式。请通过已保存的资金入账记录核实充值结果；仅从结账页面跳转返回并不能证明付款已结算。安装实例管理员可在**管理后台 → 账户余额**（**Admin → Account balances**）中核查客户资金。已批准的授信额度与非现金赠金独立于已核实的付款。
+
+请让所有者或经授权的工作空间成员打开**模型**（**Models**），选择一个可用的文本模型，并创建一个包含预期模型授权与限额的工作空间 API 密钥。按照面向客户的[快速入门](/docs/getting-started/)指南发起请求。随后在**请求日志**（**Logs**）中检查执行结果，并在**活动**（**Activity**）中查看客户费用。缺失用量或尚未结算的费用不代表零成本；对于状态不确定的请求，应在再次提交前先行排查。
+
+创建公司、所有者或密钥本身并不证明资金已到位、模型已可用或请求已成功。配置对话框会提供相关检查项的跳转链接，但不会自动替您完成验收。模拟支付（Mock payments）仅模拟支付环节：模型调用仍可能产生真实的上游费用，因此请务必保持环境与 API 密钥私密。
+
+</div>

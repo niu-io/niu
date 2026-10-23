@@ -3,6 +3,8 @@ title: Provider administration
 description: Connect upstream credentials and manage customer model routes.
 ---
 
+<div data-lang="en">
+
 A **Provider** supplies model access through an upstream API service. One Provider can have multiple API credentials, each with its own adapter, endpoint, enabled state and model mappings. Its offers, agreed purchase rates, portal access and settlements belong to the same Provider.
 
 ## Before you connect
@@ -32,3 +34,39 @@ For commercial supply, qualify service rights, model behavior, data handling, av
 For a supported video adapter, configure the concrete model and its supported capabilities before exposing it to users. Materials, reference assets and verification are separate scoped workflows; a saved credential does not enable every upstream video operation. Follow the [video guide](/docs/reference/video/) for supported jobs, result handling and current boundaries.
 
 The [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niuadminclient/) contain the exact Provider-management interfaces.
+
+</div>
+
+<div data-lang="zh" data-title-zh="模型供应商管理">
+
+**模型供应商**（**Provider**）通过上游 API 服务提供模型访问能力。一个模型供应商可以配置多个 API 凭证，每个凭证都可以拥有各自独立的适配器、端点、启用状态和模型映射。其供应报价（offers）、约定采购费率、门户访问权限及结算记录均归属于同一个模型供应商。
+
+## 连接前的准备
+
+在保存任何凭证之前，请先在部署环境的机密存储中设置 `NIU_VENDOR_ENCRYPTION_KEY`，并将其与 PostgreSQL 分开备份。API 读取操作绝不会返回已保存的密钥明文；如果在未重新加密现有数据的情况下更改加密密钥，已保存的凭证将无法读取。请参阅[凭证保护](/docs/security/overview/)。
+
+## 连接模型供应
+
+1. 打开**管理 → 模型供应商**（**Admin → Providers**），创建或选择一个模型供应商。
+2. 打开其 **API 密钥与路由**（**API keys & routes**）部分。使用适用于该上游服务的适配器和端点添加一条凭证。
+3. 配置该凭证所暴露的上游模型，以及您计划对客户提供的模型别名。请仅勾选实际模型和适配器确实支持的能力。
+4. 执行连接检查并查看检查结果。保存凭证或在目录中看到某个模型，并不代表模型生成调用一定能够成功。
+5. 启用预期的模型映射，将该模型授权给工作空间密钥，并发起一次有界的[测试请求](/docs/guides/api-quickstart/)。
+
+请使用配置界面中提供的已启用模型供应商适配器。切勿仅凭模型供应商名称就推断其支持原生协议、视频生成或工具调用。[模型路由](/docs/configuration/models/)详细说明了模型别名、静态配置、托管路由优先级以及能力声明。
+
+## 管理模型供应商生命周期
+
+模型供应商管理页面包含**概览**（**Overview**）、**API 密钥与路由**（**API keys & routes**）、**模型与定价**（**Models & pricing**）、**用量**（**Usage**）、**结算**（**Settlements**）、**门户访问**（**Portal access**）和**设置**（**Settings**）等部分。请将凭证轮换和启用状态变更限制在所选凭证的范围内；这些操作不应替换模型供应商本身的身份或影响无关的模型映射。
+
+请将面向客户的销售价格与模型供应商报价严格分开。采购费率、上游支出和平台利润属于授权平台管理范畴；面向客户的报告仅展示客户费用。供应商门户的访问权限仅限于该模型供应商自身获批查看的记录。
+
+对于商业化模型供应，在发布供应报价之前，请先对服务权益、模型行为、数据处理、可用性以及约定费率完成资质审核。用于测试的个人上游凭证不构成合格的商业供应协议。
+
+## 视频路由
+
+对于受支持的视频适配器，在向用户开放之前，请先配置具体的模型及其受支持的能力。素材、参考资产与资质验证属于各自独立的作用域工作流；保存一条凭证并不会自动启用上游的所有视频操作。有关受支持的任务类型、结果处理及当前能力边界，请遵循[视频指南](/docs/reference/video/)。
+
+[REST 规范](/docs/api/rest/)与 [NiuAdminClient](/docs/api/sdk/niuadminclient/) 提供了确切的模型供应商管理接口定义。
+
+</div>

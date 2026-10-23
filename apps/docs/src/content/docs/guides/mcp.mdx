@@ -3,6 +3,8 @@ title: Coding agents
 description: Connect a coding agent to Niu with a workspace API key and the local MCP server.
 ---
 
+<div data-lang="en">
+
 A coding agent (such as Claude Code, Cursor, Windsurf, Zed, or Codex) can connect to Niu through `@niu-io/mcp` (`niu-mcp`), a local stdio Model Context Protocol (MCP) server. Using a workspace API key, the agent can inspect key limits and remaining spending allowance, discover models and protocol capabilities, run multi-protocol inference or parallel multi-model comparisons, inspect per-generation token breakdowns and customer charges, and execute end-to-end video and media asset workflows.
 
 Each model call is a normal Niu request and uses the exact model the agent specifies. The server never guesses or substitutes another model, does not sign in to the dashboard, and never exposes Provider purchase costs or platform margins.
@@ -112,3 +114,119 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 
 - **Resources (`resources/list` & `resources/read`)**: `niu://key`, `niu://models`, `niu://catalog/models`, `niu://video/models`, `niu://media/capabilities`, `niu://branding`, plus dynamic templates `niu://generations/{id}` and `niu://video/jobs/{id}`.
 - **Prompts (`prompts/list` & `prompts/get`)**: `consult_model`, `compare_models`, `check_key_budget`, and `generate_video_workflow`.
+
+</div>
+
+<div data-lang="zh" data-title-zh="编程智能体">
+
+编程智能体（如 Claude Code、Cursor、Windsurf、Zed 或 Codex）可以通过本地标准输入输出（stdio）模型上下文协议（MCP）服务器 `@niu-io/mcp`（`niu-mcp`）连接到 Niu。借助工作空间 API 密钥，智能体可以检查密钥限额与剩余可用额度、发现模型及协议能力、运行多协议推理或并行多模型对比、查看单次生成的 Token 细分与客户账单费用，以及执行端到端的视频与媒体素材工作流。
+
+每次模型调用都是一次标准的 Niu 请求，并严格使用智能体显式指定的模型。服务器绝不会猜测或替换为其他模型，不会登录控制台，也绝不会暴露模型供应商采购成本或平台利润率。
+
+## 安装已发布的服务器
+
+使用 npm 安装构建好的 MCP 软件包。连接托管服务时，无需检出 Niu 源码或运行本地网关。以下命令固定安装来自 [Niu v0.2.14](https://github.com/niu-io/niu/releases/tag/v0.2.14) 的软件包产物：
+
+```sh
+npm install --global https://github.com/niu-io/niu/releases/download/v0.2.14/niu-io-mcp-0.1.0.tgz
+```
+
+在智能体的 MCP 配置中将命令设置为 `niu-mcp`。它可以从你的应用程序工作区直接启动。如果编辑器未继承你终端 Shell 的 `PATH`，请将该命令替换为 `command -v niu-mcp` 返回的可执行文件绝对路径；JSON 配置文件不会展开 Shell 变量或 `~`。请勿使用相对于 Niu 代码仓库的相对路径。
+
+## 托管版 Niu
+
+在控制台中创建一个工作空间 API 密钥，并仅通过智能体的环境变量传入。已安装软件包的 `--hosted` 配置会将网关地址固定为 `https://niu.io/v1`。请勿将客户密钥硬编码到软件包、共享配置文件或部署镜像中。
+
+```json
+{
+  "mcpServers": {
+    "niu": {
+      "command": "niu-mcp",
+      "args": ["--hosted"],
+      "env": {
+        "NIU_API_KEY": "your-workspace-api-key",
+        "NIU_LOG_PAYLOADS": "false"
+      }
+    }
+  }
+}
+```
+
+`--hosted` 会拒绝使用其他 `NIU_BASE_URL`。`niu.io` 部署环境发布了该固定源站，且不会在包内存储客户密钥。
+
+## 自托管或本地网关
+
+省略 `--hosted`，并将 `NIU_BASE_URL` 设置为对应网关的 `/v1` 地址：
+
+```json
+{
+  "mcpServers": {
+    "niu": {
+      "command": "niu-mcp",
+      "args": [],
+      "env": {
+        "NIU_API_KEY": "your-workspace-api-key",
+        "NIU_BASE_URL": "http://127.0.0.1:2555/v1"
+      }
+    }
+  }
+}
+```
+
+### 从源码构建
+
+如需进行 MCP 开发，请在 Niu 代码检出根目录下安装依赖并构建服务器：
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --dir sdks/mcp build
+```
+
+将 `command` 设置为 `node`，将代码检出目录中 `sdks/mcp/bin/niu-mcp.mjs` 的**绝对路径**作为第一个参数，并在需要时于其后添加 `--hosted`。这样智能体即可在任何其他工作区运行，而无需依赖当前工作目录。
+
+### 环境变量选项
+
+- `NIU_API_KEY`（必填）：工作空间 API 密钥（或当同时设置了 `NIU_KEY_ID` 时的控制台会话令牌）。
+- `NIU_BASE_URL`（未使用 `--hosted` 时必填）：网关 `/v1` 基础 URL。
+- `NIU_KEY_ID`（可选）：作为 `X-Niu-Key-Id` 发送的工作空间密钥标准 UUID。
+- `NIU_CREDENTIAL_HEADER`（可选）：`authorization`（默认）或 `x-niu-api-key`。
+- `NIU_LOG_PAYLOADS`（可选）：设为 `false` 可默认退出 24 小时请求/响应载荷采集（即发送 `x-niu-log-payloads: false`），或设为 `true`。单次工具调用也可以单独传入 `log_payloads`。
+- `NIU_TASK_ID`（可选）：默认的 `X-Niu-Task-ID` 关联标签（1–200 个可打印 ASCII 字符），用于在工作空间活动记录中对智能体请求进行分组。
+
+## 工具列表（Tools）
+
+### 密钥自省、模型发现与遥测
+- `inspect_key` — 读取 `GET /v1/key`，获取密钥标签、`allowed_models`（允许的模型）、`expires_at_ms`（Unix 毫秒时间戳；`null` 表示不会自动过期）、`spending_limits`（消费限额，含 `remaining_nanos` 剩余额度）、`rate_limits`（速率限制：`requests_per_minute`、`tokens_per_minute`、`max_concurrent_requests`、`active_requests`）、60 秒 `usage_window`（用量窗口：`requests`、`known_usage_requests`、`unknown_usage_requests`、`known_prompt_tokens`、`known_completion_tokens`）以及 `allowed_cidrs`。
+- `list_models` — 读取 `GET /v1/models`，获取当前可访问的模型及已发布的 `customer_pricing`（客户定价），支持可选的 `search` 和 `priced_only` 过滤条件。
+- `list_catalog_models` — 读取 `GET /catalog/v1/models`，获取公开模型目录元数据与协议 `capabilities`（`chat_completions`、`streaming`、`embeddings`、`messages`、`messages_streaming`、`generate_content`、`responses`），支持可选的 `search` 和 `capability` 过滤条件。
+- `get_generation` — 使用推理调用返回的 `attempt_id` 读取 `GET /v1/generations/{id}`，查看 Token 细分（缓存命中输入、缓存写入、推理思考输出）、各阶段延迟耗时、`output_guardrail_outcome`（输出护栏结果）以及已结算的 `customer_charge`（客户费用）。
+
+### 多协议推理与多模型对比
+- `create_chat_completion` — 调用 `POST /v1/chat/completions`，传入 `model` 和 `messages`，并支持可选的采样参数（`temperature`、`top_p`、`max_tokens`、`max_completion_tokens`、`stop`、`seed`）、结构化输出（`response_format`）、推理控制（`reasoning` / `reasoning_effort`）、客户端函数工具（`tools` / `tool_choice`）、`log_payloads` 以及 `task_id`。返回 `choices`、`usage` 和 `attempt_id`。
+- `compare_models` — 将相同的对话消息并发发送给 1–5 个显式指定的 `models`，并排返回每个模型的补全结果、`duration_ms`、`usage` 和 `attempt_id`。
+- `create_response` — 调用 `POST /v1/responses`（`model`、`input`，以及可选的 `instructions`、`max_output_tokens`、`temperature`、`top_p`、`metadata`、`user`）并提取 `output_text`。
+- `create_message` — 调用 `POST /v1/messages`（`model`、`max_tokens`、`messages`，以及可选的 `system`、`temperature`、`top_p`、`stop_sequences`、`tools`、`tool_choice`）。
+- `generate_content` — 调用 `POST /v1beta/models/{model}:generateContent`（`model`、`contents`、`generationConfig`，以及可选的 `systemInstruction`）。
+- `create_embeddings` — 调用 `POST /v1/embeddings`（`model`、`input`，以及可选的 `encoding_format`、`dimensions`、`user`）。
+
+### 视频生成与生命周期管理
+- `list_video_models` — 读取 `GET /v1/video/models`，获取已配置的视频模型、输入边界、控制参数模式（schema）、输出尺寸及计费维度（`video_tokens` 或 `seconds`）。
+- `estimate_video` — 调用 `POST /v1/video/estimate`，在提交任务前预估输出尺寸、计量数量与客户费用。
+- `create_video_job` — 调用 `POST /v1/video/jobs`，支持使用直观的领域字段（`prompt`、`references`、`duration_seconds`、`resolution`、`aspect_ratio`、`seed`、`watermark`、`camera_fixed`、`return_last_frame`、`frames_per_second`、`controls`）或原始 `content`，并支持可选的 `idempotency_key` 与 `wait: true`。
+- `list_video_jobs`、`get_video_job`、`refresh_video_job`、`wait_for_video_job` — 列出、查看、刷新或安全轮询视频任务直至完成。
+- `get_video_job_billing` 与 `get_video_job_diagnostics` — 查看客户视频账单明细（`reserved_nanos`、`charge_nanos`、`settled_usage`）、网关传输阶段耗时以及上游查询观测记录。
+- `get_video_job_results`、`download_video_result`、`delete_video_results` — 检查生成结果可用性，将生成的 `video`（`mp4`/`webm`）或 `last_frame`（尾帧，`png`/`jpeg`）保存到本地 `output_path`（`last_frame` 可选支持内联返回 MCP 图像），或删除已保存的结果引用。
+
+### 原生媒体素材、真人核验与图像摄取
+- `list_media_capabilities` — 读取 `GET /v1/media/capabilities`。
+- `media_asset_groups` 与 `media_assets` — 管理工作空间的模型供应商素材组与媒体素材（`list`、`create`、`get`、`update`/`rename`、`delete`、`refresh`）。
+- `media_asset_operations` — 列出、查看、准备、分发或取消持久化的模型供应商素材操作（`list`、`get`、`get_by_idempotency`、`prepare`、`dispatch`、`cancel`）。
+- `media_verification_sessions` — 管理真人核验会话（`list`、`create`、`get`、`refresh`、`link`）。
+- `media_image_ingestions` — 管理内联图像源与经授权的图像摄取流程（`prepare_source`、`erase_source`、`list`、`prepare_consent`、`get_consent`、`revoke_consent`、`dispatch`、`get_readiness`、`refresh_readiness`）。
+
+## 资源与提示词模板（Resources & Prompts）
+
+- **资源（`resources/list` 与 `resources/read`）**：`niu://key`、`niu://models`、`niu://catalog/models`、`niu://video/models`、`niu://media/capabilities`、`niu://branding`，以及动态模板 `niu://generations/{id}` 和 `niu://video/jobs/{id}`。
+- **提示词模板（`prompts/list` 与 `prompts/get`）**：`consult_model`、`compare_models`、`check_key_budget` 和 `generate_video_workflow`。
+
+</div>

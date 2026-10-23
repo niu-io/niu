@@ -3,6 +3,8 @@ title: Request lifecycle
 description: Follow authorization, upstream execution, delivery and accounting.
 ---
 
+<div data-lang="en">
+
 A request passes through gateway access checks before it reaches a configured upstream model. Niu's records distinguish upstream execution, client delivery and financial settlement.
 
 ## Before dispatch
@@ -22,3 +24,29 @@ Niu's currently qualified pool failover is bounded; the [routing guide](/docs/co
 [Request logs](/docs/concepts/execution-observation/) retain available status, timing and reported usage. [Customer billing](/docs/concepts/performance-and-cost/) uses the applicable customer-price evidence. Missing or uncertain usage and liabilities remain explicit instead of being discarded after a disconnect or restart.
 
 Video jobs have an asynchronous lifecycle: submission, status, available results and settlement are separate observations. See [video generation](/docs/reference/video/) for supported operations and result retention.
+
+</div>
+
+<div data-lang="zh" data-title-zh="请求生命周期">
+
+请求在到达已配置的上游模型之前，会先经过网关访问检查。Niu 的记录严格区分上游执行、客户端交付与财务结算。
+
+## 分发前
+
+网关会检查工作空间密钥、模型授权、已启用的路由以及适用限额。已配置的策略会在其受支持的边界处生效。对于受支持的计费请求，准入控制会在分发前预留相应的客户可用支出额度。
+
+请在您的应用程序中保持使用公开模型别名。供应商端点和凭证保留在经过授权的服务端配置中；客户端无法自行选择任意上游凭证。
+
+## 执行期间
+
+每一次选定的上游尝试都有其独立的记录归属。流式响应可以在最终用量确定之前先传输临时内容。重试请求可能会产生另一次上游执行，因此重试必须遵循明确的策略规范，而不能假设超时就代表上游没有发生任何执行。
+
+Niu 当前已验证的路由池故障转移是有明确边界的；[路由指南](/docs/configuration/models/)与[重试策略](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md)说明了受支持的场景。请勿仅凭单个正常工作的适配器就推断存在通用的故障恢复能力或模型覆盖范围。
+
+## 响应后
+
+[请求日志](/docs/concepts/execution-observation/)会保留可用的状态、耗时与报告的用量。[客户计费](/docs/concepts/performance-and-cost/)则使用适用的客户价格依据。缺失或不确定的用量与应付责任会保持明确标记，而不会在连接断开或服务重启后被丢弃。
+
+视频任务具有异步生命周期：提交、状态查询、可用结果与费用结算是彼此独立的观测阶段。有关受支持的操作与结果保留策略，请参阅[视频生成](/docs/reference/video/)。
+
+</div>

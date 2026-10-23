@@ -3,6 +3,8 @@ title: Request logs
 description: Inspect model requests, customer charges, timing, and retained content.
 ---
 
+<div data-lang="en">
+
 ## Find a request
 
 Open **Workspace → Logs**, or use **Activity → Logs** on the global rail to browse requests across authorized workspaces. Model calls sent through Niu appear automatically,
@@ -54,3 +56,43 @@ Niu does not accept external model-call logs, agent tool traces, or imported
 agent usage. Use the application orchestrating the agent for full execution
 observability. Gateway timing, errors, token usage, and customer charges remain
 available for requests that pass through Niu.
+
+</div>
+
+<div data-lang="zh" data-title-zh="请求日志">
+
+## 查找请求
+
+打开**工作空间 → 日志**（**Workspace → Logs**），或使用全局导航栏上的**活动 → 日志**（**Activity → Logs**）浏览已授权工作空间中的请求。通过 Niu 发送的模型调用会自动显示，即使未提供任务元数据也是如此。
+
+您可以按模型、API 密钥、执行状态、HTTP 状态或日期进行筛选。选择任意行即可打开其详情面板。**上一条请求**（**Previous request**）和**下一条请求**（**Next request**）可在保留当前筛选条件的同时浏览已加载的列表。
+
+## 请求详情
+
+详情面板包含以下内容：
+
+- **用量与费用：**报告的输入与输出 Token、缓存与推理子集、延迟以及客户费用。不可用的值会保持为未知状态。
+- **请求耗时：**记录了相关阶段时的准备时间、首字节等待时间以及输出传输时间。
+- **概览：**供应商模型、执行与传输状态、结束原因、请求时间以及 API 密钥名称。
+- **消息：**保留的请求与响应内容。
+- **原始数据：**保留的协议载荷。
+
+在滚动浏览内容时，面板顶部与请求导航控件会始终保持可见。
+
+## 保留内容
+
+请求与响应载荷**默认保留 24 小时**。若要对新的对话（Chat）请求停用捕获，请打开输入框的**对话设置**（**Chat settings**）并关闭**在日志中保存载荷**（**Save payloads in Logs**）。API 客户端可以为单次请求发送 `x-niu-log-payloads: false`。停用捕获不会删除之前已保存的内容。
+
+请求元数据与载荷采用各自独立的保留策略。详情面板会显示内容过期时间，并标识不完整或被截断的响应。如果内容未被保留或已过期，请求元数据仍然可查。
+
+## API 与任务关联
+
+有关请求 API 和可选的任务关联请求头，请参阅[自动网关活动](/docs/reference/api/#automatic-gateway-activity-and-task-correlation)。
+
+## 产品范围与任务关联
+
+“活动”与“日志”涵盖由 Niu 处理的模型请求。客户端可以附加任务元数据，以在同一工作空间内关联多个请求。此类视图仅代表由 Niu 记录的请求，而非完整的智能体（Agent）执行过程。
+
+Niu 不接受外部模型调用日志、智能体工具调用追踪或导入的智能体用量。如需完整的执行可观测性，请使用编排该智能体的应用程序。对于经过 Niu 的请求，网关耗时、错误、Token 用量及客户费用始终可供查询。
+
+</div>

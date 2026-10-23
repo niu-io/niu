@@ -7,10 +7,17 @@ import { documentationSection } from '../navigation';
 import navigation from '../../../../branding/public-navigation.json';
 const section = documentationSection(Astro.url.pathname);
 const links = navigation;
+const navZh: Record<string, string> = {
+  'Why Niu?': '为什么选择牛元？',
+  Docs: '文档',
+  API: 'API',
+  SDK: 'SDK',
+  Compare: '对比',
+};
 ---
 <div class="docs-header">
-  <a class="docs-brand" href="/" aria-label="Niu home"><img src={brandMark.src} alt="" width="28" height="28" /><span class="docs-public-name">Niu</span> <span class="docs-embedded-name">Niu Documentation</span></a>
-  <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={section === label ? 'page' : undefined}>{label}</a>)}</nav>
+  <a class="docs-brand" href="/" aria-label="Niu home"><img src={brandMark.src} alt="" width="28" height="28" /><span class="docs-public-name" data-i18n-en="Niu" data-i18n-zh="Niu 牛元">Niu</span> <span class="docs-embedded-name" data-i18n-en="Niu Documentation" data-i18n-zh="Niu 牛元文档">Niu Documentation</span></a>
+  <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={section === label ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}>{label}</a>)}</nav>
   <div class="public-session"><SessionLink client:load /></div>
   <div class="docs-header-tools">
     <!-- Starlight initializes search on DOMContentLoaded. Keep that instance
@@ -21,6 +28,21 @@ const links = navigation;
 </div>
 <script>
   import type { TransitionBeforeSwapEvent } from 'astro:transitions/client';
+
+  function applyHeaderLocale() {
+    const isZh = document.documentElement.dataset.locale === 'zh-CN';
+    document.querySelectorAll<HTMLElement>('.docs-header [data-i18n-en][data-i18n-zh]').forEach(el => {
+      const text = isZh ? el.dataset.i18nZh : el.dataset.i18nEn;
+      if (text) el.textContent = text;
+    });
+  }
+
+  applyHeaderLocale();
+  window.addEventListener('niu:locale', applyHeaderLocale);
+  window.addEventListener('niu-locale-change', applyHeaderLocale);
+  window.addEventListener('storage', applyHeaderLocale);
+  document.addEventListener('astro:after-swap', applyHeaderLocale);
+  document.addEventListener('astro:page-load', applyHeaderLocale);
 
   document.addEventListener('astro:before-swap', (event: TransitionBeforeSwapEvent) => {
     // Astro inserts the incoming tree before moving persisted elements. Do not

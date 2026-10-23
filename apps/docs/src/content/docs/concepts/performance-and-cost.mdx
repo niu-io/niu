@@ -3,6 +3,8 @@ title: Usage and billing
 description: Understand reported model usage, customer charges and spending limits.
 ---
 
+<div data-lang="en">
+
 Niu records requests handled by your gateway. Use request logs and usage reports to see which models, workspace keys and periods account for consumption. A token count is usage evidence; it is not a price by itself.
 
 ## Read a customer charge
@@ -30,3 +32,37 @@ Customer Billing and Payments show customer balances, charges and transactions. 
 Video metering and pricing use the supported model's declared units and schedule, rather than assuming text-token prices. A successful job, retained output availability and a settled charge are separate states. Follow the [video guide](/docs/reference/video/) and its model-specific limits.
 
 For operating measurements rather than application billing, see [gateway load testing](/docs/guides/gateway-load-testing/).
+
+</div>
+
+<div data-lang="zh" data-title-zh="用量与计费">
+
+Niu 会记录由您的网关处理的请求。通过请求日志和用量报告，您可以查看哪些模型、工作空间密钥及时间段产生了消耗。Token 数量只是用量依据，其本身并非价格。
+
+## 解读客户费用
+
+计费请求使用当前生效的客户价目表以及该请求所报告的用量类别。客户价格与保密的供应商采购费率及平台利润相互独立。后续的价目表变更绝不会改写历史请求的价格记录。
+
+如果用量或费用无法确定，它会保持为未决状态。未知金额不等于零，也不意味着免费推理。响应失败或客户端断开连接本身并不能证明上游请求从未运行。
+
+请查阅[请求日志](/docs/concepts/execution-observation/)以获取可用的状态、耗时、Token 及客户费用依据。高消耗是值得排查的信号，但本身并不能证明存在不必要的工作或反事实的节省空间。
+
+## 了解支出控制
+
+| 层级 | 含义 |
+| --- | --- |
+| 公司资金与已批准授信额度 | 共享的客户可用支出能力 |
+| 工作空间限额 | 限制单个工作空间内的适用消耗 |
+| API 密钥限额 | 限制归属于某个应用密钥的消耗 |
+
+对于受支持的计费请求，未决的额度预留会与已确认的扣费一并计入限额。轮换密钥不会静默重置其预算身份。个人上游密钥的使用与客户资金相互独立；具体适用哪些控制规则由相应契约定义。
+
+客户的“计费”与“支付”页面会展示客户余额、费用和交易记录。管理员负责配置[客户价目表](/docs/admin/pricing/)与[支付集成](/docs/admin/payments/)。已配置的支付网关或结账返回页面本身并不能作为资金已到账的凭证。
+
+## 视频与媒体用量
+
+视频计量与定价使用受支持模型所声明的单位与价目表，而非直接套用文本 Token 价格。任务成功完成、保留输出的可用性以及费用已结算属于彼此独立的状态。请遵循[视频指南](/docs/reference/video/)及其针对具体模型的限制说明。
+
+如果您关注的是运行性能测量而非应用计费，请参阅[网关负载测试](/docs/guides/gateway-load-testing/)。
+
+</div>

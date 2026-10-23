@@ -3,6 +3,8 @@ title: Local development
 description: Run and build Niu from source.
 ---
 
+<div data-lang="en">
+
 ## Requirements
 
 - Rust 1.98.0 for the current selected native runtime modules.
@@ -46,3 +48,44 @@ Frontend changes use Vite hot reload; successful Rust rebuilds restart the
 backend. Development starts with an empty model registry: add a Provider before
 testing inference. The launcher preserves the local database between restarts.
 
+</div>
+
+<div data-lang="zh" data-title-zh="本地开发">
+
+## 环境要求
+
+- Rust 1.98.0（用于编译当前选定的原生运行时模块）。
+- Node.js 24 或更高版本以及 pnpm 11（用于控制台与文档前端工作区）。
+- PostgreSQL 17（用于持久化状态存储）。
+- 若需测试真实推理请求，需准备已配置的模型供应商凭证及可用的模型路由。
+
+## 从源码构建
+
+在代码仓库根目录下，安装 JavaScript 工作区依赖并构建控制台、文档与模型目录：
+
+```sh
+pnpm install
+pnpm build:dashboard
+pnpm build:docs
+pnpm build:catalog
+```
+
+使用以下命令检查 Rust 工作区：
+
+```sh
+cargo check --workspace
+```
+
+有关容器化配置和初始管理员设置，请参阅[部署指南](/docs/deployment/single-container/)。
+
+## 在本地运行
+
+在代码仓库根目录下运行：
+
+```sh
+pnpm dev
+```
+
+打开 `http://127.0.0.1:2566/workspaces/default/`。启动器会打印本地登录用户名及其私有密码文件的位置。你也可以在根目录被 Git 忽略的 `.env` 文件中配置 `NIU_DEV_USERNAME` 和 `NIU_DEV_PASSWORD`。前端代码修改支持 Vite 热重载；Rust 代码重新编译成功后会自动重启后端服务。开发环境启动时模型注册表为空：在测试推理之前，请先添加一个模型供应商。启动器会在多次重启之间保留本地数据库数据。
+
+</div>

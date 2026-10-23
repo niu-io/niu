@@ -1,16 +1,19 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { useLocale } from '../../app/locale';
 
 const ApiReference = lazy(() => import('./ApiReference'));
 
 export default function HelpPage() {
+  const { t } = useLocale();
   const { pathname } = useLocation();
   return /^\/help\/api(?:\/rest)?\/?$/.test(pathname)
-    ? <Suspense fallback={<p role="status" className="p-6 text-muted-foreground">Loading API reference…</p>}><ApiReference /></Suspense>
+    ? <Suspense fallback={<p role="status" className="p-6 text-muted-foreground">{t('Loading API reference…', '正在加载 API 参考…')}</p>}><ApiReference /></Suspense>
     : <DocumentationPage />;
 }
 
 function DocumentationPage() {
+  const { locale } = useLocale();
   const location = useLocation();
   const navigate = useNavigate();
   const frame = useRef<HTMLIFrameElement>(null);
@@ -32,6 +35,15 @@ function DocumentationPage() {
       // The frame can be between document loads; its next location change will sync it.
     }
   }, [framePath]);
+  useEffect(() => {
+    const contentWindow = frame.current?.contentWindow;
+    if (!contentWindow) return;
+    try {
+      contentWindow.postMessage({ type: 'niu-docs-locale', locale }, window.location.origin);
+    } catch {
+      // Ignore while iframe is loading.
+    }
+  }, [locale]);
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;

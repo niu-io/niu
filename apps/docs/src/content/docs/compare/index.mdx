@@ -4,9 +4,11 @@ description: Compare Niu, New API, and OpenRouter by deployment, model access, o
 prev: false
 ---
 
-Three ways to connect applications to model APIs. Niu and New API are gateways you can operate yourself. OpenRouter provides hosted model access. The right choice depends on the models you need and who should operate the service.
-
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
+
+<div data-lang="en">
+
+Three ways to connect applications to model APIs. Niu and New API are gateways you can operate yourself. OpenRouter provides hosted model access. The right choice depends on the models you need and who should operate the service.
 
 <Table className="comparison-table">
   <TableCaption>Product documentation reviewed October 13, 2026. This is a scope comparison, not a benchmark.</TableCaption>
@@ -52,3 +54,56 @@ No gateway makes every model cheaper or interchangeable. Compare the actual mode
 - [Niu API reference](/docs/reference/api/) and [deployment](/docs/deployment/single-container/).
 - [New API project and capabilities](https://github.com/QuantumNous/new-api) and [official documentation](https://docs.newapi.pro/en).
 - [OpenRouter Quickstart](https://openrouter.ai/docs/quickstart) and [Provider routing](https://openrouter.ai/docs/guides/routing/provider-selection).
+
+</div>
+
+<div data-lang="zh" data-title-zh="对比 AI 网关">
+
+将应用程序连接到模型 API 有三种常见方式。Niu 和 New API 是您可以自行部署运维的网关；OpenRouter 提供托管的模型访问服务。如何选择取决于您需要的模型以及由谁来运维服务。
+
+<Table className="comparison-table">
+  <TableCaption>产品文档审阅于 2026 年 10 月 13 日。本表为能力范围对比，而非性能基准测试。</TableCaption>
+  <TableHeader><TableRow><TableHead>能力维度</TableHead><TableHead>Niu</TableHead><TableHead>New API</TableHead><TableHead>OpenRouter</TableHead></TableRow></TableHeader>
+  <TableBody>
+    <TableRow><TableCell data-label="功能特性">部署方式</TableCell><TableCell data-label="Niu">搭配 PostgreSQL 的自托管公开网关</TableCell><TableCell data-label="New API">自托管网关与 Web 控制台</TableCell><TableCell data-label="OpenRouter">托管 API 服务</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">模型访问</TableCell><TableCell data-label="Niu">已配置的供应商凭据与模型映射</TableCell><TableCell data-label="New API">已配置的上游渠道与模型</TableCell><TableCell data-label="OpenRouter">托管模型目录与供应商选择</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">应用集成</TableCell><TableCell data-label="Niu">兼容 OpenAI 的路由；原生协议具有明确的作用域边界</TableCell><TableCell data-label="New API">兼容 OpenAI、Claude 和 Gemini 格式</TableCell><TableCell data-label="OpenRouter">统一 API 与客户端 SDK</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">访问与用量</TableCell><TableCell data-label="Niu">工作空间密钥、请求日志、用量与客户计费契约</TableCell><TableCell data-label="New API">令牌管理、用量与成本核算</TableCell><TableCell data-label="OpenRouter">API 密钥、活动记录与托管账户用量</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">运维职责</TableCell><TableCell data-label="Niu">由您管理部署、存储、模型供应商和客户价目表</TableCell><TableCell data-label="New API">由您管理实例和上游渠道</TableCell><TableCell data-label="OpenRouter">OpenRouter 运维网关；由您配置账户和路由偏好</TableCell></TableRow>
+    <TableRow><TableCell data-label="功能特性">需核实的范围</TableCell><TableCell data-label="Niu">积极开发中；请阅读各路由的验收限制</TableCell><TableCell data-label="New API">核实所选版本、渠道与集成方式</TableCell><TableCell data-label="OpenRouter">核实模型可用性以及各供应商的参数和策略</TableCell></TableRow>
+  </TableBody>
+</Table>
+
+## 性能基准测试
+
+[已发布的 Niu / New API / LiteLLM Proxy 基准测试](/docs/guides/gateway-benchmarks/)涵盖了吞吐量与长尾延迟、原生 Anthropic 请求、SSE 流式传输、模拟多轮编码会话以及内存占用。该测试记录了 Niu v0.2.4、New API 45fbb14 和 LiteLLM Proxy v1.104.0 在搭载 PostgreSQL 17.11 与确定性零延迟模拟上游的 Apple M4 环境下的表现。测试未包含 OpenRouter。
+
+这些历史合成测量数据尚未针对当前版本进行重新验证，不代表当前的端到端性能或生产容量。请结合测试结果一并阅读[配置说明、完整测量表格与复现步骤](https://github.com/niu-io/niu/blob/main/docs/reference/gateway-performance-benchmark.md)；各网关在测试中使用了不同的数据库日志记录配置，且禁用了 PostgreSQL 同步提交（synchronous commit）。
+
+## 浏览详细对比
+
+### [Niu 对比 New API](/docs/compare/new-api/)
+
+对比两款自托管网关：上游配置、工作空间访问、请求证据以及您所需的集成能力。
+
+### [Niu 对比 OpenRouter](/docs/compare/openrouter/)
+
+对比自行运维网关与使用托管模型访问服务。两者也可以协同工作：Niu 可以将 OpenRouter 作为上游模型供应商接入。
+
+### [性能基准测试：Niu 对比 New API 对比 LiteLLM](/docs/guides/gateway-benchmarks/)
+
+查看使用 `ai-gateway-bench` 测试套件测得的直接吞吐量（`3,238.7 RPS`）、长尾延迟（`31.54 ms` p99）、SSE 流式传输（`235.9 streams/s`）、多轮编码智能体会话以及内存占用（`18.2 MB` 空闲 RSS）。
+
+## 哪种方案更适合？
+
+如果您希望直接访问托管模型目录而无需自行运维网关，请选择 **OpenRouter**。如果 **New API** 文档中记载的上游集成与实例管理工作流符合您的需求，请评估 **New API**。如果您希望自主运营工作空间、模型供应商与请求核算工作流，且 **Niu** 当前支持的能力范围满足您的需求，请评估 **Niu**。
+
+没有任何网关能让所有模型变得更便宜或完全可互换。请针对您的实际工作负载，综合对比具体的模型、端点、支持的输入、客户价格以及实际观测到的运行表现。
+
+## 参考来源
+
+- [Niu API 参考](/docs/reference/api/)与[部署指南](/docs/deployment/single-container/)。
+- [New API 项目与功能特性](https://github.com/QuantumNous/new-api)及[官方文档](https://docs.newapi.pro/en)。
+- [OpenRouter 快速开始](https://openrouter.ai/docs/quickstart)与[供应商路由](https://openrouter.ai/docs/guides/routing/provider-selection)。
+
+</div>

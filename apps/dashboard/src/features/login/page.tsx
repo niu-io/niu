@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { IconKey, IconMail, IconSparkles } from '@tabler/icons-react';
+import { IconChevronDown, IconKey, IconLanguage, IconMail, IconSparkles } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { safeLoginReturn } from '@/app/login-return';
 import { useBranding } from '@/app/branding';
+import { useLocale, type Locale } from '@/app/locale';
 
 export default function LoginRoute() {
+  const { locale, setLocale, t } = useLocale();
   const {settings:branding,logo} = useBranding();
   const context = useDashboardContext();
   const navigate = useNavigate();
@@ -80,8 +83,8 @@ export default function LoginRoute() {
       if(controller.signal.aborted)return;
       if(!response.ok){
         setLocalError(response.status===401
-          ? kind==='demo'?'Demo sign-in is unavailable. Try again later.':kind==='token'?'That access token is invalid, expired or revoked.':'That email or password did not match.'
-          : response.status===429?'Too many sign-in attempts. Try again in a minute.':'Sign-in failed. Try again.');
+          ? kind==='demo'?t('Demo sign-in is unavailable. Try again later.', '演示登录暂不可用，请稍后再试。'):kind==='token'?t('That access token is invalid, expired or revoked.', '该访问令牌无效、已过期或已吊销。'):t('That email or password did not match.', '邮箱或密码不匹配。')
+          : response.status===429?t('Too many sign-in attempts. Try again in a minute.', '登录尝试次数过多，请一分钟后再试。'):t('Sign-in failed. Try again.', '登录失败，请重试。'));
         return;
       }
       // The original durable session is held only in the HttpOnly cookie.
@@ -89,7 +92,7 @@ export default function LoginRoute() {
       setAccessToken('');setPassword('');
       await context.connectWithToken('niu-browser-member-session');
     }catch{
-      if(!controller.signal.aborted)setLocalError('Could not reach the sign-in service. Try again.');
+      if(!controller.signal.aborted)setLocalError(t('Could not reach the sign-in service. Try again.', '无法连接登录服务，请重试。'));
     }finally{
       if(request.current===controller){inFlight.current=false;if(!controller.signal.aborted)setSubmitting(false);}
     }
@@ -118,31 +121,46 @@ export default function LoginRoute() {
     <header className="dashboard-login-topbar">
       <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
         <img src={logo} alt="" />
-        <span>{branding.display_name}</span>
+        <span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span>
       </Link>
       <nav aria-label="Public resources" className="dashboard-login-nav">
-        <Button asChild variant="ghost" size="sm"><a href="/models/">Models</a></Button>
-        <Button asChild variant="ghost" size="sm"><a href="/docs/">Documentation</a></Button>
+        <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
+        <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Documentation', '文档')}</a></Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" aria-label="Language">
+              <IconLanguage size={16} aria-hidden="true" />
+              <span>{locale === 'zh-CN' ? '简体中文' : 'English'}</span>
+              <IconChevronDown size={14} aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
+              <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
     </header>
     <div className="dashboard-login-stage">
       <section className="dashboard-login-card" aria-label="Sign in">
         <div className="dashboard-login-header">
-          <h1>Sign in</h1>
-          <p className="dashboard-login-intro">Sign in to manage workspaces, API keys, model routes, and billing.</p>
+          <h1>{t('Sign in', '登录')}</h1>
+          <p className="dashboard-login-intro">{t('Sign in to manage workspaces, API keys, model routes, and billing.', '登录以管理工作空间、API 密钥、模型路由与计费。')}</p>
         </div>
         <form className="dashboard-login-form" onSubmit={submit}>
           {(location.state as {passwordChanged?: boolean} | null)?.passwordChanged === true && (
-            <p className="dashboard-login-status" role="status">Password changed. Sign in again.</p>
+            <p className="dashboard-login-status" role="status">{t('Password changed. Sign in again.', '密码已修改，请重新登录。')}</p>
           )}
           {mode === 'token' ? (
             <div className="dashboard-login-field">
-              <Label htmlFor="local-access-token">User access token</Label>
+              <Label htmlFor="local-access-token">{t('User access token', '用户访问令牌')}</Label>
               <Input
                 key="access-token"
                 id="local-access-token"
                 type="password"
-                placeholder="Paste your access token"
+                placeholder={t('Paste your access token', '粘贴您的访问令牌')}
                 autoComplete="off"
                 autoFocus
                 spellCheck={false}
@@ -152,12 +170,12 @@ export default function LoginRoute() {
                 required
                 maxLength={256}
               />
-              <p className="dashboard-login-hint">Use the temporary access token your workspace owner shared with you.</p>
+              <p className="dashboard-login-hint">{t('Use the temporary access token your workspace owner shared with you.', '请使用工作空间所有者分享给您的临时访问令牌。')}</p>
             </div>
           ) : (
             <>
               <div className="dashboard-login-field">
-                <Label htmlFor="local-username">Email</Label>
+                <Label htmlFor="local-username">{t('Email', '邮箱')}</Label>
                 <Input
                   key="email"
                   id="local-username"
@@ -172,10 +190,10 @@ export default function LoginRoute() {
                 />
               </div>
               <div className="dashboard-login-field">
-                <Label htmlFor="local-password">Password</Label>
+                <Label htmlFor="local-password">{t('Password', '密码')}</Label>
                 <Input
                   id="local-password"
-                  placeholder="Enter your password"
+                  placeholder={t('Enter your password', '输入密码')}
                   autoComplete="current-password"
                   disabled={submitting}
                   onChange={event => setPassword(event.target.value)}
@@ -191,7 +209,7 @@ export default function LoginRoute() {
           )}
           {configurationFailed && (
             <div className="dashboard-login-unavailable">
-              <p className="dashboard-login-error" role="alert">Sign-in is temporarily unavailable.</p>
+              <p className="dashboard-login-error" role="alert">{t('Sign-in is temporarily unavailable.', '登录服务暂不可用。')}</p>
               <Button
                 type="button"
                 variant="outline"
@@ -203,7 +221,7 @@ export default function LoginRoute() {
                   setConfigurationAttempt(value => value + 1);
                 }}
               >
-                Try again
+                {t('Try again', '重试')}
               </Button>
             </div>
           )}
@@ -212,7 +230,7 @@ export default function LoginRoute() {
             className="dashboard-login-submit"
             disabled={submitting || checking || configurationFailed || !(mode === 'token' ? tokenLogin : memberLogin)}
           >
-            {submitting ? 'Signing in…' : checking ? 'Loading…' : 'Sign in'}
+            {submitting ? t('Signing in…', '正在登录…') : checking ? t('Loading…', '加载中…') : t('Sign in', '登录')}
           </Button>
         </form>
         {(showModeSwitch || demoLogin) && (
@@ -227,7 +245,7 @@ export default function LoginRoute() {
                 onClick={() => changeMode('token')}
               >
                 <IconKey size={15} aria-hidden="true" />
-                <span>Use an access token</span>
+                <span>{t('Use an access token', '使用访问令牌')}</span>
               </Button>
             )}
             {mode === 'token' && memberLogin && (
@@ -240,7 +258,7 @@ export default function LoginRoute() {
                 onClick={() => changeMode('password')}
               >
                 <IconMail size={15} aria-hidden="true" />
-                <span>Use email and password</span>
+                <span>{t('Use email and password', '使用邮箱和密码')}</span>
               </Button>
             )}
             {demoLogin && (
@@ -253,9 +271,9 @@ export default function LoginRoute() {
                   onClick={() => void signIn('demo')}
                 >
                   <IconSparkles size={15} aria-hidden="true" />
-                  <span>Try the demo</span>
+                  <span>{t('Try the demo', '体验演示环境')}</span>
                 </Button>
-                <p className="dashboard-login-demo-caption">Explore Niu in a shared demo workspace.</p>
+                <p className="dashboard-login-demo-caption">{t('Explore Niu in a shared demo workspace.', '在共享演示工作空间中探索 Niu 牛元。')}</p>
               </div>
             )}
           </div>

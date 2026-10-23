@@ -8,13 +8,6 @@ const description =
 
 <SiteLayout title="Public model catalog — Niu" description={description}>
   <main id="main" class="catalog-main">
-    <h1>Models</h1>
-    <p class="catalog-lede">Explore models published on this gateway. Filter by name, input or output modality, or supported API.</p>
     <PublicModelCatalog client:load />
-    <p class="catalog-help">
-      Need an alias enabled for your key?
-      {" "}<a href="/workspaces/default/keys">Open the workspace</a>{" "}or{" "}
-      <a href="/docs/configuration/models/">read route configuration</a>.
-    </p>
   </main>
 </SiteLayout>
