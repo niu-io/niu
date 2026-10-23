@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.24] - 2026-10-23
+
+### Added
+
+- **Simplified Chinese (`zh-CN`) localization across Dashboard, Catalog, and Documentation (#95)**:
+  - Add full `en` / `zh-CN` internationalization across the Dashboard shell, navigation rail/sidebar, account menu, workspace switcher, sign-in and installation setup pages, overview, workspace directory/settings, account settings, embedded Help/API reference, live API console, and public model catalog (`/models/`).
+  - Add dual-language (`<div data-lang="en">` / `<div data-lang="zh">`) localization across all 33 authored documentation pages, automatic runtime localization of generated REST/SDK/handler reference pages (`localizeGeneratedContent`), and synchronized theme (`system` / `light` / `dark`) and language controls across public and dashboard headers.
+- **Customer onboarding and request capacity operational guides**:
+  - Add [Set up a customer](/docs/admin/customers/) (`/docs/admin/customers/`) and [Investigate request capacity](/docs/guides/request-capacity/) (`/docs/guides/request-capacity/`) in both English and Simplified Chinese, and separate customer API quickstart workflows from installation administrator responsibilities (`3e4c1ed4`).
+- **Durable idempotent API key mutation recovery & database migrations (`0356`–`0358`)**:
+  - Add `0356_readable_resource_slugs.sql`, `0357_key_mutation_outcomes.sql`, and `0358_guardrail_request_evidence.sql` to persist readable resource slugs, idempotent key rotation/revocation outcome receipts, and request-linked guardrail policy evidence (`4b0708aa`, `e2a15269`, `645f7318`).
+
+### Changed
+
+- **Single-word API route segments & readable product URLs (`4b0708aa`, `858f8c80`, `903156a5`)**:
+  - Standardize single-word route segments across control and data planes (`/api/v1/pools`, `/api/v1/generations`, `/api/v1/video/draft`, `/v1/media/groups`, `/v1/media/operations`, `/v1/media/verifications`, `/api/v1/Guardrails` history/evidence) while preserving legacy route compatibility aliases.
+  - Use durable, human-readable `slug` paths for workspaces, Providers, and API keys across Dashboard routes, navigation, and query scopes without exposing internal UUIDs in product UI.
+- **Dashboard UX, navigation & choice-control remediation (`#100`, `niu-4rp`, `niu-hux`)**:
+  - Redesign `/login` and `/login/installation` sign-in surfaces with clear mode separation and return-path preservation (`241872d0`).
+  - Connect blocked Guardrails requests directly to saved policy revision evidence and audit records (`645f7318`).
+  - Decompose oversized Dashboard feature modules (`BillingView`, `PlaygroundView`, `VideoView`, `KeyDetail`, `RoutePoolsAdmin`, `ProviderDirectory`, `GuardrailsPage`, and `GatewayActivity`) into focused sub-modules with shared shadcn `DropdownMenu` choice controls, `Popover` secondary search triggers, and explicit uncertain-mutation recovery banners (`829a856d`, `903156a5`).
+- **Gateway runtime, storage & SDK modularization (`niu-hux`)**:
+  - Split `crates/niu-gateway/src/http/mod.rs` and `crates/niu-storage/src/postgres.rs` into domain-aligned submodules, enforce statement timeouts and bounded pagination across list/export queries, and synchronize OpenAPI contracts, `@niu-io/sdk`, `sdks/mcp`, and generated REST/SDK documentation (`858f8c80`, `903156a5`).
+
+### Fixed
+
+- Keep public Dashboard navigation links independent of asynchronous session checks (`8c12c75a`) and navigate directly to the created Provider detail page after creation (`d4eae19a`).
+- Align API response metadata, `Cache-Control: no-store` headers, pagination cursors, and OpenAPI handler annotations across 327 handler operations (`858f8c80`, `903156a5`).
+
+### Verification boundary
+
+- Verified across `@niu-io/dashboard` (`tsc`, `vite build`, and 114 test files / 996 tests including `locale-i18n.test.tsx`), `@niu-io/docs` (`generate-api-docs.mjs --check`, `test:api`, `astro check`, and 849 built static pages), `@niu-io/catalog` (`astro check` and `astro build`), `scripts/extract-handler-openapi.py --check` (327 handler annotations, 429 REST operations, 383 SDK exports), `cargo fmt --all -- --check`, and `scripts/check-public-boundary.py` (3,090 tracked files).
+
 ## [0.2.23] - 2026-10-19
 
 ### Changed
