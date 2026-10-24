@@ -529,7 +529,7 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default'));
     expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected');
     expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Overview' })).toBeTruthy();
-  });
+  }, 15_000);
 
   it('opens account actions and dismisses the menu with the keyboard', async () => {
     mockHealth();

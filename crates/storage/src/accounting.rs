@@ -320,7 +320,9 @@ fn currency_valid(currency: &str) -> bool {
     currency.len() == 3 && currency.bytes().all(|b| b.is_ascii_uppercase())
 }
 
-pub(crate) const TRIGGER_CODE_MAPPINGS: &[(&str, fn() -> StoreError)] = &[
+type TriggerErrorMapping = (&'static str, fn() -> StoreError);
+
+pub(crate) const TRIGGER_CODE_MAPPINGS: &[TriggerErrorMapping] = &[
     ("P0005", || StoreError::Unauthorized),
     ("P0006", || StoreError::Conflict),
     ("P0007", || StoreError::AccountUnavailable),
@@ -340,7 +342,7 @@ pub(crate) const TRIGGER_CODE_MAPPINGS: &[(&str, fn() -> StoreError)] = &[
     ("P0039", || StoreError::ProcurementUnavailable),
 ];
 
-pub(crate) const TRIGGER_CONSTRAINT_MAPPINGS: &[(&str, fn() -> StoreError)] = &[
+pub(crate) const TRIGGER_CONSTRAINT_MAPPINGS: &[TriggerErrorMapping] = &[
     ("customer_workspace_spending_limit_exceeded", || {
         StoreError::WorkspaceSpendingLimitExceeded
     }),
@@ -370,12 +372,12 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
 }
 
 pub(crate) fn map_reservation_error(error: sqlx::Error) -> StoreError {
-    if let Some(database_error) = error.as_database_error() {
-        if let Some(constraint) = database_error.constraint() {
-            for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
-                if *expected == constraint {
-                    return constructor();
-                }
+    if let Some(database_error) = error.as_database_error()
+        && let Some(constraint) = database_error.constraint()
+    {
+        for (expected, constructor) in TRIGGER_CONSTRAINT_MAPPINGS {
+            if *expected == constraint {
+                return constructor();
             }
         }
     }

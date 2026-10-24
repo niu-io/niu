@@ -215,22 +215,19 @@ async fn organization_has_funding(
     state: &AppState,
     organization: Option<uuid::Uuid>,
 ) -> Result<bool, ApiError> {
-    if let Some(organization) = organization {
-        if let Some(currency) = state
+    if let Some(organization) = organization
+        && let Some(currency) = state
             .store
             .platform_currency()
             .await
             .map_err(ApiError::from_store)?
-        {
-            if state
-                .store
-                .customer_has_funding_arrangement(organization, &currency)
-                .await
-                .map_err(ApiError::from_store)?
-            {
-                return Ok(true);
-            }
-        }
+        && state
+            .store
+            .customer_has_funding_arrangement(organization, &currency)
+            .await
+            .map_err(ApiError::from_store)?
+    {
+        return Ok(true);
     }
     Ok(false)
 }
@@ -345,7 +342,7 @@ pub(crate) async fn verify_stripe_account(
 }
 
 async fn check_stripe_account(state: &AppState) -> Result<&'static str, ApiError> {
-    let (runtime, digest) = current_stripe_verification(&state).await?;
+    let (runtime, digest) = current_stripe_verification(state).await?;
     let check = state
         .store
         .begin_payment_verification("stripe", &digest, "account")
@@ -566,6 +563,103 @@ pub(crate) async fn gate(
         }
     }
     next.run(request).await
+}
+
+/// Real configuration validation with inert test credentials; never contacts a merchant.
+#[cfg(test)]
+pub(crate) async fn configure_test_gateway(state: &mut AppState) {
+    configure_test_gateway_currency(state, "usd").await;
+}
+
+#[cfg(test)]
+pub(crate) async fn configure_test_gateway_currency(state: &mut AppState, currency: &str) {
+    state.stripe_payments = Some(std::sync::Arc::new(super::StripeRuntime {
+        merchant: "ReadinessFixture".into(),
+        endpoint_secret: "whsec_readiness_fixture_1234567890".into(),
+        live_mode: false,
+        checkout: Some(super::StripeCheckout {
+            client: niu_payments::stripe_transport::Client::new(
+                "sk_test_readiness_fixture_1234567890".into(),
+                false,
+            )
+            .unwrap(),
+            currency: currency.into(),
+            methods: vec!["card".into()],
+            success_url: "https://example.test/success".into(),
+            cancel_url: "https://example.test/cancel".into(),
+        }),
+    }));
+    qualify_test_gateway(state, &currency.to_ascii_uppercase()).await;
+}
+
+/// Synthetic evidence uses the real storage constraints; no production bypass or merchant call.
+#[cfg(test)]
+async fn qualify_test_gateway(state: &AppState, currency: &str) {
+    let runtime = state.stripe_payments.as_ref().unwrap();
+    let digest = stripe_configuration_digest(runtime, currency).unwrap();
+    let check = state
+        .store
+        .begin_payment_verification("stripe", &digest, "account")
+        .await
+        .unwrap();
+    state
+        .store
+        .finish_payment_verification(check, Some(600))
+        .await
+        .unwrap();
+    let company = state
+        .store
+        .create_prepaid_organization("Isolated merchant verification", currency)
+        .await
+        .unwrap();
+    let order = state
+        .store
+        .create_customer_topup(
+            company,
+            &niu_storage::TopupInput {
+                currency,
+                amount_nanos: 2_000_000_000,
+                aggregator: "stripe",
+                merchant: &runtime.merchant,
+                payment_method: "card",
+                idempotency_key: uuid::Uuid::new_v4(),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(
+        state
+            .store
+            .claim_customer_topup_creation(company, order.id)
+            .await
+            .unwrap()
+    );
+    state
+        .store
+        .bind_payment_checkout_verification(order.id, "stripe", &digest)
+        .await
+        .unwrap();
+    let session = format!("cs_test_{}", order.id.simple());
+    state
+        .store
+        .bind_customer_topup_checkout(
+            company,
+            order.id,
+            &session,
+            &format!("https://checkout.stripe.com/c/pay/{session}"),
+        )
+        .await
+        .unwrap();
+    state
+        .store
+        .settle_verified_customer_topup(company, order.id, &session, 2_000_000_000)
+        .await
+        .unwrap();
+    state
+        .store
+        .verify_payment_callback(order.id, "stripe", &digest)
+        .await
+        .unwrap();
 }
 
 #[cfg(test)]
@@ -1760,101 +1854,4 @@ mod tests {
             assert_eq!(response.status(), expected, "{path}");
         }
     }
-}
-
-/// Real configuration validation with inert test credentials; never contacts a merchant.
-#[cfg(test)]
-pub(crate) async fn configure_test_gateway(state: &mut AppState) {
-    configure_test_gateway_currency(state, "usd").await;
-}
-
-#[cfg(test)]
-pub(crate) async fn configure_test_gateway_currency(state: &mut AppState, currency: &str) {
-    state.stripe_payments = Some(std::sync::Arc::new(super::StripeRuntime {
-        merchant: "ReadinessFixture".into(),
-        endpoint_secret: "whsec_readiness_fixture_1234567890".into(),
-        live_mode: false,
-        checkout: Some(super::StripeCheckout {
-            client: niu_payments::stripe_transport::Client::new(
-                "sk_test_readiness_fixture_1234567890".into(),
-                false,
-            )
-            .unwrap(),
-            currency: currency.into(),
-            methods: vec!["card".into()],
-            success_url: "https://example.test/success".into(),
-            cancel_url: "https://example.test/cancel".into(),
-        }),
-    }));
-    qualify_test_gateway(state, &currency.to_ascii_uppercase()).await;
-}
-
-/// Synthetic evidence uses the real storage constraints; no production bypass or merchant call.
-#[cfg(test)]
-async fn qualify_test_gateway(state: &AppState, currency: &str) {
-    let runtime = state.stripe_payments.as_ref().unwrap();
-    let digest = stripe_configuration_digest(runtime, currency).unwrap();
-    let check = state
-        .store
-        .begin_payment_verification("stripe", &digest, "account")
-        .await
-        .unwrap();
-    state
-        .store
-        .finish_payment_verification(check, Some(600))
-        .await
-        .unwrap();
-    let company = state
-        .store
-        .create_prepaid_organization("Isolated merchant verification", currency)
-        .await
-        .unwrap();
-    let order = state
-        .store
-        .create_customer_topup(
-            company,
-            &niu_storage::TopupInput {
-                currency,
-                amount_nanos: 2_000_000_000,
-                aggregator: "stripe",
-                merchant: &runtime.merchant,
-                payment_method: "card",
-                idempotency_key: uuid::Uuid::new_v4(),
-            },
-        )
-        .await
-        .unwrap();
-    assert!(
-        state
-            .store
-            .claim_customer_topup_creation(company, order.id)
-            .await
-            .unwrap()
-    );
-    state
-        .store
-        .bind_payment_checkout_verification(order.id, "stripe", &digest)
-        .await
-        .unwrap();
-    let session = format!("cs_test_{}", order.id.simple());
-    state
-        .store
-        .bind_customer_topup_checkout(
-            company,
-            order.id,
-            &session,
-            &format!("https://checkout.stripe.com/c/pay/{session}"),
-        )
-        .await
-        .unwrap();
-    state
-        .store
-        .settle_verified_customer_topup(company, order.id, &session, 2_000_000_000)
-        .await
-        .unwrap();
-    state
-        .store
-        .verify_payment_callback(order.id, "stripe", &digest)
-        .await
-        .unwrap();
 }

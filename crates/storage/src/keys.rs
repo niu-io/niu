@@ -136,6 +136,7 @@ impl Store {
     /// Idempotent issuance for clients that must recover from a lost response.
     /// Request identity is scoped to a workspace; the intent digest prevents
     /// reusing it with changed input. No retrievable secret is stored.
+    #[allow(clippy::too_many_arguments)]
     pub async fn issue_key_request(
         &self,
         scope: TenantScope,

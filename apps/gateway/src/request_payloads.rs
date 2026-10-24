@@ -317,44 +317,34 @@ mod tests {
     #[test]
     fn payload_capture_mode_respects_deployment_policy_and_request_headers() {
         let empty = HeaderMap::new();
-        assert_eq!(
+        assert!(
             payload_capture_enabled_with_mode(&empty, PayloadCaptureMode::from_env_value(None))
-                .unwrap(),
-            true
+                .unwrap()
         );
-        assert_eq!(
-            payload_capture_enabled_with_mode(
+        assert!(
+            !payload_capture_enabled_with_mode(
                 &empty,
                 PayloadCaptureMode::from_env_value(Some("opt-in"))
             )
-            .unwrap(),
-            false
+            .unwrap()
         );
-        assert_eq!(
-            payload_capture_enabled_with_mode(
+        assert!(
+            !payload_capture_enabled_with_mode(
                 &empty,
                 PayloadCaptureMode::from_env_value(Some("disabled"))
             )
-            .unwrap(),
-            false
+            .unwrap()
         );
 
         let mut opt_in = HeaderMap::new();
         opt_in.insert("x-niu-log-payloads", HeaderValue::from_static("true"));
-        assert_eq!(
-            payload_capture_enabled_with_mode(&opt_in, PayloadCaptureMode::OptIn).unwrap(),
-            true
-        );
-        assert_eq!(
-            payload_capture_enabled_with_mode(&opt_in, PayloadCaptureMode::Disabled).unwrap(),
-            false
-        );
+        assert!(payload_capture_enabled_with_mode(&opt_in, PayloadCaptureMode::OptIn).unwrap());
+        assert!(!payload_capture_enabled_with_mode(&opt_in, PayloadCaptureMode::Disabled).unwrap());
 
         let mut opt_out = HeaderMap::new();
         opt_out.insert("x-niu-log-payloads", HeaderValue::from_static("false"));
-        assert_eq!(
-            payload_capture_enabled_with_mode(&opt_out, PayloadCaptureMode::DefaultOn).unwrap(),
-            false
+        assert!(
+            !payload_capture_enabled_with_mode(&opt_out, PayloadCaptureMode::DefaultOn).unwrap()
         );
     }
 

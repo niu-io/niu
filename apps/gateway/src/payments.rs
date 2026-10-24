@@ -432,8 +432,8 @@ impl Runtime {
             }
         };
         let result = apply_verified_order(&state.store, organization, order, evidence).await;
-        if result.is_ok() {
-            if let Err(error) = state
+        if result.is_ok()
+            && let Err(error) = state
                 .store
                 .verify_payment_notified_settlement(
                     order,
@@ -441,9 +441,8 @@ impl Runtime {
                     &readiness::zhifux_configuration_digest(self),
                 )
                 .await
-            {
-                return SettleOutcome::Probed(Err(ApiError::from_store(error)));
-            }
+        {
+            return SettleOutcome::Probed(Err(ApiError::from_store(error)));
         }
         SettleOutcome::Probed(result)
     }
@@ -2830,21 +2829,19 @@ pub(crate) async fn stripe_notify(
         )
         .await
         .map_err(ApiError::from_store)?;
-    if !mock_runtime::available() {
-        if let Some(currency) = state
+    if !mock_runtime::available()
+        && let Some(currency) = state
             .store
             .platform_currency()
             .await
             .map_err(ApiError::from_store)?
-        {
-            if let Some(digest) = readiness::stripe_configuration_digest(runtime, &currency) {
-                state
-                    .store
-                    .verify_payment_callback(order.id, "stripe", &digest)
-                    .await
-                    .map_err(ApiError::from_store)?;
-            }
-        }
+        && let Some(digest) = readiness::stripe_configuration_digest(runtime, &currency)
+    {
+        state
+            .store
+            .verify_payment_callback(order.id, "stripe", &digest)
+            .await
+            .map_err(ApiError::from_store)?;
     }
     Ok(axum::http::StatusCode::OK)
 }
@@ -3148,21 +3145,19 @@ async fn create_stripe_topup(
             .await
             .map_err(ApiError::from_store)?
     {
-        if !mock_runtime::available() {
-            if let Some(currency) = state
+        if !mock_runtime::available()
+            && let Some(currency) = state
                 .store
                 .platform_currency()
                 .await
                 .map_err(ApiError::from_store)?
-            {
-                if let Some(digest) = readiness::stripe_configuration_digest(runtime, &currency) {
-                    state
-                        .store
-                        .bind_payment_checkout_verification(order.id, "stripe", &digest)
-                        .await
-                        .map_err(ApiError::from_store)?;
-                }
-            }
+            && let Some(digest) = readiness::stripe_configuration_digest(runtime, &currency)
+        {
+            state
+                .store
+                .bind_payment_checkout_verification(order.id, "stripe", &digest)
+                .await
+                .map_err(ApiError::from_store)?;
         }
         let created = checkout.client.create_checkout(&order.id.simple().to_string(), &checkout.currency, amount, &input.payment_method, &checkout.success_url, &checkout.cancel_url).await
             .map_err(|_| ApiError::upstream_message("Checkout creation is uncertain; recover the saved top-up instead of creating another order"))?;
