@@ -30,7 +30,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [updated, setUpdated] = useState<number>();
   const mutating = useRef(false);
-  const endpoint = '/api/checkouts/' + location.pathname.split('/').pop();
+  const endpoint = import.meta.env.BASE_URL + 'api/checkouts/' + location.pathname.split('/').pop();
   async function load() {
     if (mutating.current) return;
     try {
@@ -57,7 +57,7 @@ function App() {
   return <div className="mock-shell">
     <header className="mock-header"><div className="flex items-center gap-3"><strong className="text-lg">Niu</strong><span className="text-muted-foreground">/</span><span>Payment sandbox</span></div><Badge variant="secondary"><FlaskConical aria-hidden="true"/>Test environment</Badge></header>
     <main>
-      <Alert className="mock-payment-warning rounded-none"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Mock payments · Real model costs</AlertTitle><AlertDescription>Only payments are simulated. LLM requests still incur upstream Provider charges. Keep Niu API keys and upstream Provider keys private; do not offer public access to this test environment.</AlertDescription></Alert>
+      <Alert className="mock-payment-warning rounded-none"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Mock payments · Real model costs</AlertTitle><AlertDescription>Only payments are simulated. LLM requests still incur upstream Provider charges. Simulated funds do not pay for upstream model usage.</AlertDescription></Alert>
       <div className="mock-checkout">
         <section className="mock-summary" aria-label="Order summary">
           {checkout && <Button asChild variant="ghost" className="self-start -ml-3"><a href={checkout.return_url}><ArrowLeft/>Back to Niu</a></Button>}

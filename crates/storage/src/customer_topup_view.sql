@@ -4,6 +4,7 @@ SELECT jsonb_build_object(
     'currency', o.currency,
     'amount_nanos', o.amount_nanos::text,
     'payment_method', o.payment_method,
+    'simulated', o.aggregator = 'stripe' AND o.merchant = 'NiuMockPayments',
     'created_at', o.created_at,
     'status', CASE
         WHEN s.order_id IS NOT NULL THEN 'paid'

@@ -1,7 +1,7 @@
 services:
   niu:
     build: .
-    image: ${NIU_IMAGE:-ghcr.io/niu-io/niu:v0.2.24}
+    image: ${NIU_IMAGE:-ghcr.io/niu-io/niu:v0.2.25}
     ports:
       - "${NIU_HOST_PORT:-2555}:2555"
     environment:

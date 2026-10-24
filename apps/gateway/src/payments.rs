@@ -4,11 +4,11 @@ pub(crate) mod mock_runtime;
 pub(crate) mod readiness;
 
 pub(crate) fn validate_mock_environment() -> Result<(), &'static str> {
-    if std::env::var_os("NIU_MOCK_PAYMENT_URL").is_some()
-        && (!cfg!(all(feature = "mock-payments", debug_assertions))
-            || std::env::var("NIU_ENVIRONMENT").as_deref() != Ok("test"))
-    {
-        return Err("Mock payments require a debug mock-payments build and NIU_ENVIRONMENT=test");
+    if std::env::var_os("NIU_MOCK_PAYMENT_URL").is_some() {
+        if !cfg!(feature = "mock-payments") {
+            return Err("Mock payments require --features mock-payments");
+        }
+        mock_runtime::public_base()?;
     }
     Ok(())
 }
@@ -980,7 +980,17 @@ fn present_mock_checkout(state: &AppState, view: &mut Value) {
         && let Some(stored) = view["checkout_url"].as_str()
         && let Some(local) = checkout.client.mock_checkout_url(stored)
     {
-        view["checkout_url"] = json!(local);
+        let presented = mock_runtime::public_base()
+            .ok()
+            .flatten()
+            .and_then(|base| {
+                local
+                    .rsplit_once("/checkout/")
+                    .map(|(_, token)| format!("{base}/checkout/{token}"))
+            })
+            .unwrap_or(local);
+        view["checkout_url"] = json!(presented);
+        view["simulated"] = json!(true);
     }
 }
 

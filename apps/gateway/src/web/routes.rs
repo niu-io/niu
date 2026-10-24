@@ -179,6 +179,12 @@ fn guardrail_and_codex_routes(app: Router<AppState>) -> Router<AppState> {
 
 fn billing_and_pricing_routes(app: Router<AppState>) -> Router<AppState> {
     app.route(
+        "/api/plugins/v1/mock-payments/{*path}",
+        axum::routing::get(crate::payments::mock_runtime::checkout_proxy)
+            .post(crate::payments::mock_runtime::checkout_proxy)
+            .layer(DefaultBodyLimit::max(16384)),
+    )
+    .route(
         "/payments/zhifux/notify",
         axum::routing::post(crate::payments::notify).layer(DefaultBodyLimit::max(8192)),
     )

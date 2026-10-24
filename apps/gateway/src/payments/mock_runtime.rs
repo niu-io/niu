@@ -1,15 +1,12 @@
-//! Explicit developer-only merchant transport; never enabled by Stripe test mode alone.
-#[cfg(all(feature = "mock-payments", debug_assertions))]
+//! Explicit opt-in simulated merchant transport; never enabled by Stripe test mode alone.
+#[cfg(feature = "mock-payments")]
 use super::StripeCheckout;
 use super::StripeRuntime;
 
 pub(super) fn from_env(_platform_currency: Option<&str>) -> Result<StripeRuntime, &'static str> {
-    #[cfg(all(feature = "mock-payments", debug_assertions))]
+    #[cfg(feature = "mock-payments")]
     {
         use std::env;
-        if env::var("NIU_ENVIRONMENT").as_deref() != Ok("test") {
-            return Err("Mock payments require NIU_ENVIRONMENT=test and an isolated test database");
-        }
         if env::var_os("NIU_STRIPE_MERCHANT").is_some() {
             return Err("Mock payments cannot be combined with merchant configuration");
         }
@@ -47,17 +44,126 @@ pub(super) fn from_env(_platform_currency: Option<&str>) -> Result<StripeRuntime
             }),
         })
     }
-    #[cfg(not(all(feature = "mock-payments", debug_assertions)))]
-    Err("Mock payments are disabled: requires a debug build with --features mock-payments")
+    #[cfg(not(feature = "mock-payments"))]
+    Err("Mock payments are disabled: requires --features mock-payments")
 }
 
 pub(super) fn available() -> bool {
-    cfg!(all(feature = "mock-payments", debug_assertions))
-        && std::env::var("NIU_ENVIRONMENT").as_deref() == Ok("test")
-        && std::env::var_os("NIU_MOCK_PAYMENT_URL").is_some()
+    cfg!(feature = "mock-payments") && std::env::var_os("NIU_MOCK_PAYMENT_URL").is_some()
 }
 
 const MOCK_HEALTH_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Public checkout is served by the host; merchant/control traffic stays on loopback.
+pub(super) fn public_base() -> Result<Option<String>, &'static str> {
+    let Ok(raw) = std::env::var("NIU_MOCK_PAYMENT_PUBLIC_URL") else {
+        return Ok(None);
+    };
+    let url = url::Url::parse(&raw).map_err(|_| "Invalid mock public URL")?;
+    let local = url.host_str().is_some_and(|host| {
+        host.parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+    });
+    if !(url.scheme() == "https" || (url.scheme() == "http" && local))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || url.path().trim_end_matches('/') != "/api/plugins/v1/mock-payments"
+    {
+        return Err("Mock public URL must use HTTPS and /api/plugins/v1/mock-payments");
+    }
+    Ok(Some(raw.trim_end_matches('/').to_owned()))
+}
+
+/// Only checkout capabilities and their static UI are public, never merchant controls.
+pub(crate) async fn checkout_proxy(
+    axum::extract::Path(path): axum::extract::Path<String>,
+    request: axum::extract::Request,
+) -> axum::response::Response {
+    use axum::{http::StatusCode, response::IntoResponse};
+    if !available() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let token_path = path
+        .strip_prefix("checkout/")
+        .or_else(|| path.strip_prefix("api/checkouts/"));
+    let capability = token_path
+        .is_some_and(|token| token.len() == 48 && token.bytes().all(|b| b.is_ascii_hexdigit()));
+    let asset = path.strip_prefix("assets/").is_some_and(|name| {
+        !name.is_empty()
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+            && !name.contains("..")
+    });
+    let post = request.method() == axum::http::Method::POST;
+    if (!capability && !asset) || (post && !path.starts_with("api/checkouts/")) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Ok(Some(public)) = public_base() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let origin = url::Url::parse(&public)
+        .expect("validated public URL")
+        .origin()
+        .ascii_serialization();
+    if post
+        && request
+            .headers()
+            .get("origin")
+            .and_then(|v| v.to_str().ok())
+            != Some(origin.as_str())
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let Ok(base) = std::env::var("NIU_MOCK_PAYMENT_URL") else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let Ok(client) = shared_mock_client() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let Ok(body) = axum::body::to_bytes(request.into_body(), 16384).await else {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    };
+    let mut upstream = client.request(
+        if post {
+            reqwest::Method::POST
+        } else {
+            reqwest::Method::GET
+        },
+        format!("{}/{path}", base.trim_end_matches('/')),
+    );
+    if post {
+        upstream = upstream
+            .header("Origin", base.trim_end_matches('/'))
+            .header("Content-Type", "application/json")
+            .body(body);
+    }
+    let Ok(response) = upstream.send().await else {
+        return StatusCode::BAD_GATEWAY.into_response();
+    };
+    let status = response.status();
+    let headers = response.headers().clone();
+    let Ok(body) = response.bytes().await else {
+        return StatusCode::BAD_GATEWAY.into_response();
+    };
+    let mut result = (status, body).into_response();
+    for name in [
+        "content-type",
+        "cache-control",
+        "content-security-policy",
+        "referrer-policy",
+        "x-content-type-options",
+    ] {
+        if let Some(value) = headers.get(name) {
+            result
+                .headers_mut()
+                .insert(axum::http::HeaderName::from_static(name), value.clone());
+        }
+    }
+    result
+}
 
 fn shared_mock_client() -> Result<&'static reqwest::Client, crate::error::ApiError> {
     static CLIENT: std::sync::OnceLock<Result<reqwest::Client, ()>> = std::sync::OnceLock::new();
@@ -194,7 +300,7 @@ pub(crate) async fn save(
     state.authorize_platform_headers(&headers).await?;
     if !available() {
         return Err(crate::error::ApiError::invalid_request(
-            "Mock payments are only available in local development",
+            "The mock payment plugin is not configured for this installation",
         ));
     }
     let _guard = state.payment_configuration_guard.write().await;

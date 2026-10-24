@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.25] - 2026-10-24
+
+### Added
+
+- User-selectable hosted mock payment plugin with same-origin checkout, durable merchant state, signed settlement and persistent simulated-payment labels.
+
 ## [0.2.24] - 2026-10-23
 
 ### Added
@@ -433,7 +439,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.23...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.25...HEAD
+[0.2.25]: https://github.com/niu-io/niu/compare/v0.2.24...v0.2.25
 [0.2.23]: https://github.com/niu-io/niu/compare/v0.2.22...v0.2.23
 [0.2.22]: https://github.com/niu-io/niu/compare/v0.2.21...v0.2.22
 [0.2.21]: https://github.com/niu-io/niu/compare/v0.2.20...v0.2.21

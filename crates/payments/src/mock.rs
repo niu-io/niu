@@ -1,6 +1,6 @@
-//! Compile-time test boundary. Distribution builds never accept mock checkout URLs.
+//! Opt-in simulated merchant transport with loopback-only internal URLs.
 pub fn checkout_url(url: &url::Url) -> bool {
-    cfg!(all(feature = "mock-payments", debug_assertions))
+    cfg!(feature = "mock-payments")
         && url.scheme() == "http"
         && url.host_str().is_some_and(|host| {
             host.parse::<std::net::IpAddr>()
@@ -23,10 +23,7 @@ mod tests {
     fn checkout_is_bounded_to_explicit_test_builds() {
         let token = "a".repeat(48);
         let valid = url::Url::parse(&format!("http://127.0.0.1:2570/checkout/{token}")).unwrap();
-        assert_eq!(
-            super::checkout_url(&valid),
-            cfg!(all(feature = "mock-payments", debug_assertions))
-        );
+        assert_eq!(super::checkout_url(&valid), cfg!(feature = "mock-payments"));
         for value in [
             format!("http://example.com:2570/checkout/{token}"),
             format!("http://127.0.0.1:2570/checkout/{token}?redirect=evil"),
@@ -57,7 +54,7 @@ mod transport_tests {
         let fixture = Client::fixture(key, false, "http://127.0.0.1:2570/").unwrap();
         assert_eq!(
             fixture.mock_checkout_url(&stored).is_some(),
-            cfg!(all(feature = "mock-payments", debug_assertions))
+            cfg!(feature = "mock-payments")
         );
         assert!(
             fixture

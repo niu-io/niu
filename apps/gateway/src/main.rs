@@ -97,15 +97,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     payments::validate_mock_environment()?;
     let payment_polling_enabled = payments::background_polling_enabled()?;
-    if env::var_os("NIU_MOCK_PAYMENT_URL").is_some() {
-        let mock_bind = bind_address(
-            env::var("NIU_BIND").ok().as_deref(),
-            env::var("PORT").ok().as_deref(),
-        )?;
-        if !mock_bind.ip().is_loopback() {
-            return Err("Mock payments require a loopback gateway bind".into());
-        }
-    }
     let state = AppState::load_from_env().await?;
     let address = bind_address(
         env::var("NIU_BIND").ok().as_deref(),
