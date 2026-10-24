@@ -36,12 +36,12 @@ The service's authenticated `POST /control` accepts `{"readiness":"ready"}`, `un
 ## Boundaries
 
 - Gateway availability requires a build with `--features mock-payments` and `NIU_MOCK_PAYMENT_URL` pointing to the internal loopback HTTP merchant. There is no debug-build or environment-name restriction. Availability does not enable the gateway: the persisted user selection does.
-- The mock service itself binds only `127.0.0.1`; its callback and return URLs must use that explicit loopback address. It rejects unexpected Host headers and cross-origin checkout mutations. Management and Stripe-shaped endpoints require the private test API key. Checkout tokens authorize only that order's test result and are never logged.
+- The mock service itself binds only `127.0.0.1`; its callback uses that explicit loopback address; the browser return URL may use the configured hosted HTTPS origin. It rejects unexpected Host headers and cross-origin checkout mutations. Management and Stripe-shaped endpoints require the private test API key. Checkout tokens authorize only that order's test result and are never logged.
 - `NIU_MOCK_PAYMENT_KEY` must begin `sk_test_`, and `NIU_MOCK_PAYMENT_SECRET` must begin `whsec_`; both require at least 32 characters. The launcher persists generated values outside the repository. Never reuse real merchant credentials.
 - Real Stripe API/checkout URL restrictions remain unchanged in ordinary builds. Mock orders retain a protocol-shaped HTTPS placeholder in storage; the gateway rewrites only mock-owned checkout capabilities to its configured public checkout URL, or to the local merchant in development when presenting detail/history in explicitly configured mock builds. The placeholder is never navigated in the test flow; no database URL constraint is relaxed.
-- The mock does not qualify a real merchant, prove production payment readiness, transfer money, or bypass normal account/authorization/ledger checks. A test feature flag cannot make it eligible for production readiness.
+- The mock does not qualify a real merchant, prove production payment readiness, transfer money, or bypass normal account/authorization/ledger checks. Enabling the plugin supplies simulated payment readiness; it does not claim real merchant verification.
 
-Standalone service flags are listed by `python3 tools/mock-payments/service.py --help`. Build its UI with `pnpm --dir apps/dashboard exec vite build --config mock-payments/vite.config.ts`. The service requires explicit test credentials ; select a private persistent `--state` directory.
+Standalone service flags are listed by `python3 tools/mock-payments/service.py --help`. Build its UI with `pnpm --dir apps/dashboard exec vite build --config mock-payments/vite.config.ts`. The service requires explicit test credentials; select a private persistent `--state` directory.
 
 ## Verification
 
@@ -97,3 +97,13 @@ Configure runtime secrets outside source control:
 - `NIU_MOCK_PAYMENT_DATABASE_URL`: persistent PostgreSQL connection for plugin-owned tables
 
 Build the checkout with `NIU_MOCK_PAYMENT_UI_BASE=/api/plugins/v1/mock-payments/`. The host forwards only bounded checkout capability paths and static assets, checks the browser Origin for mutations, and never exposes merchant credentials, control or Stripe-shaped merchant API endpoints. New merchant state starts disabled; saved selections survive replacement containers. Disabling prevents new checkouts but allows existing signed notifications to finish. Simulated credits are not real collected funds.
+
+### 2026-10-24 current-input verification
+
+A production dashboard bundle and running gateway/merchant were exercised with newly created payment intents, backed by PostgreSQL. After saving an intent, both processes were restarted before choosing duplicate confirmation. Independent ledger queries found two accepted deliveries but exactly one settlement and one matching credit. A declined payment added no credit. A delayed confirmation settled after merchant restart while activation remained disabled. The saved paid-order API retained `simulated: true` after disabling. These observations are local integration evidence, not a substitute for hosted acceptance.
+
+The checkout and configuration dialog were inspected at desktop, 900px and 390px, including the open scenario menu and Escape dismissal. Measured document width matched the narrow viewport. The existing Stripe full-page composition and Niu shadcn controls were preserved; simulation labeling, save feedback and historical provenance were reviewed separately from accounting results.
+
+Hosted v0.2.25 was subsequently verified through fresh browser and API checkout flows. Duplicate notifications produced one matching transaction; success, out-of-order and delayed scenarios each credited once, while declined, cancelled and timed-out scenarios added no credit. Independent final balance and transaction reads matched the successful intent amounts and preserved other-currency balances. A service restart preserved the disabled selection and saved orders; simulated provenance remained visible. Public control paths returned 404, cross-origin mutations 403, and unauthenticated administration reads 401. No upstream model calls or real payments were made.
+
+Terminal unpaid customer recovery remains a separate limitation: declined and cancelled orders stay pending, and the browser administrator cannot use the installation-only reconciliation API. See [#114](https://github.com/niu-io/niu/issues/114), tracked as `niu-0gj`; hosted support and its acceptance evidence are recorded in [#99](https://github.com/niu-io/niu/issues/99), tracked as `niu-2m3`.
