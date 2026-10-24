@@ -321,6 +321,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
 
   applyDocsLocale();
   window.addEventListener('niu:locale', applyDocsLocale);
+  window.addEventListener('niu-locale-change', applyDocsLocale);
   window.addEventListener('storage', applyDocsLocale);
   document.addEventListener('astro:after-swap', applyDocsLocale);
   document.addEventListener('astro:page-load', applyDocsLocale);

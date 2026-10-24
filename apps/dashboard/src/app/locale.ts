@@ -55,6 +55,7 @@ export function saveLocale(locale: Locale) {
   applyLocale(locale);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('niu-locale-change', { detail: { locale } }));
+    window.dispatchEvent(new CustomEvent('niu:locale', { detail: locale }));
   }
 }
 

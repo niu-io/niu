@@ -127,12 +127,14 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(screen.getByRole('link', { name: 'Why Niu?' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Color mode' }));
+    expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('EN');
+    await user.click(screen.getByRole('button', { name: 'Language' }));
     await user.click(screen.getByRole('menuitemradio', { name: '简体中文' }));
 
     expect(window.localStorage.getItem('niu-dashboard-locale')).toBe('zh-CN');
     expect(document.documentElement.lang).toBe('zh-CN');
     expect(document.documentElement.dataset.locale).toBe('zh-CN');
+    expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('中文');
     expect(screen.getByRole('link', { name: 'Niu home' }).textContent).toContain('Niu 牛元');
     expect(screen.getByRole('link', { name: '为什么选择牛元？' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '文档' })).toBeTruthy();

@@ -9,6 +9,8 @@ import { useLocale } from '../../../dashboard/src/app/locale';
 
 const NAV_ZH: Record<string, string> = {
   'Why Niu?': '为什么选择牛元？',
+  Blog: '博客',
+  Models: '模型',
   Docs: '文档',
   API: 'API',
   SDK: 'SDK',

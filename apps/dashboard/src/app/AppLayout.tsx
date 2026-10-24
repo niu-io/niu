@@ -2,7 +2,7 @@ import { usePaymentReadiness } from './payment-readiness';
 import { useMockPayments } from './mock-payments';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { TriangleAlert } from 'lucide-react';
-import { IconPalette, IconHistory, IconRoute, IconWallet } from '@tabler/icons-react';
+import { IconPalette, IconHistory, IconRoute, IconWallet, IconLanguage } from '@tabler/icons-react';
 import { IconKey as KeyRound, IconUsers as Users } from '@tabler/icons-react';
 import RouterPending from './RouterPending';
 import { IconListDetails } from '@tabler/icons-react';
@@ -44,7 +44,7 @@ import { useGatewayConnection } from './useGatewayConnection';
 import { providerPathSegment, resolveProvider, type ProviderIdentity } from './provider-route';
 import { resolveWorkspacePathSegment, workspacePathSegment, workspaceDisplayName, workspaceModelsHref } from './workspace-route';
 import { useBranding } from './branding';
-import { useLocale } from './locale';
+import { useLocale, type Locale } from './locale';
 
 import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 
@@ -204,7 +204,7 @@ function ProductRailLink({ to, onActivate, children, onClick, ...props }: NavLin
 }
 
 export default function AppLayout() {
-  const { isZh, t } = useLocale();
+  const { locale, setLocale, isZh, t } = useLocale();
   const mockPaymentsEnabled = useMockPayments();
   const {settings:branding,logo} = useBranding();
   const [workspaceCreateOpen, setWorkspaceCreateOpen] = useState(false);
@@ -862,7 +862,7 @@ export default function AppLayout() {
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to="/activity" className={`rail-item${activePath.startsWith('activity') ? ' selected' : ''}`} aria-label={t('Activity', '活动')}><ChartNoAxesCombined size={23} aria-hidden="true" /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('Activity', '活动')}</TooltipContent></Tooltip>
       <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={modelsHref} reloadDocument={!token} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label={t('Models', '模型')}><RailModels size={23} strokeWidth={1.7} /></ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('Models', '模型')}</TooltipContent></Tooltip>
       </>}
-      <div className="rail-bottom">{(isInstallation || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? t("Admin", "管理后台") : t("Providers", "模型供应商")}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? t("Admin", "管理后台") : t("Providers", "模型供应商")}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label={t("Documentation", "文档")}>{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t("Documentation", "文档")}</TooltipContent></Tooltip><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
+      <div className="rail-bottom">{(isInstallation || Boolean(session?.provider_memberships?.length)) && <Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink to={isInstallation ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'} className={`rail-item${supplierArea ? ' selected' : ''}`} aria-label={isInstallation ? t("Admin", "管理后台") : t("Providers", "模型供应商")}>{isInstallation ? <IconShieldLock size={24} aria-hidden="true" /> : <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{isInstallation ? t("Admin", "管理后台") : t("Providers", "模型供应商")}</TooltipContent></Tooltip>}<Tooltip delayDuration={250}><TooltipTrigger asChild><ProductRailLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label={t("Documentation", "文档")}>{helpArea ? <RailDocsFilled size={23} /> : <RailDocs size={23} stroke={1.7} />}</ProductRailLink></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t("Documentation", "文档")}</TooltipContent></Tooltip><DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="rail-item" aria-label={t("Switch language", "切换界面语言")} title={t(`Language: ${locale === 'zh-CN' ? '简体中文' : 'English'}`, `界面语言：${locale === 'zh-CN' ? '简体中文' : 'English'}`)}><IconLanguage size={22} stroke={1.7} aria-hidden="true" /></button></DropdownMenuTrigger><DropdownMenuContent side="right" align="end" sideOffset={12} collisionPadding={12} className="w-40"><DropdownMenuLabel className="flex items-center gap-1.5 text-xs text-muted-foreground"><IconLanguage size={14} />{t("Language", "界面语言")}</DropdownMenuLabel><DropdownMenuRadioGroup aria-label="Language" value={locale} onValueChange={value => setLocale(value as Locale)}><DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem><DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea}/></div>
     </nav>
     <div className="app-rail-spacer" aria-hidden="true" />
     {hasSidebar && <Sidebar

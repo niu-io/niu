@@ -1,15 +1,17 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { IconChevronDown, IconLanguage } from '@tabler/icons-react';
 import { useDashboardContext } from '@/app/dashboard-context';
-import { useLocale } from '@/app/locale';
+import { useLocale, type Locale } from '@/app/locale';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import logo from '../../../../../branding/assets/niu-mark.png';
 
 /** Explicit platform administration; never an account-login fallback. */
 export default function InstallationRoute() {
-  const { t } = useLocale();
+  const { locale, setLocale, t } = useLocale();
   const context = useDashboardContext();
   const navigate = useNavigate();
   useEffect(() => {
@@ -23,6 +25,21 @@ export default function InstallationRoute() {
       <nav aria-label="Public resources" className="dashboard-login-nav">
         <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
         <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Documentation', '文档')}</a></Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" aria-label="Language">
+              <IconLanguage size={16} aria-hidden="true" />
+              <span>{locale === 'zh-CN' ? '简体中文' : 'English'}</span>
+              <IconChevronDown size={14} aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
+              <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
     </header>
     <div className="dashboard-login-stage">
