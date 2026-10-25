@@ -496,6 +496,20 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::providers::platform_configuration),
     )
     .dual_route(
+        "/platform/units",
+        get(crate::customer_units::read),
+    )
+    .dual_route(
+        "/platform/units/definitions",
+        post(crate::customer_units::publish_definition)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
+        "/platform/units/rules",
+        post(crate::customer_units::publish_rule)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
         "/providers/{provider}/configuration-usage",
         get(crate::supplier_configuration_usage::read),
     )

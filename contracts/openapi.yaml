@@ -33,6 +33,12 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/platform/units:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units'
+  /api/v1/platform/units/definitions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units~1definitions'
+  /api/v1/platform/units/rules:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units~1rules'
   /api/v1/providers/{provider}/integration:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1integration'
   /api/v1/vendors/{id}/integration:

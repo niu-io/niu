@@ -8,6 +8,7 @@ mod codex;
 mod config;
 mod currency;
 mod customer_response;
+mod customer_units;
 mod encryption_check;
 mod encryption_rotation;
 mod enterprise;

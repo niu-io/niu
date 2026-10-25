@@ -149,6 +149,20 @@ procurement budget or Provider settlement rate enters customer responses.
 
 ## Transaction boundaries and public surfaces
 
+Platform configuration publications use `GET /api/v1/platform/units`,
+`POST /api/v1/platform/units/definitions` and
+`POST /api/v1/platform/units/rules`. The administration SDK exposes
+`getCustomerUnitConfiguration`, `publishCustomerUnitDefinition` and
+`publishCustomerUnitPurchaseRule`. All three require platform administration.
+Configuration publication does not itself enable Credits billing. Reads return
+the latest definition and the latest rule per currency for that definition;
+publishing a new definition leaves its rule list empty until explicit publication.
+Historical definitions and rules remain immutable. Revisions and ratio components
+are canonical integer strings, and purchase ratios are reduced before persistence.
+Idempotency compares semantic input, so equivalent reduced ratios are equivalent
+inputs. A repeated successful write returns its original revision even after
+newer publications.
+
 Purchase-rule publication, mode publication, checkout creation and request
 admission serialize on the installation billing revision. Lot operations also
 serialize on the customer account, in a documented consistent lock order.

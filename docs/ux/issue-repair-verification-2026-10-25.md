@@ -398,3 +398,44 @@ rendered and inspected; the narrow document remained 390 pixels wide. Temporary
 LiteLLM and New API inference credentials were revoked after acceptance, and the
 two owned services plus their isolated database were stopped. The Niu gateway
 and its separate acceptance database were retained for remaining issue work.
+
+## Branded Credits configuration publication — issue #110
+
+Bead `niu-2xp.3` remains open. The initial implementation includes exact integer
+conversion and original-lot backing arithmetic, migration 0376, immutable unit
+definitions and purchase rules, platform configuration HTTP operations, typed
+administration SDK methods and generated API documentation. The design contract
+is [branded consumption units](../architecture/branded-credits.md).
+
+The actual isolated gateway was rebuilt and started with its existing database.
+An authenticated HTTP read returned revision zero with no definition or rules.
+Actual administration requests published a six-decimal Niu Credits definition,
+then USD purchase rules of 100 and 200 units per dollar. Repeating the original
+request after the newer publication returned its original revision. Reusing that
+key with a changed ratio and submitting a stale revision both returned HTTP 409.
+Two concurrent publications at the same expected revision produced one HTTP 200
+and one HTTP 409. Zero ratio components, leading-zero strings, a signed value and
+an integer exceeding the supported range returned HTTP 400. An anonymous read
+returned HTTP 401; an actual workspace-scoped operator's read and write each
+returned HTTP 403.
+
+The built JavaScript SDK then read the actual gateway, published a new four-decimal
+definition and observed an empty current rule list. Publishing a ratio of
+20000/100 returned the reduced ratio 200/1. Retrying the earlier definition
+publication returned its original revision after the rule had advanced the
+configuration. Independent SQL reads confirmed both historical definitions and
+all four purchase rules remained present at configuration revision six. An
+attempted SQL mutation of the original rule was rejected by the immutable-record
+trigger; independent rereads confirmed no change. The count and signed sum of
+existing monetary balance entries were identical before and after these actual
+configuration publications. After stopping and restarting that gateway process,
+the HTTP configuration response exactly matched the saved SDK response at
+revision six.
+
+These observations establish configuration publication, its current authorization
+boundary, concurrency behavior and retained records. They do not establish
+checkout conversion, issuance, lot allocation, admission, settlement, refunds,
+customer UI, mode switching or hosted behavior. Exact-arithmetic implementation
+has compiled but has not yet been qualified through the complete payment and
+consumption workflow. No fixture outcome is used as evidence. The feature and
+release gate remain incomplete.

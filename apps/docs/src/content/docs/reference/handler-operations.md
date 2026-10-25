@@ -17428,6 +17428,409 @@ HTTP 200: Configured currency.
 
 HTTP 409: Currency already configured with a different value.
 
+## Read branded-unit configuration
+
+`GET /api/v1/platform/units`
+
+Requires platform administration. Configuration publication alone does not activate Credits billing, convert monetary balances, issue units or change consumption tariffs. Revisions and conversion components use exact decimal strings. Writes serialize on the installation configuration revision. Identical idempotent retries return the original publication even after later changes; different input with the same key conflicts. Purchase rules are reduced exact positive ratios and must reference the latest unit definition. Publishing a new definition requires explicit purchase-rule publication for new purchases; historical rules are retained. No procurement data is returned.
+
+Implementation: `implemented`. Operation: `getCustomerUnitConfiguration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Saved configuration or original idempotent publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "definition",
+        "purchase_rules"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,18})$",
+          "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+        },
+        "definition": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "revision",
+                "name",
+                "display_precision",
+                "atoms_per_unit"
+              ],
+              "properties": {
+                "revision": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "display_precision": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
+                },
+                "atoms_per_unit": {
+                  "type": "string",
+                  "const": "1000000000"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "purchase_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "revision",
+              "definition_revision",
+              "payment_currency",
+              "numerator",
+              "denominator"
+            ],
+            "properties": {
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+              },
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+              },
+              "payment_currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "numerator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+              },
+              "denominator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid exact integer or configuration
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale revision or conflicting idempotency input
+
+HTTP 422: Malformed request body
+
+HTTP 503: Storage unavailable
+
+## Publish an immutable consumption-unit definition
+
+`POST /api/v1/platform/units/definitions`
+
+Requires platform administration. Configuration publication alone does not activate Credits billing, convert monetary balances, issue units or change consumption tariffs. Revisions and conversion components use exact decimal strings. Writes serialize on the installation configuration revision. Identical idempotent retries return the original publication even after later changes; different input with the same key conflicts. Purchase rules are reduced exact positive ratios and must reference the latest unit definition. Publishing a new definition requires explicit purchase-rule publication for new purchases; historical rules are retained. No procurement data is returned.
+
+Implementation: `implemented`. Operation: `publishCustomerUnitDefinition`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "display_precision",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "display_precision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,18})$",
+      "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Saved configuration or original idempotent publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "name",
+        "display_precision",
+        "atoms_per_unit"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "display_precision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "atoms_per_unit": {
+          "type": "string",
+          "const": "1000000000"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid exact integer or configuration
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale revision or conflicting idempotency input
+
+HTTP 422: Malformed request body
+
+HTTP 503: Storage unavailable
+
+## Publish an immutable Credits purchase rule
+
+`POST /api/v1/platform/units/rules`
+
+Requires platform administration. Configuration publication alone does not activate Credits billing, convert monetary balances, issue units or change consumption tariffs. Revisions and conversion components use exact decimal strings. Writes serialize on the installation configuration revision. Identical idempotent retries return the original publication even after later changes; different input with the same key conflicts. Purchase rules are reduced exact positive ratios and must reference the latest unit definition. Publishing a new definition requires explicit purchase-rule publication for new purchases; historical rules are retained. No procurement data is returned.
+
+Implementation: `implemented`. Operation: `publishCustomerUnitPurchaseRule`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "definition_revision",
+    "payment_currency",
+    "numerator",
+    "denominator",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "definition_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+    },
+    "payment_currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "numerator": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+    },
+    "denominator": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,18})$",
+      "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Saved configuration or original idempotent publication
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "definition_revision",
+        "payment_currency",
+        "numerator",
+        "denominator"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+        },
+        "definition_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+        },
+        "payment_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "numerator": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+        },
+        "denominator": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "description": "Canonical nonnegative decimal integer, at most 9223372036854775807."
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid exact integer or configuration
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale revision or conflicting idempotency input
+
+HTTP 422: Malformed request body
+
+HTTP 503: Storage unavailable
+
 ## Read committed financial recovery progress
 
 `GET /api/v1/platform/financial-recovery`

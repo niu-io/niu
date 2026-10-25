@@ -1,5 +1,6 @@
 export type { GenerationsVideoIntentReference } from './generations-sessions.js';
 export type { ProviderDiscovery, ProviderIntegration, ProviderIntegrationType } from './admin.js';
+export type { CustomerUnitDefinition, CustomerUnitPurchaseRule, CustomerUnitConfiguration, CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput } from './admin.js';
 import { notifyResponse } from './response-metadata.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 import type { ContextPriceTier } from './admin.js';

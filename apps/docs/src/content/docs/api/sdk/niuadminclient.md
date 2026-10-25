@@ -228,6 +228,31 @@ getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
+### getCustomerUnitConfiguration
+
+```typescript
+/** Platform-only configuration. Does not enable Credits or change existing balances. */
+getCustomerUnitConfiguration(options?: RequestOptions): Promise<{
+    data: CustomerUnitConfiguration;
+}>;
+```
+
+### publishCustomerUnitDefinition
+
+```typescript
+publishCustomerUnitDefinition(input: CustomerUnitDefinitionInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitDefinition;
+}>;
+```
+
+### publishCustomerUnitPurchaseRule
+
+```typescript
+publishCustomerUnitPurchaseRule(input: CustomerUnitPurchaseRuleInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitPurchaseRule;
+}>;
+```
+
 ### setProviderIntegration
 
 ```typescript

@@ -1,4 +1,21 @@
 export type OperatorAccessRole = 'owner' | 'admin' | 'viewer';
+/** Versioned consumption unit; publication does not activate Credits billing. */
+export type CustomerUnitDefinition = {
+  revision: string; name: string; display_precision: number; atoms_per_unit: '1000000000';
+};
+export type CustomerUnitPurchaseRule = {
+  revision: string; definition_revision: string; payment_currency: string;
+  numerator: string; denominator: string;
+};
+export type CustomerUnitConfiguration = {
+  revision: string; definition: CustomerUnitDefinition | null; purchase_rules: CustomerUnitPurchaseRule[];
+};
+export type CustomerUnitDefinitionInput = {
+  name: string; display_precision: number; expected_revision: string; idempotency_key: string;
+};
+export type CustomerUnitPurchaseRuleInput = Omit<CustomerUnitPurchaseRule, 'revision'> & {
+  expected_revision: string; idempotency_key: string;
+};
 export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
 /** Configuration identity only; does not establish upstream capability or pricing. */
 export type ProviderIntegration = {
@@ -1303,6 +1320,25 @@ export class NiuAdminClient {
   /** Platform-only Provider integration default, independent of inference formats. */
   getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
     return this.request(`/providers/${uuid(providerId)}/integration`, undefined, options);
+  }
+  /** Platform-only configuration. Does not enable Credits or change existing balances. */
+  getCustomerUnitConfiguration(options?: RequestOptions): Promise<{ data: CustomerUnitConfiguration }> {
+    return this.request('/platform/units', undefined, options);
+  }
+  publishCustomerUnitDefinition(input: CustomerUnitDefinitionInput, options?: RequestOptions): Promise<{ data: CustomerUnitDefinition }> {
+    unitInteger(input.expected_revision); uuid(input.idempotency_key);
+    if (typeof input.name !== 'string' || !input.name.length || input.name !== input.name.trim()
+      || [...input.name].length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(input.name)
+      || !Number.isInteger(input.display_precision) || input.display_precision < 0 || input.display_precision > 9) {
+      throw new TypeError('Use a trimmed unit name and a display precision from zero through nine');
+    }
+    return this.request('/platform/units/definitions', input, options, 'POST');
+  }
+  publishCustomerUnitPurchaseRule(input: CustomerUnitPurchaseRuleInput, options?: RequestOptions): Promise<{ data: CustomerUnitPurchaseRule }> {
+    unitInteger(input.expected_revision); unitInteger(input.definition_revision, true);
+    unitInteger(input.numerator, true); unitInteger(input.denominator, true); uuid(input.idempotency_key);
+    if (!/^[A-Z]{3}$/.test(input.payment_currency)) throw new TypeError('Use an uppercase payment currency');
+    return this.request('/platform/units/rules', input, options, 'POST');
   }
   setProviderIntegration(providerId: string, input: { integration_type: ProviderIntegrationType; expected_revision: number }, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Choose a nonnegative safe integer integration revision');
@@ -3634,6 +3670,12 @@ function validateRates(rates: SupplierRateInput | CustomerTariffInput): void {
 
 function retailInteger(value: unknown, maximum: bigint): void {
   if (typeof value !== 'string' || !/^\d{1,20}$/.test(value) || BigInt(value)>maximum) throw new TypeError('Use a supported exact nonnegative integer string');
+}
+function unitInteger(value: unknown, positive = false): void {
+  if (typeof value !== 'string' || !/^(0|[1-9][0-9]{0,18})$/.test(value)
+    || BigInt(value) > 9223372036854775807n || (positive && value === '0')) {
+    throw new TypeError('Use a canonical exact integer string within the supported range');
+  }
 }
 function retailPublication(input: { expected_version: string; idempotency_key: string; reason: string }): void {
   retailInteger(input.expected_version,9223372036854775806n); uuid(input.idempotency_key);
