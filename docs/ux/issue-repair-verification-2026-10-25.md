@@ -202,3 +202,28 @@ heading-fragment load at 390px positioned it at 136px. These are browser layout
 measurements after navigation, not source-only checks. Documentation was rebuilt;
 no fixture-test result was used. Final packaged and hosted regression, including
 the full bilingual anchor matrix, remains required before closing these issues.
+
+## Restored bilingual task guidance
+
+Bead `niu-2xp.1` tracks regressions of issue #98 findings A02–A04 in the bilingual
+guides. Both model-route locales again describe Responses text streaming and the
+bounded token-priced Chat function-tool subset. This aligns the guide with the
+current Responses handler and priced-Chat validation contract; it does not claim
+new live upstream qualification. Missing terminal usage remains unknown, and the
+guide distinguishes browser cancellation from confirmed upstream cancellation.
+
+Generations now starts with selecting a workspace/key/model, comparing results,
+creating video and revisiting saved work, ahead of its retained management API
+reference. API integration now gives introductory sections distinct headings and
+restores the task-to-reference table in both locales. Current route contracts and
+existing technical sections were retained.
+
+The final documentation build was served through the actual local gateway. The
+three English desktop pages and three Chinese 390px pages were visually inspected;
+all narrow document widths equaled their 390px viewport. Runtime DOM reads
+confirmed the revised visible Chinese content and English content. Ten linked
+documentation routes returned 200, including both English protocol fragment
+targets. The Chinese protocol links now target their visible Chinese sections:
+clicking the Responses link navigated to the visible Chinese heading, instead of
+the hidden English content. No fixture outcome was used. Complete inference
+qualification and the final deployed guide audit remain release requirements.
