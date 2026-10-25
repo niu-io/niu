@@ -16,15 +16,21 @@ WITH lots AS MATERIALIZED (
         AND r.first_atom<c.charge_offset+(c.end_atom-c.first_atom)
         AND r.end_atom>c.charge_offset
     GROUP BY c.lot_id
+), reversed AS (
+    SELECT p.lot_id,sum(p.end_atom-p.first_atom) AS atoms
+    FROM customer_unit_purchase_reversal_ranges p JOIN lots l ON l.id=p.lot_id
+    GROUP BY p.lot_id
 ), amounts AS (
     SELECT l.*,COALESCE(h.atoms,0) AS held_atoms,COALESCE(c.atoms,0) AS charged_atoms,
         COALESCE(r.atoms,0) AS restored_atoms,
-        l.credit_atoms-COALESCE(h.atoms,0)-COALESCE(c.atoms,0)+COALESCE(r.atoms,0) AS remaining
+        l.credit_atoms-COALESCE(rev.atoms,0) AS net_issued_atoms,
+        l.credit_atoms-COALESCE(rev.atoms,0)-COALESCE(h.atoms,0)-COALESCE(c.atoms,0)+COALESCE(r.atoms,0) AS remaining
     FROM lots l LEFT JOIN held h ON h.lot_id=l.id
     LEFT JOIN charged c ON c.lot_id=l.id LEFT JOIN restored r ON r.lot_id=l.id
+    LEFT JOIN reversed rev ON rev.lot_id=l.id
 ), groups AS (
     SELECT a.definition_revision,a.provenance,
-        sum(a.credit_atoms)::text AS issued_atoms,sum(a.held_atoms)::text AS held_atoms,
+        sum(a.net_issued_atoms)::text AS issued_atoms,sum(a.held_atoms)::text AS held_atoms,
         sum(a.charged_atoms)::text AS charged_atoms,sum(a.restored_atoms)::text AS restored_atoms,
         sum(CASE WHEN a.expires_at<=statement_timestamp() THEN a.remaining ELSE 0 END)::text AS expired_atoms,
         sum(CASE WHEN a.expires_at<=statement_timestamp() THEN 0 ELSE a.remaining END)::text AS available_atoms

@@ -10,7 +10,9 @@ WITH raw_bounds AS MATERIALIZED (
 ), currency AS (
     SELECT EXISTS(SELECT 1 FROM customer_balance_accounts WHERE currency=$1)
         OR EXISTS(SELECT 1 FROM customer_tariff_revisions WHERE currency=$1)
-        OR EXISTS(SELECT 1 FROM customer_media_charges WHERE currency=$1) AS known
+        OR EXISTS(SELECT 1 FROM customer_media_charges WHERE currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_unit_purchase_rules WHERE payment_currency=$1)
+        OR EXISTS(SELECT 1 FROM customer_unit_lots WHERE payment_currency=$1) AS known
 ), simulated_accounts AS MATERIALIZED (
     -- The immutable receipt channel records checkout provenance. Current plugin
     -- settings cannot reclassify historical simulated money as cash.
@@ -79,6 +81,55 @@ WITH raw_bounds AS MATERIALIZED (
     LEFT JOIN operation_funding_sources funding ON funding.operation_id=attempt.operation_id
     WHERE application.currency=$1 AND application.created_at>=bounds.since
         AND application.created_at<bounds.until
+        AND funding.funding_source IS DISTINCT FROM 'personal'
+        AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=attempt.id)
+        AND NOT EXISTS (SELECT 1 FROM provider_attempt_offers binding
+            JOIN provider_offers offer ON offer.id=binding.offer_id
+            JOIN personal_vendor_ownership personal ON personal.vendor_id=offer.vendor_id
+            WHERE binding.attempt_id=attempt.id)
+    UNION ALL
+    -- Purchased Credits consumption and restorations release/restore exact cash
+    -- backing from the original purchase lot; simulated and promotional lots
+    -- have zero cash backing and never enter cash revenue or refunds.
+    SELECT niu_credit_range_backing(l.credit_atoms,l.backing_nanos,c.first_atom,c.end_atom)::numeric,
+           'charge', TRUE, 0::numeric,
+           niu_credit_range_backing(l.credit_atoms,l.backing_nanos,c.first_atom,c.end_atom)::numeric
+    FROM customer_unit_consumed_ranges c CROSS JOIN bounds
+    JOIN customer_unit_resolutions res ON res.attempt_id=c.attempt_id AND res.kind='charge'
+    JOIN customer_unit_lots l ON l.id=c.lot_id
+    JOIN attempts attempt ON attempt.id=c.attempt_id
+    LEFT JOIN operation_funding_sources funding ON funding.operation_id=attempt.operation_id
+    WHERE l.provenance='purchased' AND l.payment_currency=$1
+        AND res.created_at>=bounds.since AND res.created_at<bounds.until
+        AND funding.funding_source IS DISTINCT FROM 'personal'
+        AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=attempt.id)
+        AND NOT EXISTS (SELECT 1 FROM provider_attempt_offers binding
+            JOIN provider_offers offer ON offer.id=binding.offer_id
+            JOIN personal_vendor_ownership personal ON personal.vendor_id=offer.vendor_id
+            WHERE binding.attempt_id=attempt.id)
+    UNION ALL
+    SELECT niu_credit_range_backing(
+               l.credit_atoms,
+               l.backing_nanos,
+               c.first_atom + GREATEST(0, rest.first_atom - c.charge_offset),
+               c.first_atom + LEAST(c.end_atom - c.first_atom, rest.end_atom - c.charge_offset)
+           )::numeric,
+           'refund', TRUE, 0::numeric,
+           niu_credit_range_backing(
+               l.credit_atoms,
+               l.backing_nanos,
+               c.first_atom + GREATEST(0, rest.first_atom - c.charge_offset),
+               c.first_atom + LEAST(c.end_atom - c.first_atom, rest.end_atom - c.charge_offset)
+           )::numeric
+    FROM customer_unit_restorations rest CROSS JOIN bounds
+    JOIN customer_unit_consumed_ranges c ON c.attempt_id=rest.attempt_id
+        AND rest.first_atom<c.charge_offset+(c.end_atom-c.first_atom)
+        AND rest.end_atom>c.charge_offset
+    JOIN customer_unit_lots l ON l.id=c.lot_id
+    JOIN attempts attempt ON attempt.id=c.attempt_id
+    LEFT JOIN operation_funding_sources funding ON funding.operation_id=attempt.operation_id
+    WHERE l.provenance='purchased' AND l.payment_currency=$1
+        AND rest.created_at>=bounds.since AND rest.created_at<bounds.until
         AND funding.funding_source IS DISTINCT FROM 'personal'
         AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=attempt.id)
         AND NOT EXISTS (SELECT 1 FROM provider_attempt_offers binding
@@ -163,12 +214,20 @@ WITH raw_bounds AS MATERIALIZED (
     FROM customer_balance_grant_corrections CROSS JOIN bounds
     WHERE currency=$1 AND created_at>=bounds.since AND created_at<bounds.until
 ), reversals AS (
-    SELECT COALESCE(sum(-entry.amount_nanos::numeric),0) AS amount
-    FROM customer_balance_entries entry CROSS JOIN bounds
-    JOIN customer_funding_receipts receipt ON receipt.entry_id=entry.reverses_entry_id
-    WHERE entry.currency=$1 AND entry.kind='funding_reversal'
-        AND receipt.channel<>'stripe:NiuMockPayments'
-        AND entry.created_at>=bounds.since AND entry.created_at<bounds.until
+    SELECT COALESCE((
+        SELECT sum(-entry.amount_nanos::numeric)
+        FROM customer_balance_entries entry
+        JOIN customer_funding_receipts receipt ON receipt.entry_id=entry.reverses_entry_id
+        WHERE entry.currency=$1 AND entry.kind='funding_reversal'
+            AND receipt.channel<>'stripe:NiuMockPayments'
+            AND entry.created_at>=bounds.since AND entry.created_at<bounds.until
+    ),0) + COALESCE((
+        SELECT sum(rev.refund_backing_nanos::numeric)
+        FROM customer_unit_purchase_reversals rev
+        WHERE rev.payment_currency=$1 AND rev.provenance='purchased'
+            AND rev.created_at>=bounds.since AND rev.created_at<bounds.until
+    ),0) AS amount
+    FROM bounds
 )
 SELECT currency.known,
     jsonb_build_object('currency',$1,'days',COALESCE($2, GREATEST(1, ceil(extract(epoch FROM (bounds.until - bounds.since)) / 86400.0)::int)),'from',bounds.since,'until',bounds.until,

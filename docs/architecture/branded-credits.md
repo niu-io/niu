@@ -360,7 +360,36 @@ The immutable receipt reports each restored source's original definition,
 provenance and expiry. Expired promotional atoms remain expired. The endpoint
 does not execute a processor refund, reverse a purchase, or expose monetary
 backing. Historical retries return the original receipt after restart and after
-price or conversion changes. Purchase reversals remain a separate requirement.
+price or conversion changes.
+
+Platform administrators can preview and record a purchase reversal on a paid
+Credits top-up order through
+`GET /api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals`
+and `POST /api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals`
+(SDK `previewCustomerUnitPurchaseReversal` and `reverseCustomerUnitPurchase`).
+Migration 0387 adds `niu_credit_range_backing`, immutable tables
+`customer_unit_purchase_reversals` and `customer_unit_purchase_reversal_ranges`,
+and extends `customer_unit_occupied_ranges`, `customer_unit_balance.sql`,
+`customer_financial_summary.sql` and the mode-compatibility preview/lock
+functions. Reversals serialize on the company unit account and allocate only
+unoccupied intervals `[first_atom, end_atom)` of the original purchase lot
+(disjoint from active holds, un-restored charge intervals and prior purchase
+reversals). Both payment nanounits and verified cash backing nanounits are
+computed from the lot's pinned issuance totals via
+`floor(total * end_atom / issued_atoms) - floor(total * first_atom / issued_atoms)`,
+conserving 100% of the lot's payment and backing across any sequence of partial
+charges, charge restorations and partial purchase reversals without rounding
+drift or revaluation after later purchase-rule changes. Every reversal must be
+representable at the payment processor's minor-unit precision (`10,000,000`
+nanounits) and must not include trailing zero-payment atoms; any sub-precision
+remainder is disclosed as `residual_credit_atoms`, `residual_payment_nanos` and
+`residual_backing_nanos` and retained in the customer's balance until unlocked
+or combined with restored intervals. Verified cash-backed (`purchased`) lots
+contribute their reversal backing to `recorded_funding_reversals_nanos` and
+their settled consumption/restoration backing to `nominal_consumption_nanos`,
+`customer_refunds_nanos` and `recognized_revenue_nanos`, whereas `simulated`
+and `promotional` lots remain strictly zero in cash receipts, cash refunds and
+cash funding reversals.
 
 Use the running application with current inputs, real database transactions and
 the authorized mock payment gateway. Independently inspect saved quotes, signed

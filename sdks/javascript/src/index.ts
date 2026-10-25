@@ -3,7 +3,7 @@ export type { ProviderDiscovery, ProviderIntegration, ProviderIntegrationType } 
 export type { CustomerUnitDefinition, CustomerUnitPurchaseRule, CustomerUnitConfiguration, CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput } from './admin.js';
 export type { CustomerUnitQuote, CustomerUnitQuoteInput } from './admin.js';
 export type { CustomerUnitGrant, CustomerUnitGrantInput } from './admin.js';
-export type { CustomerUnitRefund, CustomerUnitRefundInput } from './admin.js';
+export type { CustomerUnitRefund, CustomerUnitRefundInput, CustomerUnitPurchaseReversalRange, CustomerUnitPurchaseReversal, CustomerUnitPurchaseReversalPreview } from './admin.js';
 export type { CustomerUnitModePreview } from './admin.js';
 export type { CustomerUnitModePreviewInput, CustomerUnitSavedModePreview, CustomerUnitModePublication } from './admin.js';
 export type { CustomerUnitBalance } from './admin.js';

@@ -949,3 +949,103 @@ readiness now recognizes issued `customer_unit_lots` when `billing_mode` is
 Media/async Credits tariffs, customer/admin Credits UI surfaces and hosted
 deployment remain outside this slice. No fixture result supports the
 observations above.
+
+## Branded Credits purchase reversals and original-range backing conservation — 2026-10-25 15:28 UTC
+
+Related work: `niu-2xp.3`, public issue #110, UNIT-01 and UNIT-03. Migration
+0387 adds `niu_credit_range_backing`, `customer_unit_purchase_reversals`,
+`customer_unit_purchase_reversal_ranges`, range-disjointness and processor
+precision triggers (`validate_customer_unit_purchase_reversal`,
+`validate_customer_unit_purchase_reversal_range`,
+`validate_customer_unit_purchase_reversal_total`), and updates
+`customer_unit_occupied_ranges`, `customer_unit_balance.sql`,
+`customer_financial_summary.sql`, `niu_customer_unit_mode_preview` and
+`niu_lock_customer_unit_mode_change`. The gateway exposes
+`GET /api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals`
+and `POST /api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals`,
+and the JavaScript admin SDK exposes `previewCustomerUnitPurchaseReversal` and
+`reverseCustomerUnitPurchase`.
+
+- On the existing simulated Credits purchase order (`100000000000` issued atoms
+  for `$1.00` = `1000000000` payment nanos, `0` verified cash backing nanos),
+  where `51764900` atoms remained occupied across an un-restored charge range
+  `[0, 35188800)` and three active holds (`[51228300, 67767800)`,
+  `[67767800, 67804400)` and `[99051764900, 100000000000)`), previewing without
+  `credit_atoms` returned `available_atoms: "99948235100"`,
+  `reversible_atoms: "99000000000"`, `refund_payment_nanos: "990000000"` (`$0.99`),
+  `refund_backing_nanos: "0"`, `residual_credit_atoms: "948235100"`,
+  `residual_payment_nanos: "9482351"`, `residual_backing_nanos: "0"`, and two
+  disjoint unoccupied intervals (`[35188800, 51228300)` and
+  `[67804400, 99051764900)`).
+- Attempting to reverse all `99948235100` unoccupied atoms returned `400`
+  because `999482351` payment nanounits is not an exact multiple of the USD
+  cent quantum (`10000000` nanounits). Reversing `99000000000` atoms succeeded
+  with `200`, allocating `[35188800, 51228300)` (`16039500` atoms -> `160395`
+  payment nanos) and `[67804400, 99051764900)` (`98983960500` atoms ->
+  `989839605` payment nanos) for an exact total of `990000000` payment nanos
+  and `0` backing nanos. Concurrent identical replays returned the identical
+  reversal receipt, while a conflicting payload under the same idempotency key
+  returned `409`.
+- After the simulated reversal, `getCustomerUnitBalance` reported
+  `issued_atoms: "1000000000"` (net of the `99000000000` reversed purchase
+  atoms) and `available_atoms: "948235100"` (the retained sub-cent residual
+  atoms), preserving `issued + restored = held + charged + expired + available`
+  (`1000000000 + 36222100 = 49728300 + 51588900 + 0 + 948235100`). Platform
+  financial reporting kept `recorded_funding_reversals_nanos: "0"` because the
+  simulated purchase lot has zero verified cash backing.
+- Scoped workspace viewers and non-platform organization owners received `403`,
+  anonymous callers `401`, foreign organization routes `403`/`404`, unpaid or
+  closed orders `404`, and invalid atom strings or reasons `400`.
+- In an isolated organization, a verified cash-backed (`purchased`) purchase
+  lot of `20000000` atoms (`$0.16` = `160000000` payment and backing nanos under
+  a `1:8` USD purchase rule) was settled through a signed Stripe webhook
+  (`POST /payments/stripe/notify`), increasing platform
+  `verified_cash_receipts_nanos` by `160000000`.
+- A real bounded non-streamed free-model inference call (`qa/credits-free-text`
+  -> `nvidia/nemotron-3-ultra-550b-a55b:free`, `max_tokens: 16`) consumed range
+  `[0, 2000000)` (`2000000` atoms -> `16000000` backing nanos), updating
+  platform `nominal_consumption_nanos` and `recognized_revenue_nanos` to
+  `16000000`. Restoring `500000` atoms via `refundCustomerUnitCharge` unlocked
+  `[0, 500000)` (`4000000` backing nanos) and updated `customer_refunds_nanos`
+  to `4000000` and `recognized_revenue_nanos` to `12000000`.
+- Publishing a new USD purchase rule (`1000/3` Credits per USD) did not revalue
+  the existing lot: previewing the order still computed `17500000` reversible
+  atoms (`$0.14` = `140000000` payment and backing nanos across `[0, 500000)`
+  and `[2000000, 19000000)`) and `1000000` residual atoms (`8000000` nanos in
+  `[19000000, 20000000)`) under the lot's pinned `1:8` rule.
+- Racing two distinct concurrent `17500000`-atom reversal requests returned
+  `200` and `409`, producing exactly one reversal record and increasing
+  `recorded_funding_reversals_nanos` to `140000000`. Restoring the remaining
+  `1500000` consumed atoms (`[500000, 2000000)`, `12000000` backing nanos)
+  unlocked those atoms so they combined with the `1000000` residual atoms
+  (`[19000000, 20000000)`, `8000000` backing nanos) into an exact `$0.02`
+  (`20000000` nanos) reversal of `2500000` atoms, conserving 100% of the lot
+  (`20000000` atoms and `160000000` payment/backing nanos).
+- Under the repeating-decimal `1000/3` rule (`3333333334` atoms for `$0.01`,
+  `10000000000` atoms for `$0.03` = `30000000` nanos), previewing `3333333335`
+  atoms capped `reversible_atoms` at `3333333334` (`10000000` nanos) because
+  atom `3333333334` has zero marginal payment nanounits
+  (`floor(30000000 * 3333333335 / 10000000000) = 10000000`). Submitting
+  `3333333333` (`9999999` nanos) or `3333333335` (trailing zero-payment atom)
+  returned `400`. Reversing `3333333334` atoms (`$0.01` = `10000000` nanos) and
+  then the remaining `6666666666` atoms (`$0.02` = `20000000` nanos) conserved
+  100% of the `10000000000` atoms and `30000000` backing nanounits with zero
+  rounding drift (`verified_cash_receipts_nanos: "190000000"`,
+  `recorded_funding_reversals_nanos: "190000000"`,
+  `nominal_consumption_nanos: "16000000"`, `customer_refunds_nanos: "16000000"`,
+  `recognized_revenue_nanos: "0"`).
+- After restarting the gateway, all reversal previews, idempotent replays,
+  customer unit balances and financial summaries matched pre-restart state.
+  Independent PostgreSQL verification confirmed all 5 reversal rows and 8 range
+  rows, range disjointness across holds/charges/reversals, and trigger
+  rejection of direct `UPDATE`/`DELETE`, overlapping range inserts, and trailing
+  zero-payment atom inserts.
+
+Evidence limits: in the local acceptance database, the two verified cash-backed
+lots bound their pending `StripeAcceptanceMerchant` top-up intents in
+PostgreSQL before settling through `POST /payments/stripe/notify` because the
+local environment does not use live external Stripe checkout sessions; live
+external payment-processor refund transfers remain outside product scope. Media
+and batch Credits tariffs/consumption, customer/admin Credits UI surfaces, and
+hosted candidate verification remain open. No fixture result supports the
+observations above.

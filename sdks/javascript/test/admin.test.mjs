@@ -1585,3 +1585,96 @@ test('saved task reads accept public run references without widening action iden
   for(const reference of ['run-0','run-01','run-1/refresh','../run-1','run-10000000000000000000'])assert.throws(()=>tasks.retrieve(reference),TypeError);
   assert.throws(()=>tasks.diagnostics('run-1000'),TypeError);
 });
+
+test('customer unit purchase reversal preview and execution validate scope, exact atoms, reason and idempotency', async () => {
+  const calls = [];
+  const abort = new AbortController();
+  const preview = {
+    data: {
+      order_id: id,
+      lot_id: id,
+      definition_revision: '5',
+      name: 'Niu Credits',
+      display_precision: 4,
+      atoms_per_unit: '1000000000',
+      provenance: 'purchased',
+      payment_currency: 'USD',
+      processor_minor_unit_nanos: '10000000',
+      payment_nanos: '160000000',
+      backing_nanos: '160000000',
+      issued_atoms: '20000000',
+      held_atoms: '0',
+      charged_atoms: '2000000',
+      restored_atoms: '500000',
+      reversed_atoms: '0',
+      available_atoms: '18500000',
+      available_payment_nanos: '148000000',
+      available_backing_nanos: '148000000',
+      requested_atoms: '18500000',
+      reversible_atoms: '17500000',
+      refund_payment_nanos: '140000000',
+      refund_backing_nanos: '140000000',
+      residual_credit_atoms: '1000000',
+      residual_payment_nanos: '8000000',
+      residual_backing_nanos: '8000000',
+      ranges: [{ first_atom: '0', end_atom: '500000', credit_atoms: '500000', payment_nanos: '4000000', backing_nanos: '4000000' }],
+      reversals: [],
+    },
+  };
+  const receipt = {
+    data: {
+      id,
+      order_id: id,
+      lot_id: id,
+      definition_revision: '5',
+      name: 'Niu Credits',
+      display_precision: 4,
+      atoms_per_unit: '1000000000',
+      provenance: 'purchased',
+      payment_currency: 'USD',
+      processor_minor_unit_nanos: '10000000',
+      credit_atoms: '17500000',
+      refund_payment_nanos: '140000000',
+      refund_backing_nanos: '140000000',
+      reason: 'Reverse unoccupied purchased atoms',
+      created_at: '2026-10-25T15:00:00Z',
+      ranges: preview.data.ranges,
+    },
+  };
+  const client = new NiuAdminClient({
+    adminToken: 'test',
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return init.method === 'GET' ? Response.json(preview) : Response.json(receipt);
+    },
+  });
+
+  assert.deepEqual(await client.previewCustomerUnitPurchaseReversal(id, id, { creditAtoms: '18500000' }, { signal: abort.signal }), preview);
+  assert.ok(calls[0].url.endsWith(`/organizations/${id}/billing/units/purchases/${id}/reversals?credit_atoms=18500000`));
+  assert.equal(calls[0].init.method, 'GET');
+  assert.equal(calls[0].init.body, undefined);
+  assert.equal(calls[0].init.signal, abort.signal);
+
+  assert.deepEqual(await client.previewCustomerUnitPurchaseReversal(id, id), preview);
+  assert.ok(calls[1].url.endsWith(`/organizations/${id}/billing/units/purchases/${id}/reversals`));
+
+  const input = { credit_atoms: '17500000', reason: 'Reverse unoccupied purchased atoms', idempotency_key: id };
+  assert.deepEqual(await client.reverseCustomerUnitPurchase(id, id, input, { signal: abort.signal }), receipt);
+  assert.ok(calls[2].url.endsWith(`/organizations/${id}/billing/units/purchases/${id}/reversals`));
+  assert.equal(calls[2].init.method, 'POST');
+  assert.equal(calls[2].init.signal, abort.signal);
+  assert.deepEqual(JSON.parse(calls[2].init.body), input);
+
+  assert.throws(() => client.previewCustomerUnitPurchaseReversal('../bad', id), /UUID/);
+  assert.throws(() => client.previewCustomerUnitPurchaseReversal(id, '../bad'), /UUID/);
+  for (const atoms of ['0', '-1', '9223372036854775808', 'abc']) {
+    assert.throws(() => client.previewCustomerUnitPurchaseReversal(id, id, { creditAtoms: atoms }), /exact integer string/);
+    assert.throws(() => client.reverseCustomerUnitPurchase(id, id, { ...input, credit_atoms: atoms }), /exact integer string/);
+  }
+  for (const reason of ['', ' padded ', 'bad\nreason', 'x'.repeat(501)]) {
+    assert.throws(() => client.reverseCustomerUnitPurchase(id, id, { ...input, reason }), /reason/);
+  }
+  assert.throws(() => client.reverseCustomerUnitPurchase(id, id, { ...input, idempotency_key: 'not-a-uuid' }), /UUID/);
+  assert.equal(calls.length, 3);
+});
+

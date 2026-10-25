@@ -3645,6 +3645,681 @@ pub async fn workspace_limit_history(
     Ok(Json(json!({"data": rows, "next_before_revision": next})))
 }
 
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct PurchaseReversalPreviewQuery {
+    credit_atoms: Option<String>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "previewCustomerUnitPurchaseReversal",
+///     "summary": "Preview a Credits purchase reversal and read committed reversal receipts",
+///     "description": "Platform administration required. Evaluates the unoccupied (unconsumed, unreserved and unreversed) ranges of an original Credits purchase lot and computes the exact processor-representable refund amount (whole minor units of 10000000 nanounits), the reversible atom prefix and any residual atoms or monetary backing that cannot be represented at processor precision without discarding value. Also returns all previously committed reversal receipts on the order. Consumed ranges require an explicit charge refund before they become reversible. Does not mutate state or execute an external payment refund.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "order",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "credit_atoms",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[1-9][0-9]*$"
+///         },
+///         "description": "Optional target unoccupied atom prefix to evaluate; defaults to all currently available unoccupied atoms on the purchase lot."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Purchase reversal preview and committed reversal history",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "order_id",
+///                     "lot_id",
+///                     "definition_revision",
+///                     "name",
+///                     "display_precision",
+///                     "atoms_per_unit",
+///                     "provenance",
+///                     "payment_currency",
+///                     "processor_minor_unit_nanos",
+///                     "payment_nanos",
+///                     "backing_nanos",
+///                     "issued_atoms",
+///                     "held_atoms",
+///                     "charged_atoms",
+///                     "restored_atoms",
+///                     "reversed_atoms",
+///                     "available_atoms",
+///                     "available_payment_nanos",
+///                     "available_backing_nanos",
+///                     "requested_atoms",
+///                     "reversible_atoms",
+///                     "refund_payment_nanos",
+///                     "refund_backing_nanos",
+///                     "residual_credit_atoms",
+///                     "residual_payment_nanos",
+///                     "residual_backing_nanos",
+///                     "ranges",
+///                     "reversals"
+///                   ],
+///                   "properties": {
+///                     "order_id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "lot_id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "display_precision": {
+///                       "type": "integer",
+///                       "minimum": 0,
+///                       "maximum": 9
+///                     },
+///                     "atoms_per_unit": {
+///                       "type": "string",
+///                       "const": "1000000000"
+///                     },
+///                     "provenance": {
+///                       "type": "string",
+///                       "enum": [
+///                         "purchased",
+///                         "simulated"
+///                       ]
+///                     },
+///                     "payment_currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$"
+///                     },
+///                     "processor_minor_unit_nanos": {
+///                       "type": "string",
+///                       "const": "10000000"
+///                     },
+///                     "payment_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "backing_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "issued_atoms": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "held_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "charged_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "restored_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "reversed_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "available_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "available_payment_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "available_backing_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "requested_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "reversible_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "refund_payment_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "refund_backing_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "residual_credit_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "residual_payment_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "residual_backing_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "ranges": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "first_atom",
+///                           "end_atom",
+///                           "credit_atoms",
+///                           "payment_nanos",
+///                           "backing_nanos"
+///                         ],
+///                         "properties": {
+///                           "first_atom": {
+///                             "type": "string",
+///                             "pattern": "^(0|[1-9][0-9]*)$"
+///                           },
+///                           "end_atom": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "credit_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "payment_nanos": {
+///                             "type": "string",
+///                             "pattern": "^(0|[1-9][0-9]*)$"
+///                           },
+///                           "backing_nanos": {
+///                             "type": "string",
+///                             "pattern": "^(0|[1-9][0-9]*)$"
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "reversals": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "id",
+///                           "order_id",
+///                           "lot_id",
+///                           "definition_revision",
+///                           "name",
+///                           "display_precision",
+///                           "atoms_per_unit",
+///                           "provenance",
+///                           "payment_currency",
+///                           "processor_minor_unit_nanos",
+///                           "credit_atoms",
+///                           "refund_payment_nanos",
+///                           "refund_backing_nanos",
+///                           "reason",
+///                           "created_at",
+///                           "ranges"
+///                         ],
+///                         "properties": {
+///                           "id": {
+///                             "type": "string",
+///                             "format": "uuid"
+///                           },
+///                           "order_id": {
+///                             "type": "string",
+///                             "format": "uuid"
+///                           },
+///                           "lot_id": {
+///                             "type": "string",
+///                             "format": "uuid"
+///                           },
+///                           "definition_revision": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "name": {
+///                             "type": "string"
+///                           },
+///                           "display_precision": {
+///                             "type": "integer",
+///                             "minimum": 0,
+///                             "maximum": 9
+///                           },
+///                           "atoms_per_unit": {
+///                             "type": "string",
+///                             "const": "1000000000"
+///                           },
+///                           "provenance": {
+///                             "type": "string",
+///                             "enum": [
+///                               "purchased",
+///                               "simulated"
+///                             ]
+///                           },
+///                           "payment_currency": {
+///                             "type": "string",
+///                             "pattern": "^[A-Z]{3}$"
+///                           },
+///                           "processor_minor_unit_nanos": {
+///                             "type": "string",
+///                             "const": "10000000"
+///                           },
+///                           "credit_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "refund_payment_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "refund_backing_nanos": {
+///                             "type": "string",
+///                             "pattern": "^(0|[1-9][0-9]*)$"
+///                           },
+///                           "reason": {
+///                             "type": "string"
+///                           },
+///                           "created_at": {
+///                             "type": "string",
+///                             "format": "date-time"
+///                           },
+///                           "ranges": {
+///                             "type": "array",
+///                             "items": {
+///                               "type": "object",
+///                               "additionalProperties": false,
+///                               "required": [
+///                                 "first_atom",
+///                                 "end_atom",
+///                                 "credit_atoms",
+///                                 "payment_nanos",
+///                                 "backing_nanos"
+///                               ],
+///                               "properties": {
+///                                 "first_atom": {
+///                                   "type": "string",
+///                                   "pattern": "^(0|[1-9][0-9]*)$"
+///                                 },
+///                                 "end_atom": {
+///                                   "type": "string",
+///                                   "pattern": "^[1-9][0-9]*$"
+///                                 },
+///                                 "credit_atoms": {
+///                                   "type": "string",
+///                                   "pattern": "^[1-9][0-9]*$"
+///                                 },
+///                                 "payment_nanos": {
+///                                   "type": "string",
+///                                   "pattern": "^(0|[1-9][0-9]*)$"
+///                                 },
+///                                 "backing_nanos": {
+///                                   "type": "string",
+///                                   "pattern": "^(0|[1-9][0-9]*)$"
+///                                 }
+///                               }
+///                             }
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query parameter"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "404": {
+///         "description": "No settled Credits purchase lot for the specified organization and order"
+///       },
+///       "409": {
+///         "description": "Requested atoms exceed currently available unoccupied purchase capacity"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn preview_purchase_reversal(
+    State(state): State<AppState>,
+    Path((organization, order)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    query: Result<Query<PurchaseReversalPreviewQuery>, axum::extract::rejection::QueryRejection>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let Query(query) =
+        query.map_err(|_| ApiError::invalid_request("Invalid purchase-reversal preview query"))?;
+    let credit_atoms = match query.credit_atoms.as_deref() {
+        Some(raw) => {
+            let parsed = exact_integer(raw)?;
+            if parsed <= 0 {
+                return Err(ApiError::invalid_request(
+                    "Use a positive integer atom quantity",
+                ));
+            }
+            Some(parsed)
+        }
+        None => None,
+    };
+    let data = state
+        .store
+        .preview_customer_unit_purchase_reversal(organization, order, credit_atoms)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data": data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "reverseCustomerUnitPurchase",
+///     "summary": "Reverse unoccupied Credits purchase ranges at processor minor-unit precision",
+///     "description": "Platform administration required. Records an immutable reversal of unoccupied ranges belonging to an original Credits purchase lot. The requested atom quantity must map to a positive whole minor-unit payment refund (divisible by 10000000 nanounits) with zero discarded residual atoms or backing. Simulated purchases preserve zero cash backing and never enter verified cash funding reversals. Identical idempotent replay returns the original receipt even after later charges, reversals or rule changes; conflicting reuse returns 409. Recording a reversal does not execute an external payment-processor transfer.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "order",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "credit_atoms",
+///               "reason",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "credit_atoms": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]*$"
+///               },
+///               "reason": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 500
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Immutable purchase reversal receipt",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "id",
+///                     "order_id",
+///                     "lot_id",
+///                     "definition_revision",
+///                     "name",
+///                     "display_precision",
+///                     "atoms_per_unit",
+///                     "provenance",
+///                     "payment_currency",
+///                     "processor_minor_unit_nanos",
+///                     "credit_atoms",
+///                     "refund_payment_nanos",
+///                     "refund_backing_nanos",
+///                     "reason",
+///                     "created_at",
+///                     "ranges"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "order_id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "lot_id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "display_precision": {
+///                       "type": "integer",
+///                       "minimum": 0,
+///                       "maximum": 9
+///                     },
+///                     "atoms_per_unit": {
+///                       "type": "string",
+///                       "const": "1000000000"
+///                     },
+///                     "provenance": {
+///                       "type": "string",
+///                       "enum": [
+///                         "purchased",
+///                         "simulated"
+///                       ]
+///                     },
+///                     "payment_currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$"
+///                     },
+///                     "processor_minor_unit_nanos": {
+///                       "type": "string",
+///                       "const": "10000000"
+///                     },
+///                     "credit_atoms": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "refund_payment_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "refund_backing_nanos": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "reason": {
+///                       "type": "string"
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "ranges": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "first_atom",
+///                           "end_atom",
+///                           "credit_atoms",
+///                           "payment_nanos",
+///                           "backing_nanos"
+///                         ],
+///                         "properties": {
+///                           "first_atom": {
+///                             "type": "string",
+///                             "pattern": "^(0|[1-9][0-9]*)$"
+///                           },
+///                           "end_atom": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "credit_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "payment_nanos": {
+///                             "type": "string",
+///                             "pattern": "^(0|[1-9][0-9]*)$"
+///                           },
+///                           "backing_nanos": {
+///                             "type": "string",
+///                             "pattern": "^(0|[1-9][0-9]*)$"
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid atom quantity, inexact processor minor-unit refund, residual atoms or invalid reason"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "404": {
+///         "description": "No settled Credits purchase lot for the specified organization and order"
+///       },
+///       "409": {
+///         "description": "Requested atoms exceed unoccupied capacity or idempotency key reused with different input"
+///       },
+///       "422": {
+///         "description": "Malformed request body"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn reverse_purchase(
+    State(state): State<AppState>,
+    Path((organization, order)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<RefundInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .reverse_customer_unit_purchase(
+            organization,
+            order,
+            exact_integer(&input.credit_atoms)?,
+            &input.reason,
+            input.idempotency_key,
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data": data})))
+}
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",

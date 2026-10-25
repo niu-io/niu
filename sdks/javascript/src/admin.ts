@@ -93,6 +93,61 @@ export type CustomerUnitRefund = {
     provenance: 'purchased' | 'promotional' | 'simulated'; expires_at_ms: string | null;
   }>;
 };
+export type CustomerUnitPurchaseReversalRange = {
+  first_atom: string;
+  end_atom: string;
+  credit_atoms: string;
+  payment_nanos: string;
+  backing_nanos: string;
+};
+export type CustomerUnitPurchaseReversal = {
+  id: string;
+  order_id: string;
+  lot_id: string;
+  definition_revision: string;
+  name: string;
+  display_precision: number;
+  atoms_per_unit: '1000000000';
+  provenance: 'purchased' | 'simulated';
+  payment_currency: string;
+  processor_minor_unit_nanos: '10000000';
+  credit_atoms: string;
+  refund_payment_nanos: string;
+  refund_backing_nanos: string;
+  reason: string;
+  created_at: string;
+  ranges: CustomerUnitPurchaseReversalRange[];
+};
+export type CustomerUnitPurchaseReversalPreview = {
+  order_id: string;
+  lot_id: string;
+  definition_revision: string;
+  name: string;
+  display_precision: number;
+  atoms_per_unit: '1000000000';
+  provenance: 'purchased' | 'simulated';
+  payment_currency: string;
+  processor_minor_unit_nanos: '10000000';
+  payment_nanos: string;
+  backing_nanos: string;
+  issued_atoms: string;
+  held_atoms: string;
+  charged_atoms: string;
+  restored_atoms: string;
+  reversed_atoms: string;
+  available_atoms: string;
+  available_payment_nanos: string;
+  available_backing_nanos: string;
+  requested_atoms: string;
+  reversible_atoms: string;
+  refund_payment_nanos: string;
+  refund_backing_nanos: string;
+  residual_credit_atoms: string;
+  residual_payment_nanos: string;
+  residual_backing_nanos: string;
+  ranges: CustomerUnitPurchaseReversalRange[];
+  reversals: CustomerUnitPurchaseReversal[];
+};
 /** Original issuance; not a current remaining balance or a payment receipt. */
 export type CustomerUnitGrant = {
   id: string; definition_revision: string; credit_atoms: string;
@@ -1465,6 +1520,21 @@ export class NiuAdminClient {
     if (typeof input.reason !== 'string' || !input.reason.length || input.reason !== input.reason.trim()
       || [...input.reason].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Use a trimmed refund reason');
     return this.request(`/organizations/${uuid(organizationId)}/billing/units/charges/${uuid(attemptId)}/refunds`, input, options, 'POST');
+  }
+  previewCustomerUnitPurchaseReversal(organizationId: string, orderId: string, query: { creditAtoms?: string } = {}, options?: RequestOptions): Promise<{ data: CustomerUnitPurchaseReversalPreview }> {
+    const params = new URLSearchParams();
+    if (query.creditAtoms !== undefined) {
+      unitInteger(query.creditAtoms, true);
+      params.set('credit_atoms', query.creditAtoms);
+    }
+    const suffix = params.size ? `?${params}` : '';
+    return this.request(`/organizations/${uuid(organizationId)}/billing/units/purchases/${uuid(orderId)}/reversals${suffix}`, undefined, options);
+  }
+  reverseCustomerUnitPurchase(organizationId: string, orderId: string, input: CustomerUnitRefundInput, options?: RequestOptions): Promise<{ data: CustomerUnitPurchaseReversal }> {
+    unitInteger(input.credit_atoms, true); uuid(input.idempotency_key);
+    if (typeof input.reason !== 'string' || !input.reason.length || input.reason !== input.reason.trim()
+      || [...input.reason].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Use a trimmed reversal reason');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/units/purchases/${uuid(orderId)}/reversals`, input, options, 'POST');
   }
   getCustomerUnitTextTariff(model: string, options?: RequestOptions): Promise<{ data: CustomerUnitTextTariff }> {
     if (!model || model !== model.trim() || [...model].length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(model)) throw new TypeError('Use a nonempty model alias');

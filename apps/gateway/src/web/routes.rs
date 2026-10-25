@@ -529,6 +529,12 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         post(crate::customer_units::refund_charge).layer(DefaultBodyLimit::max(4096)),
     )
     .dual_route(
+        "/organizations/{organization}/billing/units/purchases/{order}/reversals",
+        get(crate::customer_units::preview_purchase_reversal)
+            .post(crate::customer_units::reverse_purchase)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
         "/organizations/{organization}/billing/quotes/{quote}",
         get(crate::customer_units::read_quote),
     )
