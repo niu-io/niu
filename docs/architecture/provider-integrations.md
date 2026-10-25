@@ -24,7 +24,9 @@ The JavaScript administration client exposes `getProviderIntegration`,
 `setProviderIntegration`, `getConnectionIntegration` and
 `setConnectionIntegration`. A default change affects inheriting connections;
 explicit overrides remain unchanged. The source and effective identity must be
-shown together in the eventual configuration UI.
+shown together in the configuration UI. Provider Settings owns the default;
+API-key details own the connection override. Each save has independent conflict
+and uncertain-result recovery.
 
 ## Discovery and review requirements
 
@@ -66,9 +68,11 @@ explicit publications. Discovery must not change either price schedule.
 
 ## Verification boundary
 
-The initial implementation adds durable identity configuration, APIs and SDK
-methods. Current-input acceptance verified inheritance, overrides, stale-write
-rejection, platform authorization and restart persistence against an actual
-isolated gateway and database. Discovery capability reporting, endpoint guidance,
-reviewed import, UI integration and hosted acceptance are subsequent work under
-the same issue. The configuration result alone does not qualify those behaviors.
+Current-input acceptance verified durable configuration, inheritance, overrides,
+stale-write rejection, platform authorization and restart persistence against an
+actual isolated gateway and database. The browser subsequently verified separate
+configuration saves, conflict recovery and a reviewed single-model import from
+live OpenRouter discovery. Evidence and limits are recorded in
+`docs/ux/issue-repair-verification-2026-10-25.md`. Other integration instances,
+manual recovery after discovery failure and hosted acceptance remain unverified;
+the narrower successful runs do not qualify those behaviors.

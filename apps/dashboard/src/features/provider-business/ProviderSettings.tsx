@@ -1,3 +1,4 @@
+import IntegrationSettings from '@/features/providers/components/IntegrationSettings';
 import { useProviderParams } from '@/app/provider-route';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
@@ -17,7 +18,8 @@ const conflictMessage = 'These details changed since you opened this page. Reloa
 export default function ProviderSettings() {
   const { providerId, supplierId } = useProviderParams();
   const activeProviderId = providerId ?? supplierId ?? '';
-  const { token } = useDashboardContext();
+  const { token, session } = useDashboardContext();
+  const canManageIntegration = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session.permissions?.manage_operators !== false));
   const [profile, setProfile] = useState<Profile | null>(null);
   const [draft, setDraft] = useState(empty);
   const nameInput = useRef<HTMLInputElement>(null);
@@ -88,5 +90,6 @@ export default function ProviderSettings() {
         {(error || conflict) && <div className="space-y-2"><p role="alert" className="text-destructive">{conflict ? conflictMessage : error}</p>{conflict && error && error !== conflictMessage && <p role="alert" className="text-destructive">{error}</p>}<Button type="button" variant="outline" onClick={() => setReload(value => value + 1)}>Reload saved details</Button><p className="text-sm text-muted-foreground">Reloading replaces your unsaved changes.</p></div>}
         <div className="flex flex-wrap items-center gap-4">{dirty && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setDraft({ name: profile.name, description: profile.description, website_url: profile.website_url, logo_url: profile.logo_url }); if (!conflict) setError(''); setSaved(false); nameInput.current?.focus(); }}>Cancel</Button>}<Button disabled={busy || conflict || !dirty || !draft.name.trim()}>{busy ? 'Saving…' : 'Save changes'}</Button>{saved && <p role="status" className="text-sm text-muted-foreground">Provider details saved.</p>}</div>
       </form>}
+    {canManageIntegration && <IntegrationSettings key={`${token}:${activeProviderId}`} token={token} resource="providers" id={activeProviderId} />}
   </section>;
 }

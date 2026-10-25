@@ -1,3 +1,4 @@
+import IntegrationSettings from './IntegrationSettings';
 import { useProviderParams } from '@/app/provider-route';
 import { Link, useSearchParams } from 'react-router';
 import { IconX as X } from "@tabler/icons-react";
@@ -12,7 +13,7 @@ import { IconShieldExclamation as ShieldAlert } from "@tabler/icons-react";
 import PageHeader from '@/components/PageHeader';
 import type { AdminSession } from '@/app/dashboard-context';
 import { Button } from '@/components/ui/button';
-import { ProviderRequestError, writeMayHaveCommitted, request, providerAdapterApiLabels, type ModelWrite, type ProviderCatalogModel, type ProviderModelCheck, type ProviderConnection, type ProviderModel, type ProviderConnectionWrite } from '../api';
+import { ProviderRequestError, writeMayHaveCommitted, request, providerAdapterApiLabels, type ModelWrite, type ProviderDiscoveryEvidence, type ProviderCatalogModel, type ProviderModelCheck, type ProviderConnection, type ProviderModel, type ProviderConnectionWrite } from '../api';
 import ProviderDirectory from './ProviderDirectory';
 import ProviderEditor, { type ProviderConnectionCreate } from './ProviderEditor';
 import ModelMappings from './ModelMappings';
@@ -35,6 +36,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const [selectedConnectionId, setSelectedConnectionId] = useState('');
   const [models, setModels] = useState<ProviderModel[]>([]);
   const [catalog, setCatalog] = useState<ProviderCatalogModel[]>([]);
+  const [discovery, setDiscovery] = useState<ProviderDiscoveryEvidence | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState('');
   const [loadingConnections, setLoadingConnections] = useState(true);
@@ -192,7 +194,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     catalogController.current?.abort();
     catalogController.current = null;
     catalogGeneration.current += 1;
-    setCatalog([]);
+    setCatalog([]); setDiscovery(null);
     setCatalogError('');
     setCatalogLoading(false);
     return () => {
@@ -200,7 +202,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       catalogController.current = null;
       catalogGeneration.current += 1;
     };
-  }, [addingConnection, selectedConnectionId, token]);
+  }, [addingConnection, selectedConnectionId, selectedConnection?.revision, token]);
 
   const mutate = useCallback(async (action: (signal: AbortSignal, generation: number) => Promise<void>) => {
     const controller = authController.current;
@@ -303,15 +305,16 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
   async function loadProviderCatalog() {
     const connectionId = selectedConnectionId;
-    if (!canManage || !token || !connectionId || catalogLoading || catalog.length > 0) return;
+    if (!canManage || !token || !connectionId || catalogLoading) return;
     catalogController.current?.abort();
     const controller = new AbortController();
     catalogController.current = controller;
     const generation = ++catalogGeneration.current;
     setCatalogLoading(true);
+    setCatalog([]); setDiscovery(null);
     setCatalogError('');
     try {
-      const result = await request<{ data: ProviderCatalogModel[] }>(
+      const result = await request<{ data: ProviderCatalogModel[]; discovery: ProviderDiscoveryEvidence }>(
         token,
         `/api/v1/vendors/${encodeURIComponent(connectionId)}/catalog`,
         'GET',
@@ -320,7 +323,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       );
       const scope = currentScope.current;
       if (!controller.signal.aborted && generation === catalogGeneration.current && scope.canManage && scope.token === token && scope.selectedConnectionId === connectionId) {
-        setCatalog(result.data);
+        setCatalog(result.data); setDiscovery(result.discovery);
       }
     } catch (reason) {
       const scope = currentScope.current;
@@ -409,6 +412,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
         {!selectedConnection.has_credential && <p className="error-text" role="status">No credential stored. Edit this API key to configure access.</p>}
         {canManage && <CredentialRequestLimit key={`${token}:${selectedConnection.id}`} token={token} vendorId={selectedConnection.id} />}
         {canManage && <CredentialCooldown key={`${token}:${selectedConnection.id}:cooldown`} token={token} vendorId={selectedConnection.id} />}
+        {canManage && <IntegrationSettings key={`${token}:${selectedConnection.id}:integration`} token={token} resource="vendors" id={selectedConnection.id} onSaved={() => { catalogController.current?.abort(); catalogGeneration.current += 1; setCatalog([]); setDiscovery(null); setCatalogError(''); setCatalogLoading(false); }} />}
       </section> : loadingConnections ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading API keys…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>No API keys</strong><p>Add an API key to configure the models supplied by this Provider.</p><Button type="button" onClick={() => setAddingConnection(true)}>Add API key</Button></div></section>}
     </div>
     <Dialog open={managingModels && !!selectedConnection && !addingConnection} onOpenChange={setManagingModels}>
@@ -423,6 +427,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       ownerFunded={selectedConnection.owner_funded === true}
       models={models}
       catalog={catalog}
+      discovery={discovery}
       catalogLoading={catalogLoading}
       catalogError={catalogError}
       loading={loadingModels}

@@ -139,14 +139,21 @@ export default function ModelMappingForm({ ownerFunded = false, initialAlias = "
             {visibleCatalog.length === 0 && <p role="status" className="p-2 text-sm text-muted-foreground">{catalogLoading ? 'Loading provider models…' : catalogError ? 'Catalog unavailable. Enter a model ID above.' : 'No matching models. You can enter a model ID above.'}</p>}
           </DropdownMenuContent>
         </DropdownMenu>
-        {!catalogLoading && !catalogError && catalog.length > 0 && <p className="text-xs text-muted-foreground">{catalog.length} {catalog.length === 1 ? 'model' : 'models'} available</p>}
-        {catalogError && <div className="grid justify-items-start gap-2 text-sm text-muted-foreground" role="status">The Provider catalog could not be loaded. You can still enter an upstream model ID.{onRetryCatalog && <Button type="button" variant="outline" size="sm" disabled={disabled || catalogLoading} onClick={onRetryCatalog}>Retry model catalog</Button>}</div>}
+        {!catalogLoading && !catalogError && catalog.length > 0 && <p className="text-xs text-muted-foreground">{catalog.length} {catalog.length === 1 ? 'model' : 'models'} reported by the upstream catalog</p>}
+        {catalogError && <div className="grid justify-items-start gap-2 text-sm text-muted-foreground" role="status">The Provider catalog could not be loaded: {catalogError} You can still enter an upstream model ID.{onRetryCatalog && <Button type="button" variant="outline" size="sm" disabled={disabled || catalogLoading} onClick={onRetryCatalog}>Retry model catalog</Button>}</div>}
       </div>
       <Label htmlFor="model-alias">Niu model alias
         <Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder="e.g. fast or team/model" required disabled={disabled || Boolean(model)} />
       </Label>
 
     </div>
+    {capabilities.catalog && <div className="space-y-1 text-sm text-muted-foreground">
+      <h3 className="font-medium text-foreground">Catalog metadata to save</h3>
+      {capabilities.catalog.name && <p>{capabilities.catalog.name}</p>}
+      <p>Context: {capabilities.catalog.context_length?.toLocaleString() ?? 'Not reported'} · Maximum output: {capabilities.catalog.max_completion_tokens?.toLocaleString() ?? 'Not reported'}</p>
+      <p>Inputs: {capabilities.catalog.input_modalities?.join(', ') || 'Not reported'} · Outputs: {capabilities.catalog.output_modalities?.join(', ') || 'Not reported'}</p>
+      {model && JSON.stringify(model.capabilities.catalog) !== JSON.stringify(capabilities.catalog) && <p>This replaces the saved catalog metadata for this route. Existing purchase rates and customer prices are preserved.</p>}
+    </div>}
     <div className="model-route-switches">
       <Label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>Enabled for inference</strong><small>Disabled mappings remain in the directory.</small></span></Label>
       {personal ? <p className="text-sm text-muted-foreground">Private model. Available only to the account that owns this API key.</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>Show in public catalog</strong><small>Publish this alias in the unauthenticated model list.</small></span></Label>}

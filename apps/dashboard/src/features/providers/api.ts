@@ -1,5 +1,15 @@
 import type { VideoSchema } from './video-schema';
 import type { CatalogMetadata } from '@/app/dashboard-context';
+export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
+export type ProviderIntegration = {
+  integration_type: ProviderIntegrationType | null;
+  effective_type: ProviderIntegrationType;
+  source: 'connection' | 'provider' | 'unspecified';
+  revision: number;
+};
+export const integrationLabels: Record<ProviderIntegrationType, string> = {
+  openrouter: 'OpenRouter', newapi: 'New API', litellm: 'LiteLLM', custom: 'Custom',
+};
 export type ProviderAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
 export type VendorAdapter = ProviderAdapter;
 
@@ -60,6 +70,15 @@ export type ProviderCatalogModel = {
   id: string;
   name: string;
   context_length: number | null;
+};
+
+export type ProviderDiscoveryEvidence = {
+  integration: ProviderIntegration;
+  inventory_scope: 'credential_filtered' | 'instance_reported';
+  credential_access: 'catalog_read_succeeded';
+  inference_verified: false;
+  management_access: 'not_checked';
+  prices: 'advertised_only';
 };
 
 export type ProviderModelCheck = {

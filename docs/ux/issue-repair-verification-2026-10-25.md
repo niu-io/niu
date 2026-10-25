@@ -272,3 +272,49 @@ a separate model-route read still returned zero saved routes. This verifies the
 configured reverse-proxy path, not direct hosted connectivity or the unfinished
 review UI. The first run exposed query-bearing endpoint validation rejection;
 query parameters now attach to the request after the unchanged endpoint check.
+
+### Provider integration configuration and reviewed import UI (#97)
+
+The actual OpenRouter settings page required sign-in, so its authenticated
+interaction was not available for inspection. The alternative reference was
+[LiteLLM's model-management documentation](https://docs.litellm.ai/docs/proxy/model_management),
+including its published Add New Credential dialog. Its explicit Provider choice,
+API-base field and save action informed the configuration order; Niu retains its
+existing settings page, connection detail and model-mapping dialogs. This is a
+reference screenshot inspection, not a claim to have operated LiteLLM's dialog.
+
+The current isolated browser run saved a Provider default as LiteLLM and
+confirmed it after a full reload. A connection inherited that value, saved an
+explicit Custom override, and retained Custom after an independent API write
+changed the Provider default to OpenRouter. Clearing the override in the browser
+restored inherited OpenRouter. A concurrent connection update then caused the
+stale browser save to show a conflict, disable another save and offer an explicit
+reload; reloading showed the independently saved value. The final connection
+again inherits OpenRouter.
+
+Live discovery populated 687 upstream models. The browser selected the free
+Liquid model, displayed its metadata before saving, and created only the chosen
+alias. An independent API read confirmed the selected upstream ID, context
+65,536, output bound 8,192, text modalities, private visibility, disabled route,
+null purchase pricing and all optional inference declarations false. Public
+catalog metadata retains the advertised zero token prices separately. Discovery
+text now says models are reported, rather than asserting they are available for
+inference. No inference request was dispatched during this import acceptance.
+
+Applicable Niu UI gates were checked directly: installed DropdownMenu primitives
+retain their icon gutter; Provider-default and connection-override menus were
+inspected open; Escape returned focus to the trigger. Screenshots at 390, 900 and
+1440 CSS pixels were visually inspected, including intermediate-width navigation
+open and closed. The 390-pixel document stayed 390 pixels wide and both model
+review dialogs measured 356-pixel client and scroll widths. At 900 pixels the
+connection section measured approximately 790 pixels with navigation collapsed;
+at 1440 pixels the settings content measured 1,308 pixels. Controls align with
+the existing form, menus remain within the viewport, content wraps, and the
+canvas has no added page-level maximum width. Light and dark rendered states
+were inspected. The review dialog remains vertically scrollable to its save
+action.
+
+Limits: manual recovery after a real discovery failure, existing-route metadata
+replacement, other integration instances, endpoint-application convenience,
+full localization and deployed acceptance still require verification or work.
+This record does not close the issue or establish release readiness.

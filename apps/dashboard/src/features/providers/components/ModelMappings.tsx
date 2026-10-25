@@ -12,7 +12,8 @@ import { IconRoute as Route, IconRefresh as Refresh } from "@tabler/icons-react"
 import { IconFilter as Filter } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { ModelWrite, ProviderCatalogModel, ProviderModelCheck, VendorModel } from '../api';
+import type { ProviderDiscoveryEvidence, ModelWrite, ProviderCatalogModel, ProviderModelCheck, VendorModel } from '../api';
+import { integrationLabels } from '../api';
 import ModelMappingForm from './ModelMappingForm';
 
 function capabilityNames(model: VendorModel) {
@@ -28,11 +29,12 @@ function capabilityNames(model: VendorModel) {
   return names;
 }
 
-export default function ModelMappings({ credentialRevision = 0, ownerFunded = false, models, catalog, catalogLoading, catalogError, loading, disabled, onRefresh, onLoadCatalog, onSave, onCheck }: {
+export default function ModelMappings({ credentialRevision = 0, ownerFunded = false, models, catalog, discovery, catalogLoading, catalogError, loading, disabled, onRefresh, onLoadCatalog, onSave, onCheck }: {
   credentialRevision?: number;
   ownerFunded?: boolean;
   models: VendorModel[];
   catalog: ProviderCatalogModel[];
+  discovery: ProviderDiscoveryEvidence | null;
   catalogLoading: boolean;
   catalogError: string;
   loading: boolean;
@@ -152,6 +154,11 @@ export default function ModelMappings({ credentialRevision = 0, ownerFunded = fa
           <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
         </DialogHeader>
       {editing !== null &&
+      <>
+      {discovery && !catalogLoading && !catalogError && <div className="space-y-1 text-sm text-muted-foreground" role="status">
+        <p>{integrationLabels[discovery.integration.effective_type]} · {discovery.inventory_scope === 'credential_filtered' ? 'Credential-filtered inventory' : 'Instance-reported inventory'}</p>
+        <p>Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving. Advertised prices do not set purchase rates or customer prices.</p>
+      </div>}
       <ModelMappingForm
         key={editing === 'new' ? 'new' : `${editing.alias}:${editing.revision}`}
         ownerFunded={ownerFunded}
@@ -164,6 +171,7 @@ export default function ModelMappings({ credentialRevision = 0, ownerFunded = fa
         onRetryCatalog={() => void onLoadCatalog()}
         onSave={save}
       />
+      </>
       }
     </DialogContent>
     </Dialog>
