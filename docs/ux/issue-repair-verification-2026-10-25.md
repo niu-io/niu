@@ -318,3 +318,35 @@ Limits: manual recovery after a real discovery failure, existing-route metadata
 replacement, other integration instances, endpoint-application convenience,
 full localization and deployed acceptance still require verification or work.
 This record does not close the issue or establish release readiness.
+
+### Invalid-credential discovery and manual recovery (#97)
+
+A current negative run replaced only the owned, disabled acceptance connection's
+credential with an invalid value. The actual OpenRouter filtered-model endpoint
+returned HTTP 200 and 691 models despite that invalid bearer; an independent
+current-key request using the same value returned HTTP 401. This contradicted the
+assumption that a successful filtered-model request alone establishes credential
+identity. Earlier successful catalog runs are not evidence of invalid-key
+rejection.
+
+The gateway now verifies OpenRouter current-key identity before discovery, with
+the same pinned, redirect-rejecting client and a 64 KiB identity-response bound.
+Only recognized identity shape is accepted; raw identity, usage and budget fields
+are discarded. The integration's discovery protocol also determines its auth
+headers and catalog normalization independently of the inference adapter.
+
+Against the rebuilt gateway, the browser displayed the actual credential
+rejection with retry and manual-entry actions, and no successful inventory
+label. Manual entry then saved a private, disabled route. Independent API
+inspection confirmed null purchase pricing and no catalog metadata on that
+manual route. After restoring the authorized credential, browser retry recovered
+687 models with credential-filtered scope. A separate API read returned only
+`data` and `discovery` at the top level, with no identity response attached.
+
+The error state exposed a layout defect: the long upstream error stretched the
+neighboring alias field vertically. Top-aligning the existing form grid fixed
+it. Rendered screenshots were inspected at 1440 and 390 pixels. The desktop
+upstream control and alias input began at y=137 and y=135 respectively; narrow
+content wrapped without horizontal overflow (document and viewport both 390).
+This verifies failure recovery and layout for the actual OpenRouter path; other
+integration instances and hosted behavior remain outside this run.

@@ -1186,7 +1186,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .model-form-heading { margin-bottom: 12px; }
 .model-form-heading h3 { margin: 0; font-size: 14px; font-weight: 600; }
 .model-form-heading p { margin: 5px 0 0; color: var(--muted-foreground); font-size: 14px; }
-.model-form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.model-form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; }
 .model-form-fields label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
 .model-form-fields input { height: 34px; color: var(--foreground); background: var(--card); font-size: 14px; }
 .provider-model-picker { display: grid; grid-column: 1 / -1; gap: 6px; }

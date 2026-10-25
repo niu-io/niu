@@ -1435,7 +1435,7 @@ pub async fn list_models(
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
 ///     "summary": "Discover upstream models for a Provider API-key configuration",
-///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator. Explicit OpenRouter integrations use /models/user?output_modalities=all; other integrations use /models. Discovery reports the effective integration and inventory scope. Catalog-read success does not verify inference, management authority, or prices. No fallback from denied credential-filtered discovery to public inventory is performed.",
+///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator. Explicit OpenRouter integrations first verify the saved credential with /key (64 KiB response bound, no identity or budget fields returned), then use /models/user?output_modalities=all; other integrations use /models. Discovery reports the effective integration and inventory scope. Catalog-read success does not verify inference, management authority, or prices. No fallback from denied credential-filtered discovery to public inventory is performed.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1641,18 +1641,63 @@ async fn read_catalog(
                 ));
             }
         };
-    let request = model_catalog_request(&client, &endpoint, &vendor.adapter, &api_key);
+    if credential_filtered {
+        // OpenRouter can return public inventory for an invalid bearer on
+        // /models/user. Verify current-key identity without management APIs.
+        let key_endpoint = format!("{}/key", vendor.api_base.trim_end_matches('/'));
+        let mut identity = client.get(&key_endpoint).bearer_auth(&api_key)
+            .header(reqwest::header::ACCEPT, "application/json").send().await
+            .map_err(|_| ApiError::upstream_message("The provider credential could not be verified. Retry or use manual model setup."))?;
+        if matches!(
+            identity.status(),
+            reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN
+        ) {
+            return Err(ApiError::upstream_message(
+                "The provider rejected the saved API key. Check the key and provider account access.",
+            ));
+        }
+        if !identity.status().is_success() {
+            return Err(ApiError::upstream_message(
+                "The provider current-key endpoint could not verify this credential. Retry or use manual model setup.",
+            ));
+        }
+        let mut identity_body = Vec::new();
+        while let Some(chunk) = identity.chunk().await.map_err(|_| {
+            ApiError::upstream_message("The provider credential response could not be read.")
+        })? {
+            if identity_body.len().saturating_add(chunk.len()) > 65_536 {
+                return Err(ApiError::upstream_message(
+                    "The provider credential response exceeds the safety limit.",
+                ));
+            }
+            identity_body.extend_from_slice(&chunk);
+        }
+        let identity: Value = serde_json::from_slice(&identity_body).map_err(|_| {
+            ApiError::upstream_message("The provider returned an invalid credential response.")
+        })?;
+        if identity["data"]["label"].as_str().is_none()
+            || identity["data"]["is_free_tier"].as_bool().is_none()
+        {
+            return Err(ApiError::upstream_message(
+                "The provider did not return a recognized current-key identity. Use manual model setup for unsupported deployments.",
+            ));
+        }
+        // Identity may include confidential usage/budget fields. Never return it.
+    }
+    let catalog_adapter = if credential_filtered {
+        "openrouter"
+    } else {
+        vendor.adapter.as_str()
+    };
+    let request = model_catalog_request(&client, &endpoint, catalog_adapter, &api_key);
     let request = if credential_filtered {
         request.query(&[("output_modalities", "all")])
     } else {
         request
     };
-    let mut response = request
-        .send()
-        .await
-        .map_err(|_| {
-            ApiError::upstream_message("The provider model catalog could not be reached.")
-        })?;
+    let mut response = request.send().await.map_err(|_| {
+        ApiError::upstream_message("The provider model catalog could not be reached.")
+    })?;
     let status = response.status();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
         return Err(ApiError::upstream_message(
@@ -1697,12 +1742,12 @@ async fn read_catalog(
     let catalog: Value = serde_json::from_slice(&body).map_err(|_| {
         ApiError::upstream_message("The provider returned an invalid model catalog.")
     })?;
-    if !catalog_complete(&catalog, &vendor.adapter) {
+    if !catalog_complete(&catalog, catalog_adapter) {
         return Err(ApiError::upstream_message(
             "The provider catalog is incomplete or invalid; Niu cannot report it as a complete inventory.",
         ));
     }
-    let models = catalog_models(&catalog, &vendor.adapter).ok_or_else(|| {
+    let models = catalog_models(&catalog, catalog_adapter).ok_or_else(|| {
         ApiError::upstream_message("The provider returned an invalid model catalog.")
     })?;
     let data = models
@@ -1726,17 +1771,20 @@ async fn read_catalog(
             }))
         })
         .collect::<Vec<_>>();
-    Ok((vendor.revision, json!({
-        "data": data,
-        "discovery": {
-            "integration": integration,
-            "inventory_scope": if credential_filtered { "credential_filtered" } else { "instance_reported" },
-            "credential_access": "catalog_read_succeeded",
-            "inference_verified": false,
-            "management_access": "not_checked",
-            "prices": "advertised_only",
-        }
-    })))
+    Ok((
+        vendor.revision,
+        json!({
+            "data": data,
+            "discovery": {
+                "integration": integration,
+                "inventory_scope": if credential_filtered { "credential_filtered" } else { "instance_reported" },
+                "credential_access": "catalog_read_succeeded",
+                "inference_verified": false,
+                "management_access": "not_checked",
+                "prices": "advertised_only",
+            }
+        }),
+    ))
 }
 
 #[derive(Deserialize)]

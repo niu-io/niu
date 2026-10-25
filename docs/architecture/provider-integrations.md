@@ -41,7 +41,13 @@ For example, OpenRouter documents separate
 [public model inventory](https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties)
 and [credential-specific model filtering](https://openrouter.ai/docs/api/api-reference/models/list-models-filtered-by-user-provider-preferences-privacy-settings-and-guardrails).
 For explicitly selected OpenRouter integrations, discovery should request
-`GET /models/user?output_modalities=all` using the saved credential. The endpoint
+`GET /models/user?output_modalities=all` using the saved credential, after a
+successful [current-key identity read](https://openrouter.ai/docs/api/api-reference/api-keys/get-current-api-key)
+at `GET /key`. An actual invalid-bearer request returned public inventory from
+`/models/user`; therefore that endpoint alone does not prove credential identity.
+The identity response is bounded to 64 KiB and discarded after validating its
+shape. Its key label, account identifiers, budgets and usage never enter the
+catalog response. Unsupported identity endpoints retain explicit manual setup. The endpoint
 defaults to text-output models, so omitting the modality parameter would silently
 exclude other supported inventory. A successful filtered listing establishes
 only the result of that credential-scoped read; it does not establish successful
