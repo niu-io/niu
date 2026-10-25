@@ -52,7 +52,7 @@ function setup({ available = availability, saved = [] as typeof order[], failure
       return Response.json({ data: created });
     }
     if (path.endsWith('/topups')) return Response.json({ data: orders, next_cursor: null });
-    if (path.endsWith(`/topups/${id}`)) return Response.json({ data: orders.find(saved => saved.id === id) });
+    if (path.endsWith(`/topups/${id}`) || path.endsWith(`/topups/${id}/reconcile`)) return Response.json({ data: orders.find(saved => saved.id === id) });
     throw new Error('Unexpected request');
   }));
   render(<TopupFunding token="test" organization="company" canCreate={canCreate} onPaid={onPaid} />);
@@ -198,7 +198,7 @@ it('prevents replacing the checkout while payment status is pending', async () =
   const path=String(input);
   if (path.includes('/payment-methods')) return Response.json({data:availability});
   if (path.endsWith('/topups')) return Response.json({data:[savedOrder],next_cursor:null});
-  if (path.endsWith(`/topups/${id}`)) return new Promise<Response>(resolve => {finish=resolve;});
+  if (path.endsWith(`/topups/${id}`) || path.endsWith(`/topups/${id}/reconcile`)) return new Promise<Response>(resolve => {finish=resolve;});
   throw new Error('Unexpected request');
  }));
  render(<TopupFunding token="test" organization="company" canCreate onPaid={vi.fn()}/>);

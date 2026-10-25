@@ -495,13 +495,11 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         "/platform/configuration",
         get(crate::providers::platform_configuration),
     )
-    .dual_route(
-        "/platform/units",
-        get(crate::customer_units::read),
-    )
+    .dual_route("/platform/units", get(crate::customer_units::read))
     .dual_route(
         "/platform/units/mode",
-        get(crate::customer_units::mode_preview).put(crate::customer_units::publish_mode)
+        get(crate::customer_units::mode_preview)
+            .put(crate::customer_units::publish_mode)
             .layer(DefaultBodyLimit::max(4096)),
     )
     .dual_route(
@@ -552,13 +550,11 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
     )
     .dual_route(
         "/platform/units/definitions",
-        post(crate::customer_units::publish_definition)
-            .layer(DefaultBodyLimit::max(4096)),
+        post(crate::customer_units::publish_definition).layer(DefaultBodyLimit::max(4096)),
     )
     .dual_route(
         "/platform/units/rules",
-        post(crate::customer_units::publish_rule)
-            .layer(DefaultBodyLimit::max(4096)),
+        post(crate::customer_units::publish_rule).layer(DefaultBodyLimit::max(4096)),
     )
     .dual_route(
         "/providers/{provider}/configuration-usage",

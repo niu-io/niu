@@ -202,7 +202,10 @@ impl Store {
         idempotency_key: Uuid,
         actor: OperatorAuditActor,
     ) -> Result<Value, StoreError> {
-        if limit_atoms.is_some_and(|v| v < 0) || expected_revision < 0 || expected_revision == i64::MAX {
+        if limit_atoms.is_some_and(|v| v < 0)
+            || expected_revision < 0
+            || expected_revision == i64::MAX
+        {
             return Err(StoreError::InvalidCustomerUnit);
         }
         let mut tx = self.begin_bounded_recording().await?;
@@ -253,14 +256,13 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         if let Some(limit) = limit_atoms {
-            let exceeds: bool = sqlx::query_scalar(
-                "SELECT niu_customer_unit_workspace_committed($1, $2) > $3",
-            )
-            .bind(scope.organization_id)
-            .bind(scope.project_id)
-            .bind(limit)
-            .fetch_one(&mut *tx)
-            .await?;
+            let exceeds: bool =
+                sqlx::query_scalar("SELECT niu_customer_unit_workspace_committed($1, $2) > $3")
+                    .bind(scope.organization_id)
+                    .bind(scope.project_id)
+                    .bind(limit)
+                    .fetch_one(&mut *tx)
+                    .await?;
             if exceeds {
                 return Err(StoreError::WorkspaceSpendingLimitExceeded);
             }
@@ -440,7 +442,10 @@ impl Store {
         idempotency_key: Uuid,
         actor: OperatorAuditActor,
     ) -> Result<Option<Value>, StoreError> {
-        if limit_atoms.is_some_and(|v| v < 0) || expected_revision < 0 || expected_revision == i64::MAX {
+        if limit_atoms.is_some_and(|v| v < 0)
+            || expected_revision < 0
+            || expected_revision == i64::MAX
+        {
             return Err(StoreError::InvalidCustomerUnit);
         }
         let mut tx = self.begin_bounded_recording().await?;
@@ -521,15 +526,14 @@ impl Store {
             if unattributed {
                 return Err(StoreError::Unresolved);
             }
-            let exceeds: bool = sqlx::query_scalar(
-                "SELECT niu_customer_unit_key_committed($1, $2, $3) > $4",
-            )
-            .bind(scope.organization_id)
-            .bind(scope.project_id)
-            .bind(root)
-            .bind(limit)
-            .fetch_one(&mut *tx)
-            .await?;
+            let exceeds: bool =
+                sqlx::query_scalar("SELECT niu_customer_unit_key_committed($1, $2, $3) > $4")
+                    .bind(scope.organization_id)
+                    .bind(scope.project_id)
+                    .bind(root)
+                    .bind(limit)
+                    .fetch_one(&mut *tx)
+                    .await?;
             if exceeds {
                 return Err(StoreError::KeySpendingLimitExceeded);
             }

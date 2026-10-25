@@ -203,8 +203,8 @@ impl CustomerUnitMediaPrice {
         usage: &Usage,
     ) -> Result<(i64, Receipt), StoreError> {
         let tariff = self.to_tariff(revision)?;
-        let receipt = niu_metered_cost::calculate(&tariff, usage)
-            .map_err(|_| StoreError::InvalidPrice)?;
+        let receipt =
+            niu_metered_cost::calculate(&tariff, usage).map_err(|_| StoreError::InvalidPrice)?;
         let atoms = i64::try_from(receipt.amount_units).map_err(|_| StoreError::InvalidPrice)?;
         Ok((atoms, receipt))
     }

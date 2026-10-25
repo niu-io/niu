@@ -546,7 +546,7 @@ it('retries catalog discovery inside the model editor without losing its draft',
   await user.type(screen.getByRole('textbox', {name:'Search provider models'}), 'custom-model');
   await user.click(screen.getByRole('menuitem', {name:'Use model ID “custom-model”'}));
   await user.click(screen.getByRole('button',{name:'Retry model catalog'}));
-  await screen.findByText('1 model available');
+  await screen.findByText('1 model reported by the upstream catalog');
   expect((screen.getByLabelText('Niu model alias') as HTMLInputElement).value).toBe('team/custom');
   expect(screen.getByLabelText('Upstream model').textContent).toContain('custom-model');
   expect(reads).toBe(2);

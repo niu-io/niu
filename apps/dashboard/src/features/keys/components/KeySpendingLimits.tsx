@@ -70,12 +70,15 @@ function SpendingPolicies({token,endpoint,canWrite,active}: {token: string; endp
   const [unitHistoryLoading,setUnitHistoryLoading] = useState(false);
   const [unitHistoryError,setUnitHistoryError] = useState('');
 
+  const creditsConfigured = billingMode === 'credits' || Boolean(platformUnit);
   const pending = useRef<AbortController | null>(null);
   useEffect(() => {
     const controller = new AbortController();setLoading(true);setError('');
     void Promise.all([
       keyRequest<{data: KeySpendingAccount[]}>(token,endpoint,'GET',undefined,controller.signal),
-      keyRequest<{data: KeyUnitSpendingAccount}>(token,unitEndpoint,'GET',undefined,controller.signal).catch(() => null),
+      creditsConfigured
+        ? keyRequest<{data: KeyUnitSpendingAccount}>(token,unitEndpoint,'GET',undefined,controller.signal).catch(() => null)
+        : Promise.resolve(null),
     ]).then(([result, unitResult]) => {
       if (controller.signal.aborted) return;
       const saved = checked(result.data);setRows(saved);setConflicts(new Set());setEditError('');
@@ -91,7 +94,7 @@ function SpendingPolicies({token,endpoint,canWrite,active}: {token: string; endp
     }).catch(cause => {if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not read spending limits.');})
       .finally(() => {if (!controller.signal.aborted) setLoading(false);});
     return () => controller.abort();
-  },[token,endpoint,unitEndpoint,reload]);
+  },[token,endpoint,unitEndpoint,reload,creditsConfigured]);
   useEffect(() => () => pending.current?.abort(),[]);
 
   useEffect(() => {

@@ -74,6 +74,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
     }
     const generation = readGeneration.current;
     setLoading(true); setError(false);
+    const creditsConfigured = platformBillingMode === 'credits' || Boolean(platformUnit);
     void request<{data: SpendingAccount[]}>(token, base, 'GET', undefined, controller.signal)
       .then(result => {
         if (!controller.signal.aborted && generation === readGeneration.current) {
@@ -83,22 +84,24 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
       })
       .catch(() => { if (!controller.signal.aborted) setError(true); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    void request<{data: WorkspaceUnitLimit}>(token, unitBase, 'GET', undefined, controller.signal)
-      .then(result => {
-        if (!controller.signal.aborted && generation === readGeneration.current && result?.data) {
-          setUnitLimit(result.data);
-        }
-      })
-      .catch(() => {});
-    void request<{data: UnitLimitHistoryEntry[]}>(token, `${unitBase}/history?limit=10`, 'GET', undefined, controller.signal)
-      .then(result => {
-        if (!controller.signal.aborted && generation === readGeneration.current && Array.isArray(result?.data)) {
-          setUnitHistory(result.data);
-        }
-      })
-      .catch(() => {});
+    if (creditsConfigured) {
+      void request<{data: WorkspaceUnitLimit}>(token, unitBase, 'GET', undefined, controller.signal)
+        .then(result => {
+          if (!controller.signal.aborted && generation === readGeneration.current && result?.data) {
+            setUnitLimit(result.data);
+          }
+        })
+        .catch(() => {});
+      void request<{data: UnitLimitHistoryEntry[]}>(token, `${unitBase}/history?limit=10`, 'GET', undefined, controller.signal)
+        .then(result => {
+          if (!controller.signal.aborted && generation === readGeneration.current && Array.isArray(result?.data)) {
+            setUnitHistory(result.data);
+          }
+        })
+        .catch(() => {});
+    }
     return () => controller.abort();
-  }, [token, base, unitBase, reload, refresh]);
+  }, [token, base, unitBase, reload, refresh, platformBillingMode, platformUnit]);
   function edit(account: SpendingAccount) {
     if (reloadRequired || loading || error || saving) return;
     setEditing(account); setAmount(account.limit_nanos === null ? '' : amountFromNanos(account.limit_nanos));

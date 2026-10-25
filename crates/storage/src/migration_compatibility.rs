@@ -89,7 +89,9 @@ pub fn legacy_migration_sql(version: i64) -> &'static str {
         .unwrap_or_else(|| panic!("unknown legacy migration version {version}"));
     match &migration.sql {
         Cow::Borrowed(sql) => sql,
-        Cow::Owned(_) => unreachable!("legacy migration SQL is always borrowed from INITIAL_SCHEMA"),
+        Cow::Owned(_) => {
+            unreachable!("legacy migration SQL is always borrowed from INITIAL_SCHEMA")
+        }
     }
 }
 
@@ -191,4 +193,3 @@ mod tests {
         assert_eq!(MIGRATOR.migrations[0].description, "initial schema");
     }
 }
-

@@ -133,11 +133,14 @@ export default function AccountBilling({token, organization, canConfigure = fals
   }
   setAccountError(''); setTransactionError(''); setTransactionFailure(null); setTransactionsLoading(showTransactions);
   setRefreshing(true);
+  const creditsConfigured = platformBillingMode === 'credits' || Boolean(platformUnit);
   void request<{data: Balance[]}>(token, `/api/v1/organizations/${organization}/billing/balance`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) setAccounts(checkedAccounts(r));}).catch(e => {if (!controller.signal.aborted) setAccountError(e.message);}).finally(() => {if (!controller.signal.aborted) setRefreshing(false);});
-  void request<{data: UnitBalanceSnapshot}>(token, `/api/v1/organizations/${organization}/billing/units`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted && r?.data) setUnitSnapshot(r.data);}).catch(() => {});
+  if (creditsConfigured) {
+   void request<{data: UnitBalanceSnapshot}>(token, `/api/v1/organizations/${organization}/billing/units`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted && r?.data && Array.isArray(r.data.balances)) setUnitSnapshot(r.data);}).catch(() => {});
+  }
   if (showTransactions) void request<{data: BalanceTransaction[]; next_cursor?: string | null}>(token, `/api/v1/organizations/${organization}/billing/transactions`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) {const result=checkedTransactions(r);setTransactions(result.data);setNextCursor(result.next_cursor ?? null);}}).catch(e => {if (!controller.signal.aborted) {setTransactionError(e.message);setTransactionFailure('latest');}}).finally(() => {if (!controller.signal.aborted) setTransactionsLoading(false);});
   return () => {controller.abort();olderController.current?.abort();};
- }, [token,organization,revision,showTransactions]);
+ }, [token,organization,revision,showTransactions,platformBillingMode,platformUnit]);
  const loadOlder = async () => {
   if (!nextCursor || loadingOlder || transactionsLoading) return;
   const controller = new AbortController(); olderController.current = controller;
@@ -158,11 +161,11 @@ export default function AccountBilling({token, organization, canConfigure = fals
         {companyAccess && section !== 'payments' && <section aria-label="Account balance" className="billing-account-section">
           <div className="flex items-center justify-between gap-3"><h2>Available credits</h2><Button variant="ghost" size="icon" aria-label="Refresh account balance" title="Refresh account balance" disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
           {accountError && <Alert variant="destructive"><AlertTitle>Account balance unavailable</AlertTitle><AlertDescription>{accountError}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>Retry account balance</Button></AlertDescription></Alert>}
-          {(unitSnapshot?.billing_mode === 'credits' || platformBillingMode === 'credits' || (unitSnapshot?.balances.length ?? 0) > 0) && (() => {
-            const def = unitSnapshot?.definition ?? platformUnit ?? (unitSnapshot?.balances[0] ? { revision: unitSnapshot.balances[0].definition_revision, name: unitSnapshot.balances[0].name, display_precision: unitSnapshot.balances[0].display_precision, atoms_per_unit: '1000000000' } : null);
+          {(unitSnapshot?.billing_mode === 'credits' || platformBillingMode === 'credits' || (Array.isArray(unitSnapshot?.balances) && unitSnapshot.balances.length > 0)) && (() => {
+            const groups = Array.isArray(unitSnapshot?.balances) ? unitSnapshot.balances : [];
+            const def = unitSnapshot?.definition ?? platformUnit ?? (groups[0] ? { revision: groups[0].definition_revision, name: groups[0].name, display_precision: groups[0].display_precision, atoms_per_unit: '1000000000' } : null);
             const unitName = def?.name ?? 'Credits';
             const prec = def?.display_precision ?? 2;
-            const groups = unitSnapshot?.balances ?? [];
             const sumField = (field: 'available_atoms' | 'held_atoms' | 'charged_atoms' | 'restored_atoms' | 'expired_atoms' | 'issued_atoms') =>
               groups.reduce((acc, g) => acc + BigInt(g[field] || '0'), 0n);
             const totalAvailable = sumField('available_atoms');

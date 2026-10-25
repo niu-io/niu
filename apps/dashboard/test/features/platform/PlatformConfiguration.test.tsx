@@ -61,7 +61,7 @@ it('enables the mock gateway only through an explicit saved selection with cost 
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button',{name:'Configure mock payments'}));
   expect(screen.getByText('LLM calls still cost real money')).toBeTruthy();
-  expect(screen.getByText(/Keep Niu API keys and upstream Provider keys private/)).toBeTruthy();
+  expect(screen.getByText(/Only payments are simulated\. LLM requests still incur upstream Provider charges\./)).toBeTruthy();
   expect(enabled).toBe(false);
   await user.click(screen.getByLabelText('Enable mock payments'));
   expect(enabled).toBe(false);

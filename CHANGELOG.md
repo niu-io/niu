@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.26] - 2026-10-26
+
+### Added
+- **credits**: add branded Credits customer/admin UI surfaces, reporting views, and exports (#110)
+- **billing**: add Credits media billing and over-bound recovery (#110)
+- **credits**: implement exact purchase reversals and backing conservation (#110)
+- **billing**: add separate Credits workspace and API-key spending limits (#110)
+- **billing**: publish preview-confirmed Credits mode changes (#110)
+- **billing**: preview billing-mode compatibility without converting records (#110)
+- **billing**: restore original Credits consumption ranges (#110)
+- **billing**: settle actual text inference against Credits ranges (#110)
+- **billing**: publish explicit versioned Credits text tariffs (#110)
+- **billing**: add Credits range ledger and exact balance reads (#110)
+- **billing**: issue immutable noncash Credits grants with expiry (#110)
+- **billing**: settle quoted Credits purchases into separate provenance lots (#110)
+- **billing**: persist exact version-pinned Credits purchase quotes (#110)
+- **billing**: publish versioned Credits configuration through API and SDK (#110)
+- **billing**: define versioned Credits arithmetic and configuration foundation (#110)
+- **providers**: configure integrations and review discovered models (#97)
+- **providers**: report credential-scoped discovery evidence (#97)
+- **providers**: persist integration defaults and connection overrides (#97)
+
+### Changed
+- **storage**: squash 382 historical migrations into 0001_initial_schema.sql with legacy receipt folding
+- **beads**: track full branded Credits release scope
+
+### Fixed
+- **dashboard,docs**: make API keys table responsive at intermediate widths, bound benchmark claims, and sync Branded Credits API docs (#98, #110)
+- **providers**: verify credential identity before filtered discovery (#97)
+- **help**: fill available width and preserve indexed quickstart headings
+- **payments**: verify unpaid checkout events and expose scoped recovery
+- **models**: retain mobile navigation during setup gating
+- **chat**: retain cancellation ownership through startup persistence
+- **billing**: exclude simulated receipts from verified cash reports
+- **catalog**: preserve directional filters and confirm clipboard writes
+- **docs,gateway**: guard docs translation lookup, scope zh heading TOC, and allow same-origin help iframe
+- **auth,docs**: restore customer-scoped demo account and add release acceptance checklist
+
+### Documentation & Governance
+- hand off paused all-issues repair to Gemini
+- **qa**: verify monetary inference after Credits integration
+- require all-issues acceptance before release
+- **providers**: record native integration acceptance and setup guidance (#97)
+- record current served guidance verification
+- distinguish bilingual API guide navigation (#98 A04)
+- restore bilingual Generations task walkthrough (#98 A03)
+- restore bilingual protocol and priced-tool guidance (#98 A02)
+- **payments**: record hosted mock acceptance and recovery limits
+
 ## [0.2.25] - 2026-10-24
 
 ### Added
@@ -439,7 +488,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.25...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.26...HEAD
+[0.2.26]: https://github.com/niu-io/niu/compare/v0.2.25...v0.2.26
 [0.2.25]: https://github.com/niu-io/niu/compare/v0.2.24...v0.2.25
 [0.2.23]: https://github.com/niu-io/niu/compare/v0.2.22...v0.2.23
 [0.2.22]: https://github.com/niu-io/niu/compare/v0.2.21...v0.2.22

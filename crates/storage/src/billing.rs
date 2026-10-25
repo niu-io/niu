@@ -893,8 +893,11 @@ SELECT jsonb_build_object(
         attempt: Uuid,
         alias: &str,
     ) -> Result<(), StoreError> {
-        let mode: String = sqlx::query_scalar("SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE")
-            .fetch_one(&mut **tx).await?;
+        let mode: String = sqlx::query_scalar(
+            "SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE",
+        )
+        .fetch_one(&mut **tx)
+        .await?;
         // Preserve operation -> workspace -> price -> account order for every
         // caller, including the public storage binding path. The operation's
         // immutable price must win before any live configuration is consulted.
@@ -1191,10 +1194,11 @@ SELECT jsonb_build_object(
                 price
             })
             .collect();
-        let billing_mode: String =
-            sqlx::query_scalar("SELECT billing_mode FROM customer_unit_configuration WHERE singleton")
-                .fetch_one(&mut *tx)
-                .await?;
+        let billing_mode: String = sqlx::query_scalar(
+            "SELECT billing_mode FROM customer_unit_configuration WHERE singleton",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
         let unit_balances: Value = sqlx::query_scalar(
             "SELECT COALESCE(jsonb_agg(item ORDER BY definition_revision DESC), '[]'::jsonb) \
              FROM ( \

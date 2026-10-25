@@ -157,9 +157,7 @@ impl Store {
             let unit_code: String = row
                 .get::<Option<String>, _>("unit_code")
                 .ok_or(StoreError::InvalidPrice)?;
-            let unit_selected_at: i64 = row
-                .get::<Option<i64>, _>("unit_selected_at")
-                .unwrap_or(0);
+            let unit_selected_at: i64 = row.get::<Option<i64>, _>("unit_selected_at").unwrap_or(0);
             if let (Some(estimate), Some(usage)) = (&mut estimate, &estimated_usage)
                 && let Ok((atoms, _)) =
                     unit_price.calculate_atoms(&tariff_revision.to_string(), usage)

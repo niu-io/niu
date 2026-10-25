@@ -1,8 +1,6 @@
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
-mod payment_verification;
-mod customer_units;
 mod customer_unit_grants;
 mod customer_unit_limits;
 mod customer_unit_modes;
@@ -10,11 +8,13 @@ mod customer_unit_ranges;
 mod customer_unit_reversals;
 mod customer_unit_tariffs;
 mod customer_unit_text_billing;
+mod customer_units;
+mod payment_verification;
+pub use customer_unit_grants::CustomerUnitGrantInput;
 pub use customer_unit_tariffs::{
     CustomerUnitMediaPrice, CustomerUnitMediaTariffInput, CustomerUnitTextPrice,
     CustomerUnitTextTariffInput,
 };
-pub use customer_unit_grants::CustomerUnitGrantInput;
 pub use customer_units::{
     CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, CustomerUnitQuoteInput,
 };
@@ -1086,8 +1086,11 @@ impl Store {
         }
 
         let mut tx = self.begin_bounded_recording().await?;
-        let mode: String = sqlx::query_scalar("SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE")
-            .fetch_one(&mut *tx).await?;
+        let mode: String = sqlx::query_scalar(
+            "SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
         if mode == "credits" {
             return Err(StoreError::ProcurementUnavailable);
         }

@@ -38,10 +38,10 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.25`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.26`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.2.25 --dir /opt/niu
+./scripts/install.sh install --version v0.2.26 --dir /opt/niu
 ```
 
 Once running on port `2555`:
@@ -88,7 +88,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.2.25 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.2.26 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu

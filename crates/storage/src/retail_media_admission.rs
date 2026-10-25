@@ -565,8 +565,13 @@ impl Store {
             .bind(at)
             .execute(&mut *tx)
             .await?;
-            Self::check_customer_unit_admission_policy_in_tx(&mut tx, scope, attempt, maximum_atoms)
-                .await?;
+            Self::check_customer_unit_admission_policy_in_tx(
+                &mut tx,
+                scope,
+                attempt,
+                maximum_atoms,
+            )
+            .await?;
             Self::reserve_customer_unit_ranges_in_tx(
                 &mut tx,
                 scope,

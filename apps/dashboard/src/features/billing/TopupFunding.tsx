@@ -222,7 +222,7 @@ export default function TopupFunding({ token, organization, canCreate, unitSnaps
       if (!controller.signal.aborted) { setResult(response.data); setRevision(value => value + 1); }
     } catch (cause) {
       if (!controller.signal.aborted) {
-        setError(cause instanceof Error && cause.message ? cause.message : 'Checkout was not confirmed. Check saved top-ups before starting another payment.');
+        setError(effectiveBillingMode === 'credits' && !intent.current?.quote_id && cause instanceof Error && cause.message ? cause.message : 'Checkout was not confirmed. Check saved top-ups before starting another payment.');
         setRevision(value => value + 1);
       }
     } finally { if (!controller.signal.aborted) setBusy(false); }
@@ -287,7 +287,7 @@ export default function TopupFunding({ token, organization, canCreate, unitSnaps
       {canCreate && availability && !availability.available && <p className="text-sm text-muted-foreground">{availability.unavailable_reason === 'currency_account_missing' ? `Online top-ups require a ${availability.currency} account.` : 'Online top-ups are currently unavailable.'}</p>}
       <Button variant="ghost" size="icon-sm" aria-label="Refresh top-ups" title="Refresh top-ups" disabled={busy || loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16}/></Button>
     </div>
-    {(mockEnabled || orders.some(order => order.simulated)) && <Alert className="mock-payment-warning"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Mock payments · Real model costs</AlertTitle><AlertDescription>Top-ups are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s API keys publicly.</AlertDescription></Alert>}
+    {(mockEnabled || orders.some(order => order.simulated || (import.meta.env.DEV && order.checkout_url?.startsWith('http://127.0.0.1:')))) && <Alert className="mock-payment-warning"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Mock payments · Real model costs</AlertTitle><AlertDescription>Top-ups are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s API keys publicly.</AlertDescription></Alert>}
     {loadError && <Alert variant="destructive"><AlertDescription>{loadError}<Button variant="outline" disabled={busy} onClick={() => loadFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>Retry top-ups</Button></AlertDescription></Alert>}
     {loading && !availability && <p role="status" className="text-sm text-muted-foreground">Loading payments…</p>}
     {!loading && !loadError && orders.length === 0 && <section aria-labelledby="topup-history-title" className="flex min-h-60 flex-1 flex-col gap-3"><h3 id="topup-history-title" className="font-medium">Payment orders</h3><Empty><EmptyHeader><EmptyMedia variant="icon"><IconReceipt aria-hidden="true"/></EmptyMedia><EmptyTitle>No top-ups yet</EmptyTitle><EmptyDescription>Track pending, completed and unsuccessful top-ups here.</EmptyDescription></EmptyHeader></Empty></section>}
