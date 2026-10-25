@@ -350,3 +350,51 @@ upstream control and alias input began at y=137 and y=135 respectively; narrow
 content wrapped without horizontal overflow (document and viewport both 390).
 This verifies failure recovery and layout for the actual OpenRouter path; other
 integration instances and hosted behavior remain outside this run.
+
+### Existing-route preservation and additional integration instances (#97)
+
+An owned disabled route was explicitly configured with four distinct nonzero
+purchase rates and an existing structured-output declaration. In the browser,
+selecting its current upstream model from live discovery displayed the metadata
+replacement notice. Saving advanced the revision from 2 to 3. Independent API
+comparison confirmed byte-for-byte equal pricing objects, unchanged capability
+flags, private visibility and disabled state; only the selected catalog metadata
+was added. The configured capability is not evidence that structured-output
+inference was executed. Existing nonzero customer selling prices were not part
+of this particular route-preservation run.
+
+Actual upstream services were installed outside the public tree:
+[LiteLLM v1.106.4](https://github.com/BerriAI/litellm/releases/tag/v1.106.4) and
+[New API v1.0.0-rc.47](https://github.com/QuantumNous/new-api/releases/tag/v1.0.0-rc.47).
+The New API macOS binary matched its published checksum. Both used an isolated
+PostgreSQL cluster and actual persisted configuration pointing to a free
+OpenRouter model. No fixture server or fabricated model-list response was used.
+
+Each service issued an ordinary model-restricted inference credential. Independent
+management reads with those credentials were rejected: LiteLLM `/key/list` with
+HTTP 403 and New API `/api/channel/` with HTTP 401. LiteLLM initially rejected
+`/v1/models` with HTTP 422 because a zero key budget was already exhausted; after
+an explicit budget update to USD 0.001, the same credential read its single
+configured model. No inference request was dispatched or billed in this run.
+
+Direct service reads and Niu gateway discovery returned the matching configured
+model for each instance. Niu reported the explicit connection integration,
+instance-reported inventory, unverified inference and unchecked management
+access. Through the Niu browser, each model was selected, reviewed and saved
+under a distinct alias. Independent API reads confirmed exactly one mapping per
+connection, private and disabled, with null purchase price and every optional
+capability off. New API's missing context and modality metadata rendered as
+not reported rather than fabricated values; its 390-pixel review was visually
+inspected.
+
+These runs establish discovery and reviewed import for these pinned actual
+instances. They do not establish every upstream version, inference behavior,
+customer price publication or hosted deployment readiness.
+
+The English and Chinese Provider administration guide now describes integration
+scope, endpoint configuration, reviewed discovery and recovery, and uses the
+current tab names. The built English desktop and Chinese narrow pages were
+rendered and inspected; the narrow document remained 390 pixels wide. Temporary
+LiteLLM and New API inference credentials were revoked after acceptance, and the
+two owned services plus their isolated database were stopped. The Niu gateway
+and its separate acceptance database were retained for remaining issue work.

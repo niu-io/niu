@@ -14,16 +14,28 @@ Set `NIU_VENDOR_ENCRYPTION_KEY` in the deployment secret store before saving cre
 ## Connect model supply
 
 1. Open **Admin → Providers** and create or choose a Provider.
-2. Open its **API keys & routes** section. Add a credential using the adapter and endpoint appropriate to the upstream service.
+2. Open its **API keys** section. Add a credential using the adapter and endpoint appropriate to the upstream service.
 3. Configure the upstream models exposed by that credential and the customer model aliases you intend to offer. Select only capabilities supported by the actual model and adapter.
 4. Check the connection and inspect its result. Saving a credential or seeing a model in a catalog does not establish successful generation.
 5. Enable the intended mappings, grant the model to a workspace key, and make a bounded [test request](/docs/guides/api-quickstart/).
 
 Use the enabled Provider adapters offered by the configuration UI. Do not infer native protocol, video or tool support from a Provider name alone. [Model routes](/docs/configuration/models/) explains aliases, static configuration, managed-route precedence and capability declarations.
 
+## Choose an integration and review discovered models
+
+In **Settings → Default integration**, choose OpenRouter, New API, LiteLLM or Custom. This identifies the upstream service, independently of the inference API format. Each connection can inherit that default or save its own choice under **API keys → Connection integration**. Clearing an override restores inheritance. Integration changes do not overwrite saved endpoints or credentials.
+
+For OpenRouter, the suggested API base is `https://openrouter.ai/api/v1`. New API and LiteLLM use your instance’s API base, usually ending in `/v1`. Enter or edit the URL in the API-key configuration. Custom and unsupported deployments retain manual model configuration.
+
+Open **Model routes → Add model** to read the upstream inventory with the saved credential. OpenRouter first verifies the current key and requests its filtered catalog across all modalities. New API and LiteLLM expose instance-reported inventory. A successful catalog read does not establish management permission, successful inference, commercial qualification or sufficient funds.
+
+Select a model, review its alias and reported metadata, and choose the route settings before saving. Missing metadata remains unknown. Optional inference capabilities are not enabled by discovery. Updating metadata on an existing route preserves its purchase rates; published catalog prices, agreed purchase rates and workspace selling prices remain separate. Publish rate changes through their respective pricing workflows.
+
+If discovery fails, inspect the error, fix the credential or endpoint, and retry. You can also enter an upstream model ID manually. A rejected credential is not silently replaced by public inventory. If another administrator changes the integration while your page is open, reload the saved integration before trying to save again; reloading replaces the unsaved selection.
+
 ## Manage the Provider lifecycle
 
-Provider sections include **Overview**, **API keys & routes**, **Models & pricing**, **Usage**, **Settlements**, **Portal access** and **Settings**. Keep credential rotation and enabled-state changes scoped to the selected credential; they must not replace the Provider identity or unrelated model mappings.
+Provider sections include **Overview**, **API keys**, **Models**, **Usage**, **Settlements**, **Members** and **Settings**. Keep credential rotation and enabled-state changes scoped to the selected credential; they must not replace the Provider identity or unrelated model mappings.
 
 Keep customer selling prices separate from Provider offers. Procurement rates, upstream expenses and platform margins belong to authorized platform administration; customer reports expose customer charges only. Provider portal access is limited to the Provider's own permitted records.
 
@@ -48,16 +60,28 @@ The [REST specification](/docs/api/rest/) and [NiuAdminClient](/docs/api/sdk/niu
 ## 连接模型供应
 
 1. 打开**管理 → 模型供应商**（**Admin → Providers**），创建或选择一个模型供应商。
-2. 打开其 **API 密钥与路由**（**API keys & routes**）部分。使用适用于该上游服务的适配器和端点添加一条凭证。
+2. 打开其 **API 密钥**（**API keys**）部分。使用适用于该上游服务的适配器和端点添加一条凭证。
 3. 配置该凭证所暴露的上游模型，以及您计划对客户提供的模型别名。请仅勾选实际模型和适配器确实支持的能力。
 4. 执行连接检查并查看检查结果。保存凭证或在目录中看到某个模型，并不代表模型生成调用一定能够成功。
 5. 启用预期的模型映射，将该模型授权给工作空间密钥，并发起一次有界的[测试请求](/docs/guides/api-quickstart/)。
 
 请使用配置界面中提供的已启用模型供应商适配器。切勿仅凭模型供应商名称就推断其支持原生协议、视频生成或工具调用。[模型路由](/docs/configuration/models/)详细说明了模型别名、静态配置、托管路由优先级以及能力声明。
 
+## 选择集成并审阅发现的模型
+
+在**设置 → 默认集成**（**Settings → Default integration**）中选择 OpenRouter、New API、LiteLLM 或 Custom。集成标识上游服务，与推理 API 格式相互独立。每个连接可以沿用该默认值，也可以在 **API 密钥 → 连接集成**（**Connection integration**）中保存自己的选择；清除覆盖值后恢复继承。更改集成不会覆盖已保存的端点或凭据。
+
+OpenRouter 建议使用 `https://openrouter.ai/api/v1`。New API 和 LiteLLM 应使用您自己实例的 API 基础地址，通常以 `/v1` 结尾。在 API 密钥配置中填写或编辑此地址。Custom 及不受支持的部署仍可手动配置模型。
+
+打开**模型路由 → 添加模型**（**Model routes → Add model**），使用已保存的凭据读取上游目录。OpenRouter 会先验证当前密钥，再请求覆盖全部模态的筛选目录；New API 和 LiteLLM 返回实例报告的目录。目录读取成功不代表具备管理权限、推理成功、商业供应资质或充足余额。
+
+选择模型后，先审阅别名、上游报告的元数据和路由设置，再保存。缺失的元数据保持未知；目录发现不会自动开启可选推理能力。更新已有路由的元数据会保留其采购费率；公开目录价格、约定采购费率和工作空间销售价格始终分开。价格变更应通过各自的定价流程发布。
+
+发现失败时，请查看错误，修正凭据或端点后重试，也可以手动输入上游模型 ID。凭据被拒绝时，不会悄悄用公开目录代替。如果其他管理员在您打开页面后修改了集成，请先重新读取已保存的集成再保存；重新读取会替换尚未保存的选择。
+
 ## 管理模型供应商生命周期
 
-模型供应商管理页面包含**概览**（**Overview**）、**API 密钥与路由**（**API keys & routes**）、**模型与定价**（**Models & pricing**）、**用量**（**Usage**）、**结算**（**Settlements**）、**门户访问**（**Portal access**）和**设置**（**Settings**）等部分。请将凭证轮换和启用状态变更限制在所选凭证的范围内；这些操作不应替换模型供应商本身的身份或影响无关的模型映射。
+模型供应商管理页面包含**概览**（**Overview**）、**API 密钥**（**API keys**）、**模型**（**Models**）、**用量**（**Usage**）、**结算**（**Settlements**）、**成员管理**（**Members**）和**设置**（**Settings**）等部分。请将凭证轮换和启用状态变更限制在所选凭证的范围内；这些操作不应替换模型供应商本身的身份或影响无关的模型映射。
 
 请将面向客户的销售价格与模型供应商报价严格分开。采购费率、上游支出和平台利润属于授权平台管理范畴；面向客户的报告仅展示客户费用。供应商门户的访问权限仅限于该模型供应商自身获批查看的记录。
 

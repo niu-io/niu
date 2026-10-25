@@ -79,6 +79,8 @@ stale-write rejection, platform authorization and restart persistence against an
 actual isolated gateway and database. The browser subsequently verified separate
 configuration saves, conflict recovery and a reviewed single-model import from
 live OpenRouter discovery. Evidence and limits are recorded in
-`docs/ux/issue-repair-verification-2026-10-25.md`. Other integration instances,
-manual recovery after discovery failure and hosted acceptance remain unverified;
-the narrower successful runs do not qualify those behaviors.
+`docs/ux/issue-repair-verification-2026-10-25.md`. Further actual runs verified invalid-credential rejection, manual recovery,
+existing-route purchase-rate preservation and reviewed discovery/import against
+pinned LiteLLM and New API instances. Hosted acceptance, complete localization
+and customer-price publication coverage remain separate requirements; local
+discovery success does not qualify them.
