@@ -500,6 +500,10 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::customer_units::read),
     )
     .dual_route(
+        "/platform/units/mode",
+        get(crate::customer_units::mode_preview),
+    )
+    .dual_route(
         "/organizations/{organization}/billing/quotes",
         post(crate::customer_units::prepare_quote).layer(DefaultBodyLimit::max(4096)),
     )

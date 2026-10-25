@@ -33,7 +33,22 @@ export type CustomerUnitPurchaseRule = {
   numerator: string; denominator: string;
 };
 export type CustomerUnitConfiguration = {
-  revision: string; definition: CustomerUnitDefinition | null; purchase_rules: CustomerUnitPurchaseRule[];
+  revision: string; billing_mode: 'currency' | 'credits';
+  definition: CustomerUnitDefinition | null; purchase_rules: CustomerUnitPurchaseRule[];
+};
+/** Advisory snapshot only. It neither activates a mode nor authorizes a switch. */
+export type CustomerUnitModePreview = {
+  revision: string; billing_mode: 'currency' | 'credits'; target_mode: 'currency' | 'credits';
+  change_required: boolean; blockers_empty: boolean; observed_at: string;
+  blockers: Array<{
+    category: string; record_count: string; organization_count: string; accounts_truncated: boolean;
+    accounts: Array<{organization_id: string; name: string; record_count: string}>;
+  }>;
+  preserved_configuration: {
+    monetary_workspace_limits: string; monetary_key_limits: string;
+    monetary_text_tariffs: string; monetary_retail_prices: string;
+    monetary_media_rate_history: string; credits_text_tariffs: string;
+  };
 };
 export type CustomerUnitDefinitionInput = {
   name: string; display_precision: number; expected_revision: string; idempotency_key: string;
@@ -1387,6 +1402,10 @@ export class NiuAdminClient {
   /** Platform-only configuration. Does not enable Credits or change existing balances. */
   getCustomerUnitConfiguration(options?: RequestOptions): Promise<{ data: CustomerUnitConfiguration }> {
     return this.request('/platform/units', undefined, options);
+  }
+  getCustomerUnitModePreview(target: 'currency' | 'credits', options?: RequestOptions): Promise<{ data: CustomerUnitModePreview }> {
+    if (!['currency', 'credits'].includes(target)) throw new TypeError('Choose currency or credits');
+    return this.request(`/platform/units/mode?${new URLSearchParams({target})}`, undefined, options);
   }
   getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerUnitBalance }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/units`, undefined, options);

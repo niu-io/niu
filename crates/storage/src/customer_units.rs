@@ -113,7 +113,7 @@ impl Store {
     /// clients cannot lose precision while preparing a revision-checked write.
     pub async fn customer_unit_configuration(&self) -> Result<Value, StoreError> {
         Ok(sqlx::query_scalar(
-            "SELECT jsonb_build_object('revision', c.revision::text,
+            "SELECT jsonb_build_object('revision', c.revision::text, 'billing_mode', c.billing_mode,
                 'definition', (SELECT jsonb_build_object('revision', d.revision::text,
                     'name', d.name, 'display_precision', d.display_precision,
                     'atoms_per_unit', '1000000000')
@@ -129,6 +129,20 @@ impl Store {
                         ORDER BY payment_currency, revision DESC) r), '[]'::jsonb))
              FROM customer_unit_configuration c WHERE singleton",
         ).fetch_one(&self.pool).await?)
+    }
+
+    /// Advisory current compatibility, not permission to publish a mode change.
+    /// Publication must recheck the same conditions under serialization locks.
+    pub async fn customer_unit_mode_preview(&self, target: &str) -> Result<Value, StoreError> {
+        if !matches!(target, "currency" | "credits") {
+            return Err(StoreError::InvalidCustomerUnit);
+        }
+        Ok(
+            sqlx::query_scalar(include_str!("customer_unit_mode_preview.sql"))
+                .bind(target)
+                .fetch_one(&self.pool)
+                .await?,
+        )
     }
 
     pub async fn publish_customer_unit_definition(

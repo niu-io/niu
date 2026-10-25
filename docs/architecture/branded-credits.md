@@ -32,6 +32,26 @@ Credits prices and budgets must be explicitly published before affected requests
 can be admitted. Existing clients that cannot distinguish billing units receive
 an explicit unsupported-unit error on billing operations, not a fake ISO currency.
 
+`GET /api/v1/platform/units/mode?target=credits` (or `target=currency`)
+provides a platform-admin-only, single-statement compatibility preview. It reports
+the current mode and configuration revision, blocking record/account counts,
+and up to 100 named affected company accounts per category with explicit
+truncation. Nonzero monetary balances include both positive capacity and debt.
+Remaining unexpired unit lots, unresolved zero-price reservations, pending
+checkouts and unapplied monetary grant intents are included. Enabling Credits
+requires a real platform payment currency and a purchase rule for the current
+unit definition in that currency. The configuration read also exposes the
+current billing mode explicitly.
+
+The preview summarizes preserved monetary limits, text tariffs, platform retail
+prices and media-rate history separately from Credits text tariffs. None is
+converted by reading the preview. Monetary limits require explicit compatible
+Credits configuration before the affected workspace or key can spend Credits.
+`blockers_empty` is an advisory observation, not mode activation, route readiness
+or an authorization token. Publication must recheck current state atomically;
+an older preview must never override a newly created obligation. A same-mode
+preview still reports obligations rather than concealing them as a no-op.
+
 Once Credits is active, publishing another purchase conversion does not require
 draining balances. Existing purchase lots, open checkouts, admitted requests and
 historical statements retain their pinned rules. Changing purchase conversion

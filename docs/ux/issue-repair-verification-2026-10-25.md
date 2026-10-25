@@ -772,3 +772,43 @@ This verifies the actual native monetary text path after the Credits changes;
 it does not cover hosted managed-Provider routing, media, all monetary error
 paths or the full installation/upgrade distribution matrix. It is not a release
 qualification, and no fixture result contributes to this evidence.
+
+## Billing-mode compatibility preview — 2026-10-25 12:58 UTC
+
+Related work: `niu-2xp.3`, public issue #110 and acceptance case UNIT-05.
+The current native gateway and JavaScript SDK read the new platform-only preview
+against the existing currency and Credits databases and an additional clean
+database migrated through 0383. This verifies the read-only preview, not guarded
+mode publication or the mode-management UI; UNIT-05 remains unverified overall.
+
+The currency instance reported one account with a nonzero monetary balance and
+one pending checkout. The Credits instance reported three unresolved unit
+reservations, three unsettled customer requests and five remaining unexpired
+lots across two companies. Independent reads of accounts, payment orders and
+terminal records, unit lots, original ranges, resolutions and refunds matched
+the corresponding preview counts. Separate integer reconstruction of consumption
+and restoration established the remaining-lot count. Existing wallet entries,
+unit lots, reservations and refunds were unchanged by preview reads.
+
+The clean installation remained in currency mode. Initial setup exposed an
+unconfigured platform payment currency even after a definition and USD purchase
+rule had been published. The preview was corrected to distinguish this as
+`missing_payment_currency`. Configuring USD through the actual platform API
+removed the blocker. Publishing a new unit definition then reported
+`missing_purchase_rule` rather than reusing the old definition's rule. Publishing
+its matching rule removed that blocker. The final configuration was revision 4
+and still currency mode, with no wallet entries, unit lots, reservations or
+refunds. No direct database mode mutation was used for this clean installation.
+
+Invalid targets returned 400 and anonymous requests returned 401 on all three
+instances. An actual workspace viewer received 403; its temporary session was
+revoked with 204. The operation and explicit configuration `billing_mode` field
+are included in generated handler contracts, the full OpenAPI entry point and
+the typed SDK. Build and contract checks are code hygiene only.
+
+Credit facilities, negative monetary balances, unapplied grant intents, unposted
+known liabilities, media obligations and the over-100-account truncation branch
+are represented in the implementation but were not exercised by these runs.
+Atomic mode publication, concurrent financial changes, limit migration and
+rendered desktop/narrow acceptance remain required. An empty preview is not
+evidence of release readiness or a completed mode switch.
