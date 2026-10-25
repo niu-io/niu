@@ -1,5 +1,6 @@
 import { currencySymbol, formatFinancialMoney, formatRateMoney } from '@/lib/money';
 import { usePlatformCurrency } from '@/app/platform-currency';
+import { useLocale } from '@/app/locale';
 import { providerPathSegment } from '@/app/provider-route';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -424,6 +425,7 @@ export default function CommercialPositionPage() {
 }
 
 function CommercialStatement({ token }: { token: string }) {
+  const { t } = useLocale();
   const { providerDirectory } = useDashboardContext();
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
@@ -571,15 +573,11 @@ function CommercialStatement({ token }: { token: string }) {
   const prepaidCash =
     summary?.balance_credit_sources?.prepaid_cash_nanos != null
       ? BigInt(summary.balance_credit_sources.prepaid_cash_nanos)
-      : summary?.balance_credit_sources?.known_prepaid_cash_subtotal_nanos != null
-        ? BigInt(summary.balance_credit_sources.known_prepaid_cash_subtotal_nanos)
-        : null;
+      : null;
   const outstandingCredit =
     summary?.balance_credit_sources?.outstanding_credit_nanos != null
       ? BigInt(summary.balance_credit_sources.outstanding_credit_nanos)
-      : summary?.balance_credit_sources?.known_outstanding_credit_subtotal_nanos != null
-        ? BigInt(summary.balance_credit_sources.known_outstanding_credit_subtotal_nanos)
-        : null;
+      : null;
 
   const sortedRows = useMemo(() => {
     const list = Array.isArray(position?.data) ? [...position.data] : [];
@@ -1074,7 +1072,7 @@ function CommercialStatement({ token }: { token: string }) {
                   Amounts in {currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label="Customer financial posting summary" className="table-auto">
+              <Table aria-label="Customer financial posting summary" className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal [&_tr>*:last-child]:hidden sm:[&_tr>*:last-child]:table-cell">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">Measure</TableHead>
@@ -1113,6 +1111,12 @@ function CommercialStatement({ token }: { token: string }) {
                     prior={priorVerifiedCashReceipts}
                     currency={currency}
                     strong
+                  />
+                  <StatementRow
+                    label={t('Memo: Simulated funding (not cash)', '备查：模拟充值（非现金）')}
+                    current={summary?.simulated_funding_receipts_nanos != null ? BigInt(summary.simulated_funding_receipts_nanos) : null}
+                    prior={priorSummary?.simulated_funding_receipts_nanos != null ? BigInt(priorSummary.simulated_funding_receipts_nanos) : null}
+                    currency={currency}
                   />
                   <StatementRow
                     label="Memo: Noncash promotional gifts issued"
@@ -1176,6 +1180,14 @@ function CommercialStatement({ token }: { token: string }) {
                   </TableRow>
                 </TableBody>
               </Table>
+              {BigInt(summary?.balance_credit_sources?.simulated_funding_accounts ?? '0') > 0n && (
+                <p className="text-sm text-muted-foreground" role="note">
+                  {t(
+                    'Simulated receipts are excluded from cash. Wallets with mixed historical funding do not have a verified cash or credit allocation; their totals and related revenue remain unavailable. Disabling mock payments does not change this history.',
+                    '模拟收款不计入现金。历史资金来源混合的账户尚无可确认的现金或信用分摊，其合计及相关收入显示为不可用。关闭模拟支付不会改变这些历史记录。',
+                  )}
+                </p>
+              )}
             </div>
           </div>
 

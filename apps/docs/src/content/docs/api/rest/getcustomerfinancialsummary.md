@@ -112,6 +112,7 @@ Content type: `application/json`.
     "uncovered_entries",
     "uncovered_nominal_nanos",
     "balance_funding_receipts_nanos",
+    "simulated_funding_receipts_nanos",
     "external_invoice_receipts_nanos",
     "cash_receipt_reference_conflicts",
     "recorded_funding_reversals_nanos",
@@ -128,12 +129,18 @@ Content type: `application/json`.
       "required": [
         "as_of",
         "uncovered_accounts",
+        "simulated_funding_accounts",
         "prepaid_cash_nanos",
         "outstanding_credit_nanos",
         "known_prepaid_cash_subtotal_nanos",
         "known_outstanding_credit_subtotal_nanos"
       ],
       "properties": {
+        "simulated_funding_accounts": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Wallets with immutable simulated receipts. Historical mixed funding allocations remain unknown rather than being reported as cash."
+        },
         "as_of": {
           "type": "string",
           "format": "date-time"
@@ -208,6 +215,11 @@ Content type: `application/json`.
       "type": "string",
       "pattern": "^-?[0-9]+$"
     },
+    "simulated_funding_receipts_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Simulated checkout funding in this posting interval, excluded from verified cash regardless of current plugin settings."
+    },
     "external_invoice_receipts_nanos": {
       "type": "string",
       "pattern": "^-?[0-9]+$"
@@ -252,7 +264,7 @@ Content type: `application/json`.
         "null"
       ],
       "pattern": "^-?[0-9]+$",
-      "description": "Verified balance funding plus recorded full external invoice payments. Null for ambiguous duplicate references. Separate from consumption and revenue."
+      "description": "Verified real balance funding plus recorded full external invoice payments; excludes simulated checkout receipts. Null for ambiguous duplicate references. Separate from consumption and revenue."
     }
   }
 }

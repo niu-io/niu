@@ -107,16 +107,21 @@ WITH raw_bounds AS MATERIALIZED (
       AND a.dispatched_at>=bounds.since AND a.dispatched_at<bounds.until
       AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=o.vendor_id)
 ), covered_accounts AS MATERIALIZED (
-    SELECT active.account_id, niu_customer_credit_account_covered(active.account_id) AS covered
+    SELECT active.account_id, niu_customer_credit_account_covered(active.account_id) AS covered,
+        NOT EXISTS (SELECT 1 FROM customer_funding_receipts receipt
+            WHERE receipt.account_id=active.account_id
+                AND receipt.channel='stripe:NiuMockPayments') AS real_funding_only
     FROM (SELECT DISTINCT debit_account_id AS account_id FROM raw_traffic WHERE debit_account_id IS NOT NULL) active
 ), traffic AS MATERIALIZED (
     SELECT r.id, r.provider_id, r.model_alias,
            r.execution, r.usage_confidence, r.charge,
            r.earning, r.cost,
-           (r.charge=0 OR r.allocation_source_coverage='known')
+           (r.charge=0 OR (r.allocation_source_coverage='known'
+               AND COALESCE(account_cov.real_funding_only, false)))
                AND r.refunds_covered AS revenue_covered,
            (r.charge=0 OR (r.credit_source_coverage='known'
-               AND COALESCE(account_cov.covered, false)))
+               AND COALESCE(account_cov.covered, false)
+               AND COALESCE(account_cov.real_funding_only, false)))
                AND r.refunds_cash_covered AS cash_covered,
            CASE WHEN r.charge=0 THEN 0 ELSE r.credit_cash_nanos::numeric
                + r.repayments_amount - r.refunds_cash END AS cash_applied,

@@ -11,6 +11,11 @@ WITH raw_bounds AS MATERIALIZED (
     SELECT EXISTS(SELECT 1 FROM customer_balance_accounts WHERE currency=$1)
         OR EXISTS(SELECT 1 FROM customer_tariff_revisions WHERE currency=$1)
         OR EXISTS(SELECT 1 FROM customer_media_charges WHERE currency=$1) AS known
+), simulated_accounts AS MATERIALIZED (
+    -- The immutable receipt channel records checkout provenance. Current plugin
+    -- settings cannot reclassify historical simulated money as cash.
+    SELECT DISTINCT account_id FROM customer_funding_receipts
+    WHERE channel='stripe:NiuMockPayments'
 ), retail AS (
     SELECT c.attempt_id,c.organization_id,c.project_id,c.currency,c.amount_nanos,c.created_at
         FROM customer_charges c CROSS JOIN bounds
@@ -21,7 +26,9 @@ WITH raw_bounds AS MATERIALIZED (
         WHERE c.currency=$1 AND c.created_at>=bounds.since AND c.created_at<bounds.until
 ), consumption AS (
     SELECT c.amount_nanos::numeric AS nominal, 'charge'::text AS kind,
-           c.amount_nanos=0 OR allocation.source_coverage='known' AS covered,
+           c.amount_nanos=0 OR (allocation.source_coverage='known'
+               AND NOT EXISTS (SELECT 1 FROM simulated_accounts simulated
+                   WHERE simulated.account_id=entry.account_id)) AS covered,
            CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.gift_nanos END::numeric AS gift,
            CASE WHEN c.amount_nanos=0 THEN 0 ELSE allocation.nongift_nanos END::numeric AS nongift
     FROM retail c CROSS JOIN bounds
@@ -41,7 +48,9 @@ WITH raw_bounds AS MATERIALIZED (
             JOIN personal_vendor_ownership personal ON personal.vendor_id=offer.vendor_id
             WHERE binding.attempt_id=attempt.id)
     UNION ALL
-    SELECT entry.amount_nanos::numeric, 'refund', allocation.source_coverage='known',
+    SELECT entry.amount_nanos::numeric, 'refund', allocation.source_coverage='known'
+        AND NOT EXISTS (SELECT 1 FROM simulated_accounts simulated
+            WHERE simulated.account_id=entry.account_id),
            allocation.gift_nanos::numeric, allocation.nongift_nanos::numeric
     FROM customer_balance_entries entry CROSS JOIN bounds
     JOIN customer_balance_entries original ON original.id=entry.reverses_entry_id
@@ -60,7 +69,9 @@ WITH raw_bounds AS MATERIALIZED (
     UNION ALL
     -- An application is an allowance posting, not another nominal charge or
     -- wallet adjustment. Late-gift refunds already appear in refund gift_nanos.
-    SELECT 0::numeric, 'grant_application', true, application.amount_nanos::numeric,
+    SELECT 0::numeric, 'grant_application',
+           NOT EXISTS (SELECT 1 FROM simulated_accounts simulated
+               WHERE simulated.account_id=application.account_id), application.amount_nanos::numeric,
            -application.amount_nanos::numeric
     FROM customer_grant_credit_applications application CROSS JOIN bounds
     JOIN customer_balance_entries original ON original.id=application.charge_entry_id
@@ -86,7 +97,11 @@ WITH raw_bounds AS MATERIALIZED (
     FROM consumption
 ), credit_account_positions AS (
     -- Point-in-time wallet provenance, not revenue posted during this interval.
-    SELECT account.id, niu_customer_credit_account_covered(account.id) AS covered,
+    -- Existing consumption splits combine real and simulated funding. Do not
+    -- invent a cash allocation for mixed historical wallets.
+    SELECT account.id, niu_customer_credit_account_covered(account.id)
+        AND NOT EXISTS (SELECT 1 FROM simulated_accounts simulated
+            WHERE simulated.account_id=account.id) AS covered,
         COALESCE((SELECT sum(receipt.amount_nanos::numeric) FROM customer_funding_receipts receipt
             WHERE receipt.account_id=account.id),0)
         -COALESCE(source.cash_consumed,0)+COALESCE(source.cash_restored,0)
@@ -114,7 +129,8 @@ WITH raw_bounds AS MATERIALIZED (
         COALESCE(sum(outstanding_credit) FILTER (WHERE covered IS TRUE AND prepaid_cash>=0 AND outstanding_credit>=0),0) AS known_outstanding_credit
     FROM credit_account_positions
 ), receipts AS (
-    SELECT COALESCE(sum(amount_nanos::numeric),0) AS amount
+    SELECT COALESCE(sum(amount_nanos::numeric) FILTER (WHERE channel<>'stripe:NiuMockPayments'),0) AS amount,
+        COALESCE(sum(amount_nanos::numeric) FILTER (WHERE channel='stripe:NiuMockPayments'),0) AS simulated_amount
     FROM customer_funding_receipts CROSS JOIN bounds
     WHERE currency=$1 AND created_at>=bounds.since AND created_at<bounds.until
 ), invoice_receipts AS (
@@ -145,6 +161,7 @@ WITH raw_bounds AS MATERIALIZED (
     FROM customer_balance_entries entry CROSS JOIN bounds
     JOIN customer_funding_receipts receipt ON receipt.entry_id=entry.reverses_entry_id
     WHERE entry.currency=$1 AND entry.kind='funding_reversal'
+        AND receipt.channel<>'stripe:NiuMockPayments'
         AND entry.created_at>=bounds.since AND entry.created_at<bounds.until
 )
 SELECT currency.known,
@@ -159,6 +176,7 @@ SELECT currency.known,
         'uncovered_nominal_nanos',totals.uncovered_nominal::text,
         'verified_cash_receipts_nanos',CASE WHEN receipt_conflicts.count=0 THEN (receipts.amount+invoice_receipts.amount)::text END,
         'balance_funding_receipts_nanos',receipts.amount::text,
+        'simulated_funding_receipts_nanos',receipts.simulated_amount::text,
         'external_invoice_receipts_nanos',invoice_receipts.amount::text,
         'cash_receipt_reference_conflicts',receipt_conflicts.count::text,
         'recorded_funding_reversals_nanos',reversals.amount::text,
@@ -167,6 +185,8 @@ SELECT currency.known,
         'balance_credit_sources',jsonb_build_object(
             'as_of',bounds.until,
             'uncovered_accounts',credit_positions.uncovered_accounts::text,
+            'simulated_funding_accounts',(SELECT count(*)::text FROM simulated_accounts simulated
+                JOIN customer_balance_accounts account ON account.id=simulated.account_id WHERE account.currency=$1),
             'prepaid_cash_nanos',CASE WHEN credit_positions.uncovered_accounts=0 THEN credit_positions.known_prepaid_cash::text END,
             'outstanding_credit_nanos',CASE WHEN credit_positions.uncovered_accounts=0 THEN credit_positions.known_outstanding_credit::text END,
             'known_prepaid_cash_subtotal_nanos',credit_positions.known_prepaid_cash::text,

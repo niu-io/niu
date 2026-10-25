@@ -22,6 +22,8 @@ export type CustomerFinancialSummary = {
     uncovered_entries: string;
     uncovered_nominal_nanos: string;
     balance_funding_receipts_nanos: string;
+    /** Simulated checkout receipts; excluded from verified cash. */
+    simulated_funding_receipts_nanos: string;
     external_invoice_receipts_nanos: string;
     cash_receipt_reference_conflicts: string;
     recorded_funding_reversals_nanos: string;
@@ -34,6 +36,8 @@ export type CustomerFinancialSummary = {
     balance_credit_sources: {
         as_of: string;
         uncovered_accounts: string;
+        /** Wallets whose historical allocation mixes simulated and real funding. */
+        simulated_funding_accounts: string;
         prepaid_cash_nanos: string | null;
         outstanding_credit_nanos: string | null;
         known_prepaid_cash_subtotal_nanos: string;
