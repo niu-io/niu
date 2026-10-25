@@ -20042,6 +20042,949 @@ HTTP 409: Stale installation/unit revision or conflicting idempotency input
 
 HTTP 422: Malformed request
 
+## Read the workspace Credits spending limit and commitment
+
+`GET /api/v1/organizations/{organization}/projects/{project}/units/limit`
+
+Workspace read permission required. Returns the workspace's explicit Credits atom limit, policy revision, committed atoms (settled charges minus original-range restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary workspace limit is preserved. A preserved monetary limit blocks Credits admission until an explicit Credits workspace limit revision (integer atoms or null for unlimited) is published. Never exposes company balance or procurement costs.
+
+Implementation: `implemented`. Operation: `getWorkspaceCustomerUnitSpendingLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current workspace Credits spending limit state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "limit_atoms",
+        "revision",
+        "definition_revision",
+        "committed_atoms",
+        "remaining_atoms",
+        "monetary_limit_preserved",
+        "credits_admission_blocked_by_monetary_limit"
+      ],
+      "properties": {
+        "unit": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "definition_revision",
+            "name",
+            "display_precision",
+            "atoms_per_unit"
+          ],
+          "properties": {
+            "definition_revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "display_precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "atoms_per_unit": {
+              "type": "string",
+              "const": "1000000000"
+            }
+          }
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "definition_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "committed_atoms": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "remaining_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "monetary_limit_preserved": {
+          "type": "boolean"
+        },
+        "credits_admission_blocked_by_monetary_limit": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace not found in the authorized scope
+
+HTTP 503: Storage unavailable
+
+## Set the workspace Credits spending limit
+
+`PUT /api/v1/organizations/{organization}/projects/{project}/units/limit`
+
+Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission.
+
+Implementation: `implemented`. Operation: `setWorkspaceCustomerUnitSpendingLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "limit_atoms",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "limit_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy revision receipt
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "expected_revision",
+        "definition_revision",
+        "limit_atoms",
+        "recorded_at",
+        "actor_kind",
+        "actor_name"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "definition_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor_kind": {
+          "type": "string",
+          "enum": [
+            "installation",
+            "member"
+          ]
+        },
+        "actor_name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integer string
+
+HTTP 401: Authentication required or revoked
+
+HTTP 402: Proposed limit is below committed workspace liability
+
+HTTP 403: Owner permission required
+
+HTTP 404: Workspace not found in the authorized scope
+
+HTTP 409: Stale revision, conflicting idempotency key or missing published unit definition
+
+HTTP 422: Malformed request body
+
+HTTP 503: Storage unavailable
+
+## List workspace Credits spending limit history
+
+`GET /api/v1/organizations/{organization}/projects/{project}/units/limit/history`
+
+Workspace read permission required. Returns descending immutable revisions with exclusive before_revision pagination. Never exposes internal actor identifiers.
+
+Implementation: `implemented`. Operation: `listWorkspaceCustomerUnitSpendingLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Descending immutable policy revisions
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_before_revision"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "expected_revision",
+          "definition_revision",
+          "limit_atoms",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "expected_revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "definition_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "limit_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_before_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid history cursor or page size
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace not found in the authorized scope
+
+HTTP 503: Storage unavailable
+
+## Read an API key's Credits spending limit and commitment
+
+`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit`
+
+Workspace read permission required. Rotated keys share their original spending root identity. Returns the key lineage's explicit Credits atom limit, policy revision, committed atoms (settled charges minus restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary key limit is preserved. A preserved monetary key limit blocks Credits admission until an explicit Credits key limit revision is published.
+
+Implementation: `implemented`. Operation: `getKeyCustomerUnitSpendingLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current API key Credits spending limit state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "limit_atoms",
+        "revision",
+        "definition_revision",
+        "committed_atoms",
+        "remaining_atoms",
+        "monetary_limit_preserved",
+        "credits_admission_blocked_by_monetary_limit"
+      ],
+      "properties": {
+        "unit": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "definition_revision",
+            "name",
+            "display_precision",
+            "atoms_per_unit"
+          ],
+          "properties": {
+            "definition_revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "display_precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "atoms_per_unit": {
+              "type": "string",
+              "const": "1000000000"
+            }
+          }
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "definition_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "committed_atoms": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "remaining_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "monetary_limit_preserved": {
+          "type": "boolean"
+        },
+        "credits_admission_blocked_by_monetary_limit": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 503: Storage unavailable
+
+## Set an API key's Credits spending limit
+
+`PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit`
+
+Workspace/company owner or installation administrator required and rechecked under lock. Updates the shared spending root identity across secret rotations using optimistic revision checking and durable idempotency. Lowering below committed key liability returns 402. Preserves existing monetary key limits for currency mode while replacing their blocking effect in Credits admission.
+
+Implementation: `implemented`. Operation: `setKeyCustomerUnitSpendingLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "limit_atoms",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "limit_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy revision receipt
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "expected_revision",
+        "definition_revision",
+        "limit_atoms",
+        "recorded_at",
+        "actor_kind",
+        "actor_name"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "definition_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor_kind": {
+          "type": "string",
+          "enum": [
+            "installation",
+            "member"
+          ]
+        },
+        "actor_name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integer string
+
+HTTP 401: Authentication required or revoked
+
+HTTP 402: Proposed limit is below committed key liability
+
+HTTP 403: Owner permission required
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 409: Stale revision, conflicting idempotency key, unattributed active liability or missing unit definition
+
+HTTP 422: Malformed request body
+
+HTTP 503: Storage unavailable
+
+## List API key Credits spending limit history
+
+`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history`
+
+Workspace read permission required. Returns descending immutable revisions shared across key rotations, with exclusive before_revision pagination. Never exposes internal actor identifiers.
+
+Implementation: `implemented`. Operation: `listKeyCustomerUnitSpendingLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Descending immutable policy revisions
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_before_revision"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "expected_revision",
+          "definition_revision",
+          "limit_atoms",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "expected_revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "definition_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "limit_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_before_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid history cursor or page size
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 503: Storage unavailable
+
 ## Read committed financial recovery progress
 
 `GET /api/v1/platform/financial-recovery`
@@ -47093,6 +48036,895 @@ HTTP 401: Authentication required
 HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+## Read the workspace Credits spending limit and commitment
+
+`GET /api/v1/workspaces/{workspace}/units/limit`
+
+Workspace read permission required. Returns the workspace's explicit Credits atom limit, policy revision, committed atoms (settled charges minus original-range restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary workspace limit is preserved. A preserved monetary limit blocks Credits admission until an explicit Credits workspace limit revision (integer atoms or null for unlimited) is published. Never exposes company balance or procurement costs. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getWorkspaceCustomerUnitSpendingLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current workspace Credits spending limit state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "limit_atoms",
+        "revision",
+        "definition_revision",
+        "committed_atoms",
+        "remaining_atoms",
+        "monetary_limit_preserved",
+        "credits_admission_blocked_by_monetary_limit"
+      ],
+      "properties": {
+        "unit": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "definition_revision",
+            "name",
+            "display_precision",
+            "atoms_per_unit"
+          ],
+          "properties": {
+            "definition_revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "display_precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "atoms_per_unit": {
+              "type": "string",
+              "const": "1000000000"
+            }
+          }
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "definition_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "committed_atoms": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "remaining_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "monetary_limit_preserved": {
+          "type": "boolean"
+        },
+        "credits_admission_blocked_by_monetary_limit": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace not found in the authorized scope
+
+HTTP 503: Storage unavailable
+
+## Set the workspace Credits spending limit
+
+`PUT /api/v1/workspaces/{workspace}/units/limit`
+
+Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setWorkspaceCustomerUnitSpendingLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "limit_atoms",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "limit_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy revision receipt
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "expected_revision",
+        "definition_revision",
+        "limit_atoms",
+        "recorded_at",
+        "actor_kind",
+        "actor_name"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "definition_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor_kind": {
+          "type": "string",
+          "enum": [
+            "installation",
+            "member"
+          ]
+        },
+        "actor_name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integer string
+
+HTTP 401: Authentication required or revoked
+
+HTTP 402: Proposed limit is below committed workspace liability
+
+HTTP 403: Owner permission required
+
+HTTP 404: Workspace not found in the authorized scope
+
+HTTP 409: Stale revision, conflicting idempotency key or missing published unit definition
+
+HTTP 422: Malformed request body
+
+HTTP 503: Storage unavailable
+
+## List workspace Credits spending limit history
+
+`GET /api/v1/workspaces/{workspace}/units/limit/history`
+
+Workspace read permission required. Returns descending immutable revisions with exclusive before_revision pagination. Never exposes internal actor identifiers. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listWorkspaceCustomerUnitSpendingLimitHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Descending immutable policy revisions
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_before_revision"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "expected_revision",
+          "definition_revision",
+          "limit_atoms",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "expected_revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "definition_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "limit_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_before_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid history cursor or page size
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace not found in the authorized scope
+
+HTTP 503: Storage unavailable
+
+## Read an API key's Credits spending limit and commitment
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/units/limit`
+
+Workspace read permission required. Rotated keys share their original spending root identity. Returns the key lineage's explicit Credits atom limit, policy revision, committed atoms (settled charges minus restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary key limit is preserved. A preserved monetary key limit blocks Credits admission until an explicit Credits key limit revision is published. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `getKeyCustomerUnitSpendingLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current API key Credits spending limit state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "limit_atoms",
+        "revision",
+        "definition_revision",
+        "committed_atoms",
+        "remaining_atoms",
+        "monetary_limit_preserved",
+        "credits_admission_blocked_by_monetary_limit"
+      ],
+      "properties": {
+        "unit": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "definition_revision",
+            "name",
+            "display_precision",
+            "atoms_per_unit"
+          ],
+          "properties": {
+            "definition_revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "display_precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "atoms_per_unit": {
+              "type": "string",
+              "const": "1000000000"
+            }
+          }
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "definition_revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "committed_atoms": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "remaining_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "monetary_limit_preserved": {
+          "type": "boolean"
+        },
+        "credits_admission_blocked_by_monetary_limit": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 503: Storage unavailable
+
+## Set an API key's Credits spending limit
+
+`PUT /api/v1/workspaces/{workspace}/keys/{key}/units/limit`
+
+Workspace/company owner or installation administrator required and rechecked under lock. Updates the shared spending root identity across secret rotations using optimistic revision checking and durable idempotency. Lowering below committed key liability returns 402. Preserves existing monetary key limits for currency mode while replacing their blocking effect in Credits admission. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `setKeyCustomerUnitSpendingLimitByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "limit_atoms",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "limit_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy revision receipt
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "expected_revision",
+        "definition_revision",
+        "limit_atoms",
+        "recorded_at",
+        "actor_kind",
+        "actor_name"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "definition_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "limit_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor_kind": {
+          "type": "string",
+          "enum": [
+            "installation",
+            "member"
+          ]
+        },
+        "actor_name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integer string
+
+HTTP 401: Authentication required or revoked
+
+HTTP 402: Proposed limit is below committed key liability
+
+HTTP 403: Owner permission required
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 409: Stale revision, conflicting idempotency key, unattributed active liability or missing unit definition
+
+HTTP 422: Malformed request body
+
+HTTP 503: Storage unavailable
+
+## List API key Credits spending limit history
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/units/limit/history`
+
+Workspace read permission required. Returns descending immutable revisions shared across key rotations, with exclusive before_revision pagination. Never exposes internal actor identifiers. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.
+
+Implementation: `implemented`. Operation: `listKeyCustomerUnitSpendingLimitHistoryByWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Descending immutable policy revisions
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_before_revision"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "expected_revision",
+          "definition_revision",
+          "limit_atoms",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "expected_revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "definition_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "limit_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_before_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid history cursor or page size
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 503: Storage unavailable
 
 ## Shared schemas
 

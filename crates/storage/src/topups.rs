@@ -366,6 +366,7 @@ impl Store {
         .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_authorized_epay_checkout_with_quote(
         &self,
         organization: Uuid,
@@ -417,6 +418,7 @@ impl Store {
         .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn create_customer_topup_inner(
         &self,
         organization: Uuid,

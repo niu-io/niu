@@ -18,8 +18,31 @@ impl Store {
         organization: Uuid,
         currency: &str,
     ) -> Result<bool, StoreError> {
-        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_accounts a WHERE a.organization_id=$1 AND a.currency=$2 AND (a.credit_limit_nanos>0 OR EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.account_id=a.id AND e.kind='funding') OR EXISTS(SELECT 1 FROM customer_balance_grants g WHERE g.account_id=a.id AND NOT EXISTS(SELECT 1 FROM customer_balance_grant_corrections c WHERE c.grant_id=g.id))))")
-            .bind(organization).bind(currency).fetch_one(&self.pool).await?)
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM customer_balance_accounts a
+                WHERE a.organization_id=$1
+                  AND a.currency=$2
+                  AND (
+                      a.credit_limit_nanos>0
+                      OR EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.account_id=a.id AND e.kind='funding')
+                      OR EXISTS(
+                          SELECT 1 FROM customer_balance_grants g
+                          WHERE g.account_id=a.id
+                            AND NOT EXISTS(SELECT 1 FROM customer_balance_grant_corrections c WHERE c.grant_id=g.id)
+                      )
+                  )
+            ) OR EXISTS(
+                SELECT 1
+                FROM customer_unit_configuration c
+                JOIN customer_unit_lots l ON l.organization_id=$1
+                WHERE c.singleton AND c.billing_mode='credits'
+            )",
+        )
+        .bind(organization)
+        .bind(currency)
+        .fetch_one(&self.pool)
+        .await?)
     }
     /// Bind only a claimed checkout before any provider response has been saved.
     /// Replays cannot attach today's configuration to a legacy checkout.

@@ -99,6 +99,32 @@ export type CustomerUnitGrant = {
   provenance: 'promotional' | 'simulated'; reason: string; expires_at_ms: string | null;
   name: string; display_precision: number; atoms_per_unit: '1000000000'; created_at: string;
 };
+export type CustomerUnitSpendingLimit = {
+  unit: {
+    definition_revision: string; name: string; display_precision: number; atoms_per_unit: '1000000000';
+  } | null;
+  limit_atoms: string | null;
+  revision: string | null;
+  definition_revision: string | null;
+  committed_atoms: string;
+  remaining_atoms: string | null;
+  monetary_limit_preserved: boolean;
+  credits_admission_blocked_by_monetary_limit: boolean;
+};
+export type CustomerUnitSpendingLimitInput = {
+  limit_atoms: string | null;
+  expected_revision: string;
+  idempotency_key: string;
+};
+export type CustomerUnitSpendingLimitRevision = {
+  revision: string;
+  expected_revision: string;
+  definition_revision: string;
+  limit_atoms: string | null;
+  recorded_at: string;
+  actor_kind: 'installation' | 'member';
+  actor_name: string;
+};
 export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
 /** Configuration identity only; does not establish upstream capability or pricing. */
 export type ProviderIntegration = {
@@ -3030,6 +3056,85 @@ export class NiuAdminClient {
       params.set('limit', String(query.limit));
     }
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
+  }
+
+  /** Explicit Credits workspace cap and commitment; preserved monetary caps block Credits admission until configured. */
+  getWorkspaceCustomerUnitSpendingLimit(scope: TenantScope | string, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimit }> {
+    const path = typeof scope === 'string'
+      ? `/workspaces/${uuid(scope)}/units/limit`
+      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit`;
+    return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
+  }
+
+  /** Owner-only Credits workspace cap or explicit null for unlimited. Preserves monetary limits for currency mode. */
+  setWorkspaceCustomerUnitSpendingLimit(scope: TenantScope | string, input: CustomerUnitSpendingLimitInput, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimitRevision }> {
+    if (input.limit_atoms !== null) unitInteger(input.limit_atoms);
+    unitInteger(input.expected_revision);
+    if (BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
+    uuid(input.idempotency_key);
+    const body = { limit_atoms: input.limit_atoms, expected_revision: input.expected_revision, idempotency_key: input.idempotency_key };
+    const path = typeof scope === 'string'
+      ? `/workspaces/${uuid(scope)}/units/limit`
+      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit`;
+    return typeof scope === 'string' ? this.apiRequest(path, body, options, 'PUT') : this.request(path, body, options, 'PUT');
+  }
+
+  listWorkspaceCustomerUnitSpendingLimitHistory(scope: TenantScope | string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimitRevision[]; next_before_revision: string | null }> {
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    const suffix = params.size ? `?${params}` : '';
+    const path = typeof scope === 'string'
+      ? `/workspaces/${uuid(scope)}/units/limit/history${suffix}`
+      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit/history${suffix}`;
+    return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
+  }
+
+  /** Explicit Credits API-key cap and commitment across rotations; preserved monetary caps block Credits admission until configured. */
+  getKeyCustomerUnitSpendingLimit(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimit }> {
+    const validKey = uuid(keyId);
+    const path = typeof scope === 'string'
+      ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit`
+      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
+    return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
+  }
+
+  /** Owner-only Credits API-key cap or explicit null for unlimited across the key's rotation lineage. */
+  setKeyCustomerUnitSpendingLimit(scope: TenantScope | string, keyId: string, input: CustomerUnitSpendingLimitInput, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimitRevision }> {
+    const validKey = uuid(keyId);
+    if (input.limit_atoms !== null) unitInteger(input.limit_atoms);
+    unitInteger(input.expected_revision);
+    if (BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
+    uuid(input.idempotency_key);
+    const body = { limit_atoms: input.limit_atoms, expected_revision: input.expected_revision, idempotency_key: input.idempotency_key };
+    const path = typeof scope === 'string'
+      ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit`
+      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
+    return typeof scope === 'string' ? this.apiRequest(path, body, options, 'PUT') : this.request(path, body, options, 'PUT');
+  }
+
+  listKeyCustomerUnitSpendingLimitHistory(scope: TenantScope | string, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimitRevision[]; next_before_revision: string | null }> {
+    const validKey = uuid(keyId);
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    const suffix = params.size ? `?${params}` : '';
+    const path = typeof scope === 'string'
+      ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit/history${suffix}`
+      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit/history${suffix}`;
+    return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
   /** Immutable metadata only; excludes policy patterns and internal actor identifiers. */

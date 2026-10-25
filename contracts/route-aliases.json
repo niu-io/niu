@@ -182,5 +182,21 @@
   {
     "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history",
     "target": "/api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit/history"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+    "target": "/api/v1/workspaces/{workspace}/units/limit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/units/limit/history",
+    "target": "/api/v1/workspaces/{workspace}/units/limit/history"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit"
+  },
+  {
+    "source": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history",
+    "target": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit/history"
   }
 ]

@@ -7,6 +7,7 @@ export type { CustomerUnitRefund, CustomerUnitRefundInput } from './admin.js';
 export type { CustomerUnitModePreview } from './admin.js';
 export type { CustomerUnitModePreviewInput, CustomerUnitSavedModePreview, CustomerUnitModePublication } from './admin.js';
 export type { CustomerUnitBalance } from './admin.js';
+export type { CustomerUnitSpendingLimit, CustomerUnitSpendingLimitInput, CustomerUnitSpendingLimitRevision } from './admin.js';
 export type { CustomerUnitTextPrice, CustomerUnitTextTariff, CustomerUnitTextTariffInput } from './admin.js';
 import { notifyResponse } from './response-metadata.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';

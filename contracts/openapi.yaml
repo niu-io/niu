@@ -129,6 +129,14 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1spending-limit~1{currency}'
   /api/v1/workspaces/{workspace}/spending-limit/{currency}/history:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1spending-limit~1{currency}~1history'
+  /api/v1/workspaces/{workspace}/units/limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1units~1limit'
+  /api/v1/workspaces/{workspace}/units/limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1units~1limit~1history'
+  /api/v1/workspaces/{workspace}/keys/{key}/units/limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1units~1limit'
+  /api/v1/workspaces/{workspace}/keys/{key}/units/limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1keys~1{key}~1units~1limit~1history'
   /api/v1/workspaces/{workspace}/requests:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1requests'
   /api/v1/workspaces/{workspace}/requests/{attempt}:
@@ -331,6 +339,14 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}'
   /api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}~1history'
+  /api/v1/organizations/{organization}/projects/{project}/units/limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1units~1limit'
+  /api/v1/organizations/{organization}/projects/{project}/units/limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1units~1limit~1history'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1units~1limit'
+  /api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1units~1limit~1history'
   /api/v1/auth/password:
     $ref: './password-sessions.openapi.yaml#/paths/~1api~1v1~1auth~1password'
   /api/v1/auth/config:

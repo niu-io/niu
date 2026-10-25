@@ -853,14 +853,25 @@ their saved mode publications with 409: one retained a monetary balance/pending
 checkout, and the other retained unit balances and three unresolved requests.
 Their configuration revisions and modes remained unchanged.
 
-Independent database reads verified exactly five mode changes (revisions 5–9),
-each matching its immutable, originally clear, unexpired preview. In the clean
-instance, two monetary entries were +1000000/-1000000 nanounits, net zero, with no
-funding receipt. Two promotional lots retained definition 3 and 200 expired atoms
-in total, with zero cash backing and no inference attempts. Direct mode updates
+Independent database reads verified the five initial mode changes (revisions 5–9)
+and one subsequent post-expiry mode change (revision 10), each matching its
+immutable, originally clear, unexpired preview. In the clean instance, two
+monetary entries were +1000000/-1000000 nanounits, net zero, with no funding
+receipt. Two promotional lots retained definition 3 and 200 expired atoms in
+total, with zero cash backing and no inference attempts. Direct mode updates
 without a publication, preview expiry renewal and deletion of change history
 were rejected. After gateway restart through migration 0385, current configuration,
 the original publication replay and the saved pending-expiry preview were unchanged.
+
+After the saved revision-9 preview (`expires_at` 13:25:51 UTC) expired naturally
+without clock or deadline edits, both direct retrieval and preparation replay at
+13:35:50 UTC returned its unchanged snapshot and original deadline while live
+revision-9 compatibility remained clear (`blockers_empty: true`). Submitting that
+unchanged expired preview returned 409, leaving the installation at revision 9 in
+Credits mode with zero mode-change rows referencing the expired preview. A fresh
+revision-9 preview then published cleanly to currency mode at revision 10,
+appending exactly one new mode-change event (`change_count: 6`) and returning the
+identical revision-10 receipt on replay.
 
 Workspace viewers received 403 and anonymous callers 401 on preparation,
 saved-preview reads and publication. Conflicting preparation, stale revision and
@@ -871,10 +882,70 @@ all three operations; SDK calls above used their typed methods. Comparison with
 the published release confirmed its migration SQL remained unchanged inside the
 current historical baseline. Builds and static checks are code hygiene only.
 
-A clear revision-9 preview was saved for natural expiry at 13:25:51 UTC; expiry
-publication rejection was not yet observed in this dated run. No clock or saved
-deadline was changed. New negative monetary corrections in an inactive mode,
+New negative monetary corrections in an inactive mode,
 debt, unapplied-grant resolution, media liabilities, UI confirmation/recovery,
 explicit unit-limit migration and hosted deployment remain outside this evidence.
 UNIT-05 and the complete Credits issue remain open. No fixture result supports
 the observations above.
+
+## Separate Credits workspace and API-key spending limits — 2026-10-25 14:25 UTC
+
+Related work: `niu-2xp.3`, public issue #110, UNIT-01 and UNIT-05. Migration
+0386 adds `customer_unit_workspace_spending_limits`,
+`customer_unit_workspace_limit_history`, `customer_unit_key_spending_limits`,
+`customer_unit_key_limit_history`, commitment-accounting functions
+`niu_customer_unit_workspace_committed` and `niu_customer_unit_key_committed`,
+sequential-history/floor protection triggers, and reservation admission trigger
+`enforce_customer_unit_spending_limits`. In addition, self-hosted payment
+readiness now recognizes issued `customer_unit_lots` when `billing_mode` is
+`credits`.
+
+- In the existing Credits installation, both workspace and API-key limit reads
+  reported exact committed liability of `51264900` atoms (`1536600` net settled
+  charges after restorations plus `49728300` unresolved holds) under definition
+  revision `5` (`Niu Credits`, precision `4`).
+- Publishing a workspace or key limit at `51264899` atoms (one atom below
+  current committed liability) returned `402`. Publishing revision `1` at the
+  exact commitment floor `51264900` succeeded with `remaining_atoms: "0"` and
+  returned the identical revision-1 receipt under concurrent replay.
+- Publishing revision `2` with `limit_atoms: null` restored unlimited capacity
+  while replaying revision `1`'s idempotency key after revision `2` was
+  published still returned the original revision-1 receipt (`limit_atoms:
+  "51264900"`). Conflicting idempotency payloads and stale `expected_revision`
+  writes returned `409`. Exclusive `before_revision` pagination returned
+  revisions `2`, `1` and an empty terminal page.
+- Scoped workspace viewers received `200` on limit and history reads and `403`
+  on workspace and key limit writes; scoped organization owners succeeded on
+  both reads and writes. Anonymous requests returned `401`, foreign-organization
+  scoped requests `403`, missing workspaces/projects/keys `404`, and negative or
+  out-of-range inputs `400`.
+- In a dedicated workspace configured with legacy `USD` monetary workspace
+  (`100000000` nanos) and key (`50000000` nanos) spending limits, Credits
+  inference admission returned `409` (`billing_mode_conflict`) until explicit
+  Credits workspace and key spending limits were published. Preserved monetary
+  limits remained intact (`monetary_limit_preserved: true`) without being
+  reinterpreted as atom quantities.
+- Setting the Credits workspace limit to `1500000` atoms denied a bounded
+  `qa/credits-free-text` inference call (`max_tokens: 16`, requiring `2000000`
+  atoms) with `402` (`workspace_spending_limit_exceeded`). Raising the workspace
+  limit to `30000000` atoms and lowering the key limit to `1500000` atoms denied
+  the same request with `402` (`key_spending_limit_exceeded`).
+- Raising the key limit to `25000000` atoms and rotating the API key preserved
+  the shared `spending_root_id`, revision `3`, `25000000` atom cap and
+  3-revision history across both the original and rotated key identifiers.
+- A real bounded non-streamed free-model inference call (`qa/credits-free-text`
+  -> `nvidia/nemotron-3-ultra-550b-a55b:free`, `max_tokens: 16`, `stream: false`)
+  using the rotated key token returned `200` and updated both workspace and key
+  `committed_atoms` to `2000000` (`remaining_atoms: "28000000"` and
+  `"23000000"`), while the preserved `USD` monetary workspace and key limits
+  remained at `committed_nanos: "0"`.
+- After restarting the gateway, all workspace and key spending limits,
+  commitments and histories matched pre-restart state. Independent PostgreSQL
+  queries recomputed `51264900` and `2000000` committed atoms from raw
+  reservation/resolution/restoration rows and confirmed that direct SQL
+  mutations on history tables or below-committed updates on limit tables are
+  rejected by database triggers.
+
+Media/async Credits tariffs, customer/admin Credits UI surfaces and hosted
+deployment remain outside this slice. No fixture result supports the
+observations above.

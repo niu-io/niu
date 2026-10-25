@@ -3049,3 +3049,1220 @@ pub async fn publish_text_tariff(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":data})))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnitLimitInput {
+    #[serde(deserialize_with = "nullable_exact_string")]
+    limit_atoms: Option<String>,
+    expected_revision: String,
+    idempotency_key: Uuid,
+}
+
+fn nullable_exact_string<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Option<String>, D::Error> {
+    Option::<String>::deserialize(d)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnitLimitHistoryQuery {
+    before_revision: Option<i64>,
+    limit: Option<i64>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getWorkspaceCustomerUnitSpendingLimit",
+///     "summary": "Read the workspace Credits spending limit and commitment",
+///     "description": "Workspace read permission required. Returns the workspace's explicit Credits atom limit, policy revision, committed atoms (settled charges minus original-range restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary workspace limit is preserved. A preserved monetary limit blocks Credits admission until an explicit Credits workspace limit revision (integer atoms or null for unlimited) is published. Never exposes company balance or procurement costs.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current workspace Credits spending limit state",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "unit",
+///                     "limit_atoms",
+///                     "revision",
+///                     "definition_revision",
+///                     "committed_atoms",
+///                     "remaining_atoms",
+///                     "monetary_limit_preserved",
+///                     "credits_admission_blocked_by_monetary_limit"
+///                   ],
+///                   "properties": {
+///                     "unit": {
+///                       "type": [
+///                         "object",
+///                         "null"
+///                       ],
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "definition_revision",
+///                         "name",
+///                         "display_precision",
+///                         "atoms_per_unit"
+///                       ],
+///                       "properties": {
+///                         "definition_revision": {
+///                           "type": "string",
+///                           "pattern": "^[1-9][0-9]*$"
+///                         },
+///                         "name": {
+///                           "type": "string"
+///                         },
+///                         "display_precision": {
+///                           "type": "integer",
+///                           "minimum": 0,
+///                           "maximum": 9
+///                         },
+///                         "atoms_per_unit": {
+///                           "type": "string",
+///                           "const": "1000000000"
+///                         }
+///                       }
+///                     },
+///                     "limit_atoms": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "revision": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "definition_revision": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "committed_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "remaining_atoms": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "monetary_limit_preserved": {
+///                       "type": "boolean"
+///                     },
+///                     "credits_admission_blocked_by_monetary_limit": {
+///                       "type": "boolean"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "403": {
+///         "description": "Workspace access denied"
+///       },
+///       "404": {
+///         "description": "Workspace not found in the authorized scope"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn read_workspace_limit(
+    State(state): State<AppState>,
+    crate::web::workspace_path::WorkspacePath((organization, workspace)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    crate::admin::authorize_project(
+        &state,
+        &headers,
+        niu_storage::AdminPermission::Read,
+        organization,
+        workspace,
+    )
+    .await?;
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    let data = state
+        .store
+        .customer_unit_workspace_spending_limit(scope)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data": data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "setWorkspaceCustomerUnitSpendingLimit",
+///     "summary": "Set the workspace Credits spending limit",
+///     "description": "Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "limit_atoms",
+///               "expected_revision",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "limit_atoms": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^(0|[1-9][0-9]*)$",
+///                 "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^(0|[1-9][0-9]*)$",
+///                 "description": "Zero for initial configuration; maximum 9223372036854775806."
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Immutable policy revision receipt",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "revision",
+///                     "expected_revision",
+///                     "definition_revision",
+///                     "limit_atoms",
+///                     "recorded_at",
+///                     "actor_kind",
+///                     "actor_name"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "expected_revision": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "limit_atoms": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "recorded_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "actor_kind": {
+///                       "type": "string",
+///                       "enum": [
+///                         "installation",
+///                         "member"
+///                       ]
+///                     },
+///                     "actor_name": {
+///                       "type": "string"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid integer string"
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "402": {
+///         "description": "Proposed limit is below committed workspace liability"
+///       },
+///       "403": {
+///         "description": "Owner permission required"
+///       },
+///       "404": {
+///         "description": "Workspace not found in the authorized scope"
+///       },
+///       "409": {
+///         "description": "Stale revision, conflicting idempotency key or missing published unit definition"
+///       },
+///       "422": {
+///         "description": "Malformed request body"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn write_workspace_limit(
+    State(state): State<AppState>,
+    crate::web::workspace_path::WorkspacePath((organization, workspace)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<UnitLimitInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = crate::admin::authorize_project(
+        &state,
+        &headers,
+        niu_storage::AdminPermission::Write,
+        organization,
+        workspace,
+    )
+    .await?;
+    if matches!(
+        auth,
+        AdminAuthorization::Operator(ref operator)
+            if operator.role != niu_storage::OperatorRole::Owner
+    ) {
+        return Err(ApiError::forbidden());
+    }
+    let limit_atoms = input
+        .limit_atoms
+        .as_deref()
+        .map(exact_integer)
+        .transpose()?;
+    let expected = exact_integer(&input.expected_revision)?;
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    let data = state
+        .store
+        .set_customer_unit_workspace_spending_limit(
+            scope,
+            limit_atoms,
+            expected,
+            input.idempotency_key,
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data": data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit/history",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listWorkspaceCustomerUnitSpendingLimitHistory",
+///     "summary": "List workspace Credits spending limit history",
+///     "description": "Workspace read permission required. Returns descending immutable revisions with exclusive before_revision pagination. Never exposes internal actor identifiers.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "before_revision",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 1
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Descending immutable policy revisions",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data",
+///                 "next_before_revision"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "revision",
+///                       "expected_revision",
+///                       "definition_revision",
+///                       "limit_atoms",
+///                       "recorded_at",
+///                       "actor_kind",
+///                       "actor_name"
+///                     ],
+///                     "properties": {
+///                       "revision": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]*$"
+///                       },
+///                       "expected_revision": {
+///                         "type": "string",
+///                         "pattern": "^(0|[1-9][0-9]*)$"
+///                       },
+///                       "definition_revision": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]*$"
+///                       },
+///                       "limit_atoms": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "pattern": "^(0|[1-9][0-9]*)$"
+///                       },
+///                       "recorded_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "actor_kind": {
+///                         "type": "string",
+///                         "enum": [
+///                           "installation",
+///                           "member"
+///                         ]
+///                       },
+///                       "actor_name": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "next_before_revision": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "pattern": "^[1-9][0-9]*$"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid history cursor or page size"
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "403": {
+///         "description": "Workspace access denied"
+///       },
+///       "404": {
+///         "description": "Workspace not found in the authorized scope"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn workspace_limit_history(
+    State(state): State<AppState>,
+    crate::web::workspace_path::WorkspacePath((organization, workspace)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    query: Result<Query<UnitLimitHistoryQuery>, axum::extract::rejection::QueryRejection>,
+) -> Result<Json<Value>, ApiError> {
+    crate::admin::authorize_project(
+        &state,
+        &headers,
+        niu_storage::AdminPermission::Read,
+        organization,
+        workspace,
+    )
+    .await?;
+    let Query(query) =
+        query.map_err(|_| ApiError::invalid_request("Invalid spending-limit history query"))?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) || query.before_revision.is_some_and(|r| r <= 0) {
+        return Err(ApiError::invalid_request(
+            "Invalid spending-limit history cursor or page size",
+        ));
+    }
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    let rows = state
+        .store
+        .customer_unit_workspace_limit_history(scope, query.before_revision, limit)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let next = if rows.len() == limit as usize {
+        rows.last().and_then(|row| row.get("revision")).cloned()
+    } else {
+        None
+    };
+    Ok(Json(json!({"data": rows, "next_before_revision": next})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getKeyCustomerUnitSpendingLimit",
+///     "summary": "Read an API key's Credits spending limit and commitment",
+///     "description": "Workspace read permission required. Rotated keys share their original spending root identity. Returns the key lineage's explicit Credits atom limit, policy revision, committed atoms (settled charges minus restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary key limit is preserved. A preserved monetary key limit blocks Credits admission until an explicit Credits key limit revision is published.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current API key Credits spending limit state",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "unit",
+///                     "limit_atoms",
+///                     "revision",
+///                     "definition_revision",
+///                     "committed_atoms",
+///                     "remaining_atoms",
+///                     "monetary_limit_preserved",
+///                     "credits_admission_blocked_by_monetary_limit"
+///                   ],
+///                   "properties": {
+///                     "unit": {
+///                       "type": [
+///                         "object",
+///                         "null"
+///                       ],
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "definition_revision",
+///                         "name",
+///                         "display_precision",
+///                         "atoms_per_unit"
+///                       ],
+///                       "properties": {
+///                         "definition_revision": {
+///                           "type": "string",
+///                           "pattern": "^[1-9][0-9]*$"
+///                         },
+///                         "name": {
+///                           "type": "string"
+///                         },
+///                         "display_precision": {
+///                           "type": "integer",
+///                           "minimum": 0,
+///                           "maximum": 9
+///                         },
+///                         "atoms_per_unit": {
+///                           "type": "string",
+///                           "const": "1000000000"
+///                         }
+///                       }
+///                     },
+///                     "limit_atoms": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "revision": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "definition_revision": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "committed_atoms": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "remaining_atoms": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "monetary_limit_preserved": {
+///                       "type": "boolean"
+///                     },
+///                     "credits_admission_blocked_by_monetary_limit": {
+///                       "type": "boolean"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "403": {
+///         "description": "Workspace access denied"
+///       },
+///       "404": {
+///         "description": "Key does not exist in the authorized workspace"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn read_key_limit(
+    State(state): State<AppState>,
+    crate::web::workspace_path::WorkspacePath((organization, workspace, key)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    crate::admin::authorize_project(
+        &state,
+        &headers,
+        niu_storage::AdminPermission::Read,
+        organization,
+        workspace,
+    )
+    .await?;
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    let data = state
+        .store
+        .customer_unit_key_spending_limit(scope, key)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data": data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "setKeyCustomerUnitSpendingLimit",
+///     "summary": "Set an API key's Credits spending limit",
+///     "description": "Workspace/company owner or installation administrator required and rechecked under lock. Updates the shared spending root identity across secret rotations using optimistic revision checking and durable idempotency. Lowering below committed key liability returns 402. Preserves existing monetary key limits for currency mode while replacing their blocking effect in Credits admission.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "limit_atoms",
+///               "expected_revision",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "limit_atoms": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^(0|[1-9][0-9]*)$",
+///                 "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^(0|[1-9][0-9]*)$",
+///                 "description": "Zero for initial configuration; maximum 9223372036854775806."
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Immutable policy revision receipt",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "revision",
+///                     "expected_revision",
+///                     "definition_revision",
+///                     "limit_atoms",
+///                     "recorded_at",
+///                     "actor_kind",
+///                     "actor_name"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "expected_revision": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     },
+///                     "limit_atoms": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "recorded_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "actor_kind": {
+///                       "type": "string",
+///                       "enum": [
+///                         "installation",
+///                         "member"
+///                       ]
+///                     },
+///                     "actor_name": {
+///                       "type": "string"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid integer string"
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "402": {
+///         "description": "Proposed limit is below committed key liability"
+///       },
+///       "403": {
+///         "description": "Owner permission required"
+///       },
+///       "404": {
+///         "description": "Key does not exist in the authorized workspace"
+///       },
+///       "409": {
+///         "description": "Stale revision, conflicting idempotency key, unattributed active liability or missing unit definition"
+///       },
+///       "422": {
+///         "description": "Malformed request body"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn write_key_limit(
+    State(state): State<AppState>,
+    crate::web::workspace_path::WorkspacePath((organization, workspace, key)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<UnitLimitInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = crate::admin::authorize_project(
+        &state,
+        &headers,
+        niu_storage::AdminPermission::Write,
+        organization,
+        workspace,
+    )
+    .await?;
+    if matches!(
+        auth,
+        AdminAuthorization::Operator(ref operator)
+            if operator.role != niu_storage::OperatorRole::Owner
+    ) {
+        return Err(ApiError::forbidden());
+    }
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    let ensure_key_exists = || async {
+        if !state
+            .store
+            .key_spending_scope_exists(scope, key)
+            .await
+            .map_err(ApiError::from_store)?
+        {
+            Err(ApiError::not_found())
+        } else {
+            Ok(())
+        }
+    };
+    let limit_atoms = match input.limit_atoms.as_deref().map(exact_integer).transpose() {
+        Ok(limit_atoms) => limit_atoms,
+        Err(err) => {
+            ensure_key_exists().await?;
+            return Err(err);
+        }
+    };
+    let expected = match exact_integer(&input.expected_revision) {
+        Ok(expected) => expected,
+        Err(err) => {
+            ensure_key_exists().await?;
+            return Err(err);
+        }
+    };
+    let data = state
+        .store
+        .set_customer_unit_key_spending_limit(
+            scope,
+            key,
+            limit_atoms,
+            expected,
+            input.idempotency_key,
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data": data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listKeyCustomerUnitSpendingLimitHistory",
+///     "summary": "List API key Credits spending limit history",
+///     "description": "Workspace read permission required. Returns descending immutable revisions shared across key rotations, with exclusive before_revision pagination. Never exposes internal actor identifiers.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "before_revision",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 1
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Descending immutable policy revisions",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data",
+///                 "next_before_revision"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "revision",
+///                       "expected_revision",
+///                       "definition_revision",
+///                       "limit_atoms",
+///                       "recorded_at",
+///                       "actor_kind",
+///                       "actor_name"
+///                     ],
+///                     "properties": {
+///                       "revision": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]*$"
+///                       },
+///                       "expected_revision": {
+///                         "type": "string",
+///                         "pattern": "^(0|[1-9][0-9]*)$"
+///                       },
+///                       "definition_revision": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]*$"
+///                       },
+///                       "limit_atoms": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "pattern": "^(0|[1-9][0-9]*)$"
+///                       },
+///                       "recorded_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "actor_kind": {
+///                         "type": "string",
+///                         "enum": [
+///                           "installation",
+///                           "member"
+///                         ]
+///                       },
+///                       "actor_name": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "next_before_revision": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "pattern": "^[1-9][0-9]*$"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid history cursor or page size"
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "403": {
+///         "description": "Workspace access denied"
+///       },
+///       "404": {
+///         "description": "Key does not exist in the authorized workspace"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn key_limit_history(
+    State(state): State<AppState>,
+    crate::web::workspace_path::WorkspacePath((organization, workspace, key)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+    query: Result<Query<UnitLimitHistoryQuery>, axum::extract::rejection::QueryRejection>,
+) -> Result<Json<Value>, ApiError> {
+    crate::admin::authorize_project(
+        &state,
+        &headers,
+        niu_storage::AdminPermission::Read,
+        organization,
+        workspace,
+    )
+    .await?;
+    let Query(query) =
+        query.map_err(|_| ApiError::invalid_request("Invalid key-limit history query"))?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) || query.before_revision.is_some_and(|r| r <= 0) {
+        return Err(ApiError::invalid_request(
+            "Invalid history cursor or page size",
+        ));
+    }
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    let rows = state
+        .store
+        .customer_unit_key_limit_history(scope, key, query.before_revision, limit)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let next = if rows.len() == limit as usize {
+        rows.last().and_then(|row| row.get("revision")).cloned()
+    } else {
+        None
+    };
+    Ok(Json(json!({"data": rows, "next_before_revision": next})))
+}

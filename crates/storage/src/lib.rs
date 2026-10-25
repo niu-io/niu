@@ -4,6 +4,7 @@
 mod payment_verification;
 mod customer_units;
 mod customer_unit_grants;
+mod customer_unit_limits;
 mod customer_unit_modes;
 mod customer_unit_ranges;
 mod customer_unit_tariffs;

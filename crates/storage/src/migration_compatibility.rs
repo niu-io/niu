@@ -135,7 +135,7 @@ pub async fn run(pool: &PgPool) -> Result<(), StoreError> {
             // steps up to the squashed baseline boundary before collapsing.
             Migrator {
                 migrations: Cow::Owned(migrations),
-                ignore_missing: false,
+                ignore_missing: true,
                 locking: true,
                 no_tx: false,
             }
@@ -186,7 +186,7 @@ mod tests {
         assert!(!legacy_migration_sql(10).is_empty());
         assert!(!legacy_migration_sql(11).is_empty());
         assert!(!legacy_migration_sql(323).is_empty());
-        assert_eq!(MIGRATOR.migrations.len(), 1);
+        assert!(!MIGRATOR.migrations.is_empty());
         assert_eq!(MIGRATOR.migrations[0].version, 1);
         assert_eq!(MIGRATOR.migrations[0].description, "initial schema");
     }

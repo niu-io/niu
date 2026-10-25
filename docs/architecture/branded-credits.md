@@ -309,6 +309,24 @@ customer wallet. Personal owner-funded routes retain their separate semantics.
 Existing monetary customer caps block Credits admission until explicitly migrated;
 their nanounits are never treated as unit atoms.
 
+Workspace and API-key Credits spending limits are configured and read through
+`/api/v1/workspaces/{workspace}/units/limit` (and `/history`) and
+`/api/v1/workspaces/{workspace}/keys/{key}/units/limit` (and `/history`), along
+with their organization/project compatibility routes and the SDK's
+`getWorkspaceCustomerUnitSpendingLimit`, `setWorkspaceCustomerUnitSpendingLimit`,
+`listWorkspaceCustomerUnitSpendingLimitHistory`,
+`getKeyCustomerUnitSpendingLimit`, `setKeyCustomerUnitSpendingLimit` and
+`listKeyCustomerUnitSpendingLimitHistory`. Writes require workspace/company owner
+or installation authority, rechecked under transaction lock, and persist an
+immutable revision with optimistic concurrency and durable idempotency. Setting an
+exact atom cap or explicit `null` (unlimited in Credits) preserves existing
+monetary limits in `customer_workspace_spending_limits` and
+`customer_key_spending_limits` for currency mode while replacing their blocking
+effect in Credits admission. Rotated API keys share `spending_root_id`,
+commitment accounting (settled charges minus restorations plus unresolved holds
+and known overrun liabilities), and revision history. Lowering a workspace or key
+limit below committed Credits liability is rejected with HTTP 402.
+
 Confirmed reported token usage is valued using the pinned price and recorded as
 an immutable unit liability. Missing or inconsistent required category usage
 retains the hold. A known charge above its original bound may allocate additional

@@ -84,14 +84,60 @@ impl Store {
                 return Err(StoreError::UnsupportedTokenPricing);
             }
         }
-        // Monetary caps cannot be silently reinterpreted as Credits. Guarded
-        // mode migration and the separate unit-limit surface resolve this.
-        let monetary_limits: bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_workspace_spending_limits WHERE organization_id=$1 AND project_id=$2) OR EXISTS(SELECT 1 FROM customer_key_spending_limits WHERE spending_root_id=niu_customer_attempt_spending_root($3) AND limit_nanos IS NOT NULL)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut **tx).await?;
-        if monetary_limits {
+        Self::lock_customer_unit_attempt(tx, scope, attempt).await?;
+        // Monetary caps cannot be silently reinterpreted as Credits. A scope
+        // with an existing monetary limit requires an explicit Credits limit
+        // policy revision before Credits admission can proceed.
+        let unmigrated_monetary_limits: bool = sqlx::query_scalar(
+            "SELECT (
+                EXISTS(
+                    SELECT 1 FROM customer_workspace_spending_limits
+                    WHERE organization_id = $1 AND project_id = $2
+                )
+                AND NOT EXISTS(
+                    SELECT 1 FROM customer_unit_workspace_spending_limits
+                    WHERE organization_id = $1 AND project_id = $2
+                )
+            ) OR CASE
+                WHEN niu_customer_attempt_spending_root($3) IS NULL THEN
+                    EXISTS(
+                        SELECT 1 FROM customer_key_spending_limits m
+                        WHERE m.organization_id = $1 AND m.project_id = $2
+                          AND m.limit_nanos IS NOT NULL
+                          AND NOT EXISTS(
+                              SELECT 1 FROM customer_unit_key_spending_limits u
+                              WHERE u.organization_id = m.organization_id
+                                AND u.project_id = m.project_id
+                                AND u.spending_root_id = m.spending_root_id
+                          )
+                    ) OR EXISTS(
+                        SELECT 1 FROM customer_unit_key_spending_limits u
+                        WHERE u.organization_id = $1 AND u.project_id = $2
+                          AND u.limit_atoms IS NOT NULL
+                    )
+                ELSE
+                    EXISTS(
+                        SELECT 1 FROM customer_key_spending_limits m
+                        WHERE m.organization_id = $1 AND m.project_id = $2
+                          AND m.spending_root_id = niu_customer_attempt_spending_root($3)
+                          AND m.limit_nanos IS NOT NULL
+                          AND NOT EXISTS(
+                              SELECT 1 FROM customer_unit_key_spending_limits u
+                              WHERE u.organization_id = m.organization_id
+                                AND u.project_id = m.project_id
+                                AND u.spending_root_id = m.spending_root_id
+                          )
+                    )
+            END",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_one(&mut **tx)
+        .await?;
+        if unmigrated_monetary_limits {
             return Err(StoreError::Conflict);
         }
-        Self::lock_customer_unit_attempt(tx, scope, attempt).await?;
         let pending: bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_unit_text_charges c JOIN customer_unit_reservations r USING(attempt_id) WHERE r.organization_id=$1 AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions s WHERE s.attempt_id=c.attempt_id))")
             .bind(scope.organization_id).fetch_one(&mut **tx).await?;
         if pending {
@@ -99,6 +145,41 @@ impl Store {
         }
         let maximum =
             price.reservation_atoms(reservation.prompt_bound, reservation.completion_bound)?;
+        let workspace_limit_exceeded: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM customer_unit_workspace_spending_limits l
+                WHERE l.organization_id = $1 AND l.project_id = $2
+                  AND l.limit_atoms IS NOT NULL
+                  AND niu_customer_unit_workspace_committed($1, $2, $3) + $4 > l.limit_atoms
+            )",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .bind(maximum)
+        .fetch_one(&mut **tx)
+        .await?;
+        if workspace_limit_exceeded {
+            return Err(StoreError::WorkspaceSpendingLimitExceeded);
+        }
+        let key_limit_exceeded: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM customer_unit_key_spending_limits l
+                WHERE l.organization_id = $1 AND l.project_id = $2
+                  AND l.spending_root_id = niu_customer_attempt_spending_root($3)
+                  AND l.limit_atoms IS NOT NULL
+                  AND niu_customer_unit_key_committed($1, $2, l.spending_root_id, $3) + $4 > l.limit_atoms
+            )",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .bind(maximum)
+        .fetch_one(&mut **tx)
+        .await?;
+        if key_limit_exceeded {
+            return Err(StoreError::KeySpendingLimitExceeded);
+        }
         Self::reserve_customer_unit_ranges_in_tx(tx, scope, attempt, definition, maximum).await?;
         Ok(true)
     }

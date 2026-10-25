@@ -130,7 +130,7 @@ fn audit_actor(authorization: crate::state::AdminAuthorization) -> OperatorAudit
     }
 }
 
-async fn authorize_project(
+pub(crate) async fn authorize_project(
     state: &AppState,
     headers: &HeaderMap,
     permission: AdminPermission,
