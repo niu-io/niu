@@ -107,6 +107,11 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     'All SDK types': '所有 SDK 类型',
   };
 
+  function translation(dictionary: Record<string, string>, key: string): string | undefined {
+    return Object.hasOwn(dictionary, key) && typeof dictionary[key] === 'string'
+      ? dictionary[key] : undefined;
+  }
+
   function rememberOriginalText(el: Element): string {
     const htmlEl = el as HTMLElement;
     if (htmlEl.dataset.origText === undefined) {
@@ -124,7 +129,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     // Headings inside generated pages
     content.querySelectorAll<HTMLElement>('h2, h3').forEach((heading) => {
       const orig = rememberOriginalText(heading);
-      const zh = SIDEBAR_AND_TITLE_ZH[orig];
+      const zh = translation(SIDEBAR_AND_TITLE_ZH, orig);
       if (zh) {
         heading.textContent = isZh ? zh : orig;
       }
@@ -134,7 +139,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     content.querySelectorAll<HTMLElement>('p, a').forEach((el) => {
       if (el.children.length === 0) {
         const orig = rememberOriginalText(el);
-        const zh = EXACT_BLOCK_ZH[orig] || SIDEBAR_AND_TITLE_ZH[orig];
+        const zh = translation(EXACT_BLOCK_ZH, orig) ?? translation(SIDEBAR_AND_TITLE_ZH, orig);
         if (zh) {
           el.textContent = isZh ? zh : orig;
           return;
@@ -273,7 +278,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       '.sidebar-content summary span.large, .sidebar-content a span, .docs-mobile-public nav a'
     ).forEach((el) => {
       const orig = rememberOriginalText(el);
-      const zh = SIDEBAR_AND_TITLE_ZH[orig];
+      const zh = translation(SIDEBAR_AND_TITLE_ZH, orig);
       if (zh) {
         el.textContent = isZh ? zh : orig;
       }
@@ -284,7 +289,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     if (h1) {
       const origTitle = rememberOriginalText(h1);
       const zhBlock = document.querySelector<HTMLElement>('.sl-markdown-content [data-lang="zh"][data-title-zh]');
-      const zhTitle = zhBlock?.dataset.titleZh || SIDEBAR_AND_TITLE_ZH[origTitle];
+      const zhTitle = zhBlock?.dataset.titleZh || translation(SIDEBAR_AND_TITLE_ZH, origTitle);
       if (zhTitle) {
         h1.textContent = isZh ? zhTitle : origTitle;
       }
@@ -296,7 +301,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       const titleSpan = link.querySelector<HTMLElement>('.link-title');
       if (titleSpan) {
         const orig = rememberOriginalText(titleSpan);
-        const zh = SIDEBAR_AND_TITLE_ZH[orig];
+        const zh = translation(SIDEBAR_AND_TITLE_ZH, orig);
         if (zh) titleSpan.textContent = isZh ? zh : orig;
       }
       // Replace the text node before <br> ("Previous" / "Next")

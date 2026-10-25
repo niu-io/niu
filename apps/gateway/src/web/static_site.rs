@@ -282,6 +282,8 @@ async fn static_cache_headers(
     next: axum::middleware::Next,
 ) -> Response {
     let path = request.uri().path().to_owned();
+    // Help embeds our documentation, never authenticated management pages.
+    let same_origin_help = path == "/docs" || path.starts_with("/docs/");
     let is_immutable_asset = path.starts_with("/_astro/")
         || path.starts_with("/assets/")
         || path.starts_with("/_catalog/");
@@ -311,7 +313,19 @@ async fn static_cache_headers(
         );
         headers.insert(
             axum::http::header::X_FRAME_OPTIONS,
-            axum::http::HeaderValue::from_static("DENY"),
+            axum::http::HeaderValue::from_static(if same_origin_help {
+                "SAMEORIGIN"
+            } else {
+                "DENY"
+            }),
+        );
+        headers.insert(
+            axum::http::header::CONTENT_SECURITY_POLICY,
+            axum::http::HeaderValue::from_static(if same_origin_help {
+                "frame-ancestors 'self'"
+            } else {
+                "frame-ancestors 'none'"
+            }),
         );
         headers.insert(
             axum::http::header::REFERRER_POLICY,
@@ -325,7 +339,13 @@ async fn static_cache_headers(
         );
         headers.insert(
             axum::http::header::HeaderName::from_static("content-security-policy-report-only"),
-            axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY),
+            if same_origin_help {
+                axum::http::HeaderValue::from_str(
+                    &DASHBOARD_CSP_REPORT_ONLY.replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
+                ).expect("static documentation policy is a valid header")
+            } else {
+                axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY)
+            },
         );
     } else if is_immutable_asset && response.status().is_success() {
         response
