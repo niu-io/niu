@@ -45,6 +45,10 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1quotes'
   /api/v1/organizations/{organization}/billing/quotes/{quote}:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1quotes~1{quote}'
+  /api/v1/platform/units/mode/previews:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units~1mode~1previews'
+  /api/v1/platform/units/mode/previews/{preview}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units~1mode~1previews~1{preview}'
   /api/v1/platform/units/mode:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units~1mode'
   /api/v1/platform/units:

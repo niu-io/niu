@@ -501,7 +501,16 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
     )
     .dual_route(
         "/platform/units/mode",
-        get(crate::customer_units::mode_preview),
+        get(crate::customer_units::mode_preview).put(crate::customer_units::publish_mode)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
+        "/platform/units/mode/previews",
+        post(crate::customer_units::prepare_mode).layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
+        "/platform/units/mode/previews/{preview}",
+        get(crate::customer_units::read_mode_preview),
     )
     .dual_route(
         "/organizations/{organization}/billing/quotes",

@@ -50,6 +50,18 @@ export type CustomerUnitModePreview = {
     monetary_media_rate_history: string; credits_text_tariffs: string;
   };
 };
+export type CustomerUnitModePreviewInput = {
+  target_mode: 'currency' | 'credits'; expected_revision: string; idempotency_key: string;
+};
+export type CustomerUnitSavedModePreview = {
+  id: string; expected_revision: string; source_mode: 'currency' | 'credits';
+  target_mode: 'currency' | 'credits'; snapshot: CustomerUnitModePreview;
+  created_at: string; expires_at: string;
+};
+export type CustomerUnitModePublication = {
+  revision: string; previous_mode: 'currency' | 'credits'; billing_mode: 'currency' | 'credits';
+  preview_id: string; created_at: string;
+};
 export type CustomerUnitDefinitionInput = {
   name: string; display_precision: number; expected_revision: string; idempotency_key: string;
 };
@@ -1406,6 +1418,18 @@ export class NiuAdminClient {
   getCustomerUnitModePreview(target: 'currency' | 'credits', options?: RequestOptions): Promise<{ data: CustomerUnitModePreview }> {
     if (!['currency', 'credits'].includes(target)) throw new TypeError('Choose currency or credits');
     return this.request(`/platform/units/mode?${new URLSearchParams({target})}`, undefined, options);
+  }
+  prepareCustomerUnitMode(input: CustomerUnitModePreviewInput, options?: RequestOptions): Promise<{data: CustomerUnitSavedModePreview}> {
+    if (!['currency', 'credits'].includes(input.target_mode)) throw new TypeError('Choose currency or credits');
+    unitInteger(input.expected_revision); uuid(input.idempotency_key);
+    return this.request('/platform/units/mode/previews', input, options, 'POST');
+  }
+  getSavedCustomerUnitModePreview(previewId: string, options?: RequestOptions): Promise<{data: CustomerUnitSavedModePreview}> {
+    return this.request(`/platform/units/mode/previews/${uuid(previewId)}`, undefined, options);
+  }
+  publishCustomerUnitMode(input: {preview_id: string; expected_revision: string; idempotency_key: string}, options?: RequestOptions): Promise<{data: CustomerUnitModePublication}> {
+    uuid(input.preview_id); uuid(input.idempotency_key); unitInteger(input.expected_revision);
+    return this.request('/platform/units/mode', input, options, 'PUT');
   }
   getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerUnitBalance }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/units`, undefined, options);

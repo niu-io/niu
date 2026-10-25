@@ -812,3 +812,69 @@ are represented in the implementation but were not exercised by these runs.
 Atomic mode publication, concurrent financial changes, limit migration and
 rendered desktop/narrow acceptance remain required. An empty preview is not
 evidence of release readiness or a completed mode switch.
+
+## Explicit billing-mode publication — 2026-10-25 13:16 UTC
+
+Related work: `niu-2xp.3`, public issue #110 and UNIT-05. Migrations 0384–0385
+add immutable saved previews/publications, database mode guards and issuance
+serialization. The current native gateway and compiled SDK performed actual
+mode changes in the clean installation previously used for preview verification.
+Unlike the earlier Credits inference setup, these changes used the product API,
+with no direct database mode configuration.
+
+- Concurrent identical preview preparations returned the same saved snapshot.
+  Concurrent identical mode publications returned 200/409; explicit replay
+  returned the one original receipt. The first change advanced revision 4 to 5
+  and activated Credits exactly once.
+- A subsequent saved preview switched back to currency at revision 6. Replaying
+  the original activation returned its revision-5 receipt while current mode
+  remained currency at revision 6. Saved-preview reads and preparation retries
+  retained the original snapshot and expiry.
+- Two distinct publications against one revision-6 preview returned 200/409,
+  producing exactly one revision-7 activation. A new 100-atom promotion issued
+  after an otherwise clear currency preview caused publication of that preview
+  to return 409. The promotion then expired naturally.
+- A concurrent mode publication and a second actual promotional issuance returned
+  409 and 200 respectively. Current mode remained Credits and the new grant was
+  accounted for. After its natural expiry, a fresh preview permitted currency
+  at revision 8, without renewing or deleting either expired promotion.
+- In currency mode, the old unit-grant retry returned its original receipt.
+  A real noncash monetary gift of 1000000 USD nanounits blocked activation until
+  the existing full unused-gift correction restored its balance to zero. A fresh
+  preview then activated Credits at revision 9. Replaying the historical monetary
+  gift and correction returned their original records without issuing money.
+- New monetary gift preparation and direct issuance in Credits mode returned
+  409. A temporary monetary credit facility also blocked a previously clear mode
+  preview despite zero posted balance. Resetting the facility to zero cleared
+  the blocker without changing installation revision 9 or posting money.
+
+The existing populated currency and Credits instances were upgraded and rejected
+their saved mode publications with 409: one retained a monetary balance/pending
+checkout, and the other retained unit balances and three unresolved requests.
+Their configuration revisions and modes remained unchanged.
+
+Independent database reads verified exactly five mode changes (revisions 5–9),
+each matching its immutable, originally clear, unexpired preview. In the clean
+instance, two monetary entries were +1000000/-1000000 nanounits, net zero, with no
+funding receipt. Two promotional lots retained definition 3 and 200 expired atoms
+in total, with zero cash backing and no inference attempts. Direct mode updates
+without a publication, preview expiry renewal and deletion of change history
+were rejected. After gateway restart through migration 0385, current configuration,
+the original publication replay and the saved pending-expiry preview were unchanged.
+
+Workspace viewers received 403 and anonymous callers 401 on preparation,
+saved-preview reads and publication. Conflicting preparation, stale revision and
+missing publication preview returned 409; noncanonical integer strings returned
+400, numeric JSON revisions 422 and an absent saved-preview read 404. Temporary
+viewer sessions were revoked. Generated contracts and the full OpenAPI include
+all three operations; SDK calls above used their typed methods. Comparison with
+the published release confirmed its migration SQL remained unchanged inside the
+current historical baseline. Builds and static checks are code hygiene only.
+
+A clear revision-9 preview was saved for natural expiry at 13:25:51 UTC; expiry
+publication rejection was not yet observed in this dated run. No clock or saved
+deadline was changed. New negative monetary corrections in an inactive mode,
+debt, unapplied-grant resolution, media liabilities, UI confirmation/recovery,
+explicit unit-limit migration and hosted deployment remain outside this evidence.
+UNIT-05 and the complete Credits issue remain open. No fixture result supports
+the observations above.

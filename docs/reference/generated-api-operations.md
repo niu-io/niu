@@ -17423,6 +17423,641 @@ HTTP 200: Configured currency.
 
 HTTP 409: Currency already configured with a different value.
 
+## Save a billing-mode change preview
+
+`POST /api/v1/platform/units/mode/previews`
+
+Platform administration required. Saves an immutable fifteen-minute compatibility snapshot without changing mode, balances or prices. Requires the current installation revision. A blocked or same-mode snapshot may be saved for review but cannot authorize publication. Identical idempotent replay returns the original snapshot and expiry even after later configuration changes; conflicting reuse is rejected. The actual mode publication must recheck current financial state. Quantities and revisions are exact strings.
+
+Implementation: `implemented`. Operation: `prepareCustomerUnitMode`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target_mode",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "target_mode": {
+      "type": "string",
+      "enum": [
+        "currency",
+        "credits"
+      ]
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Original durable result
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "expected_revision",
+        "source_mode",
+        "target_mode",
+        "snapshot",
+        "created_at",
+        "expires_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "source_mode": {
+          "type": "string",
+          "enum": [
+            "currency",
+            "credits"
+          ]
+        },
+        "target_mode": {
+          "type": "string",
+          "enum": [
+            "currency",
+            "credits"
+          ]
+        },
+        "snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revision",
+            "billing_mode",
+            "target_mode",
+            "change_required",
+            "blockers_empty",
+            "observed_at",
+            "blockers",
+            "preserved_configuration"
+          ],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "billing_mode": {
+              "type": "string",
+              "enum": [
+                "currency",
+                "credits"
+              ]
+            },
+            "target_mode": {
+              "type": "string",
+              "enum": [
+                "currency",
+                "credits"
+              ]
+            },
+            "change_required": {
+              "type": "boolean"
+            },
+            "blockers_empty": {
+              "type": "boolean"
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "blockers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "record_count",
+                  "organization_count",
+                  "accounts_truncated",
+                  "accounts"
+                ],
+                "properties": {
+                  "category": {
+                    "type": "string"
+                  },
+                  "record_count": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "organization_count": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "accounts_truncated": {
+                    "type": "boolean"
+                  },
+                  "accounts": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "organization_id",
+                        "name",
+                        "record_count"
+                      ],
+                      "properties": {
+                        "organization_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "record_count": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "preserved_configuration": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "monetary_workspace_limits",
+                "monetary_key_limits",
+                "monetary_text_tariffs",
+                "credits_text_tariffs",
+                "monetary_retail_prices",
+                "monetary_media_rate_history"
+              ],
+              "properties": {
+                "monetary_workspace_limits": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_key_limits": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_text_tariffs": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "credits_text_tariffs": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_retail_prices": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_media_rate_history": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                }
+              }
+            }
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale, incompatible, expired or conflicting intent; concurrent financial activity
+
+HTTP 422: Malformed request
+
+HTTP 503: Storage unavailable
+
+## Read an original saved billing-mode preview
+
+`GET /api/v1/platform/units/mode/previews/{preview}`
+
+Platform administration required. Returns the immutable original snapshot, including expired or subsequently incompatible previews. Reading does not renew expiry or authorize a switch. Current compatibility can differ; publication always rechecks it.
+
+Implementation: `implemented`. Operation: `getSavedCustomerUnitModePreview`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`preview` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Original durable result
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "expected_revision",
+        "source_mode",
+        "target_mode",
+        "snapshot",
+        "created_at",
+        "expires_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expected_revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "source_mode": {
+          "type": "string",
+          "enum": [
+            "currency",
+            "credits"
+          ]
+        },
+        "target_mode": {
+          "type": "string",
+          "enum": [
+            "currency",
+            "credits"
+          ]
+        },
+        "snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revision",
+            "billing_mode",
+            "target_mode",
+            "change_required",
+            "blockers_empty",
+            "observed_at",
+            "blockers",
+            "preserved_configuration"
+          ],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "billing_mode": {
+              "type": "string",
+              "enum": [
+                "currency",
+                "credits"
+              ]
+            },
+            "target_mode": {
+              "type": "string",
+              "enum": [
+                "currency",
+                "credits"
+              ]
+            },
+            "change_required": {
+              "type": "boolean"
+            },
+            "blockers_empty": {
+              "type": "boolean"
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "blockers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "record_count",
+                  "organization_count",
+                  "accounts_truncated",
+                  "accounts"
+                ],
+                "properties": {
+                  "category": {
+                    "type": "string"
+                  },
+                  "record_count": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "organization_count": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "accounts_truncated": {
+                    "type": "boolean"
+                  },
+                  "accounts": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "organization_id",
+                        "name",
+                        "record_count"
+                      ],
+                      "properties": {
+                        "organization_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "record_count": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "preserved_configuration": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "monetary_workspace_limits",
+                "monetary_key_limits",
+                "monetary_text_tariffs",
+                "credits_text_tariffs",
+                "monetary_retail_prices",
+                "monetary_media_rate_history"
+              ],
+              "properties": {
+                "monetary_workspace_limits": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_key_limits": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_text_tariffs": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "credits_text_tariffs": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_retail_prices": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "monetary_media_rate_history": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                }
+              }
+            }
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale, incompatible, expired or conflicting intent; concurrent financial activity
+
+HTTP 422: Malformed request
+
+HTTP 503: Storage unavailable
+
+HTTP 404: Saved preview not found
+
+## Publish a preview-confirmed installation billing mode
+
+`PUT /api/v1/platform/units/mode`
+
+Platform administration required and rechecked under lock. Requires an unexpired originally compatible saved preview, its matching current revision and a distinct target mode. Rechecks customer obligations atomically while holding financial-table locks. Concurrent financial activity returns a retryable 409; re-read compatibility if state changed. Balances, prices, monetary limits and historical records are never converted. A successful publication creates an immutable change receipt and advances the installation revision once. Identical idempotent retry returns the original receipt even after subsequent mode changes; it does not reapply the old mode. Mode activation alone does not establish configured unit prices, compatible spending limits, model availability or media readiness. Existing monetary limits require explicit compatible configuration before affected Credits admission. New monetary grants/funding require currency mode and new unit issuance requires Credits mode.
+
+Implementation: `implemented`. Operation: `publishCustomerUnitMode`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "preview_id",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "preview_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Original durable result
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "previous_mode",
+        "billing_mode",
+        "preview_id",
+        "created_at"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "previous_mode": {
+          "type": "string",
+          "enum": [
+            "currency",
+            "credits"
+          ]
+        },
+        "billing_mode": {
+          "type": "string",
+          "enum": [
+            "currency",
+            "credits"
+          ]
+        },
+        "preview_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input
+
+HTTP 401: Authentication required or revoked
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale, incompatible, expired or conflicting intent; concurrent financial activity
+
+HTTP 422: Malformed request
+
+HTTP 503: Storage unavailable
+
 ## Preview installation billing-mode incompatibilities
 
 `GET /api/v1/platform/units/mode`

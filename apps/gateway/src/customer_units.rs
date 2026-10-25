@@ -71,6 +71,716 @@ pub struct ModePreviewQuery {
     target: String,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModePrepareInput {
+    target_mode: String,
+    expected_revision: String,
+    idempotency_key: Uuid,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModePublishInput {
+    preview_id: Uuid,
+    expected_revision: String,
+    idempotency_key: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/platform/units/mode/previews",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "prepareCustomerUnitMode",
+///     "summary": "Save a billing-mode change preview",
+///     "description": "Platform administration required. Saves an immutable fifteen-minute compatibility snapshot without changing mode, balances or prices. Requires the current installation revision. A blocked or same-mode snapshot may be saved for review but cannot authorize publication. Identical idempotent replay returns the original snapshot and expiry even after later configuration changes; conflicting reuse is rejected. The actual mode publication must recheck current financial state. Quantities and revisions are exact strings.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Original durable result",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "id",
+///                     "expected_revision",
+///                     "source_mode",
+///                     "target_mode",
+///                     "snapshot",
+///                     "created_at",
+///                     "expires_at"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "expected_revision": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "source_mode": {
+///                       "type": "string",
+///                       "enum": [
+///                         "currency",
+///                         "credits"
+///                       ]
+///                     },
+///                     "target_mode": {
+///                       "type": "string",
+///                       "enum": [
+///                         "currency",
+///                         "credits"
+///                       ]
+///                     },
+///                     "snapshot": {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "revision",
+///                         "billing_mode",
+///                         "target_mode",
+///                         "change_required",
+///                         "blockers_empty",
+///                         "observed_at",
+///                         "blockers",
+///                         "preserved_configuration"
+///                       ],
+///                       "properties": {
+///                         "revision": {
+///                           "type": "string",
+///                           "pattern": "^(0|[1-9][0-9]*)$"
+///                         },
+///                         "billing_mode": {
+///                           "type": "string",
+///                           "enum": [
+///                             "currency",
+///                             "credits"
+///                           ]
+///                         },
+///                         "target_mode": {
+///                           "type": "string",
+///                           "enum": [
+///                             "currency",
+///                             "credits"
+///                           ]
+///                         },
+///                         "change_required": {
+///                           "type": "boolean"
+///                         },
+///                         "blockers_empty": {
+///                           "type": "boolean"
+///                         },
+///                         "observed_at": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         },
+///                         "blockers": {
+///                           "type": "array",
+///                           "items": {
+///                             "type": "object",
+///                             "additionalProperties": false,
+///                             "required": [
+///                               "category",
+///                               "record_count",
+///                               "organization_count",
+///                               "accounts_truncated",
+///                               "accounts"
+///                             ],
+///                             "properties": {
+///                               "category": {
+///                                 "type": "string"
+///                               },
+///                               "record_count": {
+///                                 "type": "string",
+///                                 "pattern": "^(0|[1-9][0-9]*)$"
+///                               },
+///                               "organization_count": {
+///                                 "type": "string",
+///                                 "pattern": "^(0|[1-9][0-9]*)$"
+///                               },
+///                               "accounts_truncated": {
+///                                 "type": "boolean"
+///                               },
+///                               "accounts": {
+///                                 "type": "array",
+///                                 "maxItems": 100,
+///                                 "items": {
+///                                   "type": "object",
+///                                   "additionalProperties": false,
+///                                   "required": [
+///                                     "organization_id",
+///                                     "name",
+///                                     "record_count"
+///                                   ],
+///                                   "properties": {
+///                                     "organization_id": {
+///                                       "type": "string",
+///                                       "format": "uuid"
+///                                     },
+///                                     "name": {
+///                                       "type": "string"
+///                                     },
+///                                     "record_count": {
+///                                       "type": "string",
+///                                       "pattern": "^(0|[1-9][0-9]*)$"
+///                                     }
+///                                   }
+///                                 }
+///                               }
+///                             }
+///                           }
+///                         },
+///                         "preserved_configuration": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "monetary_workspace_limits",
+///                             "monetary_key_limits",
+///                             "monetary_text_tariffs",
+///                             "credits_text_tariffs",
+///                             "monetary_retail_prices",
+///                             "monetary_media_rate_history"
+///                           ],
+///                           "properties": {
+///                             "monetary_workspace_limits": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_key_limits": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_text_tariffs": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "credits_text_tariffs": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_retail_prices": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_media_rate_history": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             }
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "expires_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input"
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Stale, incompatible, expired or conflicting intent; concurrent financial activity"
+///       },
+///       "422": {
+///         "description": "Malformed request"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "target_mode",
+///               "expected_revision",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "target_mode": {
+///                 "type": "string",
+///                 "enum": [
+///                   "currency",
+///                   "credits"
+///                 ]
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^(0|[1-9][0-9]*)$"
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn prepare_mode(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<ModePrepareInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .prepare_customer_unit_mode(
+            &input.target_mode,
+            exact_integer(&input.expected_revision)?,
+            input.idempotency_key,
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/platform/units/mode/previews/{preview}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getSavedCustomerUnitModePreview",
+///     "summary": "Read an original saved billing-mode preview",
+///     "description": "Platform administration required. Returns the immutable original snapshot, including expired or subsequently incompatible previews. Reading does not renew expiry or authorize a switch. Current compatibility can differ; publication always rechecks it.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Original durable result",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "id",
+///                     "expected_revision",
+///                     "source_mode",
+///                     "target_mode",
+///                     "snapshot",
+///                     "created_at",
+///                     "expires_at"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "expected_revision": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "source_mode": {
+///                       "type": "string",
+///                       "enum": [
+///                         "currency",
+///                         "credits"
+///                       ]
+///                     },
+///                     "target_mode": {
+///                       "type": "string",
+///                       "enum": [
+///                         "currency",
+///                         "credits"
+///                       ]
+///                     },
+///                     "snapshot": {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "revision",
+///                         "billing_mode",
+///                         "target_mode",
+///                         "change_required",
+///                         "blockers_empty",
+///                         "observed_at",
+///                         "blockers",
+///                         "preserved_configuration"
+///                       ],
+///                       "properties": {
+///                         "revision": {
+///                           "type": "string",
+///                           "pattern": "^(0|[1-9][0-9]*)$"
+///                         },
+///                         "billing_mode": {
+///                           "type": "string",
+///                           "enum": [
+///                             "currency",
+///                             "credits"
+///                           ]
+///                         },
+///                         "target_mode": {
+///                           "type": "string",
+///                           "enum": [
+///                             "currency",
+///                             "credits"
+///                           ]
+///                         },
+///                         "change_required": {
+///                           "type": "boolean"
+///                         },
+///                         "blockers_empty": {
+///                           "type": "boolean"
+///                         },
+///                         "observed_at": {
+///                           "type": "string",
+///                           "format": "date-time"
+///                         },
+///                         "blockers": {
+///                           "type": "array",
+///                           "items": {
+///                             "type": "object",
+///                             "additionalProperties": false,
+///                             "required": [
+///                               "category",
+///                               "record_count",
+///                               "organization_count",
+///                               "accounts_truncated",
+///                               "accounts"
+///                             ],
+///                             "properties": {
+///                               "category": {
+///                                 "type": "string"
+///                               },
+///                               "record_count": {
+///                                 "type": "string",
+///                                 "pattern": "^(0|[1-9][0-9]*)$"
+///                               },
+///                               "organization_count": {
+///                                 "type": "string",
+///                                 "pattern": "^(0|[1-9][0-9]*)$"
+///                               },
+///                               "accounts_truncated": {
+///                                 "type": "boolean"
+///                               },
+///                               "accounts": {
+///                                 "type": "array",
+///                                 "maxItems": 100,
+///                                 "items": {
+///                                   "type": "object",
+///                                   "additionalProperties": false,
+///                                   "required": [
+///                                     "organization_id",
+///                                     "name",
+///                                     "record_count"
+///                                   ],
+///                                   "properties": {
+///                                     "organization_id": {
+///                                       "type": "string",
+///                                       "format": "uuid"
+///                                     },
+///                                     "name": {
+///                                       "type": "string"
+///                                     },
+///                                     "record_count": {
+///                                       "type": "string",
+///                                       "pattern": "^(0|[1-9][0-9]*)$"
+///                                     }
+///                                   }
+///                                 }
+///                               }
+///                             }
+///                           }
+///                         },
+///                         "preserved_configuration": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "monetary_workspace_limits",
+///                             "monetary_key_limits",
+///                             "monetary_text_tariffs",
+///                             "credits_text_tariffs",
+///                             "monetary_retail_prices",
+///                             "monetary_media_rate_history"
+///                           ],
+///                           "properties": {
+///                             "monetary_workspace_limits": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_key_limits": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_text_tariffs": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "credits_text_tariffs": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_retail_prices": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             },
+///                             "monetary_media_rate_history": {
+///                               "type": "string",
+///                               "pattern": "^(0|[1-9][0-9]*)$"
+///                             }
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "expires_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input"
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Stale, incompatible, expired or conflicting intent; concurrent financial activity"
+///       },
+///       "422": {
+///         "description": "Malformed request"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       },
+///       "404": {
+///         "description": "Saved preview not found"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "preview",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ]
+///   }
+/// }
+/// ```
+pub async fn read_mode_preview(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(preview): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .read_customer_unit_mode_preview(preview)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/platform/units/mode",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "publishCustomerUnitMode",
+///     "summary": "Publish a preview-confirmed installation billing mode",
+///     "description": "Platform administration required and rechecked under lock. Requires an unexpired originally compatible saved preview, its matching current revision and a distinct target mode. Rechecks customer obligations atomically while holding financial-table locks. Concurrent financial activity returns a retryable 409; re-read compatibility if state changed. Balances, prices, monetary limits and historical records are never converted. A successful publication creates an immutable change receipt and advances the installation revision once. Identical idempotent retry returns the original receipt even after subsequent mode changes; it does not reapply the old mode. Mode activation alone does not establish configured unit prices, compatible spending limits, model availability or media readiness. Existing monetary limits require explicit compatible configuration before affected Credits admission. New monetary grants/funding require currency mode and new unit issuance requires Credits mode.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Original durable result",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "revision",
+///                     "previous_mode",
+///                     "billing_mode",
+///                     "preview_id",
+///                     "created_at"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^(0|[1-9][0-9]*)$"
+///                     },
+///                     "previous_mode": {
+///                       "type": "string",
+///                       "enum": [
+///                         "currency",
+///                         "credits"
+///                       ]
+///                     },
+///                     "billing_mode": {
+///                       "type": "string",
+///                       "enum": [
+///                         "currency",
+///                         "credits"
+///                       ]
+///                     },
+///                     "preview_id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid input"
+///       },
+///       "401": {
+///         "description": "Authentication required or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Stale, incompatible, expired or conflicting intent; concurrent financial activity"
+///       },
+///       "422": {
+///         "description": "Malformed request"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "preview_id",
+///               "expected_revision",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "preview_id": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^(0|[1-9][0-9]*)$"
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn publish_mode(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<ModePublishInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .publish_customer_unit_mode(
+            input.preview_id,
+            exact_integer(&input.expected_revision)?,
+            input.idempotency_key,
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":data})))
+}
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/platform/units/mode",

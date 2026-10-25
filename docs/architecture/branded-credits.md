@@ -52,6 +52,32 @@ or an authorization token. Publication must recheck current state atomically;
 an older preview must never override a newly created obligation. A same-mode
 preview still reports obligations rather than concealing them as a no-op.
 
+An explicit mode change uses three durable operations:
+
+1. `POST /api/v1/platform/units/mode/previews` saves the selected target mode,
+   expected installation revision and an idempotency key with the original
+   compatibility snapshot. The preview expires after fifteen minutes; replaying
+   preparation does not refresh it. Blocked previews can be retained for review.
+2. `GET /api/v1/platform/units/mode/previews/{preview}` retrieves that original
+   snapshot, including after configuration changes or expiry.
+3. `PUT /api/v1/platform/units/mode` confirms the saved preview reference and
+   expected revision with a separate idempotency key. Only an originally clear,
+   unexpired, distinct-mode preview can be applied. Publication takes nonwaiting
+   locks over the financial tables and configuration, then rechecks compatibility.
+   Active financial writes, new obligations, stale configuration and conflicting
+   retries return 409 without partial publication. A successful change appends
+   one audit receipt and advances the shared configuration revision once.
+
+Identical publication retries return the original receipt even if the installation
+has subsequently changed modes. They never reapply the old mode. Database guards
+require the matching immutable publication for a mode update, prevent preview
+renewal and preserve change history. New monetary gifts/funding require currency
+mode; new unit issuance requires Credits mode. These issuance guards serialize
+with publication. Historical refund and negative-correction accounting retain
+their original units and are not relabeled. The mode does not turn a monetary
+credit facility into a Credits lending facility, migrate monetary spending limits,
+or establish configured model pricing and route readiness.
+
 Once Credits is active, publishing another purchase conversion does not require
 draining balances. Existing purchase lots, open checkouts, admitted requests and
 historical statements retain their pinned rules. Changing purchase conversion
