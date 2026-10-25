@@ -6,6 +6,7 @@ mod customer_units;
 mod customer_unit_grants;
 mod customer_unit_ranges;
 mod customer_unit_tariffs;
+mod customer_unit_text_billing;
 pub use customer_unit_tariffs::{CustomerUnitTextPrice, CustomerUnitTextTariffInput};
 pub use customer_unit_grants::CustomerUnitGrantInput;
 pub use customer_units::{
@@ -1076,6 +1077,12 @@ impl Store {
         }
 
         let mut tx = self.begin_bounded_recording().await?;
+        let mode: String = sqlx::query_scalar("SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE")
+            .fetch_one(&mut *tx).await?;
+        if mode == "credits" {
+            return Err(StoreError::ProcurementUnavailable);
+        }
+
         if !route_gen_attempts.is_empty() {
             sqlx::query(
                 "INSERT INTO attempt_route_generations(attempt_id, generation) \

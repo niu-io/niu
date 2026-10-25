@@ -34,6 +34,9 @@ impl Store {
         }
         let attempt = admission.attempt_id;
         let mut tx = self.begin_bounded_recording().await?;
+        sqlx::query("SELECT revision FROM customer_unit_configuration WHERE singleton FOR SHARE")
+            .fetch_one(&mut *tx)
+            .await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
             .fetch_optional(&mut *tx)
@@ -73,7 +76,7 @@ impl Store {
         // Check inside the admission transaction so rejection rolls back all
         // attempt bindings and never reserves funds or records dispatch intent.
         let selling_price_bound: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM customer_attempt_tariffs WHERE attempt_id=$1)",
+            "SELECT EXISTS(SELECT 1 FROM customer_attempt_tariffs WHERE attempt_id=$1) OR EXISTS(SELECT 1 FROM customer_unit_attempt_tariffs WHERE attempt_id=$1)",
         )
         .bind(attempt)
         .fetch_one(&mut *tx)

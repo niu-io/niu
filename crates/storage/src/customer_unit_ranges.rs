@@ -20,7 +20,7 @@ impl Store {
         Ok(exists.then_some(balance))
     }
 
-    async fn lock_customer_unit_attempt(
+    pub(crate) async fn lock_customer_unit_attempt(
         tx: &mut Transaction<'_, Postgres>,
         scope: TenantScope,
         attempt: Uuid,
@@ -90,6 +90,17 @@ impl Store {
         sqlx::query("INSERT INTO customer_unit_reservations(attempt_id,organization_id,project_id,definition_revision,maximum_atoms) VALUES($1,$2,$3,$4,$5)")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
             .bind(definition).bind(maximum).execute(&mut **tx).await?;
+        Self::allocate_customer_unit_ranges_in_tx(tx, scope, attempt, maximum).await
+    }
+
+    pub(crate) async fn allocate_customer_unit_ranges_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        atoms: i64,
+    ) -> Result<(), StoreError> {
+        let start_ordinal: i64 = sqlx::query_scalar("SELECT COALESCE(max(ordinal)+1,0) FROM customer_unit_reserved_ranges WHERE attempt_id=$1")
+            .bind(attempt).fetch_one(&mut **tx).await?;
         let available: Vec<(Uuid, i64, i64)> = sqlx::query_as(
             "SELECT l.id,lower(f.atoms),upper(f.atoms)
              FROM customer_unit_lots l
@@ -100,14 +111,14 @@ impl Store {
              ORDER BY CASE l.provenance WHEN 'promotional' THEN 0 WHEN 'simulated' THEN 1 ELSE 2 END,
                 l.expires_at ASC NULLS LAST,l.created_at,l.id,lower(f.atoms)",
         ).bind(scope.organization_id).fetch_all(&mut **tx).await?;
-        let mut remaining = maximum;
+        let mut remaining = atoms;
         for (ordinal, (lot, first, end)) in available.into_iter().enumerate() {
             if remaining == 0 {
                 break;
             }
             let take = remaining.min(end - first);
             sqlx::query("INSERT INTO customer_unit_reserved_ranges(attempt_id,organization_id,ordinal,lot_id,first_atom,end_atom) VALUES($1,$2,$3,$4,$5,$6)")
-                .bind(attempt).bind(scope.organization_id).bind(ordinal as i64)
+                .bind(attempt).bind(scope.organization_id).bind(start_ordinal + ordinal as i64)
                 .bind(lot).bind(first).bind(first+take).execute(&mut **tx).await?;
             remaining -= take;
         }
@@ -149,7 +160,7 @@ impl Store {
                 Err(StoreError::Conflict)
             };
         }
-        let maximum: i64 = sqlx::query_scalar("SELECT maximum_atoms FROM customer_unit_reservations WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
+        let maximum: i64 = sqlx::query_scalar("SELECT r.maximum_atoms+COALESCE(e.additional_atoms,0) FROM customer_unit_reservations r LEFT JOIN customer_unit_reservation_extensions e USING(attempt_id) WHERE r.organization_id=$1 AND r.project_id=$2 AND r.attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         if amount > maximum {

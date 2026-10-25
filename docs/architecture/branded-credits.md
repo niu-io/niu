@@ -253,6 +253,28 @@ an over-bound observation requires persisted liability and reconciliation; the
 primitive rejects resolution and retains its hold instead of reducing the charge.
 The end-to-end request integration is not established by this schema description.
 
+Text admission now binds the unit tariff to the operation and each attempt,
+reserves exact source ranges and records dispatch in one transaction. Retry
+attempts retain the operation's original tariff. The database dispatch guard
+independently requires the bound price, matching token liability bound and fully
+funded ranges, including an explicit zero reservation for a zero price. A Credits
+commercial request cannot fall through to an unpriced dispatch or monetary
+customer wallet. Personal owner-funded routes retain their separate semantics.
+Existing monetary customer caps block Credits admission until explicitly migrated;
+their nanounits are never treated as unit atoms.
+
+Confirmed reported token usage is valued using the pinned price and recorded as
+an immutable unit liability. Missing or inconsistent required category usage
+retains the hold. A known charge above its original bound may allocate additional
+currently available ranges; if that allocation cannot be funded, the liability
+and original hold remain for background recovery, and new spending is blocked.
+Only proven nonexecution permits a safe release. Recovery handles unit charges
+and releases alongside the existing monetary ledgers without resubmitting
+inference. A recorded unit charge also prevents a later metadata lookup from
+rewriting its priced usage. These behavior contracts still require the complete
+release acceptance scope, especially over-bound recovery, separate unit spending
+limits, monetary compatibility, media, refunds and customer presentation.
+
 The customer unit must be explicit in catalog prices, Chat, Generations, API-key
 limits, workspace budgets, funding, usage, invoices or consumption statements,
 downloaded exports and applicable SDK/API responses. Monetary payment receipts

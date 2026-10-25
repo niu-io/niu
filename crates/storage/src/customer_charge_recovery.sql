@@ -1,6 +1,6 @@
 -- Bound inspected bindings, not merely matched anomalies. Healthy/unfinished
 -- candidates advance the same durable cursor without running settlement writes.
-WITH candidates AS MATERIALIZED (
+WITH pending AS (
     SELECT t.attempt_id AS id,a.organization_id,a.project_id,a.execution,a.usage_confidence
     FROM customer_attempt_tariffs t
     JOIN attempts a ON a.id=t.attempt_id
@@ -24,8 +24,13 @@ WITH candidates AS MATERIALIZED (
             )
         )
       )
-    ORDER BY t.attempt_id
-    LIMIT $2
+    UNION ALL
+    SELECT b.attempt_id,a.organization_id,a.project_id,a.execution,a.usage_confidence
+    FROM customer_unit_attempt_tariffs b JOIN attempts a ON a.id=b.attempt_id
+    WHERE ($1::uuid IS NULL OR b.attempt_id>$1)
+      AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions r WHERE r.attempt_id=b.attempt_id)
+), candidates AS MATERIALIZED (
+    SELECT * FROM pending ORDER BY id LIMIT $2
 )
 SELECT a.id,a.organization_id,a.project_id,
   (a.execution='confirmed_completed' AND a.usage_confidence='provider_reported') AS needs_recovery

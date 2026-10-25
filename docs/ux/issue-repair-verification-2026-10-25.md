@@ -634,3 +634,68 @@ Generated contract checks and builds are code hygiene, not request-billing
 acceptance. Actual tariff binding, unit-priced admission and settlement, category
 usage calculations, over-bound reconciliation, text/media refunds and hosted
 verification remain unverified and required; no fixture outcomes support them.
+
+## Actual Credits text admission and consumption — issue #110
+
+Migrations 0382–0383 and the request/financial recovery paths now pin Credits text
+prices, reserve source ranges with dispatch, record usage-derived unit liabilities
+and resolve or retain those ranges. The first actual request exposed a missing
+integration with the existing database prepaid-dispatch guard: it returned HTTP
+400 before egress, with no committed attempt or debit. The guard was extended to
+require the explicit unit tariff and a fully funded exact bound, preserving the
+existing currency and personal-route checks. The corrected running gateway was
+then exercised with actual free OpenRouter inference.
+
+The isolated native runtime used its supported static route configuration and
+a bounded local transport forwarder to the actual OpenRouter service. The
+forwarder produced no model responses and limited requests to independently
+listed free models and at most 64 output tokens. Seven actual upstream requests
+returned HTTP 200 with the expected short output (`42` or `ZERO`); each upstream
+receipt reported cost zero. This is not evidence for hosted deployment or the
+managed Provider onboarding journey.
+
+- A flat-price request pinned tariff revision 8, reserved 9320000 atoms and
+  settled 2000000 atoms. Independent ranges showed 500000 promotional atoms
+  consumed first, then 1500000 simulated-purchase atoms; unused held capacity
+  was released. The separate monetary customer charge and wallet tables stayed
+  empty, and the procurement cost entry remained zero USD.
+- A zero-price request was observed in `may_have_executed` with revision 10.
+  Revision 11 was published before its response arrived. Its final charge and
+  resolution remained exactly zero under revision 10, with no allocated ranges.
+- Concurrent category-priced requests returned actual output and retained
+  disjoint ranges. One complete, coherent observation under revision 11 reported
+  40 input tokens, 45 output tokens and 28 reasoning tokens, with zero cache
+  read/write tokens. Independent arithmetic using the selected context tier and
+  fixed fee matched the recorded 186600-atom charge.
+- Three other category-priced responses reported reasoning counts larger than
+  total output counts. Independent OpenRouter generation metadata for the first
+  two retained the contradiction (71 reasoning versus 61 output, and 64 versus
+  61). These do not establish billable category usage. No unit charge was posted
+  for them; their combined 49728300-atom hold remains. Restart recovery retained
+  these unresolved records instead of substituting a flat rate, inventing usage
+  or releasing capacity.
+- A five-million-atom promotion was reserved before its one-second deadline.
+  The actual model response arrived after expiry. The request settled two million
+  atoms from that original promotion; the three-million unused remainder stayed
+  expired. Independent saved timestamps establish both sides of the deadline;
+  no clock, expiry or model-response data was modified.
+- An isolated company with one simulated atom received HTTP 402 before upstream
+  dispatch. Its balance remained one atom with zero held or charged atoms, and
+  the upstream request count remained seven.
+
+Independent final reads found seven actual requests and four unit resolutions:
+2000000, 0, 186600 and 2000000 atoms. Each matches a separate calculation from
+the original saved price and reported usage. Occupied ranges had no cross-request
+overlap. There were no monetary customer charges or wallet entries, and total
+procurement cash cost was zero. Both temporary inference keys were revoked; the
+main revoked key independently returned HTTP 401 while historical charges and
+the three unresolved holds remained readable.
+
+The guarded mode-activation UI/API remains unimplemented: this runtime still
+uses the explicitly documented isolated development configuration. Unit spending
+limits, actual over-bound settlement/recovery, purchase backing, refunds, media,
+customer request/history UI and exports, current currency-mode inference
+regression and hosted acceptance remain required. The paid-usage metadata guard
+was extended to cover recorded unit charges; its managed-route reconciliation
+branch is not established by these static-route runs. Builds and generated
+contract checks are code hygiene; no fixture result supports these observations.

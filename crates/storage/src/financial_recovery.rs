@@ -195,10 +195,10 @@ impl Store {
             };
             if result.is_ok() {
                 row_tx.commit().await?;
-            } else if matches!(stage, FinancialStage::CustomerMediaCharge)
+            } else if matches!(stage, FinancialStage::CustomerMediaCharge | FinancialStage::CustomerCharge)
                 && matches!(result, Err(StoreError::BudgetExceeded))
             {
-                // Preserve a known media liability even before funding permits
+                // Preserve a known customer liability even before funding permits
                 // its debit; subsequent sweeps retry without another Provider call.
                 row_tx.commit().await?;
                 failed += 1;

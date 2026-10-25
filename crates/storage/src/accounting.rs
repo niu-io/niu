@@ -864,7 +864,8 @@ impl Store {
                     EXISTS(SELECT 1 FROM provider_attempt_offers p WHERE p.attempt_id = u.id) \
                         OR EXISTS(SELECT 1 FROM supplier_media_attempt_pricing m WHERE m.attempt_id = u.id) AS has_provider, \
                     EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id = u.id) \
-                        OR EXISTS(SELECT 1 FROM customer_attempt_balance_accounts b WHERE b.attempt_id = u.id) AS has_customer \
+                        OR EXISTS(SELECT 1 FROM customer_attempt_balance_accounts b WHERE b.attempt_id = u.id) \
+                        OR EXISTS(SELECT 1 FROM customer_unit_attempt_tariffs b WHERE b.attempt_id = u.id) AS has_customer \
              FROM unnest($1::uuid[]) WITH ORDINALITY AS u(id, ord) \
              ORDER BY u.ord",
         )
@@ -1242,7 +1243,8 @@ impl Store {
         .bind(scope.organization_id)
         .fetch_one(&mut **tx)
         .await?;
-        if prepaid {
+        let unit = Self::reserve_customer_unit_text_in_tx(tx, scope, attempt_id, reservation).await?;
+        if prepaid && !unit {
             let rates: Option<(i64, i64, i64, i64, serde_json::Value)> = sqlx::query_as("SELECT GREATEST(r.prompt_rate,COALESCE(r.cached_prompt_rate,r.prompt_rate),COALESCE(r.cache_write_prompt_rate,r.prompt_rate)),GREATEST(r.completion_rate,COALESCE(r.reasoning_completion_rate,r.completion_rate)),r.minimum_charge_nanos,r.request_fee_nanos,r.context_tiers FROM customer_attempt_tariffs b JOIN customer_tariff_revisions r ON r.id=b.revision_id JOIN customer_attempt_balance_accounts a ON a.attempt_id=b.attempt_id AND a.currency=r.currency WHERE b.attempt_id=$1 AND a.organization_id=$2 AND a.project_id=$3")
                 .bind(attempt_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
             let (prompt, completion, minimum, request_fee, tiers_json) =
@@ -1288,6 +1290,7 @@ impl Store {
             .bind(attempt_id)
             .execute(&mut **tx)
             .await?;
+            Self::release_customer_unit_nonexecuted_in_tx(tx, scope, attempt_id).await?;
             sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL")
                 .bind(attempt_id).execute(&mut **tx).await?;
         }

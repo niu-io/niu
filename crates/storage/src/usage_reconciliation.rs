@@ -85,7 +85,8 @@ const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, CO
  OR (a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' \
  AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL \
  AND (c.cached_input_tokens IS NULL OR c.reasoning_output_tokens IS NULL) \
- AND NOT EXISTS(SELECT 1 FROM customer_charges paid WHERE paid.attempt_id=a.id))) \
+ AND NOT EXISTS(SELECT 1 FROM customer_charges paid WHERE paid.attempt_id=a.id) \
+ AND NOT EXISTS(SELECT 1 FROM customer_unit_text_charges paid WHERE paid.attempt_id=a.id))) \
  AND v.adapter='openrouter' AND trim(trailing '/' FROM v.api_base)='https://openrouter.ai/api/v1' \
  AND v.enabled AND v.revision=r.vendor_revision \
  AND (g.upstream_model IS NOT NULL OR (m.enabled AND m.vendor_id=v.id AND m.revision=r.model_revision)) \

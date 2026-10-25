@@ -396,6 +396,9 @@ SELECT jsonb_build_object(
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
+        if Self::release_customer_unit_nonexecuted_in_tx(tx, scope, attempt).await? {
+            return Ok(());
+        }
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
             .fetch_optional(&mut **tx)
@@ -890,6 +893,8 @@ SELECT jsonb_build_object(
         attempt: Uuid,
         alias: &str,
     ) -> Result<(), StoreError> {
+        let mode: String = sqlx::query_scalar("SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE")
+            .fetch_one(&mut **tx).await?;
         // Preserve operation -> workspace -> price -> account order for every
         // caller, including the public storage binding path. The operation's
         // immutable price must win before any live configuration is consulted.
@@ -902,6 +907,14 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        if mode == "credits" {
+            return Self::bind_customer_unit_text_in_tx(tx, scope, attempt, alias).await;
+        }
+        let unit_operation: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_unit_operation_tariffs t JOIN attempts a ON a.operation_id=t.operation_id WHERE a.id=$1)")
+            .bind(attempt).fetch_one(&mut **tx).await?;
+        if unit_operation {
+            return Err(StoreError::Conflict);
+        }
         if !Self::bind_platform_retail_text_in_tx(tx, scope, attempt, alias).await? {
             sqlx::query("INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) SELECT a.id,COALESCE(pinned.revision_id,t.current_revision) FROM attempts a JOIN customer_tariffs t ON t.organization_id=a.organization_id AND t.project_id=a.project_id AND t.model_alias=a.resource_id LEFT JOIN customer_operation_tariffs pinned ON pinned.operation_id=a.operation_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent' AND COALESCE(pinned.revision_id,t.current_revision) IS NOT NULL").bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias).execute(&mut **tx).await?;
         }
@@ -911,15 +924,20 @@ SELECT jsonb_build_object(
     }
     pub async fn accrue_customer_charge(&self, attempt: Uuid) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
-        Self::accrue_customer_charge_in_tx(&mut tx, attempt).await?;
-        tx.commit().await?;
-        Ok(())
+        let result = Self::accrue_customer_charge_in_tx(&mut tx, attempt).await;
+        if result.is_ok() || matches!(result, Err(StoreError::BudgetExceeded)) {
+            tx.commit().await?;
+        }
+        result
     }
 
     pub(crate) async fn accrue_customer_charge_in_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
+        if Self::accrue_customer_unit_text_in_tx(tx, attempt).await? {
+            return Ok(());
+        }
         let row=sqlx::query("SELECT a.organization_id,a.project_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,r.reasoning_completion_rate,r.cache_write_prompt_rate,r.context_tiers,r.minimum_charge_nanos,r.request_fee_nanos,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens,d.reasoning_output_tokens,d.cache_write_input_tokens FROM attempts a LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'").bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(row) = row {
             let prompt: i64 = row.get("prompt_tokens");
