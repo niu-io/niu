@@ -812,7 +812,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
   async function compare(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (running || settingsSaving || historyLoading || !draft.ready || draft.error
+    if (comparisonController.current || running || settingsSaving || historyLoading || !draft.ready || draft.error
       || modelsLoading || modelsError
       || (selectedKey && !managedKey) || session?.permissions.write === false
       || !selectedModels.every(model => usableModels.includes(model))) return;
@@ -844,28 +844,27 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     const saved: SavedComparison = { id: comparisonId, title: prior ? sessionTitle(prior) : undefined, prompt: submittedPrompt.trim(), results: initialResults, createdAt: prior?.createdAt ?? startedAt,
       turns: [...previousTurns, currentTurn], attachments, settings: { systemPrompt, maxTokens, temperature, logPayloads } };
     const generation = comparisonGeneration.current;
-    setRunning(true);
-    const draftSaved = await draft.flush();
-    if (generation !== comparisonGeneration.current) return;
-    if (!draftSaved) {setRunning(false);return;}
-    try { await saveComparison(saved); }
-    catch (cause) {
-      if (generation === comparisonGeneration.current) {setError((cause as Error).message);setRunning(false);}
-      return;
-    }
-    if (generation !== comparisonGeneration.current) return;
-    attachmentGeneration.current += 1;
-    if (attachmentInput.current) attachmentInput.current.value = '';
-    setPrompt('');
-    setAttachments([]);
-    setActiveComparisonId(comparisonId);
-    setResults(initialResults);
-    setHistory(current => [saved, ...current.filter(item => item.id !== comparisonId)]);
-    await draft.flush({sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}});
-    if (generation !== comparisonGeneration.current) return;
     const controller = new AbortController();
     comparisonController.current = controller;
+    let persistenceStarted = false;
+    setRunning(true);
     try {
+      const draftSaved = await draft.flush();
+      if (generation !== comparisonGeneration.current || !draftSaved) return;
+      // Keep one identity through startup, cancellation and final persistence.
+      // Aborting a save itself would leave its commit outcome unknown.
+      persistenceStarted = true;
+      await saveComparison(saved);
+      if (generation !== comparisonGeneration.current || controller.signal.aborted) return;
+      attachmentGeneration.current += 1;
+      if (attachmentInput.current) attachmentInput.current.value = '';
+      setPrompt('');
+      setAttachments([]);
+      setActiveComparisonId(comparisonId);
+      setResults(initialResults);
+      setHistory(current => [saved, ...current.filter(item => item.id !== comparisonId)]);
+      const clearedDraft = await draft.flush({sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}});
+      if (!clearedDraft || generation !== comparisonGeneration.current || controller.signal.aborted) return;
       const updateResult = (next: ComparisonResult) => {
         saved.results = saved.results.map(result => result.model === next.model ? next : result);
         saved.turns = [...previousTurns, { ...currentTurn, results: saved.results }];
@@ -928,7 +927,19 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     } finally {
       saved.results = saved.results.map(result => result.phase === 'connecting' || result.phase === 'streaming' ? { ...result, phase: 'cancelled' } : result);
       saved.turns = [...previousTurns, { ...currentTurn, results: saved.results }];
-      try { await saveComparison(saved); }
+      try {
+        if (persistenceStarted) {
+          await saveComparison(saved);
+          if (generation === comparisonGeneration.current) {
+            setActiveComparisonId(comparisonId);
+            setResults(saved.results);
+            setHistory(current => [saved, ...current.filter(item => item.id !== comparisonId)]);
+            setPrompt('');
+            setAttachments([]);
+            await draft.flush({sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}});
+          }
+        }
+      }
       catch (cause) { if (generation === comparisonGeneration.current) setError((cause as Error).message); }
       if (comparisonController.current === controller) comparisonController.current = null;
       if (generation === comparisonGeneration.current) setRunning(false);
@@ -936,12 +947,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   }
 
   function cancelComparison() {
-    if (comparisonController.current) {
-      comparisonController.current.abort();
-    } else {
-      comparisonGeneration.current += 1;
-      setRunning(false);
-    }
+    comparisonController.current?.abort();
   }
 
   async function copyResponse(model: string, content: string) {

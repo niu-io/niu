@@ -82,3 +82,28 @@ Rust builds (including the mock-payment feature), dashboard type checking and
 API generation were executed. No fixture outcome was used as evidence. A genuine
 non-simulated receipt, mixed-wallet consumption/refunds, production upgrade and
 deployed regression remain unverified. This issue stays open.
+
+## Chat startup cancellation
+
+Bead `niu-1p2` tracks public issue #115. The candidate creates its cancellation
+controller before awaiting draft or session persistence, guards duplicate
+submission synchronously, and retains the same session identity until terminal
+persistence finishes. A cancelled startup or failed draft confirmation cannot
+continue into model dispatch. The existing composer and response layout remain
+the presentation used for this lifecycle correction.
+
+With an actual isolated backend, a currently published free OpenRouter model
+mapping and 600ms browser response latency, Send followed immediately by Stop
+produced one saved cancelled session. An independent operator-history read
+confirmed its terminal phase and empty output. A database read found one chat
+and zero attempts. Reload and direct navigation to its readable session URL
+retained that result. Desktop and 390px renders were inspected; the narrow
+document width equaled its viewport and cancellation content remained readable.
+
+Further probes are explicitly limited evidence: a later latency probe ended in
+an upstream setup failure rather than establishing startup cancellation. A real
+storage-lock probe exceeded the save deadline, displayed a save error, retained
+the prompt and created no additional saved session. A response-interception
+probe did not observe the targeted response and did not qualify that timing
+window. Normal free completion, active-stream cancellation, uncertain-save
+recovery and production regression remain required. The issue remains open.
