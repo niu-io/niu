@@ -77,6 +77,25 @@ cannot become a branded-unit lending facility through a mode switch.
 
 ## Lots, provenance and reservation
 
+Text consumption tariffs are published at `POST /api/v1/platform/units/tariffs`
+and read by model with `GET /api/v1/platform/units/tariffs?model=...`. Both require
+platform administration. The SDK exposes `publishCustomerUnitTextTariff` and
+`getCustomerUnitTextTariff`. A publication names its model and original unit
+definition, includes the expected installation revision and an idempotency key,
+and supplies a complete Credits price. Rate fields use atoms per million tokens;
+`request_fee_atoms` and `minimum_charge_atoms` are fixed atom quantities.
+Category rates may be null, meaning ordinary pricing. Each context tier is a
+complete schedule; a null category in a tier does not inherit the base category.
+Thresholds are unique and saved in ascending order. Exact quantities and revisions
+use decimal strings. Rates and fixed fees are bounded at 1000000000000000 atoms.
+
+New publications require the latest unit definition and a matching installation
+revision. Equivalent normalized retries return their original price, even after
+later publications. A purchase-rule change leaves consumption prices unchanged.
+Publishing an explicit zero price is supported; an absent publication is not a
+zero price. These configuration operations do not activate Credits, convert a
+monetary price, create a request binding, reserve capacity or charge an account.
+
 Credits have their own append-only issuance, reservation, consumption,
 restoration, expiry and reversal records. They do not overwrite
 `customer_balance_entries.amount_nanos` or use a made-up currency code in the

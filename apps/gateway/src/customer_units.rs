@@ -1,5 +1,5 @@
-//! Platform publications for branded consumption units. These operations do
-//! not activate billing mode, issue Credits, or convert existing money records.
+//! Branded-unit configuration, exact balance reads and explicit noncash grants.
+//! Configuration publication never activates billing mode or converts money.
 use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
@@ -1307,4 +1307,596 @@ pub async fn publish_rule(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data": data})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TextTariffInput {
+    model_alias: String,
+    definition_revision: String,
+    expected_revision: String,
+    idempotency_key: Uuid,
+    price: niu_storage::CustomerUnitTextPrice,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TextTariffQuery {
+    model: String,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/platform/units/tariffs",
+///   "method": "get",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Original immutable Credits text tariff",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "additionalProperties": false,
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "revision",
+///                     "definition_revision",
+///                     "model_alias",
+///                     "price"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$"
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$"
+///                     },
+///                     "model_alias": {
+///                       "type": "string",
+///                       "minLength": 1,
+///                       "maxLength": 200
+///                     },
+///                     "price": {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "prompt_rate",
+///                         "completion_rate",
+///                         "request_fee_atoms",
+///                         "minimum_charge_atoms",
+///                         "context_tiers"
+///                       ],
+///                       "properties": {
+///                         "prompt_rate": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "completion_rate": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "cached_prompt_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "cache_write_prompt_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "reasoning_completion_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "request_fee_atoms": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "minimum_charge_atoms": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "context_tiers": {
+///                           "type": "array",
+///                           "maxItems": 32,
+///                           "items": {
+///                             "type": "object",
+///                             "additionalProperties": false,
+///                             "required": [
+///                               "minimum_input_tokens",
+///                               "prompt_rate",
+///                               "completion_rate"
+///                             ],
+///                             "properties": {
+///                               "minimum_input_tokens": {
+///                                 "type": "string",
+///                                 "pattern": "^[1-9][0-9]{0,18}$"
+///                               },
+///                               "prompt_rate": {
+///                                 "type": "string",
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "completion_rate": {
+///                                 "type": "string",
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "cached_prompt_rate": {
+///                                 "type": [
+///                                   "string",
+///                                   "null"
+///                                 ],
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "cache_write_prompt_rate": {
+///                                 "type": [
+///                                   "string",
+///                                   "null"
+///                                 ],
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "reasoning_completion_rate": {
+///                                 "type": [
+///                                   "string",
+///                                   "null"
+///                                 ],
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               }
+///                             }
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model, exact quantity or context schedule"
+///       },
+///       "401": {
+///         "description": "Authentication unavailable or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       },
+///       "404": {
+///         "description": "No explicitly published Credits text tariff"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "operationId": "getCustomerUnitTextTariff",
+///     "summary": "Read the latest explicit Credits text tariff for a model",
+///     "description": "Platform administration required. Reads the latest saved Credits consumption tariff, not a conversion from payment currency. It does not establish route readiness, enable billing mode or reserve capacity. Historical requests must retain their bound revision. Category null means ordinary pricing, not zero; each context tier is a complete schedule. No Provider procurement price is exposed.",
+///     "parameters": [
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200
+///         }
+///       }
+///     ]
+///   }
+/// }
+/// ```
+pub async fn read_text_tariff(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<TextTariffQuery>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    if query.model.is_empty()
+        || query.model.trim() != query.model
+        || query.model.chars().count() > 200
+        || query.model.chars().any(char::is_control)
+    {
+        return Err(ApiError::invalid_request("Use a nonempty model alias"));
+    }
+    let data = state
+        .store
+        .customer_unit_text_tariff(&query.model)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/platform/units/tariffs",
+///   "method": "post",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Original immutable Credits text tariff",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "additionalProperties": false,
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "revision",
+///                     "definition_revision",
+///                     "model_alias",
+///                     "price"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$"
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$"
+///                     },
+///                     "model_alias": {
+///                       "type": "string",
+///                       "minLength": 1,
+///                       "maxLength": 200
+///                     },
+///                     "price": {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "prompt_rate",
+///                         "completion_rate",
+///                         "request_fee_atoms",
+///                         "minimum_charge_atoms",
+///                         "context_tiers"
+///                       ],
+///                       "properties": {
+///                         "prompt_rate": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "completion_rate": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "cached_prompt_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "cache_write_prompt_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "reasoning_completion_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "request_fee_atoms": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "minimum_charge_atoms": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "context_tiers": {
+///                           "type": "array",
+///                           "maxItems": 32,
+///                           "items": {
+///                             "type": "object",
+///                             "additionalProperties": false,
+///                             "required": [
+///                               "minimum_input_tokens",
+///                               "prompt_rate",
+///                               "completion_rate"
+///                             ],
+///                             "properties": {
+///                               "minimum_input_tokens": {
+///                                 "type": "string",
+///                                 "pattern": "^[1-9][0-9]{0,18}$"
+///                               },
+///                               "prompt_rate": {
+///                                 "type": "string",
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "completion_rate": {
+///                                 "type": "string",
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "cached_prompt_rate": {
+///                                 "type": [
+///                                   "string",
+///                                   "null"
+///                                 ],
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "cache_write_prompt_rate": {
+///                                 "type": [
+///                                   "string",
+///                                   "null"
+///                                 ],
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               },
+///                               "reasoning_completion_rate": {
+///                                 "type": [
+///                                   "string",
+///                                   "null"
+///                                 ],
+///                                 "pattern": "^[0-9]{1,16}$",
+///                                 "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                               }
+///                             }
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model, exact quantity or context schedule"
+///       },
+///       "401": {
+///         "description": "Authentication unavailable or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       },
+///       "409": {
+///         "description": "Stale installation/unit revision or conflicting idempotency input"
+///       },
+///       "422": {
+///         "description": "Malformed request"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "operationId": "publishCustomerUnitTextTariff",
+///     "summary": "Publish a versioned Credits text consumption tariff",
+///     "description": "Platform administration required and rechecked transactionally for operators. Publish atom-denominated rates independently of purchase conversion and monetary tariffs. New publication requires the current unit definition and installation revision. Concurrent stale writes conflict. Equal idempotent retries return their original normalized publication, even after later price or unit changes; changed input conflicts. Rates and quantity thresholds use exact decimal strings; context thresholds are unique and normalized in ascending order. Nullable category rates use ordinary rates, never inherit another tier. Rates are per million tokens, rounded upward once after adding applicable exact token products. Add the fixed request fee, then apply the minimum charge. Explicit zero is valid; absence of a publication is unavailable. Publishing a tariff does not activate billing mode, issue Credits, convert money balances, admit requests or change prior request bindings.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model_alias",
+///               "definition_revision",
+///               "expected_revision",
+///               "idempotency_key",
+///               "price"
+///             ],
+///             "properties": {
+///               "model_alias": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200
+///               },
+///               "definition_revision": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$"
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^(0|[1-9][0-9]{0,18})$"
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               },
+///               "price": {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "prompt_rate",
+///                   "completion_rate",
+///                   "request_fee_atoms",
+///                   "minimum_charge_atoms",
+///                   "context_tiers"
+///                 ],
+///                 "properties": {
+///                   "prompt_rate": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]{1,16}$",
+///                     "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                   },
+///                   "completion_rate": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]{1,16}$",
+///                     "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                   },
+///                   "cached_prompt_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]{1,16}$",
+///                     "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                   },
+///                   "cache_write_prompt_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]{1,16}$",
+///                     "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                   },
+///                   "reasoning_completion_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]{1,16}$",
+///                     "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                   },
+///                   "request_fee_atoms": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]{1,16}$",
+///                     "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                   },
+///                   "minimum_charge_atoms": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]{1,16}$",
+///                     "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                   },
+///                   "context_tiers": {
+///                     "type": "array",
+///                     "maxItems": 32,
+///                     "items": {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "minimum_input_tokens",
+///                         "prompt_rate",
+///                         "completion_rate"
+///                       ],
+///                       "properties": {
+///                         "minimum_input_tokens": {
+///                           "type": "string",
+///                           "pattern": "^[1-9][0-9]{0,18}$"
+///                         },
+///                         "prompt_rate": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "completion_rate": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "cached_prompt_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "cache_write_prompt_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         },
+///                         "reasoning_completion_rate": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]{1,16}$",
+///                           "description": "Exact integer Credits atoms, from 0 through 1000000000000000. Token rates are atoms per million tokens; fixed fees are atoms per completed request."
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn publish_text_tariff(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<TextTariffInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .publish_customer_unit_text_tariff(
+            niu_storage::CustomerUnitTextTariffInput {
+                model_alias: &input.model_alias,
+                definition_revision: exact_integer(&input.definition_revision)?,
+                expected_revision: exact_integer(&input.expected_revision)?,
+                idempotency_key: input.idempotency_key,
+                price: input.price,
+            },
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":data})))
 }

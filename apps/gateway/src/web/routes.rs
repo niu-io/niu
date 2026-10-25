@@ -516,6 +516,12 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::customer_units::read_quote),
     )
     .dual_route(
+        "/platform/units/tariffs",
+        get(crate::customer_units::read_text_tariff)
+            .post(crate::customer_units::publish_text_tariff)
+            .layer(DefaultBodyLimit::max(32768)),
+    )
+    .dual_route(
         "/platform/units/definitions",
         post(crate::customer_units::publish_definition)
             .layer(DefaultBodyLimit::max(4096)),

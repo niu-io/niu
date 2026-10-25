@@ -4,6 +4,7 @@ export type { CustomerUnitDefinition, CustomerUnitPurchaseRule, CustomerUnitConf
 export type { CustomerUnitQuote, CustomerUnitQuoteInput } from './admin.js';
 export type { CustomerUnitGrant, CustomerUnitGrantInput } from './admin.js';
 export type { CustomerUnitBalance } from './admin.js';
+export type { CustomerUnitTextPrice, CustomerUnitTextTariff, CustomerUnitTextTariffInput } from './admin.js';
 import { notifyResponse } from './response-metadata.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 import type { ContextPriceTier } from './admin.js';

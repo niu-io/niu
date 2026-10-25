@@ -593,3 +593,44 @@ refunds and backing reconciliation are not established by these balance reads.
 They remain open along with guarded mode activation, customer rendering and
 hosted verification. Next, connect explicit Credits tariff publication and
 atomic request admission to the new range ledger before exercising real usage.
+
+## Explicit Credits text tariff publication — issue #110
+
+Migration 0381 adds immutable text consumption tariffs, separately from purchase
+conversion and monetary selling prices. The administration API and typed SDK
+publish and read complete atom-denominated schedules, including cache categories,
+reasoning output, context tiers, request fees and minimum charges. Publication
+shares the installation configuration revision and checks current operator
+authority inside its transaction.
+
+The running native gateway and actual SDK published a category-aware price with
+two out-of-order context thresholds. The saved result normalized the thresholds
+to 1000 then 10000 and retained explicit nullable category semantics within each
+tier. Two concurrent changes with the same expected revision produced one HTTP
+200 and one HTTP 409, leaving one new flat tariff. Replaying the original
+publication returned its original revision and semantically identical price;
+object key ordering was ignored. An equivalent retry with leading-zero rate
+notation and reordered tiers also returned the original revision.
+
+Publishing a new purchase rule of 300 Credits per USD did not change the latest
+consumption tariff or any existing balance. Independent SQL reads found exactly
+two tariff revisions (7 and 8), installation revision 9, six retained lots,
+309000000001 issued atoms, no monetary entries and no request reservations.
+Negative or over-limit rates and duplicate thresholds returned HTTP 400; a JSON
+number instead of a decimal string returned HTTP 422. A stale new publication
+and changed retry returned HTTP 409. An absent price returned HTTP 404,
+anonymous reads returned HTTP 401, and an authenticated workspace viewer could
+neither read nor publish platform tariffs (HTTP 403). Its temporary session was
+revoked afterward (HTTP 204).
+
+The public OpenAPI aggregation was also corrected to include the balance endpoint
+added in the preceding change, alongside both tariff operations. Handler-derived
+documentation alone did not establish inclusion in the full public contract.
+After rebuilding the documentation artifact, downloading the full OpenAPI from
+the running gateway returned HTTP 200 with all three operations. Its bytes
+matched the generated contract exactly (SHA-256
+`dda21b246c93e59dd6c5c629f7aa6819fecf8268de60a7899cfd799b3637455a`).
+Generated contract checks and builds are code hygiene, not request-billing
+acceptance. Actual tariff binding, unit-priced admission and settlement, category
+usage calculations, over-bound reconciliation, text/media refunds and hosted
+verification remain unverified and required; no fixture outcomes support them.

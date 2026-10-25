@@ -5,6 +5,8 @@ mod payment_verification;
 mod customer_units;
 mod customer_unit_grants;
 mod customer_unit_ranges;
+mod customer_unit_tariffs;
+pub use customer_unit_tariffs::{CustomerUnitTextPrice, CustomerUnitTextTariffInput};
 pub use customer_unit_grants::CustomerUnitGrantInput;
 pub use customer_units::{
     CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, CustomerUnitQuoteInput,

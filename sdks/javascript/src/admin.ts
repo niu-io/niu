@@ -10,6 +10,20 @@ export type CustomerUnitBalance = {
     restored_atoms: string; expired_atoms: string; available_atoms: string;
   }>;
 };
+/** Token rates are Credits atoms per million tokens; fixed fees are atoms. */
+export type CustomerUnitTextPrice = {
+  prompt_rate: string; completion_rate: string;
+  cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null;
+  reasoning_completion_rate?: string | null;
+  request_fee_atoms: string; minimum_charge_atoms: string;
+  context_tiers: ContextPriceTier[];
+};
+export type CustomerUnitTextTariff = {
+  revision: string; definition_revision: string; model_alias: string; price: CustomerUnitTextPrice;
+};
+export type CustomerUnitTextTariffInput = Omit<CustomerUnitTextTariff, 'revision'> & {
+  expected_revision: string; idempotency_key: string;
+};
 /** Versioned consumption unit; publication does not activate Credits billing. */
 export type CustomerUnitDefinition = {
   revision: string; name: string; display_precision: number; atoms_per_unit: '1000000000';
@@ -1365,6 +1379,23 @@ export class NiuAdminClient {
   }
   getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerUnitBalance }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/units`, undefined, options);
+  }
+  getCustomerUnitTextTariff(model: string, options?: RequestOptions): Promise<{ data: CustomerUnitTextTariff }> {
+    if (!model || model !== model.trim() || [...model].length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(model)) throw new TypeError('Use a nonempty model alias');
+    return this.request(`/platform/units/tariffs?${new URLSearchParams({model})}`, undefined, options);
+  }
+  publishCustomerUnitTextTariff(input: CustomerUnitTextTariffInput, options?: RequestOptions): Promise<{ data: CustomerUnitTextTariff }> {
+    unitInteger(input.definition_revision, true); unitInteger(input.expected_revision); uuid(input.idempotency_key);
+    const price = input.price;
+    for (const value of [price.prompt_rate, price.completion_rate, price.request_fee_atoms, price.minimum_charge_atoms]) retailInteger(value, 1000000000000000n);
+    for (const value of [price.cached_prompt_rate, price.cache_write_prompt_rate, price.reasoning_completion_rate]) if (value != null) retailInteger(value, 1000000000000000n);
+    if (!Array.isArray(price.context_tiers) || price.context_tiers.length > 32) throw new TypeError('Use at most 32 context tiers');
+    for (const tier of price.context_tiers) {
+      unitInteger(tier.minimum_input_tokens, true);
+      for (const value of [tier.prompt_rate, tier.completion_rate]) retailInteger(value, 1000000000000000n);
+      for (const value of [tier.cached_prompt_rate, tier.cache_write_prompt_rate, tier.reasoning_completion_rate]) if (value != null) retailInteger(value, 1000000000000000n);
+    }
+    return this.request('/platform/units/tariffs', input, options, 'POST');
   }
   issueCustomerUnitGrant(organizationId: string, input: CustomerUnitGrantInput, options?: RequestOptions): Promise<{ data: CustomerUnitGrant }> {
     unitInteger(input.definition_revision, true); unitInteger(input.credit_atoms, true); uuid(input.idempotency_key);

@@ -245,6 +245,22 @@ getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promis
 }>;
 ```
 
+### getCustomerUnitTextTariff
+
+```typescript
+getCustomerUnitTextTariff(model: string, options?: RequestOptions): Promise<{
+    data: CustomerUnitTextTariff;
+}>;
+```
+
+### publishCustomerUnitTextTariff
+
+```typescript
+publishCustomerUnitTextTariff(input: CustomerUnitTextTariffInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitTextTariff;
+}>;
+```
+
 ### issueCustomerUnitGrant
 
 ```typescript
