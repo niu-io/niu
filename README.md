@@ -9,6 +9,8 @@
 
 This repository is the complete self-hosted monorepo: single-process Rust gateway, workspace and Provider management dashboard, opt-in public model catalog, developer documentation, OpenAPI 3.1 contracts, client SDKs, built-in open-source plugins, and container packaging.
 
+Release acceptance is maintained in the [release checklist](docs/release-checklist.md). Every required check must be GREEN with current-candidate hosted end-to-end evidence before release.
+
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/niu-io/niu)
 
 ---

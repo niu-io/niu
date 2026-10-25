@@ -297,10 +297,6 @@ impl AppState {
             runtime
                 .provision_local_account(&state.store, "demo@niu.io", &demo_password)
                 .await?;
-            state
-                .store
-                .grant_member_platform_admin("demo@niu.io")
-                .await?;
         }
         if let Ok(origin) = env::var("NIU_DEV_MEMBER_ORIGIN") {
             if state.password_auth.is_some() {
@@ -318,12 +314,6 @@ impl AppState {
             runtime
                 .provision_local_account(&state.store, &email, &password)
                 .await?;
-            if email.trim().eq_ignore_ascii_case("demo@niu.io") {
-                state
-                    .store
-                    .grant_member_platform_admin("demo@niu.io")
-                    .await?;
-            }
             state.password_auth = Some(Arc::new(runtime));
         }
         if let Some(auth) = state.password_auth.as_mut() {
