@@ -33,6 +33,8 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/organizations/{organization}/billing/units/grants:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1units~1grants'
   /api/v1/organizations/{organization}/billing/quotes:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1quotes'
   /api/v1/organizations/{organization}/billing/quotes/{quote}:

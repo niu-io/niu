@@ -518,3 +518,43 @@ checkouts, lot consumption, grants, refunds, guarded mode activation, customer
 rendering and hosted behavior remain outside this evidence. An unused live quote
 was retained for a later natural-expiry check. The feature and release gate remain
 open; no fixture outcome supports these observations.
+
+## Credits grants and natural quote expiry — issue #110
+
+Migration 0379 preserves purchase lots and their existing references while
+extending the common lot record with explicit grant reason, actor and optional
+expiry. Promotional and simulated grants have no payment currency or amount and
+zero monetary backing. The new platform-only grant operation has a typed SDK
+method and generated contract; it does not enable Credits mode.
+
+Through the running gateway and built SDK, two concurrent identical requests
+issued one promotional grant of five Credits with a ninety-second expiry. A
+separate explicit simulated grant issued two Credits without an expiry. Reusing
+the promotional idempotency key with a changed amount returned HTTP 409. New
+requests with purchased provenance, a past expiry or zero quantity returned
+HTTP 400. A workspace viewer's request returned HTTP 403. After publishing a new
+unit definition, a new grant using the old definition returned HTTP 409, while
+replaying the existing grant returned its original definition and quantity.
+
+After the promotion naturally expired, another SDK replay returned the identical
+original grant, including its expired deadline. Independent SQL reads found only
+the two grants, with exact quantities, no payment amounts and zero backing.
+Attempted mutation was rejected by the immutable-record trigger. This verifies
+retained grant provenance and expiry, not the still-unimplemented consumption
+rule for an expired lot.
+
+An actual USD 0.01 mock purchase after the common-lot migration issued two Credits
+and settled normally. Financial reporting showed USD 2.01 simulated receipts
+and zero verified cash; there were three purchase receipts and no monetary wallet
+entries. Grants created no extra payment receipts. The separate currency-mode
+gateway was upgraded and rejected a grant with HTTP 409.
+
+The unused purchase quote retained from the preceding run expired naturally at
+11:24:40 UTC. At 11:25:43 UTC, submitting it through the actual checkout endpoint
+returned HTTP 409. Independent before/after SQL counts remained four orders;
+the failed binding did not leave a new payment intent. No quote timestamps were
+changed to obtain this result.
+
+Reservation, consumption, refunds, expired-lot admission behavior, customer UI,
+guarded mode activation and hosted acceptance remain required. No fixture result
+or compilation outcome establishes these missing behaviors.

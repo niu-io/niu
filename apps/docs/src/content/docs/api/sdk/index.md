@@ -87,6 +87,8 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [CustomerUnitConfiguration](/docs/api/sdk/customerunitconfiguration/)
 - [CustomerUnitDefinition](/docs/api/sdk/customerunitdefinition/)
 - [CustomerUnitDefinitionInput](/docs/api/sdk/customerunitdefinitioninput/)
+- [CustomerUnitGrant](/docs/api/sdk/customerunitgrant/)
+- [CustomerUnitGrantInput](/docs/api/sdk/customerunitgrantinput/)
 - [CustomerUnitPurchaseRule](/docs/api/sdk/customerunitpurchaserule/)
 - [CustomerUnitPurchaseRuleInput](/docs/api/sdk/customerunitpurchaseruleinput/)
 - [CustomerUnitQuote](/docs/api/sdk/customerunitquote/)

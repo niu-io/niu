@@ -3,6 +3,8 @@
 //! Authorization remains a caller obligation.
 mod payment_verification;
 mod customer_units;
+mod customer_unit_grants;
+pub use customer_unit_grants::CustomerUnitGrantInput;
 pub use customer_units::{
     CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, CustomerUnitQuoteInput,
 };
@@ -437,6 +439,8 @@ pub enum StoreError {
     Unauthorized,
     #[error("invalid price, currency or monetary amount")]
     InvalidPrice,
+    #[error("invalid Credits definition, exact quantity, conversion or expiry")]
+    InvalidCustomerUnit,
     #[error("configured token pricing requires unsupported usage categories")]
     UnsupportedTokenPricing,
     #[error("invalid Supplier history filters or page size")]

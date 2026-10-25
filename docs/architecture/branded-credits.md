@@ -193,6 +193,18 @@ balance entry. The lot and receipt must match the saved quote, provider payment
 identity and immutable simulated-payment provenance. The monetary receipt,
 quoted quantity and unit definition remain available in order history.
 
+Purchased and granted quantities share `customer_unit_lots`. Purchase origin,
+real payment amount and backing remain distinct from grant reason, actor and
+expiry. `POST /api/v1/organizations/{organization}/billing/units/grants` and
+the SDK's `issueCustomerUnitGrant` publish explicit promotional or simulated
+grants. New issuance requires Credits mode and the current unit definition.
+It never creates a payment receipt or money balance entry. Platform authority is
+required and an operator's current authority is rechecked under a transaction
+lock. Replays preserve the original quantity, unit revision and expiry, including
+after expiry; a changed payload conflicts. A purchased provenance cannot be
+selected for a grant. The returned quantity describes original issuance, not
+remaining spending capacity.
+
 Purchase-rule publication, mode publication, checkout creation and request
 admission serialize on the installation billing revision. Lot operations also
 serialize on the customer account, in a documented consistent lock order.

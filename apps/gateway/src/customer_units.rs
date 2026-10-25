@@ -59,6 +59,233 @@ fn actor(auth: AdminAuthorization) -> OperatorAuditActor {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct GrantInput {
+    definition_revision: String,
+    credit_atoms: String,
+    provenance: String,
+    reason: String,
+    expires_at_ms: Option<String>,
+    idempotency_key: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/units/grants",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "issueCustomerUnitGrant",
+///     "summary": "Issue noncash Credits with an immutable provenance and expiry",
+///     "description": "Platform administration required. New issuance requires active Credits mode and the current unit definition. Promotional and simulated grants have zero monetary backing and create neither a payment receipt nor a monetary balance entry. Provide a customer-appropriate reason. Expiry is optional and must be in the future when new issuance commits. Reusing an idempotency key with the same semantic input returns the original grant without extending expiry, even after expiry or later unit publications. Different input conflicts. The returned amount is original issuance, not current spendable capacity. Purchased provenance is reserved for independently verified payments. Operator authority is rechecked under a transaction lock.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "definition_revision",
+///               "credit_atoms",
+///               "provenance",
+///               "reason",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "definition_revision": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$",
+///                 "description": "Exact positive decimal integer, at most 9223372036854775807."
+///               },
+///               "credit_atoms": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$",
+///                 "description": "Exact positive decimal integer, at most 9223372036854775807."
+///               },
+///               "provenance": {
+///                 "type": "string",
+///                 "enum": [
+///                   "promotional",
+///                   "simulated"
+///                 ]
+///               },
+///               "reason": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 500
+///               },
+///               "expires_at_ms": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[1-9][0-9]{0,14}$",
+///                 "description": "Optional future Unix milliseconds, at most 253402300799000. Null means no expiry."
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Original immutable grant",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "definition_revision",
+///                     "credit_atoms",
+///                     "provenance",
+///                     "reason",
+///                     "expires_at_ms",
+///                     "id",
+///                     "name",
+///                     "display_precision",
+///                     "atoms_per_unit",
+///                     "created_at"
+///                   ],
+///                   "properties": {
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive decimal integer, at most 9223372036854775807."
+///                     },
+///                     "credit_atoms": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive decimal integer, at most 9223372036854775807."
+///                     },
+///                     "provenance": {
+///                       "type": "string",
+///                       "enum": [
+///                         "promotional",
+///                         "simulated"
+///                       ]
+///                     },
+///                     "reason": {
+///                       "type": "string",
+///                       "minLength": 1,
+///                       "maxLength": 500
+///                     },
+///                     "expires_at_ms": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[1-9][0-9]{0,14}$",
+///                       "description": "Optional future Unix milliseconds, at most 253402300799000. Null means no expiry."
+///                     },
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "display_precision": {
+///                       "type": "integer",
+///                       "minimum": 0,
+///                       "maximum": 9
+///                     },
+///                     "atoms_per_unit": {
+///                       "type": "string",
+///                       "const": "1000000000"
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid unit, quantity, provenance, reason or expiry"
+///       },
+///       "401": {
+///         "description": "Authentication unavailable or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Credits mode inactive, stale definition, missing company or conflicting idempotency input"
+///       },
+///       "422": {
+///         "description": "Malformed request"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn issue_grant(
+    State(state): State<AppState>,
+    Path(organization): Path<Uuid>,
+    headers: HeaderMap,
+    Json(input): Json<GrantInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .issue_customer_unit_grant(
+            organization,
+            niu_storage::CustomerUnitGrantInput {
+                definition_revision: exact_integer(&input.definition_revision)?,
+                credit_atoms: exact_integer(&input.credit_atoms)?,
+                provenance: &input.provenance,
+                reason: &input.reason,
+                expires_at_ms: input
+                    .expires_at_ms
+                    .as_deref()
+                    .map(exact_integer)
+                    .transpose()?,
+                idempotency_key: input.idempotency_key,
+            },
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data": data})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QuoteInput {
     rule_revision: String,
     payment_nanos: String,

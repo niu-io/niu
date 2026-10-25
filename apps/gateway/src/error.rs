@@ -41,6 +41,9 @@ impl ApiError {
             niu_storage::StoreError::InvalidPrice => {
                 Self::invalid_request("Invalid price, currency or monetary amount")
             }
+            niu_storage::StoreError::InvalidCustomerUnit => {
+                Self::invalid_request("Use a valid Credits definition, exact quantity, conversion and future expiry")
+            }
             niu_storage::StoreError::UnsupportedTokenPricing => Self {
                 failure: None,
                 status: StatusCode::UNPROCESSABLE_ENTITY,

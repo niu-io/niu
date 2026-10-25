@@ -26,6 +26,16 @@ export type CustomerUnitQuote = {
 export type CustomerUnitQuoteInput = {
   rule_revision: string; payment_nanos: string; idempotency_key: string;
 };
+export type CustomerUnitGrantInput = {
+  definition_revision: string; credit_atoms: string; provenance: 'promotional' | 'simulated';
+  reason: string; expires_at_ms?: string | null; idempotency_key: string;
+};
+/** Original issuance; not a current remaining balance or a payment receipt. */
+export type CustomerUnitGrant = {
+  id: string; definition_revision: string; credit_atoms: string;
+  provenance: 'promotional' | 'simulated'; reason: string; expires_at_ms: string | null;
+  name: string; display_precision: number; atoms_per_unit: '1000000000'; created_at: string;
+};
 export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
 /** Configuration identity only; does not establish upstream capability or pricing. */
 export type ProviderIntegration = {
@@ -1341,6 +1351,17 @@ export class NiuAdminClient {
   /** Platform-only configuration. Does not enable Credits or change existing balances. */
   getCustomerUnitConfiguration(options?: RequestOptions): Promise<{ data: CustomerUnitConfiguration }> {
     return this.request('/platform/units', undefined, options);
+  }
+  issueCustomerUnitGrant(organizationId: string, input: CustomerUnitGrantInput, options?: RequestOptions): Promise<{ data: CustomerUnitGrant }> {
+    unitInteger(input.definition_revision, true); unitInteger(input.credit_atoms, true); uuid(input.idempotency_key);
+    if (!['promotional', 'simulated'].includes(input.provenance) || typeof input.reason !== 'string'
+      || !input.reason.length || input.reason !== input.reason.trim() || [...input.reason].length > 500
+      || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Choose a noncash provenance and a trimmed grant reason');
+    if (input.expires_at_ms != null) {
+      unitInteger(input.expires_at_ms, true);
+      if (BigInt(input.expires_at_ms) > 253402300799000n) throw new TypeError('Choose a supported expiry date');
+    }
+    return this.request(`/organizations/${uuid(organizationId)}/billing/units/grants`, input, options, 'POST');
   }
   /** Platform-only exact purchase preview. Retried intent retains its original expiry. */
   prepareCustomerUnitQuote(organizationId: string, input: CustomerUnitQuoteInput, options?: RequestOptions): Promise<{ data: CustomerUnitQuote }> {

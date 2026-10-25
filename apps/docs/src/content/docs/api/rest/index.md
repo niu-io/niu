@@ -228,6 +228,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/organizations/{organization}/billing/topups/{order}` — Read saved company top-up status](/docs/api/rest/getcustomertopup/)
 - [`POST /api/v1/organizations/{organization}/billing/topups/{order}/reconcile` — Independently reconcile a saved payment](/docs/api/rest/reconcilecustomertopup/)
 - [`GET /api/v1/organizations/{organization}/billing/transactions` — Read a company balance transaction page](/docs/api/rest/getcustomerbalancetransactions/)
+- [`POST /api/v1/organizations/{organization}/billing/units/grants` — Issue noncash Credits with an immutable provenance and expiry](/docs/api/rest/issuecustomerunitgrant/)
 - [`GET /api/v1/organizations/{organization}/projects` — List scoped company workspaces](/docs/api/rest/listorganizationworkspaces/)
 - [`POST /api/v1/organizations/{organization}/projects` — Create a workspace in the selected company](/docs/api/rest/createorganizationworkspace/)
 - [`DELETE /api/v1/organizations/{organization}/projects/{project}` — Delete an empty workspace](/docs/api/rest/deleteworkspace/)

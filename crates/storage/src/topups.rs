@@ -811,7 +811,7 @@ impl Store {
             let provenance = if simulated { "simulated" } else { "purchased" };
             let backing = if simulated { 0 } else { saved.amount_nanos };
             sqlx::query(
-                "INSERT INTO customer_unit_purchase_lots
+                "INSERT INTO customer_unit_lots
                 (id,organization_id,order_id,definition_revision,credit_atoms,provenance,
                  payment_currency,payment_nanos,backing_nanos) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
             )

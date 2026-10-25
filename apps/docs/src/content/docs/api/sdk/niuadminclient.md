@@ -237,6 +237,14 @@ getCustomerUnitConfiguration(options?: RequestOptions): Promise<{
 }>;
 ```
 
+### issueCustomerUnitGrant
+
+```typescript
+issueCustomerUnitGrant(organizationId: string, input: CustomerUnitGrantInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitGrant;
+}>;
+```
+
 ### prepareCustomerUnitQuote
 
 ```typescript
