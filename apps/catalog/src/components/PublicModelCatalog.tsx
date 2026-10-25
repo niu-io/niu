@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconCheck, IconCopy, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { Button } from '../../../dashboard/src/components/ui/button';
 import { Input } from '../../../dashboard/src/components/ui/input';
-import { Badge } from '../../../dashboard/src/components/ui/badge';
 import { useLocale } from '../../../dashboard/src/app/locale';
 
 type PublicModel = {
@@ -47,9 +46,36 @@ export default function PublicModelCatalog() {
   const [models, setModels] = useState<PublicModel[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [query, setQuery] = useState('');
+  const [queryLoaded, setQueryLoaded] = useState(false);
+  useEffect(() => {
+    const restoreQuery = () => setQuery(new URL(window.location.href).searchParams.get('q') ?? '');
+    restoreQuery();
+    setQueryLoaded(true);
+    window.addEventListener('popstate', restoreQuery);
+    return () => window.removeEventListener('popstate', restoreQuery);
+  }, []);
+  useEffect(() => {
+    if (!queryLoaded) return;
+    const url = new URL(window.location.href);
+    if (query) url.searchParams.set('q', query);
+    else url.searchParams.delete('q');
+    window.history.replaceState(window.history.state, '', url);
+  }, [query, queryLoaded]);
   const [revision, setRevision] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState('');
+  const copyRevision = useRef(0);
+  const copyTimer = useRef<number | null>(null);
+  useEffect(() => {
+    copyRevision.current += 1;
+    setCopiedId(null);
+    setCopyError('');
+    return () => {
+      copyRevision.current += 1;
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    };
+  }, [query, revision]);
   useEffect(() => {
     const controller = new AbortController();
     setState('loading');
@@ -70,7 +96,12 @@ export default function PublicModelCatalog() {
     const catalog = model.catalog;
     const text = [model.id, catalog?.name, ...strings(catalog?.input_modalities), ...strings(catalog?.output_modalities),
       ...protocols.filter(([key]) => model.capabilities?.[key] === true).flatMap(([key, label, labelZh]) => [key, label, labelZh])].join(' ').toLocaleLowerCase();
-    return terms.every(term => text.includes(term));
+    return terms.every(term => {
+      const directional = /^(input|output):(.+)$/.exec(term);
+      if (!directional) return text.includes(term);
+      const modalities = directional[1] === 'input' ? catalog?.input_modalities : catalog?.output_modalities;
+      return strings(modalities).some(value => value.toLocaleLowerCase() === directional[2]);
+    });
   });
   const toggleTerm = (term: string) => {
     const normalized = term.toLocaleLowerCase();
@@ -80,10 +111,20 @@ export default function PublicModelCatalog() {
       return exists ? currentTerms.filter(item => item.toLocaleLowerCase() !== normalized).join(' ') : [...currentTerms, normalized].join(' ');
     });
   };
-  const copyModelId = (id: string) => {
-    void navigator.clipboard?.writeText(id);
-    setCopiedId(id);
-    window.setTimeout(() => setCopiedId(current => (current === id ? null : current)), 1800);
+  const copyModelId = async (id: string) => {
+    const attempt = ++copyRevision.current;
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    setCopiedId(null);
+    setCopyError('');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(id);
+      if (copyRevision.current !== attempt) return;
+      setCopiedId(id);
+      copyTimer.current = window.setTimeout(() => setCopiedId(null), 1800);
+    } catch {
+      if (copyRevision.current === attempt) setCopyError(t('Could not copy the model ID. Select the ID beside the Copy button and copy it manually.', '无法复制模型 ID，请选中旁边的 ID 手动复制。'));
+    }
   };
   return <>
     <h1>{t('Models', '模型目录')}</h1>
@@ -100,6 +141,7 @@ export default function PublicModelCatalog() {
             onChange={event => setQuery(event.target.value)} disabled={state === 'loading'} />
         </div>
         <Button variant="outline" className="catalog-refresh-button" aria-label="Refresh" disabled={state === 'loading'} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} aria-hidden="true" /><span>{t('Refresh', '刷新')}</span></Button>
+        {terms.length > 0 && <Button variant="ghost" onClick={() => setQuery('')}>{t('Clear filters', '清除筛选')}</Button>}
       </div>
       <p className="catalog-result-count" role="status">
         {state === 'loading'
@@ -110,6 +152,8 @@ export default function PublicModelCatalog() {
               ? (terms.length ? `已匹配 ${matches.length} / ${models.length} 个模型` : `共 ${models.length} 个模型`)
               : `${matches.length}${terms.length ? ` of ${models.length}` : ''} ${models.length === 1 ? 'model' : 'models'}`}
       </p>
+      {copyError && <p role="alert">{copyError}</p>}
+      <span className="sr-only" role="status">{copiedId ? t('Model ID copied.', '已复制模型 ID。') : ''}</span>
       {state === 'error' && <div role="alert"><p>{t('Could not load the public model catalog. Try refreshing.', '无法加载公开模型目录，请刷新重试。')}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t('Try again', '重试')}</Button></div>}
       {state === 'ready' && models.length === 0 && <p>{t('No models are published for public discovery on this gateway.', '此网关暂未公开发布任何可供浏览的模型。')}</p>}
       {state === 'ready' && models.length > 0 && matches.length === 0 && <div><p>{t('No models match this filter.', '没有符合当前筛选条件的模型。')}</p><Button variant="ghost" onClick={() => setQuery('')}>{t('Clear filter', '清除筛选')}</Button></div>}
@@ -126,7 +170,7 @@ export default function PublicModelCatalog() {
           <h2>{name}</h2>
           <div className="catalog-model-alias-row">
             <code className="catalog-model-alias">{model.id}</code>
-            <Button type="button" variant="ghost" size="sm" className="catalog-model-copy" aria-label={`Copy model ID ${model.id}`} onClick={() => copyModelId(model.id)}>
+            <Button type="button" variant="ghost" size="sm" className="catalog-model-copy" aria-label={`Copy model ID ${model.id}`} onClick={() => void copyModelId(model.id)}>
               {copied ? <IconCheck size={14} aria-hidden="true" /> : <IconCopy size={14} aria-hidden="true" />}
               <span>{copied ? t('Copied', '已复制') : t('Copy ID', '复制 ID')}</span>
             </Button>
@@ -137,16 +181,18 @@ export default function PublicModelCatalog() {
             })}>{expanded.has(model.id) ? t('Show less', '收起描述') : t('Read full description', '展开完整描述')}</Button>}</>}
           <div className="catalog-model-modalities">
             {strings(catalog?.input_modalities).map(value => {
-              const active = terms.includes(value.toLocaleLowerCase());
-              return <Badge key={'in-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(value)}>{isZh ? `${modalityZh[value.toLowerCase()] ?? value}输入` : `${value} input`}</button></Badge>;
+              const term = `input:${value}`;
+              const active = terms.includes(term.toLocaleLowerCase());
+              return <Button key={'in-' + value} type="button" size="sm" variant={active ? 'default' : 'secondary'} className="catalog-modality-chip h-6 rounded-full px-2 text-xs" aria-pressed={active} onClick={() => toggleTerm(term)}>{isZh ? `${modalityZh[value.toLowerCase()] ?? value}输入` : `${value} input`}</Button>;
             })}
             {strings(catalog?.output_modalities).map(value => {
-              const active = terms.includes(value.toLocaleLowerCase());
-              return <Badge key={'out-' + value} asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm(value)}>{isZh ? `${modalityZh[value.toLowerCase()] ?? value}输出` : `${value} output`}</button></Badge>;
+              const term = `output:${value}`;
+              const active = terms.includes(term.toLocaleLowerCase());
+              return <Button key={'out-' + value} type="button" size="sm" variant={active ? 'default' : 'secondary'} className="catalog-modality-chip h-6 rounded-full px-2 text-xs" aria-pressed={active} onClick={() => toggleTerm(term)}>{isZh ? `${modalityZh[value.toLowerCase()] ?? value}输出` : `${value} output`}</Button>;
             })}
             {supported.some(([key]) => key === 'streaming' || key === 'messages_streaming') && (() => {
               const active = terms.includes('streaming');
-              return <Badge asChild variant={active ? 'default' : 'secondary'}><button type="button" className="catalog-modality-chip" aria-pressed={active} onClick={() => toggleTerm('streaming')}>{t('Streaming', '流式输出')}</button></Badge>;
+              return <Button type="button" size="sm" variant={active ? 'default' : 'secondary'} className="catalog-modality-chip h-6 rounded-full px-2 text-xs" aria-pressed={active} onClick={() => toggleTerm('streaming')}>{t('Streaming', '流式输出')}</Button>;
             })()}
           </div>
           <div className="catalog-model-footer">{(context || output) && <p className="catalog-model-limits">{[context && (isZh ? `${context} 上下文窗口` : `${context} token context`), output && (isZh ? `最大输出 ${output} Token` : `${output} max output tokens`)].filter(Boolean).join(' · ')}</p>}
