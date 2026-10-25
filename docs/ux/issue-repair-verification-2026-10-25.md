@@ -740,3 +740,35 @@ Compilation and contract checks are code hygiene only. Genuine cash-backed
 purchase consumption, processor refunds, purchase reversals, monetary-mode
 inference regression, unit limits, over-bound recovery, media, activation,
 customer presentation and hosted verification remain outside this evidence.
+
+## Currency-mode text inference regression — 2026-10-25 12:48 UTC
+
+Related work: `niu-2xp.3`, public issue #110. The separate native currency-mode
+instance was upgraded through migration 0383 and ran the same current gateway
+implementation as the Credits refund verification. It retained currency mode
+and its existing simulated USD 3 balance. A supported private static route used
+the actual free OpenRouter model through the previously documented transport
+forwarder; no inference response or usage was synthesized.
+
+An explicit monetary customer tariff used USD 1 per million input tokens,
+USD 2 per million output tokens, USD 0.001 per request and a USD 0.002 minimum.
+The temporary inference key had a USD 0.01 spending limit and one-request
+concurrency limit. Procurement budget and configured upstream rates were zero.
+The actual bounded request returned HTTP 200 and exactly `42`, reporting 25 input
+and 32 output tokens. Independent upstream evidence reported cost zero.
+
+Separate database reads verified the saved monetary tariff, confirmed completed
+attempt, reported usage, one customer charge, one negative wallet posting and
+released monetary reservation. Independent arithmetic applied the original
+rates, fee and minimum and produced exactly 2000000 USD nanounits. The account
+balance moved from 3000000000 to 2998000000 nanounits with no remaining monetary
+hold. The key committed 2000000 of its 10000000-nanounit limit, leaving 8000000.
+The upstream accounting entry had zero cash and API-equivalent cost. There were
+zero Credits lots, reservations or charges in this currency-mode database.
+
+The inference key was revoked and independently returned HTTP 401. After gateway
+restart, both the monetary balance and empty Credits balance remained identical.
+This verifies the actual native monetary text path after the Credits changes;
+it does not cover hosted managed-Provider routing, media, all monetary error
+paths or the full installation/upgrade distribution matrix. It is not a release
+qualification, and no fixture result contributes to this evidence.
