@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { money } from '@/lib/money';
+import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
 import { request } from '@/features/providers/api';
 import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
@@ -30,9 +30,85 @@ function checkedInvoices(page: InvoicePage) {
   }
   return page;
 }
+type WorkspaceUnitBalance = {
+  definition_revision: string;
+  name: string;
+  display_precision: number;
+  atoms_per_unit: string;
+  held_atoms: string;
+  charged_atoms: string;
+  restored_atoms: string;
+  net_charged_atoms: string;
+  charged_requests: number;
+};
+type UnitTextTariff = {
+  model_alias: string;
+  revision: string;
+  definition_revision: string;
+  unit_name: string;
+  display_precision: number;
+  atoms_per_unit: string;
+  price: {
+    prompt_rate: string;
+    completion_rate: string;
+    cached_prompt_rate?: string | null;
+    cache_write_prompt_rate?: string | null;
+    reasoning_completion_rate?: string | null;
+    request_fee_atoms?: string | null;
+    minimum_charge_atoms?: string | null;
+    context_tiers?: Array<{
+      minimum_input_tokens: string;
+      prompt_rate: string;
+      completion_rate: string;
+      cached_prompt_rate?: string | null;
+      cache_write_prompt_rate?: string | null;
+      reasoning_completion_rate?: string | null;
+    }>;
+  };
+  created_at: string;
+};
+type UnitMediaTariff = {
+  model_alias: string;
+  channel: string;
+  resolution: string;
+  reference_video: boolean;
+  meter: string;
+  revision: string;
+  definition_revision: string;
+  unit_name: string;
+  display_precision: number;
+  atoms_per_unit: string;
+  price: {
+    amount_atoms: string;
+    per_quantity: { numerator: string; denominator: string };
+    minimum_quantity: { numerator: string; denominator: string };
+    rounding?: 'Down' | 'Up' | 'HalfEven';
+  };
+  created_at: string;
+};
+type WorkspaceUnitCharge = {
+  reference: string;
+  model_alias: string;
+  request_kind: 'inference' | 'video';
+  definition_revision: string;
+  unit_name: string;
+  display_precision: number;
+  atoms_per_unit: string;
+  charged_atoms: string;
+  restored_atoms: string;
+  net_atoms: string;
+  charged_at: string;
+};
 type Billing = {
+  billing_mode?: 'currency' | 'credits';
   balances: { currency: string; charged_nanos: string }[];
-  unresolved: string; unpriced: string; tariffs: Tariff[]; invoices: Invoice[];
+  unit_balances?: WorkspaceUnitBalance[];
+  unresolved: string; unpriced: string;
+  tariffs: Tariff[];
+  unit_tariffs?: UnitTextTariff[];
+  unit_media_tariffs?: UnitMediaTariff[];
+  unit_charges?: WorkspaceUnitCharge[];
+  invoices: Invoice[];
 };
 type Line = CustomerInvoiceLine;
 type InvoiceDetails = { data: Line[]; media_lines?: CustomerInvoiceMediaLine[]; media_next_cursor?: string | null };
@@ -158,12 +234,74 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
         <section aria-label="Workspace spending">
           <h2>Workspace spending</h2>
           <p className="text-muted-foreground">All-time customer charges for this workspace.</p>
-          {data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : <p>No charges yet.</p>}
+          {(data.unit_balances?.length ?? 0) > 0 && (
+            <div className="space-y-3 my-3" aria-label="Workspace Credits spending">
+              {data.unit_balances!.map(ub => (
+                <div key={ub.definition_revision} className="space-y-1">
+                  <p className="billing-spending" title={`${formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} (${ub.net_charged_atoms} atoms)`}>
+                    {formatUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Exact net consumed: {formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} ({ub.net_charged_atoms} atoms) · {ub.charged_requests} settled {ub.charged_requests === 1 ? 'request' : 'requests'}
+                    {BigInt(ub.restored_atoms || '0') > 0n && ` · Restored: ${formatExactUnitAtoms(ub.restored_atoms, ub.name, ub.display_precision)}`}
+                    {BigInt(ub.held_atoms || '0') > 0n && ` · Held for active requests: ${formatExactUnitAtoms(ub.held_atoms, ub.name, ub.display_precision)}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+          {data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) === 0 ? <p>No charges yet.</p> : null}
           {(data.unresolved !== '0' || data.unpriced !== '0') && <p className="text-muted-foreground">{[data.unresolved !== '0' && `${data.unresolved} ${data.unresolved === '1' ? 'request' : 'requests'} awaiting settlement`, data.unpriced !== '0' && `${data.unpriced} ${data.unpriced === '1' ? 'request' : 'requests'} without a customer rate`].filter(Boolean).join(' · ')}.</p>}
         </section>
         <WorkspaceSpendingLimits token={token} organization={organization} project={project} canConfigure={canConfigure} refresh={revision} />
       </TabsContent>
       <TabsContent value="statements">
+        {(data.billing_mode === 'credits' || (data.unit_charges?.length ?? 0) > 0) && (
+          <section className="panel mb-6" aria-label="Workspace Credits usage statements">
+            <div className="provider-panel-heading"><h2>Credits usage ledger</h2></div>
+            {data.unit_charges?.length ? (
+              <div className="px-6 pb-4">
+                <Table aria-label="Credits usage charges" className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Time (UTC)</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Kind</TableHead>
+                      <TableHead className="text-right">Gross charge</TableHead>
+                      <TableHead className="text-right">Restored</TableHead>
+                      <TableHead className="text-right">Net charge</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.unit_charges.map(charge => (
+                      <TableRow key={charge.reference}>
+                        <TableCell>{new Date(charge.charged_at).toLocaleString(undefined, { timeZone: 'UTC' })}</TableCell>
+                        <TableCell className="font-mono text-xs">{charge.reference}</TableCell>
+                        <TableCell>{charge.model_alias}</TableCell>
+                        <TableCell>{charge.request_kind === 'video' ? 'Video' : 'Inference'}</TableCell>
+                        <TableCell className="text-right tabular-nums" title={`${formatExactUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)} (${charge.charged_atoms} atoms)`}>
+                          {formatUnitAtoms(charge.charged_atoms, charge.unit_name, charge.display_precision)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {BigInt(charge.restored_atoms || '0') > 0n ? formatUnitAtoms(charge.restored_atoms, charge.unit_name, charge.display_precision) : '—'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums" title={`${formatExactUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision)} (${charge.net_atoms} atoms)`}>
+                          <div className="font-medium">{formatUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision)}</div>
+                          {formatExactUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision) !== formatUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision) && (
+                            <div className="text-xs text-muted-foreground">{formatExactUnitAtoms(charge.net_atoms, charge.unit_name, charge.display_precision)}</div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt aria-hidden="true"/></EmptyMedia><EmptyTitle>No Credits charges yet</EmptyTitle><EmptyDescription>Settled Credits usage for this workspace appears here.</EmptyDescription></EmptyHeader></Empty>
+            )}
+          </section>
+        )}
         <section className="panel">
           <div className="provider-panel-heading"><h2>Usage statements</h2></div>
           {invoiceLoading && <p role="status">Loading statements…</p>}
@@ -180,6 +318,92 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
         </section>
       </TabsContent>
       <TabsContent value="rates">
+        {(data.billing_mode === 'credits' || (data.unit_tariffs?.length ?? 0) > 0 || (data.unit_media_tariffs?.length ?? 0) > 0) && (
+          <section className="panel billing-rates mb-6" aria-label="Customer Credits model rates">
+            <div className="provider-panel-heading">
+              <h2>Credits model rates</h2>
+              <p className="provider-intro billing-description">Token rates per million · fees per request</p>
+            </div>
+            {(data.unit_tariffs?.length ?? 0) > 0 ? (
+              <div className="px-6 pb-4">
+                <Table aria-label="Customer Credits text model rates" className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Input</TableHead>
+                      <TableHead>Cache read</TableHead>
+                      <TableHead>Cache write</TableHead>
+                      <TableHead>Output</TableHead>
+                      <TableHead>Reasoning</TableHead>
+                      <TableHead>Fixed fee</TableHead>
+                      <TableHead>Minimum</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.unit_tariffs!.map(tariff => (
+                      <Fragment key={tariff.model_alias}>
+                        <TableRow>
+                          <TableCell className="font-medium">{tariff.model_alias}{Boolean(tariff.price.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">Base rate</p>}</TableCell>
+                          <TableCell className="tabular-nums">{formatUnitAtoms(tariff.price.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                          <TableCell className="tabular-nums">{tariff.price.cached_prompt_rate != null ? formatUnitAtoms(tariff.price.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                          <TableCell className="tabular-nums">{tariff.price.cache_write_prompt_rate != null ? formatUnitAtoms(tariff.price.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                          <TableCell className="tabular-nums">{formatUnitAtoms(tariff.price.completion_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                          <TableCell className="tabular-nums">{tariff.price.reasoning_completion_rate != null ? formatUnitAtoms(tariff.price.reasoning_completion_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                          <TableCell className="tabular-nums">{tariff.price.request_fee_atoms != null && BigInt(tariff.price.request_fee_atoms) > 0n ? formatUnitAtoms(tariff.price.request_fee_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                          <TableCell className="tabular-nums">{tariff.price.minimum_charge_atoms != null && BigInt(tariff.price.minimum_charge_atoms) > 0n ? formatUnitAtoms(tariff.price.minimum_charge_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                        </TableRow>
+                        {tariff.price.context_tiers?.map(tier => (
+                          <TableRow key={tier.minimum_input_tokens}>
+                            <TableCell className="font-medium">{tariff.model_alias}<p className="mt-1 text-xs text-muted-foreground">From {BigInt(tier.minimum_input_tokens).toLocaleString()} input tokens (inclusive)</p></TableCell>
+                            <TableCell className="tabular-nums">{formatUnitAtoms(tier.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                            <TableCell className="tabular-nums">{tier.cached_prompt_rate != null ? formatUnitAtoms(tier.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                            <TableCell className="tabular-nums">{tier.cache_write_prompt_rate != null ? formatUnitAtoms(tier.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                            <TableCell className="tabular-nums">{formatUnitAtoms(tier.completion_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
+                            <TableCell className="tabular-nums">{tier.reasoning_completion_rate != null ? formatUnitAtoms(tier.reasoning_completion_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
+                            <TableCell className="tabular-nums">{tariff.price.request_fee_atoms != null && BigInt(tariff.price.request_fee_atoms) > 0n ? formatUnitAtoms(tariff.price.request_fee_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                            <TableCell className="tabular-nums">{tariff.price.minimum_charge_atoms != null && BigInt(tariff.price.minimum_charge_atoms) > 0n ? formatUnitAtoms(tariff.price.minimum_charge_atoms, tariff.unit_name, tariff.display_precision) : '0'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : null}
+            {(data.unit_media_tariffs?.length ?? 0) > 0 && (
+              <div className="px-6 pb-4 mt-2">
+                <Table aria-label="Customer Credits video model rates" className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Video model</TableHead>
+                      <TableHead>Channel</TableHead>
+                      <TableHead>Resolution</TableHead>
+                      <TableHead>Reference video</TableHead>
+                      <TableHead>Rate</TableHead>
+                      <TableHead>Minimum billable</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.unit_media_tariffs!.map(mt => (
+                      <TableRow key={`${mt.model_alias}:${mt.channel}:${mt.resolution}:${mt.reference_video}`}>
+                        <TableCell className="font-medium">{mt.model_alias}</TableCell>
+                        <TableCell>{mt.channel}</TableCell>
+                        <TableCell>{mt.resolution}</TableCell>
+                        <TableCell>{mt.reference_video ? 'Yes' : 'No'}</TableCell>
+                        <TableCell className="tabular-nums">
+                          {formatUnitAtoms(mt.price.amount_atoms, mt.unit_name, mt.display_precision)} per {quantity(mt.price.per_quantity)} {mediaMeter(mt.meter, mt.price.per_quantity)}
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {quantity(mt.price.minimum_quantity)} {mediaMeter(mt.meter, mt.price.minimum_quantity)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </section>
+        )}
         <section className="panel billing-rates">
           <div className="provider-panel-heading"><h2>Model rates</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">Token rates per million · fees per request</p>}</div>
           {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.</p>}

@@ -1309,6 +1309,12 @@ async fn enterprise_ready(
 ///                             "type": "null"
 ///                           }
 ///                         ]
+///                       },
+///                       "customer_unit_pricing": {
+///                         "type": [
+///                           "object",
+///                           "null"
+///                         ]
 ///                       }
 ///                     }
 ///                   }
@@ -1496,6 +1502,11 @@ async fn public_models(
         .customer_model_prices(principal.scope())
         .await
         .map_err(ApiError::from_store)?;
+    let (billing_mode, mut unit_prices) = state
+        .store
+        .customer_unit_model_prices()
+        .await
+        .map_err(ApiError::from_store)?;
     for route in state
         .store
         .personal_vendor_routes(principal.scope().organization_id)
@@ -1503,23 +1514,39 @@ async fn public_models(
         .map_err(ApiError::from_store)?
     {
         prices.remove(&route.model.alias);
+        unit_prices.remove(&route.model.alias);
     }
     let data: Vec<_> = models
         .keys()
         .filter(|model| principal.allows_model(model))
         .map(|model| {
-            let customer_pricing = prices.get(model).and_then(|price| {
-                let mut value = serde_json::to_value(price).ok()?;
-                if let Some(obj) = value.as_object_mut() {
-                    obj.remove("revision");
-                    obj.remove("discount_baseline_revision");
-                    obj.remove("price_id");
-                    obj.remove("standard_revision");
-                    obj.remove("promotion_revision");
-                }
-                Some(value)
-            });
-            json!({"id": model, "object": "model", "owned_by": "niu", "customer_pricing": customer_pricing})
+            let customer_pricing = if billing_mode == "credits" {
+                None
+            } else {
+                prices.get(model).and_then(|price| {
+                    let mut value = serde_json::to_value(price).ok()?;
+                    if let Some(obj) = value.as_object_mut() {
+                        obj.remove("revision");
+                        obj.remove("discount_baseline_revision");
+                        obj.remove("price_id");
+                        obj.remove("standard_revision");
+                        obj.remove("promotion_revision");
+                    }
+                    Some(value)
+                })
+            };
+            let customer_unit_pricing = if billing_mode == "credits" {
+                unit_prices.get(model).cloned()
+            } else {
+                None
+            };
+            json!({
+                "id": model,
+                "object": "model",
+                "owned_by": "niu",
+                "customer_pricing": customer_pricing,
+                "customer_unit_pricing": customer_unit_pricing
+            })
         })
         .collect();
     Ok(Json(json!({"object": "list", "data": data})))
@@ -1641,6 +1668,12 @@ async fn public_models(
 ///                           }
 ///                         }
 ///                       }
+///                     },
+///                     "unit_spending_limit": {
+///                       "type": [
+///                         "object",
+///                         "null"
+///                       ]
 ///                     },
 ///                     "rate_limits": {
 ///                       "type": "object",
@@ -1846,7 +1879,8 @@ async fn inspect_key(
 ///                       "properties": {
 ///                         "status": { "type": "string" },
 ///                         "currency": { "type": ["string", "null"] },
-///                         "amount_nanos": { "type": ["string", "null"] }
+///                         "amount_nanos": { "type": ["string", "null"] },
+///                         "unit": { "type": ["object", "null"] }
 ///                       }
 ///                     },
 ///                     "timing": { "type": ["object", "null"] },
@@ -1910,6 +1944,7 @@ async fn get_generation(
                 "status": raw.get("customer_charge_status").cloned().unwrap_or(Value::Null),
                 "currency": raw.get("customer_charge_currency").cloned().unwrap_or(Value::Null),
                 "amount_nanos": raw.get("customer_charge_nanos").cloned().unwrap_or(Value::Null),
+                "unit": raw.get("customer_unit_charge").cloned().unwrap_or(Value::Null),
             },
             "timing": raw.get("timing").cloned().unwrap_or(Value::Null),
             "finish_reasons": raw.get("finish_reasons").cloned().unwrap_or(Value::Null),
@@ -1997,6 +2032,11 @@ async fn admin_models(
     }
     let (models, generation_routes) =
         crate::vendors::generation_catalog(&state, organization_id).await?;
+    let (billing_mode, mut unit_prices) = state
+        .store
+        .customer_unit_model_prices()
+        .await
+        .map_err(ApiError::from_store)?;
     let mut prices = std::collections::BTreeMap::new();
     let mut personal_models = std::collections::BTreeSet::new();
     if let Some(project_id) = scope.project_id {
@@ -2028,6 +2068,7 @@ async fn admin_models(
             .map_err(ApiError::from_store)?
         {
             prices.remove(&route.model.alias);
+            unit_prices.remove(&route.model.alias);
             personal_models.insert(route.model.alias);
         }
     }
@@ -2071,6 +2112,8 @@ async fn admin_models(
                 "public_catalog": model.public_catalog,
                     "catalog": model.catalog.customer_metadata(),
                     "customer_pricing": prices.get(name),
+                    "customer_unit_pricing": unit_prices.get(name),
+                    "billing_mode": billing_mode,
                     "billing_source": billing_source,
                     "generation_capabilities": generation_capabilities,
                     "supports_embeddings": model.supports_embeddings,
@@ -2092,6 +2135,8 @@ async fn admin_models(
                     "public_catalog": model.public_catalog,
                     "catalog": model.catalog.customer_metadata(),
                     "customer_pricing": prices.get(name),
+                    "customer_unit_pricing": unit_prices.get(name),
+                    "billing_mode": billing_mode,
                     "billing_source": billing_source,
                     "generation_capabilities": generation_capabilities,
                     "capabilities": capabilities
@@ -2099,7 +2144,7 @@ async fn admin_models(
             }
         })
         .collect();
-    Ok(Json(json!({"data": data})))
+    Ok(Json(json!({"data": data, "billing_mode": billing_mode})))
 }
 
 fn process_metrics_identity() -> &'static (String, u64) {

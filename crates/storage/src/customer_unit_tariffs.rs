@@ -456,4 +456,83 @@ impl Store {
             "price": price,
         }))
     }
+
+    pub async fn customer_unit_model_prices(
+        &self,
+    ) -> Result<(String, std::collections::BTreeMap<String, Value>), StoreError> {
+        let billing_mode: String = sqlx::query_scalar(
+            "SELECT billing_mode FROM customer_unit_configuration WHERE singleton",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let text_rows: Vec<(String, Value)> = sqlx::query_as(
+            "SELECT t.model_alias,
+                    t.price || jsonb_build_object(
+                        'revision', t.revision::text,
+                        'definition_revision', t.definition_revision::text,
+                        'unit_name', d.name,
+                        'display_precision', d.display_precision,
+                        'atoms_per_unit', '1000000000'
+                    )
+             FROM (
+                 SELECT DISTINCT ON (model_alias)
+                     revision, definition_revision, model_alias, price
+                 FROM customer_unit_text_tariffs
+                 ORDER BY model_alias, revision DESC
+             ) t
+             JOIN customer_unit_definitions d ON d.revision = t.definition_revision",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        let mut map = std::collections::BTreeMap::new();
+        for (alias, price) in text_rows {
+            map.insert(alias, price);
+        }
+        let media_rows: Vec<(String, Value)> = sqlx::query_as(
+            "SELECT t.model_alias,
+                    jsonb_agg(
+                        jsonb_build_object(
+                            'revision', t.revision::text,
+                            'definition_revision', t.definition_revision::text,
+                            'unit_name', d.name,
+                            'display_precision', d.display_precision,
+                            'atoms_per_unit', '1000000000',
+                            'channel', t.channel,
+                            'resolution', t.resolution,
+                            'reference_video', t.reference_video,
+                            'meter', t.meter,
+                            'price', t.price
+                        )
+                        ORDER BY t.channel, t.resolution, t.reference_video
+                    )
+             FROM (
+                 SELECT DISTINCT ON (model_alias, channel, resolution, reference_video)
+                     revision, definition_revision, model_alias, channel, resolution, reference_video, meter, price
+                 FROM customer_unit_media_tariffs
+                 ORDER BY model_alias, channel, resolution, reference_video, revision DESC
+             ) t
+             JOIN customer_unit_definitions d ON d.revision = t.definition_revision
+             GROUP BY t.model_alias",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        for (alias, media_tariffs) in media_rows {
+            if let Some(existing) = map.get_mut(&alias).and_then(Value::as_object_mut) {
+                existing.insert("media_tariffs".to_owned(), media_tariffs);
+            } else {
+                let first = media_tariffs.as_array().and_then(|arr| arr.first());
+                map.insert(
+                    alias,
+                    json!({
+                        "definition_revision": first.and_then(|v| v.get("definition_revision")).cloned().unwrap_or(Value::Null),
+                        "unit_name": first.and_then(|v| v.get("unit_name")).cloned().unwrap_or(Value::Null),
+                        "display_precision": first.and_then(|v| v.get("display_precision")).cloned().unwrap_or(Value::Null),
+                        "atoms_per_unit": "1000000000",
+                        "media_tariffs": media_tariffs,
+                    }),
+                );
+            }
+        }
+        Ok((billing_mode, map))
+    }
 }

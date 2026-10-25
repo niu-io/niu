@@ -532,6 +532,9 @@ impl Store {
                 item
             })
             .collect();
+        let unit_spending_limit = obj
+            .remove("unit_spending_limit")
+            .unwrap_or(serde_json::Value::Null);
         let rpm_policy = obj.remove("request_rate_limit");
         let tpm_policy = obj.remove("token_rate_limit");
         let concurrency_policy = obj.remove("concurrency_limit");
@@ -575,6 +578,7 @@ impl Store {
             "revoked": revoked,
             "expired": expired,
             "spending_limits": spending_limits,
+            "unit_spending_limit": unit_spending_limit,
             "rate_limits": {
                 "requests_per_minute": requests_per_minute,
                 "tokens_per_minute": tokens_per_minute,
@@ -652,6 +656,26 @@ impl Store {
                             WHERE a.organization_id=r.organization_id
                         ) amounts
                     ), '[]'::jsonb) AS spending_limits,
+                    jsonb_build_object(
+                        'unit', (
+                            SELECT jsonb_build_object(
+                                'definition_revision', d.revision::text,
+                                'name', d.name,
+                                'display_precision', d.display_precision,
+                                'atoms_per_unit', '1000000000'
+                            )
+                            FROM customer_unit_definitions d
+                            ORDER BY d.revision DESC LIMIT 1
+                        ),
+                        'limit_atoms', ukl.limit_atoms::text,
+                        'revision', ukl.revision::text,
+                        'definition_revision', ukl.definition_revision::text,
+                        'committed_atoms', unit_committed.committed::text,
+                        'remaining_atoms', CASE
+                            WHEN ukl.limit_atoms IS NULL THEN NULL
+                            ELSE GREATEST(ukl.limit_atoms::numeric - unit_committed.committed, 0)::text
+                        END
+                    ) AS unit_spending_limit,
                     jsonb_build_object('allowed_cidrs', ip.allowed_cidrs, 'revision', ip.revision::text) AS ip_policy,
                     jsonb_build_object('requests_per_minute', rpm.requests_per_minute, 'revision', rpm.revision::text) AS request_rate_limit,
                     jsonb_build_object(
@@ -692,6 +716,8 @@ impl Store {
                         WHERE lineage.spending_root_id=r.spending_root_id
                     ) AS token_usage_window
                 FROM distinct_roots r
+                LEFT JOIN customer_unit_key_spending_limits ukl ON ukl.organization_id=r.organization_id AND ukl.project_id=$2 AND ukl.spending_root_id=r.spending_root_id
+                CROSS JOIN LATERAL (SELECT niu_customer_unit_key_committed(r.organization_id, $2, r.spending_root_id) AS committed) unit_committed
                 LEFT JOIN key_ip_policies ip ON ip.spending_root_id=r.spending_root_id
                 LEFT JOIN key_request_rate_limits rpm ON rpm.spending_root_id=r.spending_root_id
                 LEFT JOIN key_concurrency_limits conc ON conc.spending_root_id=r.spending_root_id
@@ -701,6 +727,7 @@ impl Store {
             SELECT
                 sk.id,
                 rp.spending_limits,
+                rp.unit_spending_limit,
                 rp.ip_policy,
                 rp.request_rate_limit,
                 rp.concurrency_limit,
@@ -726,6 +753,7 @@ impl Store {
         for key in keys {
             let (
                 spending_limits,
+                unit_spending_limit,
                 ip_policy,
                 request_rate_limit,
                 concurrency_limit,
@@ -734,6 +762,7 @@ impl Store {
             ) = if let Some(row) = by_id.remove(&key.id) {
                 (
                     row.try_get::<serde_json::Value, _>("spending_limits")?,
+                    row.try_get::<serde_json::Value, _>("unit_spending_limit")?,
                     row.try_get::<serde_json::Value, _>("ip_policy")?,
                     row.try_get::<serde_json::Value, _>("request_rate_limit")?,
                     row.try_get::<serde_json::Value, _>("concurrency_limit")?,
@@ -744,6 +773,7 @@ impl Store {
             } else {
                 (
                     serde_json::json!([]),
+                    serde_json::Value::Null,
                     serde_json::json!({"allowed_cidrs": null, "revision": null}),
                     serde_json::json!({"requests_per_minute": null, "revision": null}),
                     serde_json::json!({"max_concurrent_requests": null, "revision": null, "active_requests": 0}),
@@ -762,6 +792,7 @@ impl Store {
                 "revoked": key.revoked,
                 "expired": key.expired,
                 "spending_limits": spending_limits,
+                "unit_spending_limit": unit_spending_limit,
                 "ip_policy": ip_policy,
                 "request_rate_limit": request_rate_limit,
                 "concurrency_limit": concurrency_limit,

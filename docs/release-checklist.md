@@ -19,7 +19,7 @@ For a new release, preserve historical evidence in Beads, update the candidate a
 
 ## Current execution
 
-Last generated: 2026-10-25T11:44:55+00:00.
+Last generated: 2026-10-25T18:47:26+00:00.
 
 **Release decision: NOT ELIGIBLE**
 
@@ -655,6 +655,10 @@ Required evidence kinds: hosted-e2e.
 
 No qualifying current-candidate evidence recorded.
 
+**Execution notes (partial progress does not establish GREEN):**
+
+Local E2E + ego-browser verification complete: verified pinned purchase quotes across rule changes, simulated and Stripe webhook cash-backed issuance, provenance separation, Billing Spending/Statements/Manage credits modal, and TopupFunding TDZ fix. Recorded in docs/ux/issue-repair-verification-2026-10-25.md. Awaiting hosted candidate deployment for hosted-e2e qualification.
+
 ### UNIT-02 — Credits pricing, reservations and actual consumption
 
 Core issue 110. Run actual text and media requests with explicit zero and nonzero unit tariffs. Independently verify published price-to-charge arithmetic, admission bounds, workspace/key unit budgets, concurrent reservations, deterministic multi-lot consumption, expiry during a hold, cancellation, unknown outcomes, upper-bound deviations and restart recovery. No double allocation, duplicate debit, silent monetary fallback or falsely released uncertain liability.
@@ -662,6 +666,10 @@ Core issue 110. Run actual text and media requests with explicit zero and nonzer
 Required evidence kinds: hosted-e2e.
 
 No qualifying current-candidate evidence recorded.
+
+**Execution notes (partial progress does not establish GREEN):**
+
+Local E2E + ego-browser verification complete: verified explicit zero and nonzero text and video Credits tariffs, live OpenRouter text and bounded video reservations/settlement/over-bound recovery, workspace and key Credits limits, and Billing Rates / Models / Admin Pricing UI. Recorded in docs/ux/issue-repair-verification-2026-10-25.md. Awaiting hosted candidate deployment for hosted-e2e qualification.
 
 ### UNIT-03 — Credits grants, refunds and backing conservation
 
@@ -671,6 +679,10 @@ Required evidence kinds: hosted-e2e.
 
 No qualifying current-candidate evidence recorded.
 
+**Execution notes (partial progress does not establish GREEN):**
+
+Local E2E + ego-browser verification complete: verified promotional and simulated grants, partial and full charge refunds, purchase reversals across rule changes with 100% atom/nanounit conservation, and Admin Account Balances Manage Branded Credits dialog (58rem, zero overflow). Recorded in docs/ux/issue-repair-verification-2026-10-25.md. Awaiting hosted candidate deployment for hosted-e2e qualification.
+
 ### UNIT-04 — Consistent Credits customer surfaces and contracts
 
 Core issue 110. Inspect model prices, Chat/Generations, balances, funding, key/workspace budgets, request/usage reports, history, statements, downloads and real SDK/API consumers in both languages. Units and exact quantities agree; small positive values never appear as zero. Historical units remain explicit and customer surfaces expose no purchase costs, margins or Provider settlement information. Inspect desktop/intermediate/narrow layouts and all changed menus/dialogs.
@@ -679,6 +691,10 @@ Required evidence kinds: hosted-e2e.
 
 No qualifying current-candidate evidence recorded.
 
+**Execution notes (partial progress does not establish GREEN):**
+
+Local E2E + ego-browser verification complete: verified /v1/currency, /v1/key, /v1/models, /v1/generations/{id}, /requests, /requests/export (JSON & CSV), sub-quantum display (< 0.01 Niu Credits with exact 0.0015 Niu Credits / 1,500,000 atoms), commercial boundary (no upstream cost/margin leaked), desktop/1024/390 layouts, and English (Niu Credits) + Chinese (zh-CN / 牛元) rendering. Recorded in docs/ux/issue-repair-verification-2026-10-25.md. Awaiting hosted candidate deployment for hosted-e2e qualification.
+
 ### UNIT-05 — Guarded installation billing-mode migration
 
 Core issue 110. Real currency remains the default; explicit installation-wide activation previews incompatible balances, debt/facilities, limits, tariffs, pending checkouts and unresolved holds. Verify permitted and denied switches through the actual product API/UI, concurrent configuration changes, no silent historical conversion, stable old records, and explicit unsupported-client behavior. A direct development database mode update does not qualify this case.
@@ -686,6 +702,10 @@ Core issue 110. Real currency remains the default; explicit installation-wide ac
 Required evidence kinds: hosted-e2e.
 
 No qualifying current-candidate evidence recorded.
+
+**Execution notes (partial progress does not establish GREEN):**
+
+Local E2E + ego-browser verification complete: verified guarded installation billing-mode preview and switch APIs, 6 blocker categories (including unsettled_customer_request), 15-minute revision-pinned preview, historical balance/charge preservation across mode and unit-definition transitions, and /admin/settings UI + dropdown menus. Recorded in docs/ux/issue-repair-verification-2026-10-25.md. Awaiting hosted candidate deployment for hosted-e2e qualification.
 
 ### DIST-01 — Immutable clean install, upgrade and recovery
 

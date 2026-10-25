@@ -126,7 +126,15 @@ impl Store {
                             'numerator', numerator::text, 'denominator', denominator::text) AS data
                         FROM customer_unit_purchase_rules
                         WHERE definition_revision = (SELECT max(revision) FROM customer_unit_definitions)
-                        ORDER BY payment_currency, revision DESC) r), '[]'::jsonb))
+                        ORDER BY payment_currency, revision DESC) r), '[]'::jsonb),
+                'text_tariffs', COALESCE((SELECT jsonb_agg(t.data ORDER BY t.model_alias)
+                    FROM (SELECT DISTINCT ON (model_alias) model_alias,
+                        jsonb_build_object('revision', revision::text,
+                            'definition_revision', definition_revision::text,
+                            'model_alias', model_alias,
+                            'price', price) AS data
+                        FROM customer_unit_text_tariffs
+                        ORDER BY model_alias, revision DESC) t), '[]'::jsonb))
              FROM customer_unit_configuration c WHERE singleton",
         ).fetch_one(&self.pool).await?)
     }

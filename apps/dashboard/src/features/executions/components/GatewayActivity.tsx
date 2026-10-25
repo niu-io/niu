@@ -31,7 +31,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
-import { money } from '@/lib/money';
+import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
 
 type TaskEvidence = {
   execution_id: string;
@@ -42,6 +42,16 @@ type TaskEvidence = {
     authority: 'agent_claim' | 'deterministic_validator' | 'human_acceptance';
     result: 'accepted' | 'rejected' | 'inconclusive';
   }>;
+};
+type UnitChargeDetail = {
+  definition_revision: string;
+  name?: string;
+  unit_name?: string;
+  display_precision: number;
+  atoms_per_unit: string;
+  charged_atoms: string;
+  restored_atoms: string;
+  net_atoms: string;
 };
 type GatewayRequest = {
   admission_denial?: import('@niu-io/sdk/admin').GatewayAdmissionDenial | null;
@@ -65,6 +75,7 @@ type GatewayRequest = {
   output_guardrail_outcome?: 'allowed' | 'redacted' | 'blocked' | 'indeterminate' | null;
   customer_charge_currency: string | null;
   customer_charge_nanos: string | null;
+  customer_unit_charge?: UnitChargeDetail | null;
   customer_charge_status: 'charged' | 'pending' | 'unpriced' | 'not_charged' | string;
   usage_confidence: string;
   prompt_tokens: string | null;
@@ -90,11 +101,30 @@ type KeyUsage = {
   completion_tokens: string;
   unknown_usage_count: number;
 };
+type UnitChargeBreakdown = {
+  model_alias?: string;
+  api_key_id?: string | null;
+  key_name?: string | null;
+  definition_revision: string;
+  name?: string;
+  unit_name?: string;
+  display_precision: number;
+  atoms_per_unit: string;
+  charged_atoms: string;
+  restored_atoms: string;
+  net_atoms: string;
+  charged_requests: number;
+};
+function unitLabel(item: { name?: string; unit_name?: string }): string {
+  return item.name || item.unit_name || 'Credits';
+}
 type ActivitySummary = {
   token_categories?: {cached_input_tokens: string | null; cached_input_requests: number; cached_input_unknown_requests: number; reasoning_output_tokens: string | null; reasoning_output_requests: number; reasoning_output_unknown_requests: number};
   latency_percentiles?: {boundary: string; sample_count: number; p50_ms: number | null; p95_ms: number | null; p99_ms: number | null};
   charges_by_model?: ChargeBreakdown[];
   charges_by_key?: ChargeBreakdown[];
+  unit_charges_by_model?: UnitChargeBreakdown[];
+  unit_charges_by_key?: UnitChargeBreakdown[];
   request_count: number;
   delivery_statuses?: Array<{http_status: number | null; request_count: number}>;
   usage_count: number;
@@ -106,6 +136,7 @@ type ActivitySummary = {
   unpriced_request_count: number;
   owner_funded_request_count?: number;
   customer_charges: Array<{ currency: string; amount_nanos: string; charged_requests: number }>;
+  customer_unit_charges?: Array<{ definition_revision: string; name?: string; unit_name?: string; display_precision: number; atoms_per_unit: string; charged_atoms: string; restored_atoms: string; net_atoms: string; charged_requests: number }>;
   usage_by_model: ModelUsage[];
   usage_by_key?: KeyUsage[];
   request_histogram?: Array<{start_ms: number; end_ms: number; request_count: number}>;
@@ -115,13 +146,13 @@ type ChargeBreakdown = {
   currency: string | null; amount_nanos: string | null; request_count: number;
   charged_requests: number; owner_funded_requests?: number; unresolved_requests: number; unpriced_requests: number; not_charged_requests: number;
 };
-function chargeGroups(rows: ChargeBreakdown[], byKey: boolean) {
-  const groups = new Map<string, {identity: string; name: string; keyId: string | null; model: string; amounts: Map<string, bigint>; requests: number; charged: number; unresolved: number; unpriced: number; ownerFunded: number; notCharged: number}>();
+function chargeGroups(rows: ChargeBreakdown[], unitRows: UnitChargeBreakdown[], byKey: boolean) {
+  const groups = new Map<string, {identity: string; name: string; keyId: string | null; model: string; amounts: Map<string, bigint>; unitAmounts: Map<string, {unitName: string; displayPrecision: number; atoms: bigint}>; requests: number; charged: number; unresolved: number; unpriced: number; ownerFunded: number; notCharged: number}>();
   for (const row of rows) {
     const identity = byKey ? row.api_key_id ?? '' : row.model_alias ?? '';
     const group = groups.get(identity) ?? {
       identity, name: visibleContent(byKey ? row.key_name ?? (row.api_key_id ? 'Key name unavailable' : 'No API key recorded') : row.model_alias ?? 'Model unavailable'),
-      keyId: row.api_key_id ?? null, model: row.model_alias ?? '', amounts: new Map<string, bigint>(), requests: 0, charged: 0, unresolved: 0, unpriced: 0, ownerFunded: 0, notCharged: 0,
+      keyId: row.api_key_id ?? null, model: row.model_alias ?? '', amounts: new Map<string, bigint>(), unitAmounts: new Map(), requests: 0, charged: 0, unresolved: 0, unpriced: 0, ownerFunded: 0, notCharged: 0,
     };
     if (row.currency !== null && row.amount_nanos !== null) group.amounts.set(row.currency, (group.amounts.get(row.currency) ?? 0n) + BigInt(row.amount_nanos));
     group.requests += row.request_count; group.charged += row.charged_requests;
@@ -129,8 +160,32 @@ function chargeGroups(rows: ChargeBreakdown[], byKey: boolean) {
     group.unresolved += row.unresolved_requests; group.unpriced += row.unpriced_requests; group.notCharged += row.not_charged_requests;
     groups.set(identity, group);
   }
+  for (const unitRow of unitRows) {
+    const identity = byKey ? unitRow.api_key_id ?? '' : unitRow.model_alias ?? '';
+    const group = groups.get(identity) ?? {
+      identity, name: visibleContent(byKey ? unitRow.key_name ?? (unitRow.api_key_id ? 'Key name unavailable' : 'No API key recorded') : unitRow.model_alias ?? 'Model unavailable'),
+      keyId: unitRow.api_key_id ?? null, model: unitRow.model_alias ?? '', amounts: new Map<string, bigint>(), unitAmounts: new Map(), requests: 0, charged: 0, unresolved: 0, unpriced: 0, ownerFunded: 0, notCharged: 0,
+    };
+    const uName = unitLabel(unitRow);
+    const key = `${unitRow.definition_revision}:${uName}`;
+    const existing = group.unitAmounts.get(key);
+    group.unitAmounts.set(key, {
+      unitName: uName,
+      displayPrecision: unitRow.display_precision,
+      atoms: (existing?.atoms ?? 0n) + BigInt(unitRow.net_atoms),
+    });
+    groups.set(identity, group);
+  }
   const currencies = [...new Set(rows.flatMap(row => row.currency === null ? [] : [row.currency]))];
+  const unitKeys = [...new Set(unitRows.map(row => `${row.definition_revision}:${unitLabel(row)}`))];
   return [...groups.values()].sort((a, b) => {
+    if (unitKeys.length === 1 && currencies.length === 0) {
+      const av = a.unitAmounts.get(unitKeys[0])?.atoms;
+      const bv = b.unitAmounts.get(unitKeys[0])?.atoms;
+      if (av === undefined && bv !== undefined) return 1;
+      if (bv === undefined && av !== undefined) return -1;
+      if (av !== undefined && bv !== undefined && av !== bv) return av > bv ? -1 : 1;
+    }
     // Rank only comparable amounts; never add or compare different currencies.
     if (currencies.length === 1) {
       const av = a.amounts.get(currencies[0]); const bv = b.amounts.get(currencies[0]);
@@ -162,7 +217,10 @@ async function get<T>(path: string, token: string, signal?: AbortSignal): Promis
 }
 
 function customerChargeTotals(summary: ActivitySummary) {
-  return (summary.customer_charges ?? []).map(item => money(item.amount_nanos, item.currency));
+  return [
+    ...(summary.customer_unit_charges ?? []).map(item => formatUnitAtoms(item.net_atoms, unitLabel(item), item.display_precision)),
+    ...(summary.customer_charges ?? []).map(item => money(item.amount_nanos, item.currency)),
+  ];
 }
 
 function requestLatency(request: GatewayRequest) {
@@ -178,8 +236,13 @@ function requestDurationLabel(request: GatewayRequest) {
 }
 
 function requestCharge(request: GatewayRequest) {
-  if (request.customer_charge_status === 'charged' && request.customer_charge_nanos != null && request.customer_charge_currency) {
-    return money(request.customer_charge_nanos, request.customer_charge_currency);
+  if (request.customer_charge_status === 'charged') {
+    if (request.customer_unit_charge != null) {
+      return formatUnitAtoms(request.customer_unit_charge.net_atoms, unitLabel(request.customer_unit_charge), request.customer_unit_charge.display_precision);
+    }
+    if (request.customer_charge_nanos != null && request.customer_charge_currency) {
+      return money(request.customer_charge_nanos, request.customer_charge_currency);
+    }
   }
   switch (request.customer_charge_status) {
     case 'owner_funded': return 'Own API key';
@@ -376,7 +439,11 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const [mobileFilterField, setMobileFilterField] = useState<keyof ActivityFilters | null>(null);
   const [revision, setRevision] = useState(0);
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
-  const groupedCharges = chargeGroups((chargeByKey ? summary?.charges_by_key : summary?.charges_by_model) ?? [], chargeByKey);
+  const groupedCharges = chargeGroups(
+    (chargeByKey ? summary?.charges_by_key : summary?.charges_by_model) ?? [],
+    (chargeByKey ? summary?.unit_charges_by_key : summary?.unit_charges_by_model) ?? [],
+    chargeByKey,
+  );
   const [keys, setKeys] = useState<KeyOption[]>([]);
   const [keyFilterError, setKeyFilterError] = useState('');
   const [keysScope, setKeysScope] = useState('');
@@ -740,9 +807,12 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         </div>
         {loading ? <p role="status" className="execution-loading">Loading customer charges…</p> : (chargeByKey ? summary?.charges_by_key : summary?.charges_by_model) === undefined ? <p className="activity-model-empty">Charge breakdown unavailable for this gateway response.</p> : <div className="activity-model-table-wrap"><ShadcnTable><TableHeader><TableRow><TableHead>{chargeByKey ? 'API key' : 'Model'}</TableHead><TableHead>Customer charge</TableHead><TableHead>Requests</TableHead></TableRow></TableHeader><TableBody>{(allChargeGroups ? groupedCharges : groupedCharges.slice(0, 10)).map(group => <TableRow key={group.identity}>
           <TableHead scope="row">{(!chargeByKey && group.model) || (chargeByKey && group.keyId && keyPublicSlug(group.keyId)) ? <Link aria-label={`View charge requests for ${group.name}`} to={requestEvidenceHref(workspaceRoot, {...filters, ...(!chargeByKey ? {model: group.model} : {})}, chargeByKey ? group.keyId! : undefined)}>{group.name}</Link> : group.name}</TableHead>
-          <TableCell>{group.amounts.size ? [...group.amounts].sort(([a], [b]) => a.localeCompare(b)).map(([currency, amount]) => <div key={currency}>{money(amount.toString(), currency)}</div>) : group.unresolved ? 'Unresolved' : group.unpriced ? 'No rate' : group.ownerFunded ? 'Own API key' : 'Not charged'}<small>{[group.ownerFunded ? `${group.ownerFunded.toLocaleString()} with own API keys` : '', group.charged ? `${group.charged.toLocaleString()} charged` : '', group.unresolved ? `${group.unresolved.toLocaleString()} unresolved` : '', group.unpriced ? `${group.unpriced.toLocaleString()} without rate` : '', group.notCharged ? `${group.notCharged.toLocaleString()} not charged` : ''].filter(Boolean).join(' · ')}</small></TableCell>
+          <TableCell>{group.unitAmounts.size || group.amounts.size ? <>
+            {[...group.unitAmounts.entries()].map(([key, item]) => <div key={key}>{formatUnitAtoms(item.atoms.toString(), item.unitName, item.displayPrecision)}</div>)}
+            {[...group.amounts].sort(([a], [b]) => a.localeCompare(b)).map(([currency, amount]) => <div key={currency}>{money(amount.toString(), currency)}</div>)}
+          </> : group.unresolved ? 'Unresolved' : group.unpriced ? 'No rate' : group.ownerFunded ? 'Own API key' : 'Not charged'}<small>{[group.ownerFunded ? `${group.ownerFunded.toLocaleString()} with own API keys` : '', group.charged ? `${group.charged.toLocaleString()} charged` : '', group.unresolved ? `${group.unresolved.toLocaleString()} unresolved` : '', group.unpriced ? `${group.unpriced.toLocaleString()} without rate` : '', group.notCharged ? `${group.notCharged.toLocaleString()} not charged` : ''].filter(Boolean).join(' · ')}</small></TableCell>
           <TableCell>{group.requests.toLocaleString()}</TableCell>
-        </TableRow>)}</TableBody></ShadcnTable>{groupedCharges.length > 10 && <div className="flex items-center justify-between gap-3 p-4 text-sm"><span className="text-muted-foreground">{allChargeGroups ? groupedCharges.length : 10} of {groupedCharges.length} {chargeByKey ? 'API keys' : 'models'}</span><Button variant="ghost" size="sm" aria-expanded={allChargeGroups} onClick={() => setAllChargeGroups(value => !value)}>{allChargeGroups ? 'Show fewer' : 'Show all'}</Button></div>}{!(chargeByKey ? summary?.charges_by_key : summary?.charges_by_model)?.length && <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{hasActivityFilters ? 'No matching requests' : 'No requests yet'}</EmptyTitle></EmptyHeader></Empty>}</div>}
+        </TableRow>)}</TableBody></ShadcnTable>{groupedCharges.length > 10 && <div className="flex items-center justify-between gap-3 p-4 text-sm"><span className="text-muted-foreground">{allChargeGroups ? groupedCharges.length : 10} of {groupedCharges.length} {chargeByKey ? 'API keys' : 'models'}</span><Button variant="ghost" size="sm" aria-expanded={allChargeGroups} onClick={() => setAllChargeGroups(value => !value)}>{allChargeGroups ? 'Show fewer' : 'Show all'}</Button></div>}{!groupedCharges.length && <Empty className="min-h-48"><EmptyHeader><EmptyTitle>{hasActivityFilters ? 'No matching requests' : 'No requests yet'}</EmptyTitle></EmptyHeader></Empty>}</div>}
       </section>}
 
       {statisticsOnly && !error && <section className="panel activity-key-breakdown" aria-labelledby="activity-key-title">
@@ -797,7 +867,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         {selectedRequest && <div ref={detailSheet} role="region" tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-6 space-y-6 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2" aria-label="Request detail content">
           <div className="request-detail-metrics">
             <div><span>{requestDurationLabel(selectedRequest)}</span><strong>{requestLatency(selectedRequest)}</strong></div>
-            <div><span>Customer charge</span><strong>{requestCharge(selectedRequest)}</strong></div>
+            <div><span>Customer charge</span><strong>{requestCharge(selectedRequest)}</strong>{selectedRequest.customer_unit_charge != null && <small className="text-xs text-muted-foreground">Exact: {formatExactUnitAtoms(selectedRequest.customer_unit_charge.net_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)} ({BigInt(selectedRequest.customer_unit_charge.net_atoms).toLocaleString()} atoms){BigInt(selectedRequest.customer_unit_charge.restored_atoms) > 0n ? ` · Refunded ${formatUnitAtoms(selectedRequest.customer_unit_charge.restored_atoms, unitLabel(selectedRequest.customer_unit_charge), selectedRequest.customer_unit_charge.display_precision)}` : ''}</small>}</div>
             {selectedRequest.request_kind !== 'video' && <>
             <div><span>Input tokens</span><strong className="break-all">{selectedRequest.prompt_tokens == null ? '—' : BigInt(selectedRequest.prompt_tokens).toLocaleString()}</strong><small className="text-xs text-muted-foreground">Cached: {selectedRequest.cached_input_tokens == null ? 'Unknown' : BigInt(selectedRequest.cached_input_tokens).toLocaleString()}</small></div>
             <div><span>Output tokens</span><strong className="break-all">{selectedRequest.completion_tokens == null ? '—' : BigInt(selectedRequest.completion_tokens).toLocaleString()}</strong><small className="text-xs text-muted-foreground">Reasoning: {selectedRequest.reasoning_output_tokens == null ? 'Unknown' : BigInt(selectedRequest.reasoning_output_tokens).toLocaleString()}</small></div>

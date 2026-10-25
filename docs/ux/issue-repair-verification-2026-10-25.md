@@ -1134,5 +1134,111 @@ for `credits-seedance-video` were served by the local bounded `ark-direct-v1`
 task relay so exact `500`-token (within-bound) and `1500`-token (over-bound)
 completion token quantities could be deterministically exercised against the
 `1000`-token qualified liability bound; the over-bound text `/v1/responses`
-flow used live OpenRouter inference. Customer and admin Credits UI surfaces,
-exports, and hosted candidate verification remain open.
+flow used live OpenRouter inference.
+
+## Branded Credits customer/admin UI surfaces, API contracts, exports, and guarded mode migration — 2026-10-25 18:45 UTC
+
+Related work: `niu-2xp.3`, public issue #110, `niu-4do.45` (`UNIT-01`),
+`niu-4do.46` (`UNIT-02`), `niu-4do.47` (`UNIT-03`), `niu-4do.48` (`UNIT-04`),
+and `niu-4do.49` (`UNIT-05`). Migration 0389 (`0389_unit_charge_request_feed.sql`)
+updates `gateway_request_summaries` with a `LATERAL` projection over
+`customer_unit_text_charges`, `customer_unit_definitions`, and
+`customer_unit_charge_refunds` (`unit_definition_revision`, `unit_name`,
+`unit_display_precision`, `unit_charged_atoms`, `unit_restored_atoms`,
+`unit_net_atoms`), and `crates/storage/src/sql/gateway_unit_charges.sql`
+aggregates workspace/organization request charges by `definition_revision`.
+
+- **Public and management API contracts and OpenAPI / SDK verification**:
+  - `GET /v1/currency`: returns `billing_mode: "credits"`, `currency: "USD"`, and
+    `unit: { revision, name: "Niu Credits", display_precision: 2, atoms_per_unit: "1000000000" }`.
+  - `GET /v1/key`: returns `unit_spending_limit` (`definition_revision`, `name`,
+    `display_precision`, `atoms_per_unit`, `limit_atoms: "250000000000"`,
+    `committed_atoms: "0"`, `remaining_atoms: "250000000000"`) alongside
+    monetary `spending_limit` without conflating units and currency.
+  - `GET /v1/models`: returns `customer_unit_pricing` (`definition_revision`,
+    `name`, `display_precision`, `atoms_per_unit`, `prompt_rate`,
+    `completion_rate`, `request_fee_atoms`, `minimum_charge_atoms`) on models
+    with published Credits tariffs, with zero Provider procurement costs or
+    margins exposed.
+  - `GET /v1/generations/{id}`: for live `/v1/chat/completions` attempt
+    `034d64dc-971e-4821-83e1-96215a006587` (`qa/credits-free-text`, tariff
+    revision `21` with `request_fee_atoms: "1500000"` = `0.0015 Niu Credits` at
+    `display_precision: 2`), returns `customer_charge: { status: "charged",
+    currency: null, amount_nanos: null, unit: { definition_revision: "19",
+    name: "Niu Credits", display_precision: 2, atoms_per_unit: "1000000000",
+    charged_atoms: "1500000", restored_atoms: "0", net_atoms: "1500000" } }`,
+    with no upstream cost or margin fields.
+  - `GET /api/v1/organizations/{org}/projects/{proj}/requests` and
+    `/requests/export?format=json|csv`: return `customer_unit_charges` grouped
+    by `definition_revision` and per-row `customer_unit_charge` (`charged_atoms`,
+    `restored_atoms`, `net_atoms`, `display_precision`, `name`). CSV export
+    includes dedicated `customer_unit_name`, `customer_unit_net_atoms`,
+    `customer_unit_charged_atoms`, `customer_unit_restored_atoms`, and
+    `customer_unit_definition_revision` columns.
+  - `python3 scripts/export-openapi.py --check` passed across `361` documented
+    operations; `npm --prefix sdks/javascript run build` and
+    `npm --prefix apps/dashboard run build` succeeded with zero TypeScript or
+    bundle errors.
+- **Rendered browser verification (`ego-browser`, desktop `1440x900`, intermediate `1024x800`, narrow `390x844`, and `en` / `zh-CN` `牛元`)**:
+  - **Platform Admin Settings (`/admin/settings`)**: inspected `PlatformUnitsSetting`
+    showing `Active mode: Branded Credits (Niu Credits)`, definition publication,
+    `Display decimal places` shadcn `DropdownMenu` (open menu state inspected),
+    `Purchase conversion rule` (`100.00 Niu Credits per 1 USD (exact ratio 100:1)`),
+    and `Guarded billing-mode transition` (`Target` `DropdownMenu`, `Save 15-minute
+    preview`, human-readable blocker categories including `Unresolved customer
+    requests or reservations`, `Active Credits model tariffs`, and `Unexpired
+    pending Credits purchase quotes`, with affected company names and zero
+    internal UUIDs). Verified `Admin Settings` (`实例设置` in `zh-CN`) remains
+    the final sidebar item.
+  - **Platform Admin Pricing (`/admin/pricing`)**: inspected `BrandedUnitTariffsSection`
+    showing `TEXT MODEL TARIFFS (PER 1M TOKENS)` (`qa/credits-free-text`,
+    `qa/credits-overbound-text`, `qa/credits-paid-text`) and `MEDIA / VIDEO TARIFFS`
+    (`credits-seedance-video` at `< 0.0001 Niu Credits per 1 video token`,
+    `seedance-2.0` at `15.00 Niu Credits per 1000 video tokens`), plus open
+    `Publish Credits media tariff` dialog and `Resolution` `DropdownMenu`.
+  - **Platform Admin Account Balances (`/admin/balances`)**: inspected
+    `CompanyBrandedUnitsDialog` (`Manage Branded Credits · Credits purchase
+    acceptance`) at `58rem` max-width (`dialogClientWidth: 926`,
+    `tableClientWidth: 878`, `tableScrollWidth: 878`, zero horizontal overflow),
+    displaying exact balances across `Niu Credits (v1)` Promotional & Simulated,
+    `Niu Credits (v5)` Promotional & Simulated, `Niu Credits (v19)` Promotional,
+    and `牛元 (v25)` Promotional, plus noncash grant issuance (`Provenance`
+    `DropdownMenu`), settled charge refund (`Charge to refund` `DropdownMenu`),
+    and unoccupied purchase lot reversal (`Purchase lot` `DropdownMenu`).
+  - **Customer Billing (`/workspaces/credits-inference-acceptance/billing` and
+    `Manage credits` modal)**:
+    - Fixed a Temporal Dead Zone defect in `TopupFunding.tsx` where `availability`
+      was referenced in `activeRule` before its `useState` declaration.
+    - Verified `Spending` tab (`< 0.01 Niu Credits` with `Exact net consumed:
+      0.0015 Niu Credits (1500000 atoms) · 1 settled request` and historical
+      `0.0015366 Niu Credits` preserved separately, plus workspace `Spending
+      limits` showing `0.0527649 Niu Credits committed of 1,000.00 Niu Credits`),
+      `Statements` tab (`Credits usage ledger` showing `< 0.01 Niu Credits` and
+      refund-adjusted net charges), `Rates` tab (text and video `Niu Credits`
+      tariffs), and `Manage credits` modal (`Available to spend (Niu Credits):
+      264.9467351 Niu Credits`, `Lots by definition & provenance`, and
+      consumption order disclosure).
+  - **Models, API Keys, Generations, and Activity Logs**:
+    - `/models`: displays `0.00 Niu Credits/M input tokens`, `1.00 Niu Credits/M
+      input tokens · 2.00 Niu Credits/M output tokens`, and `15.00 Niu Credits /
+      1000 video tokens` on `seedance-2.0`.
+    - `/workspaces/credits-inference-acceptance/keys` and key detail page:
+      displays `250.00 Niu Credits` limit and `0.00 Niu Credits (0%)` usage.
+    - `/activity?workspace=credits-inference-acceptance` and
+      `/activity/logs?workspace=credits-inference-acceptance`: displays `< 0.01
+      Niu Credits` in the `Spend` column for the `1,500,000`-atom (`0.0015 Niu
+      Credits`) charge (never rounding a positive sub-quantum charge to `0.00`),
+      and the Request Detail drawer displays `< 0.01 Niu Credits` with
+      `Exact: 0.0015 Niu Credits (1,500,000 atoms) · Rev 19` and zero Provider
+      cost or margin fields.
+  - **Chinese (`zh-CN`) and `牛元` verification**: published `牛元`
+    (`display_precision: 2`) and USD rule `100:1`, switched UI to `简体中文`, and
+    verified `0.00 牛元`, `10.00 牛元`, `Edit 牛元 limit`, and `实例设置`
+    (`Active mode: Branded Credits (牛元)`) while historical `Niu Credits`
+    balances and charges remained explicitly labeled `Niu Credits` without
+    silent relabeling.
+  - **Responsive layout checks**: at `390x844` CSS pixels, `document.documentElement.scrollWidth === window.innerWidth === 390` across Billing (`unit-01-billing-390.png`), Activity Logs (`unit-04-logs-390.png`), and Admin Pricing (`unit-05-pricing-390.png`).
+
+Evidence limits: local acceptance used the isolated PostgreSQL instance
+(`127.0.0.1:14330`) and local gateway (`127.0.0.1:14331`); hosted deployment
+qualification remains tracked under the release checklist gate.

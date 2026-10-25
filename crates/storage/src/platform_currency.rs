@@ -16,6 +16,24 @@ impl Store {
         }
         Ok(found)
     }
+    pub async fn platform_billing_summary(
+        &self,
+    ) -> Result<(Option<String>, String, Option<serde_json::Value>), StoreError> {
+        let currency = self.platform_currency().await?;
+        let (billing_mode, unit): (String, Option<serde_json::Value>) = sqlx::query_as(
+            "SELECT c.billing_mode, \
+                    (SELECT jsonb_build_object( \
+                        'revision', d.revision::text, \
+                        'name', d.name, \
+                        'display_precision', d.display_precision, \
+                        'atoms_per_unit', '1000000000' \
+                    ) FROM customer_unit_definitions d ORDER BY d.revision DESC LIMIT 1) \
+             FROM customer_unit_configuration c WHERE c.singleton",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok((currency, billing_mode, unit))
+    }
     /// A repeat of the same configuration is safe; a different value never converts money.
     pub async fn configure_platform_currency(&self, currency: &str) -> Result<(), StoreError> {
         if !PLATFORM_CURRENCIES.contains(&currency) {

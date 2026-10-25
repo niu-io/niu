@@ -55,6 +55,7 @@ pub struct GatewayActivityEntry {
     pub admission_denial: Option<sqlx::types::Json<crate::GatewayAdmissionDenial>>,
     pub customer_charge_currency: Option<String>,
     pub customer_charge_nanos: Option<String>,
+    pub customer_unit_charge: Option<serde_json::Value>,
     pub customer_charge_status: String,
 }
 
@@ -135,6 +136,8 @@ pub struct GatewayActivityExportEntry {
     pub customer_charge_status: String,
     pub customer_charge_currency: Option<String>,
     pub customer_charge_nanos: Option<String>,
+    pub customer_unit_name: Option<String>,
+    pub customer_unit_charge_atoms: Option<String>,
     pub total_ms: Option<i64>,
     pub timing_complete: Option<bool>,
     pub cached_input_tokens: Option<String>,
@@ -251,8 +254,11 @@ pub struct GatewayActivitySummary {
     pub unpriced_request_count: i64,
     pub owner_funded_request_count: i64,
     pub customer_charges: Vec<GatewayActivityCostSummary>,
+    pub customer_unit_charges: Vec<serde_json::Value>,
     pub charges_by_model: Vec<serde_json::Value>,
     pub charges_by_key: Vec<serde_json::Value>,
+    pub unit_charges_by_model: Vec<serde_json::Value>,
+    pub unit_charges_by_key: Vec<serde_json::Value>,
     pub usage_by_model: Vec<GatewayActivityModelSummary>,
     pub usage_by_key: Vec<GatewayActivityKeySummary>,
     pub request_histogram: Vec<serde_json::Value>,
@@ -410,12 +416,13 @@ impl Store {
             "SELECT to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              o.model_alias AS model, k.name AS key_name, t.http_status, a.execution, a.usage_confidence, \
              a.prompt_tokens::text AS prompt_tokens, a.completion_tokens::text AS completion_tokens, \
-             CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' \
+             CASE WHEN c.attempt_id IS NOT NULL OR uc.attempt_id IS NOT NULL THEN 'charged' \
                WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' \
                WHEN EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' \
                WHEN EXISTS (SELECT 1 FROM customer_activity_priced_attempts tariff WHERE tariff.attempt_id=a.id) THEN 'pending' \
                ELSE 'unpriced' END AS customer_charge_status, \
              c.currency AS customer_charge_currency, c.amount_nanos::text AS customer_charge_nanos, \
+             uc.unit_name AS customer_unit_name, uc.net_atoms::text AS customer_unit_charge_atoms, \
              t.total_ms, t.complete AS timing_complete, \
              rtc.cache_write_input_tokens::text AS cache_write_input_tokens, \
              rtc.cached_input_tokens::text AS cached_input_tokens, \
@@ -426,6 +433,7 @@ impl Store {
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
+             LEFT JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id \
              LEFT JOIN request_token_categories rtc ON rtc.attempt_id=a.id \
              LEFT JOIN request_finish_reasons rfr ON rfr.attempt_id=a.id \
              LEFT JOIN request_failures f ON f.attempt_id=a.id",
@@ -546,7 +554,16 @@ impl Store {
              (SELECT jsonb_build_object('kind',d.kind,'http_status',d.http_status,'requested_key_name',d.requested_key_name,'key_name_source','captured_at_admission','recorded_at',d.recorded_at) FROM gateway_admission_denials d WHERE d.attempt_id=a.id AND d.organization_id=a.organization_id AND d.project_id=a.project_id AND a.dispatched_at IS NULL AND a.execution='not_sent') AS admission_denial, \
              (SELECT decision.outcome FROM output_guardrail_decisions decision WHERE decision.organization_id=a.organization_id AND decision.project_id=a.project_id AND decision.attempt_id=a.id) AS output_guardrail_outcome, \
              customer_charge.currency AS customer_charge_currency, customer_charge.amount_nanos::text AS customer_charge_nanos, \
-             CASE WHEN customer_charge.attempt_id IS NOT NULL THEN 'charged' \
+             CASE WHEN uc.attempt_id IS NULL THEN NULL ELSE jsonb_build_object( \
+               'definition_revision', uc.definition_revision::text, \
+               'name', uc.unit_name, \
+               'display_precision', uc.display_precision, \
+               'atoms_per_unit', '1000000000', \
+               'charged_atoms', uc.charged_atoms::text, \
+               'restored_atoms', uc.restored_atoms::text, \
+               'net_atoms', uc.net_atoms::text \
+             ) END AS customer_unit_charge, \
+             CASE WHEN customer_charge.attempt_id IS NOT NULL OR uc.attempt_id IS NOT NULL THEN 'charged' \
                WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' \
                WHEN EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' \
                WHEN EXISTS (SELECT 1 FROM customer_activity_priced_attempts tariff WHERE tariff.attempt_id=a.id) THEN 'pending' \
@@ -555,6 +572,7 @@ impl Store {
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_charges customer_charge ON customer_charge.organization_id=a.organization_id AND customer_charge.project_id=a.project_id AND customer_charge.attempt_id=a.id \
+             LEFT JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id \
              LEFT JOIN request_token_categories rtc ON rtc.attempt_id=a.id \
              LEFT JOIN request_finish_reasons rfr ON rfr.attempt_id=a.id \
              LEFT JOIN request_failures f ON f.attempt_id=a.id \
@@ -631,8 +649,8 @@ impl Store {
              COALESCE(SUM(a.completion_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS completion_tokens, \
              COUNT(*) FILTER (WHERE t.complete)::bigint AS timing_count, \
              ROUND(AVG(t.total_ms::numeric) FILTER (WHERE t.complete))::bigint AS average_duration_ms, \
-             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NOT NULL AND c.attempt_id IS NULL)::bigint AS unresolved_customer_charge_count, \
-             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND c.attempt_id IS NULL AND EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS owner_funded_request_count, \
+             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NOT NULL AND c.attempt_id IS NULL AND uc.attempt_id IS NULL)::bigint AS unresolved_customer_charge_count, \
+             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND c.attempt_id IS NULL AND uc.attempt_id IS NULL AND EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS owner_funded_request_count, \
              COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id))::bigint AS unpriced_request_count, \
              jsonb_build_object('boundary','gateway_body_ms','sample_count',COUNT(*) FILTER (WHERE t.complete),'p50_ms',percentile_disc(0.50) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete),'p95_ms',percentile_disc(0.95) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete),'p99_ms',percentile_disc(0.99) WITHIN GROUP (ORDER BY t.total_ms) FILTER (WHERE t.complete)) AS latency_percentiles, \
              jsonb_build_object( \
@@ -649,6 +667,7 @@ impl Store {
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
              LEFT JOIN customer_activity_priced_attempts tariff ON tariff.attempt_id=a.id \
              LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
+             LEFT JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id \
              LEFT JOIN request_token_categories details ON details.attempt_id=a.id",
         );
         push_activity_scope_and_filters(&mut counts, scope, filter);
@@ -665,9 +684,33 @@ impl Store {
         costs.push(" GROUP BY c.currency ORDER BY c.currency");
         let customer_charges = costs.build_query_as().fetch_all(&mut *snapshot).await?;
 
+        let mut unit_costs = QueryBuilder::new(
+            "SELECT jsonb_build_object( \
+                'definition_revision', uc.definition_revision::text, \
+                'name', uc.unit_name, \
+                'display_precision', uc.display_precision, \
+                'atoms_per_unit', '1000000000', \
+                'charged_atoms', COALESCE(SUM(uc.charged_atoms::numeric), 0)::text, \
+                'restored_atoms', COALESCE(SUM(uc.restored_atoms::numeric), 0)::text, \
+                'net_atoms', COALESCE(SUM(uc.net_atoms::numeric), 0)::text, \
+                'charged_requests', COUNT(*)::bigint \
+             ) \
+             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id",
+        );
+        push_activity_scope_and_filters(&mut unit_costs, scope, filter);
+        unit_costs.push(
+            " GROUP BY uc.definition_revision, uc.unit_name, uc.display_precision ORDER BY uc.definition_revision DESC",
+        );
+        let customer_unit_charges = unit_costs
+            .build_query_scalar()
+            .fetch_all(&mut *snapshot)
+            .await?;
+
         // Only customer ledger amounts enter these summaries. Missing settlement is
         // represented by null amounts and explicit coverage, never supplier expense.
         let mut charge_breakdowns = Vec::new();
+        let mut unit_charge_breakdowns = Vec::new();
         for (identity, group) in [
             ("'model_alias',o.model_alias", "o.model_alias"),
             (
@@ -679,14 +722,16 @@ impl Store {
                 "SELECT jsonb_build_object({identity},'currency',c.currency, \
                  'amount_nanos',CASE WHEN COUNT(c.attempt_id)>0 THEN SUM(c.amount_nanos::numeric)::text ELSE NULL END, \
                  'request_count',COUNT(*),'charged_requests',COUNT(c.attempt_id), \
-                 'unresolved_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NOT NULL AND c.attempt_id IS NULL), \
-                 'owner_funded_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND c.attempt_id IS NULL AND EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id)), \
-                 'unpriced_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) AND c.attempt_id IS NULL), \
-                 'not_charged_requests',COUNT(*) FILTER (WHERE c.attempt_id IS NULL AND (a.dispatched_at IS NULL OR a.execution='confirmed_not_executed'))) \
+                 'unit_charged_requests',COUNT(uc.attempt_id), \
+                 'unresolved_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NOT NULL AND c.attempt_id IS NULL AND uc.attempt_id IS NULL), \
+                 'owner_funded_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND c.attempt_id IS NULL AND uc.attempt_id IS NULL AND EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id)), \
+                 'unpriced_requests',COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed' AND tariff.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) AND c.attempt_id IS NULL AND uc.attempt_id IS NULL), \
+                 'not_charged_requests',COUNT(*) FILTER (WHERE c.attempt_id IS NULL AND uc.attempt_id IS NULL AND (a.dispatched_at IS NULL OR a.execution='confirmed_not_executed'))) \
                  FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
                  LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
                  LEFT JOIN customer_activity_priced_attempts tariff ON tariff.attempt_id=a.id \
-                 LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id"
+                 LEFT JOIN customer_activity_charges c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
+                 LEFT JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id"
             ));
             push_activity_scope_and_filters(&mut breakdown, scope, filter);
             // Currency is kept separate, including the unknown (unsettled) group.
@@ -697,9 +742,36 @@ impl Store {
                     .fetch_all(&mut *snapshot)
                     .await?,
             );
+
+            let mut unit_breakdown = QueryBuilder::new(format!(
+                "SELECT jsonb_build_object({identity}, \
+                 'definition_revision',uc.definition_revision::text, \
+                 'name',uc.unit_name, \
+                 'display_precision',uc.display_precision, \
+                 'atoms_per_unit','1000000000', \
+                 'charged_atoms',COALESCE(SUM(uc.charged_atoms::numeric),0)::text, \
+                 'restored_atoms',COALESCE(SUM(uc.restored_atoms::numeric),0)::text, \
+                 'net_atoms',COALESCE(SUM(uc.net_atoms::numeric),0)::text, \
+                 'charged_requests',COUNT(*)::bigint) \
+                 FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+                 LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
+                 JOIN customer_activity_unit_charges uc ON uc.organization_id=a.organization_id AND uc.project_id=a.project_id AND uc.attempt_id=a.id"
+            ));
+            push_activity_scope_and_filters(&mut unit_breakdown, scope, filter);
+            unit_breakdown.push(format!(
+                " GROUP BY {group},uc.definition_revision,uc.unit_name,uc.display_precision ORDER BY uc.definition_revision DESC,SUM(uc.net_atoms::numeric) DESC,{group}"
+            ));
+            unit_charge_breakdowns.push(
+                unit_breakdown
+                    .build_query_scalar()
+                    .fetch_all(&mut *snapshot)
+                    .await?,
+            );
         }
         let charges_by_key = charge_breakdowns.pop().unwrap();
         let charges_by_model = charge_breakdowns.pop().unwrap();
+        let unit_charges_by_key = unit_charge_breakdowns.pop().unwrap();
+        let unit_charges_by_model = unit_charge_breakdowns.pop().unwrap();
 
         let mut usage = QueryBuilder::new(
             "SELECT o.model_alias AS model_alias, COUNT(*)::bigint AS request_count, \
@@ -755,8 +827,11 @@ impl Store {
             unpriced_request_count: counts.unpriced_request_count,
             owner_funded_request_count: counts.owner_funded_request_count,
             customer_charges,
+            customer_unit_charges,
             charges_by_model,
             charges_by_key,
+            unit_charges_by_model,
+            unit_charges_by_key,
             usage_by_model,
             usage_by_key,
             request_histogram,

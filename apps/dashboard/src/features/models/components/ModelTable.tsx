@@ -25,8 +25,9 @@ import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import type { Model } from '@/app/dashboard-context';
 import { useDashboardContext } from '@/app/dashboard-context';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { useModelPopularity } from '@/app/useModelPopularity';
-import { money } from '@/lib/money';
+import { formatUnitAtoms, money } from '@/lib/money';
 import { workspacePathSegment } from '@/app/workspace-route';
 
 
@@ -69,6 +70,8 @@ function requestExample(baseUrl: string, model: Model) {
 export default function ModelTable({ models, header }: { models: Model[]; header?: ReactNode }) {
   function chooseAuthor(value: string) { setAuthorsSelected(current => current.includes(value) ? current.filter(id => id !== value) : [...current, value]); setLimit(20); }
   const { token, workspace, workspaces, session } = useDashboardContext();
+  const { billingMode } = usePlatformCurrency();
+  const showUnitPricing = (model: Model) => model.customer_unit_pricing != null && (billingMode === 'credits' || model.customer_pricing == null);
   const workspacePath = workspace ? `/workspaces/${workspacePathSegment(workspace, workspaces)}` : '/workspaces/default';
   const ranked = useModelPopularity(models, token, workspace?.organization_id, workspace?.id);
   const popularModels = ranked.models;
@@ -226,7 +229,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
             {modelCapabilityTags(model).length > 0 && <div className="flex flex-wrap gap-1.5" aria-label="Model capabilities">{modelCapabilityTags(model).map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}</div>}
             {model.billing_source === 'own_api_key' && <p className="text-sm text-muted-foreground">Own API key · billed by your Provider</p>}
-            <div className="models-card-meta">{modelDeveloper(model) && <span>by {modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span>}{modelProviderName(model) && <span>via {modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>Try in Chat</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>Try in Video</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? 'Preview not supported' : 'Capabilities not published'}</span>}</div>
+            <div className="models-card-meta">{modelDeveloper(model) && <span>by {modelDeveloper(model)!.name}</span>}{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing!.prompt_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}/M input tokens</span><span>{formatUnitAtoms(model.customer_unit_pricing!.completion_rate, model.customer_unit_pricing!.unit_name, model.customer_unit_pricing!.display_precision)}/M output tokens</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span></> : null}{modelProviderName(model) && <span>via {modelProviderName(model)}</span>}{hasChatOutput(model) && <Link to={generationHref(model, 'chat')}>Try in Chat</Link>}{isVideoModel(model) && <Link to={generationHref(model, 'video')}>Try in Video</Link>}{!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? 'Preview not supported' : 'Capabilities not published'}</span>}</div>
           </article>)}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>Show more models</Button><span>{visible.length} of {filtered.length}</span></div>}
@@ -246,9 +249,9 @@ export default function ModelTable({ models, header }: { models: Model[]; header
             : 'Uses Niu credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.'
           : 'Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.'}</p>
       <dl className="model-route-facts">
-        {selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>Input price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div>
-        {selected.customer_pricing?.cached_prompt_rate != null && <div><dt>Cache read price</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)} /M tokens</dd></div>}
-        <div><dt>Output price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div></>}
+        {selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>Input price</dt><dd>{showUnitPricing(selected) ? `${formatUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)} /M tokens` : selected.customer_pricing != null ? `${money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div>
+        {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>Cache read price</dt><dd>{formatUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)} /M tokens</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>Cache read price</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)} /M tokens</dd></div> : null}
+        <div><dt>Output price</dt><dd>{showUnitPricing(selected) ? `${formatUnitAtoms(selected.customer_unit_pricing!.completion_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)} /M tokens` : selected.customer_pricing != null ? `${money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div></>}
         {selected.catalog?.context_length != null && <div><dt>Context length</dt><dd>{selected.catalog.context_length.toLocaleString()} tokens</dd></div>}
         {selected.catalog?.max_completion_tokens != null && <div><dt>Maximum output</dt><dd>{selected.catalog.max_completion_tokens.toLocaleString()} tokens</dd></div>}
         {!!selected.catalog?.input_modalities?.length && <div><dt>Input modalities</dt><dd>{selected.catalog.input_modalities.join(', ')}</dd></div>}

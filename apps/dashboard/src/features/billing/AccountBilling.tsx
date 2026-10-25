@@ -9,9 +9,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { money, amountToNanos } from '@/lib/money';
+import { Badge } from '@/components/ui/badge';
+import { money, amountToNanos, formatExactUnitAtoms, formatUnitAtoms } from '@/lib/money';
 import { request, VendorRequestError } from '@/features/providers/api';
-import TopupFunding from './TopupFunding';
+import TopupFunding, { type UnitBalanceSnapshot } from './TopupFunding';
+const provenanceLabels: Record<'purchased' | 'promotional' | 'simulated', string> = {
+  purchased: 'Purchased',
+  promotional: 'Promotional',
+  simulated: 'Simulated',
+};
 type Balance = {
   currency: string; balance_nanos: string; available_nanos: string; reserved_nanos: string;
   credit_limit_nanos: string; policy_revision: string; warning_threshold_nanos: string | null; low_balance: boolean;
@@ -46,12 +52,13 @@ function checkedTransactions(result:{data:BalanceTransaction[];next_cursor?:stri
 }
 
 export default function AccountBilling({token, organization, canConfigure = false, section = 'all'}: {token: string; organization: string; canConfigure?: boolean; section?: 'all' | 'billing' | 'payments'}) {
- const {currency:platformCurrency}=usePlatformCurrency();
+ const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit}=usePlatformCurrency();
  const accessGeneration = useRef({token,organization,value:0});
  if (accessGeneration.current.token !== token || accessGeneration.current.organization !== organization) {
   accessGeneration.current = {token,organization,value:accessGeneration.current.value+1};
  }
  const [accounts,setAccounts] = useState<Balance[] | null>(null);
+ const [unitSnapshot,setUnitSnapshot] = useState<UnitBalanceSnapshot | null>(null);
  const [transactions,setTransactions] = useState<BalanceTransaction[] | null>(null);
  const [accountError,setAccountError] = useState('');
  const [transactionError,setTransactionError] = useState('');
@@ -122,11 +129,12 @@ export default function AccountBilling({token, organization, canConfigure = fals
   const nextScope = `${token}:${organization}`;
   if (loadedScope.current !== nextScope) {
    loadedScope.current = nextScope;
-   setAccounts(null); setTransactions(null); setNextCursor(null); setEditing(null);
+   setAccounts(null); setUnitSnapshot(null); setTransactions(null); setNextCursor(null); setEditing(null);
   }
   setAccountError(''); setTransactionError(''); setTransactionFailure(null); setTransactionsLoading(showTransactions);
   setRefreshing(true);
   void request<{data: Balance[]}>(token, `/api/v1/organizations/${organization}/billing/balance`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) setAccounts(checkedAccounts(r));}).catch(e => {if (!controller.signal.aborted) setAccountError(e.message);}).finally(() => {if (!controller.signal.aborted) setRefreshing(false);});
+  void request<{data: UnitBalanceSnapshot}>(token, `/api/v1/organizations/${organization}/billing/units`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted && r?.data) setUnitSnapshot(r.data);}).catch(() => {});
   if (showTransactions) void request<{data: BalanceTransaction[]; next_cursor?: string | null}>(token, `/api/v1/organizations/${organization}/billing/transactions`, 'GET', undefined, controller.signal).then(r => {if (!controller.signal.aborted) {const result=checkedTransactions(r);setTransactions(result.data);setNextCursor(result.next_cursor ?? null);}}).catch(e => {if (!controller.signal.aborted) {setTransactionError(e.message);setTransactionFailure('latest');}}).finally(() => {if (!controller.signal.aborted) setTransactionsLoading(false);});
   return () => {controller.abort();olderController.current?.abort();};
  }, [token,organization,revision,showTransactions]);
@@ -150,8 +158,80 @@ export default function AccountBilling({token, organization, canConfigure = fals
         {companyAccess && section !== 'payments' && <section aria-label="Account balance" className="billing-account-section">
           <div className="flex items-center justify-between gap-3"><h2>Available credits</h2><Button variant="ghost" size="icon" aria-label="Refresh account balance" title="Refresh account balance" disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
           {accountError && <Alert variant="destructive"><AlertTitle>Account balance unavailable</AlertTitle><AlertDescription>{accountError}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>Retry account balance</Button></AlertDescription></Alert>}
+          {(unitSnapshot?.billing_mode === 'credits' || platformBillingMode === 'credits' || (unitSnapshot?.balances.length ?? 0) > 0) && (() => {
+            const def = unitSnapshot?.definition ?? platformUnit ?? (unitSnapshot?.balances[0] ? { revision: unitSnapshot.balances[0].definition_revision, name: unitSnapshot.balances[0].name, display_precision: unitSnapshot.balances[0].display_precision, atoms_per_unit: '1000000000' } : null);
+            const unitName = def?.name ?? 'Credits';
+            const prec = def?.display_precision ?? 2;
+            const groups = unitSnapshot?.balances ?? [];
+            const sumField = (field: 'available_atoms' | 'held_atoms' | 'charged_atoms' | 'restored_atoms' | 'expired_atoms' | 'issued_atoms') =>
+              groups.reduce((acc, g) => acc + BigInt(g[field] || '0'), 0n);
+            const totalAvailable = sumField('available_atoms');
+            const totalHeld = sumField('held_atoms');
+            const totalCharged = sumField('charged_atoms');
+            const totalRestored = sumField('restored_atoms');
+            const totalExpired = sumField('expired_atoms');
+            const totalIssued = sumField('issued_atoms');
+            return <div className="billing-account space-y-4" aria-label="Branded Credits balance">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? `Available to spend (${unitName})` : `Recorded ${unitName} balance`}</span>
+                <Badge variant="secondary">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? 'Active billing unit' : 'Historical unit'}</Badge>
+              </div>
+              <div>
+                <strong className="billing-available">{formatUnitAtoms(totalAvailable, unitName, prec)}</strong>
+                <p className="text-xs text-muted-foreground mt-1">Exact available: {formatExactUnitAtoms(totalAvailable, unitName, prec)} ({totalAvailable.toString()} atoms)</p>
+              </div>
+              <dl className="billing-account-details">
+                <div><dt>Net issued</dt><dd>{formatUnitAtoms(totalIssued, unitName, prec)}</dd></div>
+                <div><dt>Held for active requests</dt><dd>{formatUnitAtoms(totalHeld, unitName, prec)}</dd></div>
+                <div><dt>Consumed (gross charged)</dt><dd>{formatUnitAtoms(totalCharged, unitName, prec)}</dd></div>
+                {totalRestored > 0n && <div><dt>Restored / refunded</dt><dd>{formatUnitAtoms(totalRestored, unitName, prec)}</dd></div>}
+                {totalExpired > 0n && <div><dt>Expired</dt><dd>{formatUnitAtoms(totalExpired, unitName, prec)}</dd></div>}
+              </dl>
+              {groups.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Lots by definition & provenance</h3>
+                  <Table aria-label="Credits lots by provenance" className="[&_th]:px-2.5 [&_td]:px-2.5 [&_th]:tracking-normal">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Unit &amp; provenance</TableHead>
+                        <TableHead className="text-right">Available</TableHead>
+                        <TableHead className="text-right">Held / Consumed</TableHead>
+                        <TableHead className="text-right">Restored / Expired</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {groups.map(group => (
+                        <TableRow key={`${group.definition_revision}:${group.provenance}`}>
+                          <TableCell>
+                            <div className="font-medium">{group.name} <span className="text-xs text-muted-foreground">(v{group.definition_revision})</span></div>
+                            <Badge variant="outline" className="mt-0.5">{provenanceLabels[group.provenance] ?? group.provenance}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-medium" title={`${formatExactUnitAtoms(group.available_atoms, group.name, group.display_precision)} (${group.available_atoms} atoms)`}>
+                            {formatUnitAtoms(group.available_atoms, group.name, group.display_precision)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                            <div>Held: {formatUnitAtoms(group.held_atoms, group.name, group.display_precision)}</div>
+                            <div title={`${formatExactUnitAtoms(group.charged_atoms, group.name, group.display_precision)} (${group.charged_atoms} atoms)`}>
+                              Consumed: {formatUnitAtoms(group.charged_atoms, group.name, group.display_precision)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                            <div>Restored: {formatUnitAtoms(group.restored_atoms, group.name, group.display_precision)}</div>
+                            <div>Expired: {formatUnitAtoms(group.expired_atoms, group.name, group.display_precision)}</div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Consumption order: Promotional and Simulated lots with the earliest expiration date are consumed first, followed by non-expiring Promotional and Simulated lots, and Purchased lots last (FIFO by issuance).
+              </p>
+            </div>;
+          })()}
           {accounts?.map(account => <div className="billing-account" key={account.currency}>
-            <span className="text-muted-foreground">{account.currency === platformCurrency ? 'Available to spend' : 'Recorded balance (original currency)'}</span>
+            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? `Preserved monetary balance (${account.currency})` : account.currency === platformCurrency ? 'Available to spend' : 'Recorded balance (original currency)'}</span>
             <strong className="billing-available">{money(account.available_nanos, account.currency)}</strong>
             {(account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">
               {account.balance_nanos !== account.available_nanos && <div><dt>Balance</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
@@ -162,13 +242,13 @@ export default function AccountBilling({token, organization, canConfigure = fals
               <div><h3 className="font-medium">Low balance warning</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? 'Disabled' : `Below ${money(account.warning_threshold_nanos,account.currency)} · In app`}</p></div>
               {canConfigure && account.currency === platformCurrency && <Button variant="ghost" size="sm" aria-label={`Configure ${account.currency} low balance warning`} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>Configure</Button>}
             </div>
-            {account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
+            {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>Insufficient funds</AlertTitle><AlertDescription>{canConfigure ? 'Paid requests are paused until funds are added.' : 'Paid requests are paused. Contact your billing administrator to add funds.'}</AlertDescription></Alert>
               : account.low_balance && <Alert><AlertTitle>Low balance</AlertTitle><AlertDescription>Your account balance is below the warning threshold. Approved credit is excluded from this warning.</AlertDescription></Alert>)}
           </div>)}
-          {!accountError && accounts?.length === 0 && <p className="text-muted-foreground">{canConfigure ? 'No prepaid account configured.' : 'No prepaid account configured. Contact your billing administrator.'}</p>}
+          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <p className="text-muted-foreground">{canConfigure ? 'No prepaid account configured.' : 'No prepaid account configured. Contact your billing administrator.'}</p>}
         </section>}
-        {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} onPaid={() => setRevision(value => value + 1)} />}
+        {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} unitSnapshot={unitSnapshot} onPaid={() => setRevision(value => value + 1)} />}
         {companyAccess && section !== 'payments' && ((accounts?.length ?? 0) > 0 || (transactions?.length ?? 0) > 0 || transactionError) && <section aria-label="Recent balance transactions">
           <div className="flex items-center justify-between gap-3"><h2>Balance activity</h2>{nextCursor && <Button variant="ghost" size="sm" disabled={loadingOlder || transactionsLoading || transactionFailure === 'latest'} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading…' : 'History'}</Button>}</div>
           {transactionError && <Alert variant="destructive"><AlertTitle>Transactions unavailable</AlertTitle><AlertDescription>{transactionError}<Button variant="outline" onClick={() => transactionFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>Retry transactions</Button></AlertDescription></Alert>}

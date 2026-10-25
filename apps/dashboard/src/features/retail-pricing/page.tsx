@@ -16,6 +16,7 @@ import { MediaStandardEditor } from './media-editor';
 import { PromotionEditor } from './promotion-editor';
 import { SellingSchedule } from './schedule';
 import { PromotionsManager } from './promotions';
+import { BrandedUnitTariffsSection } from './unit-tariffs';
 import type { RetailPriceRecord, RetailPriceHistory } from '@niu-io/sdk/admin';
 
 const base = '/api/v1/pricing/standard-prices';
@@ -50,6 +51,7 @@ function Standards({ token }: { token: string }) {
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
   return <div className="space-y-6"><PageHeader title="Pricing" /><p className="text-sm text-muted-foreground">Set the model prices charged across workspaces. Use promotions for temporary discounts. Models also need available supply and permission to be used.</p>
+    <BrandedUnitTariffsSection token={token} filter={filter} />
     <div className="flex flex-wrap items-center gap-3"><div className="flex w-full min-w-0 items-center gap-2 sm:max-w-sm"><IconSearch size={16} className="shrink-0" aria-hidden="true" /><Input type="search" aria-label="Filter standard models" placeholder="Filter by model name…" value={filter} onChange={event => setFilter(event.target.value)} /></div><Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh prices</Button><Button disabled={loading || !!error} onClick={() => setEditor({ kind: 'text', previous: null })}>Publish text price</Button><Button variant="outline" disabled={loading || !!error} onClick={() => setEditor({ kind: 'media', previous: null })}>Publish media price</Button></div>
     <Button ref={legacyOpener} variant="link" className="h-auto p-0" onClick={() => setLegacyOpen(true)}>Existing media contracts</Button>
     {legacyOpen && <LegacyMediaContracts token={token} returnFocus={legacyOpener} onClose={() => setLegacyOpen(false)}/>}

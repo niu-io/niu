@@ -25,7 +25,8 @@ import { useSidebar } from '@/components/ui/sidebar';
 import type { DashboardContext } from '@/app/dashboard-context';
 import { workspaceDisplayName, workspacePathSegment } from '@/app/workspace-route';
 import { keyRequest, workspaceKeyPath, type ProjectKey } from '@/features/keys/api';
-import { money } from '@/lib/money';
+import { formatUnitAtoms, money } from '@/lib/money';
+import { usePlatformCurrency } from '@/app/platform-currency';
 import { controlLabels, initialControls, videoRequest, type ControlValues } from './request';
 import VideoResult from './VideoResult';
 import VideoBilling from './VideoBilling';
@@ -58,8 +59,18 @@ async function request<T>(token:string,keyId:string,path:string,body?:unknown,si
   if (!response.ok) throw new VideoHTTPError(response.status,payload?.error?.message ?? 'The request could not be completed.');
   return payload;
 }
+type ExtendedVideoEstimate = VideoEstimate & {
+  unit_code?: string | null;
+  maximum_charge_atoms?: string | null;
+  estimate: VideoEstimate['estimate'] & {
+    unit_code?: string | null;
+    amount_atoms?: string | null;
+  };
+};
+
 export default function VideoView({context}:{context:DashboardContext}) {
   const {settings:branding} = useBranding();
+  const {unit:platformUnit} = usePlatformCurrency();
   const {token,workspace,workspaces,session}=context;
   const canWrite=Boolean(session?.permissions.write);
   const [keyPickerOpen,setKeyPickerOpen]=useState(false);
@@ -90,7 +101,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const [billing,setBilling]=useState<VideoJobBilling|null>(null);
   const [diagnosticsLoading,setDiagnosticsLoading]=useState(false);
   const [timings,setTimings]=useState<VideoTransportTimings|null>(null);
-  const [quote,setQuote]=useState<VideoEstimate|null>(null);
+  const [quote,setQuote]=useState<ExtendedVideoEstimate|null>(null);
   const [quotedBody,setQuotedBody]=useState('');
   const [unquotedConfirmation,setUnquotedConfirmation]=useState<{body:string;generation:number;job:string;intent:string}|null>(null);
   const [loading,setLoading]=useState(true);
@@ -365,7 +376,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     if(!form.body || !base || lock.current || uncertain || readingImages || draftBlocked)return;
     const controller=new AbortController();estimateController.current?.abort();estimateController.current=controller;
     setBusy('estimate');setError('');
-    try {if(mutableComposer&&canWrite&&!await draft.flush())return;const result=await request<VideoEstimate>(token,base,'/v1/video/estimate',form.body,controller.signal);if(!controller.signal.aborted){setQuote(result);setQuotedBody(JSON.stringify(form.body));}}
+    try {if(mutableComposer&&canWrite&&!await draft.flush())return;const result=await request<ExtendedVideoEstimate>(token,base,'/v1/video/estimate',form.body,controller.signal);if(!controller.signal.aborted){setQuote(result);setQuotedBody(JSON.stringify(form.body));}}
     catch(error){if(!controller.signal.aborted)setError(message(error));}
     finally{if(estimateController.current === controller)setBusy('');}
   }
@@ -477,7 +488,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
 
               <Label htmlFor="video-prompt" className="sr-only">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={2} value={prompt} onChange={event=>{setComposerEdited(true);setPrompt(event.target.value);}} disabled={draftBlocked || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!form.body || !base || busy || uncertain || draftBlocked || readingImages || restoringIntent || submissionStopped)return;if(unquotedOwnerFunded){if(canWrite)setUnquotedConfirmation({body:JSON.stringify(form.body),generation:currentGeneration(),job:selected,intent:intentId});return;}if(!quoteMatches || canWrite)void (quoteMatches ? saveOrSubmitRequest('submit') : estimate());}}}/>
               {prompt && form.error && <p role="alert" className="video-error">{form.error}</p>}
-              {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Provider account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
+              {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_atoms != null && (quote.estimate.unit_code || quote.unit_code) ? `Estimated ${formatUnitAtoms(quote.estimate.amount_atoms, quote.estimate.unit_code ?? quote.unit_code ?? platformUnit?.name ?? 'Credits', platformUnit?.display_precision ?? 2)}` : quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Provider account'}</strong>{quote.maximum_charge_atoms != null && (quote.unit_code || quote.estimate.unit_code) ? <small>Reserves up to {formatUnitAtoms(quote.maximum_charge_atoms, quote.unit_code ?? quote.estimate.unit_code ?? platformUnit?.name ?? 'Credits', platformUnit?.display_precision ?? 2)}. Final charge follows reported usage.</small> : quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
 
               {unquotedOwnerFunded && <p role="status" className="video-muted">Estimate unavailable. Your Provider may charge your account.</p>}
               {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? 'The saved input has expired or been deleted. Task history remains available.':'Reload this saved request to confirm its input and original submission status before continuing.'}</p>}

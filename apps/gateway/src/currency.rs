@@ -6,9 +6,18 @@ use serde_json::{Value, json};
 /// {"path":"/v1/currency","method":"get","operation":{"operationId":"getPlatformCurrency","summary":"Read the configured platform currency","x-niu-implementation":"implemented","description":"Returns the durable installation currency, or null until platform setup is completed. No credentials or financial balances are exposed.","security":[],"responses":{"200":{"description":"data.currency is an ISO currency code, or null before setup."}}}}
 /// ```
 pub async fn read(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    Ok(Json(
-        json!({"data":{"currency":state.store.platform_currency().await.map_err(ApiError::from_store)?}}),
-    ))
+    let (currency, billing_mode, unit) = state
+        .store
+        .platform_billing_summary()
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({
+        "data": {
+            "currency": currency,
+            "billing_mode": billing_mode,
+            "unit": unit,
+        }
+    })))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

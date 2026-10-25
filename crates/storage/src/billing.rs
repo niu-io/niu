@@ -1181,8 +1181,8 @@ SELECT jsonb_build_object(
         // expose a customer selling price, even if a legacy tariff exists.
         let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE o.organization_id=$1 AND m.enabled AND v.enabled")
             .bind(scope.organization_id).fetch_all(&mut *tx).await?;
-        for alias in personal {
-            prices.remove(&alias);
+        for alias in &personal {
+            prices.remove(alias);
         }
         let tariffs: Vec<Value> = prices
             .into_iter()
@@ -1191,11 +1191,174 @@ SELECT jsonb_build_object(
                 price
             })
             .collect();
+        let billing_mode: String =
+            sqlx::query_scalar("SELECT billing_mode FROM customer_unit_configuration WHERE singleton")
+                .fetch_one(&mut *tx)
+                .await?;
+        let unit_balances: Value = sqlx::query_scalar(
+            "SELECT COALESCE(jsonb_agg(item ORDER BY definition_revision DESC), '[]'::jsonb) \
+             FROM ( \
+                 SELECT d.revision AS definition_revision, \
+                        jsonb_build_object( \
+                            'definition_revision', d.revision::text, \
+                            'name', d.name, \
+                            'display_precision', d.display_precision, \
+                            'atoms_per_unit', '1000000000', \
+                            'held_atoms', COALESCE(( \
+                                SELECT sum(r.end_atom - r.first_atom)::numeric \
+                                FROM customer_unit_reserved_ranges r \
+                                JOIN customer_unit_reservations h USING (attempt_id) \
+                                WHERE h.organization_id = $1 AND h.project_id = $2 \
+                                  AND h.definition_revision = d.revision \
+                                  AND NOT EXISTS (SELECT 1 FROM customer_unit_resolutions c WHERE c.attempt_id = h.attempt_id) \
+                            ), 0)::text, \
+                            'charged_atoms', COALESCE(( \
+                                SELECT sum(c.charged_atoms)::numeric \
+                                FROM customer_unit_resolutions c \
+                                JOIN customer_unit_reservations h USING (attempt_id) \
+                                WHERE h.organization_id = $1 AND h.project_id = $2 \
+                                  AND h.definition_revision = d.revision \
+                                  AND c.kind = 'charge' \
+                            ), 0)::text, \
+                            'restored_atoms', COALESCE(( \
+                                SELECT sum(rest.end_atom - rest.first_atom)::numeric \
+                                FROM customer_unit_restorations rest \
+                                JOIN customer_unit_reservations h USING (attempt_id) \
+                                WHERE h.organization_id = $1 AND h.project_id = $2 \
+                                  AND h.definition_revision = d.revision \
+                            ), 0)::text, \
+                            'net_charged_atoms', (COALESCE(( \
+                                SELECT sum(c.charged_atoms)::numeric \
+                                FROM customer_unit_resolutions c \
+                                JOIN customer_unit_reservations h USING (attempt_id) \
+                                WHERE h.organization_id = $1 AND h.project_id = $2 \
+                                  AND h.definition_revision = d.revision \
+                                  AND c.kind = 'charge' \
+                            ), 0) - COALESCE(( \
+                                SELECT sum(rest.end_atom - rest.first_atom)::numeric \
+                                FROM customer_unit_restorations rest \
+                                JOIN customer_unit_reservations h USING (attempt_id) \
+                                WHERE h.organization_id = $1 AND h.project_id = $2 \
+                                  AND h.definition_revision = d.revision \
+                            ), 0))::text, \
+                            'charged_requests', COALESCE(( \
+                                SELECT count(*)::bigint \
+                                FROM customer_unit_resolutions c \
+                                JOIN customer_unit_reservations h USING (attempt_id) \
+                                WHERE h.organization_id = $1 AND h.project_id = $2 \
+                                  AND h.definition_revision = d.revision \
+                                  AND c.kind = 'charge' \
+                            ), 0) \
+                        ) AS item \
+                 FROM customer_unit_definitions d \
+                 WHERE d.revision = (SELECT max(revision) FROM customer_unit_definitions) \
+                    OR EXISTS ( \
+                        SELECT 1 FROM customer_unit_reservations h \
+                        WHERE h.organization_id = $1 AND h.project_id = $2 AND h.definition_revision = d.revision \
+                    ) \
+             ) q",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        let unit_tariffs: Value = sqlx::query_scalar(
+            "SELECT COALESCE(jsonb_agg(item ORDER BY model_alias), '[]'::jsonb) \
+             FROM ( \
+                 SELECT DISTINCT ON (t.model_alias) \
+                        t.model_alias, \
+                        jsonb_build_object( \
+                            'model_alias', t.model_alias, \
+                            'revision', t.revision::text, \
+                            'definition_revision', t.definition_revision::text, \
+                            'unit_name', d.name, \
+                            'display_precision', d.display_precision, \
+                            'atoms_per_unit', '1000000000', \
+                            'price', t.price, \
+                            'created_at', t.created_at \
+                        ) AS item \
+                 FROM customer_unit_text_tariffs t \
+                 JOIN customer_unit_definitions d ON d.revision = t.definition_revision \
+                 WHERE NOT (t.model_alias = ANY($1::text[])) \
+                 ORDER BY t.model_alias, t.revision DESC \
+             ) q",
+        )
+        .bind(&personal)
+        .fetch_one(&mut *tx)
+        .await?;
+        let unit_media_tariffs: Value = sqlx::query_scalar(
+            "SELECT COALESCE(jsonb_agg(item ORDER BY model_alias, channel, resolution, reference_video), '[]'::jsonb) \
+             FROM ( \
+                 SELECT DISTINCT ON (t.model_alias, t.channel, t.resolution, t.reference_video) \
+                        t.model_alias, t.channel, t.resolution, t.reference_video, \
+                        jsonb_build_object( \
+                            'model_alias', t.model_alias, \
+                            'channel', t.channel, \
+                            'resolution', t.resolution, \
+                            'reference_video', t.reference_video, \
+                            'meter', t.meter, \
+                            'revision', t.revision::text, \
+                            'definition_revision', t.definition_revision::text, \
+                            'unit_name', d.name, \
+                            'display_precision', d.display_precision, \
+                            'atoms_per_unit', '1000000000', \
+                            'price', t.price, \
+                            'created_at', t.created_at \
+                        ) AS item \
+                 FROM customer_unit_media_tariffs t \
+                 JOIN customer_unit_definitions d ON d.revision = t.definition_revision \
+                 WHERE NOT (t.model_alias = ANY($1::text[])) \
+                 ORDER BY t.model_alias, t.channel, t.resolution, t.reference_video, t.revision DESC \
+             ) q",
+        )
+        .bind(&personal)
+        .fetch_one(&mut *tx)
+        .await?;
+        let unit_charges: Value = sqlx::query_scalar(
+            "SELECT COALESCE(jsonb_agg(item), '[]'::jsonb) \
+             FROM ( \
+                 SELECT jsonb_build_object( \
+                            'reference', a.public_reference, \
+                            'model_alias', o.model_alias, \
+                            'request_kind', CASE WHEN EXISTS ( \
+                                SELECT 1 FROM media_recovery_routes m \
+                                WHERE m.organization_id = a.organization_id AND m.project_id = a.project_id AND m.attempt_id = a.id \
+                            ) THEN 'video' ELSE 'inference' END, \
+                            'definition_revision', uc.definition_revision::text, \
+                            'unit_name', uc.unit_name, \
+                            'display_precision', uc.display_precision, \
+                            'atoms_per_unit', '1000000000', \
+                            'charged_atoms', uc.charged_atoms::text, \
+                            'restored_atoms', uc.restored_atoms::text, \
+                            'net_atoms', uc.net_atoms::text, \
+                            'charged_at', uc.charged_at \
+                        ) AS item \
+                 FROM customer_activity_unit_charges uc \
+                 JOIN attempts a ON a.id = uc.attempt_id AND a.organization_id = uc.organization_id AND a.project_id = uc.project_id \
+                 JOIN operations o ON o.id = a.operation_id AND o.organization_id = a.organization_id AND o.project_id = a.project_id \
+                 WHERE uc.organization_id = $1 AND uc.project_id = $2 \
+                 ORDER BY uc.charged_at DESC, uc.attempt_id DESC \
+                 LIMIT 100 \
+             ) q",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_one(&mut *tx)
+        .await?;
 
         tx.commit().await?;
-        Ok(
-            json!({"balances":balances,"unresolved":unresolved,"unpriced":unpriced,"tariffs":tariffs,"invoices":invoices}),
-        )
+        Ok(json!({
+            "billing_mode": billing_mode,
+            "balances": balances,
+            "unit_balances": unit_balances,
+            "unresolved": unresolved,
+            "unpriced": unpriced,
+            "tariffs": tariffs,
+            "unit_tariffs": unit_tariffs,
+            "unit_media_tariffs": unit_media_tariffs,
+            "unit_charges": unit_charges,
+            "invoices": invoices
+        }))
     }
     /// Invoice identity is immutable; distinguish absence from an empty line family.
     pub async fn customer_invoice_exists(

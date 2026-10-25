@@ -28,7 +28,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/PageHeader';
 import { useDashboardContext, type Model } from '@/app/dashboard-context';
-import { amountToNanos, money } from '@/lib/money';
+import { amountToNanos, formatUnitAtoms, money } from '@/lib/money';
 import { KeyRequestError, keyRequest, keyStatus, keyLastUsed, workspaceKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
 
 type KeyDialog = { kind: 'recover' } | { kind: 'create' } | { kind: 'secret'; key?: ProjectKey } | { kind: 'rotate'; key: ProjectKey } | { kind: 'revoke'; key: ProjectKey } | null;
@@ -41,6 +41,9 @@ function baseUrl() {
 
 function keyLimitsSummary(key: ProjectKey): string {
   const parts: string[] = [];
+  if (key.unit_spending_limit?.limit_atoms !== null && key.unit_spending_limit?.limit_atoms !== undefined && key.unit_spending_limit.unit) {
+    parts.push(formatUnitAtoms(key.unit_spending_limit.limit_atoms, key.unit_spending_limit.unit.name, key.unit_spending_limit.unit.display_precision));
+  }
   if (key.spending_limits?.length) {
     for (const limit of key.spending_limits) {
       if (limit.limit_nanos !== null) {

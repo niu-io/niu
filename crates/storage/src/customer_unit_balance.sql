@@ -38,11 +38,63 @@ WITH lots AS MATERIALIZED (
 )
 SELECT EXISTS(SELECT 1 FROM organizations WHERE id=$1),jsonb_build_object(
     'billing_mode',c.billing_mode,'atoms_per_unit','1000000000',
+    'definition',(
+        SELECT jsonb_build_object(
+            'revision',d.revision::text,'name',d.name,'display_precision',d.display_precision,
+            'atoms_per_unit','1000000000'
+        ) FROM customer_unit_definitions d ORDER BY d.revision DESC LIMIT 1
+    ),
+    'purchase_rules',COALESCE((
+        SELECT jsonb_agg(item ORDER BY payment_currency)
+        FROM (
+            SELECT DISTINCT ON (r.payment_currency)
+                r.payment_currency,
+                jsonb_build_object(
+                    'revision',r.revision::text,
+                    'definition_revision',r.definition_revision::text,
+                    'payment_currency',r.payment_currency,
+                    'numerator',r.numerator::text,
+                    'denominator',r.denominator::text
+                ) AS item
+            FROM customer_unit_purchase_rules r
+            WHERE r.definition_revision = (SELECT max(revision) FROM customer_unit_definitions)
+            ORDER BY r.payment_currency, r.revision DESC
+        ) rules
+    ),'[]'::jsonb),
     'balances',COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'definition_revision',g.definition_revision::text,'name',d.name,'display_precision',d.display_precision,
         'provenance',g.provenance,'issued_atoms',g.issued_atoms,'held_atoms',g.held_atoms,
         'charged_atoms',g.charged_atoms,'restored_atoms',g.restored_atoms,
         'expired_atoms',g.expired_atoms,'available_atoms',g.available_atoms
     ) ORDER BY g.definition_revision,g.provenance) FROM groups g
-        JOIN customer_unit_definitions d ON d.revision=g.definition_revision),'[]'::jsonb)
+        JOIN customer_unit_definitions d ON d.revision=g.definition_revision),'[]'::jsonb),
+    'purchases',COALESCE((SELECT jsonb_agg(jsonb_build_object(
+        'order_id',a.order_id::text,'created_at',to_char(a.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+        'definition_revision',a.definition_revision::text,'name',d.name,'display_precision',d.display_precision,
+        'provenance',a.provenance,'payment_currency',a.payment_currency,'payment_nanos',a.payment_nanos::text,
+        'issued_atoms',a.credit_atoms::text,'reversed_atoms',(a.credit_atoms - a.net_issued_atoms)::text,
+        'available_atoms',a.remaining::text
+    ) ORDER BY a.created_at DESC, a.id DESC) FROM amounts a
+        JOIN customer_unit_definitions d ON d.revision=a.definition_revision
+        WHERE a.order_id IS NOT NULL),'[]'::jsonb),
+    'recent_charges',COALESCE((SELECT jsonb_agg(item) FROM (
+        SELECT jsonb_build_object(
+            'attempt_id',uc.attempt_id::text,
+            'reference',a.public_reference,
+            'charged_at',to_char(uc.charged_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+            'model_alias',o.model_alias,
+            'definition_revision',uc.definition_revision::text,
+            'name',uc.unit_name,
+            'display_precision',uc.display_precision,
+            'charged_atoms',uc.charged_atoms::text,
+            'restored_atoms',uc.restored_atoms::text,
+            'refundable_atoms',uc.net_atoms::text
+        ) AS item
+        FROM customer_activity_unit_charges uc
+        JOIN attempts a ON a.id = uc.attempt_id AND a.organization_id = uc.organization_id AND a.project_id = uc.project_id
+        JOIN operations o ON o.id = a.operation_id AND o.organization_id = a.organization_id AND o.project_id = a.project_id
+        WHERE uc.organization_id = $1 AND uc.charged_atoms > 0
+        ORDER BY uc.charged_at DESC, uc.attempt_id DESC
+        LIMIT 50
+    ) rc),'[]'::jsonb)
 ) FROM customer_unit_configuration c WHERE singleton;
