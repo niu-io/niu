@@ -237,6 +237,14 @@ getCustomerUnitConfiguration(options?: RequestOptions): Promise<{
 }>;
 ```
 
+### getCustomerUnitBalance
+
+```typescript
+getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{
+    data: CustomerUnitBalance;
+}>;
+```
+
 ### issueCustomerUnitGrant
 
 ```typescript

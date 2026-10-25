@@ -57,6 +57,177 @@ fn actor(auth: AdminAuthorization) -> OperatorAuditActor {
     }
 }
 
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/units",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getCustomerUnitBalance",
+///     "summary": "Read exact Credits quantities by original definition and provenance",
+///     "description": "Organization-wide billing owner/admin or installation read access required. One database statement reports original issuance, unresolved held ranges, gross charged ranges, original-range restorations, expired unheld remainder and available unexpired remainder. Expiry never releases an unresolved request hold or renews a restored lot. For each group, issued + restored = held + charged + expired + available. A balance is not proof that inference routes, tariffs or admission are configured. Historical unit definitions remain separate. No payment backing, procurement rates or financial margin enters this response. Quantities are exact decimal strings; an empty array means no issuance. Reads do not activate Credits or convert monetary balances.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current unit balance snapshot",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "billing_mode",
+///                     "atoms_per_unit",
+///                     "balances"
+///                   ],
+///                   "properties": {
+///                     "billing_mode": {
+///                       "type": "string",
+///                       "enum": [
+///                         "currency",
+///                         "credits"
+///                       ]
+///                     },
+///                     "atoms_per_unit": {
+///                       "type": "string",
+///                       "const": "1000000000"
+///                     },
+///                     "balances": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "definition_revision",
+///                           "name",
+///                           "display_precision",
+///                           "provenance",
+///                           "issued_atoms",
+///                           "held_atoms",
+///                           "charged_atoms",
+///                           "restored_atoms",
+///                           "expired_atoms",
+///                           "available_atoms"
+///                         ],
+///                         "properties": {
+///                           "definition_revision": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           },
+///                           "name": {
+///                             "type": "string"
+///                           },
+///                           "display_precision": {
+///                             "type": "integer",
+///                             "minimum": 0,
+///                             "maximum": 9
+///                           },
+///                           "provenance": {
+///                             "type": "string",
+///                             "enum": [
+///                               "purchased",
+///                               "promotional",
+///                               "simulated"
+///                             ]
+///                           },
+///                           "issued_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+///                           },
+///                           "held_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+///                           },
+///                           "charged_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+///                           },
+///                           "restored_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+///                           },
+///                           "expired_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+///                           },
+///                           "available_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication unavailable or revoked"
+///       },
+///       "403": {
+///         "description": "Management read access required"
+///       },
+///       "404": {
+///         "description": "Company absent or outside permitted billing scope"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn balance(
+    State(state): State<AppState>,
+    Path(organization): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, niu_storage::AdminPermission::Read)
+        .await?;
+    if !auth.permits_billing_account(organization) {
+        return Err(ApiError::not_found());
+    }
+    let data = state
+        .store
+        .customer_unit_balance(organization)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":data})))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GrantInput {

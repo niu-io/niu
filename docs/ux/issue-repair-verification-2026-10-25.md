@@ -558,3 +558,38 @@ changed to obtain this result.
 Reservation, consumption, refunds, expired-lot admission behavior, customer UI,
 guarded mode activation and hosted acceptance remain required. No fixture result
 or compilation outcome establishes these missing behaviors.
+
+## Credits range foundation and exact balance reads — issue #110
+
+Migration 0380 and storage primitives add immutable reservations, ordered source
+ranges, charge/release resolutions and original-range restorations. The native
+Credits database migrated successfully with its three actual mock purchase lots
+and two actual grant lots retained: 309 Credits issued, five naturally expired,
+three unit receipts and no monetary wallet entries. This verifies the exercised
+upgrade and retained data, not allocation or inference settlement behavior.
+
+The new customer-safe balance API and typed SDK method were exercised against
+the running gateway. Original unit definitions and promotional/simulated sources
+remain separate. The read initially reported 304 Credits of unexpired remaining
+capacity and five expired Credits, with no holds or charges. An actual authorized
+promotional grant of one atom (0.000000001 Credits) then appeared as exactly `1`
+available atom, despite the definition's four-place display precision. After its
+45-second deadline elapsed naturally, a fresh SDK read reported that atom as
+expired and zero available. No timestamp or clock was modified.
+
+Independent SQL reads after expiry found 309000000001 issued atoms,
+5000000001 expired atoms and 304000000000 nonexpired atoms. There were still
+three purchase receipts, no monetary entries and no request reservations. Every
+returned group satisfied issuance plus restorations equals holds plus gross
+charges plus expired and available atoms. The response contains no cash backing,
+upstream prices or internal lot identifiers. Anonymous access returned HTTP 401;
+an absent company and an authenticated workspace viewer each returned HTTP 404.
+The viewer's temporary verification session was revoked afterward (HTTP 204).
+
+The gateway build, SDK build and generated contract checks completed as code
+hygiene. No fixture outcome is used as evidence. Request allocation, concurrent
+holds, expiry during a hold, real text/media consumption, over-bound liability,
+refunds and backing reconciliation are not established by these balance reads.
+They remain open along with guarded mode activation, customer rendering and
+hosted verification. Next, connect explicit Credits tariff publication and
+atomic request admission to the new range ledger before exercising real usage.

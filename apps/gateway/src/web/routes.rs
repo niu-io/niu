@@ -504,6 +504,10 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         post(crate::customer_units::prepare_quote).layer(DefaultBodyLimit::max(4096)),
     )
     .dual_route(
+        "/organizations/{organization}/billing/units",
+        get(crate::customer_units::balance),
+    )
+    .dual_route(
         "/organizations/{organization}/billing/units/grants",
         post(crate::customer_units::issue_grant).layer(DefaultBodyLimit::max(4096)),
     )

@@ -1,4 +1,15 @@
 export type OperatorAccessRole = 'owner' | 'admin' | 'viewer';
+/** Exact customer-safe quantities grouped by original unit definition and provenance. */
+export type CustomerUnitBalance = {
+  billing_mode: 'currency' | 'credits';
+  atoms_per_unit: '1000000000';
+  balances: Array<{
+    definition_revision: string; name: string; display_precision: number;
+    provenance: 'purchased' | 'promotional' | 'simulated';
+    issued_atoms: string; held_atoms: string; charged_atoms: string;
+    restored_atoms: string; expired_atoms: string; available_atoms: string;
+  }>;
+};
 /** Versioned consumption unit; publication does not activate Credits billing. */
 export type CustomerUnitDefinition = {
   revision: string; name: string; display_precision: number; atoms_per_unit: '1000000000';
@@ -1351,6 +1362,9 @@ export class NiuAdminClient {
   /** Platform-only configuration. Does not enable Credits or change existing balances. */
   getCustomerUnitConfiguration(options?: RequestOptions): Promise<{ data: CustomerUnitConfiguration }> {
     return this.request('/platform/units', undefined, options);
+  }
+  getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerUnitBalance }> {
+    return this.request(`/organizations/${uuid(organizationId)}/billing/units`, undefined, options);
   }
   issueCustomerUnitGrant(organizationId: string, input: CustomerUnitGrantInput, options?: RequestOptions): Promise<{ data: CustomerUnitGrant }> {
     unitInteger(input.definition_revision, true); unitInteger(input.credit_atoms, true); uuid(input.idempotency_key);

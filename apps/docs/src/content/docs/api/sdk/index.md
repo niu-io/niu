@@ -84,6 +84,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [CustomerTariffInput](/docs/api/sdk/customertariffinput/)
 - [CustomerTopup](/docs/api/sdk/customertopup/)
 - [CustomerTopupInput](/docs/api/sdk/customertopupinput/)
+- [CustomerUnitBalance](/docs/api/sdk/customerunitbalance/)
 - [CustomerUnitConfiguration](/docs/api/sdk/customerunitconfiguration/)
 - [CustomerUnitDefinition](/docs/api/sdk/customerunitdefinition/)
 - [CustomerUnitDefinitionInput](/docs/api/sdk/customerunitdefinitioninput/)

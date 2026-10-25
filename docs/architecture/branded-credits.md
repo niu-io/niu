@@ -212,6 +212,28 @@ Idempotency compares the original semantic input, including unit and rule
 revisions; reuse with different input conflicts. Uncertain client responses
 require authoritative rereads, not generation of another idempotency key.
 
+`GET /api/v1/organizations/{organization}/billing/units`, exposed by the SDK as
+`getCustomerUnitBalance`, reports exact atom quantities grouped by original unit
+definition and provenance. It requires company-wide billing authority. Issuance,
+unresolved holds, gross charges, restorations, expired unheld capacity and available
+unexpired capacity are separate fields. For each group, issuance plus restorations
+equals holds plus gross charges plus expired and available capacity. This is a
+single statement snapshot, not an assertion that a route or consumption tariff is
+configured. Historical definition names and precision are retained; customer
+responses omit monetary backing and procurement information.
+
+Migration 0380 introduces immutable request reservations, ordered lot ranges,
+charge/release resolutions and original-charge restorations. A zero-price charge
+is distinct from a safe release. Account locks serialize allocation and the
+database rejects overlapping or expired new ranges, incomplete reservation
+backing, over-bound resolution and restoration beyond the original charge.
+These are storage primitives: callers must still pin explicit Credits tariffs,
+derive liability from authoritative usage and commit dispatch/settlement with the
+range operations. They do not authorize manual request charging. In particular,
+an over-bound observation requires persisted liability and reconciliation; the
+primitive rejects resolution and retains its hold instead of reducing the charge.
+The end-to-end request integration is not established by this schema description.
+
 The customer unit must be explicit in catalog prices, Chat, Generations, API-key
 limits, workspace budgets, funding, usage, invoices or consumption statements,
 downloaded exports and applicable SDK/API responses. Monetary payment receipts
