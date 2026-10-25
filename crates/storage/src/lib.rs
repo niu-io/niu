@@ -2,6 +2,8 @@
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
 mod payment_verification;
+mod customer_units;
+pub use customer_units::{CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput};
 mod platform_currency;
 mod workspace_asset_video_dispatch;
 pub use workspace_asset_video_dispatch::{

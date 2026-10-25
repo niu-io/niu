@@ -1,5 +1,10 @@
-//! Exact pricing for explicitly named media meters. No currency conversions or
-//! inferred Provider defaults. Callers persist the selected tariff and receipt.
+//! Exact media pricing and explicit branded-unit conversion arithmetic. No
+//! inferred Provider defaults. Callers persist selected tariffs and receipts.
+
+mod credits;
+pub use credits::{
+    ATOMS_PER_CREDIT, CreditArithmeticError, CreditConversion, credit_range_backing,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MeterError {
