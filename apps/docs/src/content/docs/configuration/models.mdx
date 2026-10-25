@@ -64,7 +64,7 @@ supports_structured_output = true
 
 ## Responses API text subset
 
-The gateway implements a non-streaming, text-only subset of `POST /v1/responses` for routes that explicitly declare Responses support. This is disabled by default on OpenRouter and must be enabled only after verifying the selected model and upstream endpoint:
+The gateway implements a text-only subset of `POST /v1/responses`, with buffered and streamed output, for routes that explicitly declare Responses support. This is disabled by default on OpenRouter and must be enabled only after verifying the selected model and upstream endpoint:
 
 ```toml
 [models.fast]
@@ -77,7 +77,9 @@ supports_responses = true
 
 Requests accept one non-empty string in `input`, plus optional string `instructions`, `max_output_tokens`, `temperature`, `top_p`, string-valued `metadata`, and `user`. Responses are forwarded to the configured `/responses` endpoint with the upstream model name, then returned with Niu's public alias. Niu validates text-message, reasoning and refusal output items and keeps provider-reported `input_tokens` and `output_tokens` as the attempt's prompt/completion usage. Missing usage remains unknown.
 
-Input arrays, images and audio, function tools, streaming, previous-response/conversation state, prompt templates and other fields are not supported. Unknown fields receive `400`; requesting Responses on a route without `supports_responses`, or asking for streaming, receives `501` before an attempt is created. This flag is an operator declaration, not provider conformance evidence. Native Anthropic/Bedrock routes cannot declare it.
+Set `stream: true` to receive Responses Server-Sent Events. Consume the terminal response event; an initial HTTP 200 does not establish completion. Reported terminal usage supplies accounting evidence, while missing usage remains unknown. Stopping the client does not prove upstream cancellation. See the [Responses API subset](/docs/reference/api/#responses-api-text-subset) for response and failure semantics.
+
+Input arrays, images and audio, function tools, previous-response/conversation state, prompt templates and other fields are not supported. Unknown fields receive `400`; requesting Responses on a route without `supports_responses` receives `501` before an attempt is created. This flag is an operator declaration, not provider conformance evidence. Native Anthropic/Bedrock routes cannot declare it.
 
 Invalid request shapes receive `400`. A valid feature request for a route without the corresponding capability receives `501` before an operation or attempt is recorded. Enabled route capabilities participate in the immutable route revision used for attempt evidence. Request-level tool definitions and schemas are forwarded as part of each request.
 
@@ -121,11 +123,13 @@ These illustrative rates mean USD 1 per million input tokens and USD 2 per milli
 
 The gateway reserves the full configured input and output bounds, not an estimated token count. The input bound is an operator assertion about the provider's maximum billable input for this route; it is not a locally verified tokenizer limit. Choose bounds from the actual provider/model contract. Understated bounds can incur an overrun: Niu records the full liability and flags the entry instead of hiding the excess. Provider contract validation remains required before production use.
 
-An omitted output limit is set to `max_output_tokens` using the upstream `max_completion_tokens` field. Explicit output limits must be positive and no larger than the configured bound. Providers must support that field. Pricing supports one text chat completion, including optional streaming, the text-only Responses subset above, or text embeddings. Chat pricing rejects tools, audio, images, multiple choices and other billing dimensions. On a priced Responses request, the gateway compares the combined UTF-8 byte length of `input` and `instructions` with `max_input_tokens`, injects the configured output bound when omitted, and reserves both limits before dispatch. Priced embeddings compare total input bytes with `max_input_tokens`, reserve input capacity only, and settle provider-reported prompt usage. These bounds remain operator assertions, not tokenizer measurements. A workspace with an upstream budget cannot dispatch an unpriced request without a trusted held reservation.
+An omitted output limit is set to `max_output_tokens` using the upstream `max_completion_tokens` field. Explicit output limits must be positive and no larger than the configured bound. Providers must support that field. Pricing supports one text chat completion, including optional streaming, the text-only Responses subset above, or text embeddings. Chat pricing rejects audio, images, multiple choices and other unsupported billing dimensions; supported text-only function tools are described below. On a priced Responses request, the gateway compares the combined UTF-8 byte length of `input` and `instructions` with `max_input_tokens`, injects the configured output bound when omitted, and reserves both limits before dispatch. Priced embeddings compare total input bytes with `max_input_tokens`, reserve input capacity only, and settle provider-reported prompt usage. These bounds remain operator assertions, not tokenizer measurements. A workspace with an upstream budget cannot dispatch an unpriced request without a trusted held reservation.
+
+Text-only function calls and tool-result conversations are also supported on token-priced Chat routes with the corresponding tool capability enabled. Niu forwards function definitions and results; your application executes and authorizes functions. Serialized messages, tool definitions, tool choice and response-format instructions count toward the conservative input byte guard. Hosted tools and additional billable modalities are unsupported. See [Chat function tools](/docs/reference/api/#chat-function-tools-and-structured-output) for validation and streaming limits.
 
 The immutable price revision includes the route configuration and pricing. Identical publications reuse a revision. Reservations happen before dispatch; insufficient funds or a missing matching budget prevent the upstream call. Complete provider usage settles cash and API-equivalent cost; missing usage, timeout and interrupted streams retain exposure. A recovery worker retries completed priced settlements without repeating inference.
 
-Priced streaming requests always request final usage via `stream_options.include_usage=true`. Missing usage or a missing terminal event still retains the reservation. PostgreSQL/provider-fixture tests cover complete usage, missing usage and truncation.
+Priced streaming requests always request final usage via `stream_options.include_usage=true`. Missing usage or a missing terminal event still retains the reservation.
 
 
 ## Published routing configuration
@@ -210,7 +214,7 @@ supports_structured_output = true
 
 ## Responses API 文本子集
 
-对于显式声明支持 Responses 的路由，网关实现了 `POST /v1/responses` 的非流式纯文本子集。该功能在 OpenRouter 上默认禁用，仅可在验证所选模型和上游端点后启用：
+对于显式声明支持 Responses 的路由，网关实现了 `POST /v1/responses` 的纯文本子集，支持缓冲和流式输出。该功能在 OpenRouter 上默认禁用，仅可在验证所选模型和上游端点后启用：
 
 ```toml
 [models.fast]
@@ -223,7 +227,9 @@ supports_responses = true
 
 请求在 `input` 中接受一个非空字符串，以及可选的字符串参数 `instructions`、`max_output_tokens`、`temperature`、`top_p`、字符串值的 `metadata` 和 `user`。请求会携带上游模型名称转发至已配置的 `/responses` 端点，随后以 Niu 的公开别名返回。Niu 会校验文本消息、推理和拒绝输出项，并将供应商报告的 `input_tokens` 和 `output_tokens` 保存为本次尝试的提示/补全用量。缺失的用量保持为未知状态。
 
-不支持输入数组、图像与音频、函数工具、流式传输、历史响应/会话状态、提示词模板以及其他字段。未知字段会收到 `400`；在未声明 `supports_responses` 的路由上请求 Responses 接口，或请求流式传输，会在创建尝试记录前收到 `501`。该标志仅代表运维人员的声明，而非供应商合规性证明。原生 Anthropic/Bedrock 路由不能声明此标志。
+设置 `stream: true` 可接收 Responses 服务器发送事件（SSE）。请读取终止响应事件；开始时的 HTTP 200 并不代表请求已完成。终止事件报告的用量可作为核算依据，缺失用量仍保持未知。停止客户端并不证明上游已取消。响应与失败语义见 [Responses API 文本子集](/docs/reference/api/#responses-api-文本子集)。
+
+不支持输入数组、图像与音频、函数工具、历史响应/会话状态、提示词模板以及其他字段。未知字段会收到 `400`；在未声明 `supports_responses` 的路由上请求 Responses 接口，会在创建尝试记录前收到 `501`。该标志仅代表运维人员的声明，而非供应商合规性证明。原生 Anthropic/Bedrock 路由不能声明此标志。
 
 无效的请求结构会收到 `400`。对未声明相应能力的路由发起合法的功能请求，会在记录操作或尝试之前收到 `501`。已启用的路由能力会纳入用于尝试存证的不可变路由修订版本中。请求级别的工具定义和 Schema 会作为每次请求的一部分向下游转发。
 
@@ -267,11 +273,13 @@ max_output_tokens = 4096
 
 网关会按已配置的完整输入与输出上限预留额度，而非按估算的 Token 数量预留。输入上限是运维人员对该路由下供应商最大可计费输入的断言，并非本地分词器（tokenizer）校验出的限制。请根据实际的供应商/模型合同选择上限。如果低估了上限，可能会导致超支：Niu 会记录全部实际应付责任并标记该条目，而不会隐藏超出部分。在投入生产使用前，仍需完成供应商合同校验。
 
-当请求未指定输出上限时，网关会使用上游 `max_completion_tokens` 字段将其设置为 `max_output_tokens`。显式指定的输出上限必须为正数且不超过配置的上限，同时模型供应商必须支持该字段。定价支持单次文本对话补全（含可选的流式传输）、上述纯文本 Responses 子集，或文本向量嵌入。对话计费会拒绝工具调用、音频、图像、多候选项（multiple choices）及其他计费维度。在计费的 Responses 请求中，网关会将 `input` 与 `instructions` 的合计 UTF-8 字节长度与 `max_input_tokens` 进行比较，在未指定输出限制时注入已配置的输出上限，并在分发前预留这两项限额。计费的向量嵌入请求会将总输入字节数与 `max_input_tokens` 比较，仅预留输入容量，并结算供应商报告的提示用量。这些上限仍然是运维人员的断言，而非分词器测量值。配置了上游预算的工作空间在没有可靠冻结预留的情况下，无法分发未定价的请求。
+当请求未指定输出上限时，网关会使用上游 `max_completion_tokens` 字段将其设置为 `max_output_tokens`。显式指定的输出上限必须为正数且不超过配置的上限，同时模型供应商必须支持该字段。定价支持单次文本对话补全（含可选的流式传输）、上述纯文本 Responses 子集，或文本向量嵌入。对话计费会拒绝音频、图像、多候选项（multiple choices）及其他不受支持的计费维度；下文说明支持的纯文本函数工具。在计费的 Responses 请求中，网关会将 `input` 与 `instructions` 的合计 UTF-8 字节长度与 `max_input_tokens` 进行比较，在未指定输出限制时注入已配置的输出上限，并在分发前预留这两项限额。计费的向量嵌入请求会将总输入字节数与 `max_input_tokens` 比较，仅预留输入容量，并结算供应商报告的提示用量。这些上限仍然是运维人员的断言，而非分词器测量值。配置了上游预算的工作空间在没有可靠冻结预留的情况下，无法分发未定价的请求。
+
+启用相应工具能力后，按 Token 计费的 Chat 路由也支持纯文本函数调用和工具结果对话。Niu 转发函数定义与结果，由您的应用执行函数并校验权限。序列化后的消息、工具定义、工具选择和响应格式指令均计入保守的输入字节限制。托管工具和其他计费模态仍不受支持。校验和流式限制见 [Chat 函数工具](/docs/reference/api/#对话函数工具与结构化输出)。
 
 不可变的价格修订版本包含路由配置与定价信息；完全相同的发布内容会复用同一个修订版本。额度预留发生在分发之前；资金不足或缺少匹配预算都会阻止发起上游调用。完整的供应商用量会结算现金成本与 API 等效成本；缺失用量、超时和中断的流则会保留风险敞口。后台恢复工作进程会重试已完成但未结算的计费记录，而不会重复发起模型推理。
 
-计费的流式请求始终会通过 `stream_options.include_usage=true` 请求最终用量。如果缺失用量或缺失终止事件，预留额度仍会保持冻结。PostgreSQL 与供应商模拟测试覆盖了完整用量、缺失用量及响应截断等场景。
+计费的流式请求始终会通过 `stream_options.include_usage=true` 请求最终用量。如果缺失用量或缺失终止事件，预留额度仍会保持冻结。
 
 ## 已发布的路由配置
 
