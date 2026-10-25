@@ -1,4 +1,12 @@
 export type OperatorAccessRole = 'owner' | 'admin' | 'viewer';
+export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
+/** Configuration identity only; does not establish upstream capability or pricing. */
+export type ProviderIntegration = {
+  integration_type: ProviderIntegrationType | null;
+  effective_type: ProviderIntegrationType;
+  source: 'connection' | 'provider' | 'unspecified';
+  revision: number;
+};
 import { notifyResponse } from './response-metadata.js';
 import { iterateCursorItems } from './pagination.js';
 export type MemberPasswordConfiguration =
@@ -1280,6 +1288,22 @@ export class NiuAdminClient {
   /** Platform administration only; metadata contains no credentials or procurement prices. */
   getProviderProfile(providerId: string, options?: RequestOptions): Promise<{ data: ProviderProfile }> {
     return this.request(`/providers/${uuid(providerId)}`, undefined, options);
+  }
+  /** Platform-only Provider integration default, independent of inference formats. */
+  getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
+    return this.request(`/providers/${uuid(providerId)}/integration`, undefined, options);
+  }
+  setProviderIntegration(providerId: string, input: { integration_type: ProviderIntegrationType; expected_revision: number }, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
+    if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Choose a nonnegative safe integer integration revision');
+    return this.request(`/providers/${uuid(providerId)}/integration`, input, options, 'PUT');
+  }
+  /** Null selection inherits the owning Provider default; no default means unspecified Custom. */
+  getConnectionIntegration(connectionId: string, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
+    return this.request(`/vendors/${uuid(connectionId)}/integration`, undefined, options);
+  }
+  setConnectionIntegration(connectionId: string, input: { integration_type: ProviderIntegrationType | null; expected_revision: number }, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
+    if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Choose a nonnegative safe integer integration revision');
+    return this.request(`/vendors/${uuid(connectionId)}/integration`, input, options, 'PUT');
   }
   getSupplierProfile(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
     return this.getProviderProfile(supplierId, options);

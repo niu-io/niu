@@ -227,3 +227,20 @@ targets. The Chinese protocol links now target their visible Chinese sections:
 clicking the Responses link navigated to the visible Chinese heading, instead of
 the hidden English content. No fixture outcome was used. Complete inference
 qualification and the final deployed guide audit remain release requirements.
+
+## Provider integration configuration foundation
+
+Bead `niu-2xp.2` tracks issue #97. A fresh Provider and disabled OpenRouter
+connection were created through the actual local gateway. Saving a Provider
+default propagated to its inheriting connection. An explicit Custom override
+survived a default change; clearing it restored inheritance. Current SDK calls
+exercised OpenRouter, New API, LiteLLM and Custom selections without changing the
+adapter, credential or endpoint and without dispatching inference.
+
+A stale connection revision returned 409. A workspace-scoped operator received
+403 for the configuration read. After restarting the gateway, the built SDK read
+the retained Provider default and connection revision. Independent PostgreSQL
+reads confirmed the persisted selections and revisions. Storage and gateway
+builds, SDK compilation and API generation completed; no fixture outcome was
+used. The architecture record describes the full discovery/review requirements.
+No UI, live discovery/import or hosted acceptance is claimed by this foundation.

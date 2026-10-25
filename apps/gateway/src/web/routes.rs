@@ -500,6 +500,18 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::supplier_configuration_usage::read),
     )
     .dual_route(
+        "/providers/{provider}/integration",
+        get(crate::provider_integrations::read_provider)
+            .put(crate::provider_integrations::save_provider)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
+        "/vendors/{id}/integration",
+        get(crate::provider_integrations::read_vendor)
+            .put(crate::provider_integrations::save_vendor)
+            .layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
         "/providers/{provider}",
         get(crate::providers::profile)
             .patch(crate::providers::rename)

@@ -219,6 +219,46 @@ getProviderProfile(providerId: string, options?: RequestOptions): Promise<{
 }>;
 ```
 
+### getProviderIntegration
+
+```typescript
+/** Platform-only Provider integration default, independent of inference formats. */
+getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{
+    data: ProviderIntegration;
+}>;
+```
+
+### setProviderIntegration
+
+```typescript
+setProviderIntegration(providerId: string, input: {
+    integration_type: ProviderIntegrationType;
+    expected_revision: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderIntegration;
+}>;
+```
+
+### getConnectionIntegration
+
+```typescript
+/** Null selection inherits the owning Provider default; no default means unspecified Custom. */
+getConnectionIntegration(connectionId: string, options?: RequestOptions): Promise<{
+    data: ProviderIntegration;
+}>;
+```
+
+### setConnectionIntegration
+
+```typescript
+setConnectionIntegration(connectionId: string, input: {
+    integration_type: ProviderIntegrationType | null;
+    expected_revision: number;
+}, options?: RequestOptions): Promise<{
+    data: ProviderIntegration;
+}>;
+```
+
 ### getSupplierProfile
 
 ```typescript

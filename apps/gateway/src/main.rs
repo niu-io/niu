@@ -17,6 +17,7 @@ mod guardrails;
 mod inference_schema;
 mod native_messages_tools;
 mod payments;
+mod provider_integrations;
 mod providers;
 mod request_payloads;
 mod request_source;

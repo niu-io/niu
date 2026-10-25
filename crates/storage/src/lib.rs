@@ -252,6 +252,7 @@ pub use media_results::MediaResultKind;
 pub use video_composer_drafts::VideoComposerDraft;
 pub use video_intents::{VideoIntent, VideoIntentInput};
 mod pricing;
+mod provider_integrations;
 mod providers;
 pub use accounting::{
     BudgetSnapshot, CostEntry, GatewayActivityCostSummary, GatewayActivityEntry,
@@ -266,6 +267,7 @@ pub use codex_report::{
 };
 pub use keys::{IssuedKey, KeyMutationResult, KeyMutationStatus, KeyView, Principal};
 pub use pricing::{PriceInput, TokenRates};
+pub use provider_integrations::ProviderIntegration;
 pub use providers::{
     ProviderBusinessCreate, ProviderMembership, ProviderOfferInput,
     ProviderOfferQualificationInput, ProviderOfferSchedule, ProviderQualificationInput,

@@ -243,6 +243,8 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [ProviderCredentialUpdateInput](/docs/api/sdk/providercredentialupdateinput/)
 - [ProviderEarning](/docs/api/sdk/providerearning/)
 - [ProviderEarningPage](/docs/api/sdk/providerearningpage/)
+- [ProviderIntegration](/docs/api/sdk/providerintegration/)
+- [ProviderIntegrationType](/docs/api/sdk/providerintegrationtype/)
 - [ProviderMediaOfferInput](/docs/api/sdk/providermediaofferinput/)
 - [ProviderMediaOfferModel](/docs/api/sdk/providermediaoffermodel/)
 - [ProviderMediaRateCard](/docs/api/sdk/providermediaratecard/)

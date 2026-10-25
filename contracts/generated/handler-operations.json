@@ -18213,6 +18213,492 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/api/v1/providers/{provider}/integration": {
+      "get": {
+        "operationId": "getProviderIntegration",
+        "summary": "Read provider integration identity",
+        "description": "Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current integration selection and effective source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "integration_type",
+                        "effective_type",
+                        "source",
+                        "revision"
+                      ],
+                      "properties": {
+                        "integration_type": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom",
+                            null
+                          ]
+                        },
+                        "effective_type": {
+                          "type": "string",
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "connection",
+                            "provider",
+                            "unspecified"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "format": "int64",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integration or revision"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Configuration changed concurrently"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      },
+      "put": {
+        "operationId": "setProviderIntegration",
+        "summary": "Set provider integration identity",
+        "description": "Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current integration selection and effective source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "integration_type",
+                        "effective_type",
+                        "source",
+                        "revision"
+                      ],
+                      "properties": {
+                        "integration_type": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom",
+                            null
+                          ]
+                        },
+                        "effective_type": {
+                          "type": "string",
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "connection",
+                            "provider",
+                            "unspecified"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "format": "int64",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integration or revision"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Configuration changed concurrently"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "integration_type",
+                  "expected_revision"
+                ],
+                "properties": {
+                  "integration_type": {
+                    "type": "string",
+                    "enum": [
+                      "openrouter",
+                      "newapi",
+                      "litellm",
+                      "custom"
+                    ]
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vendors/{id}/integration": {
+      "get": {
+        "operationId": "getVendorIntegration",
+        "summary": "Read vendor integration identity",
+        "description": "Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current integration selection and effective source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "integration_type",
+                        "effective_type",
+                        "source",
+                        "revision"
+                      ],
+                      "properties": {
+                        "integration_type": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom",
+                            null
+                          ]
+                        },
+                        "effective_type": {
+                          "type": "string",
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "connection",
+                            "provider",
+                            "unspecified"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "format": "int64",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integration or revision"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Configuration changed concurrently"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      },
+      "put": {
+        "operationId": "setVendorIntegration",
+        "summary": "Set vendor integration identity",
+        "description": "Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current integration selection and effective source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "integration_type",
+                        "effective_type",
+                        "source",
+                        "revision"
+                      ],
+                      "properties": {
+                        "integration_type": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom",
+                            null
+                          ]
+                        },
+                        "effective_type": {
+                          "type": "string",
+                          "enum": [
+                            "openrouter",
+                            "newapi",
+                            "litellm",
+                            "custom"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "connection",
+                            "provider",
+                            "unspecified"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "format": "int64",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integration or revision"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Configuration changed concurrently"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "integration_type",
+                  "expected_revision"
+                ],
+                "properties": {
+                  "integration_type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "openrouter",
+                      "newapi",
+                      "litellm",
+                      "custom",
+                      null
+                    ]
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/provider-memberships": {
       "get": {
         "operationId": "listProviderMemberships",

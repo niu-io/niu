@@ -18913,6 +18913,504 @@ HTTP 502: Integration unavailable or processing deadline exceeded; retry deliver
 
 HTTP 503: Durable storage unavailable; retry notification
 
+## Read provider integration identity
+
+`GET /api/v1/providers/{provider}/integration`
+
+Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.
+
+Implementation: `implemented`. Operation: `getProviderIntegration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current integration selection and effective source
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integration_type",
+        "effective_type",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "integration_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom",
+            null
+          ]
+        },
+        "effective_type": {
+          "type": "string",
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "connection",
+            "provider",
+            "unspecified"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integration or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Resource not found
+
+HTTP 409: Configuration changed concurrently
+
+HTTP 503: Storage unavailable
+
+## Set provider integration identity
+
+`PUT /api/v1/providers/{provider}/integration`
+
+Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.
+
+Implementation: `implemented`. Operation: `setProviderIntegration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "integration_type",
+    "expected_revision"
+  ],
+  "properties": {
+    "integration_type": {
+      "type": "string",
+      "enum": [
+        "openrouter",
+        "newapi",
+        "litellm",
+        "custom"
+      ]
+    },
+    "expected_revision": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Current integration selection and effective source
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integration_type",
+        "effective_type",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "integration_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom",
+            null
+          ]
+        },
+        "effective_type": {
+          "type": "string",
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "connection",
+            "provider",
+            "unspecified"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integration or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Resource not found
+
+HTTP 409: Configuration changed concurrently
+
+HTTP 503: Storage unavailable
+
+## Read vendor integration identity
+
+`GET /api/v1/vendors/{id}/integration`
+
+Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.
+
+Implementation: `implemented`. Operation: `getVendorIntegration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current integration selection and effective source
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integration_type",
+        "effective_type",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "integration_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom",
+            null
+          ]
+        },
+        "effective_type": {
+          "type": "string",
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "connection",
+            "provider",
+            "unspecified"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integration or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Resource not found
+
+HTTP 409: Configuration changed concurrently
+
+HTTP 503: Storage unavailable
+
+## Set vendor integration identity
+
+`PUT /api/v1/vendors/{id}/integration`
+
+Platform administration required. Integration identity is independent of the inference adapter, endpoint, credential and prices. An unspecified default resolves to custom without claiming detection. A connection can override its Provider default; null restores inheritance. Writes require the current local revision (zero before the first save) and never overwrite a concurrent edit. This operation does not discover models, grant upstream management rights, publish rates or dispatch inference.
+
+Implementation: `implemented`. Operation: `setVendorIntegration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "integration_type",
+    "expected_revision"
+  ],
+  "properties": {
+    "integration_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "openrouter",
+        "newapi",
+        "litellm",
+        "custom",
+        null
+      ]
+    },
+    "expected_revision": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Current integration selection and effective source
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integration_type",
+        "effective_type",
+        "source",
+        "revision"
+      ],
+      "properties": {
+        "integration_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom",
+            null
+          ]
+        },
+        "effective_type": {
+          "type": "string",
+          "enum": [
+            "openrouter",
+            "newapi",
+            "litellm",
+            "custom"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "connection",
+            "provider",
+            "unspecified"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid integration or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Resource not found
+
+HTTP 409: Configuration changed concurrently
+
+HTTP 503: Storage unavailable
+
 ## List the signed-in operator’s complete active Provider memberships
 
 `GET /api/v1/provider-memberships`
