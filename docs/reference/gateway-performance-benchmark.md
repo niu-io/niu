@@ -1,26 +1,27 @@
 # AI gateway performance benchmark: Niu vs New API vs LiteLLM Proxy
 
-This document records the methodology, complete measurement dataset, and architectural analysis of our head-to-head AI gateway performance benchmark comparing **Niu** (`v0.2.4`, Rust / Axum / Tokio), **New API** (`QuantumNous/new-api` commit `45fbb14`, Go / Gin / GORM), and **LiteLLM Proxy** (`BerriAI/litellm` `v1.104.0`, Python / FastAPI / Uvicorn + `uvloop`).
+This is a historical synthetic dataset recorded on October 16, 2026 for the pinned versions below. It is not a capacity qualification of the current release or a hosted deployment. Authentication, database work and worker profiles differ between gateways, so ratios describe these configurations only. The recorded PostgreSQL configuration uses `synchronous_commit = off`: successful commits can precede WAL flush and recent transactions can be lost after a crash. See [PostgreSQL’s durability settings](https://www.postgresql.org/docs/17/runtime-config-wal.html#GUC-SYNCHRONOUS-COMMIT). No crash-recovery or cloud-cost qualification is established by these results.
 
-The evaluation adapts the open-source [LiteLLM AI Gateway Benchmark](https://github.com/BerriAI/ai-gateway-bench) methodology ([published at litellm.ai/ai-gateway](https://www.litellm.ai/ai-gateway)) and extends it across concurrent load tiers (`c = 1, 4, 16, 64`), both OpenAI `/v1/chat/completions` and native Anthropic `/v1/messages` routes, Server-Sent Events (SSE) token streaming (`ITL` and `TTFT`), multi-turn coding-agent sessions (`claude_code` and `codex` profiles), memory footprint (`RSS`), and cloud infrastructure cost efficiency (`RPS/$`).
+This document records the methodology, recorded measurements and interpretation limits for the AI gateway benchmark comparing **Niu** (`v0.2.4`, Rust / Axum / Tokio), **New API** (`QuantumNous/new-api` commit `45fbb14`, Go / Gin / GORM), and **LiteLLM Proxy** (`BerriAI/litellm` `v1.104.0`, Python / FastAPI / Uvicorn + `uvloop`).
+
+The evaluation adapts the open-source [LiteLLM AI Gateway Benchmark](https://github.com/BerriAI/ai-gateway-bench) methodology ([published at litellm.ai/ai-gateway](https://www.litellm.ai/ai-gateway)) and extends it across concurrent load tiers (`c = 1, 4, 16, 64`), both OpenAI `/v1/chat/completions` and native Anthropic `/v1/messages` routes, Server-Sent Events (SSE) token streaming (`ITL` and `TTFT`), multi-turn coding-agent sessions (`claude_code` and `codex` profiles), and memory footprint (`RSS`).
 
 ---
 
 ## 1. Executive summary
 
-| Metric | Niu (`v0.2.4`, Rust) | New API (`45fbb14`, Go) | LiteLLM Proxy (`v1.104.0`, Python) | Niu Advantage |
+| Metric | Niu (`v0.2.4`, Rust) | New API (`45fbb14`, Go) | LiteLLM Proxy (`v1.104.0`, Python) | Ratio in this dataset |
 | :--- | :--- | :--- | :--- | :--- |
-| **Peak Throughput (`/v1/chat/completions`, `c=64`)** | **3,238.7 RPS** | 865.6 RPS (peak) / 352.0 RPS (sustained) | 302.2 RPS | **3.74x New API (peak)** / **10.72x LiteLLM** |
+| **Peak Throughput (`/v1/chat/completions`, `c=64`)** | **3,238.7 RPS** | 865.6 RPS (peak) / 148.9 RPS (sustained) | 302.2 RPS | **3.74x New API (peak)** / **10.72x LiteLLM** |
 | **Tail Latency (`p99` at `c=64`, `/v1/chat/completions`)** | **31.54 ms** (`p50: 18.94 ms`) | 135.73 ms (peak) | 338.74 ms (`p50: 193.26 ms`) | **4.30x lower than New API** / **10.74x lower than LiteLLM** |
-| **Throughput (`/v1/messages` Anthropic, `c=64`)** | **2,518.8 RPS** (`p99: 60.61 ms`) | 164.5 RPS (`c=16`, `p99: 473.92 ms`) | 232.2 RPS (`p99: 397.88 ms`) | **10.85x LiteLLM** / **15.31x New API** |
+| **Throughput (`/v1/messages` Anthropic, `c=64`)** | **2,518.8 RPS** (`p99: 60.61 ms`) | 136.2 RPS (`p99: 1,475.53 ms`) | 232.2 RPS (`p99: 397.88 ms`) | **10.85x LiteLLM** / **18.49x New API** |
 | **Concurrent SSE Streaming (`c=16`, 40 tokens/stream)** | **235.9 streams/s** (`9,436 tok/s`) | 100.9 streams/s (`4,036 tok/s`) | 83.0 streams/s (`3,320 tok/s`) | **2.34x New API** / **2.84x LiteLLM** |
 | **Streaming Inter-Token Latency (`ITL p50`, `c=16`)** | **1.34 ms** (`43.0` chunks/stream) | 3.55 ms (`42.0` chunks/stream) | 4.62 ms (`43.0` chunks/stream) | **2.65x faster than New API** / **3.45x faster than LiteLLM** |
 | **16-Session Coding Agent (`claude_code`, 30 turns)** | **1,746.0 ms** (`turn p50: 55.0 ms`) | 4,864.9 ms (`turn p50: 142.0 ms`) | 3,353.3 ms (`turn p50: 103.0 ms`) | **2.79x faster than New API** / **1.92x faster than LiteLLM** |
 | **16-Session Coding Agent (`codex`, 30 turns)** | **1,686.6 ms** (`turn p50: 54.1 ms`) | 4,891.9 ms (`turn p50: 132.8 ms`) | 5,803.9 ms (`turn p50: 180.8 ms`) | **2.90x faster than New API** / **3.44x faster than LiteLLM** |
-| **Idle / Peak Memory Footprint (`RSS`)** | **18.2 MB / 26.4 MB** | 37.4 MB / 98.5 MB | 158.0 MB / 194.6 MB | **5.98x less peak RAM than LiteLLM** / **3.73x less than New API** |
-| **Gateway Cost per 1M Requests (`c7g.large`)** | **$0.014** (`71,599 RPS/$/hr`) | $0.052 (`19,136 RPS/$/hr`) | $0.150 (`6,681 RPS/$/hr`) | **10.7x lower proxy compute cost than LiteLLM** |
+| **Idle / Peak Memory Footprint (`RSS`)** | **18.2 MB / 26.4 MB** | 37.4 MB / 98.5 MB | 158.0 MB / 194.6 MB | **7.37x less peak RAM than LiteLLM** / **3.73x less than New API** |
 
-Crucially, **Niu achieves 3,238.7 RPS while executing full ACID PostgreSQL request admission and completion recording on every request**, whereas LiteLLM Proxy was benchmarked in its fastest stateless configuration (master key in memory, zero database writes).
+Niu recorded database admission and completion work in this configuration. LiteLLM used an in-memory master key and disabled spend logging. These are different work profiles, and PostgreSQL asynchronous commit does not establish crash-safe acknowledgement.
 
 ---
 
@@ -52,17 +53,17 @@ All processes (mock upstream, gateway under test, PostgreSQL 17.11, and load gen
 
 ### 2.3 Gateway configurations & durability matrix
 
-To ensure a fair and transparent comparison, each gateway was built in release mode and configured according to its recommended high-throughput deployment pattern:
+The recorded release-mode configurations differ in authentication, persistence and worker behavior:
 
 | Dimension | Niu (`v0.2.4`) | New API (`45fbb14`) | LiteLLM Proxy (`v1.104.0`) |
 | :--- | :--- | :--- | :--- |
 | **Runtime & Framework** | Rust (`--release`), Axum, Tokio | Go 1.24 (`-ldflags="-s -w"`), Gin (`GIN_MODE=release`), GORM | Python 3.12, FastAPI, Uvicorn, `uvloop`, `httptools` |
 | **Authentication Mode** | Workspace API key (`SHA-256` hash + in-memory cache with 5s TTL) | User token (`MEMORY_CACHE_ENABLED=true`, `SelfUseModeEnabled=true`) | In-memory `master_key` (no DB lookup) |
-| **Per-Request Database Work** | **Full ACID PostgreSQL**: pre-dispatch `operations` + `attempts` admission (`1` batched CTE) and micro-batched completion settlement (`up to 64 requests / 2ms flush`) | **PostgreSQL**: token lookup (`MEMORY_CACHE_ENABLED=true`), user quota checks, and `BATCH_UPDATE_ENABLED=true` usage logging | **None** (stateless proxy mode; database logging disabled to measure LiteLLM's fastest possible path) |
+| **Per-Request Database Work** | **Transactional PostgreSQL**: pre-dispatch `operations` + `attempts` admission (`1` batched CTE) and micro-batched completion settlement (`up to 64 requests / 2ms flush`) | **PostgreSQL**: token lookup (`MEMORY_CACHE_ENABLED=true`), user quota checks, and `BATCH_UPDATE_ENABLED=true` usage logging | **None** (stateless proxy mode; database logging disabled in the tested single-worker profile) |
 | **Log Level** | `RUST_LOG=warn` | `GIN_MODE=release` | `LITELLM_LOG=ERROR` (`disable_spend_logs: true`) |
 | **Connection Pool** | `NIU_DB_MAX_CONNECTIONS=96`, `plan_cache_mode=force_generic_plan` | Standard `database/sql` PostgreSQL pool | `httpx` async connection pool |
 
-> **Important fairness note:** Niu is the only gateway in this benchmark executing synchronous, ACID-compliant pre-dispatch admission (`operations` and `attempts` rows) plus durable post-dispatch completion settlement on every single request. Even with full database durability enabled, Niu outperforms stateless LiteLLM Proxy by **10.7x** and cached New API by **3.7x**.
+> **Durability limit:** PostgreSQL used `synchronous_commit = off`. Admission and completion transactions were exercised, but this benchmark did not test crash recovery or guarantee that acknowledged writes had reached durable storage.
 
 ---
 
@@ -154,60 +155,33 @@ Inspired by `ai-gateway-bench`'s realistic agent harness (`bench_agent.py`), we 
 
 Notice that when scaling from 8 to 16 concurrent coding agents (doubling total turns from 240 to 480), **Niu's session completion time remains flat at ~1.69–1.75 seconds** (`turn p50` stays at `54–55 ms`), whereas LiteLLM Proxy's session latency nearly doubles (`3.06s -> 5.80s` on `codex`) and New API's climbs to `4.89s`.
 
-### 3.5 Memory footprint & cloud infrastructure cost efficiency
+### 3.5 Memory footprint
 
-Following `ai-gateway-bench/cost_analysis.py`, we combined measured peak throughput (`c = 64`) and resident set size (`RSS`) with standard AWS `c7g.large` (`2 vCPU, 4 GB RAM`, `$0.0725/hr` on-demand, `60%` target CPU utilization factor) to quantify infrastructure cost per 1M proxied requests:
+| Gateway | Idle RSS (MB) | Peak RSS under `c=64` (MB) |
+| :--- | :--- | :--- |
+| Niu (`v0.2.4`) | 18.16 | 26.4 |
+| New API (`45fbb14`) | 37.42 | 98.5 |
+| LiteLLM Proxy (`v1.104.0`) | 158.00 | 194.6 |
 
-| Gateway | Idle RSS (MB) | Peak RSS under `c=64` (MB) | Sustained `c=64` RPS | Effective RPS @ 60% Util | RPS per $/hr | Proxy Compute Cost per 1M Requests |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Niu (`v0.2.4`, Rust)** | **18.16 MB** | **26.4 MB** | **3,238.7** | **1,943.2** | **71,599** | **$0.014** |
-| New API (`45fbb14`, Go) | 37.42 MB | 98.5 MB | 865.6 (peak) | 519.4 | 19,136 | $0.052 |
-| LiteLLM Proxy (`v1.104.0`, Python) | 158.00 MB | 194.6 MB | 302.2 | 181.3 | 6,681 | $0.150 |
+Earlier cloud-cost projections are withdrawn: they combined Apple M4 throughput with an assumed cloud instance price and inconsistent derived values. This dataset does not measure cloud-hosted capacity, total deployment resources or an infrastructure bill. A cloud estimate requires a dated region and price basis, matched hardware measurements, utilization and database costs, and a reproducible calculation.
 
 ---
 
-## 4. Architectural interpretation: why Niu is faster
+<a id="4-architectural-interpretation-why-niu-is-faster"></a>
 
-### 4.1 Niu (`3,238.7 RPS`, `31.54 ms` p99, `26.4 MB` peak RSS)
+## 4. Interpretation limits
 
-Niu's gateway data plane (`crates/gateway`) is engineered around three principles that balance financial safety with high concurrency:
+The measurements do not establish architectural causes. Language/runtime, authentication caching, logging, SQL connection lifetime, validation and batching are candidates for controlled profiling. The runs vary several of these factors together, so a throughput ratio cannot identify which factor caused it.
 
-1. **Zero-GC Rust / Tokio Async Data Plane**:
-   Request parsing, header extraction, route pool candidate selection, and SSE chunk framing run on Tokio's work-stealing multi-threaded scheduler without garbage-collection pauses or interpreter locks. Memory footprint stays below `27 MB` even under 64 concurrent workers.
-2. **In-Memory Authentication & Route Snapshot Cache**:
-   Workspace API key verification (`SHA-256` digest verification + active key/company/workspace grant check) and static/dynamic model route resolution are served from lock-free in-memory caches with bounded TTLs (`5s`), avoiding redundant database round-trips on the hot admission path.
-3. **Single-Roundtrip Pre-Dispatch Admission & Micro-Batched Completion Settlement**:
-   - **Pre-dispatch**: Before an upstream request is sent, Niu records the `operations` and `attempts` rows in a single batched SQL CTE (`record_operation_and_attempt`).
-   - **Post-dispatch**: When responses complete, Niu's `CompletionBatcher` coalesces up to `64` concurrent request completions (within a `2 ms` window) into a single `UNNEST(...)` batch transaction that updates `attempts`, `operations`, `requests`, and `usage_events` in one database round-trip (`complete_unpriced_attempt_batch`).
-   - **PostgreSQL Generic Plan Stability**: Setting `plan_cache_mode = 'force_generic_plan'` on pooled connections and ensuring selective primary-key lookup (`attempts_pkey`) prevents PostgreSQL from falling into stale custom plans on transient `may_have_executed` partial indexes when `UNNEST` batch sizes vary dynamically between `1` and `64`.
-
-### 4.2 New API (`865.6 RPS` peak / `148.9–352.0 RPS` sustained, `98.5 MB` peak RSS)
-
-New API benefits from Go's compiled HTTP server (`net/http` + Gin) and in-memory token caching (`MEMORY_CACHE_ENABLED=true`), allowing it to reach `352.0 RPS` at `c = 4` and a fresh-start burst of `865.6 RPS` at `c = 64`. However, three architectural factors limit its sustained high-concurrency throughput and tail latency:
-
-1. **Unbatched Per-Request SQL Queries on the Hot Path**:
-   Even with `MEMORY_CACHE_ENABLED=true`, `BATCH_UPDATE_ENABLED=true`, and `SelfUseModeEnabled=true`, New API executes multiple synchronous GORM queries per request (querying `users` quota/group status, `tokens`, `user_subscriptions`, and inserting into `logs`) using `PreferSimpleProtocol: true`.
-2. **Default 60-Second SQL Connection Lifetime Churn**:
-   New API sets `sqlDB.SetConnMaxLifetime(60 * time.Second)` by default. Under sustained `c = 64` load across multi-minute test suites, PostgreSQL connections are continuously closed and re-established every 60 seconds, causing `p99` latency spikes (`135.7 ms` fresh -> `408–2,226 ms` during connection turnover).
-3. **Synchronous Structured Logging Overhead**:
-   Even in `GIN_MODE=release`, New API formats and writes ~1.5 KB of `[INFO]` and `[GIN]` request trace lines per completion, creating I/O and allocation pressure at high RPS.
-
-### 4.3 LiteLLM Proxy (`302.2–328.0 RPS`, `338.74 ms` p99, `194.6 MB` peak RSS)
-
-LiteLLM Proxy was benchmarked in its lightest possible configuration (`master_key` in memory, zero database connections, `disable_spend_logs: true`, `LITELLM_LOG=ERROR`). Despite having zero database work:
-
-1. **Single-Process Python Event Loop & GIL Bottleneck**:
-   A single Uvicorn worker running on CPython + `uvloop` saturates one CPU core at **~300–328 RPS**. Scaling beyond `c = 4` (`296.9 RPS`) to `c = 16` (`328.0 RPS`) and `c = 64` (`302.2 RPS`) yields zero additional throughput while queueing latency grows linearly (`p50` climbs from `13.22 ms` at `c = 4` to `45.07 ms` at `c = 16` and `193.26 ms` at `c = 64`).
-2. **Pydantic Model Validation & Translation Overhead**:
-   LiteLLM normalizes every request and response through internal Python dictionaries and Pydantic schemas (`ModelResponse`, `Choices`, `Usage`), adding ~6 ms of pure CPU time per non-streaming request and ~194 µs per streamed SSE chunk.
-3. **High Base Memory Footprint**:
-   Importing LiteLLM's provider SDKs, tokenizers, and FastAPI dependencies consumes `158–195 MB` of RSS per worker process—**6x to 7x more memory than Niu**.
+Compare equal routes, concurrency levels and pass types. In particular, New API's `865.6 RPS` peak at `c = 64` and `148.9 RPS` sustained pass are distinct; `352.0 RPS` belongs to `c = 4`. Mock coding-session timings are control-loop measurements, not real coding-task completion times. Process RSS excludes other deployment processes.
 
 ---
 
 ## 5. Reproducing the benchmark
 
-You can reproduce these measurements locally on any macOS or Linux host with Rust, Go, Python 3.12+, and PostgreSQL 17:
+The commands below are a historical procedure sketch, not a complete reproduction package. The record does not pin the benchmark harness revision or include the referenced `niu-bench.toml` and raw per-pass outputs. Do not treat a current checkout or a different host as reproducing these exact values. Use the [current load-testing guide](../../apps/docs/src/content/docs/guides/gateway-load-testing.mdx) for a maintained local procedure, and capture exact revisions, configuration and raw outputs for any new comparison.
+
+Historical steps (the Niu source must be at `v0.2.4`, not the current branch):
 
 1. **Start `mock-upstream`** from [`BerriAI/ai-gateway-bench`](https://github.com/BerriAI/ai-gateway-bench):
    ```sh

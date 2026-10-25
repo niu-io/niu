@@ -204,6 +204,12 @@ Content type: `application/json`.
                 "string",
                 "null"
               ]
+            },
+            "unit": {
+              "type": [
+                "object",
+                "null"
+              ]
             }
           }
         },

@@ -250,6 +250,12 @@ Content type: `application/json`.
                 "type": "null"
               }
             ]
+          },
+          "customer_unit_pricing": {
+            "type": [
+              "object",
+              "null"
+            ]
           }
         }
       }

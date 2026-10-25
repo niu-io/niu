@@ -621,6 +621,52 @@ Content type: `application/json`.
             ],
             "pattern": "^[0-9]+$"
           },
+          "customer_unit_charge": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "definition_revision",
+              "name",
+              "display_precision",
+              "atoms_per_unit",
+              "charged_atoms",
+              "restored_atoms",
+              "net_atoms"
+            ],
+            "properties": {
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "atoms_per_unit": {
+                "type": "string",
+                "const": "1000000000"
+              },
+              "charged_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "restored_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "net_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            }
+          },
           "customer_charge_status": {
             "type": "string",
             "enum": [
@@ -800,6 +846,69 @@ Content type: `application/json`.
                 "minimum": 0
               }
             }
+          }
+        },
+        "customer_unit_charges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "definition_revision",
+              "name",
+              "display_precision",
+              "atoms_per_unit",
+              "charged_atoms",
+              "restored_atoms",
+              "net_atoms",
+              "charged_requests"
+            ],
+            "properties": {
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "atoms_per_unit": {
+                "type": "string",
+                "const": "1000000000"
+              },
+              "charged_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "restored_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "net_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "charged_requests": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "unit_charges_by_model": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unit_charges_by_key": {
+          "type": "array",
+          "items": {
+            "type": "object"
           }
         },
         "usage_by_model": {

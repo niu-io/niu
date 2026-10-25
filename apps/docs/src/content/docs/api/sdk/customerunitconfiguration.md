@@ -11,6 +11,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type CustomerUnitConfiguration = {
     revision: string;
+    billing_mode: 'currency' | 'credits';
     definition: CustomerUnitDefinition | null;
     purchase_rules: CustomerUnitPurchaseRule[];
 };

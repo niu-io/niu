@@ -17,7 +17,7 @@ const groups = [
   ['Authentication and access', [
     ['Authentication', 'Sign-in configuration, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session$)'],
     ['Users and sessions', 'User identities, roles, sessions and authentication events.', '^/api/v1/operators'],
-    ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
+    ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
   ]],
   ['Workspaces and content', [
     ['Companies and workspaces', 'Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/[^/]+/projects(?:/[^/]+)?)?$)'],
@@ -33,7 +33,7 @@ const groups = [
     ['Financial reports', 'Financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs.', '^/api/v1/(?:financial-summary|commercial-position)$'],
     ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:/platform/customer-accounts$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
     ['Customer payments', 'Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding.', '(?:/billing/(?:topups|payment-methods)|^/payments/|^/api/v1/payments/readiness$|/platform/payments)'],
-    ['Branded consumption units', 'Versioned unit definitions and purchase conversion rules. Publication does not activate Credits billing.', '(?:^/api/v1/platform/units(?:/|$)|/billing/units(?:/|$))'],
+    ['Branded consumption units', 'Versioned unit definitions, purchase conversion rules, unit tariffs, and unit spending limits. Publication does not activate Credits billing.', '(?:^/api/v1/platform/units(?:/|$)|/billing/units(?:/|$)|/(?:workspaces|projects)/[^/]+/units/limit(?:/|$))'],
     ['Customer prices and statements', 'Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates.', '(?:^/api/v1/pricing|/billing(?:/|$))'],
   ]],
   ['Service and compatibility', [
@@ -74,7 +74,7 @@ export function deriveOperationAuthority(path, method, operation) {
   }
   if (
     /^\/api\/v1\/(?:platform\/|vendors|routing-registry|pools|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
-    /\/billing\/(?:quotes|units\/grants|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
+    /\/billing\/(?:quotes|units\/(?:grants|refunds|purchases\/[^/]+\/reversals|requests\/[^/]+\/reconciliations)|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
     /\/(?:tariffs|retail-price-enrollment|media-retail-price-enrollment|usage-reconciliation)/.test(path)
   ) {
     return {

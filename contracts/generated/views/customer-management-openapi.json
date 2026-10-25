@@ -11,6 +11,195 @@
     }
   ],
   "paths": {
+    "/api/v1/organizations/{organization}/billing/units/charges/{attempt}/refunds": {
+      "post": {
+        "operationId": "refundCustomerUnitCharge",
+        "summary": "Restore original consumed Credits ranges",
+        "description": "Platform administration required. Restores the next unrefunded prefix of an original resolved charge. Original source, definition and expiry remain unchanged; expired restored units stay expired. Purchase conversion and current tariffs are never used. Identical idempotent replay returns the original immutable receipt; conflicting replay and cumulative over-refund are rejected. Concurrent refunds serialize on the unit account. This does not execute an external payment refund, reverse a purchase, or release an unresolved inference hold. No monetary backing or procurement information is returned. Quantities are exact decimal strings.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "credit_atoms",
+                  "reason",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "credit_atoms": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Original immutable refund receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "credit_atoms",
+                        "reason",
+                        "atoms_per_unit",
+                        "created_at",
+                        "sources"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "credit_atoms": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "atoms_per_unit": {
+                          "type": "string",
+                          "const": "1000000000"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "sources": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "credit_atoms",
+                              "definition_revision",
+                              "name",
+                              "display_precision",
+                              "provenance",
+                              "expires_at_ms"
+                            ],
+                            "properties": {
+                              "credit_atoms": {
+                                "type": "string"
+                              },
+                              "definition_revision": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "display_precision": {
+                                "type": "integer"
+                              },
+                              "provenance": {
+                                "type": "string",
+                                "enum": [
+                                  "purchased",
+                                  "promotional",
+                                  "simulated"
+                                ]
+                              },
+                              "expires_at_ms": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid exact quantity or reason"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "No Credits reservation in the specified organization"
+          },
+          "409": {
+            "description": "Unresolved or released charge, over-refund or conflicting retry"
+          },
+          "422": {
+            "description": "Malformed request"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "organization"
+        }
+      }
+    },
     "/api/v1/organizations/{organization}/billing/units": {
       "get": {
         "operationId": "getCustomerUnitBalance",
@@ -50,7 +239,11 @@
                       "required": [
                         "billing_mode",
                         "atoms_per_unit",
-                        "balances"
+                        "definition",
+                        "purchase_rules",
+                        "balances",
+                        "purchases",
+                        "recent_charges"
                       ],
                       "properties": {
                         "billing_mode": {
@@ -63,6 +256,73 @@
                         "atoms_per_unit": {
                           "type": "string",
                           "const": "1000000000"
+                        },
+                        "definition": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "additionalProperties": false,
+                          "required": [
+                            "revision",
+                            "name",
+                            "display_precision",
+                            "atoms_per_unit"
+                          ],
+                          "properties": {
+                            "revision": {
+                              "type": "string",
+                              "pattern": "^[1-9][0-9]*$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "display_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9
+                            },
+                            "atoms_per_unit": {
+                              "type": "string",
+                              "const": "1000000000"
+                            }
+                          }
+                        },
+                        "purchase_rules": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "revision",
+                              "definition_revision",
+                              "payment_currency",
+                              "numerator",
+                              "denominator"
+                            ],
+                            "properties": {
+                              "revision": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "definition_revision": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "payment_currency": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              },
+                              "numerator": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "denominator": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              }
+                            }
+                          }
                         },
                         "balances": {
                           "type": "array",
@@ -131,6 +391,134 @@
                                 "type": "string",
                                 "pattern": "^[0-9]+$",
                                 "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+                              }
+                            }
+                          }
+                        },
+                        "purchases": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "order_id",
+                              "created_at",
+                              "definition_revision",
+                              "name",
+                              "display_precision",
+                              "provenance",
+                              "payment_currency",
+                              "payment_nanos",
+                              "issued_atoms",
+                              "reversed_atoms",
+                              "available_atoms"
+                            ],
+                            "properties": {
+                              "order_id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "created_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "definition_revision": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "display_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "provenance": {
+                                "type": "string",
+                                "enum": [
+                                  "purchased",
+                                  "simulated"
+                                ]
+                              },
+                              "payment_currency": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              },
+                              "payment_nanos": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "issued_atoms": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "reversed_atoms": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "available_atoms": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              }
+                            }
+                          }
+                        },
+                        "recent_charges": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "attempt_id",
+                              "reference",
+                              "charged_at",
+                              "model_alias",
+                              "definition_revision",
+                              "name",
+                              "display_precision",
+                              "charged_atoms",
+                              "restored_atoms",
+                              "refundable_atoms"
+                            ],
+                            "properties": {
+                              "attempt_id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "reference": {
+                                "type": "string"
+                              },
+                              "charged_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "model_alias": {
+                                "type": "string"
+                              },
+                              "definition_revision": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "display_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "charged_atoms": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "restored_atoms": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "refundable_atoms": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
                               }
                             }
                           }
@@ -4649,6 +5037,953 @@
         }
       }
     },
+    "/api/v1/workspaces/{workspace}/units/limit": {
+      "get": {
+        "operationId": "getWorkspaceCustomerUnitSpendingLimitByWorkspace",
+        "summary": "Read the workspace Credits spending limit and commitment",
+        "description": "Workspace read permission required. Returns the workspace's explicit Credits atom limit, policy revision, committed atoms (settled charges minus original-range restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary workspace limit is preserved. A preserved monetary limit blocks Credits admission until an explicit Credits workspace limit revision (integer atoms or null for unlimited) is published. Never exposes company balance or procurement costs. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current workspace Credits spending limit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "unit",
+                        "limit_atoms",
+                        "revision",
+                        "definition_revision",
+                        "committed_atoms",
+                        "remaining_atoms",
+                        "monetary_limit_preserved",
+                        "credits_admission_blocked_by_monetary_limit"
+                      ],
+                      "properties": {
+                        "unit": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "additionalProperties": false,
+                          "required": [
+                            "definition_revision",
+                            "name",
+                            "display_precision",
+                            "atoms_per_unit"
+                          ],
+                          "properties": {
+                            "definition_revision": {
+                              "type": "string",
+                              "pattern": "^[1-9][0-9]*$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "display_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9
+                            },
+                            "atoms_per_unit": {
+                              "type": "string",
+                              "const": "1000000000"
+                            }
+                          }
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "definition_revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "committed_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "remaining_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "monetary_limit_preserved": {
+                          "type": "boolean"
+                        },
+                        "credits_admission_blocked_by_monetary_limit": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Workspace not found in the authorized scope"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      },
+      "put": {
+        "operationId": "setWorkspaceCustomerUnitSpendingLimitByWorkspace",
+        "summary": "Set the workspace Credits spending limit",
+        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "limit_atoms",
+                  "expected_revision",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "limit_atoms": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Zero for initial configuration; maximum 9223372036854775806."
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable policy revision receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "expected_revision",
+                        "definition_revision",
+                        "limit_atoms",
+                        "recorded_at",
+                        "actor_kind",
+                        "actor_name"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "expected_revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "recorded_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "actor_kind": {
+                          "type": "string",
+                          "enum": [
+                            "installation",
+                            "member"
+                          ]
+                        },
+                        "actor_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integer string"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "402": {
+            "description": "Proposed limit is below committed workspace liability"
+          },
+          "403": {
+            "description": "Owner permission required"
+          },
+          "404": {
+            "description": "Workspace not found in the authorized scope"
+          },
+          "409": {
+            "description": "Stale revision, conflicting idempotency key or missing published unit definition"
+          },
+          "422": {
+            "description": "Malformed request body"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "workspace"
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspace}/units/limit/history": {
+      "get": {
+        "operationId": "listWorkspaceCustomerUnitSpendingLimitHistoryByWorkspace",
+        "summary": "List workspace Credits spending limit history",
+        "description": "Workspace read permission required. Returns descending immutable revisions with exclusive before_revision pagination. Never exposes internal actor identifiers. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before_revision",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Descending immutable policy revisions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_before_revision"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "revision",
+                          "expected_revision",
+                          "definition_revision",
+                          "limit_atoms",
+                          "recorded_at",
+                          "actor_kind",
+                          "actor_name"
+                        ],
+                        "properties": {
+                          "revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "expected_revision": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "definition_revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "limit_atoms": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "recorded_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "actor_kind": {
+                            "type": "string",
+                            "enum": [
+                              "installation",
+                              "member"
+                            ]
+                          },
+                          "actor_name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "next_before_revision": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[1-9][0-9]*$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid history cursor or page size"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Workspace not found in the authorized scope"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/units/limit/history",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspace}/keys/{key}/units/limit": {
+      "get": {
+        "operationId": "getKeyCustomerUnitSpendingLimitByWorkspace",
+        "summary": "Read an API key's Credits spending limit and commitment",
+        "description": "Workspace read permission required. Rotated keys share their original spending root identity. Returns the key lineage's explicit Credits atom limit, policy revision, committed atoms (settled charges minus restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary key limit is preserved. A preserved monetary key limit blocks Credits admission until an explicit Credits key limit revision is published. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current API key Credits spending limit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "unit",
+                        "limit_atoms",
+                        "revision",
+                        "definition_revision",
+                        "committed_atoms",
+                        "remaining_atoms",
+                        "monetary_limit_preserved",
+                        "credits_admission_blocked_by_monetary_limit"
+                      ],
+                      "properties": {
+                        "unit": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "additionalProperties": false,
+                          "required": [
+                            "definition_revision",
+                            "name",
+                            "display_precision",
+                            "atoms_per_unit"
+                          ],
+                          "properties": {
+                            "definition_revision": {
+                              "type": "string",
+                              "pattern": "^[1-9][0-9]*$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "display_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9
+                            },
+                            "atoms_per_unit": {
+                              "type": "string",
+                              "const": "1000000000"
+                            }
+                          }
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "definition_revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "committed_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "remaining_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "monetary_limit_preserved": {
+                          "type": "boolean"
+                        },
+                        "credits_admission_blocked_by_monetary_limit": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Key does not exist in the authorized workspace"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+        "tags": [
+          "API keys"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      },
+      "put": {
+        "operationId": "setKeyCustomerUnitSpendingLimitByWorkspace",
+        "summary": "Set an API key's Credits spending limit",
+        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Updates the shared spending root identity across secret rotations using optimistic revision checking and durable idempotency. Lowering below committed key liability returns 402. Preserves existing monetary key limits for currency mode while replacing their blocking effect in Credits admission. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "limit_atoms",
+                  "expected_revision",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "limit_atoms": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Zero for initial configuration; maximum 9223372036854775806."
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable policy revision receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "expected_revision",
+                        "definition_revision",
+                        "limit_atoms",
+                        "recorded_at",
+                        "actor_kind",
+                        "actor_name"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "expected_revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "recorded_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "actor_kind": {
+                          "type": "string",
+                          "enum": [
+                            "installation",
+                            "member"
+                          ]
+                        },
+                        "actor_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integer string"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "402": {
+            "description": "Proposed limit is below committed key liability"
+          },
+          "403": {
+            "description": "Owner permission required"
+          },
+          "404": {
+            "description": "Key does not exist in the authorized workspace"
+          },
+          "409": {
+            "description": "Stale revision, conflicting idempotency key, unattributed active liability or missing unit definition"
+          },
+          "422": {
+            "description": "Malformed request body"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+        "tags": [
+          "API keys"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "workspace"
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspace}/keys/{key}/units/limit/history": {
+      "get": {
+        "operationId": "listKeyCustomerUnitSpendingLimitHistoryByWorkspace",
+        "summary": "List API key Credits spending limit history",
+        "description": "Workspace read permission required. Returns descending immutable revisions shared across key rotations, with exclusive before_revision pagination. Never exposes internal actor identifiers. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before_revision",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Descending immutable policy revisions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_before_revision"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "revision",
+                          "expected_revision",
+                          "definition_revision",
+                          "limit_atoms",
+                          "recorded_at",
+                          "actor_kind",
+                          "actor_name"
+                        ],
+                        "properties": {
+                          "revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "expected_revision": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "definition_revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "limit_atoms": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "recorded_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "actor_kind": {
+                            "type": "string",
+                            "enum": [
+                              "installation",
+                              "member"
+                            ]
+                          },
+                          "actor_name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "next_before_revision": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[1-9][0-9]*$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid history cursor or page size"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Key does not exist in the authorized workspace"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history",
+        "tags": [
+          "API keys"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      }
+    },
     "/api/v1/workspaces/{workspace}/requests": {
       "get": {
         "operationId": "listProjectGatewayActivityByWorkspace",
@@ -4903,6 +6238,69 @@
                                 "minimum": 0
                               }
                             }
+                          }
+                        },
+                        "customer_unit_charges": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "definition_revision",
+                              "name",
+                              "display_precision",
+                              "atoms_per_unit",
+                              "charged_atoms",
+                              "restored_atoms",
+                              "net_atoms",
+                              "charged_requests"
+                            ],
+                            "properties": {
+                              "definition_revision": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "display_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "atoms_per_unit": {
+                                "type": "string",
+                                "const": "1000000000"
+                              },
+                              "charged_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              },
+                              "restored_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              },
+                              "net_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              },
+                              "charged_requests": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        },
+                        "unit_charges_by_model": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "unit_charges_by_key": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
                           }
                         },
                         "usage_by_model": {
@@ -11431,6 +12829,1007 @@
         "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/spending-limit/{currency}/history",
         "tags": [
           "Customer balances"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      }
+    },
+    "/api/v1/organizations/{organization}/projects/{project}/units/limit": {
+      "get": {
+        "operationId": "getWorkspaceCustomerUnitSpendingLimit",
+        "summary": "Read the workspace Credits spending limit and commitment",
+        "description": "Workspace read permission required. Returns the workspace's explicit Credits atom limit, policy revision, committed atoms (settled charges minus original-range restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary workspace limit is preserved. A preserved monetary limit blocks Credits admission until an explicit Credits workspace limit revision (integer atoms or null for unlimited) is published. Never exposes company balance or procurement costs.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current workspace Credits spending limit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "unit",
+                        "limit_atoms",
+                        "revision",
+                        "definition_revision",
+                        "committed_atoms",
+                        "remaining_atoms",
+                        "monetary_limit_preserved",
+                        "credits_admission_blocked_by_monetary_limit"
+                      ],
+                      "properties": {
+                        "unit": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "additionalProperties": false,
+                          "required": [
+                            "definition_revision",
+                            "name",
+                            "display_precision",
+                            "atoms_per_unit"
+                          ],
+                          "properties": {
+                            "definition_revision": {
+                              "type": "string",
+                              "pattern": "^[1-9][0-9]*$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "display_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9
+                            },
+                            "atoms_per_unit": {
+                              "type": "string",
+                              "const": "1000000000"
+                            }
+                          }
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "definition_revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "committed_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "remaining_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "monetary_limit_preserved": {
+                          "type": "boolean"
+                        },
+                        "credits_admission_blocked_by_monetary_limit": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Workspace not found in the authorized scope"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/units/limit",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      },
+      "put": {
+        "operationId": "setWorkspaceCustomerUnitSpendingLimit",
+        "summary": "Set the workspace Credits spending limit",
+        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "limit_atoms",
+                  "expected_revision",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "limit_atoms": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Zero for initial configuration; maximum 9223372036854775806."
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable policy revision receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "expected_revision",
+                        "definition_revision",
+                        "limit_atoms",
+                        "recorded_at",
+                        "actor_kind",
+                        "actor_name"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "expected_revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "recorded_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "actor_kind": {
+                          "type": "string",
+                          "enum": [
+                            "installation",
+                            "member"
+                          ]
+                        },
+                        "actor_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integer string"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "402": {
+            "description": "Proposed limit is below committed workspace liability"
+          },
+          "403": {
+            "description": "Owner permission required"
+          },
+          "404": {
+            "description": "Workspace not found in the authorized scope"
+          },
+          "409": {
+            "description": "Stale revision, conflicting idempotency key or missing published unit definition"
+          },
+          "422": {
+            "description": "Malformed request body"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/units/limit",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "workspace"
+        }
+      }
+    },
+    "/api/v1/organizations/{organization}/projects/{project}/units/limit/history": {
+      "get": {
+        "operationId": "listWorkspaceCustomerUnitSpendingLimitHistory",
+        "summary": "List workspace Credits spending limit history",
+        "description": "Workspace read permission required. Returns descending immutable revisions with exclusive before_revision pagination. Never exposes internal actor identifiers.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before_revision",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Descending immutable policy revisions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_before_revision"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "revision",
+                          "expected_revision",
+                          "definition_revision",
+                          "limit_atoms",
+                          "recorded_at",
+                          "actor_kind",
+                          "actor_name"
+                        ],
+                        "properties": {
+                          "revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "expected_revision": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "definition_revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "limit_atoms": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "recorded_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "actor_kind": {
+                            "type": "string",
+                            "enum": [
+                              "installation",
+                              "member"
+                            ]
+                          },
+                          "actor_name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "next_before_revision": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[1-9][0-9]*$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid history cursor or page size"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Workspace not found in the authorized scope"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/units/limit/history",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      }
+    },
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit": {
+      "get": {
+        "operationId": "getKeyCustomerUnitSpendingLimit",
+        "summary": "Read an API key's Credits spending limit and commitment",
+        "description": "Workspace read permission required. Rotated keys share their original spending root identity. Returns the key lineage's explicit Credits atom limit, policy revision, committed atoms (settled charges minus restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary key limit is preserved. A preserved monetary key limit blocks Credits admission until an explicit Credits key limit revision is published.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current API key Credits spending limit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "unit",
+                        "limit_atoms",
+                        "revision",
+                        "definition_revision",
+                        "committed_atoms",
+                        "remaining_atoms",
+                        "monetary_limit_preserved",
+                        "credits_admission_blocked_by_monetary_limit"
+                      ],
+                      "properties": {
+                        "unit": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "additionalProperties": false,
+                          "required": [
+                            "definition_revision",
+                            "name",
+                            "display_precision",
+                            "atoms_per_unit"
+                          ],
+                          "properties": {
+                            "definition_revision": {
+                              "type": "string",
+                              "pattern": "^[1-9][0-9]*$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "display_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9
+                            },
+                            "atoms_per_unit": {
+                              "type": "string",
+                              "const": "1000000000"
+                            }
+                          }
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "definition_revision": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "committed_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "remaining_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "monetary_limit_preserved": {
+                          "type": "boolean"
+                        },
+                        "credits_admission_blocked_by_monetary_limit": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Key does not exist in the authorized workspace"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit",
+        "tags": [
+          "API keys"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      },
+      "put": {
+        "operationId": "setKeyCustomerUnitSpendingLimit",
+        "summary": "Set an API key's Credits spending limit",
+        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Updates the shared spending root identity across secret rotations using optimistic revision checking and durable idempotency. Lowering below committed key liability returns 402. Preserves existing monetary key limits for currency mode while replacing their blocking effect in Credits admission.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "limit_atoms",
+                  "expected_revision",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "limit_atoms": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Canonical nonnegative signed-64-bit integer string or explicit null for unlimited."
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "description": "Zero for initial configuration; maximum 9223372036854775806."
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable policy revision receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "expected_revision",
+                        "definition_revision",
+                        "limit_atoms",
+                        "recorded_at",
+                        "actor_kind",
+                        "actor_name"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "expected_revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "limit_atoms": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "recorded_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "actor_kind": {
+                          "type": "string",
+                          "enum": [
+                            "installation",
+                            "member"
+                          ]
+                        },
+                        "actor_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid integer string"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "402": {
+            "description": "Proposed limit is below committed key liability"
+          },
+          "403": {
+            "description": "Owner permission required"
+          },
+          "404": {
+            "description": "Key does not exist in the authorized workspace"
+          },
+          "409": {
+            "description": "Stale revision, conflicting idempotency key, unattributed active liability or missing unit definition"
+          },
+          "422": {
+            "description": "Malformed request body"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit",
+        "tags": [
+          "API keys"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "write",
+          "scope": "workspace"
+        }
+      }
+    },
+    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history": {
+      "get": {
+        "operationId": "listKeyCustomerUnitSpendingLimitHistory",
+        "summary": "List API key Credits spending limit history",
+        "description": "Workspace read permission required. Returns descending immutable revisions shared across key rotations, with exclusive before_revision pagination. Never exposes internal actor identifiers.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before_revision",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Descending immutable policy revisions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_before_revision"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "revision",
+                          "expected_revision",
+                          "definition_revision",
+                          "limit_atoms",
+                          "recorded_at",
+                          "actor_kind",
+                          "actor_name"
+                        ],
+                        "properties": {
+                          "revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "expected_revision": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "definition_revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$"
+                          },
+                          "limit_atoms": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "recorded_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "actor_kind": {
+                            "type": "string",
+                            "enum": [
+                              "installation",
+                              "member"
+                            ]
+                          },
+                          "actor_name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "next_before_revision": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[1-9][0-9]*$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid history cursor or page size"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Workspace access denied"
+          },
+          "404": {
+            "description": "Key does not exist in the authorized workspace"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit/history",
+        "tags": [
+          "API keys"
         ],
         "x-niu-authority": {
           "audience": "customer-management",
@@ -21395,6 +23794,69 @@
                             }
                           }
                         },
+                        "customer_unit_charges": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "definition_revision",
+                              "name",
+                              "display_precision",
+                              "atoms_per_unit",
+                              "charged_atoms",
+                              "restored_atoms",
+                              "net_atoms",
+                              "charged_requests"
+                            ],
+                            "properties": {
+                              "definition_revision": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "display_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "atoms_per_unit": {
+                                "type": "string",
+                                "const": "1000000000"
+                              },
+                              "charged_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              },
+                              "restored_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              },
+                              "net_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                              },
+                              "charged_requests": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        },
+                        "unit_charges_by_model": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "unit_charges_by_key": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
                         "usage_by_model": {
                           "type": "array",
                           "items": {
@@ -26928,6 +29390,24 @@
       "KeyInput": {
         "$ref": "#/components/schemas/handler_operations_json_KeyInput"
       },
+      "handler_operations_json_VideoBillingQuantity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "numerator",
+          "denominator"
+        ],
+        "properties": {
+          "numerator": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "denominator": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
       "handler_operations_json_ModelRoutePool": {
         "type": "object",
         "required": [
@@ -27822,24 +30302,19 @@
               "null"
             ],
             "pattern": "^[0-9]+$"
-          }
-        }
-      },
-      "handler_operations_json_VideoBillingQuantity": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "numerator",
-          "denominator"
-        ],
-        "properties": {
-          "numerator": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
           },
-          "denominator": {
-            "type": "string",
-            "pattern": "^[1-9][0-9]*$"
+          "unit_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
           }
         }
       },
@@ -29129,6 +31604,52 @@
             ],
             "pattern": "^[0-9]+$"
           },
+          "customer_unit_charge": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "definition_revision",
+              "name",
+              "display_precision",
+              "atoms_per_unit",
+              "charged_atoms",
+              "restored_atoms",
+              "net_atoms"
+            ],
+            "properties": {
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "atoms_per_unit": {
+                "type": "string",
+                "const": "1000000000"
+              },
+              "charged_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "restored_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "net_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            }
+          },
           "customer_charge_status": {
             "type": "string",
             "enum": [
@@ -29400,6 +31921,52 @@
             ],
             "pattern": "^[0-9]+$",
             "description": "Customer retail charge only. Null is unknown or absent, never an upstream expense fallback."
+          },
+          "customer_unit_charge": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "definition_revision",
+              "name",
+              "display_precision",
+              "atoms_per_unit",
+              "charged_atoms",
+              "restored_atoms",
+              "net_atoms"
+            ],
+            "properties": {
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "atoms_per_unit": {
+                "type": "string",
+                "const": "1000000000"
+              },
+              "charged_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "restored_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "net_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            }
           },
           "timing": {
             "type": [

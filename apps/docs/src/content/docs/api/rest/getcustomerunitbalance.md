@@ -72,7 +72,11 @@ Content type: `application/json`.
       "required": [
         "billing_mode",
         "atoms_per_unit",
-        "balances"
+        "definition",
+        "purchase_rules",
+        "balances",
+        "purchases",
+        "recent_charges"
       ],
       "properties": {
         "billing_mode": {
@@ -85,6 +89,73 @@ Content type: `application/json`.
         "atoms_per_unit": {
           "type": "string",
           "const": "1000000000"
+        },
+        "definition": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "revision",
+            "name",
+            "display_precision",
+            "atoms_per_unit"
+          ],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "display_precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "atoms_per_unit": {
+              "type": "string",
+              "const": "1000000000"
+            }
+          }
+        },
+        "purchase_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "revision",
+              "definition_revision",
+              "payment_currency",
+              "numerator",
+              "denominator"
+            ],
+            "properties": {
+              "revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "payment_currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "numerator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "denominator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            }
+          }
         },
         "balances": {
           "type": "array",
@@ -153,6 +224,134 @@ Content type: `application/json`.
                 "type": "string",
                 "pattern": "^[0-9]+$",
                 "description": "Exact nonnegative integer atoms. May exceed signed 64-bit range when aggregated across lots."
+              }
+            }
+          }
+        },
+        "purchases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "order_id",
+              "created_at",
+              "definition_revision",
+              "name",
+              "display_precision",
+              "provenance",
+              "payment_currency",
+              "payment_nanos",
+              "issued_atoms",
+              "reversed_atoms",
+              "available_atoms"
+            ],
+            "properties": {
+              "order_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "provenance": {
+                "type": "string",
+                "enum": [
+                  "purchased",
+                  "simulated"
+                ]
+              },
+              "payment_currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "payment_nanos": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "issued_atoms": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "reversed_atoms": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "available_atoms": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            }
+          }
+        },
+        "recent_charges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "attempt_id",
+              "reference",
+              "charged_at",
+              "model_alias",
+              "definition_revision",
+              "name",
+              "display_precision",
+              "charged_atoms",
+              "restored_atoms",
+              "refundable_atoms"
+            ],
+            "properties": {
+              "attempt_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "charged_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "model_alias": {
+                "type": "string"
+              },
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "charged_atoms": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "restored_atoms": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "refundable_atoms": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
               }
             }
           }

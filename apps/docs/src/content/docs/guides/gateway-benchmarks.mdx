@@ -1,15 +1,17 @@
 ---
 title: Performance benchmark
-description: Compare Niu, New API, and LiteLLM Proxy across throughput, tail latency, SSE token streaming, multi-turn coding agent sessions, and memory footprint using the ai-gateway-bench methodology.
+description: Historical synthetic measurements for pinned Niu, New API and LiteLLM versions, with configuration and interpretation limits.
 ---
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../../../../dashboard/src/components/ui/table';
 
 <div data-lang="en">
 
+This is a historical synthetic dataset recorded on October 16, 2026 for the pinned versions below. It is not a capacity qualification of the current release or a hosted deployment. Authentication, database work and worker profiles differ between gateways, so ratios describe these configurations only. The recorded PostgreSQL configuration uses `synchronous_commit = off`: successful commits can precede WAL flush and recent transactions can be lost after a crash. See [PostgreSQL’s durability settings](https://www.postgresql.org/docs/17/runtime-config-wal.html#GUC-SYNCHRONOUS-COMMIT). No crash-recovery or cloud-cost qualification is established by these results.
+
 This benchmark compares **Niu** (`v0.2.4`, Rust / Axum / Tokio), **New API** (`QuantumNous/new-api` commit `45fbb14`, Go / Gin / GORM), and **LiteLLM Proxy** (`BerriAI/litellm` `v1.104.0`, Python / FastAPI / Uvicorn + `uvloop`) using the open-source [LiteLLM AI Gateway Benchmark (`BerriAI/ai-gateway-bench`)](https://github.com/BerriAI/ai-gateway-bench) methodology.
 
-Unlike stateless proxy micro-benchmarks that only test single-client (`c = 1`) forwarding without database persistence, this suite evaluates all three gateways across **concurrency tiers (`c = 1, 4, 16, 64`)**, **OpenAI `/v1/chat/completions` and native Anthropic `/v1/messages` routes**, **concurrent SSE token streaming**, **multi-turn coding-agent sessions (`claude_code` and `codex`)**, **memory footprint (`RSS`)**, and **cloud infrastructure efficiency (`RPS/$`)**.
+Unlike stateless proxy micro-benchmarks that only test single-client (`c = 1`) forwarding without database persistence, this suite evaluates all three gateways across **concurrency tiers (`c = 1, 4, 16, 64`)**, **OpenAI `/v1/chat/completions` and native Anthropic `/v1/messages` routes**, **concurrent SSE token streaming**, **multi-turn coding-agent sessions (`claude_code` and `codex`)**, **memory footprint (`RSS`)**.
 
 ## Headline results
 
@@ -21,72 +23,65 @@ Unlike stateless proxy micro-benchmarks that only test single-client (`c = 1`) f
       <TableHead>Niu (v0.2.4, Rust)</TableHead>
       <TableHead>New API (45fbb14, Go)</TableHead>
       <TableHead>LiteLLM Proxy (v1.104.0, Python)</TableHead>
-      <TableHead>Niu Advantage</TableHead>
+      <TableHead>Ratio in this dataset</TableHead>
     </TableRow>
   </TableHeader>
   <TableBody>
     <TableRow>
       <TableCell data-label="Dimension">Peak throughput (/v1/chat/completions, c=64)</TableCell>
       <TableCell data-label="Niu"><strong>3,238.7 RPS</strong></TableCell>
-      <TableCell data-label="New API">865.6 RPS (peak) / 352.0 RPS (sustained)</TableCell>
+      <TableCell data-label="New API">865.6 RPS (peak) / 148.9 RPS (sustained)</TableCell>
       <TableCell data-label="LiteLLM">302.2 RPS</TableCell>
-      <TableCell data-label="Advantage"><strong>3.74x New API</strong> / <strong>10.72x LiteLLM</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>3.74x New API</strong> / <strong>10.72x LiteLLM</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="Dimension">Tail latency (p99 at c=64, /v1/chat/completions)</TableCell>
       <TableCell data-label="Niu"><strong>31.54 ms</strong> (p50: 18.94 ms)</TableCell>
       <TableCell data-label="New API">135.73 ms (peak)</TableCell>
       <TableCell data-label="LiteLLM">338.74 ms (p50: 193.26 ms)</TableCell>
-      <TableCell data-label="Advantage"><strong>4.30x lower than New API</strong> / <strong>10.74x lower than LiteLLM</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>4.30x lower than New API</strong> / <strong>10.74x lower than LiteLLM</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="Dimension">Anthropic /v1/messages throughput (c=64)</TableCell>
       <TableCell data-label="Niu"><strong>2,518.8 RPS</strong> (p99: 60.61 ms)</TableCell>
-      <TableCell data-label="New API">164.5 RPS (c=16, p99: 473.92 ms)</TableCell>
+      <TableCell data-label="New API">136.2 RPS (p99: 1,475.53 ms)</TableCell>
       <TableCell data-label="LiteLLM">232.2 RPS (p99: 397.88 ms)</TableCell>
-      <TableCell data-label="Advantage"><strong>10.85x LiteLLM</strong> / <strong>15.31x New API</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>10.85x LiteLLM</strong> / <strong>18.49x New API</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="Dimension">Concurrent SSE streaming (c=16, 40 tok/stream)</TableCell>
       <TableCell data-label="Niu"><strong>235.9 streams/s</strong> (9,436 tok/s)</TableCell>
       <TableCell data-label="New API">100.9 streams/s (4,036 tok/s)</TableCell>
       <TableCell data-label="LiteLLM">83.0 streams/s (3,320 tok/s)</TableCell>
-      <TableCell data-label="Advantage"><strong>2.34x New API</strong> / <strong>2.84x LiteLLM</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>2.34x New API</strong> / <strong>2.84x LiteLLM</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="Dimension">Streaming inter-token latency (ITL p50, c=16)</TableCell>
       <TableCell data-label="Niu"><strong>1.34 ms</strong> (43.0 chunks/stream)</TableCell>
       <TableCell data-label="New API">3.55 ms (42.0 chunks/stream)</TableCell>
       <TableCell data-label="LiteLLM">4.62 ms (43.0 chunks/stream)</TableCell>
-      <TableCell data-label="Advantage"><strong>2.65x faster than New API</strong> / <strong>3.45x faster than LiteLLM</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>2.65x faster than New API</strong> / <strong>3.45x faster than LiteLLM</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="Dimension">16-agent coding session (claude_code, 30 turns)</TableCell>
       <TableCell data-label="Niu"><strong>1,746.0 ms</strong> (turn p50: 55.0 ms)</TableCell>
       <TableCell data-label="New API">4,864.9 ms (turn p50: 142.0 ms)</TableCell>
       <TableCell data-label="LiteLLM">3,353.3 ms (turn p50: 103.0 ms)</TableCell>
-      <TableCell data-label="Advantage"><strong>2.79x faster than New API</strong> / <strong>1.92x faster than LiteLLM</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>2.79x faster than New API</strong> / <strong>1.92x faster than LiteLLM</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="Dimension">16-agent coding session (codex, 30 turns)</TableCell>
       <TableCell data-label="Niu"><strong>1,686.6 ms</strong> (turn p50: 54.1 ms)</TableCell>
       <TableCell data-label="New API">4,891.9 ms (turn p50: 132.8 ms)</TableCell>
       <TableCell data-label="LiteLLM">5,803.9 ms (turn p50: 180.8 ms)</TableCell>
-      <TableCell data-label="Advantage"><strong>2.90x faster than New API</strong> / <strong>3.44x faster than LiteLLM</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>2.90x faster than New API</strong> / <strong>3.44x faster than LiteLLM</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="Dimension">Memory footprint (Idle / Peak RSS)</TableCell>
       <TableCell data-label="Niu"><strong>18.2 MB / 26.4 MB</strong></TableCell>
       <TableCell data-label="New API">37.4 MB / 98.5 MB</TableCell>
       <TableCell data-label="LiteLLM">158.0 MB / 194.6 MB</TableCell>
-      <TableCell data-label="Advantage"><strong>7.37x lower peak RAM than LiteLLM</strong></TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell data-label="Dimension">Proxy compute cost per 1M requests (c7g.large)</TableCell>
-      <TableCell data-label="Niu"><strong>$0.014</strong> (71,599 RPS/$/hr)</TableCell>
-      <TableCell data-label="New API">$0.052 (19,136 RPS/$/hr)</TableCell>
-      <TableCell data-label="LiteLLM">$0.150 (6,681 RPS/$/hr)</TableCell>
-      <TableCell data-label="Advantage"><strong>10.7x lower proxy compute cost than LiteLLM</strong></TableCell>
+      <TableCell data-label="Ratio"><strong>7.37x lower peak RAM than LiteLLM</strong></TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -99,10 +94,10 @@ Unlike stateless proxy micro-benchmarks that only test single-client (`c = 1`) f
 
 Real Provider APIs add 200–1,500 ms of model inference latency and network variance, masking gateway overhead. Following [`BerriAI/ai-gateway-bench`](https://github.com/BerriAI/ai-gateway-bench), all three gateways route requests to an identical Rust/Axum `mock-upstream` server on loopback (`127.0.0.1:9000`) configured with `MOCK_TTFT_MS=0`, `MOCK_ITL_MS=0`, and `MOCK_OUTPUT_TOKENS=40`.
 
-- **Direct baseline verification**: Before benchmarking the gateways, `load-probe` measured `mock-upstream` directly at **36,649.3 RPS** (`p50 = 1.83 ms`, `p99 = 3.02 ms` at `c = 64`), confirming that the mock upstream is never the bottleneck.
+- **Direct baseline verification**: Before benchmarking the gateways, `load-probe` measured `mock-upstream` directly at **36,649.3 RPS** (`p50 = 1.83 ms`, `p99 = 3.02 ms` at `c = 64`), above the gateway rates recorded in this dataset; this does not establish headroom for other workloads.
 - **Closed-loop HTTP client**: The Rust `load-probe` binary (`reqwest` + `tokio`, `tcp_nodelay = true`, persistent HTTP/1.1 connection pool) executes 32 untimed warmup requests before every timed pass and consumes the complete HTTP response body before recording microsecond latency.
 
-### 2. Fairness & durability configuration
+### 2. Configuration differences & durability limits
 
 Each gateway was compiled in release mode and configured for high-throughput operation on the same host (Apple M4 10-core, 24 GB unified memory, macOS arm64, PostgreSQL 17.11):
 
@@ -131,14 +126,14 @@ Each gateway was compiled in release mode and configured for high-throughput ope
     </TableRow>
     <TableRow>
       <TableCell data-label="Configuration">Per-request PostgreSQL work</TableCell>
-      <TableCell data-label="Niu"><strong>Full ACID admission & completion</strong>: pre-dispatch operation/attempt CTE + micro-batched completion settlement (up to 64 rows / 2ms)</TableCell>
+      <TableCell data-label="Niu"><strong>Transactional admission & completion</strong>: pre-dispatch operation/attempt CTE + micro-batched completion settlement (up to 64 rows / 2ms)</TableCell>
       <TableCell data-label="New API">PostgreSQL token/user quota checks + BATCH_UPDATE_ENABLED=true usage log writes</TableCell>
-      <TableCell data-label="LiteLLM"><strong>None</strong> (stateless mode with spend logs disabled to measure LiteLLM's fastest path)</TableCell>
+      <TableCell data-label="LiteLLM"><strong>None</strong> (stateless mode with spend logs disabled in the tested single-worker profile)</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-Even while executing **full pre-dispatch ACID admission and durable post-dispatch completion settlement in PostgreSQL on every request**, Niu delivers **10.7x higher peak throughput than stateless LiteLLM Proxy** and **3.7x higher peak throughput than cached New API**.
+Niu performed admission and completion database work in this run. That does not establish equivalent work across the three configurations or crash-safe commit acknowledgement: PostgreSQL used asynchronous commit. The observed peak throughput ratios are 10.7x versus the tested LiteLLM profile and 3.7x versus the New API peak pass.
 
 ---
 
@@ -530,25 +525,24 @@ We simulated **8 and 16 concurrent coding agents** each executing a **30-turn co
 
 ## Result interpretation & architectural takeaways
 
-1. **Why Niu scales to 3,238.7 RPS with ACID PostgreSQL persistence**:
-   - **Zero-GC Rust / Tokio runtime**: Request routing, header inspection, and SSE stream framing run on Tokio's work-stealing scheduler without garbage collection or Python GIL contention, keeping peak RSS at **26.4 MB**.
-   - **5-second in-memory authentication & route cache**: Workspace API key verification (`SHA-256` digest + active workspace grant check) and static/dynamic model route resolution avoid redundant SQL queries on the hot path.
-   - **Single-CTE admission + micro-batched completion (`CompletionBatcher`)**: Pre-dispatch admission inserts `operations` and `attempts` in one CTE round-trip, while post-dispatch completion coalesces up to 64 finished requests (within a 2 ms window) into a single `UNNEST(...)` batch transaction using `plan_cache_mode = 'force_generic_plan'`.
-2. **Why New API peaks at 865.6 RPS and experiences tail-latency spikes**:
-   - Go's HTTP stack and `MEMORY_CACHE_ENABLED=true` provide strong low-concurrency speed (`352.0 RPS` at `c = 4`), but New API still runs multiple unbatched GORM SQL queries per request (`users`, `tokens`, `user_subscriptions`, and `logs`) and writes ~1.5 KB of synchronous request log output per completion.
-   - In addition, New API's default 60-second SQL connection lifetime (`SQL_MAX_LIFETIME = 60s`) forces continuous PostgreSQL connection teardown and re-establishment during sustained high-concurrency runs.
-3. **Why LiteLLM Proxy plateaus around 302–328 RPS**:
-   - Even with database logging completely disabled (`master_key` in memory), a single Python/Uvicorn worker saturates its CPU core at ~300 RPS due to CPython's GIL and per-request/per-chunk Pydantic object validation (`ModelResponse` serialization), causing `c = 64` tail latency (`p99`) to climb to **338.74 ms** while consuming **194.6 MB** of RAM.
+The tables record outcomes for the listed versions and profiles. They do not isolate the effect of language, garbage collection, validation, logging, connection lifetime or batching. Those are hypotheses for controlled profiling, not causes established by these measurements.
 
-For full reproduction commands, database tuning notes, and raw measurement tables, see the [Gateway performance benchmark reference](https://github.com/niu-io/niu/blob/main/docs/reference/gateway-performance-benchmark.md) and [Gateway load testing](/docs/guides/gateway-load-testing/).
+- Compare the same route, concurrency and pass type. New API's `c = 64` Chat peak and sustained passes differ substantially; a peak pass is not a sustained-capacity promise.
+- The mock workload excludes real model latency, public-network variance, failure recovery and production traffic distributions. Coding-session profiles simulate control loops; they do not establish real coding-task completion times.
+- RSS describes process memory in this local run, not total deployment memory or cloud cost. Database, load-generator and upstream resource use require separate accounting.
+- A new qualification needs pinned gateway and harness revisions, complete configuration and raw per-pass records, matched worker and durability settings, and repeated runs. Crash recovery requires separate failure testing.
+
+For the recorded dataset and reproduction boundaries, see the [Gateway performance benchmark reference](https://github.com/niu-io/niu/blob/main/docs/reference/gateway-performance-benchmark.md). For a current local workload procedure, use [Gateway load testing](/docs/guides/gateway-load-testing/).
 
 </div>
 
 <div data-lang="zh" data-title-zh="性能基准测试">
 
+以下为 2026 年 10 月 16 日针对下方固定版本记录的历史合成基准数据集，不作为当前发布版本或托管部署的容量认证。各网关的鉴权、数据库操作与工作进程配置存在差异，因此比率仅反映对应测试配置下的结果。记录中的 PostgreSQL 配置使用了 `synchronous_commit = off`：成功提交可能在 WAL 刷盘前返回，进程或系统崩溃后近期事务可能丢失。请参阅 [PostgreSQL 持久化设置说明](https://www.postgresql.org/docs/17/runtime-config-wal.html#GUC-SYNCHRONOUS-COMMIT)。本结果不构成崩溃恢复或云基础设施成本认证。
+
 本基准测试基于开源的 [LiteLLM AI Gateway Benchmark (`BerriAI/ai-gateway-bench`)](https://github.com/BerriAI/ai-gateway-bench) 测试方法，对 **Niu**（`v0.2.4`，Rust / Axum / Tokio）、**New API**（`QuantumNous/new-api` commit `45fbb14`，Go / Gin / GORM）和 **LiteLLM Proxy**（`BerriAI/litellm` `v1.104.0`，Python / FastAPI / Uvicorn + `uvloop`）进行了全面对比。
 
-不同于仅测试单客户端（`c = 1`）且无数据库持久化的无状态代理微基准测试，本测试套件在**多个并发梯度（`c = 1, 4, 16, 64`）**、**OpenAI `/v1/chat/completions` 与原生 Anthropic `/v1/messages` 路由**、**并发 SSE Token 流式传输**、**多轮编程智能体会话（`claude_code` 与 `codex`）**、**内存占用（`RSS`）**以及**云基础设施成本效益（`RPS/$`）**等维度上对三款网关进行了系统评估。
+不同于仅测试单客户端（`c = 1`）且无数据库持久化的无状态代理微基准测试，本测试套件在<strong>多个并发梯度（`c = 1, 4, 16, 64`）</strong>、<strong>OpenAI `/v1/chat/completions` 与原生 Anthropic `/v1/messages` 路由</strong>、<strong>并发 SSE Token 流式传输</strong>、<strong>多轮编程智能体会话（`claude_code` 与 `codex`）</strong>以及<strong>内存占用（`RSS`）</strong>等维度上对三款网关进行了系统评估。
 
 ## 核心测试结果
 
@@ -560,72 +554,65 @@ For full reproduction commands, database tuning notes, and raw measurement table
       <TableHead>Niu (v0.2.4, Rust)</TableHead>
       <TableHead>New API (45fbb14, Go)</TableHead>
       <TableHead>LiteLLM Proxy (v1.104.0, Python)</TableHead>
-      <TableHead>Niu 性能优势</TableHead>
+      <TableHead>本数据集比率</TableHead>
     </TableRow>
   </TableHeader>
   <TableBody>
     <TableRow>
       <TableCell data-label="测试维度">峰值吞吐量 (/v1/chat/completions, c=64)</TableCell>
       <TableCell data-label="Niu"><strong>3,238.7 RPS</strong></TableCell>
-      <TableCell data-label="New API">865.6 RPS（峰值）/ 352.0 RPS（持续）</TableCell>
+      <TableCell data-label="New API">865.6 RPS（峰值）/ 148.9 RPS（持续）</TableCell>
       <TableCell data-label="LiteLLM">302.2 RPS</TableCell>
-      <TableCell data-label="优势"><strong>New API 的 3.74 倍</strong> / <strong>LiteLLM 的 10.72 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>New API 的 3.74 倍</strong> / <strong>LiteLLM 的 10.72 倍</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="测试维度">尾延迟 (c=64 下的 p99, /v1/chat/completions)</TableCell>
       <TableCell data-label="Niu"><strong>31.54 ms</strong> (p50: 18.94 ms)</TableCell>
       <TableCell data-label="New API">135.73 ms（峰值期）</TableCell>
       <TableCell data-label="LiteLLM">338.74 ms (p50: 193.26 ms)</TableCell>
-      <TableCell data-label="优势"><strong>比 New API 低 4.30 倍</strong> / <strong>比 LiteLLM 低 10.74 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>比 New API 低 4.30 倍</strong> / <strong>比 LiteLLM 低 10.74 倍</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="测试维度">Anthropic /v1/messages 吞吐量 (c=64)</TableCell>
       <TableCell data-label="Niu"><strong>2,518.8 RPS</strong> (p99: 60.61 ms)</TableCell>
-      <TableCell data-label="New API">164.5 RPS (c=16, p99: 473.92 ms)</TableCell>
+      <TableCell data-label="New API">136.2 RPS (p99: 1,475.53 ms)</TableCell>
       <TableCell data-label="LiteLLM">232.2 RPS (p99: 397.88 ms)</TableCell>
-      <TableCell data-label="优势"><strong>LiteLLM 的 10.85 倍</strong> / <strong>New API 的 15.31 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>LiteLLM 的 10.85 倍</strong> / <strong>New API 的 18.49 倍</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="测试维度">并发 SSE 流式传输 (c=16, 40 tok/stream)</TableCell>
       <TableCell data-label="Niu"><strong>235.9 streams/s</strong> (9,436 tok/s)</TableCell>
       <TableCell data-label="New API">100.9 streams/s (4,036 tok/s)</TableCell>
       <TableCell data-label="LiteLLM">83.0 streams/s (3,320 tok/s)</TableCell>
-      <TableCell data-label="优势"><strong>New API 的 2.34 倍</strong> / <strong>LiteLLM 的 2.84 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>New API 的 2.34 倍</strong> / <strong>LiteLLM 的 2.84 倍</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="测试维度">流式 Token 间延迟 (ITL p50, c=16)</TableCell>
       <TableCell data-label="Niu"><strong>1.34 ms</strong> (43.0 chunks/stream)</TableCell>
       <TableCell data-label="New API">3.55 ms (42.0 chunks/stream)</TableCell>
       <TableCell data-label="LiteLLM">4.62 ms (43.0 chunks/stream)</TableCell>
-      <TableCell data-label="优势"><strong>比 New API 快 2.65 倍</strong> / <strong>比 LiteLLM 快 3.45 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>比 New API 快 2.65 倍</strong> / <strong>比 LiteLLM 快 3.45 倍</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="测试维度">16 智能体并发编程会话 (claude_code, 30 轮)</TableCell>
       <TableCell data-label="Niu"><strong>1,746.0 ms</strong> (单轮 p50: 55.0 ms)</TableCell>
       <TableCell data-label="New API">4,864.9 ms (单轮 p50: 142.0 ms)</TableCell>
       <TableCell data-label="LiteLLM">3,353.3 ms (单轮 p50: 103.0 ms)</TableCell>
-      <TableCell data-label="优势"><strong>比 New API 快 2.79 倍</strong> / <strong>比 LiteLLM 快 1.92 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>比 New API 快 2.79 倍</strong> / <strong>比 LiteLLM 快 1.92 倍</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="测试维度">16 智能体并发编程会话 (codex, 30 轮)</TableCell>
       <TableCell data-label="Niu"><strong>1,686.6 ms</strong> (单轮 p50: 54.1 ms)</TableCell>
       <TableCell data-label="New API">4,891.9 ms (单轮 p50: 132.8 ms)</TableCell>
       <TableCell data-label="LiteLLM">5,803.9 ms (单轮 p50: 180.8 ms)</TableCell>
-      <TableCell data-label="优势"><strong>比 New API 快 2.90 倍</strong> / <strong>比 LiteLLM 快 3.44 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>比 New API 快 2.90 倍</strong> / <strong>比 LiteLLM 快 3.44 倍</strong></TableCell>
     </TableRow>
     <TableRow>
       <TableCell data-label="测试维度">内存占用 (空闲 / 峰值 RSS)</TableCell>
       <TableCell data-label="Niu"><strong>18.2 MB / 26.4 MB</strong></TableCell>
       <TableCell data-label="New API">37.4 MB / 98.5 MB</TableCell>
       <TableCell data-label="LiteLLM">158.0 MB / 194.6 MB</TableCell>
-      <TableCell data-label="优势"><strong>峰值内存比 LiteLLM 低 7.37 倍</strong></TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell data-label="测试维度">每百万请求代理计算成本 (c7g.large)</TableCell>
-      <TableCell data-label="Niu"><strong>$0.014</strong> (71,599 RPS/$/hr)</TableCell>
-      <TableCell data-label="New API">$0.052 (19,136 RPS/$/hr)</TableCell>
-      <TableCell data-label="LiteLLM">$0.150 (6,681 RPS/$/hr)</TableCell>
-      <TableCell data-label="优势"><strong>代理计算成本比 LiteLLM 低 10.7 倍</strong></TableCell>
+      <TableCell data-label="比率"><strong>峰值内存比 LiteLLM 低 7.37 倍</strong></TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -638,10 +625,10 @@ For full reproduction commands, database tuning notes, and raw measurement table
 
 真实的模型供应商 API 会引入 200–1,500 ms 的模型推理延迟和网络波动，从而掩盖网关自身的开销。遵循 [`BerriAI/ai-gateway-bench`](https://github.com/BerriAI/ai-gateway-bench) 的设计，三款网关均将请求路由至本地回环（`127.0.0.1:9000`）上同一个 Rust/Axum `mock-upstream` 服务器，并配置 `MOCK_TTFT_MS=0`、`MOCK_ITL_MS=0` 和 `MOCK_OUTPUT_TOKENS=40`。
 
-- **直连基线验证**：在对网关进行基准测试之前，`load-probe` 直接测试 `mock-upstream` 测得 **36,649.3 RPS**（在 `c = 64` 下 `p50 = 1.83 ms`，`p99 = 3.02 ms`），证实模拟上游绝不会成为性能瓶颈。
+- **直连基线验证**：在对网关进行基准测试之前，`load-probe` 直接测试 `mock-upstream` 测得 **36,649.3 RPS**（在 `c = 64` 下 `p50 = 1.83 ms`，`p99 = 3.02 ms`），高于本数据集中记录的各网关速率；该结果不代表其他工作负载下的冗余容量。
 - **闭环 HTTP 客户端**：Rust 编写的 `load-probe` 二进制程序（基于 `reqwest` + `tokio`，启用 `tcp_nodelay = true` 及持久 HTTP/1.1 连接池）在每轮计时测试前先执行 32 次不计时的预热请求，并在完整消费 HTTP 响应正文后记录微秒级延迟。
 
-### 2. 公平性与持久化配置
+### 2. 配置差异与持久化边界
 
 每款网关均以 Release 模式编译，并在同一台主机（Apple M4 10 核，24 GB 统一内存，macOS arm64，PostgreSQL 17.11）上配置为高吞吐量运行模式：
 
@@ -670,14 +657,14 @@ For full reproduction commands, database tuning notes, and raw measurement table
     </TableRow>
     <TableRow>
       <TableCell data-label="配置项">单次请求 PostgreSQL 操作</TableCell>
-      <TableCell data-label="Niu"><strong>完整的 ACID 准入与完成结算</strong>：分发前 operation/attempt CTE 写入 + 微批处理完成结算（最多 64 行 / 2ms）</TableCell>
+      <TableCell data-label="Niu"><strong>事务性准入与完成结算</strong>：分发前 operation/attempt CTE 写入 + 微批处理完成结算（最多 64 行 / 2ms）</TableCell>
       <TableCell data-label="New API">PostgreSQL 令牌/用户配额检查 + BATCH_UPDATE_ENABLED=true 用量日志写入</TableCell>
-      <TableCell data-label="LiteLLM"><strong>无</strong>（禁用消费日志的无状态模式，以测量 LiteLLM 的最快路径）</TableCell>
+      <TableCell data-label="LiteLLM"><strong>无</strong>（在所测试的单工作进程配置下禁用消费日志的无状态模式）</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-即使在**每次请求都在 PostgreSQL 中执行完整的分发前 ACID 准入和分发后持久化完成结算**的情况下，Niu 依然实现了**比无状态 LiteLLM Proxy 高 10.7 倍的峰值吞吐量**，以及**比启用缓存的 New API 高 3.7 倍的峰值吞吐量**。
+Niu 在本次运行中执行了准入与完成数据库操作。这并不代表三套配置执行了等价工作或具备崩溃安全的提交确认：PostgreSQL 使用了异步提交。观察到的峰值吞吐量比率为相对所测 LiteLLM 配置的 10.7 倍，以及相对 New API 峰值轮次的 3.7 倍。
 
 ---
 
@@ -1067,18 +1054,15 @@ For full reproduction commands, database tuning notes, and raw measurement table
 
 ---
 
-## 结果解读与架构分析
+## 结果解读与边界说明
 
-1. **为什么 Niu 在开启 ACID PostgreSQL 持久化的同时仍能扩展至 3,238.7 RPS**：
-   - **零 GC 的 Rust / Tokio 运行时**：请求路由、请求头检查与 SSE 流分帧均运行在 Tokio 的工作窃取（work-stealing）调度器之上，无垃圾回收停顿或 Python GIL 锁竞争，将峰值常驻内存（RSS）控制在 **26.4 MB**。
-   - **5 秒内存鉴权与路由缓存**：工作空间 API 密钥校验（`SHA-256` 摘要 + 活跃工作空间授权检查）与静态/动态模型路由解析有效避免了热路径上的冗余 SQL 查询。
-   - **单 CTE 准入 + 微批处理完成结算（`CompletionBatcher`）**：分发前准入在单次 CTE 往返中同时插入 `operations` 和 `attempts`，而分发后完成结算会将最多 64 个已完成请求（在 2 ms 窗口内）合并为单个基于 `UNNEST(...)` 的批量事务，并使用 `plan_cache_mode = 'force_generic_plan'`。
-2. **为什么 New API 在 865.6 RPS 见顶并出现尾延迟毛刺**：
-   - Go 的 HTTP 栈与 `MEMORY_CACHE_ENABLED=true` 提供了良好的低并发速度（`c = 4` 时达到 `352.0 RPS`），但 New API 在每次请求中仍会执行多次未合并的 GORM SQL 查询（涉及 `users`、`tokens`、`user_subscriptions` 与 `logs` 表），并在每次补全完成时同步写入约 1.5 KB 的请求日志输出。
-   - 此外，New API 默认的 60 秒 SQL 连接生命周期（`SQL_MAX_LIFETIME = 60s`）会导致在持续高并发运行期间频繁销毁并重建 PostgreSQL 连接。
-3. **为什么 LiteLLM Proxy 在 302–328 RPS 左右遇到瓶颈**：
-   - 即使完全禁用数据库日志记录（使用内存 `master_key`），由于 CPython 的 GIL 限制以及逐请求/逐分块的 Pydantic 对象校验（`ModelResponse` 序列化），单个 Python/Uvicorn 工作进程在约 300 RPS 时即跑满单个 CPU 核心，导致 `c = 64` 下的尾延迟（`p99`）攀升至 **338.74 ms**，同时消耗 **194.6 MB** 内存。
+上述表格记录了所列版本与配置下的测试结果，并未单独剥离编程语言、垃圾回收、对象校验、日志记录、连接生命周期或批处理各自的影响。这些因素属于受控性能剖析的待验证假设，而非本测量结果所确立的因果结论。
 
-如需查看完整的复现命令、数据库调优说明以及原始测量数据表，请参阅[网关性能基准测试参考文档](https://github.com/niu-io/niu/blob/main/docs/reference/gateway-performance-benchmark.md)与[网关负载测试](/docs/guides/gateway-load-testing/)。
+- 请在相同路由、并发度与测试轮次类型之间进行对比。New API 在 `c = 64` 下的 Chat 峰值轮次与持续轮次存在显著差异；峰值轮次不代表持续容量承诺。
+- 模拟工作负载不包含真实模型推理延迟、公网波动、故障恢复以及生产流量分布。编程会话配置仅模拟控制循环，不代表真实编程任务的完成耗时。
+- RSS 仅反映本次本地运行中的进程常驻内存，不代表整体部署内存或云基础设施成本。数据库、压测端与上游资源开销需另行核算。
+- 新的性能认证需要固定网关与测试套件修订版本、完整的配置与原始分轮记录、匹配的工作进程与持久化设置以及重复运行验证。崩溃恢复需要单独的故障注入测试。
+
+如需查看已记录的数据集与复现边界，请参阅[网关性能基准测试参考文档](https://github.com/niu-io/niu/blob/main/docs/reference/gateway-performance-benchmark.md)。如需了解当前的本地工作负载测试流程，请参阅[网关负载测试](/docs/guides/gateway-load-testing/)。
 
 </div>

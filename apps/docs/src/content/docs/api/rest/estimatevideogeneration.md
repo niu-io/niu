@@ -188,6 +188,19 @@ Content type: `application/json`.
             "null"
           ],
           "pattern": "^[0-9]+$"
+        },
+        "unit_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
         }
       }
     },
@@ -245,8 +258,27 @@ Content type: `application/json`.
             "null"
           ],
           "pattern": "^[0-9]+$"
+        },
+        "unit_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
         }
       }
+    },
+    "unit_code": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "maximum_charge_nanos": {
       "type": [
@@ -255,6 +287,14 @@ Content type: `application/json`.
       ],
       "pattern": "^[0-9]+$",
       "description": "Customer maximum from separately reviewed liability; not funds reserved by this read."
+    },
+    "maximum_charge_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Customer maximum in Credits atoms from separately reviewed liability; not funds reserved by this read."
     },
     "selected_at": {
       "type": [

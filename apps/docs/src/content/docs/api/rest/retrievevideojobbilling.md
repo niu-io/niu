@@ -125,6 +125,19 @@ Content type: `application/json`.
         "null"
       ],
       "pattern": "^[0-9]+$"
+    },
+    "unit_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "amount_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
     }
   }
 }

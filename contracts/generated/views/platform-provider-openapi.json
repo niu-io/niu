@@ -11,6 +11,636 @@
     }
   ],
   "paths": {
+    "/api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals": {
+      "get": {
+        "operationId": "previewCustomerUnitPurchaseReversal",
+        "summary": "Preview a Credits purchase reversal and read committed reversal receipts",
+        "description": "Platform administration required. Evaluates the unoccupied (unconsumed, unreserved and unreversed) ranges of an original Credits purchase lot and computes the exact processor-representable refund amount (whole minor units of 10000000 nanounits), the reversible atom prefix and any residual atoms or monetary backing that cannot be represented at processor precision without discarding value. Also returns all previously committed reversal receipts on the order. Consumed ranges require an explicit charge refund before they become reversible. Does not mutate state or execute an external payment refund.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "order",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "credit_atoms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "description": "Optional target unoccupied atom prefix to evaluate; defaults to all currently available unoccupied atoms on the purchase lot."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Purchase reversal preview and committed reversal history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "order_id",
+                        "lot_id",
+                        "definition_revision",
+                        "name",
+                        "display_precision",
+                        "atoms_per_unit",
+                        "provenance",
+                        "payment_currency",
+                        "processor_minor_unit_nanos",
+                        "payment_nanos",
+                        "backing_nanos",
+                        "issued_atoms",
+                        "held_atoms",
+                        "charged_atoms",
+                        "restored_atoms",
+                        "reversed_atoms",
+                        "available_atoms",
+                        "available_payment_nanos",
+                        "available_backing_nanos",
+                        "requested_atoms",
+                        "reversible_atoms",
+                        "refund_payment_nanos",
+                        "refund_backing_nanos",
+                        "residual_credit_atoms",
+                        "residual_payment_nanos",
+                        "residual_backing_nanos",
+                        "ranges",
+                        "reversals"
+                      ],
+                      "properties": {
+                        "order_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "lot_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "display_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9
+                        },
+                        "atoms_per_unit": {
+                          "type": "string",
+                          "const": "1000000000"
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": [
+                            "purchased",
+                            "simulated"
+                          ]
+                        },
+                        "payment_currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        },
+                        "processor_minor_unit_nanos": {
+                          "type": "string",
+                          "const": "10000000"
+                        },
+                        "payment_nanos": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "backing_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "issued_atoms": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "held_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "charged_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "restored_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "reversed_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "available_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "available_payment_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "available_backing_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "requested_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "reversible_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "refund_payment_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "refund_backing_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "residual_credit_atoms": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "residual_payment_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "residual_backing_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "ranges": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "first_atom",
+                              "end_atom",
+                              "credit_atoms",
+                              "payment_nanos",
+                              "backing_nanos"
+                            ],
+                            "properties": {
+                              "first_atom": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "end_atom": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "credit_atoms": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "payment_nanos": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "backing_nanos": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              }
+                            }
+                          }
+                        },
+                        "reversals": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "order_id",
+                              "lot_id",
+                              "definition_revision",
+                              "name",
+                              "display_precision",
+                              "atoms_per_unit",
+                              "provenance",
+                              "payment_currency",
+                              "processor_minor_unit_nanos",
+                              "credit_atoms",
+                              "refund_payment_nanos",
+                              "refund_backing_nanos",
+                              "reason",
+                              "created_at",
+                              "ranges"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "order_id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "lot_id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "definition_revision": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "display_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "atoms_per_unit": {
+                                "type": "string",
+                                "const": "1000000000"
+                              },
+                              "provenance": {
+                                "type": "string",
+                                "enum": [
+                                  "purchased",
+                                  "simulated"
+                                ]
+                              },
+                              "payment_currency": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              },
+                              "processor_minor_unit_nanos": {
+                                "type": "string",
+                                "const": "10000000"
+                              },
+                              "credit_atoms": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "refund_payment_nanos": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "refund_backing_nanos": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "reason": {
+                                "type": "string"
+                              },
+                              "created_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "ranges": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "first_atom",
+                                    "end_atom",
+                                    "credit_atoms",
+                                    "payment_nanos",
+                                    "backing_nanos"
+                                  ],
+                                  "properties": {
+                                    "first_atom": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]*)$"
+                                    },
+                                    "end_atom": {
+                                      "type": "string",
+                                      "pattern": "^[1-9][0-9]*$"
+                                    },
+                                    "credit_atoms": {
+                                      "type": "string",
+                                      "pattern": "^[1-9][0-9]*$"
+                                    },
+                                    "payment_nanos": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]*)$"
+                                    },
+                                    "backing_nanos": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]*)$"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameter"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "No settled Credits purchase lot for the specified organization and order"
+          },
+          "409": {
+            "description": "Requested atoms exceed currently available unoccupied purchase capacity"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      },
+      "post": {
+        "operationId": "reverseCustomerUnitPurchase",
+        "summary": "Reverse unoccupied Credits purchase ranges at processor minor-unit precision",
+        "description": "Platform administration required. Records an immutable reversal of unoccupied ranges belonging to an original Credits purchase lot. The requested atom quantity must map to a positive whole minor-unit payment refund (divisible by 10000000 nanounits) with zero discarded residual atoms or backing. Simulated purchases preserve zero cash backing and never enter verified cash funding reversals. Identical idempotent replay returns the original receipt even after later charges, reversals or rule changes; conflicting reuse returns 409. Recording a reversal does not execute an external payment-processor transfer.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "order",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "credit_atoms",
+                  "reason",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "credit_atoms": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable purchase reversal receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "order_id",
+                        "lot_id",
+                        "definition_revision",
+                        "name",
+                        "display_precision",
+                        "atoms_per_unit",
+                        "provenance",
+                        "payment_currency",
+                        "processor_minor_unit_nanos",
+                        "credit_atoms",
+                        "refund_payment_nanos",
+                        "refund_backing_nanos",
+                        "reason",
+                        "created_at",
+                        "ranges"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "order_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "lot_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "display_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9
+                        },
+                        "atoms_per_unit": {
+                          "type": "string",
+                          "const": "1000000000"
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": [
+                            "purchased",
+                            "simulated"
+                          ]
+                        },
+                        "payment_currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        },
+                        "processor_minor_unit_nanos": {
+                          "type": "string",
+                          "const": "10000000"
+                        },
+                        "credit_atoms": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "refund_payment_nanos": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "refund_backing_nanos": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "ranges": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "first_atom",
+                              "end_atom",
+                              "credit_atoms",
+                              "payment_nanos",
+                              "backing_nanos"
+                            ],
+                            "properties": {
+                              "first_atom": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "end_atom": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "credit_atoms": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                              },
+                              "payment_nanos": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "backing_nanos": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid atom quantity, inexact processor minor-unit refund, residual atoms or invalid reason"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "No settled Credits purchase lot for the specified organization and order"
+          },
+          "409": {
+            "description": "Requested atoms exceed unoccupied capacity or idempotency key reused with different input"
+          },
+          "422": {
+            "description": "Malformed request body"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
+      }
+    },
     "/api/v1/platform/units/tariffs": {
       "get": {
         "security": [
@@ -543,6 +1173,472 @@
             }
           }
         },
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/platform/units/media/tariffs": {
+      "get": {
+        "operationId": "listCustomerUnitMediaTariffs",
+        "summary": "List latest explicit Credits media tariffs",
+        "description": "Platform administration required. Reads the latest saved Credits media consumption tariff per dimension tuple (model_alias, channel, resolution, reference_video), not a conversion from payment currency. Optional model filter scopes to one model alias. No Provider procurement price is exposed.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "model",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest explicit Credits media tariffs by dimension tuple",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "revision",
+                          "definition_revision",
+                          "model_alias",
+                          "channel",
+                          "resolution",
+                          "reference_video",
+                          "meter",
+                          "price"
+                        ],
+                        "properties": {
+                          "revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,18}$"
+                          },
+                          "definition_revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,18}$"
+                          },
+                          "model_alias": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "channel": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "resolution": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "reference_video": {
+                            "type": "boolean"
+                          },
+                          "meter": {
+                            "type": "string",
+                            "enum": [
+                              "video_tokens"
+                            ]
+                          },
+                          "price": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "dimensions",
+                              "meter",
+                              "amount_atoms",
+                              "per_quantity",
+                              "minimum_quantity",
+                              "rounding"
+                            ],
+                            "properties": {
+                              "dimensions": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "model",
+                                  "channel",
+                                  "resolution",
+                                  "reference_video"
+                                ],
+                                "properties": {
+                                  "model": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "channel": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "resolution": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "reference_video": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              },
+                              "meter": {
+                                "type": "string",
+                                "enum": [
+                                  "video_tokens"
+                                ]
+                              },
+                              "amount_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]{1,16}$"
+                              },
+                              "per_quantity": {
+                                "$ref": "#/components/schemas/handler_operations_json_VideoBillingQuantity"
+                              },
+                              "minimum_quantity": {
+                                "$ref": "#/components/schemas/handler_operations_json_VideoBillingQuantity"
+                              },
+                              "rounding": {
+                                "type": "string",
+                                "enum": [
+                                  "Down",
+                                  "Up",
+                                  "HalfEven"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model query"
+          },
+          "401": {
+            "description": "Authentication unavailable or revoked"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      },
+      "post": {
+        "operationId": "publishCustomerUnitMediaTariff",
+        "summary": "Publish a versioned Credits media consumption tariff",
+        "description": "Platform administration required and rechecked transactionally for operators. Publish atom-denominated media consumption rates independently of purchase conversion and monetary media rate cards. New publication requires the current unit definition and installation revision. Concurrent stale writes conflict. Equal idempotent retries return their original normalized publication; changed input conflicts. Explicit zero is valid; absence of a publication is unavailable. Publishing a tariff does not activate billing mode, issue Credits, convert money balances, admit requests or change prior request bindings.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "model_alias",
+                  "definition_revision",
+                  "expected_revision",
+                  "idempotency_key",
+                  "price"
+                ],
+                "properties": {
+                  "model_alias": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "definition_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,18}$"
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,18})$"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "price": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "dimensions",
+                      "meter",
+                      "amount_atoms",
+                      "per_quantity",
+                      "minimum_quantity",
+                      "rounding"
+                    ],
+                    "properties": {
+                      "dimensions": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "model",
+                          "channel",
+                          "resolution",
+                          "reference_video"
+                        ],
+                        "properties": {
+                          "model": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "channel": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "resolution": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "reference_video": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "meter": {
+                        "type": "string",
+                        "enum": [
+                          "video_tokens"
+                        ]
+                      },
+                      "amount_atoms": {
+                        "type": "string",
+                        "pattern": "^[0-9]{1,16}$"
+                      },
+                      "per_quantity": {
+                        "$ref": "#/components/schemas/handler_operations_json_VideoBillingQuantity"
+                      },
+                      "minimum_quantity": {
+                        "$ref": "#/components/schemas/handler_operations_json_VideoBillingQuantity"
+                      },
+                      "rounding": {
+                        "type": "string",
+                        "enum": [
+                          "Down",
+                          "Up",
+                          "HalfEven"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Original immutable Credits media tariff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "definition_revision",
+                        "model_alias",
+                        "channel",
+                        "resolution",
+                        "reference_video",
+                        "meter",
+                        "price"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
+                        },
+                        "model_alias": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "channel": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "resolution": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "reference_video": {
+                          "type": "boolean"
+                        },
+                        "meter": {
+                          "type": "string",
+                          "enum": [
+                            "video_tokens"
+                          ]
+                        },
+                        "price": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "dimensions",
+                            "meter",
+                            "amount_atoms",
+                            "per_quantity",
+                            "minimum_quantity",
+                            "rounding"
+                          ],
+                          "properties": {
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "model",
+                                "channel",
+                                "resolution",
+                                "reference_video"
+                              ],
+                              "properties": {
+                                "model": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "channel": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "resolution": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "reference_video": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "meter": {
+                              "type": "string",
+                              "enum": [
+                                "video_tokens"
+                              ]
+                            },
+                            "amount_atoms": {
+                              "type": "string",
+                              "pattern": "^[0-9]{1,16}$"
+                            },
+                            "per_quantity": {
+                              "$ref": "#/components/schemas/handler_operations_json_VideoBillingQuantity"
+                            },
+                            "minimum_quantity": {
+                              "$ref": "#/components/schemas/handler_operations_json_VideoBillingQuantity"
+                            },
+                            "rounding": {
+                              "type": "string",
+                              "enum": [
+                                "Down",
+                                "Up",
+                                "HalfEven"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model, dimensions, exact quantity or rounding mode"
+          },
+          "401": {
+            "description": "Authentication unavailable or revoked"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Stale installation/unit revision or conflicting idempotency input"
+          },
+          "422": {
+            "description": "Malformed request"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
         "tags": [
           "Branded consumption units"
         ],
@@ -1100,6 +2196,876 @@
         }
       }
     },
+    "/api/v1/platform/units/mode/previews": {
+      "post": {
+        "operationId": "prepareCustomerUnitMode",
+        "summary": "Save a billing-mode change preview",
+        "description": "Platform administration required. Saves an immutable fifteen-minute compatibility snapshot without changing mode, balances or prices. Requires the current installation revision. A blocked or same-mode snapshot may be saved for review but cannot authorize publication. Identical idempotent replay returns the original snapshot and expiry even after later configuration changes; conflicting reuse is rejected. The actual mode publication must recheck current financial state. Quantities and revisions are exact strings.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original durable result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "expected_revision",
+                        "source_mode",
+                        "target_mode",
+                        "snapshot",
+                        "created_at",
+                        "expires_at"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "expected_revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "source_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "target_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "snapshot": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "revision",
+                            "billing_mode",
+                            "target_mode",
+                            "change_required",
+                            "blockers_empty",
+                            "observed_at",
+                            "blockers",
+                            "preserved_configuration"
+                          ],
+                          "properties": {
+                            "revision": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "billing_mode": {
+                              "type": "string",
+                              "enum": [
+                                "currency",
+                                "credits"
+                              ]
+                            },
+                            "target_mode": {
+                              "type": "string",
+                              "enum": [
+                                "currency",
+                                "credits"
+                              ]
+                            },
+                            "change_required": {
+                              "type": "boolean"
+                            },
+                            "blockers_empty": {
+                              "type": "boolean"
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "blockers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "category",
+                                  "record_count",
+                                  "organization_count",
+                                  "accounts_truncated",
+                                  "accounts"
+                                ],
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "record_count": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9][0-9]*)$"
+                                  },
+                                  "organization_count": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9][0-9]*)$"
+                                  },
+                                  "accounts_truncated": {
+                                    "type": "boolean"
+                                  },
+                                  "accounts": {
+                                    "type": "array",
+                                    "maxItems": 100,
+                                    "items": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": [
+                                        "organization_id",
+                                        "name",
+                                        "record_count"
+                                      ],
+                                      "properties": {
+                                        "organization_id": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "record_count": {
+                                          "type": "string",
+                                          "pattern": "^(0|[1-9][0-9]*)$"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "preserved_configuration": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "monetary_workspace_limits",
+                                "monetary_key_limits",
+                                "monetary_text_tariffs",
+                                "credits_text_tariffs",
+                                "monetary_retail_prices",
+                                "monetary_media_rate_history"
+                              ],
+                              "properties": {
+                                "monetary_workspace_limits": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_key_limits": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_text_tariffs": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "credits_text_tariffs": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_retail_prices": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_media_rate_history": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Stale, incompatible, expired or conflicting intent; concurrent financial activity"
+          },
+          "422": {
+            "description": "Malformed request"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "target_mode",
+                  "expected_revision",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "target_mode": {
+                    "type": "string",
+                    "enum": [
+                      "currency",
+                      "credits"
+                    ]
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/platform/units/mode/previews/{preview}": {
+      "get": {
+        "operationId": "getSavedCustomerUnitModePreview",
+        "summary": "Read an original saved billing-mode preview",
+        "description": "Platform administration required. Returns the immutable original snapshot, including expired or subsequently incompatible previews. Reading does not renew expiry or authorize a switch. Current compatibility can differ; publication always rechecks it.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original durable result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "expected_revision",
+                        "source_mode",
+                        "target_mode",
+                        "snapshot",
+                        "created_at",
+                        "expires_at"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "expected_revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "source_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "target_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "snapshot": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "revision",
+                            "billing_mode",
+                            "target_mode",
+                            "change_required",
+                            "blockers_empty",
+                            "observed_at",
+                            "blockers",
+                            "preserved_configuration"
+                          ],
+                          "properties": {
+                            "revision": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "billing_mode": {
+                              "type": "string",
+                              "enum": [
+                                "currency",
+                                "credits"
+                              ]
+                            },
+                            "target_mode": {
+                              "type": "string",
+                              "enum": [
+                                "currency",
+                                "credits"
+                              ]
+                            },
+                            "change_required": {
+                              "type": "boolean"
+                            },
+                            "blockers_empty": {
+                              "type": "boolean"
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "blockers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "category",
+                                  "record_count",
+                                  "organization_count",
+                                  "accounts_truncated",
+                                  "accounts"
+                                ],
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "record_count": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9][0-9]*)$"
+                                  },
+                                  "organization_count": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9][0-9]*)$"
+                                  },
+                                  "accounts_truncated": {
+                                    "type": "boolean"
+                                  },
+                                  "accounts": {
+                                    "type": "array",
+                                    "maxItems": 100,
+                                    "items": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": [
+                                        "organization_id",
+                                        "name",
+                                        "record_count"
+                                      ],
+                                      "properties": {
+                                        "organization_id": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "record_count": {
+                                          "type": "string",
+                                          "pattern": "^(0|[1-9][0-9]*)$"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "preserved_configuration": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "monetary_workspace_limits",
+                                "monetary_key_limits",
+                                "monetary_text_tariffs",
+                                "credits_text_tariffs",
+                                "monetary_retail_prices",
+                                "monetary_media_rate_history"
+                              ],
+                              "properties": {
+                                "monetary_workspace_limits": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_key_limits": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_text_tariffs": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "credits_text_tariffs": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_retail_prices": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                },
+                                "monetary_media_rate_history": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]*)$"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "404": {
+            "description": "Saved preview not found"
+          },
+          "409": {
+            "description": "Stale, incompatible, expired or conflicting intent; concurrent financial activity"
+          },
+          "422": {
+            "description": "Malformed request"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "preview",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/platform/units/mode": {
+      "put": {
+        "operationId": "publishCustomerUnitMode",
+        "summary": "Publish a preview-confirmed installation billing mode",
+        "description": "Platform administration required and rechecked under lock. Requires an unexpired originally compatible saved preview, its matching current revision and a distinct target mode. Rechecks customer obligations atomically while holding financial-table locks. Concurrent financial activity returns a retryable 409; re-read compatibility if state changed. Balances, prices, monetary limits and historical records are never converted. A successful publication creates an immutable change receipt and advances the installation revision once. Identical idempotent retry returns the original receipt even after subsequent mode changes; it does not reapply the old mode. Mode activation alone does not establish configured unit prices, compatible spending limits, model availability or media readiness. Existing monetary limits require explicit compatible configuration before affected Credits admission. New monetary grants/funding require currency mode and new unit issuance requires Credits mode.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original durable result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "previous_mode",
+                        "billing_mode",
+                        "preview_id",
+                        "created_at"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "previous_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "billing_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "preview_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required or revoked"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Stale, incompatible, expired or conflicting intent; concurrent financial activity"
+          },
+          "422": {
+            "description": "Malformed request"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "preview_id",
+                  "expected_revision",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "preview_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
+      },
+      "get": {
+        "operationId": "getCustomerUnitModePreview",
+        "summary": "Preview installation billing-mode incompatibilities",
+        "description": "Platform administration required. One current database statement reports incompatible customer balances, credit facilities, pending checkouts, unposted charges, unresolved customer requests and reservations, unapplied monetary grant intents and remaining unexpired Credits. Enabling Credits additionally requires a unit definition and matching platform-currency purchase rule. Each category includes complete counts and at most 100 affected company accounts, with explicit truncation. Original tariffs and monetary limits are retained and summarized, never converted. Existing monetary limits still require explicit compatible Credits configuration before those workspaces or keys can spend Credits. This is advisory only: blockers_empty does not activate billing mode, prove route readiness or authorize a later switch. Any mode publication must revalidate current state atomically. Reads never modify accounts or history. Same-mode previews still report current incompatibilities. No procurement amounts or credentials are included. Internal account identifiers are routing references, not display labels.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "target",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "currency",
+                "credits"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current advisory compatibility snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "billing_mode",
+                        "target_mode",
+                        "change_required",
+                        "blockers_empty",
+                        "observed_at",
+                        "blockers",
+                        "preserved_configuration"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "billing_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "target_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
+                        },
+                        "change_required": {
+                          "type": "boolean"
+                        },
+                        "blockers_empty": {
+                          "type": "boolean"
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "blockers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "category",
+                              "record_count",
+                              "organization_count",
+                              "accounts_truncated",
+                              "accounts"
+                            ],
+                            "properties": {
+                              "category": {
+                                "type": "string"
+                              },
+                              "record_count": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "organization_count": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "accounts_truncated": {
+                                "type": "boolean"
+                              },
+                              "accounts": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "organization_id",
+                                    "name",
+                                    "record_count"
+                                  ],
+                                  "properties": {
+                                    "organization_id": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "record_count": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]*)$"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "preserved_configuration": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "monetary_workspace_limits",
+                            "monetary_key_limits",
+                            "monetary_text_tariffs",
+                            "credits_text_tariffs",
+                            "monetary_retail_prices",
+                            "monetary_media_rate_history"
+                          ],
+                          "properties": {
+                            "monetary_workspace_limits": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "monetary_key_limits": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "monetary_text_tariffs": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "credits_text_tariffs": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "monetary_retail_prices": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "monetary_media_rate_history": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid target or query"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Branded consumption units"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "platform"
+        }
+      }
+    },
     "/api/v1/platform/units": {
       "get": {
         "operationId": "getCustomerUnitConfiguration",
@@ -1128,7 +3094,9 @@
                       "required": [
                         "revision",
                         "definition",
-                        "purchase_rules"
+                        "purchase_rules",
+                        "text_tariffs",
+                        "billing_mode"
                       ],
                       "properties": {
                         "revision": {
@@ -1213,6 +3181,19 @@
                               }
                             }
                           }
+                        },
+                        "text_tariffs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "billing_mode": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "credits"
+                          ]
                         }
                       }
                     }
@@ -23054,6 +25035,24 @@
       "KeyInput": {
         "$ref": "#/components/schemas/handler_operations_json_KeyInput"
       },
+      "handler_operations_json_VideoBillingQuantity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "numerator",
+          "denominator"
+        ],
+        "properties": {
+          "numerator": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "denominator": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
       "handler_operations_json_ModelRoutePool": {
         "type": "object",
         "required": [
@@ -23948,24 +25947,19 @@
               "null"
             ],
             "pattern": "^[0-9]+$"
-          }
-        }
-      },
-      "handler_operations_json_VideoBillingQuantity": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "numerator",
-          "denominator"
-        ],
-        "properties": {
-          "numerator": {
-            "type": "string",
-            "pattern": "^[0-9]+$"
           },
-          "denominator": {
-            "type": "string",
-            "pattern": "^[1-9][0-9]*$"
+          "unit_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
           }
         }
       },
@@ -25255,6 +27249,52 @@
             ],
             "pattern": "^[0-9]+$"
           },
+          "customer_unit_charge": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "definition_revision",
+              "name",
+              "display_precision",
+              "atoms_per_unit",
+              "charged_atoms",
+              "restored_atoms",
+              "net_atoms"
+            ],
+            "properties": {
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "atoms_per_unit": {
+                "type": "string",
+                "const": "1000000000"
+              },
+              "charged_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "restored_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "net_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            }
+          },
           "customer_charge_status": {
             "type": "string",
             "enum": [
@@ -25526,6 +27566,52 @@
             ],
             "pattern": "^[0-9]+$",
             "description": "Customer retail charge only. Null is unknown or absent, never an upstream expense fallback."
+          },
+          "customer_unit_charge": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "definition_revision",
+              "name",
+              "display_precision",
+              "atoms_per_unit",
+              "charged_atoms",
+              "restored_atoms",
+              "net_atoms"
+            ],
+            "properties": {
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "atoms_per_unit": {
+                "type": "string",
+                "const": "1000000000"
+              },
+              "charged_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "restored_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "net_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            }
           },
           "timing": {
             "type": [

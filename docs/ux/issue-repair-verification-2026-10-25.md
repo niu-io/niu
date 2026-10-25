@@ -1242,3 +1242,17 @@ aggregates workspace/organization request charges by `definition_revision`.
 Evidence limits: local acceptance used the isolated PostgreSQL instance
 (`127.0.0.1:14330`) and local gateway (`127.0.0.1:14331`); hosted deployment
 qualification remains tracked under the release checklist gate.
+
+## API keys intermediate-width table and bounded benchmark documentation — 2026-10-25 19:10 UTC
+
+Related work: `niu-2xp.1`, public issue #98 (`A05` and `A10`).
+
+- **API keys responsive table (`A05`, `apps/dashboard/src/styles.css`)**:
+  - Added `.key-list { container-type: inline-size; }` and `@container (max-width: 1250px)` / `@container (max-width: 720px)` rules so `.key-table` hides secondary timestamp columns (`Expires`, `Last used`) at intermediate container widths and `Model access` / `Limits` at compact widths while keeping `Status` and `Actions` inside the viewport without horizontal scrolling.
+  - Verified in `ego-browser` against the running local gateway (`/workspaces/default-workspace/keys` with an active API key):
+    - `1440x900`: `scrollWidth: 1440`, `clientWidth: 1440`, `containerWidth: 1052`, visible columns `["Key", "Model access", "Limits", "Status", "Actions"]` (`right: 1408 <= 1440`, `actionsVisible: true`).
+    - `900x800` (with workspace navigation open and collapsed): `scrollWidth: 900`, `clientWidth: 900`, `containerWidth: 790`, visible columns `["Key", "Model access", "Limits", "Status", "Actions"]` (`right: 875 <= 900`, `actionsVisible: true`).
+    - `390x844`: `scrollWidth: 390`, `clientWidth: 390`, `containerWidth: 358`, visible columns `["Key", "Status", "Actions"]` (`right: 374 <= 390`, `actionsVisible: true`).
+- **Bounded gateway benchmark documentation (`A10`, `docs/reference/gateway-performance-benchmark.md` and `apps/docs/src/content/docs/guides/gateway-benchmarks.mdx`)**:
+  - Updated both the reference document and the bilingual (`en` and `zh`) documentation guide to qualify the October 16, 2026 synthetic benchmark dataset (`synchronous_commit = off`, configuration differences across gateways), replace the `Niu Speedup` heading with `Ratio in this dataset` (`本数据集比率`), replace unsupported causal claims and cloud-cost projections with `Result interpretation & architectural takeaways` (`结果解读与边界说明`), and fix Chinese bold inline formatting (`<strong>`) adjacent to full-width parentheses.
+  - Regenerated API and SDK reference docs (`463 REST operations and 411 public SDK exports`) after adding Branded Credits spending-limit and reversal routes to `apps/docs/scripts/openapi-navigation.mjs`, built `apps/docs` (`911 page(s) built`), and verified `/docs/guides/gateway-benchmarks/` in `ego-browser` in both English (`en`) and Simplified Chinese (`zh-CN`) at `1440x900` and `390x844` (`scrollWidth === clientWidth`, zero unrendered Markdown markers).

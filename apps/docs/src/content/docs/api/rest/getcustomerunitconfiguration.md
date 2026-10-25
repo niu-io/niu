@@ -63,7 +63,9 @@ Content type: `application/json`.
       "required": [
         "revision",
         "definition",
-        "purchase_rules"
+        "purchase_rules",
+        "text_tariffs",
+        "billing_mode"
       ],
       "properties": {
         "revision": {
@@ -148,6 +150,19 @@ Content type: `application/json`.
               }
             }
           }
+        },
+        "text_tariffs": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "billing_mode": {
+          "type": "string",
+          "enum": [
+            "currency",
+            "credits"
+          ]
         }
       }
     }

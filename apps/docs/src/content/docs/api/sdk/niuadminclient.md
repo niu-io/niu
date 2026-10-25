@@ -237,11 +237,73 @@ getCustomerUnitConfiguration(options?: RequestOptions): Promise<{
 }>;
 ```
 
+### getCustomerUnitModePreview
+
+```typescript
+getCustomerUnitModePreview(target: 'currency' | 'credits', options?: RequestOptions): Promise<{
+    data: CustomerUnitModePreview;
+}>;
+```
+
+### prepareCustomerUnitMode
+
+```typescript
+prepareCustomerUnitMode(input: CustomerUnitModePreviewInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitSavedModePreview;
+}>;
+```
+
+### getSavedCustomerUnitModePreview
+
+```typescript
+getSavedCustomerUnitModePreview(previewId: string, options?: RequestOptions): Promise<{
+    data: CustomerUnitSavedModePreview;
+}>;
+```
+
+### publishCustomerUnitMode
+
+```typescript
+publishCustomerUnitMode(input: {
+    preview_id: string;
+    expected_revision: string;
+    idempotency_key: string;
+}, options?: RequestOptions): Promise<{
+    data: CustomerUnitModePublication;
+}>;
+```
+
 ### getCustomerUnitBalance
 
 ```typescript
 getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{
     data: CustomerUnitBalance;
+}>;
+```
+
+### refundCustomerUnitCharge
+
+```typescript
+refundCustomerUnitCharge(organizationId: string, attemptId: string, input: CustomerUnitRefundInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitRefund;
+}>;
+```
+
+### previewCustomerUnitPurchaseReversal
+
+```typescript
+previewCustomerUnitPurchaseReversal(organizationId: string, orderId: string, query?: {
+    creditAtoms?: string;
+}, options?: RequestOptions): Promise<{
+    data: CustomerUnitPurchaseReversalPreview;
+}>;
+```
+
+### reverseCustomerUnitPurchase
+
+```typescript
+reverseCustomerUnitPurchase(organizationId: string, orderId: string, input: CustomerUnitRefundInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitPurchaseReversal;
 }>;
 ```
 
@@ -258,6 +320,22 @@ getCustomerUnitTextTariff(model: string, options?: RequestOptions): Promise<{
 ```typescript
 publishCustomerUnitTextTariff(input: CustomerUnitTextTariffInput, options?: RequestOptions): Promise<{
     data: CustomerUnitTextTariff;
+}>;
+```
+
+### listCustomerUnitMediaTariffs
+
+```typescript
+listCustomerUnitMediaTariffs(model?: string, options?: RequestOptions): Promise<{
+    data: CustomerUnitMediaTariff[];
+}>;
+```
+
+### publishCustomerUnitMediaTariff
+
+```typescript
+publishCustomerUnitMediaTariff(input: CustomerUnitMediaTariffInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitMediaTariff;
 }>;
 ```
 
@@ -2621,6 +2699,66 @@ listWorkspaceSpendingLimitHistory(scope: TenantScope, currency: string, query?: 
     limit?: number;
 }, options?: RequestOptions): Promise<{
     data: WorkspaceSpendingLimitRevision[];
+    next_before_revision: string | null;
+}>;
+```
+
+### getWorkspaceCustomerUnitSpendingLimit
+
+```typescript
+/** Explicit Credits workspace cap and commitment; preserved monetary caps block Credits admission until configured. */
+getWorkspaceCustomerUnitSpendingLimit(scope: TenantScope | string, options?: RequestOptions): Promise<{
+    data: CustomerUnitSpendingLimit;
+}>;
+```
+
+### setWorkspaceCustomerUnitSpendingLimit
+
+```typescript
+/** Owner-only Credits workspace cap or explicit null for unlimited. Preserves monetary limits for currency mode. */
+setWorkspaceCustomerUnitSpendingLimit(scope: TenantScope | string, input: CustomerUnitSpendingLimitInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitSpendingLimitRevision;
+}>;
+```
+
+### listWorkspaceCustomerUnitSpendingLimitHistory
+
+```typescript
+listWorkspaceCustomerUnitSpendingLimitHistory(scope: TenantScope | string, query?: {
+    beforeRevision?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: CustomerUnitSpendingLimitRevision[];
+    next_before_revision: string | null;
+}>;
+```
+
+### getKeyCustomerUnitSpendingLimit
+
+```typescript
+/** Explicit Credits API-key cap and commitment across rotations; preserved monetary caps block Credits admission until configured. */
+getKeyCustomerUnitSpendingLimit(scope: TenantScope | string, keyId: string, options?: RequestOptions): Promise<{
+    data: CustomerUnitSpendingLimit;
+}>;
+```
+
+### setKeyCustomerUnitSpendingLimit
+
+```typescript
+/** Owner-only Credits API-key cap or explicit null for unlimited across the key's rotation lineage. */
+setKeyCustomerUnitSpendingLimit(scope: TenantScope | string, keyId: string, input: CustomerUnitSpendingLimitInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitSpendingLimitRevision;
+}>;
+```
+
+### listKeyCustomerUnitSpendingLimitHistory
+
+```typescript
+listKeyCustomerUnitSpendingLimitHistory(scope: TenantScope | string, keyId: string, query?: {
+    beforeRevision?: string;
+    limit?: number;
+}, options?: RequestOptions): Promise<{
+    data: CustomerUnitSpendingLimitRevision[];
     next_before_revision: string | null;
 }>;
 ```

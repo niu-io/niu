@@ -290,6 +290,52 @@ Content type: `application/json`.
           "pattern": "^[0-9]+$",
           "description": "Customer retail charge only. Null is unknown or absent, never an upstream expense fallback."
         },
+        "customer_unit_charge": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "definition_revision",
+            "name",
+            "display_precision",
+            "atoms_per_unit",
+            "charged_atoms",
+            "restored_atoms",
+            "net_atoms"
+          ],
+          "properties": {
+            "definition_revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "display_precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "atoms_per_unit": {
+              "type": "string",
+              "const": "1000000000"
+            },
+            "charged_atoms": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "restored_atoms": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "net_atoms": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        },
         "timing": {
           "type": [
             "object",

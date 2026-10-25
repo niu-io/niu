@@ -158,6 +158,12 @@ Content type: `application/json`.
             }
           }
         },
+        "unit_spending_limit": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
         "rate_limits": {
           "type": "object",
           "additionalProperties": false,
