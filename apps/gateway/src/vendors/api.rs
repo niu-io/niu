@@ -1435,7 +1435,7 @@ pub async fn list_models(
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
 ///     "summary": "Discover upstream models for a Provider API-key configuration",
-///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
+///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator. Explicit OpenRouter integrations use /models/user?output_modalities=all; other integrations use /models. Discovery reports the effective integration and inventory scope. Catalog-read success does not verify inference, management authority, or prices. No fallback from denied credential-filtered discovery to public inventory is performed.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1449,7 +1449,8 @@ pub async fn list_models(
 ///             "schema": {
 ///               "type": "object",
 ///               "required": [
-///                 "data"
+///                 "data",
+///                 "discovery"
 ///               ],
 ///               "properties": {
 ///                 "data": {
@@ -1457,6 +1458,46 @@ pub async fn list_models(
 ///                   "maxItems": 2000,
 ///                   "items": {
 ///                     "$ref": "#/components/schemas/ProviderCatalogModel"
+///                   }
+///                 },
+///                 "discovery": {
+///                   "type": "object",
+///                   "required": [
+///                     "integration",
+///                     "inventory_scope",
+///                     "credential_access",
+///                     "inference_verified",
+///                     "management_access",
+///                     "prices"
+///                   ],
+///                   "properties": {
+///                     "integration": {
+///                       "type": "object",
+///                       "description": "Effective integration identity, saved selection, source and revision."
+///                     },
+///                     "inventory_scope": {
+///                       "type": "string",
+///                       "enum": [
+///                         "credential_filtered",
+///                         "instance_reported"
+///                       ]
+///                     },
+///                     "credential_access": {
+///                       "type": "string",
+///                       "const": "catalog_read_succeeded"
+///                     },
+///                     "inference_verified": {
+///                       "type": "boolean",
+///                       "const": false
+///                     },
+///                     "management_access": {
+///                       "type": "string",
+///                       "const": "not_checked"
+///                     },
+///                     "prices": {
+///                       "type": "string",
+///                       "const": "advertised_only"
+///                     }
 ///                   }
 ///                 }
 ///               }
@@ -1551,6 +1592,12 @@ async fn read_catalog(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    let integration = state
+        .store
+        .vendor_integration(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
     let ciphertext = state
         .store
         .vendor_credential_ciphertext(id)
@@ -1563,7 +1610,15 @@ async fn read_catalog(
         .ok_or_else(ApiError::unavailable)?
         .open(id, &ciphertext)
         .map_err(|_| ApiError::unavailable())?;
-    let endpoint = format!("{}/models", vendor.api_base.trim_end_matches('/'));
+    // Explicit integration identity determines discovery, not the adapter or
+    // hostname. A filtered listing does not establish successful inference.
+    let credential_filtered = integration.effective_type == "openrouter";
+    let catalog_path = if credential_filtered {
+        "models/user"
+    } else {
+        "models"
+    };
+    let endpoint = format!("{}/{catalog_path}", vendor.api_base.trim_end_matches('/'));
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds.clamp(1, 5));
     let client =
         match crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout).await {
@@ -1586,7 +1641,13 @@ async fn read_catalog(
                 ));
             }
         };
-    let mut response = model_catalog_request(&client, &endpoint, &vendor.adapter, &api_key)
+    let request = model_catalog_request(&client, &endpoint, &vendor.adapter, &api_key);
+    let request = if credential_filtered {
+        request.query(&[("output_modalities", "all")])
+    } else {
+        request
+    };
+    let mut response = request
         .send()
         .await
         .map_err(|_| {
@@ -1665,7 +1726,17 @@ async fn read_catalog(
             }))
         })
         .collect::<Vec<_>>();
-    Ok((vendor.revision, json!({ "data": data })))
+    Ok((vendor.revision, json!({
+        "data": data,
+        "discovery": {
+            "integration": integration,
+            "inventory_scope": if credential_filtered { "credential_filtered" } else { "instance_reported" },
+            "credential_access": "catalog_read_succeeded",
+            "inference_verified": false,
+            "management_access": "not_checked",
+            "prices": "advertised_only",
+        }
+    })))
 }
 
 #[derive(Deserialize)]

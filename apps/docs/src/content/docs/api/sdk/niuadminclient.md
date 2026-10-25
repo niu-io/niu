@@ -2210,17 +2210,13 @@ checkSupplierModel(credentialId: string, alias: string, options?: RequestOptions
 
 ```typescript
 /** Read the bounded upstream inventory; does not create aliases or configure billing. */
-discoverProviderModels(credentialId: string, options?: RequestOptions): Promise<{
-    data: ProviderCatalogModel[];
-}>;
+discoverProviderModels(credentialId: string, options?: RequestOptions): Promise<ProviderDiscovery>;
 ```
 
 ### discoverSupplierModels
 
 ```typescript
-discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<{
-    data: SupplierCatalogModel[];
-}>;
+discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<ProviderDiscovery>;
 ```
 
 ### refreshProviderCatalog

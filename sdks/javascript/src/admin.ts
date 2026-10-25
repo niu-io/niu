@@ -160,6 +160,17 @@ export type SupplierCatalogMetadata = ProviderCatalogMetadata;
 export type ProviderCatalogModel = {
   id: string; name: string; context_length: number | null; catalog: ProviderCatalogMetadata;
 };
+export type ProviderDiscovery = {
+  data: ProviderCatalogModel[];
+  discovery: {
+    integration: ProviderIntegration;
+    inventory_scope: 'credential_filtered' | 'instance_reported';
+    credential_access: 'catalog_read_succeeded';
+    inference_verified: false;
+    management_access: 'not_checked';
+    prices: 'advertised_only';
+  };
+};
 export type SupplierCatalogModel = ProviderCatalogModel;
 export type ProviderCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorCooldown = ProviderCooldown;
@@ -2588,10 +2599,10 @@ export class NiuAdminClient {
   }
 
   /** Read the bounded upstream inventory; does not create aliases or configure billing. */
-  discoverProviderModels(credentialId: string, options?: RequestOptions): Promise<{ data: ProviderCatalogModel[] }> {
+  discoverProviderModels(credentialId: string, options?: RequestOptions): Promise<ProviderDiscovery> {
     return this.request(`/vendors/${uuid(credentialId)}/catalog`, undefined, options);
   }
-  discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierCatalogModel[] }> {
+  discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<ProviderDiscovery> {
     return this.discoverProviderModels(credentialId, options);
   }
 

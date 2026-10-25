@@ -37,7 +37,15 @@ configuration.
 Returned model inventory and credential authorization are distinct evidence.
 For example, OpenRouter documents separate
 [public model inventory](https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties)
-and credential-specific model filtering. A public listing must not be presented
+and [credential-specific model filtering](https://openrouter.ai/docs/api/api-reference/models/list-models-filtered-by-user-provider-preferences-privacy-settings-and-guardrails).
+For explicitly selected OpenRouter integrations, discovery should request
+`GET /models/user?output_modalities=all` using the saved credential. The endpoint
+defaults to text-output models, so omitting the modality parameter would silently
+exclude other supported inventory. A successful filtered listing establishes
+only the result of that credential-scoped read; it does not establish successful
+inference, sufficient balance, agreed rates or selling eligibility. A denied or
+unsupported filtered endpoint must not silently fall back to a public listing
+and retain a credential-qualified label. A public listing must not be presented
 as proof that a credential may dispatch every model. A discovery error or denied
 management operation must remain visible rather than become an empty successful
 catalog.

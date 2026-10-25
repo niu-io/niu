@@ -22529,7 +22529,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `GET /api/v1/vendors/{id}/catalog`
 
-Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.
+Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator. Explicit OpenRouter integrations use /models/user?output_modalities=all; other integrations use /models. Discovery reports the effective integration and inventory scope. Catalog-read success does not verify inference, management authority, or prices. No fallback from denied credential-filtered discovery to public inventory is performed.
 
 Implementation: `implemented`. Operation: `listProviderModelCatalog`.
 
@@ -22566,7 +22566,8 @@ Content type: `application/json`.
 {
   "type": "object",
   "required": [
-    "data"
+    "data",
+    "discovery"
   ],
   "properties": {
     "data": {
@@ -22574,6 +22575,46 @@ Content type: `application/json`.
       "maxItems": 2000,
       "items": {
         "$ref": "#/components/schemas/ProviderCatalogModel"
+      }
+    },
+    "discovery": {
+      "type": "object",
+      "required": [
+        "integration",
+        "inventory_scope",
+        "credential_access",
+        "inference_verified",
+        "management_access",
+        "prices"
+      ],
+      "properties": {
+        "integration": {
+          "type": "object",
+          "description": "Effective integration identity, saved selection, source and revision."
+        },
+        "inventory_scope": {
+          "type": "string",
+          "enum": [
+            "credential_filtered",
+            "instance_reported"
+          ]
+        },
+        "credential_access": {
+          "type": "string",
+          "const": "catalog_read_succeeded"
+        },
+        "inference_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "management_access": {
+          "type": "string",
+          "const": "not_checked"
+        },
+        "prices": {
+          "type": "string",
+          "const": "advertised_only"
+        }
       }
     }
   }

@@ -241,6 +241,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [ProviderCredential](/docs/api/sdk/providercredential/)
 - [ProviderCredentialCreateInput](/docs/api/sdk/providercredentialcreateinput/)
 - [ProviderCredentialUpdateInput](/docs/api/sdk/providercredentialupdateinput/)
+- [ProviderDiscovery](/docs/api/sdk/providerdiscovery/)
 - [ProviderEarning](/docs/api/sdk/providerearning/)
 - [ProviderEarningPage](/docs/api/sdk/providerearningpage/)
 - [ProviderIntegration](/docs/api/sdk/providerintegration/)

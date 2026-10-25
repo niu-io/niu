@@ -244,3 +244,31 @@ reads confirmed the persisted selections and revisions. Storage and gateway
 builds, SDK compilation and API generation completed; no fixture outcome was
 used. The architecture record describes the full discovery/review requirements.
 No UI, live discovery/import or hosted acceptance is claimed by this foundation.
+
+### Provider discovery scope follow-up (#97)
+
+A current authenticated request to OpenRouter's filtered model endpoint with
+`output_modalities=all` returned HTTP 200, 687 models and 845,411 response bytes.
+The actual response included text, image, video, audio and other output
+modalities. This verifies that the configured upstream exposes a credential-
+filtered inventory within the existing response bound; it does not verify
+inference access or Niu gateway integration. No fixture response was used.
+
+The gateway now selects that endpoint only for explicitly configured OpenRouter
+integrations, and reports effective integration, inventory scope, catalog-read
+success, unverified inference, unchecked management authority and advertised-only
+prices. Other integrations retain their instance model endpoint. A denied
+filtered request does not fall back to public inventory. Gateway runtime and
+browser verification remain required before accepting this change.
+
+The rebuilt isolated gateway then returned HTTP 200 and 687 models through an
+explicitly configured loopback reverse proxy forwarding live requests to
+OpenRouter. The relay generated no model data and retained no response cache;
+it worked around the development machine's public-DNS interception without
+changing Niu's endpoint validation. Independent comparison with the direct
+upstream response found identical model-ID sets. The gateway reported inherited
+OpenRouter identity, credential-filtered inventory and unverified inference;
+a separate model-route read still returned zero saved routes. This verifies the
+configured reverse-proxy path, not direct hosted connectivity or the unfinished
+review UI. The first run exposed query-bearing endpoint validation rejection;
+query parameters now attach to the request after the unchanged endpoint check.
