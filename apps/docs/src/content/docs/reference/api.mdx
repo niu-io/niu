@@ -10,13 +10,23 @@ Start with the [API quickstart](/docs/guides/api-quickstart/) for HTTP requests 
 
 The [REST specification](/docs/api/rest/) is generated from the complete OpenAPI contract. The [SDK reference](/docs/api/sdk/) is generated from public TypeScript declarations. Download the [bundled OpenAPI JSON](/docs/openapi/public.json) for tools that consume the specification. Interface changes are checked against generated output in CI.
 
-## Operator roles and sessions
+## Choose management credentials
 
 Management automation uses the authority required by the specific operation; a customer workspace key is not a platform administrator credential. Read [administrator access](/docs/admin/access/) and [security](/docs/security/overview/) for setup, sign-in, session restoration and revocation. Exact authentication and session schemas are in the [REST reference](/docs/api/rest/).
 
-## Automatic gateway activity and task correlation
+## Inspect request activity
 
 [Request logs](/docs/concepts/execution-observation/) describe usage and timing recorded for requests handled by Niu. Optional client correlation metadata does not turn these records into an external agent execution trace. Niu does not own task orchestration, external tool logs or outcome evaluation.
+
+## Find the right reference
+
+| Task | Start here |
+| --- | --- |
+| Send an application request | [API tutorial](/docs/guides/api-quickstart/) or [SDK tutorial](/docs/guides/sdk-quickstart/) |
+| Check a field, response or authentication requirement | [Generated REST specification](/docs/api/rest/) |
+| Find a typed client method | [Generated SDK reference](/docs/api/sdk/) |
+| Restore Chat or Video work | [Generations](/docs/reference/generations/) |
+| Understand a saved request or charge | [Request logs](/docs/concepts/execution-observation/) and [Usage and billing](/docs/concepts/performance-and-cost/) |
 
 ## Administration
 
@@ -952,13 +962,23 @@ the supported browser workflow.
 
 [REST 接口规范](/docs/api/rest/) 由完整的 OpenAPI 契约自动生成。[SDK 参考](/docs/api/sdk/) 由公开的 TypeScript 类型声明自动生成。对于需要消费接口规范的工具，可下载 [打包的 OpenAPI JSON](/docs/openapi/public.json)。接口变更会在 CI 中与生成的产物进行比对校验。
 
-## 操作员角色与会话
+## 选择管理凭据
 
 管理自动化使用具体操作所需的权限；客户工作空间密钥不是平台管理员凭据。请阅读 [管理员访问权限](/docs/admin/access/) 与 [安全概览](/docs/security/overview/) 了解初始配置、登录、会话恢复与吊销。具体的身份认证与会话 Schema 详见 [REST 参考](/docs/api/rest/)。
 
-## 自动网关活动与任务关联
+## 查看请求活动
 
 [请求日志](/docs/concepts/execution-observation/) 描述了 Niu 牛元处理请求时记录的用量与耗时信息。可选的客户端关联元数据不会将这些记录转化为外部智能体的执行追踪链路。Niu 牛元不负责任务编排、外部工具日志或结果评估。
+
+## 查找对应参考
+
+| 任务 | 从这里开始 |
+| --- | --- |
+| 发送应用请求 | [API 教程](/docs/guides/api-quickstart/)或 [SDK 教程](/docs/guides/sdk-quickstart/) |
+| 查看字段、响应或认证要求 | [自动生成的 REST 规范](/docs/api/rest/) |
+| 查找带类型的客户端方法 | [自动生成的 SDK 参考](/docs/api/sdk/) |
+| 返回 Chat 或 Video 工作 | [生成](/docs/reference/generations/) |
+| 理解已保存的请求或费用 | [请求日志](/docs/concepts/execution-observation/)与[用量和计费](/docs/concepts/performance-and-cost/) |
 
 ## 平台管理
 
