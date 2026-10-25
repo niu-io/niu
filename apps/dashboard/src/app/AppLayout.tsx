@@ -804,6 +804,9 @@ export default function AppLayout() {
   const isInstallation = canManagePlatform(session);
   const hasSidebar = !helpArea && (!adminArea || isInstallation) && (!settingsArea && (activityArea || supplierManagement || destination === 'Workspace'));
   const setupBlocked = Boolean(token && !supplierArea && !settingsArea && !helpArea && paymentReadiness.status !== 'ready');
+  const modelFiltersAvailable = destination === 'Models' && !activePath.startsWith('models/')
+    && !setupBlocked && !workspaceLoading && workspacesLoadedFor === token && !effectiveWorkspaceError
+    && (models.length > 0 || (!modelsLoading && !modelsError));
   const showWorkspaceAreas = !supplierArea || isInstallation || Boolean(session?.operator);
   const activeWorkspacePath = !isGlobalChat && routeWorkspaceId
     ? `/workspaces/${routeWorkspaceId}`
@@ -880,10 +883,10 @@ export default function AppLayout() {
     </Sidebar>}
     <SidebarInset className="main-panel">
       {mockPaymentsEnabled && <Alert className="mock-payment-warning shrink-0 rounded-none" role="status"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">{t('Mock payments enabled · Real model costs', '模拟支付已开启 · 实际产生模型费用')}</AlertTitle><AlertDescription>{t('Only payments are simulated. LLM requests still incur upstream Provider charges. Do not share this environment’s Niu API keys or upstream Provider keys publicly.', '当前仅模拟充值支付流程，模型调用仍会产生真实的上游供应商费用。请勿公开分享此环境的 Niu API 密钥或上游供应商密钥。')}</AlertDescription></Alert>}
-      {phoneNavigation && !hasSidebar && !isGlobalChat && (destination !== 'Models' || activePath.startsWith('models/')) && <nav className="mobile-product-navigation" aria-label="Product navigation"><a href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile /></nav>}
+      {phoneNavigation && !hasSidebar && !isGlobalChat && <nav className="mobile-product-navigation" aria-label="Product navigation"><a href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a><AccountMenu context={context} workspacePath={activeWorkspacePath} supplierArea={supplierArea} mobile /></nav>}
       {!settingsArea && !isGlobalChat && !helpArea && <header className="dashboard-page-header">
-        {(hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <WorkspaceSidebarToggle buttonRef={toggleRef} supplierArea={supplierArea} modelsArea={destination === 'Models'} settingsArea={settingsArea} activityArea={activityArea} adminArea={adminArea} />}
-        {phoneNavigation && (hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a>}
+        {(hasSidebar || modelFiltersAvailable) && <WorkspaceSidebarToggle buttonRef={toggleRef} supplierArea={supplierArea} modelsArea={destination === 'Models'} settingsArea={settingsArea} activityArea={activityArea} adminArea={adminArea} />}
+        {phoneNavigation && hasSidebar && <a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}><img src={logo} alt="" /></a>}
         {destination === 'Workspace' && !workspaceDirectoryArea && !supplierArea && !adminArea ? <Breadcrumb aria-label="Breadcrumb" className="breadcrumbs"><BreadcrumbList className="flex-nowrap gap-1 sm:gap-2.5">
           <BreadcrumbItem className="min-w-0 gap-0"><BreadcrumbLink asChild><NavLink className={`truncate ${activePath.startsWith('guardrails/') ? 'max-w-12' : 'max-w-16'} sm:max-w-64`} to={activeWorkspacePath}>{workspace ? workspaceDisplayName(workspace.name) : t('Workspace', '工作空间')}</NavLink></BreadcrumbLink>
             <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-6 shrink-0" aria-label="Switch workspace in header" disabled={!workspaces.length}><ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden="true" /></Button></DropdownMenuTrigger>

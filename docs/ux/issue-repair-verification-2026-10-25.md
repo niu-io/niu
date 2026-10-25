@@ -107,3 +107,31 @@ the prompt and created no additional saved session. A response-interception
 probe did not observe the targeted response and did not qualify that timing
 window. Normal free completion, active-stream cancellation, uncertain-save
 recovery and production regression remain required. The issue remains open.
+
+## Mobile Models navigation
+
+Bead `niu-cs3` tracks public issue #112. Models now uses the existing mobile
+product/account navigation, independently of model availability. The filter
+trigger is rendered only when the model catalog can render its filter panel.
+This follows the separation of global navigation and catalog filtering inspected
+on [OpenRouter Models](https://openrouter.ai/models), while retaining Niu's
+existing DropdownMenu, Sidebar, brand and spacing. Applicable Niu requirements
+are continuous task navigation, visible recovery from missing configuration,
+direct use of shared controls, keyboard operation and full-width management pages.
+
+Current-input browser verification used an actual isolated backend and two
+persisted workspaces: a funded workspace with a real free-model mapping and an
+unfunded workspace with payment readiness blocked. At 390px both exposed product
+and account navigation. The blocked workspace opened the account Settings dialog
+from that menu and had no ineffective filter trigger. Escape dismissed the menu
+and returned focus to its trigger. The ready workspace independently opened its
+model-filter Sidebar and account menu; their stable open states were visually
+inspected. The menu preserved item gutters, readable labels and account actions.
+
+Ready-state layouts at 390, 580, 900 and 1440px showed no document overflow.
+At 580, 900 and 1440px, main-panel widths were respectively 580, 840 and 1372px;
+the difference is the existing product rail, not a centered page-width limit.
+At 900px the open filter overlay measured 256px and began after the 60px rail.
+Open and closed layouts were inspected after transitions completed. Dashboard
+type checking also completed. No fixture result was used as evidence. Packaged
+and deployed regression remain required before this issue is closed.
