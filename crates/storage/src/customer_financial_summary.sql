@@ -128,10 +128,16 @@ WITH raw_bounds AS MATERIALIZED (
         COALESCE(sum(prepaid_cash) FILTER (WHERE covered IS TRUE AND prepaid_cash>=0 AND outstanding_credit>=0),0) AS known_prepaid_cash,
         COALESCE(sum(outstanding_credit) FILTER (WHERE covered IS TRUE AND prepaid_cash>=0 AND outstanding_credit>=0),0) AS known_outstanding_credit
     FROM credit_account_positions
+), payment_receipts AS (
+    -- Monetary payment receipts cover both funding kinds. Credits purchases
+    -- never enter monetary-wallet allocation or credit-repayment calculations.
+    SELECT channel,payment_reference,currency,amount_nanos,created_at FROM customer_funding_receipts
+    UNION ALL
+    SELECT channel,payment_reference,currency,amount_nanos,created_at FROM customer_unit_funding_receipts
 ), receipts AS (
     SELECT COALESCE(sum(amount_nanos::numeric) FILTER (WHERE channel<>'stripe:NiuMockPayments'),0) AS amount,
         COALESCE(sum(amount_nanos::numeric) FILTER (WHERE channel='stripe:NiuMockPayments'),0) AS simulated_amount
-    FROM customer_funding_receipts CROSS JOIN bounds
+    FROM payment_receipts CROSS JOIN bounds
     WHERE currency=$1 AND created_at>=bounds.since AND created_at<bounds.until
 ), invoice_receipts AS (
     SELECT COALESCE(sum(invoice.amount_nanos::numeric),0) AS amount
@@ -144,7 +150,7 @@ WITH raw_bounds AS MATERIALIZED (
     SELECT count(*) AS count FROM customer_invoice_payments payment
     JOIN customer_invoices invoice ON invoice.id=payment.invoice_id CROSS JOIN bounds
     WHERE invoice.currency=$1 AND EXISTS (
-        SELECT 1 FROM customer_funding_receipts receipt
+        SELECT 1 FROM payment_receipts receipt
         WHERE receipt.payment_reference=payment.payment_reference
           AND ((payment.created_at>=bounds.since AND payment.created_at<bounds.until)
             OR (receipt.created_at>=bounds.since AND receipt.created_at<bounds.until)))

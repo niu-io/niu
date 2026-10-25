@@ -10,6 +10,8 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type CustomerTopupInput = {
+    /** Required in Credits mode; forbidden for a new currency-mode checkout. */
+    quote_id?: string;
     currency?: string;
     payment_gateway?: 'epay' | 'stripe' | 'zhifux';
     amount_nanos: string;

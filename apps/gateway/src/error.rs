@@ -14,6 +14,12 @@ impl ApiError {
         match error {
             niu_storage::StoreError::Database(ref error)
                 if error.as_database_error().and_then(|db| db.constraint())
+                    == Some("customer_payment_reference_target") =>
+            {
+                Self::from_store(niu_storage::StoreError::Conflict)
+            }
+            niu_storage::StoreError::Database(ref error)
+                if error.as_database_error().and_then(|db| db.constraint())
                     == Some("platform_currency_guard") =>
             {
                 Self::invalid_request(

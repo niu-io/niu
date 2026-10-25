@@ -266,7 +266,7 @@ impl Store {
         organization: Uuid,
         input: &TopupInput<'_>,
     ) -> Result<TopupOrder, StoreError> {
-        self.create_customer_topup_inner(organization, input, None, None, None, None)
+        self.create_customer_topup_inner(organization, input, None, None, None, None, None)
             .await
     }
 
@@ -281,8 +281,16 @@ impl Store {
         if input.aggregator != "epay" || revision < 0 {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, Some(revision), None, None, None)
-            .await
+        self.create_customer_topup_inner(
+            organization,
+            input,
+            Some(revision),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
     }
 
     /// Gateway intent creation rechecks the member after configuration/account
@@ -303,6 +311,7 @@ impl Store {
             input,
             configuration_revision,
             member,
+            None,
             None,
             None,
         )
@@ -330,6 +339,7 @@ impl Store {
             member,
             Some(build),
             None,
+            None,
         )
         .await
     }
@@ -344,6 +354,28 @@ impl Store {
         digest: &[u8; 32],
         build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
     ) -> Result<TopupOrder, StoreError> {
+        self.create_authorized_epay_checkout_with_quote(
+            organization,
+            input,
+            revision,
+            member,
+            digest,
+            build,
+            None,
+        )
+        .await
+    }
+
+    pub async fn create_authorized_epay_checkout_with_quote(
+        &self,
+        organization: Uuid,
+        input: &TopupInput<'_>,
+        revision: i64,
+        member: Option<crate::OperatorPrincipal>,
+        digest: &[u8; 32],
+        build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
+        quote: Option<Uuid>,
+    ) -> Result<TopupOrder, StoreError> {
         if input.aggregator != "epay" || input.currency != "CNY" || revision < 0 {
             return Err(StoreError::Conflict);
         }
@@ -354,6 +386,33 @@ impl Store {
             member,
             Some(build),
             Some(digest),
+            quote,
+        )
+        .await
+    }
+
+    /// Explicit quote binding for the customer checkout path. Currency mode
+    /// rejects a quote; Credits mode requires one. Neither mode is inferred.
+    pub async fn create_authorized_customer_topup_with_quote(
+        &self,
+        organization: Uuid,
+        input: &TopupInput<'_>,
+        configuration_revision: Option<i64>,
+        member: Option<crate::OperatorPrincipal>,
+        quote: Option<Uuid>,
+    ) -> Result<TopupOrder, StoreError> {
+        if configuration_revision.is_some_and(|revision| revision < 0 || input.aggregator != "epay")
+        {
+            return Err(StoreError::Conflict);
+        }
+        self.create_customer_topup_inner(
+            organization,
+            input,
+            configuration_revision,
+            member,
+            None,
+            None,
+            quote,
         )
         .await
     }
@@ -366,6 +425,7 @@ impl Store {
         member: Option<crate::OperatorPrincipal>,
         checkout: Option<&(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync)>,
         evidence: Option<&[u8; 32]>,
+        quote: Option<Uuid>,
     ) -> Result<TopupOrder, StoreError> {
         if input.amount_nanos <= 0
             || input.currency.len() != 3
@@ -383,6 +443,11 @@ impl Store {
             return Err(StoreError::InvalidPrice);
         }
         let mut tx = self.begin_bounded_recording().await?;
+        let billing_mode: String = sqlx::query_scalar(
+            "SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
         if let Some(expected) = configuration_revision {
             sqlx::query("SELECT pg_advisory_xact_lock_shared(716553)")
                 .execute(&mut *tx)
@@ -408,6 +473,14 @@ impl Store {
         }
         let prior:Option<TopupOrder>=sqlx::query_as("SELECT id,organization_id,account_id,currency,amount_nanos,aggregator,merchant,payment_method,idempotency_key FROM customer_topup_orders WHERE organization_id=$1 AND idempotency_key=$2").bind(organization).bind(input.idempotency_key).fetch_optional(&mut *tx).await?;
         if let Some(prior) = prior {
+            let saved_quote: Option<Uuid> =
+                sqlx::query_scalar("SELECT quote_id FROM customer_unit_topups WHERE order_id=$1")
+                    .bind(prior.id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            if saved_quote != quote {
+                return Err(StoreError::Conflict);
+            }
             if prior.account_id != account
                 || prior.currency != input.currency
                 || prior.amount_nanos != input.amount_nanos
@@ -423,6 +496,9 @@ impl Store {
             }
             return Ok(prior);
         }
+        if (billing_mode == "credits") != quote.is_some() {
+            return Err(StoreError::Conflict);
+        }
         let order = TopupOrder {
             id: Uuid::new_v4(),
             organization_id: organization,
@@ -435,6 +511,25 @@ impl Store {
             idempotency_key: input.idempotency_key,
         };
         sqlx::query("INSERT INTO customer_topup_orders(id,organization_id,account_id,currency,amount_nanos,aggregator,merchant,payment_method,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)").bind(order.id).bind(organization).bind(account).bind(&order.currency).bind(order.amount_nanos).bind(&order.aggregator).bind(&order.merchant).bind(&order.payment_method).bind(order.idempotency_key).execute(&mut *tx).await?;
+        if let Some(quote_id) = quote {
+            let valid: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM customer_unit_purchase_quotes q
+                 WHERE q.id=$1 AND q.organization_id=$2 AND q.payment_currency=$3
+                   AND q.payment_nanos=$4 AND q.expires_at>clock_timestamp()
+                   AND NOT EXISTS(SELECT 1 FROM customer_unit_topups t WHERE t.quote_id=q.id))",
+            )
+            .bind(quote_id)
+            .bind(organization)
+            .bind(&order.currency)
+            .bind(order.amount_nanos)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !valid {
+                return Err(StoreError::Conflict);
+            }
+            sqlx::query("INSERT INTO customer_unit_topups(order_id,organization_id,quote_id) VALUES($1,$2,$3)")
+                .bind(order.id).bind(organization).bind(quote_id).execute(&mut *tx).await?;
+        }
         if let Some(build) = checkout {
             Self::complete_local_epay_checkout(&mut tx, &order, build, evidence).await?;
         }
@@ -650,7 +745,9 @@ impl Store {
     }
 
     /// Trusted payment integration only, after independent paid-order verification.
-    /// Funding entry, globally unique receipt and order settlement commit together.
+    /// Monetary funding entry or Credits lot, globally unique receipt and order
+    /// settlement commit together. The returned internal reference is the entry
+    /// or lot, never a customer-visible display identifier.
     pub async fn settle_verified_customer_topup(
         &self,
         organization: Uuid,
@@ -687,12 +784,70 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let prior: Option<Uuid> =
-            sqlx::query_scalar("SELECT entry_id FROM customer_topup_settlements WHERE order_id=$1")
+            sqlx::query_scalar("SELECT COALESCE(entry_id,unit_lot_id) FROM customer_topup_settlements WHERE order_id=$1")
                 .bind(order)
                 .fetch_optional(&mut *tx)
                 .await?;
         if let Some(entry) = prior {
             return Ok(entry);
+        }
+        let unit_quote: Option<(i64, i64)> = sqlx::query_as(
+            "SELECT q.credit_atoms,r.definition_revision FROM customer_unit_topups t
+             JOIN customer_unit_purchase_quotes q ON q.id=t.quote_id
+             JOIN customer_unit_purchase_rules r ON r.revision=q.rule_revision
+             WHERE t.order_id=$1 AND t.organization_id=$2",
+        )
+        .bind(order)
+        .bind(organization)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some((credit_atoms, definition_revision)) = unit_quote {
+            sqlx::query("INSERT INTO customer_unit_accounts(organization_id) VALUES($1) ON CONFLICT DO NOTHING")
+                .bind(organization).execute(&mut *tx).await?;
+            sqlx::query("SELECT organization_id FROM customer_unit_accounts WHERE organization_id=$1 FOR NO KEY UPDATE")
+                .bind(organization).fetch_one(&mut *tx).await?;
+            let lot = Uuid::new_v4();
+            let simulated = saved.aggregator == "stripe" && saved.merchant == "NiuMockPayments";
+            let provenance = if simulated { "simulated" } else { "purchased" };
+            let backing = if simulated { 0 } else { saved.amount_nanos };
+            sqlx::query(
+                "INSERT INTO customer_unit_purchase_lots
+                (id,organization_id,order_id,definition_revision,credit_atoms,provenance,
+                 payment_currency,payment_nanos,backing_nanos) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+            )
+            .bind(lot)
+            .bind(organization)
+            .bind(order)
+            .bind(definition_revision)
+            .bind(credit_atoms)
+            .bind(provenance)
+            .bind(&saved.currency)
+            .bind(saved.amount_nanos)
+            .bind(backing)
+            .execute(&mut *tx)
+            .await?;
+            let channel = format!("{}:{}", saved.aggregator, saved.merchant);
+            let inserted = sqlx::query("INSERT INTO customer_unit_funding_receipts
+                (channel,payment_reference,organization_id,account_id,currency,unit_lot_id,amount_nanos)
+                VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING")
+                .bind(channel).bind(platform_reference).bind(organization).bind(saved.account_id)
+                .bind(&saved.currency).bind(lot).bind(saved.amount_nanos).execute(&mut *tx).await?;
+            if inserted.rows_affected() != 1 {
+                return Err(StoreError::Conflict);
+            }
+            sqlx::query(
+                "INSERT INTO customer_topup_settlements
+                (order_id,organization_id,account_id,currency,unit_lot_id) VALUES($1,$2,$3,$4,$5)",
+            )
+            .bind(order)
+            .bind(organization)
+            .bind(saved.account_id)
+            .bind(&saved.currency)
+            .bind(lot)
+            .execute(&mut *tx)
+            .await?;
+            tx.commit().await?;
+            return Ok(lot);
         }
         sqlx::query("SELECT id FROM customer_balance_accounts WHERE id=$1 FOR NO KEY UPDATE")
             .bind(saved.account_id)

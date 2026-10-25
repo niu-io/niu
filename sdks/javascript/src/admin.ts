@@ -413,6 +413,8 @@ export type CustomerBalance = {
   low_balance: boolean; posted_credit_exhausted: boolean;
 };
 export type CustomerTopupInput = {
+  /** Required in Credits mode; forbidden for a new currency-mode checkout. */
+  quote_id?: string;
   currency?: string;
   payment_gateway?: 'epay' | 'stripe' | 'zhifux';
   amount_nanos: string; payment_method: string; idempotency_key: string;
@@ -427,6 +429,11 @@ export type CustomerPaymentMethods = {
 export type CustomerTopup = {
   id: string; currency: string; amount_nanos: string; payment_method: string;
   status: 'reconciliation_required' | 'pending' | 'paid' | 'closed'; checkout_url: string | null;
+  /** Original pinned purchase quantity; null for monetary wallet funding. */
+  credits?: {
+    credit_atoms: string; definition_revision: string; rule_revision: string;
+    name: string; display_precision: number; atoms_per_unit: '1000000000';
+  } | null;
 };
 /** Customer-safe immutable credit and warning policy history. */
 export type CustomerBalancePolicyHistory = {
@@ -2052,6 +2059,7 @@ export class NiuAdminClient {
       amount_nanos: input.amount_nanos, payment_method: input.payment_method, idempotency_key: uuid(input.idempotency_key),
       ...(input.currency === undefined ? {} : { currency: input.currency }),
       ...(input.payment_gateway === undefined ? {} : { payment_gateway: input.payment_gateway }),
+      ...(input.quote_id === undefined ? {} : { quote_id: uuid(input.quote_id) }),
     }, options);
   }
 

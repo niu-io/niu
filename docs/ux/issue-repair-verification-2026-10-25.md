@@ -465,3 +465,56 @@ returned HTTP 404; a workspace-scoped operator received HTTP 403.
 This is actual preview and persistence evidence, not completed-payment evidence.
 Checkout binding, processor eligibility, expiry enforcement at binding, unit
 issuance, consumption and refunds remain unverified and are still required.
+
+## Branded Credits verified payment issuance — issue #110
+
+Migration 0378 separates unit purchase lots and receipts from monetary wallet
+funding and adds a shared payment-reference registry. Order creation can bind a
+quote atomically before submission. Verified payment settlement now writes either
+a monetary entry or a unit lot, its matching receipt and the terminal order record
+in one transaction. Financial receipt summaries include both kinds while retaining
+the simulated-payment exclusion from verified cash. Existing monetary allocation
+and credit-repayment triggers receive no Credits receipts.
+
+A separate native gateway and empty PostgreSQL database were started with the
+actual opt-in Mock Payment Gateway. Company, unit definition, purchase rule and
+quote were created through the actual administration SDK. Before changing the
+development configuration, a currency-mode checkout with a quote returned HTTP
+409. For this isolated integration run only, the internal billing-mode column
+was explicitly set to Credits after checking that there were no monetary entries,
+payment orders or credit facilities. This direct development configuration is
+not evidence for the still-unimplemented guarded customer mode-switch workflow.
+The hosted installation was not changed.
+
+An actual USD 1.00 checkout pinned 100 Credits. After the order was pending, a new
+purchase rule of 200 Credits per dollar was published. Replaying the order retained
+its original identity and 100-Credit quantity. Selecting the merchant's duplicate
+success scenario delivered two signed callbacks, both acknowledged with HTTP 200.
+Independent SQL reads found exactly one 100-Credit lot, one receipt and one
+settlement. Its provenance was simulated and monetary backing was zero. There
+were no monetary balance entries or monetary funding receipts.
+
+A subsequent failed USD 1.00 payment closed its order without issuance. Another
+successful USD 1.00 payment issued a separate 200-Credit lot under the new rule.
+Independent reads confirmed two lots containing 100 and 200 Credits, two receipts,
+two payment references, two settlements and one closed order. Reusing a consumed
+quote for a new order, omitting a quote in Credits mode and changing a quote's
+payment amount each returned HTTP 409. The rejected amount attempt did not prevent
+the identical idempotency key from subsequently creating its valid original intent.
+
+Submitting the already-used payment reference to the monetary funding endpoint
+returned HTTP 409 and left the monetary ledger empty. The actual financial-summary
+API reported USD 2.00 simulated receipts and USD 0 verified cash receipts.
+
+The existing currency-mode gateway was then upgraded through migration 0378.
+An actual successful mock checkout without a quote added exactly USD 1.00 to its
+monetary ledger and returned `credits: null`. Its prior mock-payment enabled state
+was restored afterward. This verifies the exercised legacy funding path after
+the registry backfill, not every historical financial workflow.
+
+These runs establish the exercised simulated-payment issuance and binding paths.
+Genuine cash-backed issuance, natural expiry rejection, EPay and Zhifux unit
+checkouts, lot consumption, grants, refunds, guarded mode activation, customer
+rendering and hosted behavior remain outside this evidence. An unused live quote
+was retained for a later natural-expiry check. The feature and release gate remain
+open; no fixture outcome supports these observations.

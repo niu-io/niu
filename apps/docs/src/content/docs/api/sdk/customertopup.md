@@ -17,5 +17,14 @@ export type CustomerTopup = {
     payment_method: string;
     status: 'reconciliation_required' | 'pending' | 'paid' | 'closed';
     checkout_url: string | null;
+    /** Original pinned purchase quantity; null for monetary wallet funding. */
+    credits?: {
+        credit_atoms: string;
+        definition_revision: string;
+        rule_revision: string;
+        name: string;
+        display_precision: number;
+        atoms_per_unit: '1000000000';
+    } | null;
 };
 ```

@@ -176,6 +176,23 @@ separately enforce mode, owner, currency, amount, processor precision, expiry
 and single use before accepting that quote. Until the customer checkout workflow
 is connected, these preview operations require platform administration.
 
+Checkout accepts an optional `quote_id` in its existing intent contract. New
+currency-mode orders reject a quote; new Credits-mode orders require one. The
+quote is bound in the order-creation transaction before a provider request or
+local checkout link is saved. The binder checks company, exact payment amount,
+currency, original expiry and single use. Replaying a saved order requires the
+same quote and preserves the original result even after purchase-rule changes.
+Paid and closed order state remains shared across both funding modes.
+
+Verified Credits payments create an immutable purchase lot and a separate
+`customer_unit_funding_receipts` record. `customer_payment_references` enforces
+one funding target per channel and payment reference across monetary and Credits
+receipts. Existing monetary receipt triggers continue to operate only on monetary
+wallet funding. A Credits settlement references its lot instead of a monetary
+balance entry. The lot and receipt must match the saved quote, provider payment
+identity and immutable simulated-payment provenance. The monetary receipt,
+quoted quantity and unit definition remain available in order history.
+
 Purchase-rule publication, mode publication, checkout creation and request
 admission serialize on the installation billing revision. Lot operations also
 serialize on the customer account, in a documented consistent lock order.

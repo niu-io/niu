@@ -8,7 +8,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/organizations/{organization}/billing/topups`
 
-Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility.
+Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
 
 Operation: `createCustomerTopup`.
 
@@ -95,6 +95,11 @@ Location: **path**. **Required.**
     "idempotency_key": {
       "type": "string",
       "format": "uuid"
+    },
+    "quote_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Required for a new Credits-mode checkout and forbidden for a new currency-mode checkout. Must be an unexpired unused quote for the same company, amount and currency. Preserve it on retries."
     }
   }
 }
@@ -160,6 +165,47 @@ Content type: `application/json`.
           ],
           "format": "uri",
           "description": "Validated HTTPS checkout for pending orders only; null for paid and closed orders."
+        },
+        "credits": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "credit_atoms",
+            "definition_revision",
+            "rule_revision",
+            "name",
+            "display_precision",
+            "atoms_per_unit"
+          ],
+          "properties": {
+            "credit_atoms": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "definition_revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "rule_revision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "display_precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "atoms_per_unit": {
+              "type": "string",
+              "const": "1000000000"
+            }
+          }
         }
       }
     }
@@ -201,6 +247,6 @@ Durable storage unavailable; no successful creation is implied
 
 ## Behavior and supported scope
 
-Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility.
+Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility. Credits-mode settlement issues the original quoted unit quantity in a separate lot; it does not credit the monetary wallet. The purchase rule is pinned before checkout and later publication cannot change it. Simulated payment provenance is retained with zero verified cash backing.
 
 **Supported scope:** implemented

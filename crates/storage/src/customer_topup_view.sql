@@ -5,6 +5,14 @@ SELECT jsonb_build_object(
     'amount_nanos', o.amount_nanos::text,
     'payment_method', o.payment_method,
     'simulated', o.aggregator = 'stripe' AND o.merchant = 'NiuMockPayments',
+    'credits', CASE WHEN q.id IS NULL THEN NULL ELSE jsonb_build_object(
+        'credit_atoms', q.credit_atoms::text,
+        'definition_revision', r.definition_revision::text,
+        'rule_revision', q.rule_revision::text,
+        'name', d.name,
+        'display_precision', d.display_precision,
+        'atoms_per_unit', '1000000000'
+    ) END,
     'created_at', o.created_at,
     'status', CASE
         WHEN s.order_id IS NOT NULL THEN 'paid'
@@ -21,6 +29,10 @@ FROM customer_topup_orders o
 LEFT JOIN customer_topup_settlements s ON s.order_id = o.id
 LEFT JOIN customer_topup_closures c ON c.order_id = o.id
 LEFT JOIN customer_topup_checkout h ON h.order_id = o.id
+LEFT JOIN customer_unit_topups t ON t.order_id = o.id
+LEFT JOIN customer_unit_purchase_quotes q ON q.id = t.quote_id
+LEFT JOIN customer_unit_purchase_rules r ON r.revision = q.rule_revision
+LEFT JOIN customer_unit_definitions d ON d.revision = r.definition_revision
 WHERE o.organization_id = $1
     AND ($2::uuid IS NULL OR o.id = $2)
     AND ($3::text IS NULL OR (o.created_at, o.id) < ($3::text::timestamptz, $4))

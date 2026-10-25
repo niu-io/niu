@@ -135,6 +135,47 @@ Content type: `application/json`.
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "credits": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "credit_atoms",
+              "definition_revision",
+              "rule_revision",
+              "name",
+              "display_precision",
+              "atoms_per_unit"
+            ],
+            "properties": {
+              "credit_atoms": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "definition_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "rule_revision": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "display_precision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "atoms_per_unit": {
+                "type": "string",
+                "const": "1000000000"
+              }
+            }
           }
         }
       }
