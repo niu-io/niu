@@ -85,6 +85,19 @@ impl Store {
             }
         }
         Self::lock_customer_unit_attempt(tx, scope, attempt).await?;
+        let maximum =
+            price.reservation_atoms(reservation.prompt_bound, reservation.completion_bound)?;
+        Self::check_customer_unit_admission_policy_in_tx(tx, scope, attempt, maximum).await?;
+        Self::reserve_customer_unit_ranges_in_tx(tx, scope, attempt, definition, maximum).await?;
+        Ok(true)
+    }
+
+    pub(crate) async fn check_customer_unit_admission_policy_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        maximum: i64,
+    ) -> Result<(), StoreError> {
         // Monetary caps cannot be silently reinterpreted as Credits. A scope
         // with an existing monetary limit requires an explicit Credits limit
         // policy revision before Credits admission can proceed.
@@ -138,13 +151,24 @@ impl Store {
         if unmigrated_monetary_limits {
             return Err(StoreError::Conflict);
         }
-        let pending: bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_unit_text_charges c JOIN customer_unit_reservations r USING(attempt_id) WHERE r.organization_id=$1 AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions s WHERE s.attempt_id=c.attempt_id))")
-            .bind(scope.organization_id).fetch_one(&mut **tx).await?;
+        let pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM (
+                    SELECT attempt_id FROM customer_unit_text_charges
+                    UNION ALL
+                    SELECT attempt_id FROM customer_unit_media_charges
+                ) c
+                JOIN customer_unit_reservations r USING(attempt_id)
+                WHERE r.organization_id = $1
+                  AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions s WHERE s.attempt_id = c.attempt_id)
+            )",
+        )
+        .bind(scope.organization_id)
+        .fetch_one(&mut **tx)
+        .await?;
         if pending {
             return Err(StoreError::BudgetExceeded);
         }
-        let maximum =
-            price.reservation_atoms(reservation.prompt_bound, reservation.completion_bound)?;
         let workspace_limit_exceeded: bool = sqlx::query_scalar(
             "SELECT EXISTS(
                 SELECT 1 FROM customer_unit_workspace_spending_limits l
@@ -180,8 +204,7 @@ impl Store {
         if key_limit_exceeded {
             return Err(StoreError::KeySpendingLimitExceeded);
         }
-        Self::reserve_customer_unit_ranges_in_tx(tx, scope, attempt, definition, maximum).await?;
-        Ok(true)
+        Ok(())
     }
 
     pub(crate) async fn accrue_customer_unit_text_in_tx(

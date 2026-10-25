@@ -259,6 +259,26 @@ pub(in crate::web) async fn history(
 ///           ],
 ///           "pattern": "^[0-9]+$"
 ///         },
+///         "unit_code": {
+///           "type": [
+///             "string",
+///             "null"
+///           ]
+///         },
+///         "reserved_atoms": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$"
+///         },
+///         "charge_atoms": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$"
+///         },
 ///         "settled_usage": {
 ///           "type": [
 ///             "object",
@@ -407,6 +427,19 @@ pub(in crate::web) async fn history(
 ///                 "null"
 ///               ],
 ///               "pattern": "^[0-9]+$"
+///             },
+///             "unit_code": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ]
+///             },
+///             "amount_atoms": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$"
 ///             }
 ///           }
 ///         },
@@ -455,6 +488,19 @@ pub(in crate::web) async fn history(
 ///             "amount_units": {
 ///               "type": "string",
 ///               "pattern": "^[0-9]+$"
+///             },
+///             "amount_atoms": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$"
+///             },
+///             "unit_code": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ]
 ///             },
 ///             "decimal_places": {
 ///               "type": "integer",
@@ -1159,35 +1205,69 @@ pub(super) async fn estimate_as(
     else {
         return Err(ApiError::unavailable());
     };
-    let (currency, amount, maximum, selected_at) = if let Some(rate) = selling {
-        let receipt = rate
-            .pricing
-            .calculate(&usage)
-            .map_err(|_| ApiError::unavailable())?;
-        let maximum = rate
-            .pricing
-            .calculate(&niu_metered_cost::Usage::Known {
-                meter: rate.liability.meter,
-                quantity: rate.liability.maximum_quantity,
-                provenance: niu_metered_cost::Provenance::Estimate,
-            })
-            .map_err(|_| ApiError::unavailable())?;
-        (
-            Some(receipt.currency.clone()),
-            Some(estimated_nanos(&receipt)?),
-            Some(estimated_nanos(&maximum)?),
-            Some(rate.pricing.selected_at().to_string()),
-        )
-    } else {
-        (None, None, None, None)
-    };
-    Ok(Json(
-        serde_json::json!({"object":"video.estimate","model":model,
-        "mode":if owner_funded {"owner_funded"} else {"customer"},
-        "effective_output":output,"estimate":{"meter":meter,"quantity":quantity,
-            "provenance":"Estimate","currency":currency,"amount_nanos":amount},
-        "maximum_charge_nanos":maximum,"selected_at":selected_at}),
-    ))
+    let (currency, unit_code, amount, amount_atoms, maximum, maximum_atoms, selected_at) =
+        if let Some(rate) = selling {
+            let receipt = rate
+                .pricing
+                .calculate(&usage)
+                .map_err(|_| ApiError::unavailable())?;
+            let maximum = rate
+                .pricing
+                .calculate(&niu_metered_cost::Usage::Known {
+                    meter: rate.liability.meter,
+                    quantity: rate.liability.maximum_quantity,
+                    provenance: niu_metered_cost::Provenance::Estimate,
+                })
+                .map_err(|_| ApiError::unavailable())?;
+            if rate.unit_tariff_revision.is_some() {
+                (
+                    None,
+                    rate.unit_code.clone(),
+                    None,
+                    Some(receipt.amount_units.to_string()),
+                    None,
+                    Some(maximum.amount_units.to_string()),
+                    Some(rate.pricing.selected_at().to_string()),
+                )
+            } else {
+                (
+                    Some(receipt.currency.clone()),
+                    None,
+                    Some(estimated_nanos(&receipt)?),
+                    None,
+                    Some(estimated_nanos(&maximum)?),
+                    None,
+                    Some(rate.pricing.selected_at().to_string()),
+                )
+            }
+        } else {
+            (None, None, None, None, None, None, None)
+        };
+    let mut estimate_obj = serde_json::json!({
+        "meter": meter,
+        "quantity": quantity,
+        "provenance": "Estimate",
+        "currency": currency,
+        "amount_nanos": amount
+    });
+    if unit_code.is_some() || amount_atoms.is_some() {
+        estimate_obj["unit_code"] = serde_json::json!(unit_code);
+        estimate_obj["amount_atoms"] = serde_json::json!(amount_atoms);
+    }
+    let mut response_obj = serde_json::json!({
+        "object": "video.estimate",
+        "model": model,
+        "mode": if owner_funded { "owner_funded" } else { "customer" },
+        "effective_output": output,
+        "estimate": estimate_obj,
+        "maximum_charge_nanos": maximum,
+        "selected_at": selected_at
+    });
+    if unit_code.is_some() || maximum_atoms.is_some() {
+        response_obj["unit_code"] = serde_json::json!(unit_code);
+        response_obj["maximum_charge_atoms"] = serde_json::json!(maximum_atoms);
+    }
+    Ok(Json(response_obj))
 }
 
 /// ```openapi
@@ -2235,10 +2315,9 @@ async fn authorize_refresh_for_principal(
         .map_err(ApiError::from_store)?;
     let priced = state
         .store
-        .customer_media_pricing(scope, id)
+        .customer_media_is_priced(scope, id)
         .await
-        .map_err(ApiError::from_store)?
-        .is_some();
+        .map_err(ApiError::from_store)?;
     let openrouter = route.channel == niu_media::openrouter::REVISION;
     if (route.channel != "ark-direct-v1" && !openrouter)
         || (openrouter

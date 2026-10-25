@@ -19799,6 +19799,448 @@
         "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/units/limit/history"
       }
     },
+    "/api/v1/platform/units/media/tariffs": {
+      "get": {
+        "operationId": "listCustomerUnitMediaTariffs",
+        "summary": "List latest explicit Credits media tariffs",
+        "description": "Platform administration required. Reads the latest saved Credits media consumption tariff per dimension tuple (model_alias, channel, resolution, reference_video), not a conversion from payment currency. Optional model filter scopes to one model alias. No Provider procurement price is exposed.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "model",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest explicit Credits media tariffs by dimension tuple",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "revision",
+                          "definition_revision",
+                          "model_alias",
+                          "channel",
+                          "resolution",
+                          "reference_video",
+                          "meter",
+                          "price"
+                        ],
+                        "properties": {
+                          "revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,18}$"
+                          },
+                          "definition_revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,18}$"
+                          },
+                          "model_alias": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "channel": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "resolution": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "reference_video": {
+                            "type": "boolean"
+                          },
+                          "meter": {
+                            "type": "string",
+                            "enum": [
+                              "video_tokens"
+                            ]
+                          },
+                          "price": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "dimensions",
+                              "meter",
+                              "amount_atoms",
+                              "per_quantity",
+                              "minimum_quantity",
+                              "rounding"
+                            ],
+                            "properties": {
+                              "dimensions": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "model",
+                                  "channel",
+                                  "resolution",
+                                  "reference_video"
+                                ],
+                                "properties": {
+                                  "model": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "channel": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "resolution": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "reference_video": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              },
+                              "meter": {
+                                "type": "string",
+                                "enum": [
+                                  "video_tokens"
+                                ]
+                              },
+                              "amount_atoms": {
+                                "type": "string",
+                                "pattern": "^[0-9]{1,16}$"
+                              },
+                              "per_quantity": {
+                                "$ref": "#/components/schemas/VideoBillingQuantity"
+                              },
+                              "minimum_quantity": {
+                                "$ref": "#/components/schemas/VideoBillingQuantity"
+                              },
+                              "rounding": {
+                                "type": "string",
+                                "enum": [
+                                  "Down",
+                                  "Up",
+                                  "HalfEven"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model query"
+          },
+          "401": {
+            "description": "Authentication unavailable or revoked"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      },
+      "post": {
+        "operationId": "publishCustomerUnitMediaTariff",
+        "summary": "Publish a versioned Credits media consumption tariff",
+        "description": "Platform administration required and rechecked transactionally for operators. Publish atom-denominated media consumption rates independently of purchase conversion and monetary media rate cards. New publication requires the current unit definition and installation revision. Concurrent stale writes conflict. Equal idempotent retries return their original normalized publication; changed input conflicts. Explicit zero is valid; absence of a publication is unavailable. Publishing a tariff does not activate billing mode, issue Credits, convert money balances, admit requests or change prior request bindings.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "model_alias",
+                  "definition_revision",
+                  "expected_revision",
+                  "idempotency_key",
+                  "price"
+                ],
+                "properties": {
+                  "model_alias": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "definition_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,18}$"
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,18})$"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "price": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "dimensions",
+                      "meter",
+                      "amount_atoms",
+                      "per_quantity",
+                      "minimum_quantity",
+                      "rounding"
+                    ],
+                    "properties": {
+                      "dimensions": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "model",
+                          "channel",
+                          "resolution",
+                          "reference_video"
+                        ],
+                        "properties": {
+                          "model": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "channel": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "resolution": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "reference_video": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "meter": {
+                        "type": "string",
+                        "enum": [
+                          "video_tokens"
+                        ]
+                      },
+                      "amount_atoms": {
+                        "type": "string",
+                        "pattern": "^[0-9]{1,16}$"
+                      },
+                      "per_quantity": {
+                        "$ref": "#/components/schemas/VideoBillingQuantity"
+                      },
+                      "minimum_quantity": {
+                        "$ref": "#/components/schemas/VideoBillingQuantity"
+                      },
+                      "rounding": {
+                        "type": "string",
+                        "enum": [
+                          "Down",
+                          "Up",
+                          "HalfEven"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Original immutable Credits media tariff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "definition_revision",
+                        "model_alias",
+                        "channel",
+                        "resolution",
+                        "reference_video",
+                        "meter",
+                        "price"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
+                        },
+                        "definition_revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
+                        },
+                        "model_alias": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "channel": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "resolution": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "reference_video": {
+                          "type": "boolean"
+                        },
+                        "meter": {
+                          "type": "string",
+                          "enum": [
+                            "video_tokens"
+                          ]
+                        },
+                        "price": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "dimensions",
+                            "meter",
+                            "amount_atoms",
+                            "per_quantity",
+                            "minimum_quantity",
+                            "rounding"
+                          ],
+                          "properties": {
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "model",
+                                "channel",
+                                "resolution",
+                                "reference_video"
+                              ],
+                              "properties": {
+                                "model": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "channel": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "resolution": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "reference_video": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "meter": {
+                              "type": "string",
+                              "enum": [
+                                "video_tokens"
+                              ]
+                            },
+                            "amount_atoms": {
+                              "type": "string",
+                              "pattern": "^[0-9]{1,16}$"
+                            },
+                            "per_quantity": {
+                              "$ref": "#/components/schemas/VideoBillingQuantity"
+                            },
+                            "minimum_quantity": {
+                              "$ref": "#/components/schemas/VideoBillingQuantity"
+                            },
+                            "rounding": {
+                              "type": "string",
+                              "enum": [
+                                "Down",
+                                "Up",
+                                "HalfEven"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model, dimensions, exact quantity or rounding mode"
+          },
+          "401": {
+            "description": "Authentication unavailable or revoked"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Stale installation/unit revision or conflicting idempotency input"
+          },
+          "422": {
+            "description": "Malformed request"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals": {
       "get": {
         "operationId": "previewCustomerUnitPurchaseReversal",
@@ -54170,6 +54612,26 @@
             ],
             "pattern": "^[0-9]+$"
           },
+          "unit_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reserved_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "charge_atoms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
           "settled_usage": {
             "type": [
               "object",
@@ -54318,6 +54780,19 @@
                   "null"
                 ],
                 "pattern": "^[0-9]+$"
+              },
+              "unit_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "amount_atoms": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
               }
             }
           },
@@ -54366,6 +54841,19 @@
               "amount_units": {
                 "type": "string",
                 "pattern": "^[0-9]+$"
+              },
+              "amount_atoms": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              },
+              "unit_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "decimal_places": {
                 "type": "integer",

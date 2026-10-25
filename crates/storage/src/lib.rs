@@ -10,7 +10,10 @@ mod customer_unit_ranges;
 mod customer_unit_reversals;
 mod customer_unit_tariffs;
 mod customer_unit_text_billing;
-pub use customer_unit_tariffs::{CustomerUnitTextPrice, CustomerUnitTextTariffInput};
+pub use customer_unit_tariffs::{
+    CustomerUnitMediaPrice, CustomerUnitMediaTariffInput, CustomerUnitTextPrice,
+    CustomerUnitTextTariffInput,
+};
 pub use customer_unit_grants::CustomerUnitGrantInput;
 pub use customer_units::{
     CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, CustomerUnitQuoteInput,

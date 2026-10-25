@@ -1678,3 +1678,58 @@ test('customer unit purchase reversal preview and execution validate scope, exac
   assert.equal(calls.length, 3);
 });
 
+test('admin client lists and publishes Credits media consumption tariffs with exact validation', async () => {
+  const calls = [];
+  const abort = new AbortController();
+  const id = '11111111-1111-4111-8111-111111111111';
+  const price = {
+    dimensions: { model: 'seedance-pro', channel: 'ark-direct-v1', resolution: '720p', reference_video: false },
+    meter: 'video_tokens',
+    amount_atoms: '500000',
+    per_quantity: { numerator: '1', denominator: '1' },
+    minimum_quantity: { numerator: '0', denominator: '1' },
+    rounding: 'Up'
+  };
+  const saved = {
+    data: {
+      revision: '12',
+      definition_revision: '2',
+      model_alias: 'seedance-pro',
+      channel: 'ark-direct-v1',
+      resolution: '720p',
+      reference_video: false,
+      meter: 'video_tokens',
+      price
+    }
+  };
+  const client = new NiuAdminClient({
+    adminToken: 'test',
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return init.method === 'POST' ? Response.json(saved) : Response.json({ data: [saved.data] });
+    }
+  });
+
+  assert.deepEqual(await client.listCustomerUnitMediaTariffs('seedance-pro', { signal: abort.signal }), { data: [saved.data] });
+  assert.ok(calls[0].url.endsWith('/platform/units/media/tariffs?model=seedance-pro'));
+  assert.equal(calls[0].init.signal, abort.signal);
+
+  const input = {
+    model_alias: 'seedance-pro',
+    definition_revision: '2',
+    expected_revision: '11',
+    idempotency_key: id,
+    price
+  };
+  assert.deepEqual(await client.publishCustomerUnitMediaTariff(input, { signal: abort.signal }), saved);
+  assert.ok(calls[1].url.endsWith('/platform/units/media/tariffs'));
+  assert.equal(calls[1].init.method, 'POST');
+  assert.deepEqual(JSON.parse(calls[1].init.body), input);
+
+  assert.throws(() => client.listCustomerUnitMediaTariffs(' padded '), /model alias/);
+  assert.throws(() => client.publishCustomerUnitMediaTariff({ ...input, price: { ...price, dimensions: { ...price.dimensions, model: 'other' } } }), /dimensions/);
+  assert.throws(() => client.publishCustomerUnitMediaTariff({ ...input, price: { ...price, per_quantity: { numerator: '0', denominator: '1' } } }), /positive/);
+  assert.equal(calls.length, 2);
+});
+
+

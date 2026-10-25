@@ -1,9 +1,10 @@
 //! Customer video prices, qualified maximum and prepaid reservation in one tx.
 use crate::{
-    CustomerMediaRateCard, MediaLiabilityBound, MediaLiabilityIdentity, RetailSchedule,
-    RetailSelection, SelectedCustomerMediaRate, Store, StoreError, TenantScope, VendorRoute,
+    CustomerMediaRateCard, CustomerUnitMediaPrice, MediaLiabilityBound, MediaLiabilityIdentity,
+    RetailSchedule, RetailSelection, SelectedCustomerMediaRate, Store, StoreError, TenantScope,
+    VendorRoute,
 };
-use niu_metered_cost::{Dimensions, PricingContext, PricingSnapshot};
+use niu_metered_cost::{Dimensions, PricingContext, PricingSnapshot, Provenance, Usage};
 use serde_json::{Value, json};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
@@ -138,6 +139,9 @@ async fn legacy_rate(
     .map_err(|_| StoreError::InvalidPrice)?;
     Ok(Some(SelectedCustomerMediaRate {
         retail_price_id: None,
+        unit_tariff_revision: None,
+        unit_definition_revision: None,
+        unit_code: None,
         revision: card.revision,
         vendor_id: card.vendor_id,
         vendor_revision: card.vendor_revision,
@@ -149,6 +153,115 @@ async fn legacy_rate(
             maximum_quantity: card.maximum_quantity,
             qualification_revision: card.liability_qualification_revision,
         },
+    }))
+}
+async fn credits_rate(
+    tx: &mut Transaction<'_, Postgres>,
+    scope: TenantScope,
+    identity: &MediaLiabilityIdentity,
+    expected_revision: Option<i64>,
+    at: Option<i64>,
+) -> Result<Option<Prepared>, StoreError> {
+    let row: Option<(i64, i64, String, Value)> = if let Some(revision) = expected_revision {
+        sqlx::query_as(
+            "SELECT t.revision, t.definition_revision, d.name, t.price
+             FROM customer_unit_media_tariffs t
+             JOIN customer_unit_definitions d ON d.revision = t.definition_revision
+             WHERE t.revision = $1
+               AND t.model_alias = $2 AND t.channel = $3
+               AND t.resolution = $4 AND t.reference_video = $5
+             FOR SHARE OF t",
+        )
+        .bind(revision)
+        .bind(&identity.dimensions.model)
+        .bind(&identity.dimensions.channel)
+        .bind(&identity.dimensions.resolution)
+        .bind(identity.dimensions.reference_video)
+        .fetch_optional(&mut **tx)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT t.revision, t.definition_revision, d.name, t.price
+             FROM customer_unit_media_tariffs t
+             JOIN customer_unit_definitions d ON d.revision = t.definition_revision
+             WHERE t.model_alias = $1 AND t.channel = $2
+               AND t.resolution = $3 AND t.reference_video = $4
+             ORDER BY t.revision DESC
+             LIMIT 1
+             FOR SHARE OF t",
+        )
+        .bind(&identity.dimensions.model)
+        .bind(&identity.dimensions.channel)
+        .bind(&identity.dimensions.resolution)
+        .bind(identity.dimensions.reference_video)
+        .fetch_optional(&mut **tx)
+        .await?
+    };
+    let Some((tariff_revision, definition_revision, unit_code, price_json)) = row else {
+        return Ok(None);
+    };
+    let unit_price: CustomerUnitMediaPrice =
+        serde_json::from_value(price_json).map_err(|_| StoreError::InvalidPrice)?;
+    if unit_price.dimensions != identity.dimensions || unit_price.meter != identity.meter {
+        return Err(StoreError::Conflict);
+    }
+    let at = if let Some(at) = at {
+        at
+    } else {
+        let encoded = serde_json::to_value(identity).map_err(|_| StoreError::InvalidPrice)?;
+        sqlx::query(
+            "SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE",
+        )
+        .bind(&encoded)
+        .fetch_optional(&mut **tx)
+        .await?;
+        clock(tx).await?
+    };
+    let qualified = Store::select_media_liability_qualification_at_in_tx(tx, identity, Some(at))
+        .await?
+        .ok_or(StoreError::AccountUnavailable)?;
+    let revision = tariff_revision.to_string();
+    let tariff = unit_price.to_tariff(&revision)?;
+    let customer = scope.organization_id.to_string();
+    let offer = identity.offer_revision.to_string();
+    let pricing = niu_metered_cost::pin_pricing(
+        std::slice::from_ref(&tariff),
+        &[],
+        &PricingContext {
+            dimensions: &identity.dimensions,
+            offer: &offer,
+            customer: &customer,
+            at,
+        },
+    )
+    .map_err(|_| StoreError::InvalidPrice)?;
+    let rate = SelectedCustomerMediaRate {
+        retail_price_id: None,
+        unit_tariff_revision: Some(tariff_revision),
+        unit_definition_revision: Some(definition_revision),
+        unit_code: Some(unit_code),
+        revision,
+        vendor_id: identity.vendor_id,
+        vendor_revision: identity
+            .vendor_revision
+            .parse()
+            .map_err(|_| StoreError::InvalidPrice)?,
+        model_revision: identity
+            .model_revision
+            .parse()
+            .map_err(|_| StoreError::InvalidPrice)?,
+        schema_revision: identity.schema_revision.clone(),
+        pricing,
+        liability: MediaLiabilityBound {
+            meter: identity.meter.clone(),
+            maximum_quantity: qualified.maximum_quantity,
+            qualification_revision: qualified.revision.to_string(),
+        },
+    };
+    Ok(Some(Prepared {
+        rate,
+        selection: None,
+        qualification: Some(qualified.revision),
     }))
 }
 async fn platform_rate(
@@ -208,6 +321,9 @@ async fn platform_rate(
     .map_err(|_| StoreError::InvalidPrice)?;
     let rate = SelectedCustomerMediaRate {
         retail_price_id: Some(head),
+        unit_tariff_revision: None,
+        unit_definition_revision: None,
+        unit_code: None,
         revision,
         vendor_id: identity.vendor_id,
         vendor_revision: identity
@@ -250,6 +366,17 @@ impl Store {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        let mode: String = sqlx::query_scalar(
+            "SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if mode == "credits" {
+            let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
+            let prepared = credits_rate(&mut tx, scope, &identity, None, None).await?;
+            tx.commit().await?;
+            return Ok(prepared.map(|p| p.rate));
+        }
         let head =
             Self::enrolled_retail_media_price_in_tx(&mut tx, scope, dimensions, "video_tokens")
                 .await?;
@@ -294,6 +421,166 @@ impl Store {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        let mode: String = sqlx::query_scalar(
+            "SELECT billing_mode FROM customer_unit_configuration WHERE singleton FOR SHARE",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if mode == "credits" {
+            let expected_tariff_revision =
+                preview.unit_tariff_revision.ok_or(StoreError::Conflict)?;
+            if preview.retail_price_id.is_some() {
+                return Err(StoreError::Conflict);
+            }
+            let existing_unit: Option<(i64, i64)> = sqlx::query_as(
+                "SELECT revision, maximum_atoms
+                 FROM customer_unit_media_attempt_tariffs
+                 WHERE organization_id = $1 AND project_id = $2 AND attempt_id = $3",
+            )
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(attempt)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if let Some((saved_revision, saved_maximum)) = existing_unit {
+                if saved_revision != expected_tariff_revision {
+                    return Err(StoreError::Conflict);
+                }
+                Self::lock_customer_unit_attempt(&mut tx, scope, attempt).await?;
+                let matched: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM customer_unit_media_attempt_tariffs b
+                        JOIN customer_unit_reservations r ON r.attempt_id = b.attempt_id
+                        WHERE b.attempt_id = $1 AND b.organization_id = $2 AND b.project_id = $3
+                          AND r.maximum_atoms = b.maximum_atoms
+                          AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions s WHERE s.attempt_id = b.attempt_id)
+                          AND EXISTS(SELECT 1 FROM supplier_media_attempt_pricing s WHERE s.attempt_id = b.attempt_id)
+                          AND EXISTS(
+                              SELECT 1 FROM media_recovery_routes rr
+                              WHERE rr.attempt_id = b.attempt_id
+                                AND rr.vendor_id = $4 AND rr.vendor_revision = $5
+                                AND rr.model_revision = $6 AND rr.schema_revision = $7
+                          )
+                    )",
+                )
+                .bind(attempt)
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .bind(route.vendor.id)
+                .bind(route.vendor.revision)
+                .bind(route.model.revision)
+                .bind(schema(route)?)
+                .fetch_one(&mut *tx)
+                .await?;
+                if !matched {
+                    return Err(StoreError::Conflict);
+                }
+                tx.commit().await?;
+                return Ok(saved_maximum);
+            }
+            let identity = lock_route(&mut tx, route, dimensions, "video_tokens").await?;
+            if preview.pricing.offer() != identity.offer_revision.to_string() {
+                return Err(StoreError::Conflict);
+            }
+            let encoded = serde_json::to_value(&identity).map_err(|_| StoreError::InvalidPrice)?;
+            sqlx::query(
+                "SELECT id FROM media_liability_qualification_heads WHERE identity=$1 FOR SHARE",
+            )
+            .bind(&encoded)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::AccountUnavailable)?;
+            let initial_at = clock(&mut tx).await?;
+            sqlx::query("SELECT revision FROM supplier_media_rate_cards WHERE provider_id=$1 AND offer_revision=$2 AND model_alias=$3 AND channel=$4 AND resolution=$5 AND reference_video=$6 AND (effective_until IS NULL OR effective_until>$7) AND NOT EXISTS(SELECT 1 FROM supplier_media_rate_retirements r WHERE r.provider_id=supplier_media_rate_cards.provider_id AND r.revision=supplier_media_rate_cards.revision AND r.effective_until<=$7) FOR SHARE")
+                .bind(identity.supplier_id)
+                .bind(identity.offer_revision)
+                .bind(&dimensions.model)
+                .bind(&dimensions.channel)
+                .bind(&dimensions.resolution)
+                .bind(dimensions.reference_video)
+                .bind(initial_at)
+                .fetch_all(&mut *tx)
+                .await?;
+            Self::lock_customer_unit_attempt(&mut tx, scope, attempt).await?;
+            let at = clock(&mut tx).await?;
+            let prepared = credits_rate(
+                &mut tx,
+                scope,
+                &identity,
+                Some(expected_tariff_revision),
+                Some(at),
+            )
+            .await?
+            .ok_or(StoreError::AccountUnavailable)?;
+            let definition_revision = prepared
+                .rate
+                .unit_definition_revision
+                .ok_or(StoreError::Conflict)?;
+            Self::require_customer_media_offer_in_tx(
+                &mut tx,
+                scope,
+                attempt,
+                prepared.rate.pricing.offer(),
+                route.vendor.id,
+            )
+            .await?;
+            Self::bind_supplier_media_rate_in_tx(
+                &mut tx,
+                scope,
+                attempt,
+                dimensions,
+                "video_tokens",
+                at,
+            )
+            .await?;
+            let receipt = prepared
+                .rate
+                .pricing
+                .calculate(&Usage::Known {
+                    meter: prepared.rate.liability.meter.clone(),
+                    quantity: prepared.rate.liability.maximum_quantity,
+                    provenance: Provenance::Estimate,
+                })
+                .map_err(|_| StoreError::InvalidPrice)?;
+            let maximum_atoms = crate::media_pricing::receipt_nanos(&receipt)?;
+            let qualification = prepared.qualification.ok_or(StoreError::Conflict)?;
+            let bound = json!({
+                "meter": prepared.rate.liability.meter,
+                "maximum_quantity": prepared.rate.liability.maximum_quantity,
+                "qualification_revision": prepared.rate.liability.qualification_revision,
+            });
+            sqlx::query(
+                "INSERT INTO customer_unit_media_attempt_tariffs(
+                    organization_id, project_id, attempt_id, revision,
+                    qualification_revision, bound, maximum_atoms, selected_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            )
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(attempt)
+            .bind(expected_tariff_revision)
+            .bind(qualification)
+            .bind(bound)
+            .bind(maximum_atoms)
+            .bind(at)
+            .execute(&mut *tx)
+            .await?;
+            Self::check_customer_unit_admission_policy_in_tx(&mut tx, scope, attempt, maximum_atoms)
+                .await?;
+            Self::reserve_customer_unit_ranges_in_tx(
+                &mut tx,
+                scope,
+                attempt,
+                definition_revision,
+                maximum_atoms,
+            )
+            .await?;
+            tx.commit().await?;
+            return Ok(maximum_atoms);
+        }
+        if preview.unit_tariff_revision.is_some() {
+            return Err(StoreError::Conflict);
+        }
         let existing:Option<Value>=sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?;
         if let Some(saved) = existing {

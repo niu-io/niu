@@ -1,8 +1,8 @@
 //! Internal customer-only media tariff binding; no Provider-cost fallback.
-use crate::{Store, StoreError, TenantScope};
+use crate::{CustomerUnitMediaPrice, Store, StoreError, TenantScope};
 use niu_metered_cost::{PricingSnapshot, Provenance, Quantity, Receipt, Usage};
 use sha2::{Digest, Sha256};
-use sqlx::Row;
+use sqlx::{Acquire, Row};
 use uuid::Uuid;
 
 /// A trusted adapter supplies an independently qualified upper bound. A point
@@ -71,6 +71,20 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<i64, StoreError> {
+        let is_unit: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM customer_unit_media_attempt_tariffs
+                WHERE organization_id = $1 AND project_id = $2 AND attempt_id = $3
+            )",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_one(&mut **tx)
+        .await?;
+        if is_unit {
+            return Self::settle_customer_unit_media_charge_in_tx(tx, scope, attempt).await;
+        }
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
             .fetch_optional(&mut **tx)
@@ -151,6 +165,166 @@ impl Store {
         }
         sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL")
             .bind(attempt).execute(&mut **tx).await?;
+        Ok(amount)
+    }
+
+    pub(crate) async fn settle_customer_unit_media_charge_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<i64, StoreError> {
+        Self::lock_customer_unit_attempt(tx, scope, attempt).await?;
+        let execution: String = sqlx::query_scalar(
+            "SELECT execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        let prior_resolved: Option<i64> = sqlx::query_scalar(
+            "SELECT charged_atoms FROM customer_unit_resolutions WHERE attempt_id = $1 AND kind = 'charge'",
+        )
+        .bind(attempt)
+        .fetch_optional(&mut **tx)
+        .await?;
+        if let Some(charged_atoms) = prior_resolved {
+            return Ok(charged_atoms);
+        }
+        if execution != "confirmed_completed" {
+            return Err(StoreError::Unresolved);
+        }
+        let job_unresolved: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM media_jobs j
+                WHERE j.attempt_id = $1
+                  AND (
+                      NOT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id = j.attempt_id AND status = 'succeeded')
+                      OR EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id = j.attempt_id AND status = 'failed')
+                  )
+            )",
+        )
+        .bind(attempt)
+        .fetch_one(&mut **tx)
+        .await?;
+        if job_unresolved {
+            return Err(StoreError::Unresolved);
+        }
+        let (revision, maximum, price_json): (i64, i64, serde_json::Value) = sqlx::query_as(
+            "SELECT b.revision, r.maximum_atoms, t.price
+             FROM customer_unit_media_attempt_tariffs b
+             JOIN customer_unit_media_tariffs t USING(revision)
+             JOIN customer_unit_reservations r ON r.attempt_id = b.attempt_id
+             WHERE b.attempt_id = $1 AND b.organization_id = $2 AND b.project_id = $3
+               AND b.maximum_atoms = r.maximum_atoms",
+        )
+        .bind(attempt)
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        let price: CustomerUnitMediaPrice =
+            serde_json::from_value(price_json).map_err(|_| StoreError::InvalidPrice)?;
+        let rows: Vec<(String, serde_json::Value)> = sqlx::query_as(
+            "SELECT DISTINCT meter, quantity
+             FROM customer_media_usage_observations
+             WHERE attempt_id = $1 AND organization_id = $2 AND project_id = $3
+             LIMIT 2",
+        )
+        .bind(attempt)
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        if rows.len() != 1 {
+            return Err(StoreError::Unresolved);
+        }
+        let (meter, quantity_json) = rows.into_iter().next().ok_or(StoreError::Unresolved)?;
+        let quantity: Quantity =
+            serde_json::from_value(quantity_json.clone()).map_err(|_| StoreError::InvalidUsage)?;
+        let (amount, receipt) = price.calculate_atoms(
+            &revision.to_string(),
+            &Usage::Known {
+                meter: meter.clone(),
+                quantity,
+                provenance: Provenance::Reported,
+            },
+        )?;
+        let usage = serde_json::json!({
+            "meter": meter,
+            "quantity": quantity_json,
+        });
+        let explanation = serde_json::to_value(&receipt).map_err(|_| StoreError::InvalidPrice)?;
+        let prior_charge: Option<(i64, i64, bool)> = sqlx::query_as(
+            "SELECT revision, charged_atoms, bound_exceeded
+             FROM customer_unit_media_charges
+             WHERE organization_id = $1 AND project_id = $2 AND attempt_id = $3",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_optional(&mut **tx)
+        .await?;
+        if let Some((prior_revision, prior_atoms, prior_exceeded)) = prior_charge {
+            if prior_revision != revision
+                || prior_atoms != amount
+                || prior_exceeded != (amount > maximum)
+            {
+                return Err(StoreError::Conflict);
+            }
+        } else {
+            sqlx::query(
+                "INSERT INTO customer_unit_media_charges(
+                    organization_id, project_id, attempt_id, revision,
+                    charged_atoms, bound_exceeded, usage, explanation
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            )
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(attempt)
+            .bind(revision)
+            .bind(amount)
+            .bind(amount > maximum)
+            .bind(usage)
+            .bind(explanation)
+            .execute(&mut **tx)
+            .await?;
+        }
+        if amount > maximum {
+            let extended: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM customer_unit_reservation_extensions WHERE attempt_id = $1)",
+            )
+            .bind(attempt)
+            .fetch_one(&mut **tx)
+            .await?;
+            if !extended {
+                let mut extension = tx.begin().await?;
+                sqlx::query(
+                    "INSERT INTO customer_unit_reservation_extensions(attempt_id, additional_atoms) VALUES ($1, $2)",
+                )
+                .bind(attempt)
+                .bind(amount - maximum)
+                .execute(&mut *extension)
+                .await?;
+                match Self::allocate_customer_unit_ranges_in_tx(
+                    &mut extension,
+                    scope,
+                    attempt,
+                    amount - maximum,
+                )
+                .await
+                {
+                    Ok(()) => extension.commit().await?,
+                    Err(error) => {
+                        extension.rollback().await?;
+                        return Err(error);
+                    }
+                }
+            }
+        }
+        Self::resolve_customer_unit_ranges_in_tx(tx, scope, attempt, Some(amount)).await?;
         Ok(amount)
     }
 
@@ -367,13 +541,36 @@ impl Store {
         if execution == "not_sent" {
             return Err(StoreError::Conflict);
         }
-        let snapshot: serde_json::Value = sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
-        let snapshot =
-            PricingSnapshot::decode(&snapshot.to_string()).map_err(|_| StoreError::InvalidPrice)?;
-        if snapshot.tariff().meter != *meter {
-            return Err(StoreError::InvalidUsage);
+        let snapshot: Option<serde_json::Value> = sqlx::query_scalar(
+            "SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_optional(&mut **tx)
+        .await?;
+        if let Some(snapshot) = snapshot {
+            let snapshot = PricingSnapshot::decode(&snapshot.to_string())
+                .map_err(|_| StoreError::InvalidPrice)?;
+            if snapshot.tariff().meter != *meter {
+                return Err(StoreError::InvalidUsage);
+            }
+        } else {
+            let unit_meter: String = sqlx::query_scalar(
+                "SELECT t.meter
+                 FROM customer_unit_media_attempt_tariffs b
+                 JOIN customer_unit_media_tariffs t USING(revision)
+                 WHERE b.organization_id = $1 AND b.project_id = $2 AND b.attempt_id = $3",
+            )
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(attempt)
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+            if unit_meter != *meter {
+                return Err(StoreError::InvalidUsage);
+            }
         }
         let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_media_usage_observations WHERE attempt_id=$1 AND receipt_sha256=$2)")
             .bind(attempt).bind(&digest).fetch_one(&mut **tx).await?;
@@ -399,9 +596,25 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<MediaUsageState, StoreError> {
-        let Some(snapshot) = self.customer_media_pricing(scope, attempt).await? else {
-            return Ok(MediaUsageState::Unknown);
+        let snapshot = self.customer_media_pricing(scope, attempt).await?;
+        let unit_tariff: Option<(i64, serde_json::Value)> = if snapshot.is_none() {
+            sqlx::query_as(
+                "SELECT b.revision, t.price
+                 FROM customer_unit_media_attempt_tariffs b
+                 JOIN customer_unit_media_tariffs t USING(revision)
+                 WHERE b.organization_id = $1 AND b.project_id = $2 AND b.attempt_id = $3",
+            )
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(attempt)
+            .fetch_optional(&self.pool)
+            .await?
+        } else {
+            None
         };
+        if snapshot.is_none() && unit_tariff.is_none() {
+            return Ok(MediaUsageState::Unknown);
+        }
         let rows: Vec<(String, serde_json::Value)> = sqlx::query_as("SELECT DISTINCT meter,quantity FROM customer_media_usage_observations WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 LIMIT 2")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_all(&self.pool).await?;
@@ -418,10 +631,42 @@ impl Store {
             quantity,
             provenance: Provenance::Reported,
         };
-        Ok(match snapshot.calculate(&usage) {
-            Ok(receipt) => MediaUsageState::Agreed(receipt),
-            Err(_) => MediaUsageState::Unpriceable,
-        })
+        if let Some(snapshot) = snapshot {
+            Ok(match snapshot.calculate(&usage) {
+                Ok(receipt) => MediaUsageState::Agreed(receipt),
+                Err(_) => MediaUsageState::Unpriceable,
+            })
+        } else if let Some((revision, price_json)) = unit_tariff {
+            let price: CustomerUnitMediaPrice =
+                serde_json::from_value(price_json).map_err(|_| StoreError::InvalidPrice)?;
+            Ok(match price.calculate_atoms(&revision.to_string(), &usage) {
+                Ok((_, receipt)) => MediaUsageState::Agreed(receipt),
+                Err(_) => MediaUsageState::Unpriceable,
+            })
+        } else {
+            Ok(MediaUsageState::Unknown)
+        }
+    }
+
+    pub async fn customer_media_is_priced(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM customer_media_attempt_pricing
+                WHERE organization_id = $1 AND project_id = $2 AND attempt_id = $3
+            ) OR EXISTS(
+                SELECT 1 FROM customer_unit_media_attempt_tariffs
+                WHERE organization_id = $1 AND project_id = $2 AND attempt_id = $3
+            )",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_one(&self.pool)
+        .await?)
     }
 
     /// Bind before egress. Repeated identical bindings are idempotent, while a

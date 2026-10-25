@@ -41,6 +41,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1units'
   /api/v1/platform/units/tariffs:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units~1tariffs'
+  /api/v1/platform/units/media/tariffs:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1platform~1units~1media~1tariffs'
   /api/v1/organizations/{organization}/billing/units/grants:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1units~1grants'
   /api/v1/organizations/{organization}/billing/quotes:
@@ -649,7 +651,9 @@ paths:
                   mode: { type: string, enum: [owner_funded, customer] }
                   effective_output: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/effective_output' }
                   estimate: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/estimate' }
+                  unit_code: { type: [string, 'null'] }
                   maximum_charge_nanos: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer maximum from separately reviewed liability; not funds reserved by this read. }
+                  maximum_charge_atoms: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer maximum in Credits atoms from separately reviewed liability; not funds reserved by this read. }
                   selected_at: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer tariff selection time in Unix seconds; does not guarantee future availability. }
         '400': { description: Request violates configured capabilities }
         '401': { description: Invalid credential }

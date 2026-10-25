@@ -330,14 +330,30 @@ limit below committed Credits liability is rejected with HTTP 402.
 Confirmed reported token usage is valued using the pinned price and recorded as
 an immutable unit liability. Missing or inconsistent required category usage
 retains the hold. A known charge above its original bound may allocate additional
-currently available ranges; if that allocation cannot be funded, the liability
-and original hold remain for background recovery, and new spending is blocked.
-Only proven nonexecution permits a safe release. Recovery handles unit charges
-and releases alongside the existing monetary ledgers without resubmitting
-inference. A recorded unit charge also prevents a later metadata lookup from
-rewriting its priced usage. These behavior contracts still require the complete
-release acceptance scope, especially over-bound recovery, separate unit spending
-limits, monetary compatibility, media, refunds and customer presentation.
+currently available ranges (`customer_unit_reservation_extensions`); if that
+allocation cannot be funded immediately, the liability and original hold remain
+for background recovery (`FinancialStage::CustomerCharge`), and new spending is
+blocked (`402`). Only proven nonexecution permits a safe release. Recovery
+handles unit charges and releases alongside the existing monetary ledgers
+without resubmitting inference. A recorded unit charge also prevents a later
+metadata lookup from rewriting its priced usage.
+
+Platform administrators publish and list versioned Credits media (video) tariffs
+through `POST /api/v1/platform/units/media/tariffs` and
+`GET /api/v1/platform/units/media/tariffs` (SDK `publishCustomerUnitMediaTariff`
+and `listCustomerUnitMediaTariffs`). Migration 0388 adds
+`customer_unit_media_tariffs`, `customer_unit_media_attempt_tariffs`, and
+`customer_unit_media_charges`, updates `niu_customer_unit_workspace_committed`,
+`niu_customer_unit_key_committed`, `customer_financial_summary.sql` and mode
+compatibility guards, and wires `/v1/video/estimate`, `/v1/video/jobs`,
+`/v1/video/jobs/{id}/refresh` and `/v1/video/jobs/{id}/billing` to pin the
+effective Credits media tariff and qualified route liability bound in a single
+transaction. In Credits mode, customer video requests never fall back to a
+monetary `customer_media_rate_cards` or retail price schedule. Over-bound media
+usage (`bound_exceeded = true`) allocates additional available lot ranges via
+`customer_unit_reservation_extensions` before resolving `customer_unit_resolutions`,
+or retains the hold and unresolved media charge for background recovery if
+remaining balance is insufficient.
 
 The customer unit must be explicit in catalog prices, Chat, Generations, API-key
 limits, workspace budgets, funding, usage, invoices or consumption statements,

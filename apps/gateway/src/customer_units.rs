@@ -3645,6 +3645,521 @@ pub async fn workspace_limit_history(
     Ok(Json(json!({"data": rows, "next_before_revision": next})))
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaTariffQuery {
+    model: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaTariffInput {
+    model_alias: String,
+    definition_revision: String,
+    expected_revision: String,
+    idempotency_key: Uuid,
+    price: niu_storage::CustomerUnitMediaPrice,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/platform/units/media/tariffs",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listCustomerUnitMediaTariffs",
+///     "summary": "List latest explicit Credits media tariffs",
+///     "description": "Platform administration required. Reads the latest saved Credits media consumption tariff per dimension tuple (model_alias, channel, resolution, reference_video), not a conversion from payment currency. Optional model filter scopes to one model alias. No Provider procurement price is exposed.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Latest explicit Credits media tariffs by dimension tuple",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "revision",
+///                       "definition_revision",
+///                       "model_alias",
+///                       "channel",
+///                       "resolution",
+///                       "reference_video",
+///                       "meter",
+///                       "price"
+///                     ],
+///                     "properties": {
+///                       "revision": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]{0,18}$"
+///                       },
+///                       "definition_revision": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]{0,18}$"
+///                       },
+///                       "model_alias": {
+///                         "type": "string",
+///                         "minLength": 1,
+///                         "maxLength": 200
+///                       },
+///                       "channel": {
+///                         "type": "string",
+///                         "minLength": 1,
+///                         "maxLength": 200
+///                       },
+///                       "resolution": {
+///                         "type": "string",
+///                         "minLength": 1,
+///                         "maxLength": 200
+///                       },
+///                       "reference_video": {
+///                         "type": "boolean"
+///                       },
+///                       "meter": {
+///                         "type": "string",
+///                         "enum": [
+///                           "video_tokens"
+///                         ]
+///                       },
+///                       "price": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "dimensions",
+///                           "meter",
+///                           "amount_atoms",
+///                           "per_quantity",
+///                           "minimum_quantity",
+///                           "rounding"
+///                         ],
+///                         "properties": {
+///                           "dimensions": {
+///                             "type": "object",
+///                             "additionalProperties": false,
+///                             "required": [
+///                               "model",
+///                               "channel",
+///                               "resolution",
+///                               "reference_video"
+///                             ],
+///                             "properties": {
+///                               "model": {
+///                                 "type": "string",
+///                                 "minLength": 1,
+///                                 "maxLength": 200
+///                               },
+///                               "channel": {
+///                                 "type": "string",
+///                                 "minLength": 1,
+///                                 "maxLength": 200
+///                               },
+///                               "resolution": {
+///                                 "type": "string",
+///                                 "minLength": 1,
+///                                 "maxLength": 200
+///                               },
+///                               "reference_video": {
+///                                 "type": "boolean"
+///                               }
+///                             }
+///                           },
+///                           "meter": {
+///                             "type": "string",
+///                             "enum": [
+///                               "video_tokens"
+///                             ]
+///                           },
+///                           "amount_atoms": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]{1,16}$"
+///                           },
+///                           "per_quantity": {
+///                             "$ref": "#/components/schemas/VideoBillingQuantity"
+///                           },
+///                           "minimum_quantity": {
+///                             "$ref": "#/components/schemas/VideoBillingQuantity"
+///                           },
+///                           "rounding": {
+///                             "type": "string",
+///                             "enum": [
+///                               "Down",
+///                               "Up",
+///                               "HalfEven"
+///                             ]
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model query"
+///       },
+///       "401": {
+///         "description": "Authentication unavailable or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn list_media_tariffs(
+    State(state): State<AppState>,
+    query: Result<Query<MediaTariffQuery>, axum::extract::rejection::QueryRejection>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let Query(query) =
+        query.map_err(|_| ApiError::invalid_request("Invalid media tariff query"))?;
+    if let Some(ref model) = query.model
+        && (model.is_empty()
+            || model.trim() != model
+            || model.chars().count() > 200
+            || model.chars().any(char::is_control))
+    {
+        return Err(ApiError::invalid_request("Use a nonempty model alias"));
+    }
+    let data = state
+        .store
+        .customer_unit_media_tariffs(query.model.as_deref())
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(data))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/platform/units/media/tariffs",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "publishCustomerUnitMediaTariff",
+///     "summary": "Publish a versioned Credits media consumption tariff",
+///     "description": "Platform administration required and rechecked transactionally for operators. Publish atom-denominated media consumption rates independently of purchase conversion and monetary media rate cards. New publication requires the current unit definition and installation revision. Concurrent stale writes conflict. Equal idempotent retries return their original normalized publication; changed input conflicts. Explicit zero is valid; absence of a publication is unavailable. Publishing a tariff does not activate billing mode, issue Credits, convert money balances, admit requests or change prior request bindings.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model_alias",
+///               "definition_revision",
+///               "expected_revision",
+///               "idempotency_key",
+///               "price"
+///             ],
+///             "properties": {
+///               "model_alias": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200
+///               },
+///               "definition_revision": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$"
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^(0|[1-9][0-9]{0,18})$"
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               },
+///               "price": {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "dimensions",
+///                   "meter",
+///                   "amount_atoms",
+///                   "per_quantity",
+///                   "minimum_quantity",
+///                   "rounding"
+///                 ],
+///                 "properties": {
+///                   "dimensions": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "model",
+///                       "channel",
+///                       "resolution",
+///                       "reference_video"
+///                     ],
+///                     "properties": {
+///                       "model": {
+///                         "type": "string",
+///                         "minLength": 1,
+///                         "maxLength": 200
+///                       },
+///                       "channel": {
+///                         "type": "string",
+///                         "minLength": 1,
+///                         "maxLength": 200
+///                       },
+///                       "resolution": {
+///                         "type": "string",
+///                         "minLength": 1,
+///                         "maxLength": 200
+///                       },
+///                       "reference_video": {
+///                         "type": "boolean"
+///                       }
+///                     }
+///                   },
+///                   "meter": {
+///                     "type": "string",
+///                     "enum": [
+///                       "video_tokens"
+///                     ]
+///                   },
+///                   "amount_atoms": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]{1,16}$"
+///                   },
+///                   "per_quantity": {
+///                     "$ref": "#/components/schemas/VideoBillingQuantity"
+///                   },
+///                   "minimum_quantity": {
+///                     "$ref": "#/components/schemas/VideoBillingQuantity"
+///                   },
+///                   "rounding": {
+///                     "type": "string",
+///                     "enum": [
+///                       "Down",
+///                       "Up",
+///                       "HalfEven"
+///                     ]
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Original immutable Credits media tariff",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "revision",
+///                     "definition_revision",
+///                     "model_alias",
+///                     "channel",
+///                     "resolution",
+///                     "reference_video",
+///                     "meter",
+///                     "price"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$"
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$"
+///                     },
+///                     "model_alias": {
+///                       "type": "string",
+///                       "minLength": 1,
+///                       "maxLength": 200
+///                     },
+///                     "channel": {
+///                       "type": "string",
+///                       "minLength": 1,
+///                       "maxLength": 200
+///                     },
+///                     "resolution": {
+///                       "type": "string",
+///                       "minLength": 1,
+///                       "maxLength": 200
+///                     },
+///                     "reference_video": {
+///                       "type": "boolean"
+///                     },
+///                     "meter": {
+///                       "type": "string",
+///                       "enum": [
+///                         "video_tokens"
+///                       ]
+///                     },
+///                     "price": {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "dimensions",
+///                         "meter",
+///                         "amount_atoms",
+///                         "per_quantity",
+///                         "minimum_quantity",
+///                         "rounding"
+///                       ],
+///                       "properties": {
+///                         "dimensions": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "model",
+///                             "channel",
+///                             "resolution",
+///                             "reference_video"
+///                           ],
+///                           "properties": {
+///                             "model": {
+///                               "type": "string",
+///                               "minLength": 1,
+///                               "maxLength": 200
+///                             },
+///                             "channel": {
+///                               "type": "string",
+///                               "minLength": 1,
+///                               "maxLength": 200
+///                             },
+///                             "resolution": {
+///                               "type": "string",
+///                               "minLength": 1,
+///                               "maxLength": 200
+///                             },
+///                             "reference_video": {
+///                               "type": "boolean"
+///                             }
+///                           }
+///                         },
+///                         "meter": {
+///                           "type": "string",
+///                           "enum": [
+///                             "video_tokens"
+///                           ]
+///                         },
+///                         "amount_atoms": {
+///                           "type": "string",
+///                           "pattern": "^[0-9]{1,16}$"
+///                         },
+///                         "per_quantity": {
+///                           "$ref": "#/components/schemas/VideoBillingQuantity"
+///                         },
+///                         "minimum_quantity": {
+///                           "$ref": "#/components/schemas/VideoBillingQuantity"
+///                         },
+///                         "rounding": {
+///                           "type": "string",
+///                           "enum": [
+///                             "Down",
+///                             "Up",
+///                             "HalfEven"
+///                           ]
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model, dimensions, exact quantity or rounding mode"
+///       },
+///       "401": {
+///         "description": "Authentication unavailable or revoked"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Stale installation/unit revision or conflicting idempotency input"
+///       },
+///       "422": {
+///         "description": "Malformed request"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn publish_media_tariff(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<MediaTariffInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .publish_customer_unit_media_tariff(
+            niu_storage::CustomerUnitMediaTariffInput {
+                model_alias: &input.model_alias,
+                definition_revision: exact_integer(&input.definition_revision)?,
+                expected_revision: exact_integer(&input.expected_revision)?,
+                idempotency_key: input.idempotency_key,
+                price: input.price,
+            },
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data": data})))
+}
+
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct PurchaseReversalPreviewQuery {

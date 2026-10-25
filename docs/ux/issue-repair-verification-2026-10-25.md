@@ -1049,3 +1049,90 @@ external payment-processor refund transfers remain outside product scope. Media
 and batch Credits tariffs/consumption, customer/admin Credits UI surfaces, and
 hosted candidate verification remain open. No fixture result supports the
 observations above.
+
+## Branded Credits over-bound text recovery and media (video) billing — 2026-10-25 16:58 UTC
+
+Related work: `niu-2xp.3`, public issue #110, UNIT-02. Migration 0388 adds
+`customer_unit_media_tariffs`, `customer_unit_media_attempt_tariffs`,
+`customer_unit_media_charges`, extension/commitment/dispatch triggers, and
+updates `customer_financial_summary.sql` and mode-compatibility functions. The
+gateway exposes `GET /api/v1/platform/units/media/tariffs` and
+`POST /api/v1/platform/units/media/tariffs`, updates `/v1/video/estimate`,
+`/v1/video/jobs`, `/v1/video/jobs/{id}/refresh` and
+`/v1/video/jobs/{id}/billing` for Credits mode, and the JavaScript admin SDK
+exposes `listCustomerUnitMediaTariffs` and `publishCustomerUnitMediaTariff`.
+
+- **Over-bound text liability blocking and automatic background financial recovery**:
+  - A static route `qa/credits-overbound-text` (`supports_responses = true`,
+    `max_input_tokens = 12`) was configured with Credits text tariff revision
+    `16` (`prompt_rate = "1000000000000"` = `1,000,000` atoms/token, zero
+    completion/request rates).
+  - An isolated organization (`b6e14e6a-491a-47c9-90d1-80415d6cddab`) was
+    granted `15,000,000` promotional atoms (`definition_revision = "5"`). A
+    live non-streamed OpenRouter `/v1/responses` call (`input: "Reply with 1"`,
+    `12` UTF-8 bytes, `max_output_tokens: 16`) reserved `12,000,000` atoms at
+    admission (`attempt_id = 85e64fc8-0fef-4248-9ef1-0d2bbc37dd7c`).
+  - Live OpenRouter returned `input_tokens = 20`, accruing
+    `customer_unit_text_charges.charged_atoms = 20000000` (`8,000,000` atoms
+    above the `12,000,000`-atom reservation). Because only `3,000,000`
+    unreserved atoms remained in the organization's balance, the `8,000,000`-atom
+    extension could not be funded immediately, leaving the reservation and
+    over-bound charge unresolved.
+  - A subsequent `/v1/responses` call was rejected before upstream dispatch with
+    `402 Payment Required` (`budget_exceeded`) because the unresolved over-bound
+    liability blocked new spending.
+  - Issuing a second `15,000,000`-atom promotional grant (`30,000,000` total)
+    allowed the background `FinancialStage::CustomerCharge` recovery worker to
+    automatically allocate `customer_unit_reservation_extensions`
+    (`additional_atoms = 8000000`) and resolve `customer_unit_resolutions`
+    (`kind = "charge"`, `charged_atoms = 20000000`), leaving `held_atoms: "0"`,
+    `charged_atoms: "20000000"`, and `available_atoms: "10000000"`.
+- **Credits media (video) tariff publication, estimate, admission, settlement, over-bound extension, and workspace limit enforcement**:
+  - Before any Credits media tariff was published for `credits-seedance-video`
+    (`ark-direct-v1`, `720p`, `reference_video = false`), `POST /v1/video/estimate`
+    returned `501` (`No effective customer video tariff is configured`) even
+    though a monetary `customer_media_rate_cards` row existed for the same
+    route and dimensions, proving Credits mode never silently falls back to
+    monetary media pricing.
+  - Publishing an explicit zero Credits media tariff (`revision = "17"`,
+    `amount_atoms = "0"`) via `POST /api/v1/platform/units/media/tariffs` and a
+    qualified `1000`-token route liability bound (`qualification_revision =
+    c96f6198-01ff-406b-8341-385380d5b106`) caused `POST /v1/video/estimate` to
+    return `200` with `unit_code: "Niu Credits"`,
+    `estimate.amount_atoms: "0"`, and `maximum_charge_atoms: "0"`.
+  - Publishing nonzero Credits media tariff `revision = "18"` (`amount_atoms =
+    "1000"` atoms per `video_token`) updated `POST /v1/video/estimate` to
+    `maximum_charge_atoms: "1000000"` (`1,000` tokens * `1,000` atoms/token).
+  - In a fresh organization (`fac3cdd1-eacf-430a-bc68-48014c5a29b8`) funded with
+    `3,000,000` promotional atoms:
+    - Submitting video job `b7191525-99ef-49b3-acfc-581aef586fe1` (`TOKENS_500`)
+      pinned tariff revision `18` and reserved `1,000,000` atoms
+      (`held_atoms: "1000000"`, `available_atoms: "2000000"`). Refreshing via
+      `POST /v1/video/jobs/{id}/refresh` observed `500` `video_tokens`, settled
+      `500,000` atoms (`charge_atoms: "500000"`, `bound_exceeded: false`,
+      `state: "settled"` on `GET /v1/video/jobs/{id}/billing`), and released
+      the unused `500,000` atoms (`held_atoms: "0"`, `charged_atoms: "500000"`,
+      `available_atoms: "2500000"`).
+    - Submitting over-bound video job `ca8dba7a-7470-408b-9c1c-fd498c6a30fe`
+      (`TOKENS_1500`) reserved `1,000,000` atoms. Refreshing observed `1,500`
+      `video_tokens` (`bound_exceeded: true`), allocated
+      `customer_unit_reservation_extensions.additional_atoms = 500000`, and
+      resolved `customer_unit_resolutions.charged_atoms = 1500000`
+      (`charge_atoms: "1500000"` on `GET /v1/video/jobs/{id}/billing`,
+      `held_atoms: "0"`, `charged_atoms: "2000000"`, `available_atoms: "1000000"`).
+    - Setting a workspace Credits spending limit of `2,500,000` atoms via
+      `PUT /api/v1/organizations/{org}/projects/{proj}/units/limit` reported
+      `committed_atoms: "2000000"` and `remaining_atoms: "500000"`, and
+      rejected a third video job requiring a `1,000,000`-atom reservation with
+      `402 Payment Required` (`workspace_spending_limit_exceeded`).
+  - After restarting both PostgreSQL and `niu-gateway`, all media tariffs,
+    video job billing states, over-bound extensions, workspace commitments and
+    organization balances matched pre-restart values.
+
+Evidence limits: the `ark-direct-v1` video upstream task creation and polling
+for `credits-seedance-video` were served by the local bounded `ark-direct-v1`
+task relay so exact `500`-token (within-bound) and `1500`-token (over-bound)
+completion token quantities could be deterministically exercised against the
+`1000`-token qualified liability bound; the over-bound text `/v1/responses`
+flow used live OpenRouter inference. Customer and admin Credits UI surfaces,
+exports, and hosted candidate verification remain open.

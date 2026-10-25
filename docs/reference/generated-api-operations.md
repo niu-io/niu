@@ -20495,6 +20495,456 @@ HTTP 404: Workspace not found in the authorized scope
 
 HTTP 503: Storage unavailable
 
+## List latest explicit Credits media tariffs
+
+`GET /api/v1/platform/units/media/tariffs`
+
+Platform administration required. Reads the latest saved Credits media consumption tariff per dimension tuple (model_alias, channel, resolution, reference_video), not a conversion from payment currency. Optional model filter scopes to one model alias. No Provider procurement price is exposed.
+
+Implementation: `implemented`. Operation: `listCustomerUnitMediaTariffs`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`model` (query, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+### Responses
+
+HTTP 200: Latest explicit Credits media tariffs by dimension tuple
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "definition_revision",
+          "model_alias",
+          "channel",
+          "resolution",
+          "reference_video",
+          "meter",
+          "price"
+        ],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "definition_revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "model_alias": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "channel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "resolution": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "reference_video": {
+            "type": "boolean"
+          },
+          "meter": {
+            "type": "string",
+            "enum": [
+              "video_tokens"
+            ]
+          },
+          "price": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "dimensions",
+              "meter",
+              "amount_atoms",
+              "per_quantity",
+              "minimum_quantity",
+              "rounding"
+            ],
+            "properties": {
+              "dimensions": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "model",
+                  "channel",
+                  "resolution",
+                  "reference_video"
+                ],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "channel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "resolution": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "reference_video": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "meter": {
+                "type": "string",
+                "enum": [
+                  "video_tokens"
+                ]
+              },
+              "amount_atoms": {
+                "type": "string",
+                "pattern": "^[0-9]{1,16}$"
+              },
+              "per_quantity": {
+                "$ref": "#/components/schemas/VideoBillingQuantity"
+              },
+              "minimum_quantity": {
+                "$ref": "#/components/schemas/VideoBillingQuantity"
+              },
+              "rounding": {
+                "type": "string",
+                "enum": [
+                  "Down",
+                  "Up",
+                  "HalfEven"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid model query
+
+HTTP 401: Authentication unavailable or revoked
+
+HTTP 403: Platform administration required
+
+HTTP 503: Storage unavailable
+
+## Publish a versioned Credits media consumption tariff
+
+`POST /api/v1/platform/units/media/tariffs`
+
+Platform administration required and rechecked transactionally for operators. Publish atom-denominated media consumption rates independently of purchase conversion and monetary media rate cards. New publication requires the current unit definition and installation revision. Concurrent stale writes conflict. Equal idempotent retries return their original normalized publication; changed input conflicts. Explicit zero is valid; absence of a publication is unavailable. Publishing a tariff does not activate billing mode, issue Credits, convert money balances, admit requests or change prior request bindings.
+
+Implementation: `implemented`. Operation: `publishCustomerUnitMediaTariff`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model_alias",
+    "definition_revision",
+    "expected_revision",
+    "idempotency_key",
+    "price"
+  ],
+  "properties": {
+    "model_alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "definition_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$"
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,18})$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "price": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimensions",
+        "meter",
+        "amount_atoms",
+        "per_quantity",
+        "minimum_quantity",
+        "rounding"
+      ],
+      "properties": {
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "channel",
+            "resolution",
+            "reference_video"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "channel": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "resolution": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "reference_video": {
+              "type": "boolean"
+            }
+          }
+        },
+        "meter": {
+          "type": "string",
+          "enum": [
+            "video_tokens"
+          ]
+        },
+        "amount_atoms": {
+          "type": "string",
+          "pattern": "^[0-9]{1,16}$"
+        },
+        "per_quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        },
+        "minimum_quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        },
+        "rounding": {
+          "type": "string",
+          "enum": [
+            "Down",
+            "Up",
+            "HalfEven"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Original immutable Credits media tariff
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "definition_revision",
+        "model_alias",
+        "channel",
+        "resolution",
+        "reference_video",
+        "meter",
+        "price"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "definition_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "model_alias": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "reference_video": {
+          "type": "boolean"
+        },
+        "meter": {
+          "type": "string",
+          "enum": [
+            "video_tokens"
+          ]
+        },
+        "price": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dimensions",
+            "meter",
+            "amount_atoms",
+            "per_quantity",
+            "minimum_quantity",
+            "rounding"
+          ],
+          "properties": {
+            "dimensions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "model",
+                "channel",
+                "resolution",
+                "reference_video"
+              ],
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "channel": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "resolution": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "reference_video": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "meter": {
+              "type": "string",
+              "enum": [
+                "video_tokens"
+              ]
+            },
+            "amount_atoms": {
+              "type": "string",
+              "pattern": "^[0-9]{1,16}$"
+            },
+            "per_quantity": {
+              "$ref": "#/components/schemas/VideoBillingQuantity"
+            },
+            "minimum_quantity": {
+              "$ref": "#/components/schemas/VideoBillingQuantity"
+            },
+            "rounding": {
+              "type": "string",
+              "enum": [
+                "Down",
+                "Up",
+                "HalfEven"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid model, dimensions, exact quantity or rounding mode
+
+HTTP 401: Authentication unavailable or revoked
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale installation/unit revision or conflicting idempotency input
+
+HTTP 422: Malformed request
+
+HTTP 503: Storage unavailable
+
 ## Preview a Credits purchase reversal and read committed reversal receipts
 
 `GET /api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals`
@@ -56445,6 +56895,26 @@ Local `#/components/schemas/…` references resolve to these definitions.
       ],
       "pattern": "^[0-9]+$"
     },
+    "unit_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reserved_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "charge_atoms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
     "settled_usage": {
       "type": [
         "object",
@@ -56593,6 +57063,19 @@ Local `#/components/schemas/…` references resolve to these definitions.
             "null"
           ],
           "pattern": "^[0-9]+$"
+        },
+        "unit_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
         }
       }
     },
@@ -56641,6 +57124,19 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "amount_units": {
           "type": "string",
           "pattern": "^[0-9]+$"
+        },
+        "amount_atoms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
+        },
+        "unit_code": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "decimal_places": {
           "type": "integer",

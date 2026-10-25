@@ -133,8 +133,13 @@ impl Store {
             // from starving each other. Durable nonexecution also lets the
             // background worker finish releases after a crash or storage fault.
             let customer: Result<(), StoreError> = async {
-                let held: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE attempt_id=$1 AND released_at IS NULL)")
-                    .bind(attempt).fetch_one(&self.pool).await?;
+                let held: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE attempt_id=$1 AND released_at IS NULL) \
+                     OR EXISTS(SELECT 1 FROM customer_unit_reservations r WHERE r.attempt_id=$1 AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions c WHERE c.attempt_id=r.attempt_id))",
+                )
+                .bind(attempt)
+                .fetch_one(&self.pool)
+                .await?;
                 if held {
                     self.release_nonexecuted_customer_balance(scope, attempt).await?;
                 }

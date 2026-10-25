@@ -114,7 +114,7 @@ impl Store {
         attempt: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
         use serde_json::json;
-        let row=sqlx::query("SELECT p.snapshot,s.document AS output_snapshot,EXISTS(SELECT 1 FROM personal_attempt_routes x WHERE x.attempt_id=a.id) AS personal,r.amount_nanos AS reserved,(r.released_at IS NOT NULL) AS released,c.amount_nanos AS charged,c.explanation AS settled_receipt,c.bound_exceeded,EXISTS(SELECT 1 FROM customer_activity_charges posted WHERE posted.attempt_id=a.id AND posted.organization_id=a.organization_id AND posted.project_id=a.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos) AS posted,EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AS failed,EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AS succeeded,COALESCE((SELECT jsonb_agg(u) FROM (SELECT DISTINCT meter,quantity FROM customer_media_usage_observations WHERE attempt_id=a.id LIMIT 2) u),'[]'::jsonb) AS usage FROM attempts a LEFT JOIN media_output_snapshots s ON s.attempt_id=a.id LEFT JOIN customer_media_attempt_pricing p ON p.attempt_id=a.id LEFT JOIN customer_balance_reservations r ON r.attempt_id=a.id LEFT JOIN customer_media_charges c ON c.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3")
+        let row=sqlx::query("SELECT p.snapshot,ut.revision AS unit_tariff_revision,ut.selected_at AS unit_selected_at,utp.price AS unit_price,ud.name AS unit_code,ur.maximum_atoms+COALESCE(ure.additional_atoms,0) AS unit_reserved,(urs.attempt_id IS NOT NULL) AS unit_resolved,(urs.kind='charge') AS unit_posted,uc.charged_atoms AS unit_charged,uc.explanation AS unit_settled_receipt,uc.bound_exceeded AS unit_bound_exceeded,s.document AS output_snapshot,EXISTS(SELECT 1 FROM personal_attempt_routes x WHERE x.attempt_id=a.id) AS personal,r.amount_nanos AS reserved,(r.released_at IS NOT NULL) AS released,c.amount_nanos AS charged,c.explanation AS settled_receipt,c.bound_exceeded,EXISTS(SELECT 1 FROM customer_activity_charges posted WHERE posted.attempt_id=a.id AND posted.organization_id=a.organization_id AND posted.project_id=a.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos) AS posted,EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AS failed,EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AS succeeded,COALESCE((SELECT jsonb_agg(u) FROM (SELECT DISTINCT meter,quantity FROM customer_media_usage_observations WHERE attempt_id=a.id LIMIT 2) u),'[]'::jsonb) AS usage FROM attempts a LEFT JOIN media_output_snapshots s ON s.attempt_id=a.id LEFT JOIN customer_media_attempt_pricing p ON p.attempt_id=a.id LEFT JOIN customer_balance_reservations r ON r.attempt_id=a.id LEFT JOIN customer_media_charges c ON c.attempt_id=a.id LEFT JOIN customer_unit_media_attempt_tariffs ut ON ut.attempt_id=a.id LEFT JOIN customer_unit_media_tariffs utp ON utp.revision=ut.revision LEFT JOIN customer_unit_definitions ud ON ud.revision=utp.definition_revision LEFT JOIN customer_unit_reservations ur ON ur.attempt_id=a.id LEFT JOIN customer_unit_reservation_extensions ure ON ure.attempt_id=a.id LEFT JOIN customer_unit_resolutions urs ON urs.attempt_id=a.id LEFT JOIN customer_unit_media_charges uc ON uc.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut **snapshot).await?;
         let output_snapshot: Option<serde_json::Value> = row.get("output_snapshot");
         let (effective_output, mut estimate, estimated_usage) = if let Some(saved) = output_snapshot
@@ -147,6 +147,137 @@ impl Store {
         } else {
             (None, None, None)
         };
+        let unit_tariff_revision: Option<i64> = row.get("unit_tariff_revision");
+        if let Some(tariff_revision) = unit_tariff_revision {
+            let unit_price_json: serde_json::Value = row
+                .get::<Option<serde_json::Value>, _>("unit_price")
+                .ok_or(StoreError::InvalidPrice)?;
+            let unit_price: crate::CustomerUnitMediaPrice =
+                serde_json::from_value(unit_price_json).map_err(|_| StoreError::InvalidPrice)?;
+            let unit_code: String = row
+                .get::<Option<String>, _>("unit_code")
+                .ok_or(StoreError::InvalidPrice)?;
+            let unit_selected_at: i64 = row
+                .get::<Option<i64>, _>("unit_selected_at")
+                .unwrap_or(0);
+            if let (Some(estimate), Some(usage)) = (&mut estimate, &estimated_usage)
+                && let Ok((atoms, _)) =
+                    unit_price.calculate_atoms(&tariff_revision.to_string(), usage)
+            {
+                estimate["unit_code"] = json!(unit_code);
+                estimate["amount_atoms"] = json!(atoms.to_string());
+            }
+            let usages: serde_json::Value = row.get("usage");
+            let usages = usages.as_array().ok_or(StoreError::InvalidUsage)?;
+            let usage = if usages.len() == 1 {
+                Some(usages[0].clone())
+            } else {
+                None
+            };
+            let unpriceable = if let Some(usage) = &usage {
+                let meter = usage["meter"]
+                    .as_str()
+                    .ok_or(StoreError::InvalidUsage)?
+                    .to_owned();
+                let quantity = serde_json::from_value(usage["quantity"].clone())
+                    .map_err(|_| StoreError::InvalidUsage)?;
+                unit_price
+                    .calculate_atoms(
+                        &tariff_revision.to_string(),
+                        &niu_metered_cost::Usage::Known {
+                            meter,
+                            quantity,
+                            provenance: niu_metered_cost::Provenance::Reported,
+                        },
+                    )
+                    .is_err()
+            } else {
+                false
+            };
+            let posted = row.get::<Option<bool>, _>("unit_posted").unwrap_or(false);
+            let charged: Option<i64> = row.get("unit_charged");
+            let settled_usage = if posted {
+                let saved: serde_json::Value = row
+                    .get::<Option<serde_json::Value>, _>("unit_settled_receipt")
+                    .ok_or(StoreError::InvalidUsage)?;
+                let quantity: niu_metered_cost::Quantity =
+                    serde_json::from_value(saved["measured_quantity"].clone())
+                        .map_err(|_| StoreError::InvalidUsage)?;
+                let (atoms, receipt) = unit_price.calculate_atoms(
+                    &tariff_revision.to_string(),
+                    &niu_metered_cost::Usage::Known {
+                        meter: unit_price.meter.clone(),
+                        quantity,
+                        provenance: niu_metered_cost::Provenance::Reported,
+                    },
+                )?;
+                if serde_json::to_value(&receipt).map_err(|_| StoreError::InvalidUsage)? != saved
+                    || Some(atoms) != charged
+                {
+                    return Err(StoreError::InvalidUsage);
+                }
+                Some(json!({
+                    "meter": receipt.meter,
+                    "quantity": receipt.measured_quantity,
+                    "billable_quantity": receipt.billable_quantity,
+                    "provenance": "Reported",
+                }))
+            } else {
+                None
+            };
+            let exceeded: Option<bool> = row.get("unit_bound_exceeded");
+            let state = if usages.len() > 1
+                || unpriceable
+                || row.get::<bool, _>("failed")
+                || exceeded == Some(true)
+            {
+                "reconciliation_required"
+            } else if posted {
+                "settled"
+            } else if row.get::<bool, _>("succeeded") && usage.is_some() {
+                "awaiting_settlement"
+            } else if row.get::<bool, _>("succeeded") {
+                "awaiting_usage"
+            } else {
+                "reserved"
+            };
+            let reserved = if row.get::<Option<bool>, _>("unit_resolved").unwrap_or(false) {
+                Some("0".to_owned())
+            } else {
+                row.get::<Option<i64>, _>("unit_reserved")
+                    .map(|v| v.to_string())
+            };
+            return Ok(Some(json!({
+                "mode": "customer",
+                "state": state,
+                "currency": null,
+                "reserved_nanos": null,
+                "charge_nanos": null,
+                "unit_code": unit_code,
+                "reserved_atoms": reserved,
+                "charge_atoms": if posted { charged.map(|v| v.to_string()) } else { None },
+                "usage": usage,
+                "bound_exceeded": exceeded,
+                "effective_output": effective_output,
+                "estimate": estimate,
+                "settled_usage": settled_usage,
+                "price": {
+                    "meter": unit_price.meter,
+                    "amount_units": unit_price.amount_atoms,
+                    "amount_atoms": unit_price.amount_atoms,
+                    "unit_code": unit_code,
+                    "decimal_places": 9,
+                    "per_quantity": unit_price.per_quantity,
+                    "minimum_quantity": unit_price.minimum_quantity,
+                    "rounding": unit_price.rounding,
+                    "resolution": unit_price.dimensions.resolution,
+                    "reference_video": unit_price.dimensions.reference_video,
+                    "effective_from": unit_selected_at.to_string(),
+                    "effective_until": null,
+                    "discounts": [],
+                }
+            })));
+        }
         let snapshot: Option<serde_json::Value> = row.get("snapshot");
         let Some(snapshot) = snapshot else {
             let mode = if row.get::<bool, _>("personal") {
@@ -299,7 +430,7 @@ impl Store {
             .execute(&mut *tx)
             .await?;
 
-        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
+        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id)) OR (EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_unit_reservations b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id)) OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions r WHERE r.attempt_id=a.id AND r.kind='charge'))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
         tx.commit().await?;
         Ok(changed)
     }
@@ -314,11 +445,31 @@ impl Store {
         match self.media_job_status(scope, attempt).await? {
             Some(MediaJobStatus::Failed | MediaJobStatus::Conflicting) => Ok(true),
             Some(MediaJobStatus::Succeeded) => {
-                if self.customer_media_pricing(scope, attempt).await?.is_none() {
+                if !self.customer_media_is_priced(scope, attempt).await? {
                     return Ok(true);
                 }
-                Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.organization_id=$1 AND c.project_id=$2 AND c.attempt_id=$3)")
-                    .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&self.pool).await?)
+                Ok(sqlx::query_scalar(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM customer_media_charges c
+                        JOIN customer_activity_charges posted
+                          ON posted.attempt_id = c.attempt_id
+                         AND posted.organization_id = c.organization_id
+                         AND posted.project_id = c.project_id
+                         AND posted.currency = c.currency
+                         AND posted.amount_nanos = c.amount_nanos
+                        WHERE c.organization_id = $1 AND c.project_id = $2 AND c.attempt_id = $3
+                    ) OR EXISTS(
+                        SELECT 1 FROM customer_unit_media_attempt_tariffs b
+                        JOIN customer_unit_resolutions r ON r.attempt_id = b.attempt_id
+                        WHERE b.organization_id = $1 AND b.project_id = $2 AND b.attempt_id = $3
+                          AND r.kind = 'charge'
+                    )",
+                )
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .bind(attempt)
+                .fetch_one(&self.pool)
+                .await?)
             }
             _ => Ok(false),
         }
@@ -332,7 +483,7 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<bool, StoreError> {
-        if self.customer_media_pricing(scope, attempt).await?.is_none()
+        if !self.customer_media_is_priced(scope, attempt).await?
             || self.media_job_status(scope, attempt).await? != Some(MediaJobStatus::Succeeded)
             || !matches!(
                 self.customer_media_usage_state(scope, attempt).await?,
@@ -722,8 +873,15 @@ impl Store {
                     .await?;
             }
         }
-        let priced: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut *tx).await?;
+        let priced: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3)
+             OR EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3)",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_one(&mut *tx)
+        .await?;
         let mut usage_error = None;
         if priced && let ReportedQuantity::Reported(quantity) = observation.quantity {
             let mut usage_tx = tx.begin().await?;
@@ -802,7 +960,7 @@ impl Store {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::Conflict);
         }
-        let rows: Vec<(Uuid, bool)> = sqlx::query_as("SELECT a.id,EXISTS(SELECT 1 FROM media_jobs j WHERE j.attempt_id=a.id) FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND ($3::uuid IS NULL OR a.id>$3) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id))) ORDER BY a.id LIMIT $4")
+        let rows: Vec<(Uuid, bool)> = sqlx::query_as("SELECT a.id,EXISTS(SELECT 1 FROM media_jobs j WHERE j.attempt_id=a.id) FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND ($3::uuid IS NULL OR a.id>$3) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id)) OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_unit_media_attempt_tariffs p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_unit_resolutions res WHERE res.attempt_id=a.id AND res.kind='charge'))) ORDER BY a.id LIMIT $4")
             .bind(scope.organization_id).bind(scope.project_id).bind(after).bind(i64::from(limit)).fetch_all(&self.pool).await?;
         Ok(rows
             .into_iter()

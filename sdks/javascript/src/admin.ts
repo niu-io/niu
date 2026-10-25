@@ -24,6 +24,31 @@ export type CustomerUnitTextTariff = {
 export type CustomerUnitTextTariffInput = Omit<CustomerUnitTextTariff, 'revision'> & {
   expected_revision: string; idempotency_key: string;
 };
+export type CustomerUnitMediaPrice = {
+  dimensions: { model: string; channel: string; resolution: string; reference_video: boolean };
+  meter: 'video_tokens';
+  amount_atoms: string;
+  per_quantity: ExactMediaQuantity;
+  minimum_quantity: ExactMediaQuantity;
+  rounding: 'Down' | 'Up' | 'HalfEven';
+};
+export type CustomerUnitMediaTariff = {
+  revision: string;
+  definition_revision: string;
+  model_alias: string;
+  channel: string;
+  resolution: string;
+  reference_video: boolean;
+  meter: 'video_tokens';
+  price: CustomerUnitMediaPrice;
+};
+export type CustomerUnitMediaTariffInput = {
+  model_alias: string;
+  definition_revision: string;
+  expected_revision: string;
+  idempotency_key: string;
+  price: CustomerUnitMediaPrice;
+};
 /** Versioned consumption unit; publication does not activate Credits billing. */
 export type CustomerUnitDefinition = {
   revision: string; name: string; display_precision: number; atoms_per_unit: '1000000000';
@@ -1552,6 +1577,32 @@ export class NiuAdminClient {
       for (const value of [tier.cached_prompt_rate, tier.cache_write_prompt_rate, tier.reasoning_completion_rate]) if (value != null) retailInteger(value, 1000000000000000n);
     }
     return this.request('/platform/units/tariffs', input, options, 'POST');
+  }
+  listCustomerUnitMediaTariffs(model?: string, options?: RequestOptions): Promise<{ data: CustomerUnitMediaTariff[] }> {
+    const params = new URLSearchParams();
+    if (model !== undefined) {
+      if (!model || model !== model.trim() || [...model].length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(model)) throw new TypeError('Use a nonempty model alias');
+      params.set('model', model);
+    }
+    const suffix = params.size ? `?${params}` : '';
+    return this.request(`/platform/units/media/tariffs${suffix}`, undefined, options);
+  }
+  publishCustomerUnitMediaTariff(input: CustomerUnitMediaTariffInput, options?: RequestOptions): Promise<{ data: CustomerUnitMediaTariff }> {
+    if (!input.model_alias || input.model_alias !== input.model_alias.trim() || [...input.model_alias].length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(input.model_alias)) throw new TypeError('Use a nonempty model alias');
+    unitInteger(input.definition_revision, true); unitInteger(input.expected_revision); uuid(input.idempotency_key);
+    const price = input.price;
+    if (!price?.dimensions || price.dimensions.model !== input.model_alias || !price.dimensions.channel || !price.dimensions.resolution || typeof price.dimensions.reference_video !== 'boolean') {
+      throw new TypeError('Media tariff dimensions must match model_alias and declare channel, resolution and reference_video');
+    }
+    if (price.meter !== 'video_tokens') throw new TypeError('Credits media tariffs require video_tokens meter');
+    retailInteger(price.amount_atoms, 1000000000000000n);
+    for (const quantity of [price.per_quantity, price.minimum_quantity]) {
+      unitInteger(quantity?.numerator);
+      unitInteger(quantity?.denominator, true);
+    }
+    if (BigInt(price.per_quantity.numerator) === 0n) throw new TypeError('Price unit quantity must be positive');
+    if (!['Down', 'Up', 'HalfEven'].includes(price.rounding)) throw new TypeError('Invalid rounding mode');
+    return this.request('/platform/units/media/tariffs', input, options, 'POST');
   }
   issueCustomerUnitGrant(organizationId: string, input: CustomerUnitGrantInput, options?: RequestOptions): Promise<{ data: CustomerUnitGrant }> {
     unitInteger(input.definition_revision, true); unitInteger(input.credit_atoms, true); uuid(input.idempotency_key);

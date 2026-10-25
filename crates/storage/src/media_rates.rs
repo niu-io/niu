@@ -24,6 +24,9 @@ pub struct CustomerMediaRateCard {
 pub struct SelectedCustomerMediaRate {
     /// Platform identity for admission reselection; None preserves legacy cards.
     pub retail_price_id: Option<Uuid>,
+    pub unit_tariff_revision: Option<i64>,
+    pub unit_definition_revision: Option<i64>,
+    pub unit_code: Option<String>,
     pub revision: String,
     pub vendor_id: Uuid,
     pub vendor_revision: i64,
@@ -310,6 +313,9 @@ impl Store {
         let pricing = card.pricing(organization, at)?;
         Ok(Some(SelectedCustomerMediaRate {
             retail_price_id: None,
+            unit_tariff_revision: None,
+            unit_definition_revision: None,
+            unit_code: None,
             revision: card.revision,
             vendor_id: card.vendor_id,
             vendor_revision: card.vendor_revision,

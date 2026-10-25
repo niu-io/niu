@@ -545,6 +545,12 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
             .layer(DefaultBodyLimit::max(32768)),
     )
     .dual_route(
+        "/platform/units/media/tariffs",
+        get(crate::customer_units::list_media_tariffs)
+            .post(crate::customer_units::publish_media_tariff)
+            .layer(DefaultBodyLimit::max(16384)),
+    )
+    .dual_route(
         "/platform/units/definitions",
         post(crate::customer_units::publish_definition)
             .layer(DefaultBodyLimit::max(4096)),
