@@ -55,6 +55,17 @@ export type CustomerUnitGrantInput = {
   definition_revision: string; credit_atoms: string; provenance: 'promotional' | 'simulated';
   reason: string; expires_at_ms?: string | null; idempotency_key: string;
 };
+export type CustomerUnitRefundInput = {
+  credit_atoms: string; reason: string; idempotency_key: string;
+};
+/** Immutable original-range restoration, not an external payment refund. */
+export type CustomerUnitRefund = {
+  id: string; credit_atoms: string; reason: string; atoms_per_unit: '1000000000'; created_at: string;
+  sources: Array<{
+    credit_atoms: string; definition_revision: string; name: string; display_precision: number;
+    provenance: 'purchased' | 'promotional' | 'simulated'; expires_at_ms: string | null;
+  }>;
+};
 /** Original issuance; not a current remaining balance or a payment receipt. */
 export type CustomerUnitGrant = {
   id: string; definition_revision: string; credit_atoms: string;
@@ -1379,6 +1390,12 @@ export class NiuAdminClient {
   }
   getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerUnitBalance }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/units`, undefined, options);
+  }
+  refundCustomerUnitCharge(organizationId: string, attemptId: string, input: CustomerUnitRefundInput, options?: RequestOptions): Promise<{ data: CustomerUnitRefund }> {
+    unitInteger(input.credit_atoms, true); uuid(input.idempotency_key);
+    if (typeof input.reason !== 'string' || !input.reason.length || input.reason !== input.reason.trim()
+      || [...input.reason].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(input.reason)) throw new TypeError('Use a trimmed refund reason');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/units/charges/${uuid(attemptId)}/refunds`, input, options, 'POST');
   }
   getCustomerUnitTextTariff(model: string, options?: RequestOptions): Promise<{ data: CustomerUnitTextTariff }> {
     if (!model || model !== model.trim() || [...model].length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(model)) throw new TypeError('Use a nonempty model alias');

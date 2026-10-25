@@ -6,6 +6,46 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 impl Store {
+    /// Refund only the original consumed ranges. This never executes a payment
+    /// refund, changes purchase rules, or renews an expired lot.
+    pub async fn refund_customer_unit_charge(
+        &self,
+        organization: Uuid,
+        attempt: Uuid,
+        atoms: i64,
+        reason: &str,
+        idempotency_key: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<Option<serde_json::Value>, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        let project: Option<Uuid> = sqlx::query_scalar(
+            "SELECT project_id FROM customer_unit_reservations WHERE organization_id=$1 AND attempt_id=$2",
+        ).bind(organization).bind(attempt).fetch_optional(&mut *tx).await?;
+        let Some(project_id) = project else {
+            return Ok(None);
+        };
+        let id = Self::restore_customer_unit_ranges_in_tx(
+            &mut tx,
+            TenantScope {
+                organization_id: organization,
+                project_id,
+            },
+            attempt,
+            atoms,
+            reason,
+            idempotency_key,
+            actor,
+        )
+        .await?;
+        let receipt = sqlx::query_scalar(include_str!("customer_unit_refund.sql"))
+            .bind(attempt)
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(Some(receipt))
+    }
+
     /// Customer-safe unit quantities in one statement snapshot. Monetary backing
     /// and procurement information deliberately do not enter this response.
     pub async fn customer_unit_balance(

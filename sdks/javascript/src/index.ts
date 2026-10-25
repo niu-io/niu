@@ -3,6 +3,7 @@ export type { ProviderDiscovery, ProviderIntegration, ProviderIntegrationType } 
 export type { CustomerUnitDefinition, CustomerUnitPurchaseRule, CustomerUnitConfiguration, CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput } from './admin.js';
 export type { CustomerUnitQuote, CustomerUnitQuoteInput } from './admin.js';
 export type { CustomerUnitGrant, CustomerUnitGrantInput } from './admin.js';
+export type { CustomerUnitRefund, CustomerUnitRefundInput } from './admin.js';
 export type { CustomerUnitBalance } from './admin.js';
 export type { CustomerUnitTextPrice, CustomerUnitTextTariff, CustomerUnitTextTariffInput } from './admin.js';
 import { notifyResponse } from './response-metadata.js';

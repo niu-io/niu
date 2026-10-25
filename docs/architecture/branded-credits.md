@@ -287,6 +287,17 @@ reconciliation without exposing these administrative details in customer flows.
 
 ## Required independent acceptance evidence
 
+Platform administrators can restore a resolved charge through
+`POST /api/v1/organizations/{organization}/billing/units/charges/{attempt}/refunds`.
+The exact atom quantity and reason form an idempotent intent. Refunds serialize
+on the company unit account and restore the next original consumed interval;
+they cannot exceed the original charge or release an unresolved request hold.
+The immutable receipt reports each restored source's original definition,
+provenance and expiry. Expired promotional atoms remain expired. The endpoint
+does not execute a processor refund, reverse a purchase, or expose monetary
+backing. Historical retries return the original receipt after restart and after
+price or conversion changes. Purchase reversals remain a separate requirement.
+
 Use the running application with current inputs, real database transactions and
 the authorized mock payment gateway. Independently inspect saved quotes, signed
 payment evidence, unit lots, reserved ranges, allocations and final customer and

@@ -512,6 +512,10 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
         post(crate::customer_units::issue_grant).layer(DefaultBodyLimit::max(4096)),
     )
     .dual_route(
+        "/organizations/{organization}/billing/units/charges/{attempt}/refunds",
+        post(crate::customer_units::refund_charge).layer(DefaultBodyLimit::max(4096)),
+    )
+    .dual_route(
         "/organizations/{organization}/billing/quotes/{quote}",
         get(crate::customer_units::read_quote),
     )

@@ -57,6 +57,218 @@ fn actor(auth: AdminAuthorization) -> OperatorAuditActor {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RefundInput {
+    credit_atoms: String,
+    reason: String,
+    idempotency_key: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/units/charges/{attempt}/refunds",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "refundCustomerUnitCharge",
+///     "summary": "Restore original consumed Credits ranges",
+///     "description": "Platform administration required. Restores the next unrefunded prefix of an original resolved charge. Original source, definition and expiry remain unchanged; expired restored units stay expired. Purchase conversion and current tariffs are never used. Identical idempotent replay returns the original immutable receipt; conflicting replay and cumulative over-refund are rejected. Concurrent refunds serialize on the unit account. This does not execute an external payment refund, reverse a purchase, or release an unresolved inference hold. No monetary backing or procurement information is returned. Quantities are exact decimal strings.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "attempt",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "credit_atoms",
+///               "reason",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "credit_atoms": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]*$"
+///               },
+///               "reason": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 500
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Original immutable refund receipt",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "id",
+///                     "credit_atoms",
+///                     "reason",
+///                     "atoms_per_unit",
+///                     "created_at",
+///                     "sources"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "credit_atoms": {
+///                       "type": "string"
+///                     },
+///                     "reason": {
+///                       "type": "string"
+///                     },
+///                     "atoms_per_unit": {
+///                       "type": "string",
+///                       "const": "1000000000"
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "sources": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "additionalProperties": false,
+///                         "required": [
+///                           "credit_atoms",
+///                           "definition_revision",
+///                           "name",
+///                           "display_precision",
+///                           "provenance",
+///                           "expires_at_ms"
+///                         ],
+///                         "properties": {
+///                           "credit_atoms": {
+///                             "type": "string"
+///                           },
+///                           "definition_revision": {
+///                             "type": "string"
+///                           },
+///                           "name": {
+///                             "type": "string"
+///                           },
+///                           "display_precision": {
+///                             "type": "integer"
+///                           },
+///                           "provenance": {
+///                             "type": "string",
+///                             "enum": [
+///                               "purchased",
+///                               "promotional",
+///                               "simulated"
+///                             ]
+///                           },
+///                           "expires_at_ms": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ]
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid exact quantity or reason"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "404": {
+///         "description": "No Credits reservation in the specified organization"
+///       },
+///       "409": {
+///         "description": "Unresolved or released charge, over-refund or conflicting retry"
+///       },
+///       "422": {
+///         "description": "Malformed request"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn refund_charge(
+    State(state): State<AppState>,
+    Path((organization, attempt)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<RefundInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .refund_customer_unit_charge(
+            organization,
+            attempt,
+            exact_integer(&input.credit_atoms)?,
+            &input.reason,
+            input.idempotency_key,
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data": data})))
+}
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/organizations/{organization}/billing/units",

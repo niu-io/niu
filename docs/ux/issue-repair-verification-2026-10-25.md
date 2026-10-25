@@ -699,3 +699,44 @@ regression and hosted acceptance remain required. The paid-usage metadata guard
 was extended to cover recorded unit charges; its managed-route reconciliation
 branch is not established by these static-route runs. Builds and generated
 contract checks are code hygiene; no fixture result supports these observations.
+
+## Credits original-range refunds — 2026-10-25 12:44 UTC
+
+Related work: `niu-2xp.3`, public issue #110. The current native gateway and
+compiled JavaScript SDK exercised the refund endpoint against the preceding
+actual free-model inference charges. These were existing real request outcomes,
+not inserted consumption records or fixture results. This is partial acceptance;
+it does not qualify the complete Credits workflow or hosted release.
+
+- Two concurrent identical 750000-atom refund requests returned the same
+  immutable receipt. Its original sources were 500000 promotional atoms from
+  definition 5 and 250000 simulated atoms from definition 1. The promotional
+  deadline was unchanged and had already expired.
+- A subsequent 1250000-atom refund completed restoration of the original
+  2000000-atom charge. Changed idempotent input and an additional one-atom
+  over-refund returned 409.
+- Restoring 500000 atoms from the promotion consumed after its deadline retained
+  that original expiry. It increased expired quantities, not available balance.
+- Two distinct concurrent 150000-atom intents against a 186600-atom charge
+  returned 200 and 409. Only one restoration was recorded.
+- A positive refund against the explicit zero charge returned 409. An absent
+  organization returned 404, anonymous access 401, a workspace viewer 403 and
+  zero quantity 400. The temporary viewer session was revoked with 204.
+
+Independent database reads of the original allocation ranges, charge quantities,
+lots and restoration intervals were reconciled with separate integer arithmetic.
+Four refund records restored 2650000 atoms: available simulated quantities rose
+by 1650000 and expired promotional quantities by 1000000. No restored interval
+remained occupied. Gross charges, all three unresolved holds and monetary wallet
+entries were unchanged; monetary entries remained zero. Each balance group
+still satisfied issued + restored = held + charged + expired + available.
+After gateway restart, both the balance and original idempotent receipt matched
+their pre-restart responses exactly.
+
+The endpoint and SDK expose the original source deadlines and exact string
+quantities without procurement or monetary-backing fields. Generated handler
+contracts and the full public OpenAPI entry point include the operation.
+Compilation and contract checks are code hygiene only. Genuine cash-backed
+purchase consumption, processor refunds, purchase reversals, monetary-mode
+inference regression, unit limits, over-bound recovery, media, activation,
+customer presentation and hosted verification remain outside this evidence.
