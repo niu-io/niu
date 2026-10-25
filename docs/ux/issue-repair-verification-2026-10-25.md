@@ -135,3 +135,31 @@ At 900px the open filter overlay measured 256px and began after the 60px rail.
 Open and closed layouts were inspected after transitions completed. Dashboard
 type checking also completed. No fixture result was used as evidence. Packaged
 and deployed regression remain required before this issue is closed.
+
+## Unpaid checkout recovery
+
+Bead `niu-0gj` tracks public issue #114. An actual isolated mock merchant created
+four fresh checkout sessions through the current gateway. Browser actions ran
+decline, cancellation, out-of-order success/failure and timeout scenarios. Saved
+order reads respectively returned closed, closed, paid and pending. Independent
+PostgreSQL reads found one closure and zero settlements/receipts for each closed
+order; the paid order had exactly one settlement and receipt, no closure; the
+timeout had none of those records. The simulated merchant is the authorized
+payment boundary for this run; this is not evidence of real merchant activation.
+
+A newly issued organization-wide owner credential reconciled all four saved
+orders successfully and retained those states. The same credential received 404
+when addressing another organization. Browser network evidence showed **Check
+payment status** issuing POST reconciliation and receiving 200 for the pending
+order, which truthfully remained pending. No browser-return URL supplied payment
+evidence. Closed details were inspected at desktop and 390px, including readable
+status, amount and recovery guidance. **Start a new top-up** opened a blank amount
+form; Escape dismissed that form. Existing Niu Dialog and Button primitives and
+the existing checkout layout were retained. The changed behavior follows the
+Stripe lifecycle references in the payment integration documentation and Niu's
+requirements for explicit recovery, truthful status and narrow-screen usability.
+
+The gateway and mock checkout UI were built and the generated API documentation
+was refreshed. Fixture outcomes were not used. Deployed verification, missing-
+notification recovery and the remaining full release acceptance remain pending;
+the GitHub issue remains open until those checks complete.

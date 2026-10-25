@@ -1564,7 +1564,7 @@ pub(crate) async fn topup_status(
 ///   "operation": {
 ///     "operationId": "reconcileCustomerTopup",
 ///     "summary": "Independently reconcile a saved payment",
-///     "description": "Installation administrator only. Queries the original configured merchant under bounded query admission. Exact verified paid evidence funds atomically once; verified closed evidence records closure without funding. Never creates a checkout or automatically retries. Already paid or closed orders return their durable status without requiring merchant configuration or an upstream query. A successful response reports durable status, not necessarily paid. EPay query recovery is unsupported (501); signed notifications remain available. Merchant activation and received-cash funding require separate deployment evidence.",
+///     "description": "Installation administrator or organization-wide billing owner/admin. Queries the original configured merchant under bounded query admission. Exact verified paid evidence funds atomically once; verified closed evidence records closure without funding. Never creates a checkout or automatically retries. Already paid or closed orders return their durable status without requiring merchant configuration or an upstream query. A successful response reports durable status, not necessarily paid. EPay query recovery is unsupported (501); signed notifications remain available. Merchant activation and received-cash funding require separate deployment evidence.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Saved top-up status; checkout and pending status confer no spending capacity",
@@ -1642,7 +1642,7 @@ pub(crate) async fn topup_status(
 ///         "description": "Durable storage unavailable"
 ///       },
 ///       "403": {
-///         "description": "Installation administrator required"
+///         "description": "Organization-wide billing write access required"
 ///       },
 ///       "409": {
 ///         "description": "Conflicting immutable identity or terminal evidence"
@@ -1691,8 +1691,8 @@ pub(crate) async fn reconcile(
     let auth = state
         .authorize_admin_headers(&headers, AdminPermission::Write)
         .await?;
-    if !auth.is_installation() {
-        return Err(ApiError::forbidden());
+    if !auth.permits_billing_account(organization) {
+        return Err(ApiError::not_found());
     }
     let saved = state
         .store
@@ -1702,7 +1702,7 @@ pub(crate) async fn reconcile(
         .ok_or_else(ApiError::not_found)?;
     // Terminal status is durable local evidence. Replaying recovery must not
     // require merchant credentials or reinterpret a later upstream response.
-    // The installation authorization and scoped order lookup above still gate
+    // Billing authorization and the scoped order lookup above still gate
     // this read; neither branch creates or reverses a funding entry.
     if state
         .store
@@ -2456,7 +2456,7 @@ mod tests {
         );
         for (token, expected) in [
             (None, StatusCode::UNAUTHORIZED),
-            (Some(owner.token.as_str()), StatusCode::FORBIDDEN),
+            (Some(owner.token.as_str()), StatusCode::BAD_GATEWAY),
             (
                 Some("payment-test-installation-token-123456789"),
                 StatusCode::BAD_GATEWAY,
@@ -2821,6 +2821,39 @@ pub(crate) async fn stripe_notify(
         amount_nanos: order.amount_nanos,
         live_mode: runtime.live_mode,
     };
+    // Unpaid events trigger an independent merchant query, never a funding or
+    // closure decision from browser-return data or notification status alone.
+    if matches!(
+        event.get("type").and_then(Value::as_str),
+        Some("checkout.session.expired" | "checkout.session.async_payment_failed")
+    ) {
+        if event.get("object").and_then(Value::as_str) != Some("event")
+            || event.get("account").is_some_and(|value| !value.is_null())
+            || event.get("livemode").and_then(Value::as_bool) != Some(runtime.live_mode)
+            || event.pointer("/data/object/id").and_then(Value::as_str) != Some(session.as_str())
+        {
+            return Err(ApiError::invalid_request(
+                "Invalid Stripe notification identity",
+            ));
+        }
+        // A stale unpaid event must not reinterpret an already settled order.
+        if state
+            .store
+            .customer_topup_paid(order.organization_id, order.id)
+            .await
+            .map_err(ApiError::from_store)?
+            != Some(true)
+            && state
+                .store
+                .customer_topup_closed(order.organization_id, order.id)
+                .await
+                .map_err(ApiError::from_store)?
+                != Some(true)
+        {
+            let _ = reconcile_stripe(&state, &order).await?;
+        }
+        return Ok(axum::http::StatusCode::OK);
+    }
     let paid = niu_payments::stripe::verify_paid_checkout(
         &body,
         signature,

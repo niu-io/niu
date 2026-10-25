@@ -12,7 +12,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { request } from '@/features/providers/api';
+import { ProviderRequestError, request } from '@/features/providers/api';
 import { amountToNanos, money } from '@/lib/money';
 
 type PaymentGateway = 'epay' | 'stripe' | 'zhifux';
@@ -22,7 +22,7 @@ const names = { pending: 'Awaiting payment', paid: 'Paid', closed: 'Closed', rec
 const statusHelp = {
   pending: 'Payment has not been confirmed. Continue the saved checkout if available, or check its status before starting another top-up.',
   paid: 'Payment is confirmed. The credits are recorded in your shared account balance.',
-  closed: 'This checkout is closed. If you completed a payment before it closed, check its status before starting another top-up.',
+  closed: 'This checkout ended without a confirmed payment. No funds were added. You can start a new top-up.',
   reconciliation_required: 'The payment is being verified. Credits may not yet be available. Check its status before starting another top-up.',
 };
 const methodName = (method: string) => ({ card: 'Card', wxpaynative: 'WeChat Pay', alipay: 'Alipay' }[method] ?? method);
@@ -142,7 +142,12 @@ export default function TopupFunding({ token, organization, canCreate, onPaid }:
     if (!result || busy) return;
     const controller = new AbortController(); mutation.current = controller; setBusy(true); setError('');
     try {
-      const response = await request<{ data: Topup }>(token, `/api/v1/organizations/${organization}/billing/topups/${result.id}`, 'GET', undefined, controller.signal);
+      const verifyWithMerchant = canCreate && result.status !== 'paid' && result.status !== 'closed';
+      const path = `/api/v1/organizations/${organization}/billing/topups/${result.id}`;
+      const response = await request<{ data: Topup }>(token, `${path}${verifyWithMerchant ? '/reconcile' : ''}`, verifyWithMerchant ? 'POST' : 'GET', undefined, controller.signal).catch(reason => {
+        if (!(reason instanceof ProviderRequestError) || reason.status !== 501) throw reason;
+        return request<{ data: Topup }>(token, path, 'GET', undefined, controller.signal);
+      });
       checkedTopup(response.data);
       if (response.data.id !== result.id || response.data.currency !== result.currency || response.data.amount_nanos !== result.amount_nanos) throw new Error('Mismatched saved top-up');
       if (!controller.signal.aborted) { setResult(response.data); setRevision(value => value + 1); if (response.data.status === 'paid') onPaid(); }
@@ -165,7 +170,7 @@ export default function TopupFunding({ token, organization, canCreate, onPaid }:
     {orders.length > 0 && <><h3 className="font-medium">Payment orders</h3><Table className="table-fixed" aria-label="Payment orders"><TableHeader><TableRow><TableHead className="hidden sm:table-cell">Date (UTC)</TableHead><TableHead>Amount</TableHead><TableHead className="w-40 sm:w-64">Status</TableHead></TableRow></TableHeader><TableBody>{orders.map(order => <TableRow key={order.id}><TableCell className="hidden sm:table-cell">{order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}</TableCell><TableCell className="whitespace-normal [overflow-wrap:anywhere]"><div>{money(order.amount_nanos, order.currency)}</div><div className="mt-1 text-xs text-muted-foreground sm:hidden">{order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'} (UTC)</div></TableCell><TableCell className="whitespace-normal"><div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><span>{names[order.status]}{order.simulated && ' · Simulated'}</span><Button variant="ghost" size="sm" className="h-auto max-w-full whitespace-normal py-2 text-left" disabled={busy} onClick={event => { opener.current = event.currentTarget; resume(order); }}>{checkoutLink(order) ? 'Continue payment' : 'View details'}</Button></div></TableCell></TableRow>)}</TableBody></Table>{next && <Button variant="ghost" disabled={busy} onClick={() => void loadOlder()}>Older top-ups</Button>}</>}
     <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent onCloseAutoFocus={event => { if (opener.current?.isConnected) { event.preventDefault(); opener.current.focus(); } }}><DialogHeader><DialogTitle>{result ? 'Top-up' : 'Add credits'}</DialogTitle><DialogDescription>{result ? money(result.amount_nanos, result.currency) : `Add credits to your ${availability?.currency ?? ''} account balance, shared across workspaces.`}</DialogDescription></DialogHeader>
       {(mockEnabled || result?.simulated) && <Alert className="mock-payment-warning"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">Simulated funds do not cover real model costs</AlertTitle><AlertDescription>LLM requests still incur upstream Provider charges. Simulated funds do not pay for upstream usage.</AlertDescription></Alert>}
-      {result ? <><p>{names[result.status]}{result.simulated && ' · Simulated'}</p><p className="text-sm text-muted-foreground">{statusHelp[result.status]}</p>{link && <Button asChild><a href={link} target="_blank" rel="noopener noreferrer">Continue to payment</a></Button>}{error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}<Button variant="outline" disabled={busy} onClick={() => void checkResult()}>{busy ? 'Checking…' : 'Check payment status'}</Button></> : <form onSubmit={event => { event.preventDefault(); void create(); }} className="grid gap-4">
+      {result ? <><p>{names[result.status]}{result.simulated && ' · Simulated'}</p><p className="text-sm text-muted-foreground">{statusHelp[result.status]}</p>{link && <Button asChild><a href={link} target="_blank" rel="noopener noreferrer">Continue to payment</a></Button>}{error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}<Button variant="outline" disabled={busy} onClick={() => void checkResult()}>{busy ? 'Checking…' : 'Check payment status'}</Button>{result.status === 'closed' && canCreate && availability?.available && <Button disabled={busy} onClick={begin}>Start a new top-up</Button>}</> : <form onSubmit={event => { event.preventDefault(); void create(); }} className="grid gap-4">
         <div className="grid gap-2"><Label htmlFor="topup-amount">Amount ({currencySymbol(availability?.currency ?? '')})</Label><Input id="topup-amount" inputMode="decimal" autoComplete="off" value={amount} disabled={busy || !!intent.current} onChange={event => setAmount(event.target.value)} /></div>
         <div className="grid gap-2"><Label>Payment method</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy || !!intent.current} aria-label="Payment method">{method ? methodName(method) : 'Choose a payment method'}</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={method} onValueChange={setMethod}>{availability?.payment_methods.map(value => <DropdownMenuRadioItem key={value} value={value}>{methodName(value)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}

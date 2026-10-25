@@ -341,8 +341,10 @@ async fn static_cache_headers(
             axum::http::header::HeaderName::from_static("content-security-policy-report-only"),
             if same_origin_help {
                 axum::http::HeaderValue::from_str(
-                    &DASHBOARD_CSP_REPORT_ONLY.replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
-                ).expect("static documentation policy is a valid header")
+                    &DASHBOARD_CSP_REPORT_ONLY
+                        .replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
+                )
+                .expect("static documentation policy is a valid header")
             } else {
                 axum::http::HeaderValue::from_static(DASHBOARD_CSP_REPORT_ONLY)
             },

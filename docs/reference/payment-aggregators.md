@@ -2,6 +2,32 @@
 
 Status: supported adapter inventory and implementation checkpoints. Reviewed 2026-10-09.
 
+## Payment recovery update — 2026-10-25
+
+The recovery authorization described in older implementation checkpoints below
+has been expanded: installation credentials and organization-wide billing
+owners/admins can query their saved orders through
+`POST /api/v1/organizations/{organization}/billing/topups/{order}/reconcile`.
+Workspace-scoped credentials and other organizations cannot use this operation.
+The server queries the original merchant under the existing bounded admission;
+the customer cannot supply a paid flag, merchant identity or replacement amount.
+Paid and closed orders retain their durable terminal status on repeated queries.
+
+Signed Stripe `checkout.session.expired` and
+`checkout.session.async_payment_failed` notifications trigger independent
+merchant verification after binding the saved session identity. Only verified
+expired evidence closes an unpaid order. An asynchronous failure is not itself
+proof of expiration; an open merchant session stays pending. Stale unpaid events
+cannot undo settled funding. See Stripe's
+[event types](https://docs.stripe.com/api/events/types) and
+[Checkout Session lifecycle](https://docs.stripe.com/api/checkout/sessions).
+
+In Credits, **Check payment status** queries the merchant for unresolved orders
+when the integration supports recovery. Closed checkout details offer **Start a
+new top-up**. EPay retains local status reads because its query transport remains
+unsupported. Mock decline and cancellation scenarios expire their checkout and
+exercise the same signed-notification and merchant-query path.
+
 ## Supported integration list and readiness boundary
 
 Niu separates supported payment integrations from the methods enabled on a
