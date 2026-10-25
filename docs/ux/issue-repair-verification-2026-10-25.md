@@ -160,6 +160,45 @@ Stripe lifecycle references in the payment integration documentation and Niu's
 requirements for explicit recovery, truthful status and narrow-screen usability.
 
 The gateway and mock checkout UI were built and the generated API documentation
-was refreshed. Fixture outcomes were not used. Deployed verification, missing-
-notification recovery and the remaining full release acceptance remain pending;
-the GitHub issue remains open until those checks complete.
+was refreshed. Fixture outcomes were not used. Missing-notification recovery
+was subsequently exercised as described below. Deployed
+verification and full release acceptance remain pending; the issue stays open.
+
+A further fresh cancellation checkout used an intentionally unavailable callback
+route on the isolated gateway. The real merchant recorded six delivery attempts,
+all HTTP 404, with no accepted notification. The dashboard initially showed the
+saved order as awaiting payment. Clicking **Check payment status** changed it to
+closed with recovery guidance. A subsequent independent database read found one
+closure and zero settlements. The merchant's normal callback configuration was
+then restored and mock payments were disabled. This verifies customer-driven
+recovery without a delivered notification; no order status was injected into the
+application database.
+
+## Embedded Help and quickstart anchors
+
+Beads `niu-a9v` and `niu-lb0` track issues #113 and #111. The current gateway
+served the newly built documentation with `X-Frame-Options: SAMEORIGIN` and
+`Content-Security-Policy: frame-ancestors 'self'`. The browser actually rendered
+the article inside dashboard Help. This exposed a separate layout defect: the
+route wrappers let the iframe retain its intrinsic 300px width. Extending the
+existing flex layout through those wrappers restored the available content width.
+
+Rendered iframe widths at 1440, 900 and 390px were 1372, 840 and 390px. Neither
+the outer document nor embedded article overflowed horizontally. Desktop,
+intermediate and narrow renders were inspected, along with the open mobile
+documentation menu. Its Guardrails link navigated the parent Help route. Searching
+the actual generated index for `guardrails`, selecting GuardrailPolicy and
+refreshing retained the selected article. The existing sidebar/article/contents
+structure was preserved, consistent with the inspected
+[OpenRouter quickstart](https://openrouter.ai/docs/quickstart) and equivalent Niu
+documentation. Applicable requirements are full available content width,
+discoverable navigation, responsive layouts and complete task recovery.
+
+The Chinese installation heading now uses Markdown so it appears in the generated
+contents. The introduction links to that heading; the previous English fragment
+remains an alias. A desktop introduction click positioned the visible heading at
+88px, and a direct legacy-fragment reload positioned it at 257px. A direct Chinese
+heading-fragment load at 390px positioned it at 136px. These are browser layout
+measurements after navigation, not source-only checks. Documentation was rebuilt;
+no fixture-test result was used. Final packaged and hosted regression, including
+the full bilingual anchor matrix, remains required before closing these issues.

@@ -63,7 +63,7 @@ Keep Provider credentials and installation administrator tokens on the server. T
 
 <div data-lang="zh" data-title-zh="快速入门">
 
-本指南面向使用现有 Niu 实例的开发者。您需要拥有一个具备工作空间访问权限的账户。如果您正在为团队或客户部署安装 Niu，请先参阅下方的[实例初始化设置](#installation-setup-zh)。
+本指南面向使用现有 Niu 实例的开发者。您需要拥有一个具备工作空间访问权限的账户。如果您正在为团队或客户部署安装 Niu，请先参阅下方的[实例初始化设置](#实例初始化设置)。
 
 ## 准备工作空间
 
@@ -94,7 +94,9 @@ curl --fail-with-body "$NIU_BASE_URL/chat/completions" \
 
 应用程序使用工作空间密钥进行身份验证。请将模型供应商凭证和实例管理员令牌妥善保存在服务端。编程智能体（Coding Agent）可以通过 [MCP 服务器](/docs/guides/mcp/)使用同一个密钥。托管版 Niu 将网关地址固定为 `https://niu.io/v1`。
 
-<h2 id="installation-setup-zh">实例初始化设置</h2>
+<span id="installation-setup-zh" style={{scrollMarginTop: '8rem'}} />
+
+## 实例初始化设置
 
 以下任务属于安装实例管理员职责，而非普通 API 调用方的工作：
 
