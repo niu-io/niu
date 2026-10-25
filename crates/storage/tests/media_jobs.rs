@@ -1432,7 +1432,7 @@ async fn result_retention_hardening_upgrades_saved_references_without_extending_
 ) {
     let old = sqlx::migrate::Migrator {
         migrations: std::borrow::Cow::Owned(
-            MIGRATOR
+            niu_storage::legacy_migrations()
                 .iter()
                 .filter(|migration| migration.version <= 135)
                 .cloned()
@@ -1495,7 +1495,7 @@ async fn result_retention_hardening_upgrades_saved_references_without_extending_
         .await
         .unwrap();
     sqlx::query("INSERT INTO media_result_references(organization_id,project_id,attempt_id,kind,ciphertext,created_at,expires_at) VALUES($1,$2,$3,'video',$4,now()-interval '1 hour',now()+interval '23 hours 0.5 seconds')").bind(scope.organization_id).bind(scope.project_id).bind(id).bind(vec![31_u8;48]).execute(&pool).await.unwrap();
-    MIGRATOR.run(&pool).await.unwrap();
+    niu_storage::run_migrations(&pool).await.unwrap();
     assert_eq!(
         store
             .media_result_reference(scope, id, niu_storage::MediaResultKind::Video)

@@ -252,7 +252,7 @@ async fn failed_provider_model_migration_can_be_retried_after_schema_repair(pool
 
     let before_provider_model = Migrator {
         migrations: Cow::Owned(
-            MIGRATOR
+            niu_storage::legacy_migrations()
                 .iter()
                 .filter(|migration| migration.version < PROVIDER_MODEL_MIGRATION)
                 .cloned()
@@ -261,7 +261,7 @@ async fn failed_provider_model_migration_can_be_retried_after_schema_repair(pool
         ..Migrator::DEFAULT
     };
     assert!(
-        MIGRATOR
+        niu_storage::legacy_migrations()
             .iter()
             .any(|migration| migration.version == PROVIDER_MODEL_MIGRATION)
     );
@@ -273,7 +273,7 @@ async fn failed_provider_model_migration_can_be_retried_after_schema_repair(pool
         .execute(&pool)
         .await
         .unwrap();
-    let error = MIGRATOR.run(&pool).await.unwrap_err();
+    let error = niu_storage::legacy_migrator().run(&pool).await.unwrap_err();
     assert!(matches!(
         error,
         sqlx::migrate::MigrateError::ExecuteMigration(_, PROVIDER_MODEL_MIGRATION)
@@ -531,7 +531,7 @@ async fn operator_scope_migration_revokes_legacy_credentials(pool: PgPool) {
     .execute(&mut *connection)
     .await
     .unwrap();
-    sqlx::raw_sql(include_str!("../migrations/0010_operator_sessions.sql"))
+    sqlx::raw_sql(niu_storage::legacy_migration_sql(10))
         .execute(&mut *connection)
         .await
         .unwrap();
@@ -558,7 +558,7 @@ async fn operator_scope_migration_revokes_legacy_credentials(pool: PgPool) {
     .await
     .unwrap();
 
-    sqlx::raw_sql(include_str!("../migrations/0011_operator_scopes.sql"))
+    sqlx::raw_sql(niu_storage::legacy_migration_sql(11))
         .execute(&mut *connection)
         .await
         .unwrap();

@@ -4,6 +4,30 @@ import argparse
 import re
 from pathlib import Path
 
+LEGACY_PREFIX = b'-- @niu-legacy-migration '
+
+
+def extract_squashed_legacy(sql_bytes: bytes) -> dict[str, bytes]:
+    pos = 0
+    extracted: dict[str, bytes] = {}
+    while pos < len(sql_bytes):
+        if not sql_bytes.startswith(LEGACY_PREFIX, pos):
+            break
+        line_end = sql_bytes.find(b'\n', pos)
+        if line_end < 0:
+            break
+        meta = sql_bytes[pos + len(LEGACY_PREFIX):line_end].decode('utf-8')
+        parts = meta.split(' ')
+        if len(parts) != 2:
+            break
+        name, length_str = parts
+        length = int(length_str)
+        sql_start = line_end + 1
+        sql_end = sql_start + length
+        extracted[name] = sql_bytes[sql_start:sql_end]
+        pos = sql_end + 1
+    return extracted
+
 
 def check_history(previous: Path, current: Path) -> list[str]:
     errors = []
@@ -20,12 +44,23 @@ def check_history(previous: Path, current: Path) -> list[str]:
             seen.add(version)
     if errors:
         return errors
+
+    squashed_legacy: dict[str, bytes] = {}
+    baseline_file = current / '0001_initial_schema.sql'
+    if baseline_file.is_file():
+        squashed_legacy = extract_squashed_legacy(baseline_file.read_bytes())
+
     for old in old_files:
         new = current / old.name
-        if not new.is_file():
+        old_bytes = old.read_bytes()
+        if new.is_file():
+            if old_bytes != new.read_bytes():
+                errors.append(f'released migration changed: {old.name}')
+        elif old.name in squashed_legacy:
+            if old_bytes != squashed_legacy[old.name]:
+                errors.append(f'released migration changed inside 0001_initial_schema.sql: {old.name}')
+        else:
             errors.append(f'released migration removed or renamed: {old.name}')
-        elif old.read_bytes() != new.read_bytes():
-            errors.append(f'released migration changed: {old.name}')
     return errors
 
 

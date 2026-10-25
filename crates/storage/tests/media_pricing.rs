@@ -1358,7 +1358,7 @@ async fn customer_workspace_limit_serializes_shared_text_and_media_holds(pool: P
 async fn workspace_limit_history_upgrades_without_inventing_dates_or_revisions(pool: PgPool) {
     let old = sqlx::migrate::Migrator {
         migrations: std::borrow::Cow::Owned(
-            MIGRATOR
+            niu_storage::legacy_migrations()
                 .iter()
                 .filter(|m| m.version <= 138)
                 .cloned()
@@ -1389,7 +1389,7 @@ async fn workspace_limit_history_upgrades_without_inventing_dates_or_revisions(p
         .set_customer_workspace_spending_limit(scope, "CNY", 50, 1)
         .await
         .unwrap();
-    MIGRATOR.run(&pool).await.unwrap();
+    niu_storage::run_migrations(&pool).await.unwrap();
     let baseline = store
         .customer_workspace_spending_limit_history(scope, "CNY", None, 100)
         .await

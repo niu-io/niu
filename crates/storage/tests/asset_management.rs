@@ -550,7 +550,7 @@ async fn asset_management_intent_upgrade_preserves_history_without_fabricating_r
 ) {
     let old = sqlx::migrate::Migrator {
         migrations: std::borrow::Cow::Owned(
-            MIGRATOR
+            niu_storage::legacy_migrations()
                 .iter()
                 .filter(|migration| migration.version <= 155)
                 .cloned()
@@ -599,7 +599,7 @@ async fn asset_management_intent_upgrade_preserves_history_without_fabricating_r
         .unwrap();
         saved.push((id, state, group, created));
     }
-    MIGRATOR.run(&pool).await.unwrap();
+    niu_storage::run_migrations(&pool).await.unwrap();
     let reopened = Store::from_pool(pool.clone());
     for (id, state, group, created) in saved {
         let record = reopened

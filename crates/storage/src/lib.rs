@@ -289,6 +289,9 @@ mod request_timings;
 pub use request_timings::RequestTimingRecord;
 
 mod migration_compatibility;
+pub use migration_compatibility::{
+    legacy_migration_sql, legacy_migrations, legacy_migrator, run as run_migrations,
+};
 
 pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 

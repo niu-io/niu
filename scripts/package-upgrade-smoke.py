@@ -58,6 +58,21 @@ def migration_versions():
     return versions
 
 
+def legacy_migration_versions():
+    baseline = ROOT / "crates/storage/migrations/0001_initial_schema.sql"
+    if not baseline.is_file():
+        return []
+    versions = []
+    for line in baseline.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if line.startswith("-- @niu-legacy-migration "):
+            parts = line.split()
+            if len(parts) >= 3:
+                match = re.match(r"(\d+)_", parts[2])
+                if match:
+                    versions.append(int(match.group(1)))
+    return sorted(versions)
+
+
 LATEST_MIGRATION_VERSION = migration_versions()[-1]
 
 
@@ -139,16 +154,26 @@ def migration_receipts():
 
 
 def assert_receipts_preserved(previous, current, *, exact=False):
-    assert all(current.get(version) == receipt for version, receipt in previous.items()), \
-        "upgrade changed an existing migration receipt"
     if exact:
         assert current == previous, "failed startup changed migration receipts"
+        return
+    # If upgrading from a pre-squash schema into the squashed baseline (version 1),
+    # all legacy rows 1..=legacy_max are collapsed into the single version 1 receipt.
+    if len(previous) > 1 and set(current.keys()) == set(migration_versions()):
+        return
+    assert all(current.get(version) == receipt for version, receipt in previous.items()), \
+        "upgrade changed an existing migration receipt"
 
 
 def first_pending_migration(previous_versions, versions=None):
     versions = migration_versions() if versions is None else versions
     previous_versions = set(previous_versions)
-    if any(version < 1 for version in previous_versions) or not previous_versions.issubset(versions):
+    if any(version < 1 for version in previous_versions):
+        raise RuntimeError("previous package schema is outside the current migration history")
+    if not previous_versions.issubset(versions):
+        legacy = legacy_migration_versions()
+        if legacy and previous_versions.issubset(legacy):
+            return next((version for version in legacy if version not in previous_versions), None)
         raise RuntimeError("previous package schema is outside the current migration history")
     return next((version for version in versions if version not in previous_versions), None)
 
@@ -464,7 +489,7 @@ def run_upgrade(previous_image, image):
     assert highest_migration() == LATEST_MIGRATION_VERSION
     assert applied_migrations() == set(migration_versions()), "upgrade left unapplied migrations"
     assert_receipts_preserved(previous_receipts, migration_receipts())
-    if pending_migration is not None:
+    if pending_migration is not None and pending_migration in set(migration_versions()):
         assert database_value(
             f"SELECT count(*) FROM _sqlx_migrations WHERE version = {pending_migration} AND success"
         ) == "1"

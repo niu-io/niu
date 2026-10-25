@@ -177,7 +177,7 @@ async fn legacy_default_brand_name_migration_preserves_theme_and_custom_names(po
         .save_branding_configuration(0, &settings, None)
         .await
         .unwrap();
-    let migration = include_str!("../migrations/0323_legacy_default_brand_name.sql");
+    let migration = niu_storage::legacy_migration_sql(323);
     sqlx::raw_sql(migration).execute(&pool).await.unwrap();
     let (revision, migrated) = store.branding_configuration().await.unwrap();
     assert_eq!(revision, 2);
