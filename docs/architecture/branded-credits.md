@@ -163,6 +163,19 @@ Idempotency compares semantic input, so equivalent reduced ratios are equivalent
 inputs. A repeated successful write returns its original revision even after
 newer publications.
 
+The platform can prepare a persisted purchase preview with
+`POST /api/v1/organizations/{organization}/billing/quotes` and retrieve it at
+`GET /api/v1/organizations/{organization}/billing/quotes/{quote}`. The SDK exposes
+`prepareCustomerUnitQuote` and `getCustomerUnitQuote`. New previews require the
+current purchase rule for its currency and the latest unit definition. They pin
+the exact payment amount and resulting atom quantity for fifteen minutes.
+Replaying an existing intent returns its original record, including the original
+expiry, rather than selecting a newer rule or renewing the deadline. Preparation
+does not create a payment order or issue capacity. The checkout binder must
+separately enforce mode, owner, currency, amount, processor precision, expiry
+and single use before accepting that quote. Until the customer checkout workflow
+is connected, these preview operations require platform administration.
+
 Purchase-rule publication, mode publication, checkout creation and request
 admission serialize on the installation billing revision. Lot operations also
 serialize on the customer account, in a documented consistent lock order.

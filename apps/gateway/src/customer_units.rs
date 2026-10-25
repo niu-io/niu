@@ -4,7 +4,11 @@ use crate::{
     error::ApiError,
     state::{AdminAuthorization, AppState},
 };
-use axum::{Json, extract::State, http::HeaderMap};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::HeaderMap,
+};
 use niu_metered_cost::CreditConversion;
 use niu_storage::{CustomerUnitDefinitionInput, CustomerUnitPurchaseRuleInput, OperatorAuditActor};
 use serde::Deserialize;
@@ -51,6 +55,385 @@ fn actor(auth: AdminAuthorization) -> OperatorAuditActor {
         AdminAuthorization::Installation => OperatorAuditActor::Installation,
         AdminAuthorization::Operator(operator) => OperatorAuditActor::Operator(operator.id),
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuoteInput {
+    rule_revision: String,
+    payment_nanos: String,
+    idempotency_key: Uuid,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/quotes",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "prepareCustomerUnitQuote",
+///     "summary": "Prepare an exact versioned Credits purchase quote",
+///     "description": "Platform administration required. A saved preview does not activate Credits, issue units, create a payment or prove processor amount eligibility. New quotes require the latest rule for its payment currency and latest definition. Inexact conversions and overflow are rejected. The quote pins amount, rule and unit definition for fifteen minutes. Identical idempotent retries retain the original quote and expiry even after rule changes or expiry; checkout must separately enforce validity. Reading historical quotes does not revalue them. No procurement data is returned.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Original immutable quote",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "rule_revision",
+///                     "definition_revision",
+///                     "payment_nanos",
+///                     "credit_atoms",
+///                     "numerator",
+///                     "denominator",
+///                     "id",
+///                     "payment_currency",
+///                     "name",
+///                     "display_precision",
+///                     "atoms_per_unit",
+///                     "created_at",
+///                     "expires_at"
+///                   ],
+///                   "properties": {
+///                     "rule_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "payment_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "credit_atoms": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "numerator": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "denominator": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "payment_currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$"
+///                     },
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "display_precision": {
+///                       "type": "integer",
+///                       "minimum": 0,
+///                       "maximum": 9
+///                     },
+///                     "atoms_per_unit": {
+///                       "type": "string",
+///                       "const": "1000000000"
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "expires_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid amount, inexact conversion or overflow"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "404": {
+///         "description": "Quote not found in the requested organization"
+///       },
+///       "409": {
+///         "description": "Stale rule, missing organization or conflicting idempotency input"
+///       },
+///       "422": {
+///         "description": "Malformed request body"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "rule_revision",
+///               "payment_nanos",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "rule_revision": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$",
+///                 "description": "Exact positive integer at most 9223372036854775807."
+///               },
+///               "payment_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$",
+///                 "description": "Exact positive integer at most 9223372036854775807."
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn prepare_quote(
+    State(state): State<AppState>,
+    Path(organization): Path<Uuid>,
+    headers: HeaderMap,
+    Json(input): Json<QuoteInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .prepare_customer_unit_quote(
+            organization,
+            niu_storage::CustomerUnitQuoteInput {
+                rule_revision: exact_integer(&input.rule_revision)?,
+                payment_nanos: exact_integer(&input.payment_nanos)?,
+                idempotency_key: input.idempotency_key,
+            },
+            actor(auth),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data": data})))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/quotes/{quote}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getCustomerUnitQuote",
+///     "summary": "Read a saved Credits purchase quote",
+///     "description": "Platform administration required. A saved preview does not activate Credits, issue units, create a payment or prove processor amount eligibility. New quotes require the latest rule for its payment currency and latest definition. Inexact conversions and overflow are rejected. The quote pins amount, rule and unit definition for fifteen minutes. Identical idempotent retries retain the original quote and expiry even after rule changes or expiry; checkout must separately enforce validity. Reading historical quotes does not revalue them. No procurement data is returned.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "quote",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Original immutable quote",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "rule_revision",
+///                     "definition_revision",
+///                     "payment_nanos",
+///                     "credit_atoms",
+///                     "numerator",
+///                     "denominator",
+///                     "id",
+///                     "payment_currency",
+///                     "name",
+///                     "display_precision",
+///                     "atoms_per_unit",
+///                     "created_at",
+///                     "expires_at"
+///                   ],
+///                   "properties": {
+///                     "rule_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "definition_revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "payment_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "credit_atoms": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "numerator": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "denominator": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]{0,18}$",
+///                       "description": "Exact positive integer at most 9223372036854775807."
+///                     },
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "payment_currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$"
+///                     },
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "display_precision": {
+///                       "type": "integer",
+///                       "minimum": 0,
+///                       "maximum": 9
+///                     },
+///                     "atoms_per_unit": {
+///                       "type": "string",
+///                       "const": "1000000000"
+///                     },
+///                     "created_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "expires_at": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid amount, inexact conversion or overflow"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "404": {
+///         "description": "Quote not found in the requested organization"
+///       },
+///       "409": {
+///         "description": "Stale rule, missing organization or conflicting idempotency input"
+///       },
+///       "422": {
+///         "description": "Malformed request body"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn read_quote(
+    State(state): State<AppState>,
+    Path((organization, quote)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .customer_unit_quote(organization, quote)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data": data})))
 }
 
 /// ```openapi

@@ -237,6 +237,23 @@ getCustomerUnitConfiguration(options?: RequestOptions): Promise<{
 }>;
 ```
 
+### prepareCustomerUnitQuote
+
+```typescript
+/** Platform-only exact purchase preview. Retried intent retains its original expiry. */
+prepareCustomerUnitQuote(organizationId: string, input: CustomerUnitQuoteInput, options?: RequestOptions): Promise<{
+    data: CustomerUnitQuote;
+}>;
+```
+
+### getCustomerUnitQuote
+
+```typescript
+getCustomerUnitQuote(organizationId: string, quoteId: string, options?: RequestOptions): Promise<{
+    data: CustomerUnitQuote;
+}>;
+```
+
 ### publishCustomerUnitDefinition
 
 ```typescript

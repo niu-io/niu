@@ -89,6 +89,8 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [CustomerUnitDefinitionInput](/docs/api/sdk/customerunitdefinitioninput/)
 - [CustomerUnitPurchaseRule](/docs/api/sdk/customerunitpurchaserule/)
 - [CustomerUnitPurchaseRuleInput](/docs/api/sdk/customerunitpurchaseruleinput/)
+- [CustomerUnitQuote](/docs/api/sdk/customerunitquote/)
+- [CustomerUnitQuoteInput](/docs/api/sdk/customerunitquoteinput/)
 - [EmbeddingRequest](/docs/api/sdk/embeddingrequest/)
 - [EmbeddingResponse](/docs/api/sdk/embeddingresponse/)
 - [EPayConfiguration](/docs/api/sdk/epayconfiguration/)

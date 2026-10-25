@@ -16,6 +16,16 @@ export type CustomerUnitDefinitionInput = {
 export type CustomerUnitPurchaseRuleInput = Omit<CustomerUnitPurchaseRule, 'revision'> & {
   expected_revision: string; idempotency_key: string;
 };
+/** A pinned preview, not a payment, spendable balance or enabled billing mode. */
+export type CustomerUnitQuote = {
+  id: string; rule_revision: string; definition_revision: string;
+  payment_currency: string; payment_nanos: string; credit_atoms: string;
+  name: string; display_precision: number; atoms_per_unit: '1000000000';
+  numerator: string; denominator: string; created_at: string; expires_at: string;
+};
+export type CustomerUnitQuoteInput = {
+  rule_revision: string; payment_nanos: string; idempotency_key: string;
+};
 export type ProviderIntegrationType = 'openrouter' | 'newapi' | 'litellm' | 'custom';
 /** Configuration identity only; does not establish upstream capability or pricing. */
 export type ProviderIntegration = {
@@ -1324,6 +1334,14 @@ export class NiuAdminClient {
   /** Platform-only configuration. Does not enable Credits or change existing balances. */
   getCustomerUnitConfiguration(options?: RequestOptions): Promise<{ data: CustomerUnitConfiguration }> {
     return this.request('/platform/units', undefined, options);
+  }
+  /** Platform-only exact purchase preview. Retried intent retains its original expiry. */
+  prepareCustomerUnitQuote(organizationId: string, input: CustomerUnitQuoteInput, options?: RequestOptions): Promise<{ data: CustomerUnitQuote }> {
+    unitInteger(input.rule_revision, true); unitInteger(input.payment_nanos, true); uuid(input.idempotency_key);
+    return this.request(`/organizations/${uuid(organizationId)}/billing/quotes`, input, options, 'POST');
+  }
+  getCustomerUnitQuote(organizationId: string, quoteId: string, options?: RequestOptions): Promise<{ data: CustomerUnitQuote }> {
+    return this.request(`/organizations/${uuid(organizationId)}/billing/quotes/${uuid(quoteId)}`, undefined, options);
   }
   publishCustomerUnitDefinition(input: CustomerUnitDefinitionInput, options?: RequestOptions): Promise<{ data: CustomerUnitDefinition }> {
     unitInteger(input.expected_revision); uuid(input.idempotency_key);

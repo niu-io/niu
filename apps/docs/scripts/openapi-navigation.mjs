@@ -74,7 +74,7 @@ export function deriveOperationAuthority(path, method, operation) {
   }
   if (
     /^\/api\/v1\/(?:platform\/|vendors|routing-registry|pools|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
-    /\/billing\/(?:media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
+    /\/billing\/(?:quotes|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
     /\/(?:tariffs|retail-price-enrollment|media-retail-price-enrollment|usage-reconciliation)/.test(path)
   ) {
     return {

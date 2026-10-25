@@ -220,6 +220,8 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`POST /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire` — End a published customer media rate's eligibility](/docs/api/rest/retirecustomermediarate/)
 - [`POST /api/v1/organizations/{organization}/billing/media-rates/replace` — Atomically replace a customer media selling schedule](/docs/api/rest/replacecustomermediarate/)
 - [`GET /api/v1/organizations/{organization}/billing/payment-methods` — Read company checkout availability](/docs/api/rest/getcustomerpaymentmethods/)
+- [`POST /api/v1/organizations/{organization}/billing/quotes` — Prepare an exact versioned Credits purchase quote](/docs/api/rest/preparecustomerunitquote/)
+- [`GET /api/v1/organizations/{organization}/billing/quotes/{quote}` — Read a saved Credits purchase quote](/docs/api/rest/getcustomerunitquote/)
 - [`GET /api/v1/organizations/{organization}/billing/reservations` — Inspect open customer balance reservations](/docs/api/rest/listcustomerbalancereservations/)
 - [`GET /api/v1/organizations/{organization}/billing/topups` — Recover company checkout history](/docs/api/rest/listcustomertopups/)
 - [`POST /api/v1/organizations/{organization}/billing/topups` — Create or recover a company prepaid top-up](/docs/api/rest/createcustomertopup/)

@@ -439,3 +439,29 @@ customer UI, mode switching or hosted behavior. Exact-arithmetic implementation
 has compiled but has not yet been qualified through the complete payment and
 consumption workflow. No fixture outcome is used as evidence. The feature and
 release gate remain incomplete.
+
+## Branded Credits pinned purchase preview — issue #110
+
+Migration 0377 adds immutable purchase quotes with an independent database check
+against the selected exact ratio. The running gateway and built JavaScript SDK
+prepared two concurrent identical intents for a USD 1.00 purchase at 200 Credits
+per dollar. Both returned the same saved quote with 200,000,000,000 atoms.
+After publishing 300 Credits per dollar, an authoritative read and original
+idempotent retry still returned the original quantity, rule and expiry. A new
+intent referencing the superseded rule returned HTTP 409, as did reuse of the
+original key with a different payment amount.
+
+An actual rule publication of one Credit per three dollars allowed a USD 0.03
+preview with exactly 10,000,000 atoms. A USD 0.01 preview under that rule returned
+HTTP 400 rather than rounding. After restoring the 200-to-one ratio, an amount
+whose converted quantity exceeded storage range also returned HTTP 400.
+Independent SQL reads found exactly two quotes, reconciled each quantity against
+its saved ratio, and confirmed each original lifetime was 900 seconds. Direct
+attempts to mutate a saved quote or insert an inconsistent converted quantity
+were rejected. No monetary balance entries or payment orders were created by
+these preview operations. Reading the quote under a different organization
+returned HTTP 404; a workspace-scoped operator received HTTP 403.
+
+This is actual preview and persistence evidence, not completed-payment evidence.
+Checkout binding, processor eligibility, expiry enforcement at binding, unit
+issuance, consumption and refunds remain unverified and are still required.
