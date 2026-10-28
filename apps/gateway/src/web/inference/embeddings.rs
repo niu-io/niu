@@ -244,6 +244,7 @@ pub(in crate::web) async fn embeddings(
     }
     let bounds = validate_embedding_request(&body)?;
     let requirements = crate::config::ModelRequirements {
+        project_id: Some(principal.scope().project_id),
         embedding_dimensions: bounds.dimensions.is_some(),
         embedding_base64: bounds.encoding_format == "base64",
         ..Default::default()

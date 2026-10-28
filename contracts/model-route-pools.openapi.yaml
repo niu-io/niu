@@ -7,6 +7,10 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}'
   /api/v1/pools/{reference}/history:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1history'
+  /api/v1/pools/{reference}/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1preview'
+  /api/v1/pools/{reference}/audit:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools~1{reference}~1audit'
   /api/v1/pools:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1pools'
   /api/v1/pools/index:

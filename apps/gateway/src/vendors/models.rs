@@ -187,6 +187,109 @@ pub(crate) async fn resolve_scoped_model_excluding(
     resolve_model(state, alias).await
 }
 
+pub(crate) fn rule_conditions_match(
+    conditions: &niu_storage::RoutePoolRuleConditions,
+    protocol: Option<&crate::guardrails::input::Protocol>,
+    requirements: Option<&crate::config::ModelRequirements>,
+) -> bool {
+    use crate::guardrails::input::Protocol;
+    if let Some(expected_protocol) = &conditions.protocol {
+        let actual = match protocol {
+            Some(Protocol::Chat) => Some("chat"),
+            Some(Protocol::Responses) => Some("responses"),
+            Some(Protocol::Messages) => Some("messages"),
+            _ => None,
+        };
+        if actual != Some(expected_protocol.as_str()) {
+            return false;
+        }
+    }
+    if let Some(expected) = conditions.streaming {
+        let actual = requirements.is_some_and(|r| r.streaming || r.messages_streaming);
+        if actual != expected {
+            return false;
+        }
+    }
+    if let Some(expected) = conditions.vision {
+        let actual = requirements.is_some_and(|r| r.vision);
+        if actual != expected {
+            return false;
+        }
+    }
+    if let Some(expected) = conditions.tools {
+        let actual = requirements.is_some_and(|r| r.tools || r.messages_tools);
+        if actual != expected {
+            return false;
+        }
+    }
+    if let Some(expected) = conditions.structured_output {
+        let actual = requirements.is_some_and(|r| r.structured_output);
+        if actual != expected {
+            return false;
+        }
+    }
+    if let Some(expected) = conditions.reasoning {
+        let actual = requirements.is_some_and(|r| r.reasoning);
+        if actual != expected {
+            return false;
+        }
+    }
+    if let Some(min_in) = conditions.min_input_tokens
+        && !requirements
+            .and_then(|r| r.estimated_input_tokens)
+            .is_some_and(|tokens| tokens >= min_in)
+    {
+        return false;
+    }
+    if let Some(max_in) = conditions.max_input_tokens
+        && !requirements
+            .and_then(|r| r.estimated_input_tokens)
+            .is_some_and(|tokens| tokens <= max_in)
+    {
+        return false;
+    }
+    if let Some(min_out) = conditions.min_output_tokens
+        && !requirements
+            .and_then(|r| r.requested_output_tokens)
+            .is_some_and(|tokens| tokens >= min_out)
+    {
+        return false;
+    }
+    if let Some(max_out) = conditions.max_output_tokens
+        && !requirements
+            .and_then(|r| r.requested_output_tokens)
+            .is_some_and(|tokens| tokens <= max_out)
+    {
+        return false;
+    }
+    true
+}
+
+pub(crate) fn select_pool_rule_candidates<'a>(
+    pool: &'a niu_storage::ModelRoutePool,
+    protocol: Option<&crate::guardrails::input::Protocol>,
+    requirements: Option<&crate::config::ModelRequirements>,
+) -> Result<
+    (
+        &'a [niu_storage::RoutePoolCandidate],
+        Option<&'a niu_storage::RoutePoolRule>,
+    ),
+    ApiError,
+> {
+    for rule in &pool.rules {
+        if !rule.enabled {
+            continue;
+        }
+        if rule_conditions_match(&rule.conditions, protocol, requirements) {
+            return Ok((&rule.candidates, Some(rule)));
+        }
+    }
+    match pool.default_action {
+        niu_storage::RoutePoolDefaultAction::Candidates => Ok((&pool.candidates, None)),
+        niu_storage::RoutePoolDefaultAction::Reject => Err(ApiError::route_pool_unavailable()),
+    }
+}
+
 async fn resolve_pool(
     state: &AppState,
     organization: Option<uuid::Uuid>,
@@ -199,9 +302,13 @@ async fn resolve_pool(
         || pool
             .organization_id
             .is_some_and(|owner| Some(owner) != organization)
+        || pool
+            .project_id
+            .is_some_and(|proj| requirements.and_then(|r| r.project_id) != Some(proj))
     {
         return Err(ApiError::not_found());
     }
+    let (active_candidates, _) = select_pool_rule_candidates(&pool, protocol, requirements)?;
     let mut eligible = Vec::new();
     for route in state
         .store
@@ -212,11 +319,12 @@ async fn resolve_pool(
         if excluded_vendors.contains(&route.vendor.id) {
             continue;
         }
-        let candidate = pool
-            .candidates
+        let Some(candidate) = active_candidates
             .iter()
-            .find(|candidate| candidate.alias == route.model.alias)
-            .ok_or_else(ApiError::unavailable)?;
+            .find(|candidate| candidate.enabled && candidate.alias == route.model.alias)
+        else {
+            continue;
+        };
         if let Some(protocol) = protocol {
             let model = stored_model(&route)?;
             let supported = supports_protocol(&model, protocol);
@@ -234,6 +342,12 @@ async fn resolve_pool(
     let api_key = open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
     let mut model = stored_model(&route)?;
     model.public_catalog = false;
+    if let Some(display_name) = &pool.display_name {
+        model.catalog.name = Some(display_name.clone());
+    }
+    if let Some(description) = &pool.description {
+        model.catalog.description = Some(description.clone());
+    }
     let personal = pool.organization_id.is_some();
     if personal {
         model.pricing = None;
@@ -638,16 +752,19 @@ async fn resolve_published(
             || pool
                 .organization_id
                 .is_some_and(|owner| Some(owner) != organization)
+            || pool
+                .project_id
+                .is_some_and(|proj| requirements.and_then(|r| r.project_id) != Some(proj))
         {
             return Err(ApiError::not_found());
         }
+        let (active_candidates, _) = select_pool_rule_candidates(pool, protocol, requirements)?;
         let (unavailable, cooling_down) = state
             .store
             .route_registry_live_eligibility()
             .await
             .map_err(ApiError::from_store)?;
-        let eligible = pool
-            .candidates
+        let eligible = active_candidates
             .iter()
             .filter_map(|candidate| {
                 let route = registry.routes.get(&candidate.alias)?;
@@ -744,12 +861,17 @@ async fn resolve_published(
     let mut model = selected.model.clone();
     if personal {
         model.pricing = None;
-    }
-    if personal || pool.is_some() {
         model.public_catalog = false;
     }
     let mut managed = niu_storage::ManagedRouteSnapshot::from(&route);
     if let Some(pool) = pool {
+        model.public_catalog = pool.organization_id.is_none() && pool.public_catalog;
+        if let Some(display_name) = &pool.display_name {
+            model.catalog.name = Some(display_name.clone());
+        }
+        if let Some(description) = &pool.description {
+            model.catalog.description = Some(description.clone());
+        }
         managed.pool_alias = Some(pool.alias.clone());
         managed.pool_revision = Some(pool.revision);
     }

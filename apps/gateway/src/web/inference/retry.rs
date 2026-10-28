@@ -28,6 +28,8 @@ pub(super) async fn execute(
     let deadline = std::time::Instant::now()
         + Duration::from_secs(state.config.server.request_timeout_seconds);
     state.requests.fetch_add(1, Ordering::Relaxed);
+    let mut requirements = requirements.unwrap_or_default();
+    requirements.project_id = Some(principal.scope().project_id);
     let mut excluded = Vec::new();
     let mut continuation = None;
     let mut previous_response = None;
@@ -37,7 +39,7 @@ pub(super) async fn execute(
             principal.scope().organization_id,
             &public_model,
             protocol,
-            requirements.as_ref(),
+            Some(&requirements),
             &excluded,
         )
         .await

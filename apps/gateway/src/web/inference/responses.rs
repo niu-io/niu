@@ -577,6 +577,18 @@ pub(in crate::web) async fn responses(
         )
         .await;
     }
+    let input_chars = body
+        .get("input")
+        .and_then(Value::as_str)
+        .map_or(0, |s| s.chars().count());
+    let requirements = crate::config::ModelRequirements {
+        project_id: Some(principal.scope().project_id),
+        streaming: body.get("stream").and_then(Value::as_bool) == Some(true),
+        reasoning: body.get("reasoning").is_some(),
+        estimated_input_tokens: Some(((input_chars.saturating_add(3)) / 4).max(1) as u64),
+        requested_output_tokens: body.get("max_output_tokens").and_then(Value::as_u64),
+        ..Default::default()
+    };
     super::retry::execute(
         state,
         principal,
@@ -584,7 +596,7 @@ pub(in crate::web) async fn responses(
         body,
         public_model,
         crate::guardrails::input::Protocol::Responses,
-        None,
+        Some(requirements),
     )
     .await
 }

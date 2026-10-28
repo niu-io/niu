@@ -743,10 +743,22 @@ impl Store {
         if pool.candidates.len() > 64 {
             return Err(StoreError::InvalidVendor);
         }
+        let mut enabled_rule_aliases = std::collections::BTreeSet::new();
+        for rule in &pool.rules {
+            if rule.enabled {
+                for candidate in &rule.candidates {
+                    if candidate.enabled {
+                        enabled_rule_aliases.insert(candidate.alias.as_str());
+                    }
+                }
+            }
+        }
         let aliases: Vec<&str> = pool
             .candidates
             .iter()
-            .filter(|candidate| candidate.enabled)
+            .filter(|candidate| {
+                candidate.enabled || enabled_rule_aliases.contains(candidate.alias.as_str())
+            })
             .map(|candidate| candidate.alias.as_str())
             .collect();
         if aliases.is_empty() {

@@ -167,14 +167,15 @@ impl Store {
     /// Called after the existing workspace SHARE lock, before legacy selection.
     /// True supplies the attempt tariff; caller must still bind its balance
     /// account and reserve against these exact rates in the same transaction.
-    pub(crate) async fn bind_platform_retail_text_in_tx(
+    pub(crate) async fn bind_platform_retail_text_for_alias_in_tx(
         tx: &mut Transaction<'_, Postgres>,
         scope: TenantScope,
         attempt: Uuid,
-        alias: &str,
+        operation_alias: &str,
+        tariff_alias: &str,
     ) -> Result<bool, StoreError> {
         let operation:Uuid=sqlx::query_scalar("SELECT o.id FROM operations o JOIN attempts a ON a.operation_id=o.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent' AND o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.model_alias=$4 FOR UPDATE OF o")
-            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias)
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(operation_alias)
             .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let pinned: Option<Uuid> = sqlx::query_scalar(
             "SELECT revision_id FROM customer_operation_tariffs WHERE operation_id=$1",
@@ -184,7 +185,7 @@ impl Store {
         .await?;
         if let Some(revision) = pinned {
             let valid:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_tariff_revisions r JOIN customer_tariffs t ON t.id=r.tariff_id WHERE r.id=$1 AND t.organization_id=$2 AND t.project_id=$3 AND t.model_alias=$4)")
-                .bind(revision).bind(scope.organization_id).bind(scope.project_id).bind(alias)
+                .bind(revision).bind(scope.organization_id).bind(scope.project_id).bind(tariff_alias)
                 .fetch_one(&mut **tx).await?;
             if !valid {
                 return Err(StoreError::Conflict);
@@ -192,12 +193,12 @@ impl Store {
             bind_revision(tx, attempt, revision).await?;
             return Ok(true);
         }
-        let head = Self::retail_text_price_in_tx(tx, scope, alias).await?;
+        let head = Self::retail_text_price_in_tx(tx, scope, tariff_alias).await?;
         let Some(head) = head else {
             return Ok(false);
         };
         let selected = Self::select_retail_price_in_tx(tx, head, scope.organization_id).await?;
-        if selected.model_alias != alias {
+        if selected.model_alias != tariff_alias {
             return Err(StoreError::Conflict);
         }
         let RetailSchedule::Text(ref result) = selected.schedule else {
@@ -212,7 +213,7 @@ impl Store {
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
-        .bind(alias)
+        .bind(tariff_alias)
         .bind(head)
         .bind(selected.baseline_revision)
         .bind(selected.promotion_revision)
@@ -224,10 +225,10 @@ impl Store {
             // A scoped tariff hosts immutable materializations but its legacy
             // current revision remains unchanged, including an initially null head.
             sqlx::query("INSERT INTO customer_tariffs(id,organization_id,project_id,model_alias) VALUES($1,$2,$3,$4) ON CONFLICT(organization_id,project_id,model_alias) DO NOTHING")
-                .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(alias)
+                .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(tariff_alias)
                 .execute(&mut **tx).await?;
             let tariff:Uuid=sqlx::query_scalar("SELECT id FROM customer_tariffs WHERE organization_id=$1 AND project_id=$2 AND model_alias=$3 FOR NO KEY UPDATE")
-                .bind(scope.organization_id).bind(scope.project_id).bind(alias).fetch_one(&mut **tx).await?;
+                .bind(scope.organization_id).bind(scope.project_id).bind(tariff_alias).fetch_one(&mut **tx).await?;
             let baseline_document: Value = sqlx::query_scalar(
                 "SELECT schedule FROM platform_retail_standard_revisions WHERE head_id=$1 AND id=$2",
             )

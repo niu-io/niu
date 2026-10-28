@@ -146,8 +146,9 @@ impl ModelProtocol {
 }
 
 /// Validated request capabilities used only to filter route-pool candidates.
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct ModelRequirements {
+    pub project_id: Option<uuid::Uuid>,
     pub streaming: bool,
     pub messages_streaming: bool,
     pub messages_tools: bool,
@@ -157,6 +158,10 @@ pub(crate) struct ModelRequirements {
     pub structured_output: bool,
     pub embedding_dimensions: bool,
     pub embedding_base64: bool,
+    pub vision: bool,
+    pub reasoning: bool,
+    pub estimated_input_tokens: Option<u64>,
+    pub requested_output_tokens: Option<u64>,
 }
 
 impl ModelRequirements {
@@ -181,6 +186,24 @@ impl ModelConfig {
             "bedrock" => ModelProtocol::Bedrock,
             _ => ModelProtocol::Unsupported,
         }
+    }
+
+    pub fn allows_input_tokens(&self, tokens: u64) -> bool {
+        self.catalog.context_length.is_none_or(|ctx| tokens <= ctx)
+            && self
+                .pricing
+                .as_ref()
+                .is_none_or(|p| p.max_input_tokens <= 0 || tokens <= p.max_input_tokens as u64)
+    }
+
+    pub fn allows_output_tokens(&self, tokens: u64) -> bool {
+        self.catalog
+            .max_completion_tokens
+            .is_none_or(|max_out| tokens <= max_out)
+            && self
+                .pricing
+                .as_ref()
+                .is_none_or(|p| p.max_output_tokens <= 0 || tokens <= p.max_output_tokens as u64)
     }
 
     pub fn endpoint_base(&self) -> Option<&str> {

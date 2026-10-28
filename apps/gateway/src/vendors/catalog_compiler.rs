@@ -80,9 +80,15 @@ pub(super) fn compile_catalog(
             });
         if let Some((_, route)) = representative {
             let mut model = compile_model(&route.vendor, &route.model)?;
-            model.public_catalog = false;
+            model.public_catalog = pool.organization_id.is_none() && pool.public_catalog;
             if pool.organization_id.is_some() {
                 model.pricing = None;
+            }
+            if let Some(display_name) = &pool.display_name {
+                model.catalog.name = Some(display_name.clone());
+            }
+            if let Some(description) = &pool.description {
+                model.catalog.description = Some(description.clone());
             }
             models.insert(pool.alias.clone(), model);
         }
@@ -157,9 +163,15 @@ pub(super) fn compile_published_catalog(
             });
         if let Some((_, compiled)) = representative {
             let mut model = compiled.model.clone();
-            model.public_catalog = false;
+            model.public_catalog = pool.organization_id.is_none() && pool.public_catalog;
             if pool.organization_id.is_some() {
                 model.pricing = None;
+            }
+            if let Some(display_name) = &pool.display_name {
+                model.catalog.name = Some(display_name.clone());
+            }
+            if let Some(description) = &pool.description {
+                model.catalog.description = Some(description.clone());
             }
             models.insert(pool.alias.clone(), model);
         }

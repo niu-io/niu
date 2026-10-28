@@ -77,19 +77,12 @@ impl RouteRegistryCompiler for Compiler {
         let mut pools = BTreeMap::new();
         for pool in inputs.pools {
             static_models.remove(&pool.alias);
-            if pool.candidates.is_empty() || pool.candidates.len() > 64 {
-                return Err(StoreError::InvalidVendor);
-            }
-            let mut seen = std::collections::BTreeSet::new();
+            niu_storage::validate_pool_candidates_and_rules(&pool.candidates, &pool.rules)?;
             for candidate in &pool.candidates {
                 let route = routes
                     .get(&candidate.alias)
                     .ok_or(StoreError::InvalidVendor)?;
-                if !seen.insert(&candidate.alias)
-                    || !(-1000..=1000).contains(&candidate.priority)
-                    || !(1..=10000).contains(&candidate.weight)
-                    || route.metadata.personal_organization_id != pool.organization_id
-                {
+                if route.metadata.personal_organization_id != pool.organization_id {
                     return Err(StoreError::InvalidVendor);
                 }
             }

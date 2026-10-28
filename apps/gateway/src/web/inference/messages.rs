@@ -849,9 +849,13 @@ async fn execute(
     // Native streaming is an independent capability, including on Anthropic
     // routes. Filter pool candidates before applying their priority/weight.
     let requirements = crate::config::ModelRequirements {
+        project_id: Some(principal.scope().project_id),
         messages_streaming: streaming,
         messages_tools: validated.tools_requested,
         messages_streaming_tools: streaming && validated.tools_requested,
+        reasoning: body.get("thinking").is_some(),
+        estimated_input_tokens: Some(bound.max(1) as u64),
+        requested_output_tokens: body.get("max_tokens").and_then(Value::as_u64),
         ..Default::default()
     };
     let resolved = crate::vendors::resolve_scoped_model(

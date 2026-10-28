@@ -740,12 +740,16 @@ async fn execute(
     if !principal.allows_model(public_model) {
         return Err(ApiError::not_found());
     }
+    let requirements = crate::config::ModelRequirements {
+        project_id: Some(principal.scope().project_id),
+        ..Default::default()
+    };
     let resolved = crate::vendors::resolve_scoped_model(
         state,
         principal.scope().organization_id,
         public_model,
         Protocol::GenerateContent,
-        None,
+        Some(&requirements),
     )
     .await?;
     let model = &resolved.model;

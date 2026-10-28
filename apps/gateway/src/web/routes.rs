@@ -1014,6 +1014,8 @@ fn vendor_and_observability_routes(app: Router<AppState>) -> Router<AppState> {
         .dual_route("/pools/index", axum::routing::get(crate::vendors::route_pools::index))
         .route("/api/v1/pools/{reference}", axum::routing::get(crate::vendors::route_pools::member))
         .route("/api/v1/pools/{reference}/history", axum::routing::get(crate::vendors::route_pools::member_history))
+        .route("/api/v1/pools/{reference}/preview", axum::routing::post(crate::vendors::route_pools::member_preview))
+        .route("/api/v1/pools/{reference}/audit", axum::routing::get(crate::vendors::route_pools::member_audit))
         .dual_route("/pools/history", axum::routing::get(crate::vendors::route_pools::history))
         .dual_route("/routing-registry", get(crate::vendors::publication::status))
         .dual_route("/vendors/{id}", axum::routing::put(crate::vendors::update))
@@ -2208,8 +2210,15 @@ mod tests {
         let source = include_str!("routes.rs");
         let mut expanded = std::collections::BTreeMap::<String, String>::new();
         let mut cursor = 0;
-        while let Some(pos) = source[cursor..].find(".dual_route(\"") {
-            let start = cursor + pos + ".dual_route(\"".len();
+        while let Some(pos) = source[cursor..].find(".dual_route(") {
+            let open = cursor + pos + ".dual_route(".len();
+            let trimmed = source[open..].trim_start();
+            if !trimmed.starts_with('"') {
+                cursor = open;
+                continue;
+            }
+            let quote_offset = source[open..].find('"').unwrap();
+            let start = open + quote_offset + 1;
             let end_quote = source[start..].find('"').unwrap() + start;
             let suffix = &source[start..end_quote];
             let call_start = end_quote + 1;
@@ -2294,7 +2303,7 @@ mod tests {
         }
         let aliases: Vec<serde_json::Value> =
             serde_json::from_str(include_str!("../../../../contracts/route-aliases.json")).unwrap();
-        assert_eq!(aliases.len(), 26);
+        assert_eq!(aliases.len(), 50);
         for alias in aliases {
             let src = alias["source"].as_str().unwrap();
             let dst = alias["target"].as_str().unwrap();

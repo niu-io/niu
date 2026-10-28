@@ -1745,6 +1745,35 @@ fn chat_route_requirements(body: &Value, stream: bool) -> Result<ChatRouteRequir
         }
     }
 
+    let mut has_vision = false;
+    let mut input_chars = 0usize;
+    if let Some(msgs) = body.get("messages").and_then(Value::as_array) {
+        for msg in msgs {
+            if let Some(s) = msg.get("content").and_then(Value::as_str) {
+                input_chars = input_chars.saturating_add(s.chars().count());
+            } else if let Some(parts) = msg.get("content").and_then(Value::as_array) {
+                for part in parts {
+                    if let Some(s) = part.get("text").and_then(Value::as_str) {
+                        input_chars = input_chars.saturating_add(s.chars().count());
+                    }
+                    if matches!(
+                        part.get("type").and_then(Value::as_str),
+                        Some("image_url" | "input_image" | "image")
+                    ) {
+                        has_vision = true;
+                    }
+                }
+            }
+        }
+    }
+    let has_reasoning = body.get("reasoning").is_some()
+        || body.get("reasoning_effort").is_some()
+        || body.get("include_reasoning").and_then(Value::as_bool) == Some(true);
+    let requested_output_tokens = body
+        .get("max_completion_tokens")
+        .and_then(Value::as_u64)
+        .or_else(|| body.get("max_tokens").and_then(Value::as_u64));
+
     Ok(ChatRouteRequirements {
         model: crate::config::ModelRequirements {
             streaming: stream,
@@ -1755,6 +1784,10 @@ fn chat_route_requirements(body: &Value, stream: bool) -> Result<ChatRouteRequir
                     .and_then(Value::as_str),
                 Some("json_object" | "json_schema")
             ),
+            vision: has_vision,
+            reasoning: has_reasoning,
+            estimated_input_tokens: Some(((input_chars.saturating_add(3)) / 4).max(1) as u64),
+            requested_output_tokens,
             ..Default::default()
         },
         schema_validator,

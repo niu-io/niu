@@ -910,16 +910,35 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
+        let candidate_alias: Option<String> = sqlx::query_scalar(
+            "SELECT m.model_alias FROM managed_attempt_routes m \
+             JOIN model_route_pools p ON p.alias = m.pool_alias \
+             WHERE m.attempt_id = $1 AND p.alias = $2 AND p.billing_mode = 'candidate_tariff'",
+        )
+        .bind(attempt)
+        .bind(alias)
+        .fetch_optional(&mut **tx)
+        .await?;
+        let tariff_alias = candidate_alias.as_deref().unwrap_or(alias);
         if mode == "credits" {
-            return Self::bind_customer_unit_text_in_tx(tx, scope, attempt, alias).await;
+            return Self::bind_customer_unit_text_in_tx(tx, scope, attempt, tariff_alias).await;
         }
         let unit_operation: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_unit_operation_tariffs t JOIN attempts a ON a.operation_id=t.operation_id WHERE a.id=$1)")
             .bind(attempt).fetch_one(&mut **tx).await?;
         if unit_operation {
             return Err(StoreError::Conflict);
         }
-        if !Self::bind_platform_retail_text_in_tx(tx, scope, attempt, alias).await? {
-            sqlx::query("INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) SELECT a.id,COALESCE(pinned.revision_id,t.current_revision) FROM attempts a JOIN customer_tariffs t ON t.organization_id=a.organization_id AND t.project_id=a.project_id AND t.model_alias=a.resource_id LEFT JOIN customer_operation_tariffs pinned ON pinned.operation_id=a.operation_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent' AND COALESCE(pinned.revision_id,t.current_revision) IS NOT NULL").bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias).execute(&mut **tx).await?;
+        if !Self::bind_platform_retail_text_for_alias_in_tx(tx, scope, attempt, alias, tariff_alias)
+            .await?
+        {
+            sqlx::query("INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) SELECT a.id,COALESCE(pinned.revision_id,t.current_revision) FROM attempts a JOIN customer_tariffs t ON t.organization_id=a.organization_id AND t.project_id=a.project_id AND t.model_alias=$5 LEFT JOIN customer_operation_tariffs pinned ON pinned.operation_id=a.operation_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent' AND COALESCE(pinned.revision_id,t.current_revision) IS NOT NULL")
+                .bind(attempt)
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .bind(alias)
+                .bind(tariff_alias)
+                .execute(&mut **tx)
+                .await?;
         }
         sqlx::query("INSERT INTO customer_attempt_balance_accounts(attempt_id,organization_id,project_id,account_id,currency) SELECT a.id,a.organization_id,a.project_id,c.id,c.currency FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id JOIN customer_balance_accounts c ON c.organization_id=a.organization_id AND c.currency=r.currency WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.execution='not_sent' ON CONFLICT(attempt_id) DO NOTHING")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;

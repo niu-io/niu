@@ -470,6 +470,219 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
     gateway.abort();
 }
 
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires isolated PostgreSQL"]
+async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    let state = test_state(None, pool);
+    let cipher = crate::vendors::crypto::CredentialCipher::new(
+        "pool-rules-preview-fixture-secret-at-least-32-characters",
+    )
+    .unwrap();
+    let vendor_id = Uuid::new_v4();
+    state
+        .store
+        .create_vendor(niu_storage::VendorInput {
+            id: vendor_id,
+            name: "Pool Test Provider".into(),
+            adapter: "openai".into(),
+            api_base: "https://api.example.com/v1".into(),
+            enabled: true,
+            credential_ciphertext: cipher.seal(vendor_id, "provider-secret-token").unwrap(),
+        })
+        .await
+        .unwrap();
+    for (alias, prompt_rate, completion_rate) in [
+        ("fast", 500_i64, 1500_i64),
+        ("vision-pro", 2000_i64, 6000_i64),
+    ] {
+        state
+            .store
+            .upsert_vendor_model(
+                vendor_id,
+                niu_storage::VendorModelInput {
+                    alias: alias.into(),
+                    upstream_model: alias.into(),
+                    public_catalog: false,
+                    enabled: true,
+                    capabilities: json!({}),
+                    pricing: Some(json!({
+                        "currency": "USD",
+                        "prompt_rate": prompt_rate,
+                        "completion_rate": completion_rate,
+                        "max_input_tokens": 32768,
+                        "max_output_tokens": 4096
+                    })),
+                    expected_revision: None,
+                },
+            )
+            .await
+            .unwrap();
+    }
+    let app = router(state);
+
+    let alias = "custom/smart-router";
+    let encoded = URL_SAFE_NO_PAD.encode(alias);
+    let (status, created) = call(
+        &app,
+        "PUT",
+        "/api/v1/pools",
+        ADMIN,
+        Some(json!({
+            "alias": alias,
+            "display_name": "Smart Router",
+            "description": "Routes multimodal traffic to vision-pro and text to fast",
+            "enabled": true,
+            "expected_revision": 0,
+            "public_catalog": true,
+            "billing_mode": "candidate_tariff",
+            "candidates": [
+                {"alias": "fast", "priority": 0, "weight": 80, "enabled": true},
+                {"alias": "vision-pro", "priority": 0, "weight": 20, "enabled": true}
+            ],
+            "rules": [
+                {
+                    "id": "vision-split",
+                    "name": "Vision requests",
+                    "enabled": true,
+                    "conditions": {"vision": true},
+                    "candidates": [
+                        {"alias": "vision-pro", "priority": 0, "weight": 100, "enabled": true}
+                    ]
+                }
+            ],
+            "default_action": "candidates"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{created}");
+    assert_eq!(created["data"]["revision"], 1);
+
+    let (status, fetched) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/pools/{encoded}"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{fetched}");
+    assert_eq!(fetched["data"]["alias"], alias);
+    assert_eq!(fetched["data"]["display_name"], "Smart Router");
+    assert_eq!(fetched["data"]["public_catalog"], true);
+    assert_eq!(fetched["data"]["billing_mode"], "candidate_tariff");
+    assert_eq!(fetched["data"]["rules"].as_array().unwrap().len(), 1);
+
+    let (status, preview_vision) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/pools/{encoded}/preview"),
+        ADMIN,
+        Some(json!({
+            "has_vision": true,
+            "prompt_tokens": 512
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{preview_vision}");
+    validate_response(
+        "/api/v1/pools/{reference}/preview",
+        "post",
+        "200",
+        &preview_vision,
+    );
+    assert_eq!(preview_vision["data"]["matched_rule_id"], "vision-split");
+    assert_eq!(
+        preview_vision["data"]["selected_candidates"],
+        json!(["vision-pro"])
+    );
+
+    let (status, preview_default) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/pools/{encoded}/preview"),
+        ADMIN,
+        Some(json!({
+            "has_vision": false,
+            "prompt_tokens": 512
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{preview_default}");
+    assert_eq!(preview_default["data"]["matched_rule_id"], Value::Null);
+    assert_eq!(preview_default["data"]["rejected"], false);
+    assert_eq!(
+        preview_default["data"]["selected_candidates"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    let (status, audit) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/pools/{encoded}/audit"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{audit}");
+    validate_response("/api/v1/pools/{reference}/audit", "get", "200", &audit);
+    assert_eq!(audit["data"]["alias"], alias);
+    assert_eq!(audit["data"]["billing_mode"], "candidate_tariff");
+    assert_eq!(audit["data"]["public_catalog"], true);
+    assert_eq!(audit["data"]["rules_count"], 1);
+    assert_eq!(audit["data"]["candidates"].as_array().unwrap().len(), 2);
+
+    let (status, updated) = call(
+        &app,
+        "PUT",
+        "/api/v1/pools",
+        ADMIN,
+        Some(json!({
+            "alias": alias,
+            "display_name": "Smart Router Pro",
+            "description": "Custom-priced model pool",
+            "enabled": true,
+            "expected_revision": 1,
+            "public_catalog": true,
+            "billing_mode": "pool_tariff",
+            "candidates": [
+                {"alias": "fast", "priority": 0, "weight": 80, "enabled": true},
+                {"alias": "vision-pro", "priority": 0, "weight": 20, "enabled": true}
+            ],
+            "rules": [],
+            "default_action": "candidates"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    assert_eq!(updated["data"]["revision"], 2);
+
+    let (status, audit_updated) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/pools/{encoded}/audit"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{audit_updated}");
+    assert_eq!(audit_updated["data"]["billing_mode"], "pool_tariff");
+
+    let (status, history) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/pools/{encoded}/history"),
+        ADMIN,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{history}");
+    assert_eq!(history["data"].as_array().unwrap().len(), 2);
+}
+
 pub(super) fn validate_response(path: &str, method: &str, status: &str, value: &Value) {
     let spec: Value = serde_json::from_str(include_str!(
         "../../../../../contracts/generated/handler-operations.json"

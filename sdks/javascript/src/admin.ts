@@ -418,9 +418,145 @@ export type EPayConfigurationInput = {
 export type BrandingConfiguration = { data: { revision: string; settings: BrandingSettings } };
 
 export type ModelRoutePoolCandidate = { alias: string; priority: number; weight: number; enabled: boolean };
-export type ModelRoutePool = { alias: string; organization_id: string | null; enabled: boolean; revision: number; candidates: ModelRoutePoolCandidate[] };
-export type ModelRoutePoolInput = Omit<ModelRoutePool, 'revision'> & { expected_revision: number };
+export type ModelRoutePoolRuleConditions = {
+  protocol?: 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content' | null;
+  streaming?: boolean | null;
+  tools?: boolean | null;
+  structured_output?: boolean | null;
+  vision?: boolean | null;
+  reasoning?: boolean | null;
+  min_input_tokens?: number | null;
+  max_input_tokens?: number | null;
+  min_output_tokens?: number | null;
+  max_output_tokens?: number | null;
+};
+export type ModelRoutePoolRule = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  conditions: ModelRoutePoolRuleConditions;
+  candidates: ModelRoutePoolCandidate[];
+};
+export type ModelRoutePoolDefaultAction = 'candidates' | 'reject';
+export type ModelRoutePoolBillingMode = 'pool_tariff' | 'candidate_tariff';
+export type ModelRoutePool = {
+  alias: string;
+  display_name?: string | null;
+  description?: string | null;
+  slug?: string;
+  organization_id: string | null;
+  project_id?: string | null;
+  public_catalog?: boolean;
+  billing_mode?: ModelRoutePoolBillingMode;
+  enabled: boolean;
+  revision: number;
+  candidates: ModelRoutePoolCandidate[];
+  rules?: ModelRoutePoolRule[];
+  default_action?: ModelRoutePoolDefaultAction;
+};
+export type ModelRoutePoolInput = {
+  alias: string;
+  display_name?: string | null;
+  description?: string | null;
+  slug?: string;
+  organization_id: string | null;
+  project_id?: string | null;
+  public_catalog?: boolean;
+  billing_mode?: ModelRoutePoolBillingMode;
+  enabled: boolean;
+  expected_revision: number;
+  candidates: ModelRoutePoolCandidate[];
+  rules?: ModelRoutePoolRule[];
+  default_action?: ModelRoutePoolDefaultAction;
+};
 export type ModelRoutePoolRevision = ModelRoutePool & { recorded_at: string };
+export type ModelRoutePoolPreviewInput = {
+  protocol: 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content';
+  streaming?: boolean;
+  tools?: boolean;
+  structured_output?: boolean;
+  vision?: boolean;
+  reasoning?: boolean;
+  estimated_input_tokens?: number | null;
+  requested_output_tokens?: number | null;
+};
+export type ModelRoutePoolPreviewResult = {
+  pool_alias: string;
+  pool_slug: string;
+  billing_mode: ModelRoutePoolBillingMode;
+  matched_rule: { id: string; name: string } | null;
+  used_default_action: ModelRoutePoolDefaultAction | null;
+  eligible_candidates: Array<{
+    alias: string;
+    priority: number;
+    weight: number;
+    winning_tier: boolean;
+    traffic_share_percent: number;
+  }>;
+  ineligible_candidates: Array<{
+    alias: string;
+    reason: 'disabled_in_pool' | 'route_unavailable' | 'capability_or_token_mismatch';
+  }>;
+};
+export type ModelRoutePoolAuditCandidate = {
+  alias: string;
+  enabled: boolean;
+  priority: number;
+  weight: number;
+  winning_tier: boolean;
+  configured_share_percent: number;
+  has_retail_tariff: boolean;
+  retail_currency: string | null;
+  retail_prompt_rate: string | null;
+  retail_completion_rate: string | null;
+  has_credits_tariff: boolean;
+  qualified_offer_count: number;
+  min_supplier_prompt_rate: string | null;
+  min_supplier_completion_rate: string | null;
+  margin_status: 'healthy' | 'inverted_margin' | 'unpriced_customer' | 'no_qualified_supply';
+  observed_attempts: number;
+  observed_share_percent: number;
+  completed_attempts: number;
+  failed_attempts: number;
+  avg_duration_ms: number | null;
+  p95_duration_ms: number | null;
+  customer_charge_nanos: string;
+  supplier_cost_nanos: string;
+  net_margin_nanos: string;
+};
+export type ModelRoutePoolAudit = {
+  alias: string;
+  display_name: string | null;
+  slug: string;
+  billing_mode: ModelRoutePoolBillingMode;
+  public_catalog: boolean;
+  enabled: boolean;
+  revision: number;
+  days: number;
+  from: string;
+  until: string;
+  pool_tariff: {
+    has_retail_tariff: boolean;
+    currency: string | null;
+    prompt_rate: string | null;
+    completion_rate: string | null;
+    has_credits_tariff: boolean;
+  };
+  totals: {
+    observed_attempts: number;
+    completed_attempts: number;
+    failed_attempts: number;
+    customer_charge_nanos: string;
+    supplier_cost_nanos: string;
+    net_margin_nanos: string;
+  };
+  findings: Array<{
+    severity: 'critical' | 'warning' | 'healthy';
+    code: string;
+    message: string;
+  }>;
+  candidates: ModelRoutePoolAuditCandidate[];
+};
 
 /** Retained drafts keep typed Niu material references; explicit submission rechecks
  * current binding and inspection. URL, inline and short-lived ingestion drafts
@@ -3119,6 +3255,26 @@ export class NiuAdminClient {
       query.set('before_revision', String(beforeRevision));
     }
     return this.apiRequest(`/pools/${poolReference(alias)}/history${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+
+  /** Dry-run routing evaluation for a Model Pool without dispatching upstream inference. */
+  previewModelRoutePool(alias: string, input: ModelRoutePoolPreviewInput, options?: RequestOptions): Promise<{ data: ModelRoutePoolPreviewResult }> {
+    if (!['chat', 'responses', 'messages', 'embeddings', 'generate_content'].includes(input.protocol)) {
+      throw new TypeError('Use a supported preview protocol');
+    }
+    return this.apiRequest(`/pools/${poolReference(alias)}/preview`, input, options, 'POST');
+  }
+
+  /** Audit pool pricing readiness, candidate margin health, and observed routing traffic distribution. */
+  auditModelRoutePool(alias: string, query: { days?: number } = {}, options?: RequestOptions): Promise<{ data: ModelRoutePoolAudit }> {
+    const params = new URLSearchParams();
+    if (query.days !== undefined) {
+      if (!Number.isInteger(query.days) || query.days < 1 || query.days > 365) {
+        throw new TypeError('Choose an audit window from 1 to 365 days');
+      }
+      params.set('days', String(query.days));
+    }
+    return this.apiRequest(`/pools/${poolReference(alias)}/audit${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeySpendingAccount[] }> {

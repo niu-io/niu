@@ -28166,7 +28166,7 @@ HTTP 503: Publication is unavailable or its format is unsupported
 
 `PUT /api/v1/pools`
 
-Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Ordered routing rules evaluate first-match AND conditions before falling back to default_action. Highest eligible priority wins, with weighted selection within that tier. Billing mode selects either unified pool pricing (pool_tariff) or pass-through candidate pricing (candidate_tariff). Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
 
 Implementation: `implemented`. Operation: `setModelRoutePool`.
 
@@ -28213,6 +28213,44 @@ Content type: `application/json`.
       ],
       "format": "uuid"
     },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "display_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 4000
+    },
+    "slug": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80
+    },
+    "public_catalog": {
+      "type": "boolean"
+    },
+    "billing_mode": {
+      "type": "string",
+      "enum": [
+        "pool_tariff",
+        "candidate_tariff"
+      ]
+    },
     "enabled": {
       "type": "boolean"
     },
@@ -28255,6 +28293,20 @@ Content type: `application/json`.
           }
         }
       }
+    },
+    "rules": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object"
+      }
+    },
+    "default_action": {
+      "type": "string",
+      "enum": [
+        "candidates",
+        "reject"
+      ]
     }
   }
 }
@@ -28738,6 +28790,214 @@ HTTP 404: Pool not found
 HTTP 401: Authentication required
 
 HTTP 400: Invalid query or revision cursor; framework query errors may use plain text.
+
+## Dry-run routing preview for a model route pool
+
+`POST /api/v1/pools/{reference}/preview`
+
+Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic.
+
+Implementation: `implemented`. Operation: `previewPool`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`reference` (path, required)
+
+Unpadded base64url encoding of the exact ASCII pool alias.
+
+```json
+{
+  "type": "string",
+  "minLength": 2,
+  "maxLength": 267,
+  "pattern": "^[A-Za-z0-9_-]+$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "enum": [
+        "chat",
+        "responses",
+        "messages"
+      ]
+    },
+    "streaming": {
+      "type": "boolean"
+    },
+    "vision": {
+      "type": "boolean"
+    },
+    "tools": {
+      "type": "boolean"
+    },
+    "structured_output": {
+      "type": "boolean"
+    },
+    "reasoning": {
+      "type": "boolean"
+    },
+    "input_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "output_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "default_action": {
+      "type": "string",
+      "enum": [
+        "candidates",
+        "reject"
+      ]
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Dry-run routing preview result
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid reference or preview parameters
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Pool not found
+
+## Audit routing and billing strategy for a model route pool
+
+`GET /api/v1/pools/{reference}/audit`
+
+Returns pricing readiness, margin safety, configured weight shares vs. observed traffic shares, completion rate, latency, customer revenue, upstream cost, and strategy findings for a model route pool.
+
+Implementation: `implemented`. Operation: `auditPool`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`reference` (path, required)
+
+Unpadded base64url encoding of the exact ASCII pool alias.
+
+```json
+{
+  "type": "string",
+  "minLength": 2,
+  "maxLength": 267,
+  "pattern": "^[A-Za-z0-9_-]+$"
+}
+```
+
+`days` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 365,
+  "default": 30
+}
+```
+
+### Responses
+
+HTTP 200: Pool routing and billing audit report
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid reference or window days
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Pool not found
 
 ## Inspect and temporarily retain one exact inline image
 
@@ -54600,6 +54860,41 @@ Local `#/components/schemas/…` references resolve to these definitions.
       ],
       "format": "uuid"
     },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "display_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "slug": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "public_catalog": {
+      "type": "boolean"
+    },
+    "billing_mode": {
+      "type": "string",
+      "enum": [
+        "pool_tariff",
+        "candidate_tariff"
+      ]
+    },
     "enabled": {
       "type": "boolean"
     },
@@ -54639,6 +54934,20 @@ Local `#/components/schemas/…` references resolve to these definitions.
           }
         }
       }
+    },
+    "rules": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object"
+      }
+    },
+    "default_action": {
+      "type": "string",
+      "enum": [
+        "candidates",
+        "reject"
+      ]
     }
   }
 }
