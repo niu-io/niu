@@ -1,7 +1,6 @@
 ---
 title: "List authorized company metadata"
 description: "GET /api/v1/organizations"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

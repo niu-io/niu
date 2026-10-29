@@ -1,7 +1,6 @@
 ---
 title: "Preview a Credits purchase reversal and read committed reversal receipts"
 description: "GET /api/v1/organizations/{organization}/billing/units/purchases/{order}/reversals"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

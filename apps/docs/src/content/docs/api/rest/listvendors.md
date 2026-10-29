@@ -1,7 +1,6 @@
 ---
 title: "List Provider API-key configurations without credentials"
 description: "GET /api/v1/vendors"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

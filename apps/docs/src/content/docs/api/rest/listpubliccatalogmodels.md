@@ -1,7 +1,6 @@
 ---
 title: "List model aliases explicitly published by the gateway operator"
 description: "GET /catalog/v1/models"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Receive a signed Stripe checkout notification"
 description: "POST /payments/stripe/notify"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

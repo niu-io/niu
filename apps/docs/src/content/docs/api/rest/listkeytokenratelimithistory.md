@@ -1,7 +1,6 @@
 ---
 title: "List API key token rate policy history"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

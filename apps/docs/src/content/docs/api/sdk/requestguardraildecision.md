@@ -1,7 +1,6 @@
 ---
 title: "RequestGuardrailDecision"
 description: "Generated TypeScript declaration for RequestGuardrailDecision"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

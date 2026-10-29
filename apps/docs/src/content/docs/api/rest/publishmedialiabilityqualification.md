@@ -1,7 +1,6 @@
 ---
 title: "Publish an evidenced route media liability bound"
 description: "POST /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

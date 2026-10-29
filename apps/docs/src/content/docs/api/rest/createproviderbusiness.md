@@ -1,7 +1,6 @@
 ---
 title: "Create a Provider business identity"
 description: "POST /api/v1/providers"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Record an already completed external Provider payment"
 description: "POST /api/v1/providers/{provider}/settlements"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

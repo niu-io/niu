@@ -1,7 +1,6 @@
 ---
 title: "Refresh one direct-channel video job"
 description: "POST /v1/video/jobs/{id}/refresh"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

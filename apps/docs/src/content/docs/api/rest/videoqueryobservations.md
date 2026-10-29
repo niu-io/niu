@@ -1,7 +1,6 @@
 ---
 title: "Read saved video query observations"
 description: "GET /v1/video/jobs/{id}/observations"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read upstream credential request limit"
 description: "GET /api/v1/vendors/{vendor}/request-rate-limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Cancel an unclaimed native material preparation"
 description: "POST /v1/media/operations/{id}/cancel"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

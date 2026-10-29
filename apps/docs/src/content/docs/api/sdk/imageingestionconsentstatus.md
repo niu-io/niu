@@ -1,7 +1,6 @@
 ---
 title: "ImageIngestionConsentStatus"
 description: "Generated TypeScript declaration for ImageIngestionConsentStatus"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Publish an immutable Credits purchase rule"
 description: "POST /api/v1/platform/units/rules"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

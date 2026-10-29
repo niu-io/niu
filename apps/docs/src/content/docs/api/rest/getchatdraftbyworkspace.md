@@ -1,7 +1,6 @@
 ---
 title: "Read the persistent personal Chat draft"
 description: "GET /api/v1/workspaces/{workspace}/chats/draft"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

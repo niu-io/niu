@@ -1,7 +1,6 @@
 ---
 title: "Explicitly refresh the original Video task"
 description: "POST /api/v1/workspaces/{workspace}/tasks/{task}/refresh"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

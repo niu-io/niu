@@ -1,7 +1,6 @@
 ---
 title: "Export one owned saved conversation"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/chats/{id}/export"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

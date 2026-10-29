@@ -1,7 +1,6 @@
 ---
 title: "List workspace spending currencies"
 description: "GET /api/v1/workspaces/{workspace}/spending-limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

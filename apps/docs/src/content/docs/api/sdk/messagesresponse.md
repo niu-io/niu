@@ -1,7 +1,6 @@
 ---
 title: "MessagesResponse"
 description: "Generated TypeScript declaration for MessagesResponse"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

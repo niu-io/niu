@@ -1,7 +1,6 @@
 ---
 title: "Read the workspace Credits spending limit and commitment"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/units/limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

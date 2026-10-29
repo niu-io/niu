@@ -1,7 +1,6 @@
 ---
 title: "Read automatically retained gateway request activity"
 description: "GET /api/v1/workspaces/{workspace}/requests"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

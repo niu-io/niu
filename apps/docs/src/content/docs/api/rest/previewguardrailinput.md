@@ -1,7 +1,6 @@
 ---
 title: "Test synthetic input against local text rules without enforcement"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/guardrails/input-preview"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

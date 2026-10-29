@@ -1,7 +1,6 @@
 ---
 title: "List API key concurrency policy history"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

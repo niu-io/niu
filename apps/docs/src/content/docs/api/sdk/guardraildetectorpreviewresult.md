@@ -1,7 +1,6 @@
 ---
 title: "GuardrailDetectorPreviewResult"
 description: "Generated TypeScript declaration for GuardrailDetectorPreviewResult"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

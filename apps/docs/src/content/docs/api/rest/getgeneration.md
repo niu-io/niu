@@ -1,7 +1,6 @@
 ---
 title: "Get generation usage, latency, and customer charge by ID"
 description: "GET /v1/generations/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

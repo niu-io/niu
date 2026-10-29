@@ -124,7 +124,7 @@ outputs.set('contracts/generated/views/customer-management-openapi.json', JSON.s
 outputs.set('contracts/generated/views/console-openapi.json', JSON.stringify(buildAudienceView('Niu Console & Saved Session API', ['console']), null, 2) + '\n');
 outputs.set('contracts/generated/views/platform-provider-openapi.json', JSON.stringify(buildAudienceView('Niu Platform & Provider Administration API', ['platform', 'provider']), null, 2) + '\n');
 const generated = 'Generated from the checked-in source. Do not edit this reference by hand.';
-function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, 'tableOfContents: false', '---', '', generated, '', ...lines].join('\n') + '\n'; }
+function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, '---', '', generated, '', ...lines].join('\n') + '\n'; }
 function block(language, value) { return ['```' + language, value, '```', '']; }
 function resolveSchema(schema, seen = new Set()) {
   if (!schema || typeof schema !== 'object') return schema;

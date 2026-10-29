@@ -1,7 +1,6 @@
 ---
 title: "Append a promotion eligibility cutoff"
 description: "POST /api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

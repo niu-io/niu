@@ -1,7 +1,6 @@
 ---
 title: "MediaAsset"
 description: "Generated TypeScript declaration for MediaAsset"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

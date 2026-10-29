@@ -1,7 +1,6 @@
 ---
 title: "Register an unverified account"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/accounts"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

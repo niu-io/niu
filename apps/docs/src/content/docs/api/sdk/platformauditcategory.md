@@ -1,7 +1,6 @@
 ---
 title: "PlatformAuditCategory"
 description: "Generated TypeScript declaration for PlatformAuditCategory"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

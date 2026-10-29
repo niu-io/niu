@@ -1,7 +1,6 @@
 ---
 title: "Dispatch a prepared ordinary-group metadata update once"
 description: "POST /api/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "KeyRequestRateLimitRevision"
 description: "Generated TypeScript declaration for KeyRequestRateLimitRevision"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

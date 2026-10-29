@@ -1,7 +1,6 @@
 ---
 title: "Publish an immutable agreed Provider payout schedule"
 description: "POST /api/v1/providers/{provider}/offers"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

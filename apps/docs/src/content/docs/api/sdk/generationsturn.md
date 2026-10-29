@@ -1,7 +1,6 @@
 ---
 title: "GenerationsTurn"
 description: "Generated TypeScript declaration for GenerationsTurn"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

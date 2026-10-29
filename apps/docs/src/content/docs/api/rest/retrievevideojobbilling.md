@@ -1,7 +1,6 @@
 ---
 title: "Read saved customer video billing"
 description: "GET /v1/video/jobs/{id}/billing"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

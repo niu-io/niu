@@ -1,7 +1,6 @@
 ---
 title: "List saved workspace Provider groups"
 description: "GET /v1/media/groups"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

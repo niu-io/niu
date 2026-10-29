@@ -1,7 +1,6 @@
 ---
 title: "Refresh one owned Provider group"
 description: "POST /v1/media/groups/{id}/refresh"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

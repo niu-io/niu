@@ -1,7 +1,6 @@
 ---
 title: "List models eligible for customer tariff publication"
 description: "GET /api/v1/pricing/models"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

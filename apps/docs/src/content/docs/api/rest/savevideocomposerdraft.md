@@ -1,7 +1,6 @@
 ---
 title: "Save or clear a mutable personal Video composer"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/video/draft"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

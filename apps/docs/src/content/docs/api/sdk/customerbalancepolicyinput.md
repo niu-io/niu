@@ -1,7 +1,6 @@
 ---
 title: "CustomerBalancePolicyInput"
 description: "Generated TypeScript declaration for CustomerBalancePolicyInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

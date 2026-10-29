@@ -1,7 +1,6 @@
 ---
 title: "GenerationView"
 description: "Generated TypeScript declaration for GenerationView"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

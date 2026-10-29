@@ -1,7 +1,6 @@
 ---
 title: "ChatResponseFormat"
 description: "Generated TypeScript declaration for ChatResponseFormat"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "MediaAssetOperationInput"
 description: "Generated TypeScript declaration for MediaAssetOperationInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

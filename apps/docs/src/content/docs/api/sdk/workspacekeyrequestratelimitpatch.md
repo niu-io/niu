@@ -1,7 +1,6 @@
 ---
 title: "WorkspaceKeyRequestRateLimitPatch"
 description: "Generated TypeScript declaration for WorkspaceKeyRequestRateLimitPatch"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

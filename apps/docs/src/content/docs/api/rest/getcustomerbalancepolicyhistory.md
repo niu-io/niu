@@ -1,7 +1,6 @@
 ---
 title: "Read immutable company credit and warning policy revisions"
 description: "GET /api/v1/organizations/{organization}/billing/accounts/{currency}/policy/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

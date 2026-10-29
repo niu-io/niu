@@ -1,7 +1,6 @@
 ---
 title: "List API key spending history"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

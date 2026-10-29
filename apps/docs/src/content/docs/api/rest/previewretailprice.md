@@ -1,7 +1,6 @@
 ---
 title: "Preview a customer applicable price"
 description: "GET /api/v1/pricing/standard-prices/{price}/preview"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

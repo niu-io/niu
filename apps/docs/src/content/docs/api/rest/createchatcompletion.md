@@ -1,7 +1,6 @@
 ---
 title: "Create an OpenAI-compatible chat completion"
 description: "POST /v1/chat/completions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

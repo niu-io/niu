@@ -1,7 +1,6 @@
 ---
 title: "ProviderModelAvailability"
 description: "Generated TypeScript declaration for ProviderModelAvailability"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

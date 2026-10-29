@@ -1,7 +1,6 @@
 ---
 title: "Preview draft model and Provider access without persistence"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/guardrails/preview"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

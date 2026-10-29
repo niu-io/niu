@@ -1,7 +1,6 @@
 ---
 title: "Record an externally verified settled customer payment"
 description: "POST /api/v1/organizations/{organization}/billing/funding/settled"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

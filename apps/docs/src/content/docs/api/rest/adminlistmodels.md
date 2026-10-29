@@ -1,7 +1,6 @@
 ---
 title: "List configured model routes"
 description: "GET /api/v1/models"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

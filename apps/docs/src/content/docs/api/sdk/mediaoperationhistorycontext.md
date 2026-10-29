@@ -1,7 +1,6 @@
 ---
 title: "MediaOperationHistoryContext"
 description: "Generated TypeScript declaration for MediaOperationHistoryContext"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "List registered shared models for standard-price preparation"
 description: "GET /api/v1/pricing/standard-prices/models"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

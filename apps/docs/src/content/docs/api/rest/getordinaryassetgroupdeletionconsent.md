@@ -1,7 +1,6 @@
 ---
 title: "Read safe local consent and outcome status"
 description: "GET /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

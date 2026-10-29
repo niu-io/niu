@@ -1,7 +1,6 @@
 ---
 title: "Read API key source policy"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

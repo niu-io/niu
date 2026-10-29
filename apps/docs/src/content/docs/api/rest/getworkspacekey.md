@@ -1,7 +1,6 @@
 ---
 title: "Retrieve a workspace API key with its policies and usage window"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

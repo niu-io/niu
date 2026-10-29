@@ -1,7 +1,6 @@
 ---
 title: "NiuStreamError"
 description: "Generated TypeScript declaration for NiuStreamError"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

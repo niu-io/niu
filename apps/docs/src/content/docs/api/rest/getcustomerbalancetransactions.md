@@ -1,7 +1,6 @@
 ---
 title: "Read a company balance transaction page"
 description: "GET /api/v1/organizations/{organization}/billing/transactions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

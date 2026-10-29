@@ -1,7 +1,6 @@
 ---
 title: "Atomically replace a key while preserving its grants and expiry"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

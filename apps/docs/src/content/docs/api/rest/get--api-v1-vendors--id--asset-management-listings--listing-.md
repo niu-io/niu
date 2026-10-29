@@ -1,7 +1,6 @@
 ---
 title: "Recover a retained ordinary asset listing locally"
 description: "GET /api/v1/vendors/{id}/asset-management/listings/{listing}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

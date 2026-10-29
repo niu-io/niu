@@ -1,7 +1,6 @@
 ---
 title: "REST API specification"
 description: "Generated endpoint reference from the complete Niu OpenAPI contract."
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
@@ -79,7 +78,9 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/pools` — List platform-managed model route pools](/docs/api/rest/listpools/)
 - [`PUT /api/v1/pools` — Create or revise a model candidate pool](/docs/api/rest/setmodelroutepool/)
 - [`GET /api/v1/pools/{reference}` — Read an installation-managed model candidate pool](/docs/api/rest/getpool/)
+- [`GET /api/v1/pools/{reference}/audit` — Audit routing and billing strategy for a model route pool](/docs/api/rest/auditpool/)
 - [`GET /api/v1/pools/{reference}/history` — Read immutable model candidate pool revisions](/docs/api/rest/listpoolhistory/)
+- [`POST /api/v1/pools/{reference}/preview` — Dry-run routing preview for a model route pool](/docs/api/rest/previewpool/)
 - [`GET /api/v1/pools/history` — Read immutable model candidate pool revisions](/docs/api/rest/listmodelroutepoolhistory/)
 - [`GET /api/v1/pools/index` — List platform-managed model route pools](/docs/api/rest/listmodelroutepools/)
 - [`GET /api/v1/provider-memberships` — List the signed-in operator’s complete active Provider memberships](/docs/api/rest/listprovidermemberships/)

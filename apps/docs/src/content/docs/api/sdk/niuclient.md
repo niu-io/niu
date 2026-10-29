@@ -1,7 +1,6 @@
 ---
 title: "NiuClient"
 description: "Generated TypeScript declaration for NiuClient"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

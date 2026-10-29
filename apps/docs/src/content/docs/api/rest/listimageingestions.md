@@ -1,7 +1,6 @@
 ---
 title: "Recover this API key's saved ingestion history"
 description: "GET /v1/media/image-ingestions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

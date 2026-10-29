@@ -1,7 +1,6 @@
 ---
 title: "Delete a Provider asset group"
 description: "DELETE /v1/media/groups/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Provider-scoped earnings and operations; active explicit membership required"
 description: "GET /api/v1/providers/{provider}/dashboard"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

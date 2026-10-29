@@ -1,7 +1,6 @@
 ---
 title: "List one account's qualification records"
 description: "GET /api/v1/vendors/{id}/asset-management/authorizations"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

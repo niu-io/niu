@@ -1,7 +1,6 @@
 ---
 title: "Read an immutable Provider procurement quote"
 description: "GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

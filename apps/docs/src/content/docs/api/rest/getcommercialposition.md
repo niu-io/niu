@@ -1,7 +1,6 @@
 ---
 title: "Compare installation commercial Provider positions"
 description: "GET /api/v1/commercial-position"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

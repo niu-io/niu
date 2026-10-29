@@ -1,7 +1,6 @@
 ---
 title: "List platform-managed model route pools"
 description: "GET /api/v1/pools/index"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
@@ -106,6 +105,41 @@ Content type: `application/json`.
             ],
             "format": "uuid"
           },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "public_catalog": {
+            "type": "boolean"
+          },
+          "billing_mode": {
+            "type": "string",
+            "enum": [
+              "pool_tariff",
+              "candidate_tariff"
+            ]
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -145,6 +179,20 @@ Content type: `application/json`.
                 }
               }
             }
+          },
+          "rules": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object"
+            }
+          },
+          "default_action": {
+            "type": "string",
+            "enum": [
+              "candidates",
+              "reject"
+            ]
           }
         }
       }

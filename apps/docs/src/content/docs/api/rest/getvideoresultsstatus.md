@@ -1,7 +1,6 @@
 ---
 title: "Read saved result availability without downloading media"
 description: "GET /v1/video/jobs/{id}/results"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

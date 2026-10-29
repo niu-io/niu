@@ -1,7 +1,6 @@
 ---
 title: "Publish an immutable customer selling rate revision"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/tariffs"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

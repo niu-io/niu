@@ -1,7 +1,6 @@
 ---
 title: "Dispatch one irreversible ordinary-group cascading deletion"
 description: "POST /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

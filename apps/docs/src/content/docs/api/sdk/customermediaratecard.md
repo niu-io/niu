@@ -1,7 +1,6 @@
 ---
 title: "CustomerMediaRateCard"
 description: "Generated TypeScript declaration for CustomerMediaRateCard"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

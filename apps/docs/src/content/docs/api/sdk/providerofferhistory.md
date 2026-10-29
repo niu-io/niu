@@ -1,7 +1,6 @@
 ---
 title: "ProviderOfferHistory"
 description: "Generated TypeScript declaration for ProviderOfferHistory"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

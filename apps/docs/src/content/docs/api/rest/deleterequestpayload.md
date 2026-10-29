@@ -1,7 +1,6 @@
 ---
 title: "Delete retained content without deleting accounting records"
 description: "DELETE /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

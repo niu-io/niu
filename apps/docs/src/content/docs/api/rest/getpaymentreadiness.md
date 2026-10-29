@@ -1,7 +1,6 @@
 ---
 title: "Read payment or scoped funding readiness"
 description: "GET /api/v1/payments/readiness"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

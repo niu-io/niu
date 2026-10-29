@@ -1,7 +1,6 @@
 ---
 title: "Check provider reachability and whether a mapped model is listed"
 description: "POST /api/v1/vendors/{id}/check"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

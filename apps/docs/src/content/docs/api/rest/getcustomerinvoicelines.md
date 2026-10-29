@@ -1,7 +1,6 @@
 ---
 title: "Read invoice lines grouped by model and pinned rate revision"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

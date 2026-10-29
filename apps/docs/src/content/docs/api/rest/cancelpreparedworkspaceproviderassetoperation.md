@@ -1,7 +1,6 @@
 ---
 title: "Abandon an unclaimed native operation after key expiry"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/media/operations/{id}/cancel"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

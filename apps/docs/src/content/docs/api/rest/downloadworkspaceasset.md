@@ -1,7 +1,6 @@
 ---
 title: "Download saved workspace material bytes"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

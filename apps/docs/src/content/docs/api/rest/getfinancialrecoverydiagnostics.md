@@ -1,7 +1,6 @@
 ---
 title: "Read committed financial recovery progress"
 description: "GET /api/v1/platform/financial-recovery"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

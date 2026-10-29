@@ -1,7 +1,6 @@
 ---
 title: "Create an operator and issue its first session token"
 description: "POST /api/v1/operators"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

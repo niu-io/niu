@@ -1,7 +1,6 @@
 ---
 title: "Read customer-safe configured text-video capabilities"
 description: "GET /v1/video/models"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

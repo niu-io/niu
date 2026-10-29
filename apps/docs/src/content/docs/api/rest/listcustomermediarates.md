@@ -1,7 +1,6 @@
 ---
 title: "Read bounded immutable customer selling history"
 description: "GET /api/v1/organizations/{organization}/billing/media-rates"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

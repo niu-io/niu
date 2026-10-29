@@ -1,7 +1,6 @@
 ---
 title: "Revoke an operator and all of its sessions"
 description: "DELETE /api/v1/operators/{operator}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

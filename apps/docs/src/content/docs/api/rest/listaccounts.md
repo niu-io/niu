@@ -1,7 +1,6 @@
 ---
 title: "List account metadata without credential references"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/accounts"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

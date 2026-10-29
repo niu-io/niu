@@ -1,7 +1,6 @@
 ---
 title: "Read public branding and theme defaults"
 description: "GET /v1/branding"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

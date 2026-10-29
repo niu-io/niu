@@ -1,7 +1,6 @@
 ---
 title: "Update one Provider API-key configuration or rotate its credential"
 description: "PUT /api/v1/vendors/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

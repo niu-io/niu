@@ -1,7 +1,6 @@
 ---
 title: "List personal saved Chat history or one continuation page"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/chats"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

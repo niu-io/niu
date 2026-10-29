@@ -1,7 +1,6 @@
 ---
 title: "Delete an empty workspace by identity"
 description: "DELETE /api/v1/workspaces/{workspace}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read installation asset-management configuration metadata"
 description: "GET /api/v1/vendors/{id}/asset-management"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

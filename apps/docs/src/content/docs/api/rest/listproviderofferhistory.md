@@ -1,7 +1,6 @@
 ---
 title: "List immutable Provider quote history"
 description: "GET /api/v1/providers/{provider}/offers/{offer}/revisions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Update workspace API key name and model grants"
 description: "PATCH /api/v1/organizations/{organization}/projects/{project}/keys/{key}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

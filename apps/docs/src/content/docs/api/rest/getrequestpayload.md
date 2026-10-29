@@ -1,7 +1,6 @@
 ---
 title: "Read retained request content in an authorized workspace"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

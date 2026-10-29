@@ -1,7 +1,6 @@
 ---
 title: "Configure the installation currency once"
 description: "PUT /api/v1/platform/currency"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

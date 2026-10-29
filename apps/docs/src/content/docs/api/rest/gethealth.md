@@ -1,7 +1,6 @@
 ---
 title: "Check process health"
 description: "GET /healthz"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

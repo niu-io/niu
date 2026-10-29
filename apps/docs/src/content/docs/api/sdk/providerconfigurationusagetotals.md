@@ -1,7 +1,6 @@
 ---
 title: "ProviderConfigurationUsageTotals"
 description: "Generated TypeScript declaration for ProviderConfigurationUsageTotals"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

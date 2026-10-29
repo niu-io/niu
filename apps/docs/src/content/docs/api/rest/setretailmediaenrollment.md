@@ -1,7 +1,6 @@
 ---
 title: "Set workspace media selling-price enrollment"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

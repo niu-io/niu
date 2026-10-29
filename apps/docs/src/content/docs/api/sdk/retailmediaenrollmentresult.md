@@ -1,7 +1,6 @@
 ---
 title: "RetailMediaEnrollmentResult"
 description: "Generated TypeScript declaration for RetailMediaEnrollmentResult"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

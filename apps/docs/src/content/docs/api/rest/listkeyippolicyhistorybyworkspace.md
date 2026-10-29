@@ -1,7 +1,6 @@
 ---
 title: "List API key source policy history"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/ip-policy/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

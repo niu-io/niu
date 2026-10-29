@@ -1,7 +1,6 @@
 ---
 title: "GuardrailInputTest"
 description: "Generated TypeScript declaration for GuardrailInputTest"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Atomically replace agreed media purchase terms"
 description: "POST /api/v1/providers/{provider}/media-rates/replace"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

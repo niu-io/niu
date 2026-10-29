@@ -1,7 +1,6 @@
 ---
 title: "Read one complete owned saved Chat conversation"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/chats/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

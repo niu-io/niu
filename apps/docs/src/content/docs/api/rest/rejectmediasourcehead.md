@@ -1,7 +1,6 @@
 ---
 title: "Reject HEAD probes of image source capabilities"
 description: "HEAD /v1/media/sources/{token}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

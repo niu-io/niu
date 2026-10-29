@@ -1,7 +1,6 @@
 ---
 title: "Create or update a model mapping with optimistic revision checks"
 description: "POST /api/v1/vendors/{id}/models"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

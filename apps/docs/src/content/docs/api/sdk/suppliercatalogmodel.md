@@ -1,7 +1,6 @@
 ---
 title: "SupplierCatalogModel"
 description: "Generated TypeScript declaration for SupplierCatalogModel"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Change a scoped customer member role"
 description: "PATCH /api/v1/operators/{operator}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

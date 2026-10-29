@@ -1,7 +1,6 @@
 ---
 title: "Prepare an exact versioned Credits purchase quote"
 description: "POST /api/v1/organizations/{organization}/billing/quotes"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

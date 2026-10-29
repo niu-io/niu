@@ -1,7 +1,6 @@
 ---
 title: "Create a Provider asset from a URL"
 description: "POST /v1/media/assets"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

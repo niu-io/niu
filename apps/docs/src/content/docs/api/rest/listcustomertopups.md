@@ -1,7 +1,6 @@
 ---
 title: "Recover company checkout history"
 description: "GET /api/v1/organizations/{organization}/billing/topups"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Explicitly dispatch an existing native material preparation"
 description: "POST /v1/media/operations/{id}/dispatch"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

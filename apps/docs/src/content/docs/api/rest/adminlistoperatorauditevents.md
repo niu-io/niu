@@ -1,7 +1,6 @@
 ---
 title: "Read immutable operator and session lifecycle events"
 description: "GET /api/v1/operators/{operator}/events"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Set an API key's Credits spending limit"
 description: "PUT /api/v1/workspaces/{workspace}/keys/{key}/units/limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Grant, change or disable a Provider membership"
 description: "PUT /api/v1/providers/{provider}/members/{operator}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

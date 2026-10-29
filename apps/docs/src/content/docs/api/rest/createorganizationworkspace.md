@@ -1,7 +1,6 @@
 ---
 title: "Create a workspace in the selected company"
 description: "POST /api/v1/organizations/{organization}/projects"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

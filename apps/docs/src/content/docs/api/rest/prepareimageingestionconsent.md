@@ -1,7 +1,6 @@
 ---
 title: "Consent to ingestion of one inspected image into one ordinary asset group"
 description: "PUT /v1/media/image-ingestions/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

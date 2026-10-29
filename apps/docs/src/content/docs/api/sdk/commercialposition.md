@@ -1,7 +1,6 @@
 ---
 title: "CommercialPosition"
 description: "Generated TypeScript declaration for CommercialPosition"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

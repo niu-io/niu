@@ -1,7 +1,6 @@
 ---
 title: "Rename a Provider asset"
 description: "PATCH /v1/media/assets/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

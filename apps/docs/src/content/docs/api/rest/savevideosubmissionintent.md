@@ -1,7 +1,6 @@
 ---
 title: "Save an immutable video submission intent with typed Niu references"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

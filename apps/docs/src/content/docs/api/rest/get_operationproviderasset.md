@@ -1,7 +1,6 @@
 ---
 title: "Read a saved Provider mutation operation"
 description: "GET /v1/media/operations/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

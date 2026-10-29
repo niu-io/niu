@@ -1,7 +1,6 @@
 ---
 title: "GenerationArtifact"
 description: "Generated TypeScript declaration for GenerationArtifact"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

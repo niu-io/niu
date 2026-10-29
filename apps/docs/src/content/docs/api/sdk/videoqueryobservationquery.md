@@ -1,7 +1,6 @@
 ---
 title: "VideoQueryObservationQuery"
 description: "Generated TypeScript declaration for VideoQueryObservationQuery"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

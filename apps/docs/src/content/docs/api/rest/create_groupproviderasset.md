@@ -1,7 +1,6 @@
 ---
 title: "Create a Provider asset group"
 description: "POST /v1/media/groups"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

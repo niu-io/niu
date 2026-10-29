@@ -1,7 +1,6 @@
 ---
 title: "ModelRoutePool"
 description: "Generated TypeScript declaration for ModelRoutePool"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
@@ -11,9 +10,17 @@ Generated from the checked-in source. Do not edit this reference by hand.
 ```typescript
 export type ModelRoutePool = {
     alias: string;
+    display_name?: string | null;
+    description?: string | null;
+    slug?: string;
     organization_id: string | null;
+    project_id?: string | null;
+    public_catalog?: boolean;
+    billing_mode?: ModelRoutePoolBillingMode;
     enabled: boolean;
     revision: number;
     candidates: ModelRoutePoolCandidate[];
+    rules?: ModelRoutePoolRule[];
+    default_action?: ModelRoutePoolDefaultAction;
 };
 ```

@@ -1,7 +1,6 @@
 ---
 title: "Read the latest explicit Credits text tariff for a model"
 description: "GET /api/v1/platform/units/tariffs"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

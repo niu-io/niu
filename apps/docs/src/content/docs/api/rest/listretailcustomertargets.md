@@ -1,7 +1,6 @@
 ---
 title: "List named companies for customer-specific promotions"
 description: "GET /api/v1/pricing/customers"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

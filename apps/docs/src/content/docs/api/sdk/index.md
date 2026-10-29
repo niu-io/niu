@@ -1,7 +1,6 @@
 ---
 title: "JavaScript / TypeScript SDK"
 description: "Generated public client methods, signatures and types."
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
@@ -221,9 +220,17 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [Model](/docs/api/sdk/model/)
 - [ModelList](/docs/api/sdk/modellist/)
 - [ModelRoutePool](/docs/api/sdk/modelroutepool/)
+- [ModelRoutePoolAudit](/docs/api/sdk/modelroutepoolaudit/)
+- [ModelRoutePoolAuditCandidate](/docs/api/sdk/modelroutepoolauditcandidate/)
+- [ModelRoutePoolBillingMode](/docs/api/sdk/modelroutepoolbillingmode/)
 - [ModelRoutePoolCandidate](/docs/api/sdk/modelroutepoolcandidate/)
+- [ModelRoutePoolDefaultAction](/docs/api/sdk/modelroutepooldefaultaction/)
 - [ModelRoutePoolInput](/docs/api/sdk/modelroutepoolinput/)
+- [ModelRoutePoolPreviewInput](/docs/api/sdk/modelroutepoolpreviewinput/)
+- [ModelRoutePoolPreviewResult](/docs/api/sdk/modelroutepoolpreviewresult/)
 - [ModelRoutePoolRevision](/docs/api/sdk/modelroutepoolrevision/)
+- [ModelRoutePoolRule](/docs/api/sdk/modelroutepoolrule/)
+- [ModelRoutePoolRuleConditions](/docs/api/sdk/modelroutepoolruleconditions/)
 - [NiuAdminOptions](/docs/api/sdk/niuadminoptions/)
 - [NiuAuthOptions](/docs/api/sdk/niuauthoptions/)
 - [NiuClientOptions](/docs/api/sdk/niuclientoptions/)

@@ -1,7 +1,6 @@
 ---
 title: "List latest explicit Credits media tariffs"
 description: "GET /api/v1/platform/units/media/tariffs"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

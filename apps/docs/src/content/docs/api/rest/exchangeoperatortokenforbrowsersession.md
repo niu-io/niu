@@ -1,7 +1,6 @@
 ---
 title: "Use an existing user access token in the browser"
 description: "POST /api/v1/auth/browser/token"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Record a Provider business qualification review"
 description: "PUT /api/v1/providers/{provider}/qualification"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

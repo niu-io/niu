@@ -1,7 +1,6 @@
 ---
 title: "Workspace"
 description: "Generated TypeScript declaration for Workspace"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

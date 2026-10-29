@@ -1,7 +1,6 @@
 ---
 title: "Read customer-safe asset request content and retention status"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

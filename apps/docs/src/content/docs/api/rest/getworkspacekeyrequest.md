@@ -1,7 +1,6 @@
 ---
 title: "Reconcile an API key creation or rotation request"
 description: "GET /api/v1/workspaces/{workspace}/keys/requests/{request}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

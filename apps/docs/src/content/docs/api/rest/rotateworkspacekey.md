@@ -1,7 +1,6 @@
 ---
 title: "Rotate a workspace API key while preserving its policies and expiry"
 description: "POST /api/v1/workspaces/{workspace}/keys/{key}/rotate"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "GuardrailDetectorDescription"
 description: "Generated TypeScript declaration for GuardrailDetectorDescription"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

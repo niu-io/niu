@@ -1,7 +1,6 @@
 ---
 title: "Preview explicitly consented workspace image processing"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

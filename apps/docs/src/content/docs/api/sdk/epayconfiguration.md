@@ -1,7 +1,6 @@
 ---
 title: "EPayConfiguration"
 description: "Generated TypeScript declaration for EPayConfiguration"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

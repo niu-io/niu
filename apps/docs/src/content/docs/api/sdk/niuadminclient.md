@@ -1,7 +1,6 @@
 ---
 title: "NiuAdminClient"
 description: "Generated TypeScript declaration for NiuAdminClient"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
@@ -2624,6 +2623,26 @@ setModelRoutePool(input: ModelRoutePoolInput, options?: RequestOptions): Promise
 ```typescript
 listModelRoutePoolHistory(alias: string, beforeRevision?: number, options?: RequestOptions): Promise<{
     data: ModelRoutePoolRevision[];
+}>;
+```
+
+### previewModelRoutePool
+
+```typescript
+/** Dry-run routing evaluation for a Model Pool without dispatching upstream inference. */
+previewModelRoutePool(alias: string, input: ModelRoutePoolPreviewInput, options?: RequestOptions): Promise<{
+    data: ModelRoutePoolPreviewResult;
+}>;
+```
+
+### auditModelRoutePool
+
+```typescript
+/** Audit pool pricing readiness, candidate margin health, and observed routing traffic distribution. */
+auditModelRoutePool(alias: string, query?: {
+    days?: number;
+}, options?: RequestOptions): Promise<{
+    data: ModelRoutePoolAudit;
 }>;
 ```
 

@@ -1,7 +1,6 @@
 ---
 title: "VideoEffectiveOutput"
 description: "Generated TypeScript declaration for VideoEffectiveOutput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

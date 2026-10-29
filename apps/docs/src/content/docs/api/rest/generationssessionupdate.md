@@ -1,7 +1,6 @@
 ---
 title: "Rename or archive a private video session"
 description: "PATCH /api/v1/organizations/{organization}/projects/{project}/generations/{session}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

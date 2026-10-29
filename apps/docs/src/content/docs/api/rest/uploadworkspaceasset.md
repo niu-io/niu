@@ -1,7 +1,6 @@
 ---
 title: "Save a workspace material"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/assets"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

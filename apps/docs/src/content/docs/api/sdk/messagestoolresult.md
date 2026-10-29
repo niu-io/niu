@@ -1,7 +1,6 @@
 ---
 title: "MessagesToolResult"
 description: "Generated TypeScript declaration for MessagesToolResult"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

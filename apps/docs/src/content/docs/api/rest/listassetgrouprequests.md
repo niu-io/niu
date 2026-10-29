@@ -1,7 +1,6 @@
 ---
 title: "Discover saved asset group creation requests"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/asset-group-intents"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

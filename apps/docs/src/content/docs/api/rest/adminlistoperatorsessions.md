@@ -1,7 +1,6 @@
 ---
 title: "List session expiry and revocation metadata"
 description: "GET /api/v1/operators/{operator}/sessions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

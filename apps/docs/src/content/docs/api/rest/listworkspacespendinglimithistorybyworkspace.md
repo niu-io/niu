@@ -1,7 +1,6 @@
 ---
 title: "List workspace spending revisions"
 description: "GET /api/v1/workspaces/{workspace}/spending-limit/{currency}/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

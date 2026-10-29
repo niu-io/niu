@@ -1,7 +1,6 @@
 ---
 title: "Restore a preserved policy as a new active revision"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/guardrails/rollback"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

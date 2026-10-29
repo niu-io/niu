@@ -1,7 +1,6 @@
 ---
 title: "Inspect a preserved workspace policy version before restoring"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

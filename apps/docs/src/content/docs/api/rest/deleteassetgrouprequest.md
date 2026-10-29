@@ -1,7 +1,6 @@
 ---
 title: "Delete saved asset-creation request content"
 description: "DELETE /api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

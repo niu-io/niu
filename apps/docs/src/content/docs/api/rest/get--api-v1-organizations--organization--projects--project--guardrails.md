@@ -1,7 +1,6 @@
 ---
 title: "Read active workspace access policy"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/guardrails"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

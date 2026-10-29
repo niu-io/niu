@@ -1,7 +1,6 @@
 ---
 title: "Change the signed-in member's password with current-password proof"
 description: "PUT /api/v1/auth/password"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

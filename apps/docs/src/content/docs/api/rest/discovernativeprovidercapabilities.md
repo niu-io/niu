@@ -1,7 +1,6 @@
 ---
 title: "Discover authorized model-specific native Provider tools"
 description: "GET /v1/media/capabilities"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

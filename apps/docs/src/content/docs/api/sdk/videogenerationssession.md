@@ -1,7 +1,6 @@
 ---
 title: "VideoGenerationsSession"
 description: "Generated TypeScript declaration for VideoGenerationsSession"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

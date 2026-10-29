@@ -1,7 +1,6 @@
 ---
 title: "Claim and dispatch one inspected image ingestion"
 description: "POST /v1/media/image-ingestions/{id}/dispatch"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

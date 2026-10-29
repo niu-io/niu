@@ -1,7 +1,6 @@
 ---
 title: "List API key spending limits"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "ChatSessionPage"
 description: "Generated TypeScript declaration for ChatSessionPage"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

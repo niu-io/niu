@@ -1,7 +1,6 @@
 ---
 title: "ImageDetectorPreviewResult"
 description: "Generated TypeScript declaration for ImageDetectorPreviewResult"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

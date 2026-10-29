@@ -1,7 +1,6 @@
 ---
 title: "Save encrypted EPay configuration with platform administrator write access"
 description: "PUT /api/v1/platform/payments/epay"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

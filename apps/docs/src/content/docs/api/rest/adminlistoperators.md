@@ -1,7 +1,6 @@
 ---
 title: "List operator identities without session credentials"
 description: "GET /api/v1/operators"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

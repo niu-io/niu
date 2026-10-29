@@ -1,7 +1,6 @@
 ---
 title: "Issue a workspace API key and return its secret once"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/keys"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

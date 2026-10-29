@@ -1,7 +1,6 @@
 ---
 title: "Archive or restore the authenticated owner's Chat session"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read Stripe verification evidence"
 description: "GET /api/v1/platform/payments/stripe/verification"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

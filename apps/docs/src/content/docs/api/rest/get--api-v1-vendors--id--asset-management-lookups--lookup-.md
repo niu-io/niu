@@ -1,7 +1,6 @@
 ---
 title: "Recover one encrypted asset lookup result"
 description: "GET /api/v1/vendors/{id}/asset-management/lookups/{lookup}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

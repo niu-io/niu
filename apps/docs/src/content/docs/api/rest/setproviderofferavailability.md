@@ -1,7 +1,6 @@
 ---
 title: "A Provider manager can pause or resume an owned offer"
 description: "PATCH /api/v1/providers/{provider}/offers/{offer}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

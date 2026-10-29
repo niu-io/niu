@@ -1,7 +1,6 @@
 ---
 title: "Exchange member credentials for a scoped eight-hour session"
 description: "POST /api/v1/auth/login"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

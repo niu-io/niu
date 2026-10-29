@@ -1,7 +1,6 @@
 ---
 title: "Read this Provider's agreed media purchase schedules"
 description: "GET /api/v1/providers/{provider}/media-rates"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

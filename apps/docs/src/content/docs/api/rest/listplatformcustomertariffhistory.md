@@ -1,7 +1,6 @@
 ---
 title: "Read platform customer selling-price history"
 description: "GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

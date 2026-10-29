@@ -1,7 +1,6 @@
 ---
 title: "Read historical native material operations"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

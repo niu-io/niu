@@ -1,7 +1,6 @@
 ---
 title: "List actual saved output references"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/generations/artifacts"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

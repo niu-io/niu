@@ -1,7 +1,6 @@
 ---
 title: "MessagesTextBlock"
 description: "Generated TypeScript declaration for MessagesTextBlock"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

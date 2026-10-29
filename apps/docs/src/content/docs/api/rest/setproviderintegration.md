@@ -1,7 +1,6 @@
 ---
 title: "Set provider integration identity"
 description: "PUT /api/v1/providers/{provider}/integration"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

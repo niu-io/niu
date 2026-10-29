@@ -1,7 +1,6 @@
 ---
 title: "Publish an immutable consumption-unit definition"
 description: "POST /api/v1/platform/units/definitions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

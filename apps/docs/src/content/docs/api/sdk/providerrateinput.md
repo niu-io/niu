@@ -1,7 +1,6 @@
 ---
 title: "ProviderRateInput"
 description: "Generated TypeScript declaration for ProviderRateInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

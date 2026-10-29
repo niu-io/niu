@@ -1,7 +1,6 @@
 ---
 title: "Read immutable key policy assignment history"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

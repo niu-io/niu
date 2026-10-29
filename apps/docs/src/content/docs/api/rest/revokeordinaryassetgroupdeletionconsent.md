@@ -1,7 +1,6 @@
 ---
 title: "Revoke local deletion consent without erasing history"
 description: "DELETE /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

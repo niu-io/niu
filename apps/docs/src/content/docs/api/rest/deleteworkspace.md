@@ -1,7 +1,6 @@
 ---
 title: "Delete an empty workspace"
 description: "DELETE /api/v1/organizations/{organization}/projects/{project}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

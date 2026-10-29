@@ -1,7 +1,6 @@
 ---
 title: "Restore a saved video intent and its historical job"
 description: "GET /api/v1/workspaces/{workspace}/video/intents/{intent}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

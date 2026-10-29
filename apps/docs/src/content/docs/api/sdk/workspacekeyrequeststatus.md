@@ -1,7 +1,6 @@
 ---
 title: "WorkspaceKeyRequestStatus"
 description: "Generated TypeScript declaration for WorkspaceKeyRequestStatus"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

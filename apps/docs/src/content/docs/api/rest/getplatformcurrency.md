@@ -1,7 +1,6 @@
 ---
 title: "Read the configured platform currency"
 description: "GET /v1/currency"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

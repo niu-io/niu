@@ -1,7 +1,6 @@
 ---
 title: "Estimate a configured text-video request without submission"
 description: "POST /v1/video/estimate"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

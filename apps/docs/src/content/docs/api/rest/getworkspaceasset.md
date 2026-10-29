@@ -1,7 +1,6 @@
 ---
 title: "Read workspace material metadata"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/assets/{asset}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

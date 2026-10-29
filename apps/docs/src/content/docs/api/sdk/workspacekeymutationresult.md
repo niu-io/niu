@@ -1,7 +1,6 @@
 ---
 title: "WorkspaceKeyMutationResult"
 description: "Generated TypeScript declaration for WorkspaceKeyMutationResult"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

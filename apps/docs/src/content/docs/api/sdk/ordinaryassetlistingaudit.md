@@ -1,7 +1,6 @@
 ---
 title: "OrdinaryAssetListingAudit"
 description: "Generated TypeScript declaration for OrdinaryAssetListingAudit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

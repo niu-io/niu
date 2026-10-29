@@ -1,7 +1,6 @@
 ---
 title: "Create an ordinary asset group through platform administration"
 description: "POST /api/v1/vendors/{id}/asset-management/groups"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

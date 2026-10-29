@@ -1,7 +1,6 @@
 ---
 title: "Inspect the current workspace API key"
 description: "GET /v1/key"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

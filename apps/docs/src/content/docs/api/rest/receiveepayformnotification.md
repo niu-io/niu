@@ -1,7 +1,6 @@
 ---
 title: "Receive a signed classic EPay form notification"
 description: "POST /payments/epay/notify"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

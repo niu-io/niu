@@ -1,7 +1,6 @@
 ---
 title: "WorkspaceKeyDetailPage"
 description: "Generated TypeScript declaration for WorkspaceKeyDetailPage"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

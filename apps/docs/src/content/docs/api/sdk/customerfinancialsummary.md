@@ -1,7 +1,6 @@
 ---
 title: "CustomerFinancialSummary"
 description: "Generated TypeScript declaration for CustomerFinancialSummary"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

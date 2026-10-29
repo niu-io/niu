@@ -1,7 +1,6 @@
 ---
 title: "Refresh upstream verification session"
 description: "POST /v1/media/verifications/{id}/refresh"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

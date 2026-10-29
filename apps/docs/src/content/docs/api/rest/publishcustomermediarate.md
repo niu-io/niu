@@ -1,7 +1,6 @@
 ---
 title: "Publish an immutable customer video selling schedule"
 description: "POST /api/v1/organizations/{organization}/billing/media-rates"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

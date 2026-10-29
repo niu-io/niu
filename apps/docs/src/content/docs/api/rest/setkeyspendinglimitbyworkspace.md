@@ -1,7 +1,6 @@
 ---
 title: "Set API key spending limit"
 description: "PUT /api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

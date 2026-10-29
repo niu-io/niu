@@ -1,7 +1,6 @@
 ---
 title: "Record one confirmed full external invoice payment"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Revoke the current Provider business qualification"
 description: "POST /api/v1/providers/{provider}/qualification/revoke"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

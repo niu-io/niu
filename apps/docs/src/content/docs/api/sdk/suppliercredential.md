@@ -1,7 +1,6 @@
 ---
 title: "SupplierCredential"
 description: "Generated TypeScript declaration for SupplierCredential"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

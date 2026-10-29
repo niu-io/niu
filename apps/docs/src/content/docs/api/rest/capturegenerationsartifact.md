@@ -1,7 +1,6 @@
 ---
 title: "Explicitly save a generated output into workspace materials"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

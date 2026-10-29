@@ -1,7 +1,6 @@
 ---
 title: "CustomerUnitQuote"
 description: "Generated TypeScript declaration for CustomerUnitQuote"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

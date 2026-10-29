@@ -1,7 +1,6 @@
 ---
 title: "Attach an existing authorized video task"
 description: "PUT /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/task"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

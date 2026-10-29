@@ -1,7 +1,6 @@
 ---
 title: "List scoped company workspaces"
 description: "GET /api/v1/organizations/{organization}/projects"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

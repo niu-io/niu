@@ -1,7 +1,6 @@
 ---
 title: "Read API key token rate policy"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

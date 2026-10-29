@@ -1,7 +1,6 @@
 ---
 title: "Record a balance refund or settled-funding reversal"
 description: "POST /api/v1/organizations/{organization}/billing/entries/{entry}/reversal"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

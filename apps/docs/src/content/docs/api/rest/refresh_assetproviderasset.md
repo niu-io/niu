@@ -1,7 +1,6 @@
 ---
 title: "Refresh one owned Provider asset"
 description: "POST /v1/media/assets/{id}/refresh"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

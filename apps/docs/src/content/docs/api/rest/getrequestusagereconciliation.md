@@ -1,7 +1,6 @@
 ---
 title: "Read recorded supplemental request usage"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

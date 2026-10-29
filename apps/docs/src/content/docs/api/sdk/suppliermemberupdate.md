@@ -1,7 +1,6 @@
 ---
 title: "SupplierMemberUpdate"
 description: "Generated TypeScript declaration for SupplierMemberUpdate"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

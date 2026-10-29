@@ -1,7 +1,6 @@
 ---
 title: "Assign a configured personal credential to its account"
 description: "PUT /api/v1/vendors/{id}/personal-owner"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

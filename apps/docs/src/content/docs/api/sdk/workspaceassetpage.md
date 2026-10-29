@@ -1,7 +1,6 @@
 ---
 title: "WorkspaceAssetPage"
 description: "Generated TypeScript declaration for WorkspaceAssetPage"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

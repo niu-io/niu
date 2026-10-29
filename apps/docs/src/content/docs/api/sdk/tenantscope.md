@@ -1,7 +1,6 @@
 ---
 title: "TenantScope"
 description: "Generated TypeScript declaration for TenantScope"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

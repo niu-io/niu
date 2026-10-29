@@ -1,7 +1,6 @@
 ---
 title: "Revoke source publication consent without erasing immutable history"
 description: "DELETE /v1/media/image-ingestions/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

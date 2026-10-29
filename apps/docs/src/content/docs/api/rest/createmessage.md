@@ -1,7 +1,6 @@
 ---
 title: "Create a native text Message, optionally streamed"
 description: "POST /v1/messages"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Erase retained ordinary asset listing content"
 description: "DELETE /api/v1/vendors/{id}/asset-management/listings/{listing}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

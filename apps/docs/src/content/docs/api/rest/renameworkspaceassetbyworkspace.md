@@ -1,7 +1,6 @@
 ---
 title: "Rename a saved workspace material"
 description: "PATCH /api/v1/workspaces/{workspace}/assets/{asset}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "MediaVerificationInput"
 description: "Generated TypeScript declaration for MediaVerificationInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

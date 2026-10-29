@@ -1,7 +1,6 @@
 ---
 title: "Save current member appearance preference"
 description: "PUT /api/v1/auth/preferences"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

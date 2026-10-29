@@ -1,7 +1,6 @@
 ---
 title: "Read latest 100 workspace input detector decisions"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

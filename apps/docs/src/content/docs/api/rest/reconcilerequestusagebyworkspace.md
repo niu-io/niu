@@ -1,7 +1,6 @@
 ---
 title: "Supplement missing native request usage from captured OpenRouter evidence"
 description: "POST /api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

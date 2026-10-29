@@ -1,7 +1,6 @@
 ---
 title: "Erase this API key's retained source bytes"
 description: "DELETE /v1/media/image-sources/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

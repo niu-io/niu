@@ -1,7 +1,6 @@
 ---
 title: "List scoped ordinary asset-listing outcomes and timing"
 description: "GET /api/v1/vendors/{id}/asset-management/listings"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

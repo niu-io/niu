@@ -1,7 +1,6 @@
 ---
 title: "Save platform branding and theme configuration"
 description: "PUT /api/v1/platform/branding"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Sign in to the configured shared demo account"
 description: "POST /api/v1/auth/browser/demo"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

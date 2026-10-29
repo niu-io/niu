@@ -1,7 +1,6 @@
 ---
 title: "RequestFailure"
 description: "Generated TypeScript declaration for RequestFailure"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

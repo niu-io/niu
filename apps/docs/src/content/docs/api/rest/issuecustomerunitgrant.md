@@ -1,7 +1,6 @@
 ---
 title: "Issue noncash Credits with an immutable provenance and expiry"
 description: "POST /api/v1/organizations/{organization}/billing/units/grants"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

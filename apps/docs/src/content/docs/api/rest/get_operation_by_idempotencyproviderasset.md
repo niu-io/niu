@@ -1,7 +1,6 @@
 ---
 title: "Read a saved Provider operation by request idempotency UUID"
 description: "GET /v1/media/operations/by-idempotency/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Explicitly submit or replay an immutable saved video intent"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read saved customer billing and transport diagnostics"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

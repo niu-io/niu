@@ -1,7 +1,6 @@
 ---
 title: "Explicit installation oversight of the Provider dashboard"
 description: "GET /api/v1/providers/{provider}/administration"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

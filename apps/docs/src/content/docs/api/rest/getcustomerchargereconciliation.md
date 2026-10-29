@@ -1,7 +1,6 @@
 ---
 title: "Compare customer charge records with prepaid ledger debits"
 description: "GET /api/v1/organizations/{organization}/billing/charge-reconciliation"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

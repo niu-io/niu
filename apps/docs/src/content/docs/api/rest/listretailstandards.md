@@ -1,7 +1,6 @@
 ---
 title: "List current platform standard prices"
 description: "GET /api/v1/pricing/standard-prices"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

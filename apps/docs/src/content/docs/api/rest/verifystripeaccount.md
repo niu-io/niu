@@ -1,7 +1,6 @@
 ---
 title: "Check the configured Stripe account"
 description: "POST /api/v1/platform/payments/stripe/verification"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "VideoLifecycleTiming"
 description: "Generated TypeScript declaration for VideoLifecycleTiming"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

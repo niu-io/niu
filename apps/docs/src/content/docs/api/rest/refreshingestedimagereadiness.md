@@ -1,7 +1,6 @@
 ---
 title: "Observe accepted image status using its original account"
 description: "POST /v1/media/image-ingestions/{id}/readiness/{read_id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

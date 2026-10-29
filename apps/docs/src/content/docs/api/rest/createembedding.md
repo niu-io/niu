@@ -1,7 +1,6 @@
 ---
 title: "Create OpenAI-compatible text embeddings"
 description: "POST /v1/embeddings"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

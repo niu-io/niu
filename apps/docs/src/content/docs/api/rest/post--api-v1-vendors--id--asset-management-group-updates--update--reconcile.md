@@ -1,7 +1,6 @@
 ---
 title: "Read back and reconcile an acknowledged ordinary-group update"
 description: "POST /api/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

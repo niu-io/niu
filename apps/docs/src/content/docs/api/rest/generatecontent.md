@@ -1,7 +1,6 @@
 ---
 title: "Generate native buffered Gemini text"
 description: "POST /v1beta/models/{model_action}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

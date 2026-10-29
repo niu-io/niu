@@ -1,7 +1,6 @@
 ---
 title: "List active Provider business identities"
 description: "GET /api/v1/providers"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "List saved workspace API-key metadata"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/keys"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

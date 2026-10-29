@@ -1,7 +1,6 @@
 ---
 title: "Create a company and its initial zero-funded account"
 description: "POST /api/v1/organizations"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

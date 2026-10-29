@@ -1,7 +1,6 @@
 ---
 title: "MessagesText"
 description: "Generated TypeScript declaration for MessagesText"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Atomically replace a customer media selling schedule"
 description: "POST /api/v1/organizations/{organization}/billing/media-rates/replace"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

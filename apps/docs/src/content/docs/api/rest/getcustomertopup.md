@@ -1,7 +1,6 @@
 ---
 title: "Read saved company top-up status"
 description: "GET /api/v1/organizations/{organization}/billing/topups/{order}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

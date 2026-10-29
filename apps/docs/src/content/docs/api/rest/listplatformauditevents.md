@@ -1,7 +1,6 @@
 ---
 title: "List platform operation audit logs"
 description: "GET /api/v1/platform/audit-events"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

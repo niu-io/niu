@@ -1,7 +1,6 @@
 ---
 title: "ProviderSettlementInput"
 description: "Generated TypeScript declaration for ProviderSettlementInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

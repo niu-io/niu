@@ -1,7 +1,6 @@
 ---
 title: "Read API key token usage window"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/token-usage-window"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

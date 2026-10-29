@@ -1,7 +1,6 @@
 ---
 title: "Associate an API configuration with a Provider"
 description: "PUT /api/v1/vendors/{id}/supplier"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read EPay configuration with platform administrator read access"
 description: "GET /api/v1/platform/payments/epay"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

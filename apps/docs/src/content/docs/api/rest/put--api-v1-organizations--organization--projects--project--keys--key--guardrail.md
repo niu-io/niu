@@ -1,7 +1,6 @@
 ---
 title: "Assign a preserved workspace policy revision to an active key"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

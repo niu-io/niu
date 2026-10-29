@@ -1,7 +1,6 @@
 ---
 title: "Delete an owned Chat session in a workspace"
 description: "DELETE /api/v1/organizations/{organization}/projects/{project}/chats/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

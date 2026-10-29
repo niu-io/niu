@@ -1,7 +1,6 @@
 ---
 title: "WorkspaceKey"
 description: "Generated TypeScript declaration for WorkspaceKey"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "SupplierProfileUpdate"
 description: "Generated TypeScript declaration for SupplierProfileUpdate"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

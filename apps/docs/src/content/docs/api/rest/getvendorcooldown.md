@@ -1,7 +1,6 @@
 ---
 title: "Read credential safe-failure cooldown"
 description: "GET /api/v1/vendors/{vendor}/cooldown"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "MemberSession"
 description: "Generated TypeScript declaration for MemberSession"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

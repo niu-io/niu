@@ -1,7 +1,6 @@
 ---
 title: "EmbeddingResponse"
 description: "Generated TypeScript declaration for EmbeddingResponse"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

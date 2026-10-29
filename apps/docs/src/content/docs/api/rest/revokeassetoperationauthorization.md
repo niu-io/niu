@@ -1,7 +1,6 @@
 ---
 title: "Revoke one account's asset qualification"
 description: "DELETE /api/v1/vendors/{id}/asset-management/authorizations/{authorization}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Set vendor integration identity"
 description: "PUT /api/v1/vendors/{id}/integration"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

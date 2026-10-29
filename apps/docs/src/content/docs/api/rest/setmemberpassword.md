@@ -1,7 +1,6 @@
 ---
 title: "Provision or reset an existing member password"
 description: "PUT /api/v1/operators/{operator}/password"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

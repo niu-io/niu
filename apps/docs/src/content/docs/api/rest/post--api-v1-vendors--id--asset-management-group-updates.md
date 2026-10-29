@@ -1,7 +1,6 @@
 ---
 title: "Prepare an encrypted metadata patch for a saved ordinary group"
 description: "POST /api/v1/vendors/{id}/asset-management/group-updates"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

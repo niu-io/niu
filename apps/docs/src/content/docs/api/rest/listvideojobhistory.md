@@ -1,7 +1,6 @@
 ---
 title: "List durable workspace video jobs"
 description: "GET /v1/video/jobs"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

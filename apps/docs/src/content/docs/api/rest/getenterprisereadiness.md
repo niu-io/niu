@@ -1,7 +1,6 @@
 ---
 title: "Check Enterprise module readiness"
 description: "GET /enterprise/readyz"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

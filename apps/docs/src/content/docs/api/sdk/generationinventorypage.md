@@ -1,7 +1,6 @@
 ---
 title: "GenerationInventoryPage"
 description: "Generated TypeScript declaration for GenerationInventoryPage"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

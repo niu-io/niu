@@ -1,7 +1,6 @@
 ---
 title: "Create a platform upstream cost budget (installation only)"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/budget"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

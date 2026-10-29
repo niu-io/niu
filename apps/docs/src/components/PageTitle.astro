@@ -1,5 +1,32 @@
 ---
 import PageTitle from '@astrojs/starlight/components/PageTitle.astro';
-const home=/^\/docs\/?$/.test(Astro.url.pathname);
+import CopyPageButton from './CopyPageButton';
+import { documentationSection } from '../navigation';
+
+type SidebarEntry = {
+  type: 'link' | 'group';
+  label: string;
+  isCurrent?: boolean;
+  entries?: SidebarEntry[];
+};
+
+function hasCurrentLink(entry: SidebarEntry): boolean {
+  if (entry.type === 'link') return Boolean(entry.isCurrent);
+  return Array.isArray(entry.entries) && entry.entries.some(hasCurrentLink);
+}
+
+const home = /^\/docs\/?$/.test(Astro.url.pathname);
+const sidebar = (Astro.locals.starlightRoute?.sidebar ?? []) as SidebarEntry[];
+const activeGroup = sidebar.find(hasCurrentLink)?.label ?? documentationSection(Astro.url.pathname);
 ---
-{home ? <span data-docs-home-title hidden /> : <PageTitle />}
+{home ? (
+  <span data-docs-home-title hidden />
+) : (
+  <div class="docs-article-header">
+    <div class="docs-article-meta not-content">
+      <span class="docs-article-eyebrow">{activeGroup}</span>
+      <CopyPageButton client:load />
+    </div>
+    <PageTitle />
+  </div>
+)}

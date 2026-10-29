@@ -1,7 +1,6 @@
 ---
 title: "Publish a preview-confirmed installation billing mode"
 description: "PUT /api/v1/platform/units/mode"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

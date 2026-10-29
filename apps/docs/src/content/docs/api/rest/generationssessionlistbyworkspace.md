@@ -1,7 +1,6 @@
 ---
 title: "List private generations sessions"
 description: "GET /api/v1/workspaces/{workspace}/sessions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "List one bounded page of assets in a saved ordinary group"
 description: "POST /api/v1/vendors/{id}/asset-management/listings"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

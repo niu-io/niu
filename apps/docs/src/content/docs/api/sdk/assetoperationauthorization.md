@@ -1,7 +1,6 @@
 ---
 title: "AssetOperationAuthorization"
 description: "Generated TypeScript declaration for AssetOperationAuthorization"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

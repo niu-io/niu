@@ -1,7 +1,6 @@
 ---
 title: "Record specific cascading-deletion consent without dispatch"
 description: "POST /api/v1/vendors/{id}/asset-management/group-deletion-consents"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

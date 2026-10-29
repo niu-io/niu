@@ -1,7 +1,6 @@
 ---
 title: "Save or clear the personal Chat draft with an expected revision"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/chats/draft"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

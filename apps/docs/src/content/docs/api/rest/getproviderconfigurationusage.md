@@ -1,7 +1,6 @@
 ---
 title: "Inspect operational usage of Provider-owned configurations"
 description: "GET /api/v1/providers/{provider}/configuration-usage"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

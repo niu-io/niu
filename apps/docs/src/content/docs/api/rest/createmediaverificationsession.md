@@ -1,7 +1,6 @@
 ---
 title: "Create upstream human verification session"
 description: "POST /v1/media/verifications"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

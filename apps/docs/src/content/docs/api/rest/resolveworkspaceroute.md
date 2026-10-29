@@ -1,7 +1,6 @@
 ---
 title: "Resolve an authorized canonical workspace route"
 description: "GET /api/v1/workspaces/by-route/{route_slug}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

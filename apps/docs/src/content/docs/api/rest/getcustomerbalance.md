@@ -1,7 +1,6 @@
 ---
 title: "Read shared company account balances"
 description: "GET /api/v1/organizations/{organization}/billing/balance"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

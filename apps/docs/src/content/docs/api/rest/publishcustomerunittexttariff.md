@@ -1,7 +1,6 @@
 ---
 title: "Publish a versioned Credits text consumption tariff"
 description: "POST /api/v1/platform/units/tariffs"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

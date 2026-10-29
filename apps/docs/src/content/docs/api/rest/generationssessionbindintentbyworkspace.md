@@ -1,7 +1,6 @@
 ---
 title: "Bind a saved Video intent to a private turn"
 description: "PUT /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/intent"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

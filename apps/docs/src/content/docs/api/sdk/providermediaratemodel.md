@@ -1,7 +1,6 @@
 ---
 title: "ProviderMediaRateModel"
 description: "Generated TypeScript declaration for ProviderMediaRateModel"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

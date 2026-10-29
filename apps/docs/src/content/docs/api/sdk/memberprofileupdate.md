@@ -1,7 +1,6 @@
 ---
 title: "MemberProfileUpdate"
 description: "Generated TypeScript declaration for MemberProfileUpdate"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "List an authorized page of workspaces"
 description: "GET /api/v1/workspaces"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

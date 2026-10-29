@@ -1,7 +1,6 @@
 ---
 title: "CustomerTariffInput"
 description: "Generated TypeScript declaration for CustomerTariffInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

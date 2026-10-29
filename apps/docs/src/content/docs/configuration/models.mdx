@@ -44,6 +44,16 @@ Deployment operators may set `NIU_VENDOR_BOOTSTRAP_FILE` to a JSON seed file. It
 
 Keep credentials out of TOML, source control, browser storage and public catalog responses.
 
+## Model Pools
+
+A **Model Pool** publishes a stable custom model name (`slug`, such as `smart-coder`) backed by an ordered set of candidate model routes, conditional routing rules, and automatic failover. Applications and workspace keys call the pool name directly in the `model` field of `POST /v1/chat/completions`, `POST /v1/responses`, and `POST /v1/messages`, without hardcoding individual upstream aliases in client code.
+
+Platform administrators configure Model Pools in **Admin → Model Pools** or via `/api/v1/pools`:
+
+1. **Callable identity and catalog visibility.** Each enabled pool has a human-readable `slug` that cannot collide with an existing model route alias. Enable **Publish as callable model** (`publish_as_model`) to list the pool in authorized `GET /v1/models` responses, and optionally enable **Public catalog** (`public_catalog`) to disclose its public alias and capabilities at `/models/` without exposing candidate routes or Provider identities.
+2. **Conditional rules and fallback strategy.** Rules evaluate incoming request traits in priority order—such as estimated `context_length_tokens`, `modality`, `thinking`, `tool_calls`, or `structured_output`—and narrow selection to matching candidate routes before applying the pool's strategy (`priority_failover`, `weighted_random`, `round_robin`, or `lowest_cost`). Use `POST /api/v1/pools/{id}/preview` to dry-run rule matching before rollout.
+3. **Dual billing modes and strategy audit.** Choose **`pool_tariff`** to charge workspaces a single published customer selling price under the pool's own alias, or **`candidate_tariff`** to treat the pool as a pure routing layer and bill each request at the selected candidate model's customer tariff. Pre-dispatch quota reservations hold the conservative upper bound across eligible candidates so failover cannot bypass workspace spending limits. Platform administrators can inspect `GET /api/v1/pools/{id}/audit` to audit candidate hit distribution, failover rates, customer revenue, and platform margin sustainability; confidential Provider costs never appear in customer workspace views or responses.
+
 ## Function tools and structured JSON
 
 Function tools and structured output are disabled by default. They are supported only on OpenAI-compatible routes that have been verified by the operator. OpenRouter routes must declare each capability explicitly:
@@ -193,6 +203,16 @@ api_key_env = "OPENROUTER_API_KEY"
 部署运维人员可以将 `NIU_VENDOR_BOOTSTRAP_FILE` 设置为一个 JSON 种子文件。该文件包含模型供应商元数据、模型路由以及保存初始凭证的环境变量名称，且绝不能包含任何明文密钥值。每个引导供应商身份仅会执行一次种子导入，并会保留后续的编辑、重命名、凭证轮换和禁用状态。
 
 请勿将凭证写入 TOML 文件、源代码版本控制、浏览器存储或公开目录响应中。
+
+## 模型池
+
+**模型池（Model Pool）** 将一组候选模型路由、条件分流规则与自动故障切换策略发布为一个稳定的自定义模型名称（`slug`，例如 `smart-coder`）。应用程序与工作空间密钥只需在 `POST /v1/chat/completions`、`POST /v1/responses` 和 `POST /v1/messages` 的 `model` 字段中直接传入模型池名称即可调用，无需在业务代码中硬编码底层模型别名。
+
+平台管理员可在**管理后台 → 模型池**（**Admin → Model Pools**）或通过 `/api/v1/pools` 配置模型池：
+
+1. **可调用模型身份与目录发布。** 每个启用的模型池拥有唯一的 `slug`，且不能与现有模型路由别名冲突。开启**发布为可调用模型**（`publish_as_model`）后，已授权的工作空间即可在 `GET /v1/models` 中发现该模型池；可选开启**公开模型目录**（`public_catalog`）将其公开别名与声明能力展示在 `/models/` 中，同时隐藏底层候选路由与模型供应商信息。
+2. **条件路由规则与容灾策略。** 网关按优先级匹配请求特征（如预估 `context_length_tokens` 上下文长度、`modality` 模态、`thinking` 深度思考、`tool_calls` 工具调用或 `structured_output` 结构化输出），筛选出符合条件的候选模型后再执行池级调度策略（主备故障切换 `priority_failover`、权重随机 `weighted_random`、轮询 `round_robin` 或最低成本优先 `lowest_cost`）。上线前可通过 `POST /api/v1/pools/{id}/preview` 预览规则命中结果。
+3. **双计费模式与策略审计。** 选择**统一池定价**（`pool_tariff`）可将模型池作为独立自定义模型对外统一标价计费；选择**按命中候选模型计费**（`candidate_tariff`）则将模型池作为纯路由编排技术层，按实际命中的候选模型客户价目表分别计费。分发前的额度预留会按候选集保守上限冻结预算，确保故障切换不会突破工作空间支出限额。平台管理员可通过 `GET /api/v1/pools/{id}/audit` 审计候选命中分布、容灾切换率、客户计费收入与平台毛利合理性；机密的模型供应商采购成本绝不会暴露在客户工作空间界面或客户 API 响应中。
 
 ## 函数工具与结构化 JSON
 

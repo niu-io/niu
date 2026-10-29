@@ -1,7 +1,6 @@
 ---
 title: "Set API key concurrency policy"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

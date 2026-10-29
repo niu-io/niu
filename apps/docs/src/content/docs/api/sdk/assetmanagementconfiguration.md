@@ -1,7 +1,6 @@
 ---
 title: "AssetManagementConfiguration"
 description: "Generated TypeScript declaration for AssetManagementConfiguration"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

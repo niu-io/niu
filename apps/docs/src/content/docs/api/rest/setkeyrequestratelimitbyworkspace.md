@@ -1,7 +1,6 @@
 ---
 title: "Set API key request rate policy"
 description: "PUT /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

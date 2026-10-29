@@ -1,7 +1,6 @@
 ---
 title: "Independently reconcile a saved payment"
 description: "POST /api/v1/organizations/{organization}/billing/topups/{order}/reconcile"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Activate a validated workspace access-policy revision"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/guardrails"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

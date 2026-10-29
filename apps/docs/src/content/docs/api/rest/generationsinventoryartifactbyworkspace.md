@@ -1,7 +1,6 @@
 ---
 title: "Read an output availability record"
 description: "GET /api/v1/workspaces/{workspace}/artifacts/{task}/{kind}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

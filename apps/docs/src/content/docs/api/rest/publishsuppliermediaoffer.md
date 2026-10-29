@@ -1,7 +1,6 @@
 ---
 title: "Save an inactive versioned media offer without text-token prices"
 description: "POST /api/v1/providers/{provider}/media-offers"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

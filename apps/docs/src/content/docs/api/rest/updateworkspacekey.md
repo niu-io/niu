@@ -1,7 +1,6 @@
 ---
 title: "Update workspace API key metadata and policies"
 description: "PATCH /api/v1/workspaces/{workspace}/keys/{key}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

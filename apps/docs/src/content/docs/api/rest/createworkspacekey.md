@@ -1,7 +1,6 @@
 ---
 title: "Create a workspace API key with optional initial limits and policies"
 description: "POST /api/v1/workspaces/{workspace}/keys"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

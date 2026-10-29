@@ -1,7 +1,6 @@
 ---
 title: "WorkspaceKeyCreateInput"
 description: "Generated TypeScript declaration for WorkspaceKeyCreateInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

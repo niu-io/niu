@@ -1,7 +1,6 @@
 ---
 title: "SupplierCredentialCreateInput"
 description: "Generated TypeScript declaration for SupplierCredentialCreateInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

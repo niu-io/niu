@@ -1,7 +1,6 @@
 ---
 title: "Read a mutable personal Video composer"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/video/draft"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

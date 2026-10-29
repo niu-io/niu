@@ -1,7 +1,6 @@
 ---
 title: "Refresh descriptive metadata for existing vendor model mappings"
 description: "POST /api/v1/vendors/{id}/catalog"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Set a workspace spending limit"
 description: "PUT /api/v1/workspaces/{workspace}/spending-limit/{currency}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

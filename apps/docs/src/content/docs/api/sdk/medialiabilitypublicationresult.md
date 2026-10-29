@@ -1,7 +1,6 @@
 ---
 title: "MediaLiabilityPublicationResult"
 description: "Generated TypeScript declaration for MediaLiabilityPublicationResult"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

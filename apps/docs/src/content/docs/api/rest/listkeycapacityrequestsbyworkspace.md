@@ -1,7 +1,6 @@
 ---
 title: "Inspect requests contributing unresolved key capacity"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/capacity"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

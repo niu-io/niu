@@ -1,7 +1,6 @@
 ---
 title: "List the signed-in operator’s complete active Provider memberships"
 description: "GET /api/v1/provider-memberships"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

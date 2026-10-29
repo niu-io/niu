@@ -1,7 +1,6 @@
 ---
 title: "Issue an immutable itemized usage statement"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/invoices"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

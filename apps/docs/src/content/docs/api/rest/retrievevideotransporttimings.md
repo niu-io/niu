@@ -1,7 +1,6 @@
 ---
 title: "Read measured gateway video transport spans"
 description: "GET /v1/video/jobs/{id}/timings"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

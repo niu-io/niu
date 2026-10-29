@@ -1,7 +1,6 @@
 ---
 title: "CustomerBalanceTransaction"
 description: "Generated TypeScript declaration for CustomerBalanceTransaction"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read a private saved generations timeline"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/generations/{session}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

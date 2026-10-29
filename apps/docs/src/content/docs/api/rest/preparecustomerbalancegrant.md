@@ -1,7 +1,6 @@
 ---
 title: "Prepare a durable noncash gift intent"
 description: "POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepare"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

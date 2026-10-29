@@ -1,7 +1,6 @@
 ---
 title: "Erase retained asset lookup content"
 description: "DELETE /api/v1/vendors/{id}/asset-management/lookups/{lookup}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

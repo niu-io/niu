@@ -1,7 +1,6 @@
 ---
 title: "Save an encrypted asset-management credential revision"
 description: "PUT /api/v1/vendors/{id}/asset-management"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

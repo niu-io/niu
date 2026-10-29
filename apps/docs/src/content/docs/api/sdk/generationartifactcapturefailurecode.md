@@ -1,7 +1,6 @@
 ---
 title: "GenerationArtifactCaptureFailureCode"
 description: "Generated TypeScript declaration for GenerationArtifactCaptureFailureCode"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

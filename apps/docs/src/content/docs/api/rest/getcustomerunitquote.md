@@ -1,7 +1,6 @@
 ---
 title: "Read a saved Credits purchase quote"
 description: "GET /api/v1/organizations/{organization}/billing/quotes/{quote}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

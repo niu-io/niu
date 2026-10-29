@@ -1,7 +1,6 @@
 ---
 title: "List named draft media offer bindings"
 description: "GET /api/v1/providers/{provider}/media-offer-models"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

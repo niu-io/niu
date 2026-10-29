@@ -1,7 +1,6 @@
 ---
 title: "Erase retained group-read content"
 description: "DELETE /api/v1/vendors/{id}/asset-management/group-reads/{read}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

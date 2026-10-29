@@ -1,7 +1,6 @@
 ---
 title: "SupplierQualificationInput"
 description: "Generated TypeScript declaration for SupplierQualificationInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

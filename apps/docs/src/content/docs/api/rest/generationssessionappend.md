@@ -1,7 +1,6 @@
 ---
 title: "Append one retained video instruction"
 description: "PUT /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

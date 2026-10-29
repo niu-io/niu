@@ -1,7 +1,6 @@
 ---
 title: "Publish one finite global or customer price"
 description: "POST /api/v1/pricing/standard-prices/{price}/promotions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

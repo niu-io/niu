@@ -1,7 +1,6 @@
 ---
 title: "Page current Provider offers and rate revisions"
 description: "GET /api/v1/providers/{provider}/offers"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read a recorded gateway request"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

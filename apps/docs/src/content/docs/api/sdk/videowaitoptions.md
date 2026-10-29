@@ -1,7 +1,6 @@
 ---
 title: "VideoWaitOptions"
 description: "Generated TypeScript declaration for VideoWaitOptions"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

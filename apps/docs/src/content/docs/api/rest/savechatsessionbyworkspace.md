@@ -1,7 +1,6 @@
 ---
 title: "Save an owned Chat session in a workspace"
 description: "PUT /api/v1/workspaces/{workspace}/chats/{id}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

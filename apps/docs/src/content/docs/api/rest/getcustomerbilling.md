@@ -1,7 +1,6 @@
 ---
 title: "Read workspace customer charges, tariffs and latest 100 invoices"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/billing"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

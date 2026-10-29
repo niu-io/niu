@@ -1,7 +1,6 @@
 ---
 title: "List workspace API keys with aggregated limits and policies"
 description: "GET /api/v1/workspaces/{workspace}/keys"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

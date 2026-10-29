@@ -1,7 +1,6 @@
 ---
 title: "Discover upstream models for a Provider API-key configuration"
 description: "GET /api/v1/vendors/{id}/catalog"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

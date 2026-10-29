@@ -1,7 +1,6 @@
 ---
 title: "OrdinaryAssetLookupResult"
 description: "Generated TypeScript declaration for OrdinaryAssetLookupResult"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

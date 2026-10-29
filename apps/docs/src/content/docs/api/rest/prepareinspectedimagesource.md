@@ -1,7 +1,6 @@
 ---
 title: "Inspect and temporarily retain one exact inline image"
 description: "POST /v1/media/image-sources"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

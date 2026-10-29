@@ -1,7 +1,6 @@
 ---
 title: "Erase saved intent content without cancelling its job"
 description: "DELETE /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

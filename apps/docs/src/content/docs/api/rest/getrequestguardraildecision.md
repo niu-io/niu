@@ -1,7 +1,6 @@
 ---
 title: "Read immutable policy attribution for an allowed dispatch"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

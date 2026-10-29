@@ -1,7 +1,6 @@
 ---
 title: "Read platform upstream cost entries (installation only)"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/costs"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

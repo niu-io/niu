@@ -1,7 +1,6 @@
 ---
 title: "List scoped ordinary group-read outcomes and timing"
 description: "GET /api/v1/vendors/{id}/asset-management/group-reads"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

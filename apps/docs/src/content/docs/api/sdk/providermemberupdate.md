@@ -1,7 +1,6 @@
 ---
 title: "ProviderMemberUpdate"
 description: "Generated TypeScript declaration for ProviderMemberUpdate"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read immutable customer text price history"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

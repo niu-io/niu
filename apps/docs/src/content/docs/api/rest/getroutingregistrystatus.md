@@ -1,7 +1,6 @@
 ---
 title: "Read the active routing generation"
 description: "GET /api/v1/routing-registry"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

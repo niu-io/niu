@@ -1,7 +1,6 @@
 ---
 title: "Read vendor integration identity"
 description: "GET /api/v1/vendors/{id}/integration"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

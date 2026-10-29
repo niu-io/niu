@@ -1,7 +1,6 @@
 ---
 title: "MemberPasswordInput"
 description: "Generated TypeScript declaration for MemberPasswordInput"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

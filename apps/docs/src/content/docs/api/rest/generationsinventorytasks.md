@@ -1,7 +1,6 @@
 ---
 title: "List saved Video tasks across workspace keys"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Read a member's sign-in configuration"
 description: "GET /api/v1/operators/{operator}/password"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

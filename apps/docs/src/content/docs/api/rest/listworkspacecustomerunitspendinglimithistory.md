@@ -1,7 +1,6 @@
 ---
 title: "List workspace Credits spending limit history"
 description: "GET /api/v1/organizations/{organization}/projects/{project}/units/limit/history"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

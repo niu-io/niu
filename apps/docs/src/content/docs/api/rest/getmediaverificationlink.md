@@ -1,7 +1,6 @@
 ---
 title: "Get authenticated upstream verification link"
 description: "GET /v1/media/verifications/{id}/link"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.

@@ -1,7 +1,6 @@
 ---
 title: "Enroll a workspace model in a platform selling price"
 description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment"
-tableOfContents: false
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
