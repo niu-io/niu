@@ -446,14 +446,11 @@ impl Store {
         let default_action = input.default_action.as_str();
         let billing_mode = input.billing_mode.as_str();
         let slug_seed = explicit_slug.or_else(|| {
-            prior
-                .as_ref()
-                .and_then(|p| p.3.clone())
-                .or_else(|| {
-                    Some(crate::workspace_creation::workspace_slug_from_name(
-                        display_name.as_deref().unwrap_or(&input.alias),
-                    ))
-                })
+            prior.as_ref().and_then(|p| p.3.clone()).or_else(|| {
+                Some(crate::workspace_creation::workspace_slug_from_name(
+                    display_name.as_deref().unwrap_or(&input.alias),
+                ))
+            })
         });
         let saved_slug: Option<String> = if prior.is_none() {
             sqlx::query_scalar(
@@ -582,12 +579,16 @@ impl Store {
             let model_alias: String = row.get("model_alias");
             let currency: String = row.get("currency");
             let schedule: serde_json::Value = row.get("schedule");
-            let prompt_rate = schedule
-                .get("prompt_rate")
-                .and_then(|v| v.as_str().and_then(|s| s.parse::<i64>().ok()).or_else(|| v.as_i64()));
-            let completion_rate = schedule
-                .get("completion_rate")
-                .and_then(|v| v.as_str().and_then(|s| s.parse::<i64>().ok()).or_else(|| v.as_i64()));
+            let prompt_rate = schedule.get("prompt_rate").and_then(|v| {
+                v.as_str()
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .or_else(|| v.as_i64())
+            });
+            let completion_rate = schedule.get("completion_rate").and_then(|v| {
+                v.as_str()
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .or_else(|| v.as_i64())
+            });
             retail_by_alias.insert(model_alias, (currency, prompt_rate, completion_rate));
         }
 
@@ -741,14 +742,12 @@ impl Store {
                 upstream_currency,
                 upstream_prompt_rate,
                 upstream_completion_rate,
-            ) = route_info_by_alias.get(&c.alias).cloned().unwrap_or((
-                false, false, false, false, None, None, None,
-            ));
-            let ready = c.enabled
-                && model_enabled
-                && vendor_enabled
-                && !cooling_down
-                && supplier_available;
+            ) = route_info_by_alias
+                .get(&c.alias)
+                .cloned()
+                .unwrap_or((false, false, false, false, None, None, None));
+            let ready =
+                c.enabled && model_enabled && vendor_enabled && !cooling_down && supplier_available;
 
             if winning_tier && !ready {
                 findings.push(json!({
@@ -831,14 +830,15 @@ impl Store {
                 0.0
             };
 
-            let (retail_currency, retail_prompt_rate, retail_completion_rate) = match &candidate_retail {
-                Some((curr, p, comp)) => (
-                    Some(curr.clone()),
-                    p.map(|v| v.to_string()),
-                    comp.map(|v| v.to_string()),
-                ),
-                None => (None, None, None),
-            };
+            let (retail_currency, retail_prompt_rate, retail_completion_rate) =
+                match &candidate_retail {
+                    Some((curr, p, comp)) => (
+                        Some(curr.clone()),
+                        p.map(|v| v.to_string()),
+                        comp.map(|v| v.to_string()),
+                    ),
+                    None => (None, None, None),
+                };
 
             candidate_audits.push(json!({
                 "alias": c.alias,

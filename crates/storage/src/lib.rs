@@ -74,8 +74,7 @@ pub use route_publication::{RouteRegistryCompiler, RouteRegistryPublication};
 mod route_pools;
 pub use route_pools::{
     ModelRoutePool, RoutePoolBillingMode, RoutePoolCandidate, RoutePoolDefaultAction,
-    RoutePoolRule, RoutePoolRuleConditions, is_valid_pool_slug,
-    validate_pool_candidates_and_rules,
+    RoutePoolRule, RoutePoolRuleConditions, is_valid_pool_slug, validate_pool_candidates_and_rules,
 };
 mod managed_routes;
 pub use branding::BrandingSettings;
