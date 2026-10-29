@@ -20,6 +20,8 @@
 @source '../../../dashboard/src/components/ui/input.tsx';
 @source '../../../dashboard/src/components/ui/badge.tsx';
 @source '../components/PublicModelCatalog.tsx';
+@source '../../../dashboard/src/components/ui/tabs.tsx';
+@source '../../../dashboard/src/components/ui/skeleton.tsx';
 @theme inline {
  --color-input:var(--input); --color-primary:var(--primary); --color-primary-foreground:var(--primary-foreground);
  --color-secondary:var(--secondary); --color-secondary-foreground:var(--secondary-foreground); --color-muted:var(--muted);

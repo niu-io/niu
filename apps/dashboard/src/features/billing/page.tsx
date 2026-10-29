@@ -250,7 +250,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
               ))}
             </div>
           )}
-          {data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) === 0 ? <p>No charges yet.</p> : null}
+          {data.balances.length ? data.balances.map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) === 0 ? <p className="billing-spending-empty">No charges yet.</p> : null}
           {(data.unresolved !== '0' || data.unpriced !== '0') && <p className="text-muted-foreground">{[data.unresolved !== '0' && `${data.unresolved} ${data.unresolved === '1' ? 'request' : 'requests'} awaiting settlement`, data.unpriced !== '0' && `${data.unpriced} ${data.unpriced === '1' ? 'request' : 'requests'} without a customer rate`].filter(Boolean).join(' · ')}.</p>}
         </section>
         <WorkspaceSpendingLimits token={token} organization={organization} project={project} canConfigure={canConfigure} refresh={revision} />

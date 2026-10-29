@@ -795,6 +795,7 @@ starlight-toc a[aria-current='true'] {
   align-items: stretch;
 }
 .docs-home-intro {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -803,6 +804,10 @@ starlight-toc a[aria-current='true'] {
   margin-bottom: 0.875rem;
 }
 .docs-home-pillar-badge[data-slot='badge'] {
+  /* Allow the pillar line to wrap on narrow screens instead of widening the hero. */
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
   padding: 0.3rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;

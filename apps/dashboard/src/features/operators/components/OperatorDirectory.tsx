@@ -4,6 +4,7 @@ import { workspaceDisplayName } from '@/app/workspace-route';
 import { IconSearch, IconUsers } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { IconDots as MoreHorizontal } from '@tabler/icons-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -59,7 +60,7 @@ export default function OperatorDirectory({ operators, organizations, projects, 
                 <p className="text-xs text-muted-foreground sm:hidden">{operator.revoked ? 'Revoked' : 'Active'}</p>
               </TableCell>
               <TableCell>{roleLabel(operator.role)}</TableCell>
-              <TableCell className="hidden sm:table-cell text-muted-foreground">{operator.revoked ? 'Revoked' : 'Active'}</TableCell>
+              <TableCell className="hidden sm:table-cell"><Badge variant={operator.revoked ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={operator.revoked ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{operator.revoked ? 'Revoked' : 'Active'}</Badge></TableCell>
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button ref={element => { if (element) actionTriggers.current.set(operator.id, element); else actionTriggers.current.delete(operator.id); }} type="button" variant="ghost" size="icon" aria-label={`Actions for ${operator.name}`} disabled={disabled}><MoreHorizontal size={16} /></Button></DropdownMenuTrigger>

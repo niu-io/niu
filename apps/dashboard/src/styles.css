@@ -6,7 +6,6 @@
 :root { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--foreground); background: var(--background); font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
 body { min-width: 320px; margin: 0; background: var(--background); }
-button, input { font: inherit; }
 button { cursor: pointer; }
 .app-shell { display: flex; min-height: 100vh; }
 .sidebar { position: fixed; inset: 0 auto 0 0; display: flex; width: 248px; flex-direction: column; padding: 22px 15px 14px; border-right: 1px solid var(--border); background: var(--card); }
@@ -95,6 +94,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
 @layer base {
   * { @apply border-border outline-ring/50; }
+  /* Keep inherited control fonts in the base layer so shadcn size utilities apply. */
+  button, input { font: inherit; }
 }
 
 /* Shared dashboard rhythm: clear page titles, quiet utility chrome, and one modal language. */
@@ -3273,3 +3274,28 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 /* Developer payment mode must not imply that inference is free. */
 .mock-payment-warning { border-color: color-mix(in srgb, var(--warning) 60%, var(--border)); background: color-mix(in srgb, var(--warning) 14%, var(--background)); color: var(--foreground); }
 .mock-payment-warning [data-slot="alert-description"] { color: var(--foreground); }
+
+/* Lifecycle badges: a status dot distinguishes active keys and users from revoked or expired ones. */
+.lifecycle-badge { gap: 6px; }
+.lifecycle-badge .status-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--muted-foreground); }
+.lifecycle-badge[data-tone="active"] { border-color: color-mix(in srgb, var(--success) 28%, var(--border)); color: var(--success); background: color-mix(in srgb, var(--success) 7%, transparent); }
+.lifecycle-badge[data-tone="active"] .status-dot { background: var(--success); }
+
+/* Workspace billing: group spending and limits as quiet solid-tone sections. */
+.billing-content .billing-balance-content { gap: 16px; }
+.billing-content .billing-balance-content > section { margin-top: 0; padding: 20px 22px; border-radius: var(--radius-panel); background: var(--card); }
+.billing-content .billing-balance-content > section h2 { margin: 0 0 4px; font-size: 15px; font-weight: 620; letter-spacing: -.01em; }
+.billing-content .billing-balance-content > section p { font-size: 14px; }
+.billing-content .billing-spending { margin-top: 14px; font-size: 28px; letter-spacing: -.03em; }
+.billing-content .billing-spending-empty { margin-top: 14px; color: var(--foreground); font-weight: 560; }
+
+/* Overview: the recent-requests heading shares the chart section's edge and type scale. */
+.gateway-task-feed.is-compact .gateway-task-feed-heading { padding-inline: 0; }
+.gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 14px; font-weight: 600; letter-spacing: normal; }
+.gateway-task-feed.is-compact .gateway-feed-actions a { font-size: 14px; }
+.keys-scope-line > span[role="status"] { color: var(--muted-foreground); font-size: 14px; }
+
+/* Global activity totals reuse the workspace metric strip with three measures. */
+.global-activity-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 8px; }
+@media (max-width: 640px) { .global-activity-summary { grid-template-columns: minmax(0, 1fr); } }
+.guardrails-intro { font-size: 14px; }

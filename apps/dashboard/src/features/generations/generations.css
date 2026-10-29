@@ -46,3 +46,8 @@
 
 .generations-history .generations-new-generation[data-variant="outline"]:not(:focus-visible) { border-color:var(--border); background:var(--background); }
 .generations-history .generations-new-generation[data-variant="outline"]:hover { background:var(--accent); }
+
+/* Anchor the session list to the layout so app-level banners above it stay visible. */
+.generations-layout { position:relative; }
+.app-shell .generations-layout [data-slot="sidebar-container"].niu-workspace-sidebar { position:absolute; top:0; bottom:0; left:0; height:auto; }
+.app-shell .generations-layout [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-container"].niu-workspace-sidebar { left:0; }
