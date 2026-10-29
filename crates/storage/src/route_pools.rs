@@ -388,7 +388,8 @@ impl Store {
             .bind(&input.alias)
             .execute(&mut *tx)
             .await?;
-        let prior: Option<(i64, Option<Uuid>, Option<Uuid>, Option<String>)> = sqlx::query_as(
+        type PriorRoutePoolRow = (i64, Option<Uuid>, Option<Uuid>, Option<String>);
+        let prior: Option<PriorRoutePoolRow> = sqlx::query_as(
             "SELECT revision,organization_id,project_id,slug FROM model_route_pools WHERE alias=$1 FOR UPDATE",
         )
         .bind(&input.alias)
