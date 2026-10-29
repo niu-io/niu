@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.27] - 2026-10-29
+
+### Added
+- **docs**: upgrade documentation portal UX, visual system, and Model Pools guide
+- **pools**: unify custom model identity, routing rules, billing modes, and strategy audit (#117)
+
+### Changed
+- **storage**: factor PriorRoutePoolRow type alias for clippy
+- **storage**: apply rustfmt to route pool modules
+
+### Fixed
+- **ui**: visual polish across catalog, dashboard and docs (niu-0u8)
+- **dashboard**: use RouterPending during sign-in redirect instead of unstyled text
+
+### Documentation & Governance
+- **release**: record v0.2.26 release-gate qualification and issue closure
+
 ## [0.2.26] - 2026-10-26
 
 ### Added
@@ -488,7 +505,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.26...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.27...HEAD
+[0.2.27]: https://github.com/niu-io/niu/compare/v0.2.26...v0.2.27
 [0.2.26]: https://github.com/niu-io/niu/compare/v0.2.25...v0.2.26
 [0.2.25]: https://github.com/niu-io/niu/compare/v0.2.24...v0.2.25
 [0.2.23]: https://github.com/niu-io/niu/compare/v0.2.22...v0.2.23
