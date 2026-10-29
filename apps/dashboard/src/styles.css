@@ -1416,10 +1416,10 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .dashboard-login { display: flex; flex-direction: column; min-height: 100dvh; color: var(--foreground); background-color: var(--background); background-image: radial-gradient(680px 420px at 50% 42%, color-mix(in oklab, #ed8645 6%, transparent), transparent 72%); }
 .dark .dashboard-login, :root[data-theme='dark'] .dashboard-login { background-image: radial-gradient(720px 460px at 50% 42%, color-mix(in oklab, #ed8645 8%, transparent), transparent 74%); }
 .dashboard-login-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; max-width: 1200px; margin-inline: auto; padding: 20px clamp(20px, 4vw, 40px); }
-.dashboard-login-brand { display: inline-flex; align-items: center; gap: 9px; margin: 0; color: var(--foreground); font-size: 16px; font-weight: 640; letter-spacing: -.025em; text-decoration: none; transition: opacity 140ms ease; }
+.dashboard-login-brand { display: inline-flex; align-items: center; gap: 9px; flex-shrink: 0; white-space: nowrap; margin: 0; color: var(--foreground); font-size: 16px; font-weight: 640; letter-spacing: -.025em; text-decoration: none; transition: opacity 140ms ease; }
 .dashboard-login-brand:hover { opacity: .86; }
 .dashboard-login-brand img { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
-.dashboard-login-brand > span:first-of-type { min-width: 0; overflow-wrap: anywhere; }
+.dashboard-login-brand > span:first-of-type { min-width: 0; white-space: nowrap; }
 .dashboard-login-product { flex-shrink: 0; color: var(--muted-foreground); font-size: 13px; font-weight: 500; letter-spacing: 0; }
 .dashboard-login-nav { display: flex; align-items: center; gap: 4px; }
 .dashboard-login-nav [data-slot="button"] { height: 32px; padding-inline: 11px; border-radius: 7px; color: var(--muted-foreground); font-size: 13px; font-weight: 500; }
@@ -1428,7 +1428,7 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .dashboard-login-card { width: min(100%, 360px); padding: 0; border: 0; background: transparent; }
 .dashboard-login-header { margin-bottom: 24px; }
 .dashboard-login h1 { margin: 0; font-size: 26px; font-weight: 630; letter-spacing: -.035em; line-height: 1.18; }
-.dashboard-login-intro { max-width: 34ch; margin: 8px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; text-wrap: balance; }
+.dashboard-login-intro { margin: 8px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; text-wrap: pretty; }
 .dashboard-login-form { display: grid; gap: 16px; }
 .dashboard-login-field { display: grid; gap: 7px; }
 .dashboard-login-field [data-slot="label"] { color: color-mix(in srgb, var(--foreground) 90%, var(--muted-foreground)); font-size: 13px; font-weight: 540; }
@@ -1506,7 +1506,9 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
   .sidebar-toggle, .sidebar-toggle-placeholder { flex-basis: 34px; width: 34px; height: 34px; }
   .breadcrumbs { gap: 6px; }.breadcrumbs > span { display: none; }
   .dashboard-route-title { max-width: calc(100vw - 116px); }
-  .dashboard-login-topbar { padding: 16px; }
+  .dashboard-login-topbar { gap: 8px; padding: 14px 16px; }
+  .dashboard-login-nav { gap: 2px; }
+  .dashboard-login-nav [data-slot="button"] { padding-inline: 8px; }
   .dashboard-login-stage { padding: 16px 16px 48px; }
   .dashboard-login-card { padding: 0; }
   .page-content { padding: 20px 16px 40px; }

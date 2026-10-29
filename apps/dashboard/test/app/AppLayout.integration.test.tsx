@@ -130,7 +130,7 @@ describe('dashboard route layout', () => {
     expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
     expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Payment gateways'})).toBeTruthy();
   });
-  it('uses the shared loading page while checking the browser session', async () => {
+  it('uses the shared loading page while checking the browser session and redirecting to sign in', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;
     let finishSession!: (response: Response) => void;
     vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/api/v1/session'
@@ -141,6 +141,8 @@ describe('dashboard route layout', () => {
     expect(loading.classList.contains('route-loading')).toBe(true);
     expect(loading.querySelector('.route-loading-mark')).toBeTruthy();
     expect(screen.queryByText('Checking session…')).toBeNull();
+    expect(screen.queryByText('Redirecting to sign in…')).toBeNull();
+    expect(screen.queryByText('正在跳转到登录页…')).toBeNull();
     await act(async () => finishSession(Response.json({data:{kind:'installation',operator:null,permissions:{read:true,write:true,manage_operators:true}}})));
     expect(await screen.findByLabelText('Breadcrumb')).toBeTruthy();
     expect(screen.queryByRole('status', {name: 'Opening Niu Dashboard'})).toBeNull();

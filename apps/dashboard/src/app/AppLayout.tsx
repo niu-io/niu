@@ -846,8 +846,7 @@ export default function AppLayout() {
   }, [loginArea, helpArea, token, sessionChecked, navigate, location.pathname, location.search, location.hash]);
   const signOutFailure = signOutFailed && <Dialog open onOpenChange={setSignOutFailed}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>{t('Could not sign out', '无法退出登录')}</DialogTitle><DialogDescription>{t('Your session has not been confirmed revoked. Try again when the connection is available.', '尚未确认注销您的会话，请在网络连接恢复后重试。')}</DialogDescription></DialogHeader><DialogFooter><Button onClick={() => { void signOut(); }}>{t('Try again', '重试')}</Button></DialogFooter></DialogContent></Dialog>;
   const gatewayOutage = !helpArea && gatewayStatus === 'offline' && <Dialog open><DialogContent showCloseButton={false} onEscapeKeyDown={event => event.preventDefault()} onInteractOutside={event => event.preventDefault()} className="sm:max-w-md"><DialogHeader><WifiOff className="mb-2 size-6 text-muted-foreground" aria-hidden="true" /><DialogTitle>{t('Gateway unavailable', '网关不可用')}</DialogTitle><DialogDescription>{t('We couldn’t reach the gateway. We’ll reconnect automatically when the service returns.', '无法连接到网关。服务恢复后将自动重新连接。')}</DialogDescription></DialogHeader><DialogFooter><Button disabled={gateway.checking} onClick={() => { void gateway.check(); }}>{gateway.checking ? t('Checking…', '正在检查…') : t('Try again', '重试')}</Button></DialogFooter></DialogContent></Dialog>;
-  if (!loginArea && !helpArea && !token && !sessionChecked) return <>{gatewayOutage}{signOutFailure}<RouterPending /></>;
-  if (!loginArea && !helpArea && !token) return <p role="status">{t('Redirecting to sign in…', '正在跳转到登录页…')}</p>;
+  if (!loginArea && !helpArea && !token) return <>{gatewayOutage}{signOutFailure}<RouterPending /></>;
   if (loginArea) return <div className="dashboard-login-shell"><Outlet context={context} /></div>;
   return <SidebarProvider
     open={sidebarOpen}
