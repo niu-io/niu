@@ -17,13 +17,14 @@ Usage:
 Commands:
   install     Initialize configuration, secrets, and start Niu
   upgrade     Back up PostgreSQL, verify encryption, and upgrade Niu to a target version (with auto-rollback)
-  rollback    Restore the previous Niu image version from .env
+  rollback    Restore the previous Niu image version from .env (restores the pre-upgrade dump if the image cannot start)
   status      Show installed version, container state, and gateway readiness
 
 Options:
   --version <vX.Y.Z>   Target Niu release tag (default: ${DEFAULT_VERSION})
   --dir <path>         Installation directory (default: /opt/niu, or current directory if compose.yaml exists)
   --port <port>        Host port to bind (default: 2555)
+  --keep-data          rollback only: do not restore NIU_PREVIOUS_BACKUP
   --help               Show this help message
 EOF
 }
@@ -203,6 +204,54 @@ cmd_install() {
   echo "  Documentation:  http://127.0.0.1:${port}/docs/"
 }
 
+wait_for_postgres() {
+  local dir="$1"
+  local env_file="$2"
+  local elapsed=0
+  while (( elapsed < 30 )); do
+    if (cd "$dir" && docker compose --env-file "$env_file" exec -T postgres pg_isready -U niu -d niu >/dev/null 2>&1); then
+      return 0
+    fi
+    sleep 1
+    elapsed=$(( elapsed + 1 ))
+  done
+  return 1
+}
+
+# Restore the dump taken immediately before an upgrade. This is intentionally
+# destructive: it is the only consistent database state a pre-upgrade binary
+# can open after the schema baseline has changed. The service stays stopped
+# until the restored database is ready.
+restore_database() {
+  local dir="$1"
+  local env_file="$2"
+  local backup="$3"
+  if [[ ! -s "$backup" ]]; then
+    echo "error: pre-upgrade database backup is missing or empty: ${backup}" >&2
+    return 1
+  fi
+  echo "Restoring PostgreSQL from ${backup}." >&2
+  echo "WARNING: records written after this backup will be lost." >&2
+  (cd "$dir" && docker compose --env-file "$env_file" stop niu >/dev/null 2>&1 || true)
+  (cd "$dir" && docker compose --env-file "$env_file" up -d postgres)
+  if ! wait_for_postgres "$dir" "$env_file"; then
+    echo "error: PostgreSQL did not become ready for restore." >&2
+    return 1
+  fi
+  if ! (cd "$dir" && docker compose --env-file "$env_file" exec -T postgres \
+      psql -v ON_ERROR_STOP=1 -U niu -d niu \
+      -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' >/dev/null); then
+    echo "error: could not reset the public schema before restore." >&2
+    return 1
+  fi
+  if ! (cd "$dir" && gzip -dc "$backup" | docker compose --env-file "$env_file" exec -T postgres \
+      psql -v ON_ERROR_STOP=1 -U niu -d niu >/dev/null); then
+    echo "error: PostgreSQL restore failed." >&2
+    return 1
+  fi
+  echo "PostgreSQL restore completed." >&2
+}
+
 cmd_upgrade() {
   local dir="$1"
   local target_tag="$2"
@@ -235,6 +284,11 @@ cmd_upgrade() {
     cd "$dir"
     docker compose --env-file "$env_file" exec -T postgres pg_dump -U niu -d niu | gzip >"$backup_file"
   )
+  if [[ ! -s "$backup_file" ]]; then
+    echo "error: PostgreSQL backup is empty; refusing to upgrade." >&2
+    exit 1
+  fi
+  set_env_var "$env_file" NIU_PREVIOUS_BACKUP "$backup_file"
 
   echo "2/4 Preparing target image ${target_image} ..."
   prepare_image "$dir" "$target_tag" "$target_image"
@@ -270,8 +324,13 @@ cmd_upgrade() {
       cd "$dir"
       docker compose --env-file "$env_file" up -d niu
     )
-    if ! wait_for_ready "$port" 60; then
-      echo "error: rollback container (${current_image}) also failed readiness checks." >&2
+    if wait_for_ready "$port" 60; then
+      echo "Image rollback completed; the database was left unchanged." >&2
+    elif restore_database "$dir" "$env_file" "$backup_file"; then
+      (cd "$dir" && docker compose --env-file "$env_file" up -d niu)
+      if ! wait_for_ready "$port" 60; then
+        echo "error: rollback container (${current_image}) failed readiness after database restore." >&2
+      fi
     fi
   fi
   exit 1
@@ -279,6 +338,7 @@ cmd_upgrade() {
 
 cmd_rollback() {
   local dir="$1"
+  local keep_data="${2:-0}"
   local env_file="${dir}/.env"
   if [[ ! -f "$env_file" ]]; then
     echo "error: no .env found in ${dir}" >&2
@@ -301,8 +361,30 @@ cmd_rollback() {
     cd "$dir"
     docker compose --env-file "$env_file" up -d niu
   )
-  wait_for_ready "$port" 60
-  echo "Rollback to ${prev_image} completed."
+  if wait_for_ready "$port" 60; then
+    echo "Rollback to ${prev_image} completed; the database was left unchanged."
+    return 0
+  fi
+  if [[ "$keep_data" == "1" ]]; then
+    echo "error: previous image cannot start against the current schema; rerun without --keep-data to restore the pre-upgrade backup." >&2
+    exit 1
+  fi
+  local backup
+  backup="$(get_env_var "$env_file" NIU_PREVIOUS_BACKUP)"
+  if [[ -z "$backup" ]]; then
+    echo "error: previous image cannot start and NIU_PREVIOUS_BACKUP is not recorded; restore a pre-upgrade dump manually." >&2
+    exit 1
+  fi
+  if ! restore_database "$dir" "$env_file" "$backup"; then
+    echo "error: database restore failed; the installation remains stopped." >&2
+    exit 1
+  fi
+  (cd "$dir" && docker compose --env-file "$env_file" up -d niu)
+  if ! wait_for_ready "$port" 60; then
+    echo "error: previous image (${prev_image}) failed readiness after database restore." >&2
+    exit 1
+  fi
+  echo "Rollback to ${prev_image} completed with the pre-upgrade database restored."
 }
 
 cmd_status() {
@@ -341,6 +423,7 @@ main() {
   local version="$DEFAULT_VERSION"
   local requested_dir=""
   local port="$DEFAULT_PORT"
+  local keep_data=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -355,6 +438,10 @@ main() {
       --port)
         port="$2"
         shift 2
+        ;;
+      --keep-data)
+        keep_data=1
+        shift
         ;;
       -h|--help)
         usage
@@ -380,7 +467,7 @@ main() {
       cmd_upgrade "$dir" "$version"
       ;;
     rollback)
-      cmd_rollback "$dir"
+      cmd_rollback "$dir" "$keep_data"
       ;;
     status)
       cmd_status "$dir"
