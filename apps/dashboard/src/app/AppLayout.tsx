@@ -36,7 +36,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, Si
 import { canManagePlatform, type AdminSession, type DashboardContext, type GatewayStatus, type Model, type Organization, type SessionChatKey, type Workspace, type WorkspaceProblem } from './dashboard-context';
 import { navigation } from './navigation';
 import AccountMenu from './AccountMenu';
-import { SettingsDialog, settingsHref, SettingsNavigation } from '@/features/account/settings-page';
+import { SettingsDialog, settingsHref, SettingsNavigation } from '@/features/account/settings-shell';
 import { useAccountAppearance } from './useAccountAppearance';
 import WorkspaceSwitcher, { WorkspaceCreateDialog } from './WorkspaceSwitcher';
 import WorkspaceRecovery from './WorkspaceRecovery';

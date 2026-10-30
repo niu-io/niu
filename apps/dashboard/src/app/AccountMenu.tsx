@@ -13,7 +13,7 @@ import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconPlugConnected as SupplierConnection } from "@tabler/icons-react";
 import { IconBook as CircleHelp } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { settingsHref } from '@/features/account/settings-page';
+import { settingsHref } from '@/features/account/settings-shell';
 import { workspaceModelsHref } from './workspace-route';
 import { IconChartLine, IconLanguage, IconSettings, IconShieldLock } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
