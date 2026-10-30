@@ -251,7 +251,16 @@ starlight-toc a[aria-current='true'] {
 
 /* Markdown article prose, links, headings, step timelines, tables & callouts */
 .sl-markdown-content {
-  font-size: 0.95rem;
+  --sl-content-gap-y: 1.125rem;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+:root[data-locale='zh-CN'] .sl-markdown-content {
+  line-height: 1.85;
+}
+.sl-markdown-content strong:not(:where(.not-content *)) {
+  color: var(--foreground);
+  font-weight: 650;
 }
 .sl-markdown-content :is(h1, h2, h3, h4) {
   letter-spacing: -0.025em;
@@ -259,12 +268,33 @@ starlight-toc a[aria-current='true'] {
   color: var(--foreground);
 }
 .sl-markdown-content h2:not(:where(.not-content *)) {
-  margin-top: 2.25rem;
+  margin-top: 2.75rem;
   font-weight: 650;
 }
 .sl-markdown-content h3:not(:where(.not-content *)) {
   margin-top: 1.75rem;
   font-weight: 620;
+}
+.sl-markdown-content .sl-heading-wrapper:has(h2) {
+  margin-top: 2.75rem;
+}
+.sl-markdown-content .sl-heading-wrapper:has(h3) {
+  margin-top: 2rem;
+}
+.sl-markdown-content .sl-heading-wrapper > :is(h2, h3) {
+  margin-top: 0;
+}
+.sl-markdown-content :is(h2, h3, .sl-heading-wrapper) + :is(p, ul, ol) {
+  margin-top: 0.875rem;
+}
+.sl-markdown-content ul:not(:where(.not-content *)):not(.docs-api-endpoint-list) {
+  padding-inline-start: 1.5rem;
+}
+.sl-markdown-content ul:not(:where(.not-content *)):not(.docs-api-endpoint-list) > li + li {
+  margin-top: 0.5rem;
+}
+.sl-markdown-content li::marker {
+  color: var(--muted-foreground);
 }
 .sl-markdown-content a:not(:where(.not-content *)):not(.docs-api-endpoint-link) {
   color: var(--foreground);
@@ -279,12 +309,12 @@ starlight-toc a[aria-current='true'] {
   text-decoration-color: var(--brand-accent);
 }
 
-.sl-markdown-content :not(pre) > code:not(.docs-http-path) {
+.sl-markdown-content :not(pre) > code:not(.docs-http-path):not(:where(.expressive-code *)) {
   background: var(--card);
   border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   border-radius: 0.375rem;
-  padding: 0.12em 0.38em;
-  font-size: 0.84em;
+  padding: 0.08em 0.3em;
+  font-size: 0.875em;
   font-weight: 500;
   color: var(--foreground);
   overflow-wrap: anywhere;
@@ -299,6 +329,19 @@ starlight-toc a[aria-current='true'] {
 }
 .sl-markdown-content .expressive-code .frame {
   box-shadow: none;
+}
+.sl-markdown-content .expressive-code {
+  margin-block: 1.5rem;
+}
+.sl-markdown-content .expressive-code .frame.has-title pre {
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+}
+.sl-markdown-content .expressive-code .frame .header {
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+}
+.sl-markdown-content .expressive-code .copy button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* Visual numbered step timeline for ordered guide procedures */
@@ -345,6 +388,12 @@ starlight-toc a[aria-current='true'] {
 }
 
 /* Clean rounded Markdown tables */
+.sl-markdown-content .docs-markdown-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  margin-block: 1.5rem;
+}
 .sl-markdown-content table:not(.comparison-table) {
   display: block;
   width: 100%;
@@ -355,6 +404,13 @@ starlight-toc a[aria-current='true'] {
   border-radius: var(--radius-control);
   margin-block: 1.25rem;
   font-size: 0.875rem;
+  line-height: 1.65;
+}
+.sl-markdown-content .docs-markdown-table table {
+  display: table;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
 }
 .sl-markdown-content table:not(.comparison-table) :is(thead, tbody) {
   width: 100%;
@@ -365,11 +421,11 @@ starlight-toc a[aria-current='true'] {
   font-size: 0.8125rem;
   font-weight: 600;
   text-align: start;
-  padding: 0.6875rem 0.875rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border);
 }
 .sl-markdown-content table:not(.comparison-table) td {
-  padding: 0.6875rem 0.875rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   vertical-align: top;
 }

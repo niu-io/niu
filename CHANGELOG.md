@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.30] - 2026-10-31
+
+### Fixed
+- Restore saved language preferences after hydration without replacing server-rendered public headers or article controls.
+- Improve documentation code highlighting, language labels, keyboard copy feedback and narrow-screen table scrolling.
+
+### Changed
+- Publish the independently built blog in English and Simplified Chinese, with Why Niu and platform-comparison articles, abstract editorial covers and a responsive article index.
+- Refresh the hosted platform comparisons and preserve the historical New API URL with a redirect.
+
+### Included architecture fixes
+- Retain the previously released funding/CI documentation corrections, serialized migration compatibility checks, pre-upgrade database restoration on failed rollback, tenant-scoped Credits ledger indexes and lazy settings shell.
+- Retain all v0.2.29 identity, request-body and video-result memory protections.
+
 ## [0.2.29] - 2026-10-30
 
 ### Fixed

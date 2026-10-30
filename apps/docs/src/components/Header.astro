@@ -20,12 +20,12 @@ const navZh: Record<string, string> = {
 <div class="docs-header">
   <a class="docs-brand" href="/" aria-label="Niu home"><span class="docs-public-name"><NiuBrand /></span><span class="docs-embedded-name" data-i18n-en="Niu Docs" data-i18n-zh="Niu 牛元文档"><span data-lang="en">Niu Docs</span><span data-lang="zh">Niu 牛元文档</span></span></a>
   <nav aria-label="Documentation navigation">{links.map(({label, href}) => <a href={href} aria-current={section === label ? 'page' : undefined} data-i18n-en={label} data-i18n-zh={navZh[label] ?? label}><span data-lang="en">{label}</span><span data-lang="zh">{navZh[label] ?? label}</span></a>)}</nav>
-  <div class="public-session"><SessionLink client:load /></div>
+  <div class="public-session" transition:persist="docs-session"><SessionLink client:load /></div>
   <div class="docs-header-tools">
     <!-- Starlight initializes search on DOMContentLoaded. Keep that instance
          across ClientRouter swaps, including navigation inside dashboard Help. -->
     <div class="contents" data-docs-search transition:persist="docs-search"><Search /></div>
-    <ThemeSelect />
+    <div class="contents" transition:persist="docs-theme"><ThemeSelect /></div>
   </div>
 </div>
 <script>

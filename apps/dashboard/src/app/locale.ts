@@ -77,7 +77,9 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 export function useLocale() {
-  const [locale, setLocaleState] = useState<Locale>(readLocale);
+  // Keep the first client render equal to the public pages' English SSR output.
+  // The effect restores the saved/browser locale immediately after hydration.
+  const [locale, setLocaleState] = useState<Locale>('en');
   useEffect(() => {
     const sync = () => {
       const current = readLocale();

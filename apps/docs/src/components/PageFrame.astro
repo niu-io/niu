@@ -4,8 +4,129 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
 ---
 <ClientRouter />
 <PageFrame><slot name="header" slot="header" /><slot name="sidebar" slot="sidebar" /><slot /></PageFrame>
+<script is:inline data-astro-rerun>
+  (() => {
+    const isZh = document.documentElement.dataset.locale === 'zh-CN';
+    const DICT = {
+      'Why Niu?': '为什么选择牛元？',
+      'Blog': '博客',
+      'Start here': '快速开始',
+      'Use Niu': '使用牛元',
+      'Administration': '平台管理',
+      'Operate Niu': '运维与部署',
+      'API': 'API',
+      'SDK': 'SDK',
+      'Compare': '对比',
+      'Models': '模型目录',
+      'Docs': '文档',
+      'Documentation': '文档',
+      'Overview': '概览',
+      'Quickstart': '快速入门',
+      'Getting started': '快速入门',
+      'API tutorial': 'API 教程',
+      'SDK tutorial': 'SDK 教程',
+      'Coding agents': '编程智能体 (MCP)',
+      'Coding agents (MCP)': '编程智能体 (MCP)',
+      'Models & routing': '模型与路由',
+      'Model routes': '模型路由',
+      'Model Pools': '模型池',
+      'Generations': '生成对话与视频',
+      'Video generation': '视频生成',
+      'Request logs': '请求日志',
+      'Request capacity': '请求容量与限流',
+      'Guardrails': '安全护栏',
+      'Material library': '素材库',
+      'Usage & billing': '用量与计费',
+      'Request lifecycle': '请求生命周期',
+      'Access & roles': '访问权限与角色',
+      'Customer setup': '客户配置',
+      'Customers': '客户管理',
+      'Providers': '模型供应商',
+      'Customer pricing': '客户定价',
+      'Payments': '支付配置',
+      'Branding & theme': '品牌与主题',
+      'Audit logs': '审计日志',
+      'Deployment': '单容器部署',
+      'Single-container deployment': '单容器部署',
+      'Release qualification': '发布准入标准',
+      'Security & access': '安全与访问控制',
+      'Performance benchmark': '性能基准测试',
+      'Gateway performance benchmark': '网关性能基准测试',
+      'Load testing': '网关负载测试',
+      'Gateway load testing': '网关负载测试',
+      'Local development': '本地开发',
+      'REST specification': 'REST 接口规范',
+      'REST API specification': 'REST API 接口规范',
+      'Model discovery': '模型发现',
+      'Chat completions': '对话补全',
+      'Interfaces & types': '接口与类型',
+      'JavaScript / TypeScript SDK': 'JavaScript / TypeScript SDK',
+      'API reference': 'API 参考',
+      'API Reference': 'API 参考',
+      'Implemented API operations': '已实现的 API 操作',
+      'Compare AI gateways': '对比 AI 网关',
+      'Niu vs New API': 'Niu 牛元对比 New API',
+      'Niu vs OpenRouter': 'Niu 牛元对比 OpenRouter',
+      'Compare Niu': 'Niu 牛元能力对比',
+      'Page not found': '页面未找到',
+      'SDK interfaces': 'SDK 接口',
+      'Start with a tutorial': '从教程开始',
+      'Model APIs': '模型推理 API',
+      'Video and media APIs': '视频与媒体 API',
+      'Providers and routing APIs': '模型供应商与路由 API',
+      'Authentication and sessions': '认证与会话 API',
+      'Workspace and company APIs': '工作空间与组织 API',
+      'Service endpoints': '服务端点',
+      'Authentication': '身份认证',
+      'HTTP request': 'HTTP 请求',
+      'Parameters': '请求参数',
+      'Request body': '请求体',
+      'Responses': '响应结果',
+      'Behavior and supported scope': '行为说明与支持范围',
+      'Clients and functions': '客户端与函数',
+      'Request, response, and configuration types': '请求、响应与配置类型',
+      'Constructor and members': '构造函数与成员',
+    };
+    const orig = (el) => {
+      if (el.dataset.origText === undefined) el.dataset.origText = (el.textContent || '').trim();
+      return el.dataset.origText;
+    };
+    document.querySelectorAll('.docs-article-eyebrow, .sidebar-content summary span.large, .sidebar-content a span, .docs-mobile-public nav a').forEach((el) => {
+      const o = orig(el);
+      if (Object.hasOwn(DICT, o)) el.textContent = isZh ? DICT[o] : o;
+    });
+    const h1 = document.querySelector('h1#_top');
+    if (h1) {
+      const o = orig(h1);
+      const zhBlock = document.querySelector('.sl-markdown-content [data-lang="zh"][data-title-zh]');
+      const zh = (zhBlock && zhBlock.dataset.titleZh) || (Object.hasOwn(DICT, o) ? DICT[o] : '');
+      if (zh) h1.textContent = isZh ? zh : o;
+    }
+    const content = document.querySelector('.sl-markdown-content');
+    const langBlock = content && content.querySelector(isZh ? '[data-lang="zh"]' : '[data-lang="en"]');
+    document.querySelectorAll('.right-sidebar-panel h2, mobile-starlight-toc summary .toggle').forEach((h2) => {
+      if (orig(h2) === 'On this page') h2.textContent = isZh ? '本页目录' : 'On this page';
+    });
+    if (langBlock) {
+      const activeIds = new Set(Array.from(langBlock.querySelectorAll('h2[id], h3[id]')).map((h) => h.id));
+      activeIds.add('_top');
+      document.querySelectorAll('starlight-toc nav a[href^="#"], mobile-starlight-toc nav a[href^="#"]').forEach((link) => {
+        const id = decodeURIComponent(link.getAttribute('href').slice(1));
+        const li = link.closest('li');
+        if (!li) return;
+        if (id === '_top') {
+          li.style.display = '';
+          const span = link.querySelector('span') || link;
+          if (orig(span) === 'Overview') span.textContent = isZh ? '概览' : 'Overview';
+          return;
+        }
+        li.style.display = activeIds.has(id) ? '' : 'none';
+      });
+    }
+  })();
+</script>
 <script>
-  import { navigate } from 'astro:transitions/client';
+  import { navigate, type TransitionBeforeSwapEvent } from 'astro:transitions/client';
 
   const SIDEBAR_AND_TITLE_ZH: Record<string, string> = {
     // Sidebar groups & public nav
@@ -144,8 +265,8 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     return codeEl;
   }
 
-  function enhanceApiReferenceDom(isZh: boolean) {
-    const content = document.querySelector<HTMLElement>('.sl-markdown-content');
+  function enhanceApiReferenceDom(isZh: boolean, root: Document = document) {
+    const content = root.querySelector<HTMLElement>('.sl-markdown-content');
     if (!content) return;
 
     // 1. Style auto-generated notice banner
@@ -260,8 +381,8 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     });
   }
 
-  function localizeGeneratedContent(isZh: boolean) {
-    const content = document.querySelector('.sl-markdown-content');
+  function localizeGeneratedContent(isZh: boolean, root: Document = document) {
+    const content = root.querySelector('.sl-markdown-content');
     if (!content) return;
     // Skip if page uses authored [data-lang] blocks
     if (content.querySelector('[data-lang="zh"]')) return;
@@ -343,15 +464,15 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     });
   }
 
-  function syncTocForActiveLocale(isZh: boolean) {
-    const content = document.querySelector('.sl-markdown-content');
+  function syncTocForActiveLocale(isZh: boolean, root: Document = document) {
+    const content = root.querySelector('.sl-markdown-content');
     const langBlock = content?.querySelector<HTMLElement>(isZh ? '[data-lang="zh"]' : '[data-lang="en"]');
     const tocNavs = Array.from(
-      document.querySelectorAll<HTMLElement>('starlight-toc nav, mobile-starlight-toc nav'),
+      root.querySelectorAll<HTMLElement>('starlight-toc nav, mobile-starlight-toc nav'),
     );
 
     // Localize "On this page" heading (desktop & mobile)
-    document
+    root
       .querySelectorAll<HTMLElement>('.right-sidebar-panel h2, mobile-starlight-toc summary .toggle')
       .forEach((h2) => {
         const orig = rememberOriginalText(h2);
@@ -361,7 +482,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       });
 
     // Localize mobile TOC current-section indicator
-    document.querySelectorAll<HTMLElement>('mobile-starlight-toc .display-current').forEach((curr) => {
+    root.querySelectorAll<HTMLElement>('mobile-starlight-toc .display-current').forEach((curr) => {
       const text = (curr.textContent || '').trim();
       if (text === 'Overview' || text === '概览') {
         curr.textContent = isZh ? '概览' : 'Overview';
@@ -384,7 +505,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
             if (orig === 'Overview') span.textContent = isZh ? '概览' : 'Overview';
             return;
           }
-          const target = document.getElementById(id);
+          const target = root.getElementById(id);
           if (target) {
             const span = link.querySelector('span') || link;
             span.textContent = (target.textContent || '').trim();
@@ -417,8 +538,8 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     }
   }
 
-  function localizeSearchModal(isZh: boolean) {
-    const input = document.querySelector<HTMLInputElement>('#starlight__search .pagefind-ui__search-input');
+  function localizeSearchModal(isZh: boolean, root: Document = document) {
+    const input = root.querySelector<HTMLInputElement>('#starlight__search .pagefind-ui__search-input');
     if (input) {
       const nextPlaceholder = isZh
         ? '搜索文档、API 端点或 SDK 类型…'
@@ -427,7 +548,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
         input.placeholder = nextPlaceholder;
       }
     }
-    const clearBtn = document.querySelector<HTMLButtonElement>('#starlight__search .pagefind-ui__search-clear');
+    const clearBtn = root.querySelector<HTMLButtonElement>('#starlight__search .pagefind-ui__search-clear');
     if (clearBtn) {
       const nextClear = isZh ? '清除搜索' : 'Clear search';
       if (clearBtn.getAttribute('aria-label') !== nextClear) {
@@ -436,17 +557,17 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     }
   }
 
-  function applyDocsLocale() {
-    const isZh = document.documentElement.dataset.locale === 'zh-CN';
+  function applyDocsLocale(root: Document = document) {
+    const isZh = (root.documentElement.dataset.locale || document.documentElement.dataset.locale) === 'zh-CN';
 
     // 1. SiteTitle & article section eyebrow
-    document.querySelectorAll<HTMLElement>('.site-title').forEach((el) => {
+    root.querySelectorAll<HTMLElement>('.site-title').forEach((el) => {
       const orig = rememberOriginalText(el);
       if (orig === 'Documentation') {
         el.textContent = isZh ? '文档' : 'Documentation';
       }
     });
-    document.querySelectorAll<HTMLElement>('.docs-article-eyebrow').forEach((el) => {
+    root.querySelectorAll<HTMLElement>('.docs-article-eyebrow').forEach((el) => {
       const orig = rememberOriginalText(el);
       const zh = translation(SIDEBAR_AND_TITLE_ZH, orig);
       if (zh) {
@@ -455,7 +576,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     });
 
     // 2. Search button in header & search modal
-    document.querySelectorAll<HTMLElement>('site-search button').forEach((btn) => {
+    root.querySelectorAll<HTMLElement>('site-search button').forEach((btn) => {
       const label = isZh ? '搜索文档 (⌘K)' : 'Search documentation (⌘K)';
       btn.setAttribute('aria-label', isZh ? '搜索' : 'Search');
       btn.setAttribute('title', label);
@@ -465,10 +586,10 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
         if (orig === 'Search') labelSpan.textContent = isZh ? '搜索' : 'Search';
       }
     });
-    localizeSearchModal(isZh);
+    localizeSearchModal(isZh, root);
 
     // 3. Sidebar group labels, sidebar links, and mobile public nav
-    document.querySelectorAll<HTMLElement>(
+    root.querySelectorAll<HTMLElement>(
       '.sidebar-content summary span.large, .sidebar-content a span, .docs-mobile-public nav a'
     ).forEach((el) => {
       const orig = rememberOriginalText(el);
@@ -479,10 +600,10 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     });
 
     // 4. Page title (h1#_top)
-    const h1 = document.querySelector<HTMLElement>('h1#_top');
+    const h1 = root.querySelector<HTMLElement>('h1#_top');
     if (h1) {
       const origTitle = rememberOriginalText(h1);
-      const zhBlock = document.querySelector<HTMLElement>('.sl-markdown-content [data-lang="zh"][data-title-zh]');
+      const zhBlock = root.querySelector<HTMLElement>('.sl-markdown-content [data-lang="zh"][data-title-zh]');
       const zhTitle = zhBlock?.dataset.titleZh || translation(SIDEBAR_AND_TITLE_ZH, origTitle);
       if (zhTitle) {
         h1.textContent = isZh ? zhTitle : origTitle;
@@ -490,7 +611,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     }
 
     // 5. Pagination links (Previous / Next + link titles)
-    document.querySelectorAll<HTMLElement>('.pagination-links a').forEach((link) => {
+    root.querySelectorAll<HTMLElement>('.pagination-links a').forEach((link) => {
       const rel = link.getAttribute('rel');
       const titleSpan = link.querySelector<HTMLElement>('.link-title');
       if (titleSpan) {
@@ -512,11 +633,11 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     });
 
     // 6. Generated API / SDK / Handler reference pages + visual API widgets
-    localizeGeneratedContent(isZh);
-    enhanceApiReferenceDom(isZh);
+    localizeGeneratedContent(isZh, root);
+    enhanceApiReferenceDom(isZh, root);
 
     // 7. Right-side & Mobile Table of Contents
-    syncTocForActiveLocale(isZh);
+    syncTocForActiveLocale(isZh, root);
   }
 
   function observeSearchAndMobileToc() {
@@ -544,9 +665,31 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
   }
 
   function syncDocsSurface() {
-    applyDocsLocale();
+    applyDocsLocale(document);
     observeSearchAndMobileToc();
   }
+
+  document.addEventListener('astro:before-swap', (event: TransitionBeforeSwapEvent) => {
+    const newDoc = event.newDocument;
+    const isZh = document.documentElement.dataset.locale === 'zh-CN';
+    const isDark = document.documentElement.dataset.theme === 'dark';
+
+    // Preserve active locale, theme, and route attributes on the incoming document BEFORE swap
+    newDoc.documentElement.lang = isZh ? 'zh-CN' : 'en';
+    newDoc.documentElement.dataset.locale = isZh ? 'zh-CN' : 'en';
+    newDoc.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    newDoc.documentElement.classList.toggle('dark', isDark);
+    newDoc.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    newDoc.documentElement.toggleAttribute('data-docs-home', /^\/docs\/?$/.test(event.to.pathname));
+    newDoc.documentElement.toggleAttribute('data-api-reference', /\/api(?:\/|$)/.test(event.to.pathname));
+    newDoc.documentElement.toggleAttribute(
+      'data-docs-embedded',
+      document.documentElement.hasAttribute('data-docs-embedded'),
+    );
+
+    // Pre-localize incoming document tree before swap & View Transition snapshot
+    applyDocsLocale(newDoc);
+  });
 
   syncDocsSurface();
   window.addEventListener('niu:locale', syncDocsSurface);

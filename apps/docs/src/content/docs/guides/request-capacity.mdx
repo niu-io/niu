@@ -35,9 +35,9 @@ Usage reconciliation and financial settlement are separate. A saved usage receip
 
 ## 了解占用容量的原因
 
-- **Completion unconfirmed（完成状态未确认）：** Niu 牛元尚未收到该已派发请求完成的确认。该请求可能仍在运行，或其响应已在传输中丢失。关闭浏览器连接并不能证明模型供应商已停止执行。
-- **Completed · usage unavailable（已完成 · 用量不可用）：** 请求已执行完成，但未记录到完整的 Token 用量。在该已完成请求离开 60 秒滚动时间窗口之前，Token 核算会保留预估值（若无预估值则保持未知状态）。
-- **Reserved tokens: Unknown（预留 Token：未知）：** 没有可用的预估值。有限的 Token 限额不能将其视为零消耗。
+- **Completion unconfirmed（完成状态未确认）**： Niu 牛元尚未收到该已派发请求完成的确认。该请求可能仍在运行，或其响应已在传输中丢失。关闭浏览器连接并不能证明模型供应商已停止执行。
+- **Completed · usage unavailable（已完成 · 用量不可用）**： 请求已执行完成，但未记录到完整的 Token 用量。在该已完成请求离开 60 秒滚动时间窗口之前，Token 核算会保留预估值（若无预估值则保持未知状态）。
+- **Reserved tokens: Unknown（预留 Token：未知）**： 没有可用的预估值。有限的 Token 限额不能将其视为零消耗。
 
 并发计数统计的是未确认完成的已派发请求。Token 限额还会计入已知的近期用量（单独汇总显示）。未记录完成状态的请求不会仅仅因为派发时间超过 60 秒就自动过期释放。在你查看列表期间请求可能会陆续完成；请刷新以获取最新快照。
 

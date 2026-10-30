@@ -3,10 +3,13 @@ import starlight from '@astrojs/starlight';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
+import { satteri } from '@astrojs/markdown-satteri';
+import scrollableTables from './scripts/scrollable-tables.mjs';
 
 export default defineConfig({
   site: 'https://niu.io',
   base: '/docs',
+  markdown: { processor: satteri({ hastPlugins: [scrollableTables()] }) },
   vite: { plugins: [tailwindcss()], resolve: { alias: { '@': fileURLToPath(new URL('../dashboard/src', import.meta.url)) } } },
   integrations: [
     react(),

@@ -42,7 +42,8 @@ export default function ThemeMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs font-medium" aria-label="Language" title={t('Language: English', '界面语言：简体中文')}>
         <IconLanguage size={16} />
-        <span>{locale === 'zh-CN' ? '中文' : 'EN'}</span>
+        <span data-lang="en">EN</span>
+        <span data-lang="zh">中文</span>
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" container={portalContainer} className="w-40">
         <DropdownMenuLabel className="flex items-center gap-1.5 text-xs text-muted-foreground"><IconLanguage size={14} />{t('Language', '界面语言')}</DropdownMenuLabel>

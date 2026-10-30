@@ -68,7 +68,17 @@ export default function CopyPageButton() {
       aria-label={t('Copy page as Markdown', '复制本页为 Markdown')}
     >
       {copied ? <IconCheck size={15} stroke={1.9} /> : <IconCopy size={15} stroke={1.8} />}
-      <span>{copied ? t('Copied', '已复制') : t('Copy page', '复制本页')}</span>
+      {copied ? (
+        <>
+          <span data-lang="en">Copied</span>
+          <span data-lang="zh">已复制</span>
+        </>
+      ) : (
+        <>
+          <span data-lang="en">Copy page</span>
+          <span data-lang="zh">复制本页</span>
+        </>
+      )}
     </Button>
   );
 }

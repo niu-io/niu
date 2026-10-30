@@ -30,12 +30,13 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../../dashboard/src/components/ui/tabs';
-import { useLocale } from '../../../dashboard/src/app/locale';
+import { type Locale } from '../../../dashboard/src/app/locale';
 
 type SnippetKey = 'curl' | 'sdk' | 'openai' | 'agent';
 
-export default function DocsHome() {
-  const { t } = useLocale();
+function DocsHomeContent({ locale }: { locale: Locale }) {
+  const isZh = locale === 'zh-CN';
+  const t = <T,>(enText: T, zhText: T): T => (isZh ? zhText : enText);
   const [origin, setOrigin] = useState('https://niu.io');
   const [activeTab, setActiveTab] = useState<SnippetKey>('curl');
   const [copied, setCopied] = useState(false);
@@ -637,5 +638,18 @@ print(resp.choices[0].message.content)`,
         </p>
       </footer>
     </div>
+  );
+}
+
+export default function DocsHome() {
+  return (
+    <>
+      <div data-lang="en">
+        <DocsHomeContent locale="en" />
+      </div>
+      <div data-lang="zh">
+        <DocsHomeContent locale="zh-CN" />
+      </div>
+    </>
   );
 }
