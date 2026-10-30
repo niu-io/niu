@@ -10,48 +10,52 @@
 
 use crate::{MIGRATOR, StoreError};
 use sqlx::{
-    PgPool,
+    Connection, PgConnection, PgPool,
     migrate::{Migration, MigrationType, Migrator},
 };
-use std::{borrow::Cow, sync::LazyLock};
+use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 const INITIAL_SCHEMA: &str = include_str!("../migrations/0001_initial_schema.sql");
 const ORIGINAL_174: &str = include_str!("../compatibility/0174_original.sql");
 const MARKER_PREFIX: &str = "-- @niu-legacy-migration ";
+/// Session-level lock held across the compatibility check, legacy migration run
+/// and receipt collapse. SQLx's own advisory lock covers only its migration
+/// runs, so it cannot serialize the separate collapse transaction.
+const COMPATIBILITY_LOCK: i64 = 0x4E49_554D_4947_5200;
+const COMPATIBILITY_LOCK_ATTEMPTS: u32 = 600;
 
 static LEGACY_MIGRATIONS: LazyLock<Vec<Migration>> = LazyLock::new(parse_legacy_migrations);
 
-fn parse_legacy_migrations() -> Vec<Migration> {
+fn try_parse_legacy_migrations() -> Result<Vec<Migration>, ()> {
     let bytes = INITIAL_SCHEMA.as_bytes();
     let prefix = MARKER_PREFIX.as_bytes();
     let mut pos = 0;
     let mut out = Vec::with_capacity(384);
     while pos < bytes.len() {
-        assert!(
-            bytes[pos..].starts_with(prefix),
-            "expected legacy migration header at byte offset {pos}"
-        );
+        if !bytes[pos..].starts_with(prefix) {
+            return Err(());
+        }
         let meta_start = pos + prefix.len();
         let line_end = bytes[meta_start..]
             .iter()
             .position(|&b| b == b'\n')
             .map(|offset| meta_start + offset)
-            .expect("legacy migration header newline");
+            .ok_or(())?;
         let meta = &INITIAL_SCHEMA[meta_start..line_end];
-        let (filename, len_str) = meta
-            .split_once(' ')
-            .expect("legacy migration header must be '<filename> <byte_len>'");
-        let byte_len: usize = len_str.parse().expect("valid legacy migration byte length");
-        let stem = filename
-            .strip_suffix(".sql")
-            .expect("legacy migration filename must end with .sql");
-        let (version_str, desc_raw) = stem
-            .split_once('_')
-            .expect("legacy migration filename must start with '<version>_'");
-        let version: i64 = version_str.parse().expect("valid legacy migration version");
+        let (filename, len_str) = meta.split_once(' ').ok_or(())?;
+        let byte_len: usize = len_str.parse().map_err(|_| ())?;
+        let stem = filename.strip_suffix(".sql").ok_or(())?;
+        let (version_str, desc_raw) = stem.split_once('_').ok_or(())?;
+        let version: i64 = version_str.parse().map_err(|_| ())?;
+        if version <= 0 {
+            return Err(());
+        }
         let description = desc_raw.replace('_', " ");
         let sql_start = line_end + 1;
-        let sql_end = sql_start + byte_len;
+        let sql_end = sql_start
+            .checked_add(byte_len)
+            .filter(|end| *end <= bytes.len())
+            .ok_or(())?;
         let sql = &INITIAL_SCHEMA[sql_start..sql_end];
         out.push(Migration::new(
             version,
@@ -60,9 +64,21 @@ fn parse_legacy_migrations() -> Vec<Migration> {
             Cow::Borrowed(sql),
             false,
         ));
-        pos = sql_end + 1;
+        pos = sql_end.checked_add(1).ok_or(())?;
     }
-    out
+    if out.is_empty() { Err(()) } else { Ok(out) }
+}
+
+fn parse_legacy_migrations() -> Vec<Migration> {
+    try_parse_legacy_migrations().expect("embedded squashed migration baseline is malformed")
+}
+
+/// Validate the embedded squashed baseline before it is used. Startup returns a
+/// typed error instead of panicking on malformed embedded SQL.
+pub fn validate_legacy_migrations() -> Result<(), StoreError> {
+    try_parse_legacy_migrations()
+        .map(|_| ())
+        .map_err(|_| StoreError::MigrationBaselineInvalid)
 }
 
 /// Returns the individual pre-squash migrations (`1..=383`) reconstructed
@@ -96,6 +112,36 @@ pub fn legacy_migration_sql(version: i64) -> &'static str {
 }
 
 pub async fn run(pool: &PgPool) -> Result<(), StoreError> {
+    // A dedicated connection keeps the session lock alive while SQLx uses pool
+    // connections for the migration runs. Re-checking inside the lock makes a
+    // second Gateway observe the collapsed baseline instead of racing it.
+    let mut lock = acquire_compatibility_lock(pool).await?;
+    let result = run_locked(pool).await;
+    let _ = sqlx::query("SELECT pg_advisory_unlock($1)")
+        .bind(COMPATIBILITY_LOCK)
+        .execute(&mut lock)
+        .await;
+    result
+}
+
+async fn acquire_compatibility_lock(pool: &PgPool) -> Result<PgConnection, StoreError> {
+    let options = pool.connect_options();
+    let mut lock = PgConnection::connect_with(options.as_ref()).await?;
+    for _ in 0..COMPATIBILITY_LOCK_ATTEMPTS {
+        let acquired: bool = sqlx::query_scalar("SELECT pg_try_advisory_lock($1)")
+            .bind(COMPATIBILITY_LOCK)
+            .fetch_one(&mut lock)
+            .await?;
+        if acquired {
+            return Ok(lock);
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    Err(StoreError::MigrationLockUnavailable)
+}
+
+async fn run_locked(pool: &PgPool) -> Result<(), StoreError> {
+    validate_legacy_migrations()?;
     let exists: bool = sqlx::query_scalar("SELECT to_regclass('_sqlx_migrations') IS NOT NULL")
         .fetch_one(pool)
         .await?;
@@ -191,5 +237,6 @@ mod tests {
         assert!(!MIGRATOR.migrations.is_empty());
         assert_eq!(MIGRATOR.migrations[0].version, 1);
         assert_eq!(MIGRATOR.migrations[0].description, "initial schema");
+        assert!(validate_legacy_migrations().is_ok());
     }
 }

@@ -445,6 +445,10 @@ pub enum StoreError {
     WorkspaceSlugTaken,
     #[error("database migration failed")]
     Migration(#[from] sqlx::migrate::MigrateError),
+    #[error("embedded squashed migration baseline is malformed")]
+    MigrationBaselineInvalid,
+    #[error("timed out waiting for the migration compatibility lock")]
+    MigrationLockUnavailable,
     #[error("record not found in tenant scope or transition already applied")]
     Conflict,
     #[error("token usage exceeds storage range")]
