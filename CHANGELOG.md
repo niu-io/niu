@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.29] - 2026-10-30
+
+### Fixed
+- Protect platform identities from customer-owner session, password and revocation operations, including concurrent permission changes.
+- Hold migration compatibility and SQLx locks on one connection across schema detection, receipt conversion and upgrades; retain compatibility with v0.2.28.
+- Bound request-body upload time with a configurable absolute deadline (30 seconds by default), independent of response streaming.
+- Reserve video-result memory before downloading and retain that reservation until every response byte owner is released.
+
+### Verification
+- Record actual native HTTP, PostgreSQL and independently decoded video evidence. Fixture outcomes are not release evidence.
+
 ## [0.2.28] - 2026-10-30
 
 ### Changed

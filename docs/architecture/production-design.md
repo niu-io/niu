@@ -1,6 +1,11 @@
 # Production request and cost design
 
-Status: proposed behavior. The request gateway and durable accounting are not implemented.
+Status: architectural requirements with an implemented Gateway and durable
+accounting. This document describes the intended contract; it does not certify
+that every requirement below is implemented or verified. Current mechanisms and
+observed limits are documented in [native runtime operations](../reference/native-runtime-operations.md),
+[financial recovery coordination](../reference/financial-recovery-coordination.md)
+and the [2026-10-30 architecture review](../reviews/architecture-review-2026-10-30.md).
 
 ## Provider and model records
 

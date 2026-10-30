@@ -1,5 +1,8 @@
 [server]
 request_timeout_seconds = 300
+# Absolute upload deadline; receiving another chunk does not reset this budget.
+# Independent of Provider timeouts and response streaming. Valid range: 1–3600.
+request_body_timeout_seconds = 30
 # Optional ordinary image-asset ingestion. Leave unset until this deployment's
 # HTTPS source endpoint and the Supplier's fetch timing are qualified.
 # Requires the root HTTPS origin, port 443; no path, credentials or query.

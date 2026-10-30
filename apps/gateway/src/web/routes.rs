@@ -1141,6 +1141,10 @@ pub(crate) fn router(state: AppState) -> Router {
         state.clone(),
         crate::request_payloads::capture,
     ))
+    .layer(middleware::from_fn_with_state(
+        state.clone(),
+        crate::request_body::limit,
+    ))
     .layer(middleware::from_fn(private_api_cache_control))
     .layer(middleware::from_fn_with_state(
         state.clone(),

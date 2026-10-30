@@ -239,6 +239,27 @@ impl Store {
         row.map(OperatorView::try_from).transpose()
     }
 
+    /// Management of a platform identity also requires platform authority.
+    /// Callers must separately enforce the ordinary member-management scope.
+    pub async fn operator_for_management(
+        &self,
+        id: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<Option<OperatorView>, StoreError> {
+        let (_, actor_id) = actor.kind_and_id();
+        let row: Option<OperatorRow> = sqlx::query_as(
+            "SELECT id,name,role,organization_id,project_id,revoked_at IS NOT NULL AS revoked \
+             FROM admin_operators WHERE id=$1 AND (NOT platform_admin OR $2 OR EXISTS(\
+                 SELECT 1 FROM admin_operators actor WHERE actor.id=$3 AND actor.platform_admin AND actor.revoked_at IS NULL))",
+        )
+        .bind(id)
+        .bind(actor == OperatorAuditActor::Installation)
+        .bind(actor_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(OperatorView::try_from).transpose()
+    }
+
     /// List operators for installation administrators. Tenant-scoped callers
     /// must use `operators_for_scope` so records from other tenants stay hidden.
     pub async fn operators(&self) -> Result<Vec<OperatorView>, StoreError> {
@@ -469,14 +490,8 @@ impl Store {
     ) -> Result<IssuedOperatorSession, StoreError> {
         validate_operator("operator", expires_in_seconds)?;
         let mut tx = self.begin_bounded_recording().await?;
-        let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
-            "SELECT organization_id,project_id FROM admin_operators \
-             WHERE id=$1 AND revoked_at IS NULL FOR UPDATE",
-        )
-        .bind(operator_id)
-        .fetch_optional(&mut *tx)
-        .await?;
-        let (organization_id, project_id) = scope.ok_or(StoreError::Conflict)?;
+        let (organization_id, project_id) =
+            lock_operator_management_target(&mut tx, operator_id, actor).await?;
         let issued = issue_session(&mut tx, operator_id, expires_in_seconds).await?;
         insert_operator_audit_event(
             &mut tx,
@@ -501,6 +516,7 @@ impl Store {
         actor: OperatorAuditActor,
     ) -> Result<(), StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
+        lock_operator_management_target(&mut tx, operator_id, actor).await?;
         let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
             "UPDATE admin_sessions s SET revoked_at=clock_timestamp() \
              FROM admin_operators o \
@@ -622,6 +638,7 @@ impl Store {
             .bind(format!("niu-member-role:{organization_id}"))
             .execute(&mut *tx)
             .await?;
+        lock_operator_management_target(&mut tx, operator_id, actor).await?;
         let row: Option<(String, Option<Uuid>, bool)> = sqlx::query_as(
             "SELECT role,project_id,revoked_at IS NOT NULL FROM admin_operators WHERE id=$1 AND organization_id=$2 FOR UPDATE",
         )
@@ -677,6 +694,42 @@ impl Store {
         tx.commit().await?;
         Ok(())
     }
+}
+
+/// Lock the target until commit so a concurrent platform grant cannot race the
+/// gateway's earlier authorization check. Tenant scope remains a caller duty.
+pub(crate) async fn lock_operator_management_target(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    operator_id: Uuid,
+    actor: OperatorAuditActor,
+) -> Result<(Uuid, Option<Uuid>), StoreError> {
+    let target: Option<(Uuid, Option<Uuid>, bool, bool)> = sqlx::query_as(
+        "SELECT organization_id,project_id,platform_admin,revoked_at IS NOT NULL \
+         FROM admin_operators WHERE id=$1 FOR UPDATE",
+    )
+    .bind(operator_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let (organization_id, project_id, platform_admin, revoked) =
+        target.ok_or(StoreError::Conflict)?;
+    if platform_admin && let OperatorAuditActor::Operator(actor_id) = actor {
+        let permitted: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM admin_operators \
+             WHERE id=$1 AND platform_admin AND revoked_at IS NULL)",
+        )
+        .bind(actor_id)
+        .fetch_one(&mut **tx)
+        .await?;
+        if !permitted {
+            return Err(StoreError::Unauthorized);
+        }
+    }
+    // Preserve the pre-existing unavailable/revoked-target response. Platform
+    // protection above also applies to identities that have been revoked.
+    if revoked {
+        return Err(StoreError::Conflict);
+    }
+    Ok((organization_id, project_id))
 }
 
 pub(crate) async fn issue_session(

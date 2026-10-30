@@ -169,6 +169,10 @@ establish these properties for a published registry.
 
 ## Further contracts
 
+The [2026-10-30 architecture review](docs/reviews/architecture-review-2026-10-30.md)
+records current authorization, migration, request-upload and media-buffer repairs,
+their execution evidence and the remaining qualification limits.
+
 | Topic | Document |
 | --- | --- |
 | Paths and repositories | [repository ownership](docs/architecture/repository-ownership.md) |

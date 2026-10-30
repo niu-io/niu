@@ -121,6 +121,21 @@ pub(crate) async fn read(
         if chunk.len() > maximum_bytes.saturating_sub(bytes.len()) {
             return Err(ResultError::TooLarge);
         }
+        // Vec's default geometric growth can exceed a non-power-of-two result
+        // ceiling (for example, 10 MiB -> 16 MiB). Keep requested capacity within
+        // the limit reserved by the caller before transport starts.
+        let required = bytes.len() + chunk.len();
+        if required > bytes.capacity() {
+            let capacity = bytes
+                .capacity()
+                .max(64 * 1024)
+                .saturating_mul(2)
+                .max(required)
+                .min(maximum_bytes);
+            bytes
+                .try_reserve_exact(capacity - bytes.len())
+                .map_err(|_| ResultError::Unavailable)?;
+        }
         bytes.extend_from_slice(&chunk);
     }
     let content_type = format(kind, &mime, &bytes).ok_or(ResultError::InvalidMedia)?;

@@ -331,6 +331,15 @@ impl ApiError {
         }
     }
 
+    pub fn request_body_timeout() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::REQUEST_TIMEOUT,
+            kind: "request_timeout",
+            message: "Request body did not finish within the configured upload deadline",
+        }
+    }
+
     pub fn request_too_large() -> Self {
         Self {
             failure: None,

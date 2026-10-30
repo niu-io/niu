@@ -25,6 +25,9 @@ pub struct ServerConfig {
     pub image_source_origin: Option<String>,
     #[serde(default = "default_timeout")]
     pub request_timeout_seconds: u64,
+    /// Absolute time to receive a request body, independent of upstream work.
+    #[serde(default = "default_body_timeout")]
+    pub request_body_timeout_seconds: u64,
     /// Direct text inference and Provider connectivity; media keeps its own budget.
     #[serde(default = "default_endpoint_timeout")]
     pub provider_connect_timeout_seconds: u64,
@@ -78,6 +81,7 @@ impl Default for ServerConfig {
         Self {
             image_source_origin: None,
             request_timeout_seconds: default_timeout(),
+            request_body_timeout_seconds: default_body_timeout(),
             provider_connect_timeout_seconds: default_endpoint_timeout(),
             provider_dns_timeout_seconds: default_endpoint_timeout(),
         }
@@ -273,6 +277,11 @@ impl AppConfig {
     }
 
     pub(crate) fn validate(&self) -> Result<(), ConfigError> {
+        if !(1..=3600).contains(&self.server.request_body_timeout_seconds) {
+            return Err(ConfigError::Invalid(
+                "request_body_timeout_seconds must be between 1 and 3600".into(),
+            ));
+        }
         if self.server.request_timeout_seconds == 0 || self.server.request_timeout_seconds > 3600 {
             return Err(ConfigError::Invalid(
                 "request_timeout_seconds must be between 1 and 3600".into(),
@@ -446,6 +455,10 @@ fn is_loopback_host(host: &str) -> bool {
 
 fn default_timeout() -> u64 {
     300
+}
+
+fn default_body_timeout() -> u64 {
+    30
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -1,8 +1,10 @@
 //! Current-access result retrieval. Never return a private signed URL.
+mod memory;
+
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Path, State},
     http::{HeaderMap, header},
     response::{IntoResponse, Response},
@@ -15,11 +17,6 @@ use std::{
 use uuid::Uuid;
 static DOWNLOADS: LazyLock<Arc<tokio::sync::Semaphore>> =
     LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(32)));
-/// Bound total buffered downstream delivery memory (4096 * 64 KiB = 256 MiB)
-/// independently of upstream fetch concurrency so slow client reads cannot
-/// starve upstream downloads.
-static DELIVERY_CHUNKS: LazyLock<Arc<tokio::sync::Semaphore>> =
-    LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(4096)));
 fn kind(value: &str) -> Result<MediaResultKind, ApiError> {
     match value {
         "video" => Ok(MediaResultKind::Video),
@@ -170,12 +167,15 @@ async fn retrieve_authorized_media(
     let url = cipher
         .open_media_result(scope, id, kind, &encrypted)
         .map_err(|_| ApiError::unavailable())?;
-    // Fail fast before downloading up to 64 MiB from upstream when downstream
-    // delivery memory is already completely saturated.
-    let mut delivery_permit = DELIVERY_CHUNKS
-        .clone()
-        .try_acquire_many_owned(1)
-        .map_err(|_| ApiError::media_result_busy())?;
+    let (transport_kind, maximum_bytes) = match kind {
+        MediaResultKind::Video => (niu_media::result::ResultKind::Video, 64 * 1024 * 1024),
+        MediaResultKind::LastFrame => (niu_media::result::ResultKind::LastFrame, 10 * 1024 * 1024),
+    };
+    let maximum_bytes = capture_limit.map_or(maximum_bytes, |limit| limit.min(maximum_bytes));
+    // Account for the complete possible buffer before any upstream GET. The
+    // reservation covers both download and delivery, including slow consumers.
+    let mut delivery_permit =
+        memory::reserve(maximum_bytes).ok_or_else(ApiError::media_result_busy)?;
     let permit = match DOWNLOADS.clone().try_acquire_owned() {
         Ok(permit) => permit,
         Err(_) => tokio::time::timeout(
@@ -187,11 +187,6 @@ async fn retrieve_authorized_media(
         .and_then(Result::ok)
         .ok_or_else(ApiError::media_result_busy)?,
     };
-    let (transport_kind, maximum_bytes) = match kind {
-        MediaResultKind::Video => (niu_media::result::ResultKind::Video, 64 * 1024 * 1024),
-        MediaResultKind::LastFrame => (niu_media::result::ResultKind::LastFrame, 10 * 1024 * 1024),
-    };
-    let maximum_bytes = capture_limit.map_or(maximum_bytes, |limit| limit.min(maximum_bytes));
     let route = state
         .store
         .media_recovery_route(scope, id)
@@ -238,19 +233,11 @@ async fn retrieve_authorized_media(
             upstream_http_status,
         )
         .await;
-    // Upstream fetch is complete; release the upstream download slot so slow
-    // client reads cannot block other upstream fetches.
+    // Release network concurrency separately. The memory reservation remains
+    // with the buffer until delivery, cancellation or failure drops it.
     drop(permit);
     let media = media.map_err(ApiError::from_media_result)?;
-    let needed_chunks =
-        u32::try_from(media.bytes.len().div_ceil(64 * 1024).max(1)).unwrap_or(u32::MAX);
-    if needed_chunks > 1 {
-        let extra = DELIVERY_CHUNKS
-            .clone()
-            .try_acquire_many_owned(needed_chunks - 1)
-            .map_err(|_| ApiError::media_result_busy())?;
-        delivery_permit.merge(extra);
-    }
+    memory::retain(&mut delivery_permit, media.bytes.capacity());
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
     authorize_delivery(state, scope, principal, owner, id).await?;
@@ -286,21 +273,15 @@ async fn retrieve_authorized(
         _ => "attachment; filename=last-frame.jpg",
     };
     let length = media.bytes.len();
-    let shared_bytes = Bytes::from(media.bytes);
-    let chunks = futures_util::stream::unfold(
-        (shared_bytes, 0, delivery_permit),
-        |(bytes, offset, permit)| async move {
-            if offset == bytes.len() {
-                return None;
-            }
-            let end = (offset + 64 * 1024).min(bytes.len());
-            let chunk = bytes.slice(offset..end);
-            Some((
-                Ok::<_, std::convert::Infallible>(chunk),
-                (bytes, end, permit),
-            ))
-        },
-    );
+    let shared_bytes = memory::into_bytes(media.bytes, delivery_permit);
+    let chunks = futures_util::stream::unfold((shared_bytes, 0), |(bytes, offset)| async move {
+        if offset == bytes.len() {
+            return None;
+        }
+        let end = (offset + memory::CHUNK_BYTES).min(bytes.len());
+        let chunk = bytes.slice(offset..end);
+        Some((Ok::<_, std::convert::Infallible>(chunk), (bytes, end)))
+    });
     let mut response = (
         [
             (header::CONTENT_TYPE, media.content_type),

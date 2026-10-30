@@ -170,7 +170,7 @@ async fn authorize_operator_management(
     }
     let operator = state
         .store
-        .operator(operator_id)
+        .operator_for_management(operator_id, audit_actor(authorization))
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;

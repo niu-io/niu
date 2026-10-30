@@ -17,6 +17,10 @@ python3 scripts/release-checklist.py --check
 
 For a new release, preserve historical evidence in Beads, update the candidate and re-execute required cases. Use `--parent` for a replacement release-gate epic; never shrink scope merely to obtain GREEN.
 
+## Later dated releases
+
+The [v0.2.29 architecture hardening record](releases/architecture-hardening-2026-10-30.md) documents the later patch candidate, current-input checks and deployment evidence. The generated v0.2.26 evidence below remains historical; its GREEN result does not qualify a different candidate.
+
 ## Current execution
 
 Last generated: 2026-10-25T20:51:27+00:00.

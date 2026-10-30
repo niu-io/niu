@@ -11,16 +11,15 @@
 use crate::{MIGRATOR, StoreError};
 use sqlx::{
     Connection, PgConnection, PgPool,
-    migrate::{Migration, MigrationType, Migrator},
+    migrate::{Migrate, Migration, MigrationType, Migrator},
 };
 use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 const INITIAL_SCHEMA: &str = include_str!("../migrations/0001_initial_schema.sql");
 const ORIGINAL_174: &str = include_str!("../compatibility/0174_original.sql");
 const MARKER_PREFIX: &str = "-- @niu-legacy-migration ";
-/// Session-level lock held across the compatibility check, legacy migration run
-/// and receipt collapse. SQLx's own advisory lock covers only its migration
-/// runs, so it cannot serialize the separate collapse transaction.
+/// Retain the lock used by earlier Gateway versions. Acquire it before SQLx's
+/// migration lock so mixed-version startup uses the same lock order.
 const COMPATIBILITY_LOCK: i64 = 0x4E49_554D_4947_5200;
 const COMPATIBILITY_LOCK_ATTEMPTS: u32 = 600;
 
@@ -112,44 +111,49 @@ pub fn legacy_migration_sql(version: i64) -> &'static str {
 }
 
 pub async fn run(pool: &PgPool) -> Result<(), StoreError> {
-    // A dedicated connection keeps the session lock alive while SQLx uses pool
-    // connections for the migration runs. Re-checking inside the lock makes a
-    // second Gateway observe the collapsed baseline instead of racing it.
-    let mut lock = acquire_compatibility_lock(pool).await?;
-    let result = run_locked(pool).await;
-    let _ = sqlx::query("SELECT pg_advisory_unlock($1)")
+    let mut connection = pool.acquire().await?;
+    // Detection, legacy upgrades, receipt conversion and current migrations
+    // share one session and both locks. Never return this session to the pool:
+    // cancellation or an error can leave session-level locks held until close.
+    connection.close_on_drop();
+    acquire_compatibility_lock(&mut connection).await?;
+    connection.lock().await?;
+    let result = run_locked(&mut connection).await;
+    let migration_unlock = connection.unlock().await;
+    let compatibility_unlock = sqlx::query("SELECT pg_advisory_unlock($1)")
         .bind(COMPATIBILITY_LOCK)
-        .execute(&mut lock)
+        .execute(&mut *connection)
         .await;
-    result
+    result?;
+    migration_unlock?;
+    compatibility_unlock?;
+    Ok(())
 }
 
-async fn acquire_compatibility_lock(pool: &PgPool) -> Result<PgConnection, StoreError> {
-    let options = pool.connect_options();
-    let mut lock = PgConnection::connect_with(options.as_ref()).await?;
+async fn acquire_compatibility_lock(connection: &mut PgConnection) -> Result<(), StoreError> {
     for _ in 0..COMPATIBILITY_LOCK_ATTEMPTS {
         let acquired: bool = sqlx::query_scalar("SELECT pg_try_advisory_lock($1)")
             .bind(COMPATIBILITY_LOCK)
-            .fetch_one(&mut lock)
+            .fetch_one(&mut *connection)
             .await?;
         if acquired {
-            return Ok(lock);
+            return Ok(());
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
     Err(StoreError::MigrationLockUnavailable)
 }
 
-async fn run_locked(pool: &PgPool) -> Result<(), StoreError> {
+async fn run_locked(connection: &mut PgConnection) -> Result<(), StoreError> {
     validate_legacy_migrations()?;
     let exists: bool = sqlx::query_scalar("SELECT to_regclass('_sqlx_migrations') IS NOT NULL")
-        .fetch_one(pool)
+        .fetch_one(&mut *connection)
         .await?;
     if exists {
         let v1_checksum: Option<Vec<u8>> = sqlx::query_scalar(
             "SELECT checksum FROM _sqlx_migrations WHERE version = 1 AND success",
         )
-        .fetch_optional(pool)
+        .fetch_optional(&mut *connection)
         .await?;
         let legacy = legacy_migrations();
         let baseline = MIGRATOR
@@ -165,7 +169,7 @@ async fn run_locked(pool: &PgPool) -> Result<(), StoreError> {
             let checksum_174: Option<Vec<u8>> = sqlx::query_scalar(
                 "SELECT checksum FROM _sqlx_migrations WHERE version = 174 AND success",
             )
-            .fetch_optional(pool)
+            .fetch_optional(&mut *connection)
             .await?;
             if let Some(current_174) = migrations.iter_mut().find(|m| m.version == 174) {
                 let original_174 = Migration::new(
@@ -184,14 +188,14 @@ async fn run_locked(pool: &PgPool) -> Result<(), StoreError> {
             Migrator {
                 migrations: Cow::Owned(migrations),
                 ignore_missing: true,
-                locking: true,
+                locking: false,
                 no_tx: false,
             }
-            .run(pool)
+            .run_direct(connection)
             .await?;
 
             let legacy_max_version = legacy.last().map(|m| m.version).unwrap_or(1);
-            let mut tx = pool.begin().await?;
+            let mut tx = connection.begin().await?;
             let total_exec_time: i64 = sqlx::query_scalar(
                 "SELECT COALESCE(SUM(execution_time), 0)::BIGINT FROM _sqlx_migrations WHERE version <= $1",
             )
@@ -215,7 +219,14 @@ async fn run_locked(pool: &PgPool) -> Result<(), StoreError> {
             tx.commit().await?;
         }
     }
-    MIGRATOR.run(pool).await?;
+    Migrator {
+        migrations: MIGRATOR.migrations.clone(),
+        ignore_missing: MIGRATOR.ignore_missing,
+        locking: false,
+        no_tx: MIGRATOR.no_tx,
+    }
+    .run_direct(connection)
+    .await?;
     Ok(())
 }
 

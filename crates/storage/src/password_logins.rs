@@ -3,7 +3,8 @@
 //! happens outside transactions; session issuance rechecks the credential revision.
 use crate::{
     IssuedOperatorSession, OperatorAuditActor, OperatorScope, Store, StoreError,
-    operator_audit::insert_operator_audit_event, operators::issue_session,
+    operator_audit::insert_operator_audit_event,
+    operators::{issue_session, lock_operator_management_target},
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -210,10 +211,8 @@ impl Store {
             return Err(StoreError::InvalidOperator);
         }
         let mut tx = self.pool.begin().await?;
-        let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
-            "SELECT organization_id,project_id FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR UPDATE"
-        ).bind(operator_id).fetch_optional(&mut *tx).await?;
-        let (organization_id, project_id) = scope.ok_or(StoreError::Conflict)?;
+        let (organization_id, project_id) =
+            lock_operator_management_target(&mut tx, operator_id, actor).await?;
         let scope = OperatorScope {
             organization_id,
             project_id,
