@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.28] - 2026-10-30
+
+### Changed
+- keep the settings route lazy
+- index Credits ledger by tenant
+- restore the pre-upgrade database when rollback cannot start
+- serialize squashed migration collapse across gateways
+
+### Fixed
+- **branding**: apply approved Maple Mono 600 identity across public apps
+
+### Documentation & Governance
+- record the 2026-10-29 architecture re-review
+- correct self-hosted funding, CI scope, and rollback guidance
+
 ## [0.2.27] - 2026-10-29
 
 ### Added
@@ -505,7 +520,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.27...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.2.28...HEAD
+[0.2.28]: https://github.com/niu-io/niu/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/niu-io/niu/compare/v0.2.26...v0.2.27
 [0.2.26]: https://github.com/niu-io/niu/compare/v0.2.25...v0.2.26
 [0.2.25]: https://github.com/niu-io/niu/compare/v0.2.24...v0.2.25

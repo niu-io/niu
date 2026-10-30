@@ -257,7 +257,7 @@ describe('dashboard route layout', () => {
     mockHealth(); renderAt('/help/');
     const rail = await screen.findByRole('navigation', { name: 'Product navigation' });
     expect(within(rail).getByRole('link', { name: 'Workspace', exact: true }).className).not.toContain('selected');
-    expect(within(rail).getByRole('link', { name: 'Documentation', exact: true }).className).toContain('selected');
+    expect(within(rail).getByRole('link', { name: 'Docs', exact: true }).className).toContain('selected');
   });
 
   it('opens global Activity from the rail without selecting Workspace', async () => {

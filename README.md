@@ -38,10 +38,10 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.27`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+Install a pinned release with [`scripts/install.sh`](scripts/install.sh). The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.2.28`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.2.27 --dir /opt/niu
+./scripts/install.sh install --version v0.2.28 --dir /opt/niu
 ```
 
 Once running on port `2555`:
@@ -57,20 +57,20 @@ Customer workspaces require a configured platform currency and either a verified
 
 ```sh
 # 0. Choose one installation token from the generated NIU_ADMIN_TOKENS value
-export NIU_ADMIN_TOKEN='<one token from NIU_ADMIN_TOKENS>'
+export NIU_INSTALLATION_TOKEN='<one token from NIU_ADMIN_TOKENS>'
 
 # 1. Set the installation platform currency (one-time)
 curl -X PUT http://localhost:2555/api/v1/platform/currency \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"currency": "USD"}'
 
 # 2. Grant initial credits (e.g. $10.00 = 10000000000 nanounits) to the default company.
 #    Currency is a path segment; amount_nanos is an exact positive integer.
 ORG_ID=$(curl -fsSL http://localhost:2555/api/v1/organizations \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])")
+  -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])")
 curl -X POST "http://localhost:2555/api/v1/organizations/$ORG_ID/billing/accounts/USD/grants" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $NIU_INSTALLATION_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"amount_nanos": "10000000000", "reason": "Self-hosted evaluation", "idempotency_key": "00000000-0000-4000-8000-000000000001"}'
 
@@ -92,7 +92,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.2.27 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.2.28 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu
