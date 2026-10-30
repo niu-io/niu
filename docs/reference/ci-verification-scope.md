@@ -14,7 +14,7 @@ Triggered on `push` (`main`, tags `*`), `pull_request`, and `workflow_dispatch`:
   - `python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs`
   - `node scripts/verify-js-licenses.mjs`
   - `python3 scripts/check-public-boundary.py --root . apps/dashboard/dist apps/docs/dist apps/catalog/dist`
-- **Dashboard typecheck, production build, and full behavioral test suite (113 test files / 992 tests)**:
+- **Dashboard typecheck, production build, and full behavioral test suite (114 test files; the Vitest run is authoritative for the test count)**:
   - `pnpm --filter @niu-io/dashboard check`
   - `pnpm --filter @niu-io/dashboard build`
   - `pnpm --filter @niu-io/dashboard test`
@@ -43,7 +43,7 @@ Triggered on `push` (`main`), `pull_request` (matching backend/contract paths), 
   - `cargo +1.98.0 test --locked -p niu-storage --test billing --test platform_currency -- --include-ignored`
     - Verifies double-entry ledger invariants, `posted_balance_nanos` O(1) statement-level transition-table maintenance, 8-way concurrent reservation contention, trigger SQLSTATE/CONSTRAINT error mapping, and singleton platform currency enforcement.
   - `cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::observability::readiness_fault_injection_checks_schema_registry_and_encryption_while_liveness_stays_ok -- --include-ignored`
-    - Verifies `/health/ready` vs `/health/live` separation and fault-injected database schema, model registry, and encryption key checks.
+    - Verifies `/readyz` vs `/healthz` separation and fault-injected database schema, model registry, and encryption key checks.
   - `cargo +1.98.0 test --locked -p niu-gateway --bin niu-gateway web::tests::admin::workspace_scoped_customer_management_aliases_preserve_parity_and_deny_foreign_workspaces -- --include-ignored`
     - Verifies canonical `/api/v1/workspaces/{workspace}/...` and legacy customer-management route parity and cross-workspace isolation (`404 Not Found` on foreign workspaces).
 

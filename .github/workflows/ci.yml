@@ -72,6 +72,8 @@ jobs:
           name: javascript-license-report
           path: ${{ runner.temp }}/niu-js-license-report.json
           if-no-files-found: ignore
+      - name: Check operator documentation commands and paths
+        run: python3 -m unittest scripts.tests.test_operator_documentation
       - name: Check dashboard types
         run: pnpm --filter @niu-io/dashboard check
       - name: Build dashboard

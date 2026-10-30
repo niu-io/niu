@@ -53,22 +53,26 @@ Once running on port `2555`:
 
 ### 2. Enable Self-Hosted Funding & Call the Inference API
 
-Customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the default company using your installation token (`$NIU_ADMIN_TOKEN` from `NIU_ADMIN_TOKENS`), then issue a workspace API key and call `/v1/chat/completions`:
+Customer workspaces require a configured platform currency and either a verified payment gateway or an explicit company funding arrangement (credit grant, settled funding, or credit limit). For self-hosted evaluation without an external payment merchant, configure the platform currency and grant credits to the default company using one installation token from `NIU_ADMIN_TOKENS`, then issue a workspace API key and call `/v1/chat/completions`. `NIU_ADMIN_TOKENS` accepts a comma-separated list; select one value for the commands below:
 
 ```sh
+# 0. Choose one installation token from the generated NIU_ADMIN_TOKENS value
+export NIU_ADMIN_TOKEN='<one token from NIU_ADMIN_TOKENS>'
+
 # 1. Set the installation platform currency (one-time)
 curl -X PUT http://localhost:2555/api/v1/platform/currency \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"currency": "USD"}'
 
-# 2. Grant initial credits (e.g. $10.00 = 10000000000 nanounits) to the default company
+# 2. Grant initial credits (e.g. $10.00 = 10000000000 nanounits) to the default company.
+#    Currency is a path segment; amount_nanos is an exact positive integer.
 ORG_ID=$(curl -fsSL http://localhost:2555/api/v1/organizations \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])")
-curl -X POST "http://localhost:2555/api/v1/organizations/$ORG_ID/balance/grants" \
+curl -X POST "http://localhost:2555/api/v1/organizations/$ORG_ID/billing/accounts/USD/grants" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"currency": "USD", "amount_nanos": "10000000000", "reason": "Self-hosted evaluation", "idempotency_key": "00000000-0000-4000-8000-000000000001"}'
+  -d '{"amount_nanos": "10000000000", "reason": "Self-hosted evaluation", "idempotency_key": "00000000-0000-4000-8000-000000000001"}'
 
 # 3. Issue a workspace API key and call /v1/chat/completions
 curl http://localhost:2555/v1/chat/completions \
@@ -84,7 +88,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ### 3. Upgrade & Rollback
 
-[`scripts/install.sh`](scripts/install.sh) performs a PostgreSQL `pg_dump` backup, runs `niu-gateway --check-encryption` against the target image before restarting, verifies `/readyz`, and automatically rolls back if any check fails:
+[`scripts/install.sh`](scripts/install.sh) performs a PostgreSQL `pg_dump` backup, runs `niu-gateway --check-encryption` against the target image before restarting, verifies `/readyz`, and automatically rolls back the image if a check fails. The pre-upgrade dump lets rollback restore the matching database when the previous image cannot start against the upgraded schema; pass `--keep-data` to skip that restore when the schema is known compatible:
 
 ```sh
 # Upgrade an existing installation to a pinned release
@@ -92,6 +96,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu
+./scripts/install.sh rollback --keep-data --dir /opt/niu
 ./scripts/install.sh status --dir /opt/niu
 ```
 
