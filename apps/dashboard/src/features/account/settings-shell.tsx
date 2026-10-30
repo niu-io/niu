@@ -47,7 +47,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('License', '开源许可')}</dt><dd>MIT</dd></div>
       </dl>
       <nav aria-label="Product resources" className="grid gap-1 sm:grid-cols-2">
-        <Button asChild variant="ghost" className="justify-start"><NavLink to="/help/"><IconBook aria-hidden="true"/>{t('Documentation', '文档')}<IconChevronRight className="ml-auto text-muted-foreground" aria-hidden="true"/></NavLink></Button>
+        <Button asChild variant="ghost" className="justify-start"><NavLink to="/help/"><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconChevronRight className="ml-auto text-muted-foreground" aria-hidden="true"/></NavLink></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>{t('Release notes', '版本发布说明')}</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub</a></Button>
         <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>{t('Report an issue', '反馈问题')}</a></Button>

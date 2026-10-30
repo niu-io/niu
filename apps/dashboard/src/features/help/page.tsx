@@ -62,5 +62,5 @@ function DocumentationPage() {
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [dashboardBase, docsBase, navigate]);
-  return <iframe ref={frame} className="help-frame" title="Documentation" src={initialFramePath.current} />;
+  return <iframe ref={frame} className="help-frame" title="Docs" src={initialFramePath.current} />;
 }

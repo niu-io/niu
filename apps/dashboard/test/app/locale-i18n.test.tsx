@@ -122,8 +122,8 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({}), { status: 401 }));
 
-    render(<PublicHeader path="/docs/quickstart/" brandSrc="/brand.png" />);
-    expect(screen.getByRole('link', { name: 'Niu home' }).textContent).toContain('Niu');
+    render(<PublicHeader path="/docs/quickstart/" />);
+    expect(screen.getByRole('link', { name: 'Niu home' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Why Niu?' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Docs' })).toBeTruthy();
 
@@ -135,7 +135,7 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(document.documentElement.lang).toBe('zh-CN');
     expect(document.documentElement.dataset.locale).toBe('zh-CN');
     expect(screen.getByRole('button', { name: 'Language' }).textContent).toContain('中文');
-    expect(screen.getByRole('link', { name: 'Niu home' }).textContent).toContain('Niu 牛元');
+    expect(screen.getByRole('link', { name: 'Niu 牛元首页' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '为什么选择牛元？' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '文档' })).toBeTruthy();
   });

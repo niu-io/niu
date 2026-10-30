@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { useDashboardContext } from '@/app/dashboard-context';
 import { safeLoginReturn } from '@/app/login-return';
 import { useBranding } from '@/app/branding';
+import NiuBrand from '@/components/NiuBrand';
 import { useLocale, type Locale } from '@/app/locale';
 
 export default function LoginRoute() {
@@ -120,12 +121,11 @@ export default function LoginRoute() {
   return <main className="dashboard-login">
     <header className="dashboard-login-topbar">
       <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
-        <img src={logo} alt="" />
-        <span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span>
+        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span></>}
       </Link>
       <nav aria-label="Public resources" className="dashboard-login-nav">
         <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
-        <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Documentation', '文档')}</a></Button>
+        <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="ghost" size="sm" aria-label="Language">

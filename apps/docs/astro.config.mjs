@@ -18,6 +18,7 @@ export default defineConfig({
         alt: '',
       },
       favicon: '/favicon.ico',
+      head: [{ tag: 'meta', attrs: { property: 'og:image', content: 'https://niu.io/docs/niu-social-en-dark.png' } }],
       social: [
         {
           icon: 'github',

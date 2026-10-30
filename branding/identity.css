@@ -1,0 +1,7 @@
+/* Brand artwork follows the surrounding theme; language changes do not need reloads. */
+.niu-brand { display:inline-flex; flex:none; height:2.25rem; vertical-align:middle; color:inherit; }
+.niu-brand > svg { display:block; height:100%; width:auto; overflow:visible; }
+.niu-brand-mark { width:2rem; height:2rem; }
+.niu-brand[data-brand-locale='auto'] > [data-brand-language='zh-CN'] { display:none; }
+:root:is([data-locale='zh-CN'],[lang^='zh']) .niu-brand[data-brand-locale='auto'] > [data-brand-language='en'] { display:none; }
+:root:is([data-locale='zh-CN'],[lang^='zh']) .niu-brand[data-brand-locale='auto'] > [data-brand-language='zh-CN'] { display:block; }

@@ -3299,3 +3299,9 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 .global-activity-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 8px; }
 @media (max-width: 640px) { .global-activity-summary { grid-template-columns: minmax(0, 1fr); } }
 .guardrails-intro { font-size: 14px; }
+
+/* The full brand lockup and language control share one mobile header row. */
+@media (max-width: 30rem) {
+  .dashboard-login-nav > a { display:none; }
+  .dashboard-login-brand .dashboard-login-product { display:none; }
+}

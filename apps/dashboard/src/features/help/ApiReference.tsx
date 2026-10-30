@@ -74,7 +74,7 @@ export default function ApiReference({
     event.preventDefault();
     navigate('/help/' + url.pathname.slice('/docs/'.length) + url.search + url.hash);
   }}>
-    {!embedded && <PublicHeader path="/docs/api/rest/" brandSrc="" />}
+    {!embedded && <PublicHeader path="/docs/api/rest/" />}
     <section className="niu-api-connection-bar" aria-label="Connect API reference">
       <WorkspaceKeyConnection
         onChange={setSelection}

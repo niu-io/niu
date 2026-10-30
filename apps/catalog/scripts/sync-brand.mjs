@@ -10,7 +10,7 @@ const brandRoot = path.join(siteAssetsRoot, "brand");
 
 await mkdir(brandRoot, { recursive: true });
 
-for (const asset of ["niu-mark.png", "niu-logo-dark.png", "favicon.ico"]) {
+for (const asset of ["niu-mark.png", "niu-logo-dark.png", "niu-social-en-dark.png", "niu-mark.svg", "favicon.ico"]) {
   await copyFile(
     path.join(repositoryRoot, "branding", "assets", asset),
     path.join(brandRoot, asset),

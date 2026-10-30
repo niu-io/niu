@@ -7,24 +7,26 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import logo from '../../../../../branding/assets/niu-mark.png';
+import NiuBrand from '@/components/NiuBrand';
+import { useBranding } from '@/app/branding';
 
 /** Explicit platform administration; never an account-login fallback. */
 export default function InstallationRoute() {
   const { locale, setLocale, t } = useLocale();
   const context = useDashboardContext();
+  const {settings:branding,logo} = useBranding();
   const navigate = useNavigate();
   useEffect(() => {
     if (context.token && context.session?.kind === 'installation') navigate('/admin/providers', { replace: true });
   }, [context.token, context.session?.kind, navigate]);
   return <main className="dashboard-login">
     <header className="dashboard-login-topbar">
-      <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label="Niu home">
-        <img src={logo} alt="" /><span>{t('Niu', 'Niu 牛元')}</span><span className="dashboard-login-product">{t('Dashboard', '控制台')}</span>
+      <Link className="dashboard-login-brand" to={import.meta.env.BASE_URL} aria-label={`${branding.display_name} home`}>
+        {branding.display_name === 'Niu' && !branding.logo_data_url ? <NiuBrand locale={locale} /> : <><img src={logo} alt="" /><span>{branding.display_name === 'Niu' ? t('Niu', 'Niu 牛元') : branding.display_name}</span></>}<span className="dashboard-login-product">{t('Dashboard', '控制台')}</span>
       </Link>
       <nav aria-label="Public resources" className="dashboard-login-nav">
         <Button asChild variant="ghost" size="sm"><a href="/models/">{t('Models', '模型目录')}</a></Button>
-        <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Documentation', '文档')}</a></Button>
+        <Button asChild variant="ghost" size="sm"><a href="/docs/">{t('Docs', '文档')}</a></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="ghost" size="sm" aria-label="Language">

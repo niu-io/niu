@@ -5,15 +5,35 @@ import { describe, expect, it, vi } from 'vitest';
 import LoginRoute from '../../src/features/login/page';
 import InstallationRoute from '../../src/features/login/installation-page';
 import AppLayout from '../../src/app/AppLayout';
+import { BrandingProvider, defaultBranding } from '../../src/app/branding';
 
-function showLogin() {
+function showLogin(withBranding = false) {
   const context = { token: '', error: '', connect: vi.fn(), connectWithToken: vi.fn(), draftToken: '', setDraftToken: vi.fn() };
   const router = createMemoryRouter([{ element: <Outlet context={context} />, children: [{ path: '/login', element: <LoginRoute /> }] }], { initialEntries: ['/login'] });
-  render(<RouterProvider router={router} />);
+  const app = <RouterProvider router={router} />;
+  render(withBranding ? <BrandingProvider>{app}</BrandingProvider> : app);
   return context;
 }
 
 describe('account sign-in service availability', () => {
+  it.each([
+    { display_name: 'Example Cloud', logo_data_url: null },
+    { display_name: 'Niu', logo_data_url: 'data:image/png;base64,iVBORw0KGgo=' },
+  ])('preserves deployment branding on the sign-in header: $display_name', async override => {
+    vi.stubGlobal('fetch', vi.fn(async input => String(input) === '/v1/branding'
+      ? Response.json({ data: { revision: '7', settings: { ...defaultBranding, ...override } } })
+      : Response.json({ password_login: true })));
+    showLogin(true);
+    await waitFor(() => {
+      const home = screen.getByRole('link', { name: `${override.display_name} home` });
+      expect(home.textContent).toBe(override.display_name);
+      const image = home.querySelector('img');
+      expect(image).not.toBeNull();
+      if (override.logo_data_url) expect(image?.getAttribute('src')).toBe(override.logo_data_url);
+      else expect(image?.getAttribute('src')).toContain('niu-mark.png');
+    });
+  });
+
   it('keeps installation administration explicitly accessible while account sign-in is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
     const router = createMemoryRouter([{ element: <AppLayout />, children: [

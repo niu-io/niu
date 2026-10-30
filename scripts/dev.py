@@ -149,9 +149,11 @@ def dashboard_source_stamp():
         path = dashboard / name
         if path.exists():
             paths.append((str(path), path.stat().st_mtime_ns))
-    mark = ROOT / 'branding/assets/niu-mark.png'
-    if mark.exists():
-        paths.append((str(mark), mark.stat().st_mtime_ns))
+    for brand_root in (ROOT / 'branding/assets', ROOT / 'branding/rounded/sources'):
+        paths.extend((str(p), p.stat().st_mtime_ns) for p in brand_root.rglob('*') if p.is_file())
+    for name in ('identity.css',):
+        path = ROOT / 'branding' / name
+        paths.append((str(path), path.stat().st_mtime_ns))
     return sorted(paths)
 
 

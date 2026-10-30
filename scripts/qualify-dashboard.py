@@ -16,10 +16,11 @@ import tempfile
 
 DIRECTORIES = (
     'apps/dashboard/src', 'apps/dashboard/test', 'apps/dashboard/public',
-    'apps/docs/src', 'branding/assets', 'sdks/javascript/src', 'contracts/fixtures',
+    'apps/docs/src', 'branding/assets', 'branding/rounded/sources', 'sdks/javascript/src', 'contracts/fixtures',
 )
 FILES = (
     'branding/tokens.css', 'branding/product-rail.css', 'branding/public-navigation.json',
+    'branding/identity.css', 'branding/rounded/manifest.json',
     'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
     'apps/dashboard/package.json', 'apps/dashboard/vite.config.ts',
     'apps/dashboard/tsconfig.json', 'apps/dashboard/index.html',

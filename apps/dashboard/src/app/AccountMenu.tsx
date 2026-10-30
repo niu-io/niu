@@ -64,7 +64,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref} reloadDocument={!token}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
             </>}
             {(platformAdmin || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? t("Admin", "管理后台") : t("Providers", "模型供应商")}</Link></DropdownMenuItem>}
-            <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />{t('Documentation', '文档')}</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />{t('Docs', '文档')}</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}
           <DropdownMenuLabel className="account-identity">

@@ -3,19 +3,19 @@
   "files": [
     {
       "destination": "branding/assets/favicon.ico",
-      "sha256": "6f1f4589ab187882ef936780ecc9886aca289ceb8abbbeced4cb655390b749d0"
+      "sha256": "bedf959e2cd50dd9b55edd26402d97a219717198c313b8fe8fac5d7804d519d2"
     },
     {
       "destination": "branding/assets/niu-logo-dark.png",
-      "sha256": "f838ea02ac51e0ebe8b1d45a926a16bb4aec84a5bb438c8754f2acd80d9ba61b"
+      "sha256": "a263f0ecc146e9231c5dcfa1f224db5faf37d265104288a3c8242f485c8e7f96"
     },
     {
       "destination": "branding/assets/niu-logo.jpg",
-      "sha256": "8164c1fd84275468fa89b3475853bc7041a61ed6f9fcfac41763b43b77f7e2a2"
+      "sha256": "7d6d09de4f55f886b043316ceec4d35ab5095dbfb82ce65592b8cf1ee92beae8"
     },
     {
       "destination": "branding/assets/niu-mark.png",
-      "sha256": "b12a882324d9f4a0c91be5fee93fd23c0e74972d3e0fa7082d5cd7f0bc30966f"
+      "sha256": "4ff254f73bd098c41eccaa9f78440592749bf6a44196f86d85851e874dbc8491"
     },
     {
       "destination": "branding/reference/SOURCE-LICENSE.txt",
@@ -23,7 +23,36 @@
     },
     {
       "destination": "branding/tokens.css",
-      "sha256": "e4849a13ea05f96992f8536f6d069eed35d431fd51bc8ece78aff95d615bbcf1"
+      "sha256": "9b630280a2f0dbf6186a33312e03d6548e8d0467d8b547b68308055fdf1aa092"
+    },
+    {
+      "destination": "branding/assets/niu-mark.svg",
+      "sha256": "ce181446a384a46c741a4a805931946ec77c2b2c3c25f801a037b6f2e0a918c2"
+    },
+    {
+      "destination": "branding/assets/niu-lockup-en-on-light.svg",
+      "sha256": "744529fbded765eade18006283e74bcf583ee9b13be243ac728a47cbc175c276"
+    },
+    {
+      "destination": "branding/assets/niu-lockup-en-on-dark.svg",
+      "sha256": "4f8d0c2c7ed4dbf7a0130cfeca5898cd59e9a05aaf586d7c7254071de4a38e56"
+    },
+    {
+      "destination": "branding/assets/niu-lockup-on-light.svg",
+      "sha256": "9485a5ad9b68ce169a7b502cd66a6ed1b9eee92bf662d551e0f9de259bcdf581"
+    },
+    {
+      "destination": "branding/assets/niu-lockup-on-dark.svg",
+      "sha256": "5805cff15fc9289446c2604570eca2e2e954743d6cd4da1ea2ea49d4f0de1fa9"
+    },
+    {
+      "destination": "branding/assets/niu-social-en-dark.png",
+      "sha256": "fce5159b0fb5785c1cf0ace170f830790a664e8cf03e54eb1741c656575205a3"
+    },
+    {
+      "destination": "branding/reference/niu-mark-original.png",
+      "sha256": "b12a882324d9f4a0c91be5fee93fd23c0e74972d3e0fa7082d5cd7f0bc30966f"
     }
-  ]
+  ],
+  "updated_on": "2026-10-30"
 }
