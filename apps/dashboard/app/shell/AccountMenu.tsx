@@ -95,7 +95,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               if (next) selectOrganization(next);
             }}>
               {organizations.map(item => <DropdownMenuRadioItem key={item.id} value={item.id} disabled={workspaceLoading || Boolean(workspaceError && workspaceError.kind !== 'missing')}>
-                <span>{item.name}</span>
+                <Building2 /><span>{item.name}</span>
               </DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
           </>}
