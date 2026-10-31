@@ -51,6 +51,8 @@ export type DashboardContext = {
   token: string;
   sessionChecked: boolean;
   session: AdminSession | null;
+  demoRole?: 'admin' | 'user';
+  setDemoRole?: (role: 'admin' | 'user') => void;
   /** Publish a validated saved profile to the current authenticated session. */
   updateProfile?: (profile: MemberProfile) => void;
   providerDirectory?: {id: string; slug?: string; name: string}[];

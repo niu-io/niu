@@ -320,6 +320,10 @@ impl AppState {
             Arc::get_mut(auth)
                 .expect("authentication runtime is not shared during setup")
                 .configure_demo_from_env()?;
+            state
+                .store
+                .grant_member_platform_admin("demo@niu.io")
+                .await?;
         } else if env::var_os("NIU_DEMO_LOGIN_EMAIL").is_some()
             || env::var_os("NIU_DEMO_LOGIN_PASSWORD").is_some()
         {

@@ -15,7 +15,7 @@ import { IconBook as CircleHelp } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { settingsHref } from '@/features/account/settings-shell';
 import { workspaceModelsHref } from './workspace-route';
-import { IconChartLine, IconLanguage, IconSettings, IconShieldLock } from '@tabler/icons-react';
+import { IconChartLine, IconLanguage, IconSettings, IconShieldLock, IconUser } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -50,6 +50,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
   const avatarInitial = (session ? label[0] : 'N').toUpperCase();
   const themeLabel = theme === 'light' ? t('Light', '浅色') : theme === 'dark' ? t('Dark', '深色') : t('System', '跟随系统');
   const localeLabel = locale === 'zh-CN' ? '简体中文' : 'English';
+  const demoRoleLabel = context.demoRole === 'user' ? t('User', '普通用户') : t('Admin', '管理员');
   return <>
     <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
       {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" aria-label="Open navigation menu">{t('Navigation', '导航')}<ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label="Account menu" title={t('Account', '账户')}>
@@ -70,8 +71,16 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
           <DropdownMenuLabel className="account-identity">
             <Avatar className="size-9 shrink-0" aria-hidden="true"><AvatarImage src={profile?.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar>
             <div className="account-identity-details"><strong>{label}</strong>
-            <span>{profile?.email || (installation ? t('Administrator token session', '管理员令牌会话') : token ? t('Account settings', '账户设置') : t('Sign in', '登录'))}</span></div>
+            <span>{profile?.email ? (context.demoRole ? `${profile.email} · ${demoRoleLabel}` : profile.email) : (installation ? t('Administrator token session', '管理员令牌会话') : token ? t('Account settings', '账户设置') : t('Sign in', '登录'))}</span></div>
           </DropdownMenuLabel>
+          {context.demoRole && context.setDemoRole && <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Role', '身份切换')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup aria-label="Role" value={context.demoRole} onValueChange={value => { context.setDemoRole?.(value as 'admin' | 'user'); setAccountMenuOpen(false); if (compactNavigation) setOpenMobile(false); }}>
+              <DropdownMenuRadioItem value="admin"><IconShieldLock size={16} /><span>{t('Admin', '管理员 (Admin)')}</span></DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="user"><IconUser size={16} /><span>{t('User', '普通用户 (User)')}</span></DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </>}
           {!supplierOnly && token && organizations.length > 0 && <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Organizations', '组织')}</DropdownMenuLabel>

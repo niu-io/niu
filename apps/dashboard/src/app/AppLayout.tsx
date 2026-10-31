@@ -216,7 +216,26 @@ export default function AppLayout() {
   const [models, setModels] = useState<Model[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState('');
-  const [session, setSession] = useState<AdminSession | null>(null);
+  const [rawSession, setSession] = useState<AdminSession | null>(null);
+  const [demoRole, setDemoRoleState] = useState<'admin' | 'user'>(() => {
+    try { return window.localStorage.getItem('niu.demo-role') === 'user' ? 'user' : 'admin'; } catch { return 'admin'; }
+  });
+  const isDemoAccount = Boolean(rawSession?.kind === 'operator' && rawSession.profile?.email?.trim().toLowerCase() === 'demo@niu.io');
+  const session = useMemo<AdminSession | null>(() => {
+    if (!rawSession) return null;
+    if (!isDemoAccount) return rawSession;
+    if (demoRole === 'user') {
+      return {
+        ...rawSession,
+        provider_memberships: [],
+        permissions: { ...rawSession.permissions, platform_admin: false },
+      };
+    }
+    return {
+      ...rawSession,
+      permissions: { ...rawSession.permissions, platform_admin: true },
+    };
+  }, [rawSession, isDemoAccount, demoRole]);
   const appearance = useAccountAppearance(token, JSON.stringify([token,session?.kind,session?.operator?.id]), session?.kind === 'operator', session?.operator?.id ?? '',branding.default_appearance);
   const [chatKeys, setChatKeys] = useState<SessionChatKey[]>([]);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
@@ -721,11 +740,25 @@ export default function AppLayout() {
   }, [location.pathname, gatewayStatus]);
 
   const profileConnectionRevision = connectionRevision.current;
+  const setDemoRole = useCallback((nextRole: 'admin' | 'user') => {
+    setDemoRoleState(nextRole);
+    try { window.localStorage.setItem('niu.demo-role', nextRole); } catch { /* Storage is optional. */ }
+    if (nextRole === 'user' && supplierArea) {
+      const current = workspaceNavigation.current;
+      const target = current.workspace
+        ? `/workspaces/${workspacePathSegment(current.workspace, current.workspaces)}`
+        : '/workspaces/default';
+      navigate(target, { replace: true });
+    } else if (nextRole === 'admin' && (location.pathname === '/providers' || location.pathname.startsWith('/providers/') || location.pathname === '/suppliers' || location.pathname.startsWith('/suppliers/'))) {
+      navigate('/admin/providers', { replace: true });
+    }
+  }, [supplierArea, location.pathname, navigate]);
   const context = useMemo<DashboardContext>(() => ({
     appearance,
     sessionChecked,
     token,
     session,
+    ...(isDemoAccount ? { demoRole, setDemoRole } : {}),
     updateProfile: profile => {
       // A completed write belongs to this connection, never a later sign-in.
       if (connectionRevision.current !== profileConnectionRevision) return;
@@ -764,7 +797,7 @@ export default function AppLayout() {
     modelsError,
     refreshModels,
     refreshWorkspace,
-  }), [authorizedProviders, providerDirectoryLoading, appearance, sessionChecked, token, session, profileConnectionRevision, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, selectedWorkspace, effectiveWorkspaceError, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
+  }), [authorizedProviders, providerDirectoryLoading, appearance, sessionChecked, token, session, isDemoAccount, demoRole, setDemoRole, profileConnectionRevision, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, selectedWorkspace, effectiveWorkspaceError, routeWorkspaceId, usesSelectedWorkspace, workspaceLoading, reloadWorkspaces, workspaceError, selectWorkspace, createWorkspace, renameWorkspace, deleteWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, modelsLoading, modelsError, health, gatewayStatus, error, connect, authenticate, signOut, refreshModels, refreshWorkspace]);
   const activePath = location.pathname.startsWith('/workspaces/')
     ? location.pathname.split('/').filter(Boolean).slice(2).join('/') || '.'
     : location.pathname.replace(/^\/+|\/+$/g, '');
@@ -816,6 +849,11 @@ export default function AppLayout() {
   useEffect(() => {
     try { localStorage.setItem('niu.navigation.workspace-path', activeWorkspacePath); } catch { /* Storage is optional. */ }
   }, [activeWorkspacePath]);
+  useEffect(() => {
+    if (isDemoAccount && demoRole === 'user' && supplierArea) {
+      navigate(activeWorkspacePath, { replace: true });
+    }
+  }, [isDemoAccount, demoRole, supplierArea, activeWorkspacePath, navigate]);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('[role="menu"], [role="dialog"]')) {
