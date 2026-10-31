@@ -33,11 +33,12 @@ describe('organization switching', () => {
       return json({ data: [] });
     }));
     const user = userEvent.setup();
-    const router = createMemoryRouter(appRoutes, { initialEntries: ['/workspaces/project-2/keys'] });
+    const router = createMemoryRouter(appRoutes, { initialEntries: ['/login?returnTo=%2Fworkspaces%2Fproject-2%2Fkeys'] });
     render(<RouterProvider router={router} />);
     await user.type(await screen.findByLabelText('Email'), 'demo@example.test');
     await user.type(await screen.findByLabelText('Password'), 'fixture-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => { expect(router.state.location.pathname).not.toBe('/login'); expect(router.state.navigation.state).toBe('idle'); });
     await screen.findByRole('heading', { name: 'API keys' });
     await waitFor(() => expect(requests.some(item => item.path === '/api/v1/models?organization_id=org-2&project_id=project-2')).toBe(true));
     await user.click(screen.getByRole('button', { name: 'Account menu' }));

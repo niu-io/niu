@@ -34,6 +34,7 @@ beforeEach(() => {
   resetActiveSessionSnapshot();
   localStorage.clear();
   sessionStorage.clear();
+  window.history.replaceState({}, "", "/");
 });
 
 afterEach(() => {

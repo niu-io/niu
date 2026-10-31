@@ -25,7 +25,7 @@ fn command(
         .env_clear()
         .kill_on_drop(true)
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .env("NIU_CONFIG_FILE", fixture.0.join("niu.toml"))
         .env("NIU_VENDOR_BOOTSTRAP_FILE", fixture.0.join("vendors.json"))
         .env("NIU_DATABASE_URL", database)
@@ -41,7 +41,8 @@ fn command(
 }
 
 async fn ready(child: &mut Child, client: &reqwest::Client, base: &str) {
-    for _ in 0..100 {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    while tokio::time::Instant::now() < deadline {
         assert!(
             child.try_wait().unwrap().is_none(),
             "gateway exited before readiness"
