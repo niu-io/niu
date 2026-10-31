@@ -1131,7 +1131,7 @@ async fn supplier_configuration_association_requires_installation_access(pool: P
         call(&app, Method::GET, &dashboard, &member.token, json!({}))
             .await
             .0,
-        StatusCode::OK
+        StatusCode::FORBIDDEN
     );
     let foreign_supplier = state
         .store
@@ -1149,7 +1149,7 @@ async fn supplier_configuration_association_requires_installation_access(pool: P
         )
         .await
         .0,
-        StatusCode::NOT_FOUND
+        StatusCode::FORBIDDEN
     );
     let filtered_member = format!("/admin/v1/vendors?supplier={supplier}");
     assert_eq!(

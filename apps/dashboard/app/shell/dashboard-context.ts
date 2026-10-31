@@ -23,7 +23,10 @@ export type WorkspaceProblem =
   | { kind: 'missing'; workspace: string }
   | { kind: 'network' }
   | { kind: 'response' };
+export type AccountRole = 'user' | 'admin';
 export type AdminSession = {
+  roles?: {available: AccountRole[]; active: AccountRole; switchable: boolean};
+  admin_mode?: {available: boolean; enabled: boolean};
   profile?: MemberProfile | null;
   kind: 'installation' | 'operator';
   provider_memberships?: { id: string; slug?: string; name: string; role: 'manager' | 'viewer' }[];
@@ -51,8 +54,7 @@ export type DashboardContext = {
   token: string;
   sessionChecked: boolean;
   session: AdminSession | null;
-  demoRole?: 'admin' | 'user';
-  setDemoRole?: (role: 'admin' | 'user') => void;
+  roleSwitch?: {available: AccountRole[]; active: AccountRole; saving: boolean; error: string; setRole: (role: AccountRole) => Promise<boolean>};
   /** Publish a validated saved profile to the current authenticated session. */
   updateProfile?: (profile: MemberProfile) => void;
   providerDirectory?: {id: string; slug?: string; name: string}[];

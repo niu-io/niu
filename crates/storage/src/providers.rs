@@ -907,8 +907,47 @@ impl Store {
         operator: Uuid,
         active: bool,
     ) -> Result<(), StoreError> {
+        self.set_provider_offer_active_recorded(
+            provider,
+            offer,
+            OperatorAuditActor::Operator(operator),
+            active,
+            false,
+        )
+        .await
+    }
+
+    pub async fn set_provider_offer_active_audited(
+        &self,
+        provider: Uuid,
+        offer: Uuid,
+        actor: OperatorAuditActor,
+        active: bool,
+    ) -> Result<(), StoreError> {
+        self.set_provider_offer_active_recorded(provider, offer, actor, active, true)
+            .await
+    }
+
+    async fn set_provider_offer_active_recorded(
+        &self,
+        provider: Uuid,
+        offer: Uuid,
+        actor: OperatorAuditActor,
+        active: bool,
+        administration: bool,
+    ) -> Result<(), StoreError> {
         let mut tx = self.begin_route_write().await?;
-        sqlx::query("SELECT provider_id FROM provider_memberships WHERE provider_id=$1 AND operator_id=$2 AND active AND role='manager' FOR SHARE").bind(provider).bind(operator).fetch_optional(&mut *tx).await?.ok_or(StoreError::Unauthorized)?;
+        let (actor_kind, operator) = actor.kind_and_id();
+        if let Some(operator) = operator {
+            let authorized = if administration {
+                sqlx::query("SELECT id FROM admin_operators WHERE id=$1 AND platform_admin AND revoked_at IS NULL FOR SHARE").bind(operator).fetch_optional(&mut *tx).await?.is_some()
+            } else {
+                sqlx::query("SELECT provider_id FROM provider_memberships WHERE provider_id=$1 AND operator_id=$2 AND active AND role='manager' FOR SHARE").bind(provider).bind(operator).fetch_optional(&mut *tx).await?.is_some()
+            };
+            if !authorized {
+                return Err(StoreError::Unauthorized);
+            }
+        }
         if active
             && !sqlx::query_scalar::<_, bool>(
                 "SELECT niu_offer_qualification_current(provider_id,id,current_revision) FROM provider_offers WHERE provider_id=$1 AND id=$2 FOR SHARE",
@@ -933,7 +972,7 @@ impl Store {
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO provider_audit_events(provider_id,actor_operator_id,action,resource_id) VALUES($1,$2,$3,$4)").bind(provider).bind(operator).bind(if active {"offer_resumed"} else {"offer_paused"}).bind(offer).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,$4,$5)").bind(provider).bind(actor_kind).bind(operator).bind(if active {"offer_resumed"} else {"offer_paused"}).bind(offer).execute(&mut *tx).await?;
         self.commit_route_write(tx).await?;
         Ok(())
     }

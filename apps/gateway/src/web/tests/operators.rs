@@ -6,6 +6,363 @@ const BOOTSTRAP: &str = "niu-test-admin-token-that-is-long-1234";
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
+async fn session_roles_are_explicit_and_provider_memberships_do_not_grant_portal_access(
+    pool: sqlx::PgPool,
+) {
+    let state = test_state(None, pool.clone());
+    let scope = state.store.default_workspace().await.unwrap();
+    let issued = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Role switch member",
+            OperatorRole::Owner,
+            28800,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    sqlx::query("UPDATE admin_sessions SET browser_session=true WHERE id=$1")
+        .bind(issued.session.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let provider = state
+        .store
+        .create_provider_business("Administration-only Provider")
+        .await
+        .unwrap();
+    state
+        .store
+        .set_provider_member_audited(
+            provider,
+            issued.operator_id,
+            "manager",
+            true,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    let (_, identity) = call(&app, Method::GET, "/api/v1/session", &issued.token, None).await;
+    assert_eq!(
+        identity["data"]["roles"],
+        json!({"available":["user"],"active":"user","switchable":false})
+    );
+    assert_eq!(identity["data"]["provider_memberships"], json!([]));
+    for path in [
+        "/api/v1/provider-memberships".to_owned(),
+        format!("/api/v1/providers/{provider}/dashboard"),
+        format!("/api/v1/providers/{provider}/offers"),
+        format!("/api/v1/providers/{provider}/settlements"),
+    ] {
+        assert_eq!(
+            call(&app, Method::GET, &path, &issued.token, None).await.0,
+            StatusCode::FORBIDDEN,
+            "{path}"
+        );
+    }
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            "/api/v1/session/role",
+            &issued.token,
+            Some(json!({"role":"admin"}))
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            "/api/v1/session/role",
+            &issued.token,
+            Some(json!({"role":"provider"}))
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let grant = format!("/api/v1/operators/{}/administration", issued.operator_id);
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &grant,
+            BOOTSTRAP,
+            Some(json!({"enabled":true,"expected_enabled":false}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let (_, identity) = call(&app, Method::GET, "/api/v1/session", &issued.token, None).await;
+    assert_eq!(
+        identity["data"]["roles"],
+        json!({"available":["user","admin"],"active":"user","switchable":true})
+    );
+    let (status, identity) = call(
+        &app,
+        Method::PUT,
+        "/api/v1/session/role",
+        &issued.token,
+        Some(json!({"role":"admin"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(identity["data"]["roles"]["active"], "admin");
+    assert_eq!(
+        identity["data"]["operator"]["project_id"],
+        scope.project_id.to_string()
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::GET,
+            &format!("/api/v1/providers/{provider}/dashboard"),
+            &issued.token,
+            None
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let (status, identity) = call(
+        &app,
+        Method::PUT,
+        "/api/v1/session/role",
+        &issued.token,
+        Some(json!({"role":"user"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(identity["data"]["roles"]["active"], "user");
+    assert_eq!(
+        call(
+            &app,
+            Method::GET,
+            &format!("/api/v1/providers/{provider}/dashboard"),
+            &issued.token,
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    // Explicit installation credentials have one non-switchable administrative role.
+    let (_, identity) = call(&app, Method::GET, "/api/v1/session", BOOTSTRAP, None).await;
+    assert_eq!(
+        identity["data"]["roles"],
+        json!({"available":["admin"],"active":"admin","switchable":false})
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn browser_admin_mode_defaults_to_user_and_rechecks_authority(pool: sqlx::PgPool) {
+    let state = test_state(None, pool.clone());
+    let scope = state.store.default_workspace().await.unwrap();
+    let issued = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Mode administrator",
+            OperatorRole::Owner,
+            28800,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    sqlx::query("UPDATE admin_sessions SET browser_session=true WHERE id=$1")
+        .bind(issued.session.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let app = router(state);
+    // An ungranted user cannot enable administrator mode.
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            "/api/v1/session/mode",
+            &issued.token,
+            Some(json!({"enabled":true}))
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let grant_path = format!("/api/v1/operators/{}/administration", issued.operator_id);
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &grant_path,
+            &issued.token,
+            Some(json!({"enabled":true,"expected_enabled":false}))
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &grant_path,
+            BOOTSTRAP,
+            Some(json!({"enabled":true,"expected_enabled":false}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &grant_path,
+            BOOTSTRAP,
+            Some(json!({"enabled":true,"expected_enabled":false}))
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let (_, grant) = call(&app, Method::GET, &grant_path, BOOTSTRAP, None).await;
+    assert_eq!(grant["data"]["enabled"], true);
+    let (_, user) = call(&app, Method::GET, "/api/v1/session", &issued.token, None).await;
+    assert_eq!(
+        user["data"]["admin_mode"],
+        json!({"available":true,"enabled":false})
+    );
+    assert_eq!(
+        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    for _ in 0..2 {
+        let (status, admin) = call(
+            &app,
+            Method::PUT,
+            "/api/v1/session/mode",
+            &issued.token,
+            Some(json!({"enabled":true})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(admin["data"]["permissions"]["platform_admin"], true);
+        assert_eq!(
+            call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+                .await
+                .0,
+            StatusCode::OK
+        );
+        // Reloading identity retains server-side mode and tenant scope.
+        let (_, identity) = call(&app, Method::GET, "/api/v1/session", &issued.token, None).await;
+        assert_eq!(identity["data"]["admin_mode"]["enabled"], true);
+        assert_eq!(
+            identity["data"]["operator"]["project_id"],
+            scope.project_id.to_string()
+        );
+        let (status, user) = call(
+            &app,
+            Method::PUT,
+            "/api/v1/session/mode",
+            &issued.token,
+            Some(json!({"enabled":false})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(user["data"]["permissions"]["platform_admin"], false);
+        assert_eq!(
+            call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+                .await
+                .0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    call(
+        &app,
+        Method::PUT,
+        "/api/v1/session/mode",
+        &issued.token,
+        Some(json!({"enabled":true})),
+    )
+    .await;
+    sqlx::query("UPDATE admin_sessions SET admin_mode_until=clock_timestamp()-interval '1 second' WHERE id=$1")
+        .bind(issued.session.id).execute(&pool).await.unwrap();
+    assert_eq!(
+        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            "/api/v1/session/mode",
+            &issued.token,
+            Some(json!({"enabled":true}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &grant_path,
+            BOOTSTRAP,
+            Some(json!({"enabled":false,"expected_enabled":true}))
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            "/api/v1/session/mode",
+            &issued.token,
+            Some(json!({"enabled":true}))
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM admin_mode_events WHERE session_id=$1")
+            .bind(issued.session.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(count, 6);
+    let grants: i64 = sqlx::query_scalar("SELECT count(*) FROM platform_admin_events WHERE operator_id=$1 AND actor_kind='installation'").bind(issued.operator_id).fetch_one(&pool).await.unwrap();
+    assert_eq!(grants, 2);
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
 async fn scoped_directory_filters_before_list_limits(pool: sqlx::PgPool) {
     let state = test_state(None, pool.clone());
     let scope = state.store.default_workspace().await.unwrap();
@@ -85,7 +442,8 @@ async fn call(
         if body.is_empty() {
             Value::Null
         } else {
-            serde_json::from_slice(&body).unwrap()
+            serde_json::from_slice(&body)
+                .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&body).into_owned()))
         },
     )
 }

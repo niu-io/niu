@@ -31,7 +31,7 @@ async fn call(
 }
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
-async fn provider_business_requires_explicit_membership_and_denies_cross_supplier_access(
+async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no_access(
     pool: PgPool,
 ) {
     let state = test_state(None, pool.clone());
@@ -159,11 +159,11 @@ async fn provider_business_requires_explicit_membership_and_denies_cross_supplie
     let path = format!("/admin/v1/providers/{supplier}/dashboard");
     assert_eq!(
         call(&app, Method::GET, &path, &owner.token, None).await.0,
-        StatusCode::NOT_FOUND
+        StatusCode::FORBIDDEN
     );
     assert_eq!(
         call(&app, Method::GET, &path, ADMIN, None).await.0,
-        StatusCode::FORBIDDEN
+        StatusCode::OK
     );
     assert!(
         call(&app, Method::GET, "/admin/v1/session", &owner.token, None)
@@ -230,13 +230,10 @@ async fn provider_business_requires_explicit_membership_and_denies_cross_supplie
     assert_eq!(members["data"][0]["role"], "viewer");
     assert_eq!(members["data"][0]["active"], true);
     assert!(members["data"][0]["name"].is_string());
-    assert_eq!(
-        session["data"]["provider_memberships"][0]["id"],
-        supplier.to_string()
-    );
+    assert_eq!(session["data"]["provider_memberships"], json!([]));
     assert_eq!(
         call(&app, Method::GET, &path, &owner.token, None).await.0,
-        StatusCode::OK
+        StatusCode::FORBIDDEN
     );
     assert_eq!(
         call(
@@ -248,14 +245,14 @@ async fn provider_business_requires_explicit_membership_and_denies_cross_supplie
         )
         .await
         .0,
-        StatusCode::NOT_FOUND
+        StatusCode::FORBIDDEN
     );
     assert_eq!(
         call(
             &app,
             Method::GET,
             &format!("{path}?days=10000"),
-            &owner.token,
+            ADMIN,
             None
         )
         .await
@@ -272,7 +269,7 @@ async fn provider_business_requires_explicit_membership_and_denies_cross_supplie
         )
         .await
         .0,
-        StatusCode::NOT_FOUND
+        StatusCode::FORBIDDEN
     );
     assert_eq!(call(&app,Method::POST,&format!("/admin/v1/providers/{supplier}/settlements"),&owner.token,Some(json!({"idempotency_key":Uuid::new_v4(),"payment_reference":"fake","attempt_ids":[Uuid::new_v4()]}))).await.0,StatusCode::FORBIDDEN);
     store
@@ -281,7 +278,7 @@ async fn provider_business_requires_explicit_membership_and_denies_cross_supplie
         .unwrap();
     assert_eq!(
         call(&app, Method::GET, &path, &owner.token, None).await.0,
-        StatusCode::NOT_FOUND
+        StatusCode::FORBIDDEN
     );
 }
 
@@ -717,11 +714,23 @@ async fn consumer_access_never_exposes_platform_costs_or_supplier_request_record
     ] {
         assert!(!activity.to_string().contains(name));
     }
+    assert_eq!(
+        call(
+            &app,
+            Method::GET,
+            &format!("/admin/v1/providers/{supplier}/dashboard"),
+            &owner.token,
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
     let (status, provider) = call(
         &app,
         Method::GET,
         &format!("/admin/v1/providers/{supplier}/dashboard"),
-        &owner.token,
+        ADMIN,
         None,
     )
     .await;

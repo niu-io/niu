@@ -305,6 +305,7 @@ async fn development_account_is_durable_and_does_not_reset_saved_credentials(poo
         .await
         .unwrap();
     let principal = store.authenticate_operator(&issued.token).await.unwrap();
+    assert!(!principal.platform_admin);
     assert_eq!(principal.role, OperatorRole::Owner);
     assert_eq!(
         principal.scope.organization_id,

@@ -643,6 +643,22 @@ fn provider_and_platform_routes(app: Router<AppState>) -> Router<AppState> {
 
 fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
     app.dual_route(
+        "/operators/{operator}/administration",
+        get(crate::admin::member_administration)
+            .put(crate::admin::set_member_administration)
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/session/role",
+        axum::routing::put(crate::admin::update_session_role)
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
+        "/session/mode",
+        axum::routing::put(crate::admin::update_admin_mode)
+            .layer(middleware::from_fn(password_response_headers)),
+    )
+    .dual_route(
         "/session",
         get(crate::admin::current_session).layer(middleware::from_fn(password_response_headers)),
     )

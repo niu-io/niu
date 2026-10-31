@@ -17,7 +17,6 @@ import {
   IconLanguage,
   IconLayoutDashboard as LayoutDashboard,
   IconListDetails,
-  IconPlugConnected as RailSuppliers,
   IconShieldLock,
   IconSparkles as RailChat,
   IconWifiOff as WifiOff,
@@ -87,7 +86,7 @@ import { usePaymentReadiness } from './payment-readiness';
 import { prefetchRouteIntent, scheduleWorkspaceWarmup } from './prefetch';
 import ProductRailLink from './ProductRailLink';
 import { ProviderNav } from './ProviderNav';
-import { providerPathSegment, resolveProvider, type ProviderIdentity } from './provider-route';
+import { resolveProvider, type ProviderIdentity } from './provider-route';
 import {
   buildSessionAuthorityKey,
   buildSessionPrincipalKey,
@@ -111,28 +110,6 @@ const EMPTY_ORGANIZATIONS: Organization[] = [];
 const EMPTY_WORKSPACES: Workspace[] = [];
 const EMPTY_CHAT_KEYS: SessionChatKey[] = [];
 
-function resolveEffectiveSession(
-  rawSession: AdminSession | null,
-  demoRole: 'admin' | 'user',
-): AdminSession | null {
-  if (!rawSession) return null;
-  const isDemoAccount = Boolean(
-    rawSession.kind === 'operator' && rawSession.profile?.email?.trim().toLowerCase() === 'demo@niu.io',
-  );
-  if (!isDemoAccount) return rawSession;
-  if (demoRole === 'user') {
-    return {
-      ...rawSession,
-      provider_memberships: [],
-      permissions: { ...rawSession.permissions, platform_admin: false },
-    };
-  }
-  return {
-    ...rawSession,
-    permissions: { ...rawSession.permissions, platform_admin: true },
-  };
-}
-
 export default function AppLayout() {
   const { locale, setLocale, isZh, t } = useLocale();
   const mockPaymentsEnabled = useMockPayments();
@@ -151,22 +128,11 @@ export default function AppLayout() {
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState('');
   const [rawSession, setSession] = useState<AdminSession | null>(null);
-  const [demoRole, setDemoRoleState] = useState<'admin' | 'user'>(() => {
-    try {
-      return window.localStorage.getItem('niu.demo-role') === 'user' ? 'user' : 'admin';
-    } catch {
-      return 'admin';
-    }
-  });
-  const demoRoleRef = useRef(demoRole);
-  demoRoleRef.current = demoRole;
-  const isDemoAccount = Boolean(
-    rawSession?.kind === 'operator' && rawSession.profile?.email?.trim().toLowerCase() === 'demo@niu.io',
-  );
-  const session = useMemo<AdminSession | null>(
-    () => resolveEffectiveSession(rawSession, demoRole),
-    [rawSession, demoRole],
-  );
+  const session = rawSession;
+  const [modeSaving, setModeSaving] = useState(false);
+  const [modeError, setModeError] = useState('');
+  const modeRequest = useRef(false);
+  const modeRevision = useRef(0);
   const principalKey = useMemo(() => buildSessionPrincipalKey(token, session), [token, session]);
   const authorityKey = useMemo(() => buildSessionAuthorityKey(token, session), [token, session]);
   const syncedAuthorityRef = useRef<string | undefined>(undefined);
@@ -227,7 +193,7 @@ export default function AppLayout() {
   const supplierManagement =
     supplierArea && location.pathname !== '/providers' && location.pathname !== '/suppliers';
   const adminSupplierId =
-    adminArea &&
+    adminArea && canManagePlatform(session) &&
     (location.pathname.startsWith('/admin/providers/') || location.pathname.startsWith('/admin/suppliers/'))
       ? location.pathname.split('/')[3]
       : '';
@@ -261,7 +227,7 @@ export default function AppLayout() {
 
   const authorizedProviders = useMemo<ProviderIdentity[]>(() => {
     if (!session) return [];
-    if (!platformManager) return session.provider_memberships ?? [];
+    if (!platformManager) return [];
     return fetchedProviders?.data ?? [];
   }, [session, platformManager, fetchedProviders]);
   const providerDirectoryLoading = Boolean(supplierArea && session && platformManager && providerQueryLoading);
@@ -403,7 +369,7 @@ export default function AppLayout() {
       const sessionValue = (await sessionResponse.json()) as { data: AdminSession };
       if (revision !== connectionRevision.current || controller.signal.aborted) return;
       if (restoring && authenticationPath.current === '/installation') return;
-      const nextEffectiveSession = resolveEffectiveSession(sessionValue.data, demoRoleRef.current);
+      const nextEffectiveSession = sessionValue.data;
       const nextAuthorityKey = buildSessionAuthorityKey(credential, nextEffectiveSession);
       syncCacheAuthority(nextAuthorityKey || null);
       syncedAuthorityRef.current = nextAuthorityKey;
@@ -633,6 +599,8 @@ export default function AppLayout() {
   }, [token, authorityKey, modelsQueryPath, refreshModels]);
 
   const refreshWorkspace = useCallback(async () => {
+    if (modeRequest.current) return;
+    const currentModeRevision = modeRevision.current;
     const revision = connectionRevision.current;
     const controller = token ? connectionController.current : null;
     if (token && (!controller || controller.signal.aborted)) return;
@@ -644,7 +612,7 @@ export default function AppLayout() {
           headers: { authorization: 'Bearer ' + token },
           signal: controller.signal,
         });
-        if (revision !== connectionRevision.current || controller.signal.aborted) return;
+        if (revision !== connectionRevision.current || controller.signal.aborted || currentModeRevision !== modeRevision.current) return;
         if (response.status === 401) {
           controller.abort();
           if (connectionController.current === controller) connectionController.current = null;
@@ -672,8 +640,8 @@ export default function AppLayout() {
         }
         if (response.ok) {
           const currentSession = ((await response.json()) as { data: AdminSession }).data;
-          if (revision !== connectionRevision.current || controller.signal.aborted) return;
-          const nextEffectiveSession = resolveEffectiveSession(currentSession, demoRoleRef.current);
+          if (revision !== connectionRevision.current || controller.signal.aborted || currentModeRevision !== modeRevision.current) return;
+          const nextEffectiveSession = currentSession;
           const nextPrincipalKey = buildSessionPrincipalKey(token, nextEffectiveSession);
           const nextAuthorityKey = buildSessionAuthorityKey(token, nextEffectiveSession);
           const prev = latestIdentityRef.current;
@@ -1230,32 +1198,47 @@ export default function AppLayout() {
   }, [location.pathname, gatewayStatus]);
 
   const profileConnectionRevision = connectionRevision.current;
-  const setDemoRole = useCallback(
-    (nextRole: 'admin' | 'user') => {
-      setDemoRoleState(nextRole);
-      try {
-        window.localStorage.setItem('niu.demo-role', nextRole);
-      } catch {
-        /* Storage is optional. */
+  const setAccountRole = useCallback(async (role: 'user' | 'admin') => {
+    if (modeRequest.current) return false;
+    modeRequest.current = true;
+    modeRevision.current += 1;
+    setModeSaving(true);
+    setModeError('');
+    const revision = connectionRevision.current;
+    try {
+      const response = await fetch('/api/v1/session/role', {
+        method: 'PUT',
+        headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+      if (revision !== connectionRevision.current) return false;
+      if (response.status === 403) {
+        const identity = await fetch('/api/v1/session', { headers: { authorization: 'Bearer ' + token } });
+        if (identity.ok) {
+          const current = ((await identity.json()) as { data: AdminSession }).data;
+          if (revision === connectionRevision.current) setSession(current);
+        }
+        if (revision === connectionRevision.current) setModeError(t('This role is unavailable for your session. Contact your installation administrator.', '当前会话无法切换到该角色，请联系实例管理员。'));
+        return false;
       }
-      if (nextRole === 'user' && supplierArea) {
+      if (!response.ok) throw new Error('mode');
+      const next = ((await response.json()) as { data: AdminSession }).data;
+      if (revision !== connectionRevision.current) return false;
+      setSession(next);
+      if (role === 'admin') navigate('/admin/providers');
+      else if (/^\/(admin|providers|suppliers)(\/|$)/.test(location.pathname)) {
         const current = workspaceNavigation.current;
-        const target = current.workspace
-          ? `/workspaces/${workspacePathSegment(current.workspace, current.workspaces)}`
-          : '/workspaces/default';
-        navigate(target, { replace: true });
-      } else if (
-        nextRole === 'admin' &&
-        (location.pathname === '/providers' ||
-          location.pathname.startsWith('/providers/') ||
-          location.pathname === '/suppliers' ||
-          location.pathname.startsWith('/suppliers/'))
-      ) {
-        navigate('/admin/providers', { replace: true });
+        navigate(current.workspace ? `/workspaces/${workspacePathSegment(current.workspace, current.workspaces)}` : '/workspaces/default', { replace: true });
       }
-    },
-    [supplierArea, location.pathname, navigate],
-  );
+      return true;
+    } catch {
+      if (revision === connectionRevision.current) setModeError(t('Could not switch role. Try again.', '切换角色失败，请重试。'));
+      return false;
+    } finally {
+      modeRequest.current = false;
+      setModeSaving(false);
+    }
+  }, [token, location.pathname, navigate, t]);
 
   const context = useMemo<DashboardContext>(
     () => ({
@@ -1263,7 +1246,7 @@ export default function AppLayout() {
       sessionChecked,
       token,
       session,
-      ...(isDemoAccount ? { demoRole, setDemoRole } : {}),
+      roleSwitch: { available: session?.roles?.switchable ? session.roles.available : [], active: session?.roles?.active ?? (canManagePlatform(session) ? 'admin' : 'user'), saving: modeSaving, error: modeError, setRole: setAccountRole },
       updateProfile: profile => {
         if (connectionRevision.current !== profileConnectionRevision) return;
         setSession(current =>
@@ -1315,9 +1298,9 @@ export default function AppLayout() {
       sessionChecked,
       token,
       session,
-      isDemoAccount,
-      demoRole,
-      setDemoRole,
+      modeSaving,
+      modeError,
+      setAccountRole,
       profileConnectionRevision,
       organizations,
       routeWorkspace?.organization_id,
@@ -1488,12 +1471,6 @@ export default function AppLayout() {
       /* Storage is optional. */
     }
   }, [activeWorkspacePath]);
-
-  useEffect(() => {
-    if (isDemoAccount && demoRole === 'user' && supplierArea) {
-      navigate(activeWorkspacePath, { replace: true });
-    }
-  }, [isDemoAccount, demoRole, supplierArea, activeWorkspacePath, navigate]);
 
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
@@ -1696,29 +1673,19 @@ export default function AppLayout() {
           </>
         )}
         <div className="rail-bottom">
-          {(isInstallation || Boolean(session?.provider_memberships?.length)) && (
+          {isInstallation && (
             <Tooltip delayDuration={250}>
               <TooltipTrigger asChild>
                 <ProductRailLink
-                  to={
-                    isInstallation
-                      ? '/admin/providers'
-                      : session?.provider_memberships?.length
-                        ? `/providers/${providerPathSegment(session.provider_memberships[0])}`
-                        : '/providers'
-                  }
+                  to="/admin/providers"
                   className={`rail-item${supplierArea ? ' selected' : ''}`}
-                  aria-label={isInstallation ? t('Admin', '管理后台') : t('Providers', '模型供应商')}
+                  aria-label={t('Admin', '管理后台')}
                 >
-                  {isInstallation ? (
-                    <IconShieldLock size={24} aria-hidden="true" />
-                  ) : (
-                    <RailSuppliers size={23} stroke={1.7} aria-hidden="true" />
-                  )}
+                  <IconShieldLock size={24} aria-hidden="true" />
                 </ProductRailLink>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={10}>
-                {isInstallation ? t('Admin', '管理后台') : t('Providers', '模型供应商')}
+                {t('Admin', '管理后台')}
               </TooltipContent>
             </Tooltip>
           )}
@@ -1943,7 +1910,6 @@ export default function AppLayout() {
                         ['models', t('Models', '模型')],
                         ['usage', t('Usage', '调用量')],
                         ['settlements', t('Settlements', '结算账单')],
-                        ['members', t('Members', '成员管理')],
                         ['settings', t('Settings', '设置')],
                       ].map(([value, label]) => {
                         const tabPath = `/admin/providers/${encodeURIComponent(adminSupplierId)}${

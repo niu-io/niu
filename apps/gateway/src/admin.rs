@@ -25,7 +25,10 @@ pub mod video_composer_drafts;
 pub mod workspace_aliases;
 pub mod workspace_spending;
 pub use operator_audit::operator_events;
-pub use session::current_session;
+pub use session::{
+    current_session, member_administration, set_member_administration, update_admin_mode,
+    update_session_role,
+};
 
 use crate::{error::ApiError, state::AppState};
 use axum::{

@@ -38,6 +38,13 @@ function providerSectionPath(section: string) {
       : section;
 }
 
+function LegacyProviderPortalRedirect() {
+  const { provider, supplier, section } = useParams();
+  const location = useLocation();
+  const suffix = section ? `/${providerSectionPath(section)}` : '';
+  return <Navigate replace to={`/admin/providers/${encodeURIComponent(provider ?? supplier ?? '')}${suffix}${location.search}${location.hash}`} />;
+}
+
 function LegacyProviderDetailSectionRedirect() {
   const { provider, supplier } = useParams();
   const location = useLocation();
@@ -175,7 +182,7 @@ export function buildAppRoutes(): RouteObject[] {
           { path: 'providers/:provider/consumption', element: <LegacyProviderDetailSectionRedirect /> },
           {
             path: 'providers/:provider/:section?',
-            lazy: bindLazy(routeImporters.providerBusiness, { destination: 'Administration' }),
+            element: <LegacyProviderPortalRedirect />,
           },
           {
             path: 'admin',
@@ -249,6 +256,7 @@ export function buildAppRoutes(): RouteObject[] {
                 path: 'providers/:providerId',
                 lazy: bindLazy(routeImporters.providers, { destination: 'Administration' }),
               },
+              { path: 'providers/:providerId/members', element: <LegacyAdminProviderDetailRedirect section="settings" /> },
               { path: 'providers/:providerId/api-keys', element: <LegacyAdminProviderDetailRedirect section="keys" /> },
               {
                 path: 'providers/:providerId/configuration',
@@ -276,7 +284,7 @@ export function buildAppRoutes(): RouteObject[] {
           { path: 'suppliers/:supplier/consumption', element: <LegacyProviderDetailSectionRedirect /> },
           {
             path: 'suppliers/:supplier/:section?',
-            lazy: bindLazy(routeImporters.providerBusiness, { destination: 'Administration' }),
+            element: <LegacyProviderPortalRedirect />,
           },
           { path: 'supplier-accounts', element: <LegacyProviderOverviewRedirect /> },
           { path: 'supplier-accounts/manage/:section', element: <LegacyProviderSectionRedirect /> },

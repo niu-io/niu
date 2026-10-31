@@ -1666,6 +1666,11 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         .unwrap();
     state
         .store
+        .set_member_platform_administration(actor.operator_id, true, false)
+        .await
+        .unwrap();
+    state
+        .store
         .set_provider_offer_active(supplier, offer, actor.operator_id, true)
         .await
         .unwrap();
@@ -2444,7 +2449,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         .await
         .unwrap();
     for (token, expected) in [
-        (outsider.token.as_str(), StatusCode::NOT_FOUND),
+        (outsider.token.as_str(), StatusCode::FORBIDDEN),
         (key.token.as_str(), StatusCode::UNAUTHORIZED),
     ] {
         let response = app
@@ -2728,7 +2733,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         )
         .await
         .unwrap();
-    assert_eq!(denied.status(), StatusCode::NOT_FOUND);
+    assert_eq!(denied.status(), StatusCode::OK);
     assert!(matches!(
         state
             .store

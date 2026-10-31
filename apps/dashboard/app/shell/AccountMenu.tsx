@@ -1,4 +1,3 @@
-import { providerPathSegment } from './provider-route';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { IconLogout as LogOut } from "@tabler/icons-react";
@@ -10,7 +9,6 @@ import { IconBuildings as Building2 } from "@tabler/icons-react";
 import { FolderKey } from "lucide-react";
 import { IconSparkles } from "@tabler/icons-react";
 import { IconCpu as Boxes } from "@tabler/icons-react";
-import { IconPlugConnected as SupplierConnection } from "@tabler/icons-react";
 import { IconBook as CircleHelp } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { settingsHref } from '@/features/account/settings-shell';
@@ -51,7 +49,8 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
   const avatarInitial = (session ? label[0] : 'N').toUpperCase();
   const themeLabel = theme === 'light' ? t('Light', '浅色') : theme === 'dark' ? t('Dark', '深色') : t('System', '跟随系统');
   const localeLabel = locale === 'zh-CN' ? '简体中文' : 'English';
-  const demoRoleLabel = context.demoRole === 'user' ? t('User', '普通用户') : t('Admin', '管理员');
+  const roles = context.roleSwitch;
+
   return <>
     <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
       {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" aria-label="Open navigation menu">{t('Navigation', '导航')}<ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label="Account menu" title={t('Account', '账户')}>
@@ -65,23 +64,29 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/activity"><IconChartLine />{t('Activity', '活动')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={modelsHref} reloadDocument={!token}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
             </>}
-            {(platformAdmin || Boolean(session?.provider_memberships?.length)) && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to={platformAdmin ? '/admin/providers' : session?.provider_memberships?.length ? `/providers/${providerPathSegment(session.provider_memberships[0])}` : '/providers'}>{platformAdmin ? <IconShieldLock size={16} /> : <SupplierConnection size={16} />}{platformAdmin ? t("Admin", "管理后台") : t("Providers", "模型供应商")}</Link></DropdownMenuItem>}
+            {platformAdmin && <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/admin/providers"><IconShieldLock />{t('Admin', '管理后台')}</Link></DropdownMenuItem>}
             <DropdownMenuItem asChild><Link onClick={() => { if (compactNavigation) setOpenMobile(false); }} to="/help/"><CircleHelp />{t('Docs', '文档')}</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}
           <DropdownMenuLabel className="account-identity">
             <Avatar className="size-9 shrink-0" aria-hidden="true"><AvatarImage src={profile?.avatar_data_url ?? undefined} alt=""/><AvatarFallback>{avatarInitial}</AvatarFallback></Avatar>
             <div className="account-identity-details"><strong>{label}</strong>
-            <span>{profile?.email ? (context.demoRole ? `${profile.email} · ${demoRoleLabel}` : profile.email) : (installation ? t('Administrator token session', '管理员令牌会话') : token ? t('Account settings', '账户设置') : t('Sign in', '登录'))}</span></div>
+            <span>{profile?.email || (installation ? t('Administrator token session', '管理员令牌会话') : token ? t('Account settings', '账户设置') : t('Sign in', '登录'))}</span></div>
           </DropdownMenuLabel>
-          {context.demoRole && context.setDemoRole && <>
+          {roles && roles.available.length > 1 && <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Role', '身份切换')}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup aria-label="Role" value={context.demoRole} onValueChange={value => { context.setDemoRole?.(value as 'admin' | 'user'); setAccountMenuOpen(false); if (compactNavigation) setOpenMobile(false); }}>
-              <DropdownMenuRadioItem value="admin"><IconShieldLock size={16} /><span>{t('Admin', '管理员 (Admin)')}</span></DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="user"><IconUser size={16} /><span>{t('User', '普通用户 (User)')}</span></DropdownMenuRadioItem>
+            <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{roles.saving ? t('Switching role…', '正在切换角色…') : t('Role', '角色')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup aria-label="Role" value={roles.active} onValueChange={value => {
+              if (value !== 'user' && value !== 'admin' || value === roles.active) return;
+              void roles.setRole(value).then(changed => { if (changed) { setAccountMenuOpen(false); if (compactNavigation) setOpenMobile(false); } });
+            }}>
+              {roles.available.map(role => <DropdownMenuRadioItem key={role} value={role} disabled={roles.saving} onSelect={event => event.preventDefault()}>
+                {role === 'admin' ? <IconShieldLock /> : <IconUser />}
+                <span>{role === 'admin' ? t('Platform administrator', '平台管理员') : t('User', '普通用户')}</span>
+              </DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
           </>}
+          {roles?.error && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{roles.error}</DropdownMenuLabel>}
           {!supplierOnly && token && organizations.length > 0 && <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Organizations', '组织')}</DropdownMenuLabel>

@@ -1,7 +1,5 @@
-import { IconHelpCircle as CircleHelp } from '@tabler/icons-react';
 import {
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -29,7 +27,7 @@ export default function WorkspaceNav({
   onCreateWorkspace: () => void;
   creationAvailable: boolean;
 }) {
-  const { isZh, t } = useLocale();
+  const { isZh } = useLocale();
   const videoAvailable = useWorkspaceVideo(context);
   const navItems = navigation.filter(
     item =>
@@ -75,18 +73,6 @@ export default function WorkspaceNav({
           </SidebarMenu>
         </nav>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <ProductRailLink to="/help/">
-                <CircleHelp size={16} />
-                <span>{t('Docs', '文档')}</span>
-              </ProductRailLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
     </>
   );
 }

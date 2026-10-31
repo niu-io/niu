@@ -24854,11 +24854,11 @@ HTTP 409: Configuration changed concurrently
 
 HTTP 503: Storage unavailable
 
-## List the signed-in operator’s complete active Provider memberships
+## Read the retired Provider portal membership directory
 
 `GET /api/v1/provider-memberships`
 
-Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.
+Requires platform administration and returns an empty compatibility directory. Provider self-service is not currently supported. Retained Provider membership records grant no role, portal, financial or statistics access.
 
 Implementation: `implemented`. Operation: `listProviderMemberships`.
 
@@ -24876,7 +24876,9 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Responses
 
-HTTP 200: Complete current membership directory.
+HTTP 403: Active platform administration required; Provider membership alone grants no access.
+
+HTTP 200: Empty compatibility directory; no Provider login role is available.
 
 Response header: `Cache-Control`.
 
@@ -25367,7 +25369,7 @@ HTTP 503: Storage unavailable.
 
 `PUT /api/v1/providers/{provider}/members/{operator}`
 
-Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
+Requires platform administration. Records legacy viewer or manager membership metadata for a non-revoked operator. These records do not enable Provider login, portal, financial, statistics or platform configuration access. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
 
 Implementation: `implemented`. Operation: `setProviderMembership`.
 
@@ -25671,7 +25673,7 @@ HTTP 422: JSON schema mismatch; context_tiers must be an array, never null
 
 `GET /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}`
 
-Installation administrators or active members of this Provider may read a quote. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.
+Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.
 
 Implementation: `implemented`. Operation: `getProviderOfferRevision`.
 
@@ -25718,6 +25720,8 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Responses
 
+HTTP 403: Active platform administration required; Provider membership alone grants no access.
+
 HTTP 200: Immutable procurement quote; no upstream credentials or endpoint.
 
 Content type: `application/json`.
@@ -25741,7 +25745,7 @@ HTTP 400: Malformed path identifier.
 
 HTTP 401: Management authentication required.
 
-HTTP 404: Provider membership denied or quote identity not found.
+HTTP 404: Platform administration required or quote identity not found.
 
 HTTP 503: Storage unavailable.
 
@@ -26742,6 +26746,8 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Responses
 
+HTTP 403: Active platform administration required; Provider membership alone grants no access.
+
 HTTP 200: Bounded historical procurement page.
 
 Content type: `application/json`.
@@ -26788,7 +26794,7 @@ HTTP 400: Invalid query, limit or path.
 
 HTTP 401: Management authentication required.
 
-HTTP 404: Provider membership denied or offer not found.
+HTTP 404: Platform administration required or offer not found.
 
 HTTP 409: Cursor does not belong to this offer.
 
@@ -27247,6 +27253,8 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ```
 
 ### Responses
+
+HTTP 403: Active platform administration required; Provider membership alone grants no access.
 
 HTTP 200: Current scoped offers and continuation.
 

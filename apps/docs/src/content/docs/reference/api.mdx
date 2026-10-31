@@ -451,7 +451,7 @@ Niu's collection scope. Niu does not expose execution or agent-usage import APIs
 Niu organizes HTTP endpoints into two public prefixes:
 
 - **Developer & Inference Data Plane (`/v1/*` and `/v1beta/*`)**: Model discovery (`GET /v1/models`), API key self-introspection (`GET /v1/key`), generation lookup (`GET /v1/generations/{id}`), text inference (`POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`, `POST /v1beta/models/{model_action}`, `POST /v1/embeddings`), and media/video generation (`GET /v1/media/capabilities`, `POST /v1/video/jobs`, `GET /v1/video/jobs`, `GET /v1/video/jobs/{id}`, `POST /v1/video/jobs/{id}/cancel`, `DELETE /v1/video/jobs/{id}`, `GET /v1/video/jobs/{id}/results/{kind}`, `POST /v1/video/jobs/{id}/results/{kind}/refresh`). Authorizes either a workspace API key (`Authorization: Bearer <niu_api_key>`) or an authenticated console session paired with `X-Niu-Key-Id: <key_uuid>`.
-- **Control, Workspace, Provider & Commercial Plane (`/api/v1/*`)**: Authentication, user sessions, organizations, workspaces, unified workspace API key management (`GET /api/v1/workspaces/{workspace}/keys`, `POST /api/v1/workspaces/{workspace}/keys`, `GET /api/v1/workspaces/{workspace}/keys/{key}`, `PATCH /api/v1/workspaces/{workspace}/keys/{key}`, `DELETE /api/v1/workspaces/{workspace}/keys/{key}`, `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`), request diagnostics, billing, Provider directory and offers, upstream API connections, model routing, pricing, and platform settings. Authorization is operation-specific (workspace member session, Provider membership, or platform authority). Legacy `/api/v1/*` paths remain supported at runtime for backward compatibility.
+- **Control, Workspace, Provider & Commercial Plane (`/api/v1/*`)**: Authentication, user sessions, organizations, workspaces, unified workspace API key management (`GET /api/v1/workspaces/{workspace}/keys`, `POST /api/v1/workspaces/{workspace}/keys`, `GET /api/v1/workspaces/{workspace}/keys/{key}`, `PATCH /api/v1/workspaces/{workspace}/keys/{key}`, `DELETE /api/v1/workspaces/{workspace}/keys/{key}`, `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`), request diagnostics, billing, Provider directory and offers, upstream API connections, model routing, pricing, and platform settings. Authorization is operation-specific (workspace member session or platform authority). Legacy `/api/v1/*` paths remain supported at runtime for backward compatibility.
 
 ### API key self-introspection and generation lookup
 
@@ -683,16 +683,15 @@ revisions have null text-price fields and use the separate media rate-card API.
 Reading a quote does not activate or qualify it. Keep procurement information
 out of customer workspace screens. The handler-generated OpenAPI now documents
 the response variants and authorization boundary. Current HTTP reads matched
-four saved text revisions; active Provider viewer access, company-role denial
-and membership revocation were independently checked against database records.
+four saved text revisions; earlier Provider viewer access, company-role denial
+and membership revocation were checked against database records under the former contract. Provider self-service is now unavailable; these quote reads require active platform administration.
 Media quote reads remain unverified.
 
 
 ### Discovering Provider quote revisions
 
 `GET /api/v1/providers/{provider}/offers/{offer}/revisions` lists historical
-quotes without requiring a known revision ID. The same Provider membership or
-platform authority applies. Use `limit` (1–100, default 50), then pass
+quotes without requiring a known revision ID. Active platform administration is required; Provider membership does not grant access. Use `limit` (1–100, default 50), then pass
 `next_before` as `before` while `has_more` is true. Each entry adds `is_current`;
 the response also includes `current_revision`. Unknown or foreign cursors
 return 409, and inaccessible Provider/offer identities return 404.

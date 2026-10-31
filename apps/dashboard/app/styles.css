@@ -2009,7 +2009,6 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .account-organizations [role="menuitemradio"] span { min-width: 0; overflow-wrap: anywhere; }
 
 .account-menu { max-height: calc(100dvh - 24px); overflow-y: auto; }
-@media (max-width: 640px) { .account-menu { width: 196px; } }
 
 .organization-settings { width: 100%; min-width: 0; }
 .organization-settings-card { margin-top: 20px; padding: 24px; }

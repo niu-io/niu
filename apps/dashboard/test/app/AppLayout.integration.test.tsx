@@ -237,7 +237,7 @@ describe('dashboard route layout', () => {
     expect(router.state.location.search).toBe('?period=month&settings=about');
     expect(router.state.location.hash).toBe('#activity');
     await userEvent.click(within(dialog).getByRole('button',{name:'Close',exact:true}));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(underlying.isConnected).toBe(true);
     expect(router.state.location.search).toBe('?period=month');
     expect(router.state.location.hash).toBe('#activity');
@@ -269,7 +269,7 @@ describe('dashboard route layout', () => {
     expect(navigation.getByRole('link',{name:'Overview',exact:true}).getAttribute('aria-current')).toBe('page');
     await userEvent.click(navigation.getByRole('link',{name:'Logs',exact:true}));
     expect(router.state.location.pathname).toBe('/activity/logs');
-    expect(navigation.getByRole('link',{name:'Logs',exact:true}).getAttribute('aria-current')).toBe('page');
+    await waitFor(() => expect(navigation.getByRole('link',{name:'Logs',exact:true}).getAttribute('aria-current')).toBe('page'));
   });
 
   it('keeps external agent observability out of product navigation', async () => {
@@ -871,6 +871,46 @@ describe('dashboard route layout', () => {
     for (const name of ['Workspace', 'Generations', 'Models']) {
       expect(within(navigation).getByRole('link', { name, exact: true })).toBeTruthy();
     }
+  });
+
+  it('denies the legacy Provider portal even when historical memberships remain', async () => {
+    mockHealth();
+    const previousFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/api/v1/session'
+      ? Promise.resolve(Response.json({data:{kind:'operator',operator:{id:'member',role:'owner',organization_id:'org',project_id:null},permissions:{read:true,write:true,manage_operators:true,platform_admin:false},provider_memberships:[{id:'legacy',slug:'legacy',name:'Legacy business',role:'manager'}]}}))
+      : previousFetch(input,init)));
+    const router = renderAt('/providers/legacy/models');
+    await screen.findByText('Administrator access required');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/legacy/models'));
+    expect(screen.queryByRole('tablist',{name:'Provider sections'})).toBeNull();
+    expect(screen.queryByRole('link',{name:'Providers',exact:true})).toBeNull();
+    expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).startsWith('/api/v1/providers'))).toBe(false);
+  });
+
+  it('switches assigned account roles and returns to the workspace on User selection', async () => {
+    mockHealth();
+    const previousFetch = globalThis.fetch;
+    let enabled = false;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
+      const path = String(input);
+      if (path === '/api/v1/session/role') enabled = JSON.parse(String(init?.body)).role === 'admin';
+      if (path === '/api/v1/session' || path === '/api/v1/session/role') return Response.json({data:{
+        kind:'operator', operator:{id:'member',role:'owner',organization_id:'org',project_id:null},
+        roles:{available:['user','admin'],active:enabled?'admin':'user',switchable:true}, provider_memberships:[],
+        permissions:{read:true,write:true,manage_operators:true,platform_admin:enabled},
+      }});
+      return previousFetch(input,init);
+    }));
+    const router = renderAt('/workspaces/default');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button',{name:'Account menu'}));
+    await user.click(await screen.findByRole('menuitemradio',{name:'Platform administrator'}));
+    await screen.findByRole('navigation',{name:'Admin navigation'});
+    expect(router.state.location.pathname).toBe('/admin/providers');
+    await user.click(screen.getByRole('button',{name:'Account menu'}));
+    await user.click(await screen.findByRole('menuitemradio',{name:'User',exact:true}));
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/workspaces\//));
+    expect(screen.queryByRole('navigation',{name:'Admin navigation'})).toBeNull();
   });
 
   it('adds Admin without removing customer areas for a platform administrator', async () => {

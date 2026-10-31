@@ -9,7 +9,7 @@ use axum::{
     http::HeaderMap,
 };
 use niu_storage::{
-    AdminPermission, OperatorAuditActor, ProviderOfferInput, ProviderOfferQualificationInput,
+    OperatorAuditActor, ProviderOfferInput, ProviderOfferQualificationInput,
     ProviderQualificationInput, ProviderQualificationRevocationInput, SupplierProfileUpdate,
 };
 use serde::Deserialize;
@@ -17,9 +17,9 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 async fn auth(state: &AppState, headers: &HeaderMap) -> Result<AdminAuthorization, ApiError> {
-    state
-        .authorize_admin_headers(headers, AdminPermission::Read)
-        .await
+    // Provider finance, supply and statistics are platform administration.
+    // Retained membership records do not enable an external Provider portal.
+    state.authorize_platform_headers(headers).await
 }
 async fn installation(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
     if auth(state, headers).await?.can_manage_platform() {
@@ -35,47 +35,12 @@ fn supplier_audit_actor(authorization: AdminAuthorization) -> OperatorAuditActor
     }
 }
 
-async fn member_for_auth(
-    state: &AppState,
-    authorization: &AdminAuthorization,
-    provider: Uuid,
-    write: bool,
-) -> Result<Uuid, ApiError> {
-    let AdminAuthorization::Operator(operator) = authorization else {
-        return Err(ApiError::forbidden());
-    };
-    if state
-        .store
-        .provider_member(provider, operator.id, write)
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        Ok(operator.id)
-    } else {
-        Err(ApiError::not_found())
-    }
-}
-
-async fn member(
-    state: &AppState,
-    headers: &HeaderMap,
-    provider: Uuid,
-    write: bool,
-) -> Result<Uuid, ApiError> {
-    let authorization = auth(state, headers).await?;
-    member_for_auth(state, &authorization, provider, write).await
-}
-
 async fn platform_or_member(
     state: &AppState,
     headers: &HeaderMap,
-    provider: Uuid,
+    _provider: Uuid,
 ) -> Result<(), ApiError> {
-    let authorization = auth(state, headers).await?;
-    if !authorization.can_manage_platform() {
-        member_for_auth(state, &authorization, provider, false).await?;
-    }
-    Ok(())
+    installation(state, headers).await
 }
 
 /// ```openapi
@@ -84,16 +49,17 @@ async fn platform_or_member(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderMemberships",
-///     "summary": "List the signed-in operator’s complete active Provider memberships",
-///     "description": "Returns every active membership for the current non-revoked operator, ordered by Provider name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Provider access. Deleted Providers are excluded. IDs are routing references, not display labels.",
+///     "summary": "Read the retired Provider portal membership directory",
+///     "description": "Requires platform administration and returns an empty compatibility directory. Provider self-service is not currently supported. Retained Provider membership records grant no role, portal, financial or statistics access.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
 ///       }
 ///     ],
 ///     "responses": {
+///       "403": { "description": "Active platform administration required; Provider membership alone grants no access." },
 ///       "200": {
-///         "description": "Complete current membership directory.",
+///         "description": "Empty compatibility directory; no Provider login role is available.",
 ///         "headers": {
 ///           "Cache-Control": {
 ///             "schema": {
@@ -166,14 +132,8 @@ pub async fn memberships(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let data = match auth(&state, &headers).await? {
-        AdminAuthorization::Installation => vec![],
-        AdminAuthorization::Operator(operator) => state
-            .store
-            .provider_memberships(operator.id)
-            .await
-            .map_err(ApiError::from_store)?,
-    };
+    installation(&state, &headers).await?;
+    let data: Vec<niu_storage::ProviderMembership> = vec![];
     Ok(Json(json!({"data":data})))
 }
 #[derive(Deserialize)]
@@ -191,8 +151,8 @@ pub async fn dashboard(
     Path(provider): Path<Uuid>,
     Query(period): Query<Period>,
 ) -> Result<Json<Value>, ApiError> {
-    member(&state, &headers, provider, false).await?;
-    // Suppliers see consumption grouped by their models and agreed rates.
+    installation(&state, &headers).await?;
+    // Administrators inspect grouped Provider consumption and agreed rates.
     // Request-level identifiers belong exclusively to platform reconciliation.
     let data = state
         .store
@@ -212,10 +172,15 @@ pub async fn set_offer(
     Path((provider, offer)): Path<(Uuid, Uuid)>,
     Json(input): Json<Active>,
 ) -> Result<Json<Value>, ApiError> {
-    let operator = member(&state, &headers, provider, true).await?;
+    let authorization = auth(&state, &headers).await?;
     state
         .store
-        .set_provider_offer_active(provider, offer, operator, input.active)
+        .set_provider_offer_active_audited(
+            provider,
+            offer,
+            supplier_audit_actor(authorization),
+            input.active,
+        )
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"active":input.active}})))
@@ -723,7 +688,7 @@ pub struct Membership {
 ///   "operation": {
 ///     "operationId": "setProviderMembership",
 ///     "summary": "Grant, change or disable a Provider membership",
-///     "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Provider membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
+///     "description": "Requires platform administration. Records legacy viewer or manager membership metadata for a non-revoked operator. These records do not enable Provider login, portal, financial, statistics or platform configuration access. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
 ///     "tags": [
 ///       "Providers"
 ///     ],
@@ -1089,7 +1054,7 @@ pub async fn publish_offer(
 ///   "operation": {
 ///     "operationId": "getProviderOfferRevision",
 ///     "summary": "Read an immutable Provider procurement quote",
-///     "description": "Installation administrators or active members of this Provider may read a quote. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
+///     "description": "Requires active platform administration. Provider membership does not grant quote access. Ordinary company/workspace ownership grants no procurement access. Provider, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1125,6 +1090,7 @@ pub async fn publish_offer(
 ///       }
 ///     ],
 ///     "responses": {
+///       "403": { "description": "Active platform administration required; Provider membership alone grants no access." },
 ///       "200": {
 ///         "description": "Immutable procurement quote; no upstream credentials or endpoint.",
 ///         "content": {
@@ -1151,7 +1117,7 @@ pub async fn publish_offer(
 ///         "description": "Management authentication required."
 ///       },
 ///       "404": {
-///         "description": "Provider membership denied or quote identity not found."
+///         "description": "Platform administration required or quote identity not found."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -2628,6 +2594,7 @@ pub struct OfferHistoryQuery {
 ///       }
 ///     ],
 ///     "responses": {
+///       "403": { "description": "Active platform administration required; Provider membership alone grants no access." },
 ///       "200": {
 ///         "description": "Bounded historical procurement page.",
 ///         "content": {
@@ -2677,7 +2644,7 @@ pub struct OfferHistoryQuery {
 ///         "description": "Management authentication required."
 ///       },
 ///       "404": {
-///         "description": "Provider membership denied or offer not found."
+///         "description": "Platform administration required or offer not found."
 ///       },
 ///       "409": {
 ///         "description": "Cursor does not belong to this offer."
@@ -3373,6 +3340,7 @@ pub struct CurrentOfferPage {
 ///       }
 ///     ],
 ///     "responses": {
+///       "403": { "description": "Active platform administration required; Provider membership alone grants no access." },
 ///       "200": {
 ///         "description": "Current scoped offers and continuation.",
 ///         "headers": {

@@ -159,6 +159,87 @@ impl From<SessionRow> for OperatorSessionView {
 }
 
 impl Store {
+    /// The gateway must require installation authority before calling either
+    /// grant method. Tenant ownership and browser activation never grant access.
+    pub async fn member_platform_administration(
+        &self,
+        member: Uuid,
+    ) -> Result<Option<bool>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT platform_admin FROM admin_operators WHERE id=$1 AND revoked_at IS NULL",
+        )
+        .bind(member)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub async fn set_member_platform_administration(
+        &self,
+        member: Uuid,
+        enabled: bool,
+        expected_enabled: bool,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let current: Option<bool> = sqlx::query_scalar("SELECT platform_admin FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR UPDATE")
+            .bind(member).fetch_optional(&mut *tx).await?;
+        if current.ok_or(StoreError::Conflict)? != expected_enabled {
+            return Err(StoreError::Conflict);
+        }
+        if enabled != expected_enabled {
+            sqlx::query("UPDATE admin_operators SET platform_admin=$2 WHERE id=$1")
+                .bind(member)
+                .bind(enabled)
+                .execute(&mut *tx)
+                .await?;
+            // Never reactivate a previously elevated browser session on regrant.
+            sqlx::query("UPDATE admin_sessions SET admin_mode_until=NULL WHERE operator_id=$1 AND browser_session")
+                .bind(member).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO platform_admin_events(operator_id,granted,actor_kind) VALUES($1,$2,'installation')")
+                .bind(member).bind(enabled).execute(&mut *tx).await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Eligibility is a durable grant, separate from this browser session's mode.
+    pub async fn browser_admin_mode_available(
+        &self,
+        principal: OperatorPrincipal,
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM admin_sessions s JOIN admin_operators o ON o.id=s.operator_id WHERE s.id=$1 AND o.id=$2 AND s.browser_session AND o.platform_admin AND o.revoked_at IS NULL AND s.revoked_at IS NULL AND s.expires_at_unix > extract(epoch FROM clock_timestamp())::bigint)")
+            .bind(principal.session_id).bind(principal.id).fetch_one(&self.pool).await?)
+    }
+
+    /// Only the authenticated session can change its own mode. Recheck the live
+    /// grant and expiry inside the transaction; never infer authority from email.
+    pub async fn set_browser_admin_mode(
+        &self,
+        principal: OperatorPrincipal,
+        enabled: bool,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let granted: Option<bool> = sqlx::query_scalar("SELECT platform_admin FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR SHARE")
+            .bind(principal.id).fetch_optional(&mut *tx).await?;
+        if granted.is_none() || (enabled && granted != Some(true)) {
+            return Err(StoreError::Unauthorized);
+        }
+        let changed = sqlx::query("UPDATE admin_sessions SET admin_mode_until=CASE WHEN $3 THEN LEAST(to_timestamp(expires_at_unix),clock_timestamp()+interval '6 hours') ELSE NULL END WHERE id=$1 AND operator_id=$2 AND browser_session AND revoked_at IS NULL AND expires_at_unix > extract(epoch FROM clock_timestamp())::bigint")
+            .bind(principal.session_id).bind(principal.id).bind(enabled).execute(&mut *tx).await?;
+        if changed.rows_affected() != 1 {
+            return Err(StoreError::Unauthorized);
+        }
+        sqlx::query(
+            "INSERT INTO admin_mode_events(operator_id,session_id,enabled) VALUES($1,$2,$3)",
+        )
+        .bind(principal.id)
+        .bind(principal.session_id)
+        .bind(enabled)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     /// Apply tenant scope before list limits so unrelated tenants cannot hide the caller's resources.
     pub async fn organizations_for_scope(
         &self,
@@ -204,7 +285,7 @@ impl Store {
         }
         let digest = token_hash(token);
         let principal: Option<PrincipalRow> = sqlx::query_as(
-            "SELECT s.expires_at_unix, s.id AS session_id, o.id, o.platform_admin, o.role, o.organization_id, o.project_id \
+            "SELECT s.expires_at_unix, s.id AS session_id, o.id, (o.platform_admin AND (NOT s.browser_session OR s.admin_mode_until > clock_timestamp())) IS TRUE AS platform_admin, o.role, o.organization_id, o.project_id \
              FROM admin_sessions s JOIN admin_operators o ON o.id=s.operator_id \
              WHERE s.token_hash=$1 AND s.expires_at_unix > extract(epoch FROM now())::bigint \
                AND s.revoked_at IS NULL AND o.revoked_at IS NULL",

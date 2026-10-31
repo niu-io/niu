@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Niu provider business API
   version: 0.1.0
-  description: Provider memberships, separate agreed text and media purchase rates, independent earnings and confirmed external payment records. These APIs never initiate transfers. All responses use Cache-Control no-store.
+  description: Platform administration of Provider businesses, retained membership metadata, separate agreed text and media purchase rates, independent earnings and confirmed external payment records. Provider self-service is unavailable. These APIs never initiate transfers. All responses use Cache-Control no-store.
 servers:
   - url: /
 security:
@@ -194,7 +194,7 @@ paths:
     get:
       operationId: listSupplierMediaRates
       summary: Read this Provider's agreed media purchase schedules
-      description: Installation read access or active membership of this exact Provider only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
+      description: Active platform administration is required. Provider memberships do not grant access. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
       parameters:
         - { name: after, in: query, schema: { type: string, minLength: 1, maxLength: 256 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
@@ -223,7 +223,7 @@ paths:
                         created_at: { type: [string, 'null'], format: date-time }
         '400': { description: Invalid page range or cursor }
         '401': { description: Valid management session required }
-        '404': { description: No active membership for this Provider }
+        '404': { description: Provider not found }
         '503': { description: Durable storage unavailable }
     post:
       operationId: publishSupplierMediaRate
@@ -349,7 +349,7 @@ paths:
       - { name: offer, in: path, required: true, schema: { type: string, format: uuid } }
     patch:
       operationId: setProviderOfferAvailability
-      summary: A Provider manager can pause or resume an owned offer
+      summary: A platform administrator can pause or resume an owned offer
       description: Pausing prevents new admissions. Already dispatched requests may complete and accrue earnings. Viewers and unrelated operators cannot mutate offers.
       requestBody:
         required: true
@@ -363,7 +363,7 @@ paths:
                 active: { type: boolean }
       responses:
         '200': { description: Availability saved and audited }
-        '404': { description: No eligible Provider membership }
+        '403': { description: Active platform administration required }
         '409': { description: Offer unavailable in Provider scope }
   /api/v1/providers/{provider}/dashboard:
     parameters:
@@ -376,8 +376,8 @@ paths:
       responses:
         '200': { description: Provider dashboard in data }
         '400': { description: "Period must be 7, 30, or 90 days" }
-        '403': { description: Installation sessions do not imply Provider membership }
-        '404': { description: No active membership for this provider }
+        '403': { description: Active platform administration required }
+        '404': { description: Provider not found }
   /api/v1/providers/{provider}/administration:
     parameters:
       - $ref: '#/components/parameters/provider'

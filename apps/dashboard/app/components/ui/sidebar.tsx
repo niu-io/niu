@@ -193,7 +193,7 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet modal={false} open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent
           {...mobileContentProps}
           data-sidebar="sidebar"

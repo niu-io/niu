@@ -1950,9 +1950,25 @@ paths:
                     required: [kind, operator, permissions, provider_memberships]
                     properties:
                       kind: { type: string, enum: [installation, operator] }
+                      roles:
+                        type: object
+                        required: [available, active, switchable]
+                        properties:
+                          available:
+                            type: array
+                            items: {type: string, enum: [user, admin]}
+                            description: Only identities currently granted to this session. Provider is not a supported login role.
+                          active: {type: string, enum: [user, admin]}
+                          switchable: {type: boolean, description: Whether this browser sign-in may select another role.}
+                      admin_mode:
+                        type: object
+                        required: [available, enabled]
+                        properties:
+                          available: { type: boolean, description: Whether this browser sign-in has a current platform administrator grant. }
+                          enabled: { type: boolean, description: Whether platform authority is activated for this browser session. }
                       provider_memberships:
                         type: array
-                        description: Explicit active Provider grants only; installation identity returns an empty array.
+                        description: Retired compatibility field; always empty. Provider membership is not a login role or an access grant.
                         items:
                           type: object
                           required: [id, name, role]
@@ -1982,6 +1998,109 @@ paths:
           description: Missing, invalid, expired or revoked administrator credential.
         '503':
           description: Operator storage is unavailable.
+  /api/v1/session/role:
+    put:
+      operationId: setSessionRole
+      summary: Select an assigned role for the current browser sign-in
+      description: Accepts user or admin only. Available roles, the active role and whether switching is supported come from GET /api/v1/session data.roles. New password sign-ins start as user. Selecting admin requires a current explicit platform grant and activates administration for at most six hours, bounded by session expiry. Selection is persisted and audited on the server; it does not change tenant Owner/Admin/Viewer permissions, grant membership, issue credentials or expand workspace scope. Provider self-service is not currently supported. Explicit automation and installation credentials cannot switch role. Read back session identity after an uncertain response. Cookie requests require the trusted same origin.
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role]
+              properties:
+                role: {type: string, enum: [user, admin]}
+      responses:
+        '200': {description: Current session identity with roles.active, roles.available and effective permissions.}
+        '400': {description: Invalid JSON.}
+        '401': {description: Invalid, expired, revoked or non-switchable session.}
+        '403': {description: The requested role is not currently granted or same-origin checks failed.}
+        '422': {description: Unsupported role or invalid fields.}
+        '503': {description: Authentication storage unavailable.}
+  /api/v1/session/mode:
+    put:
+      operationId: setBrowserAdminMode
+      summary: Compatibility operation to enter or leave Admin mode
+      description: Requires an existing password-login session. Entering requires a current explicit platform administrator grant. Browser sign-ins start in User mode. Admin mode is persisted server-side for this session only, expires after at most six hours, and never expands customer workspace scope. Leaving removes platform authority on subsequent requests. The change is audited; it does not grant membership or issue credentials. Installation tokens and explicitly issued automation sessions retain their existing authorization contracts and cannot use this operation. Cookie requests require the trusted same origin. Read GET /api/v1/session to verify or recover an uncertain response; do not replay other management mutations. Responses are not cached.
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Current session identity, admin_mode availability and effective permissions, using the same response shape as GET /api/v1/session.
+        '400':
+          description: Invalid JSON.
+        '422':
+          description: Invalid fields or input types.
+        '401':
+          description: Invalid, expired, revoked or unsupported session.
+        '403':
+          description: Platform administrator eligibility or same-origin authority is missing.
+        '503':
+          description: Authentication storage unavailable; read back before retrying.
+  /api/v1/operators/{operator}/administration:
+    parameters:
+      - {in: path, name: operator, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getMemberPlatformAdministration
+      summary: Read an explicit platform administrator grant
+      description: Requires an installation credential. Tenant owners and activated platform administrators cannot inspect or manage these grants. Returns current eligibility for a non-revoked member, independently of browser session mode. Contains no credentials. Responses are not cached.
+      security:
+        - adminBearerAuth: []
+      responses:
+        '200':
+          description: Current explicit eligibility.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [enabled]
+                    properties:
+                      enabled: {type: boolean}
+        '401': {description: Missing or invalid credential.}
+        '403': {description: Installation credential required.}
+        '404': {description: Member missing or revoked.}
+    put:
+      operationId: setMemberPlatformAdministration
+      summary: Explicitly grant or revoke platform administrator eligibility
+      description: Requires an installation credential and the expected current eligibility. Records changed grants in immutable platform_admin_events and clears all retained browser activations for the affected member. Granting does not enter Admin mode, change passwords, issue credentials or expand customer workspace scope. A matching no-op creates no audit event. Read this resource and GET /api/v1/session to verify grant and effective activation separately. A conflict requires readback before reconsidering the change. Responses are not cached.
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled, expected_enabled]
+              properties:
+                enabled: {type: boolean}
+                expected_enabled: {type: boolean}
+      responses:
+        '200': {description: Explicit eligibility saved. Response data.enabled is the saved boolean.}
+        '401': {description: Missing or invalid credential.}
+        '403': {description: Installation credential required.}
+        '409': {description: Eligibility changed concurrently or member missing/revoked. Read back before retrying.}
+        '503': {description: Storage unavailable. Read back an uncertain result.}
   /api/v1/operators:
     get:
       operationId: adminListOperators

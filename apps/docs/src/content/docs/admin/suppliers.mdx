@@ -5,7 +5,7 @@ description: Connect upstream credentials and manage customer model routes.
 
 <div data-lang="en">
 
-A **Provider** supplies model access through an upstream API service. One Provider can have multiple API credentials, each with its own adapter, endpoint, enabled state and model mappings. Its offers, agreed purchase rates, portal access and settlements belong to the same Provider.
+A **Provider** supplies model access through an upstream API service. One Provider can have multiple API credentials, each with its own adapter, endpoint, enabled state and model mappings. Its offers, agreed purchase rates and settlements belong to the same Provider. Provider finances and statistics are currently managed only by platform administrators; no Provider login role or portal is available.
 
 ## Before you connect
 
@@ -37,7 +37,7 @@ If discovery fails, inspect the error, fix the credential or endpoint, and retry
 
 Provider sections include **Overview**, **API keys**, **Models**, **Usage**, **Settlements**, **Members** and **Settings**. Keep credential rotation and enabled-state changes scoped to the selected credential; they must not replace the Provider identity or unrelated model mappings.
 
-Keep customer selling prices separate from Provider offers. Procurement rates, upstream expenses and platform margins belong to authorized platform administration; customer reports expose customer charges only. Provider portal access is limited to the Provider's own permitted records.
+Keep customer selling prices separate from Provider offers. Procurement rates, upstream expenses and platform margins belong to authorized platform administration; customer reports expose customer charges only. Provider membership does not enable portal access. Platform administrators manage financial and statistics records and can provide externally reviewed billing exports when needed.
 
 For commercial supply, qualify service rights, model behavior, data handling, availability and agreed rates before publishing an offer. A personal upstream credential used for testing is not a qualified commercial supply agreement.
 
